@@ -27,6 +27,7 @@ from app.main import app
 from app.routers import dependencies
 from app.services import ceph_admin_bucket_listing_cache as bucket_listing_cache
 from app.services import ceph_admin_bucket_listing_service as bucket_listing_service
+from app.services import ceph_admin_bucket_listing_snapshot as bucket_listing_snapshot
 from app.routers.ceph_admin import buckets as buckets_router
 from app.routers.ceph_admin import dependencies as ceph_admin_dependencies
 from app.services.listing_progress import ListingCancelled, ListingProgressSnapshot
@@ -848,6 +849,7 @@ def test_ceph_admin_bucket_listing_any_mixed_filter_prefers_bulk_field_rules(mon
         include_tags: bool,
         service,
         account,
+        **_progress,
     ) -> list[BucketListingSummary]:
         captured["names"] = [bucket.name for bucket in buckets]
         captured["requested"] = requested
@@ -862,7 +864,7 @@ def test_ceph_admin_bucket_listing_any_mixed_filter_prefers_bulk_field_rules(mon
             enriched.append(BucketListingSummary(**base))
         return enriched
 
-    monkeypatch.setattr(bucket_listing_service, "enrich_buckets", fake_enrich)
+    monkeypatch.setattr(bucket_listing_snapshot, "enrich_buckets", fake_enrich)
 
     mixed_filter = json.dumps(
         {
@@ -1103,6 +1105,7 @@ def test_ceph_admin_bucket_listing_tag_filter_matches_s3_tags(monkeypatch: pytes
         include_tags: bool,
         service,
         account,
+        **_progress,
     ) -> list[BucketListingSummary]:
         assert requested == set()
         assert include_tags is True
@@ -1116,7 +1119,7 @@ def test_ceph_admin_bucket_listing_tag_filter_matches_s3_tags(monkeypatch: pytes
             enriched.append(BucketListingSummary(**base))
         return enriched
 
-    monkeypatch.setattr(bucket_listing_service, "enrich_buckets", fake_enrich)
+    monkeypatch.setattr(bucket_listing_snapshot, "enrich_buckets", fake_enrich)
 
     tag_filter = json.dumps(
         {
@@ -1155,6 +1158,7 @@ def test_ceph_admin_bucket_listing_any_tag_filter_prefers_bulk_field_rules(monke
         include_tags: bool,
         service,
         account,
+        **_progress,
     ) -> list[BucketListingSummary]:
         captured["names"] = [bucket.name for bucket in buckets]
         captured["requested"] = requested
@@ -1166,7 +1170,7 @@ def test_ceph_admin_bucket_listing_any_tag_filter_prefers_bulk_field_rules(monke
             enriched.append(BucketListingSummary(**base))
         return enriched
 
-    monkeypatch.setattr(bucket_listing_service, "enrich_buckets", fake_enrich)
+    monkeypatch.setattr(bucket_listing_snapshot, "enrich_buckets", fake_enrich)
 
     mixed_filter = json.dumps(
         {

@@ -7,12 +7,11 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from threading import Lock
 from time import monotonic
-from typing import Callable, Protocol
+from typing import Callable
 
-from app.db import StorageEndpoint
 from app.models.bucket_listing import BucketListingSummary
+from app.services.bucket_listing_owner_metadata import BucketListingAdminContext
 from app.services.bucket_owner_enrichment import BucketOwnerUsage
-from app.services.rgw_admin import RGWAdminClient
 from app.utils.cache import prune_expired_lru_cache
 from app.utils.rgw_payloads import extract_bucket_list
 
@@ -20,11 +19,6 @@ from app.utils.rgw_payloads import extract_bucket_list
 BUCKET_LIST_CACHE_TTL_SECONDS = 1800.0
 BUCKET_LIST_CACHE_MAX_ENTRIES = 64
 RGW_BUCKET_PAYLOAD_CACHE_MAX_ENTRIES = 16
-
-
-class CephAdminBucketListingContext(Protocol):
-    endpoint: StorageEndpoint
-    rgw_admin: RGWAdminClient
 
 
 @dataclass(frozen=True)
@@ -110,7 +104,7 @@ def _get_rgw_bucket_entries_from_cache(key: _RgwBucketPayloadCacheKey) -> list[d
     return None
 
 
-def get_cached_rgw_bucket_entries(ctx: CephAdminBucketListingContext, with_stats: bool) -> list[dict]:
+def get_cached_rgw_bucket_entries(ctx: BucketListingAdminContext, with_stats: bool) -> list[dict]:
     endpoint_id = int(getattr(ctx.endpoint, "id", 0) or 0)
     key = _RgwBucketPayloadCacheKey(endpoint_id=endpoint_id, with_stats=with_stats)
     cached = _get_rgw_bucket_entries_from_cache(key)
