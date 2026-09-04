@@ -155,14 +155,6 @@ export function decodePortalRouteValue(value?: string): string {
   }
 }
 
-export function decodePortalObjectPath(value?: string): string {
-  if (!value) return "";
-  return value
-    .split("/")
-    .map((part) => decodePortalRouteValue(part))
-    .join("/");
-}
-
 export function buildPortalWorkspaceModel({
   account,
   storageSpaces,

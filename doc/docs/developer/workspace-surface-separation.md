@@ -151,7 +151,6 @@ Portal canonical routes are:
 - `/portal/profile`
 - `/portal/storage-spaces`
 - `/portal/storage-spaces/:spaceId`
-- `/portal/storage-spaces/:spaceId/objects/*`
 - `/portal/access-keys`
 - `/portal/shares`
 - `/portal/shares/:userId`
@@ -159,6 +158,14 @@ Portal canonical routes are:
 - `/portal/usage`
 - `/portal/requests`
 - `/portal/settings`
+
+Object details stay inside `/portal/storage-spaces/:spaceId`. Deep links use
+the `object` query parameter for the full object key and `object_view` for
+`preview`, `history`, `sharing`, or `details`. `prefix` preserves the folder;
+`object_deleted=1` identifies a deleted object, and `show_deleted=1` includes
+deleted files in the listing. Closing the drawer keeps the Storage Space and
+folder context. Former `/portal/storage-spaces/:spaceId/objects/*` URLs are
+not routed or translated; consumers must use the canonical query parameters.
 
 `/portal/history` is the only Portal history destination. Its default Activity
 view contains governance changes only. `view=access` selects manager-only S3
@@ -219,7 +226,9 @@ Use these replacement surfaces instead:
 - Storage Space list/detail/create/update: `/portal/storage-spaces*`.
 - Simple object list/detail/upload/download/delete/folders:
   `/portal/storage-spaces/{spaceId}` for the locked Browser file profile and
-  `/portal/storage-spaces/{spaceId}/objects*` for object detail routes.
+  query-driven object drawer. The backend object API remains under
+  `/api/portal/storage-spaces/{spaceId}/objects*`; these API paths are not
+  frontend navigation routes.
 - Collaboration: `/portal/storage-spaces/{spaceId}/shares*`.
 - Public links: `/portal/storage-spaces/{spaceId}/public-links*`.
 - Usage, governance activity, alerts, traffic, health, and billing source:
@@ -356,7 +365,7 @@ viewports:
 - `/portal/storage-spaces`
 - `/portal/storage-spaces/genomics-2026?prefix=raw-data%2F2024%2F03%2F`
 - `/portal/storage-spaces/genomics-2026?tab=settings`
-- `/portal/storage-spaces/genomics-2026/objects/raw-data/2024/03/sample_001.fastq.gz`
+- `/portal/storage-spaces/genomics-2026?prefix=raw-data%2F2024%2F03%2F&object=raw-data%2F2024%2F03%2Fsample_001.fastq.gz&object_view=details`
 - `/portal/shares`
 - `/portal/history`
 - `/portal/history?view=access`
