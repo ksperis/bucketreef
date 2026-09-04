@@ -95,7 +95,6 @@ describe("route snapshot", () => {
       "/portal#index",
       "/portal/profile",
       "/portal/storage-spaces",
-      "/portal/storage-spaces/:spaceId/objects/*",
       "/portal/storage-spaces/:spaceId",
       "/portal/access-keys",
       "/portal/shares",

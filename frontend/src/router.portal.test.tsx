@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { matchRoutes, MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeneralSettings } from "./api/appSettings";
 import { RequirePortalAccess, createAppRoutes } from "./router";
@@ -82,7 +82,6 @@ describe("portal routes", () => {
     expect(childPaths).toEqual([
       "profile",
       "storage-spaces",
-      "storage-spaces/:spaceId/objects/*",
       "storage-spaces/:spaceId",
       "access-keys",
       "shares",
@@ -115,6 +114,21 @@ describe("portal routes", () => {
     ].forEach((path) => {
       expect(childPaths.has(path)).toBe(false);
     });
+  });
+
+  it("matches object drawer links only through the canonical Storage Space route", () => {
+    const routes = createAppRoutes();
+    const canonical = matchRoutes(
+      routes,
+      "/portal/storage-spaces/research%20data?object=reports%2Fannual+report.csv&object_view=history",
+    );
+    expect(canonical?.at(-1)?.route.path).toBe("storage-spaces/:spaceId");
+
+    const removed = matchRoutes(
+      routes,
+      "/portal/storage-spaces/research%20data/objects/reports/annual%20report.csv?tab=history",
+    );
+    expect(removed?.at(-1)?.route.path).toBe("*");
   });
 
   it("redirects /portal to unauthorized when no explicit portal account role exists", async () => {

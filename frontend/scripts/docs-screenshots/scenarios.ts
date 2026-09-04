@@ -15,7 +15,7 @@ const superAdminUser = {
   },
   authType: "password",
   account_links: [
-    { account_id: 101, role: "portal_manager", account_role: "portal_manager", account_admin: true },
+    { account_id: 101, manager_role: "account_administrator", portal_role: "portal_manager" },
   ],
   s3_user_details: [{ id: 901, name: "helios-admin" }],
   s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
@@ -36,7 +36,7 @@ const adminUser = {
   },
   authType: "password",
   account_links: [
-    { account_id: 101, role: "portal_manager", account_role: "portal_manager", account_admin: true },
+    { account_id: 101, manager_role: "account_administrator", portal_role: "portal_manager" },
   ],
   s3_user_details: [{ id: 903, name: "platform-admin" }],
   s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
@@ -63,7 +63,7 @@ const storageUser = {
   },
   authType: "password",
   account_links: [
-    { account_id: 101, role: "portal_user", account_role: "portal_user", account_admin: false },
+    { account_id: 101, manager_role: null, portal_role: "portal_user" },
   ],
   s3_user_details: [{ id: 904, name: "storage-user-helios" }],
   s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
@@ -993,12 +993,12 @@ export const scenarios: DocScreenshotScenario[] = [
   {
     id: "gallery-portal-object-detail",
     docPage: "user/screenshots-gallery.md",
-    route: "/portal/storage-spaces/genomics-2026/objects/raw-data/2024/03/sample_001.fastq.gz",
+    route: "/portal/storage-spaces/genomics-2026?prefix=raw-data%2F2024%2F03%2F&object=raw-data%2F2024%2F03%2Fsample_001.fastq.gz&object_view=details",
     outputBasename: "portal-object-detail",
-    waitFor: "h1:has-text('sample_001.fastq.gz')",
+    waitFor: "[role='complementary'] h2:has-text('sample_001.fastq.gz')",
     storage: { ...baseStorage(storageUser), selectedWorkspace: "portal" },
     actions: [
-      { type: "wait", selector: "text=Quick preview" },
+      { type: "wait", selector: "text=General information" },
     ],
     mockRules: withBaseRules(),
   },

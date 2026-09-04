@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPortalWorkspaceModel,
-  decodePortalObjectPath,
   decodePortalRouteValue,
 } from "./portalWorkspaceModel";
 
@@ -12,11 +11,6 @@ describe("portal route decoding", () => {
     expect(decodePortalRouteValue()).toBe("");
   });
 
-  it("decodes object paths segment by segment", () => {
-    expect(decodePortalObjectPath("reports/2026%20Q3/summary%25.csv")).toBe(
-      "reports/2026 Q3/summary%.csv",
-    );
-  });
 });
 
 describe("buildPortalWorkspaceModel", () => {
