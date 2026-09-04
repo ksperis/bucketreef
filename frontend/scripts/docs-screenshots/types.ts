@@ -1,9 +1,9 @@
+import type { AuthUser } from "../../src/api/auth";
+
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type ScreenshotThemeVariant = "light" | "dark";
 
 export type LocalStorageSeed = {
-  token: string;
-  user: Record<string, unknown>;
   selectedWorkspace?: "admin" | "manager" | "portal" | "browser" | "ceph-admin" | "storage-ops";
   selectedManagerExecutionContextId?: string;
   selectedBrowserExecutionContextId?: string;
@@ -14,6 +14,8 @@ export type LocalStorageSeed = {
   extraSessionEntries?: Record<string, string>;
 };
 
+type MockResponse = Record<string, unknown> | readonly unknown[] | string | number | boolean | null | undefined;
+
 export type MockRule = {
   id: string;
   method?: HttpMethod;
@@ -21,12 +23,12 @@ export type MockRule = {
   status?: number;
   delayMs?: number;
   body:
-    | unknown
+    | MockResponse
     | ((ctx: {
         url: URL;
         method: string;
         requestBodyText: string;
-      }) => unknown);
+      }) => MockResponse);
 };
 
 export type ScenarioAction =
@@ -42,6 +44,7 @@ export type DocScreenshotScenario = {
   route: string;
   outputBasename: string;
   waitFor: string;
+  user: AuthUser;
   storage: LocalStorageSeed;
   actions?: ScenarioAction[];
   mockRules: MockRule[];

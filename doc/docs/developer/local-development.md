@@ -111,3 +111,10 @@ Other interface testing options:
 - Use `cd frontend && rtk npm run docs:screenshots` and then
   `rtk npm run docs:screenshots:check` for documentation screenshots and
   visual states.
+
+Documentation scenarios declare a typed API user separately from browser UI
+preferences. Their identity comes only from the simulated `/api/auth/session`
+response; do not seed authentication tokens or users in `localStorage`.
+`npm run typecheck` includes the documentation scripts, and `npm test` covers
+their session mocking and UI preference setup. This simulated coverage is not
+proof of authentication or permissions against a live backend.

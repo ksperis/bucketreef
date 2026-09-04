@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { registerApiMocks } from "./mockApi";
 import { scenarios } from "./scenarios";
+import { seedUiPreferences } from "./uiPreferences";
 import type { DocScreenshotScenario, ScenarioAction, ScreenshotThemeVariant } from "./types";
 
 const ROUTE_CASES: Array<{
@@ -49,34 +50,6 @@ function scenarioById(id: string): DocScreenshotScenario {
   return scenario;
 }
 
-async function seedLocalStorage(
-  page: Page,
-  scenario: DocScreenshotScenario,
-  theme: ScreenshotThemeVariant,
-  overrides: Partial<DocScreenshotScenario["storage"]> = {}
-) {
-  await page.addInitScript((storage) => {
-    localStorage.clear();
-    sessionStorage.clear();
-    localStorage.setItem("token", storage.token);
-    localStorage.setItem("user", JSON.stringify(storage.user));
-    if (storage.selectedWorkspace) localStorage.setItem("selectedWorkspace", storage.selectedWorkspace);
-    if (storage.selectedManagerExecutionContextId) {
-      localStorage.setItem("selectedManagerExecutionContextId", storage.selectedManagerExecutionContextId);
-    }
-    if (storage.selectedBrowserExecutionContextId) {
-      localStorage.setItem("selectedBrowserExecutionContextId", storage.selectedBrowserExecutionContextId);
-    }
-    if (storage.selectedPortalAccountId) localStorage.setItem("selectedPortalAccountId", storage.selectedPortalAccountId);
-    if (storage.selectedCephAdminEndpointId) {
-      localStorage.setItem("selectedCephAdminEndpointId", storage.selectedCephAdminEndpointId);
-    }
-    localStorage.setItem("theme", storage.theme);
-    Object.entries(storage.extraEntries ?? {}).forEach(([key, value]) => localStorage.setItem(key, value));
-    Object.entries(storage.extraSessionEntries ?? {}).forEach(([key, value]) => sessionStorage.setItem(key, value));
-  }, { ...scenario.storage, ...overrides, theme });
-}
-
 async function runAction(page: Page, action: ScenarioAction) {
   if (action.type === "wait") {
     await page.locator(action.selector).first().waitFor({ state: "visible", timeout: 30_000 });
@@ -109,19 +82,13 @@ async function openWorkspaceCase(
 ) {
   const mockRegistry = await registerApiMocks(
     page,
-    [
-      {
-        id: "current-user",
-        path: /^\/users\/me$/,
-        body: scenario.storage.user,
-      },
-      ...scenario.mockRules,
-    ],
-    scenarioId
+    scenario.mockRules,
+    scenarioId,
+    scenario.user
   );
 
   await page.emulateMedia({ colorScheme: theme });
-  await seedLocalStorage(page, scenario, theme, storageOverrides);
+  await seedUiPreferences(page, { ...scenario.storage, ...storageOverrides, theme });
   await page.goto(route, { waitUntil: "domcontentloaded" });
   await page.locator(waitFor).first().waitFor({ state: "visible", timeout: 30_000 });
   if (runScenarioWaitActions) {

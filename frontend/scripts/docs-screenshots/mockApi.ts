@@ -1,45 +1,42 @@
 import type { Page } from "@playwright/test";
+import type { AuthUser, CurrentSessionResponse } from "../../src/api/auth";
 import type { MockRule } from "./types";
 
 type RegisteredApiMocks = {
   assertNoUnmatched: () => void;
 };
 
-function normalizePath(pathname: string): string {
-  if (!pathname.startsWith("/api")) return pathname;
-  const trimmed = pathname.slice(4);
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-}
-
-function serializeBody(body: unknown): string {
-  if (body === undefined) return "";
-  return JSON.stringify(body);
-}
-
-export async function registerApiMocks(page: Page, rules: MockRule[], scenarioId: string): Promise<RegisteredApiMocks> {
+export async function registerApiMocks(
+  page: Page,
+  rules: MockRule[],
+  scenarioId: string,
+  user: AuthUser | null = null,
+): Promise<RegisteredApiMocks> {
   const unmatchedRequests: string[] = [];
-  const currentUserRule = rules.find(
-    (candidate) => candidate.id.includes("current-user") && typeof candidate.body !== "function",
-  );
-  const currentUser = currentUserRule?.body;
-  const effectiveRules: MockRule[] = currentUser
+  const now = Date.now();
+  const session: CurrentSessionResponse | null = user
+    ? {
+        authenticated: true,
+        user,
+        session: null,
+        auth_session: {
+          id: `docs-${scenarioId}`,
+          auth_type: "password",
+          mfa_verified_at: null,
+          idle_expires_at: new Date(now + 60 * 60 * 1000).toISOString(),
+          absolute_expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+        },
+      }
+    : null;
+  const effectiveRules: MockRule[] = user
     ? [
         ...rules,
+        { id: "current-user", method: "GET", path: /^\/users\/me$/, body: user },
         {
           id: "current-auth-session",
+          method: "GET",
           path: /^\/auth\/session$/,
-          body: {
-            authenticated: true,
-            user: currentUser,
-            session: null,
-            auth_session: {
-              id: `docs-${scenarioId}`,
-              auth_type: "password",
-              mfa_verified_at: null,
-              idle_expires_at: "2026-08-18T12:00:00Z",
-              absolute_expires_at: "2026-08-24T12:00:00Z",
-            },
-          },
+          body: session,
         },
         { id: "login-oidc-providers", path: /^\/auth\/oidc\/providers$/, body: [] },
         { id: "login-ldap-providers", path: /^\/auth\/ldap\/providers$/, body: [] },
@@ -50,11 +47,11 @@ export async function registerApiMocks(page: Page, rules: MockRule[], scenarioId
     const request = route.request();
     const method = request.method().toUpperCase();
     const url = new URL(request.url());
-    if (!url.pathname.startsWith("/api")) {
+    if (!url.pathname.startsWith("/api/")) {
       await route.continue();
       return;
     }
-    const path = normalizePath(url.pathname);
+    const path = url.pathname.slice(4);
     const requestBodyText = request.postData() ?? "";
 
     const rule = effectiveRules.find((candidate) => {
@@ -93,7 +90,7 @@ export async function registerApiMocks(page: Page, rules: MockRule[], scenarioId
     await route.fulfill({
       status,
       contentType: "application/json",
-      body: serializeBody(payload),
+      body: JSON.stringify(payload),
     });
   });
 

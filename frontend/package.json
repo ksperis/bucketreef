@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.check.json",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.check.json && tsc --noEmit -p tsconfig.docs.json",
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",
     "test:ci": "vitest run --reporter=default --reporter=junit --outputFile=../gl-test-reports/frontend-junit.xml",

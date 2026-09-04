@@ -2,23 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { buildBaseRules } from "./fixtures/base";
 import { registerApiMocks } from "./mockApi";
-
-const portalUser = {
-  id: 3,
-  email: "storage.user@example.com",
-  role: "ui_user",
-  ui_language: "en",
-  can_access_ceph_admin: false,
-  authType: "password",
-  account_links: [
-    { account_id: 101, manager_role: null, portal_role: "portal_user" },
-  ],
-  capabilities: {
-    can_manage_buckets: true,
-    can_manage_iam: false,
-    access_browser: false,
-  },
-};
+import { portalUser } from "./fixtures/users";
+import { seedUiPreferences } from "./uiPreferences";
 
 type PortalVisualLocale = "en" | "fr" | "de";
 
@@ -152,25 +137,6 @@ function buildPortalUser(language: PortalVisualLocale) {
   return { ...portalUser, ui_language: language };
 }
 
-async function seedPortalSession(
-  page: Page,
-  theme: (typeof themes)[number],
-  language: PortalVisualLocale,
-) {
-  const user = buildPortalUser(language);
-  await page.addInitScript(
-    (storage) => {
-      localStorage.clear();
-      localStorage.setItem("token", "docs-token");
-      localStorage.setItem("user", JSON.stringify(storage.user));
-      localStorage.setItem("selectedWorkspace", "portal");
-      localStorage.setItem("selectedPortalAccountId", "101");
-      localStorage.setItem("theme", storage.theme);
-    },
-    { user, theme },
-  );
-}
-
 async function openPortalRoute(
   page: Page,
   routePath: string,
@@ -181,18 +147,16 @@ async function openPortalRoute(
   const user = buildPortalUser(language);
   const mockRegistry = await registerApiMocks(
     page,
-    [
-      {
-        id: "portal-current-user",
-        path: /^\/users\/me$/,
-        body: user,
-      },
-      ...buildBaseRules(),
-    ],
+    buildBaseRules(),
     scenarioId,
+    user,
   );
   await page.emulateMedia({ colorScheme: theme });
-  await seedPortalSession(page, theme, language);
+  await seedUiPreferences(page, {
+    selectedWorkspace: "portal",
+    selectedPortalAccountId: "101",
+    theme,
+  });
   await page.goto(routePath, { waitUntil: "domcontentloaded" });
   return mockRegistry;
 }
