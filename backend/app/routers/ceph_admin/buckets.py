@@ -18,10 +18,8 @@ from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin
 from app.routers.ceph_admin.listing_common import stream_listing_response
 from app.services.bucket_listing_shared import BucketListingFilterError, is_advanced_filter_stream_payload
 from app.services.bucket_ui_tags_service import BucketUiTagsService
-from app.services.ceph_admin_bucket_listing_service import (
-    RequiredBucketStatsUnavailableError,
-    compute_ceph_admin_bucket_listing,
-)
+from app.services.ceph_admin_bucket_listing_service import compute_ceph_admin_bucket_listing
+from app.services.ceph_admin_bucket_listing_snapshot import RequiredBucketStatsUnavailableError
 from app.services.listing_progress import ListingProgressSnapshot
 from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_bad_gateway_from_runtime
