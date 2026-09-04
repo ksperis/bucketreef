@@ -12,7 +12,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: true,
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "scripts/docs-screenshots/**/*.test.ts"],
     alias: {
       "react-router-dom": reactRouterDomTestShim,
       "react-router-dom-real": reactRouterDomReal,

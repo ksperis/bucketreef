@@ -5,6 +5,7 @@ import { test, type Page } from "@playwright/test";
 
 import { registerApiMocks } from "./mockApi";
 import { scenarios } from "./scenarios";
+import { seedUiPreferences } from "./uiPreferences";
 import type {
   DocScreenshotScenario,
   ScenarioAction,
@@ -25,52 +26,6 @@ async function writeDebugArtifacts(page: Page, scenarioId: string, runtimeErrors
   const html = await page.content();
   await fs.writeFile(htmlPath, html, "utf8");
   await fs.writeFile(errorsPath, runtimeErrors.join("\n"), "utf8");
-}
-
-async function seedLocalStorage(page: Page, storage: {
-  token: string;
-  user: Record<string, unknown>;
-  selectedWorkspace?: string;
-  selectedManagerExecutionContextId?: string;
-  selectedBrowserExecutionContextId?: string;
-  selectedPortalAccountId?: string;
-  selectedCephAdminEndpointId?: string;
-  theme?: "light" | "dark";
-  extraEntries?: Record<string, string>;
-  extraSessionEntries?: Record<string, string>;
-}) {
-  await page.addInitScript((value) => {
-    localStorage.clear();
-    sessionStorage.clear();
-    localStorage.setItem("token", value.token);
-    localStorage.setItem("user", JSON.stringify(value.user));
-    if (value.selectedWorkspace) {
-      localStorage.setItem("selectedWorkspace", value.selectedWorkspace);
-    }
-    if (value.selectedManagerExecutionContextId) {
-      localStorage.setItem("selectedManagerExecutionContextId", value.selectedManagerExecutionContextId);
-    }
-    if (value.selectedBrowserExecutionContextId) {
-      localStorage.setItem("selectedBrowserExecutionContextId", value.selectedBrowserExecutionContextId);
-    }
-    if (value.selectedPortalAccountId) {
-      localStorage.setItem("selectedPortalAccountId", value.selectedPortalAccountId);
-    }
-    if (value.selectedCephAdminEndpointId) {
-      localStorage.setItem("selectedCephAdminEndpointId", value.selectedCephAdminEndpointId);
-    }
-    if (value.theme === "light" || value.theme === "dark") {
-      localStorage.setItem("theme", value.theme);
-    } else {
-      localStorage.removeItem("theme");
-    }
-    Object.entries(value.extraEntries ?? {}).forEach(([key, entryValue]) => {
-      localStorage.setItem(key, entryValue);
-    });
-    Object.entries(value.extraSessionEntries ?? {}).forEach(([key, entryValue]) => {
-      sessionStorage.setItem(key, entryValue);
-    });
-  }, storage);
 }
 
 async function runAction(page: Page, action: ScenarioAction) {
@@ -138,17 +93,11 @@ async function captureScenarioVariant(
     await page.emulateMedia({ colorScheme: variant });
     const mockRegistry = await registerApiMocks(
       page,
-      [
-        {
-          id: "current-user",
-          path: /^\/users\/me$/,
-          body: scenario.storage.user,
-        },
-        ...scenario.mockRules,
-      ],
-      debugScenarioId
+      scenario.mockRules,
+      debugScenarioId,
+      scenario.user
     );
-    await seedLocalStorage(page, { ...scenario.storage, theme: variant });
+    await seedUiPreferences(page, { ...scenario.storage, theme: variant });
 
     await page.goto(scenario.route, { waitUntil: "domcontentloaded" });
     try {

@@ -1,4 +1,7 @@
+import type { AccountUserLink } from "../../../src/api/accounts";
+import type { User } from "../../../src/api/users";
 import type { MockRule } from "../types";
+import { adminUser, storageUser, superAdminUser } from "./users";
 
 const NOW = "2026-03-08T09:00:00Z";
 const MB = 1024 ** 2;
@@ -11,10 +14,10 @@ const ADMIN_ACCOUNTS_MINIMAL = [
     name: "Helios Retail",
     tags: [{ id: 901, label: "prod", color_key: "emerald", scope: "standard" }],
     user_links: [
-      { user_id: 1, role: "portal_manager", user_email: "admin.docs@example.com" },
-      { user_id: 2, role: "portal_manager", user_email: "platform.admin@example.com" },
-      { user_id: 3, role: "portal_user", user_email: "storage.user@example.com" },
-    ],
+      { user_id: 1, manager_role: "account_administrator", portal_role: "portal_manager", user_email: "admin.docs@example.com" },
+      { user_id: 2, manager_role: "account_administrator", portal_role: "portal_manager", user_email: "platform.admin@example.com" },
+      { user_id: 3, manager_role: null, portal_role: "portal_user", user_email: "storage.user@example.com" },
+    ] satisfies AccountUserLink[],
     group_links: [],
     rgw_account_id: "RGW-HELIOS",
     storage_endpoint_id: 11,
@@ -28,7 +31,7 @@ const ADMIN_ACCOUNTS_MINIMAL = [
     id: 102,
     name: "Northwind Ops",
     tags: [{ id: 902, label: "ops", color_key: "sky", scope: "standard" }],
-    user_links: [{ user_id: 2, role: "account_administrator", user_email: "platform.admin@example.com" }],
+    user_links: [{ user_id: 2, manager_role: "account_administrator", portal_role: null, user_email: "platform.admin@example.com" }] satisfies AccountUserLink[],
     group_links: [],
     rgw_account_id: "RGW-NORTHWIND",
     storage_endpoint_id: 12,
@@ -40,68 +43,24 @@ const ADMIN_ACCOUNTS_MINIMAL = [
   },
 ];
 
-const ADMIN_UI_USERS = [
+const ADMIN_UI_USERS: User[] = [
   {
-    id: 1,
-    email: "admin.docs@example.com",
-    role: "ui_superadmin",
-    can_access_ceph_admin: true,
+    ...superAdminUser,
     can_access_storage_ops: true,
-    manager_tool_access: {
-      bucket_compare: true,
-      bucket_integrity_check: true,
-      bucket_migration: true,
-      ceph_s3_user_keys: true,
-    },
-    accounts: [101],
-    account_links: [{ account_id: 101, account_admin: true, account_role: "portal_manager" }],
-    s3_users: [901],
-    s3_user_details: [{ id: 901, name: "helios-admin" }],
-    s3_connections: [701],
-    s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
     last_login_at: "2026-03-08T08:45:00Z",
   },
   {
-    id: 2,
-    email: "platform.admin@example.com",
-    role: "ui_admin",
-    can_access_ceph_admin: true,
+    ...adminUser,
     can_access_storage_ops: true,
-    manager_tool_access: {
-      bucket_compare: true,
-      bucket_integrity_check: true,
-      bucket_migration: true,
-      ceph_s3_user_keys: true,
-    },
-    accounts: [101, 102],
     account_links: [
-      { account_id: 101, account_admin: true, account_role: "portal_manager" },
-      { account_id: 102, account_admin: true, account_role: "portal_none" },
+      ...adminUser.account_links,
+      { account_id: 102, manager_role: "account_administrator", portal_role: null },
     ],
-    s3_users: [903],
-    s3_user_details: [{ id: 903, name: "platform-admin" }],
-    s3_connections: [701],
-    s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
     last_login_at: "2026-03-08T08:15:00Z",
   },
   {
-    id: 3,
-    email: "storage.user@example.com",
-    role: "ui_user",
-    can_access_ceph_admin: false,
+    ...storageUser,
     can_access_storage_ops: true,
-    manager_tool_access: {
-      bucket_compare: true,
-      bucket_integrity_check: true,
-      bucket_migration: true,
-      ceph_s3_user_keys: true,
-    },
-    accounts: [101],
-    account_links: [{ account_id: 101, account_admin: false, account_role: "portal_user" }],
-    s3_users: [904],
-    s3_user_details: [{ id: 904, name: "storage-user-helios" }],
-    s3_connections: [701],
-    s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
     last_login_at: "2026-03-07T17:20:00Z",
   },
 ];

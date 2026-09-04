@@ -1,80 +1,10 @@
 import { buildBaseRules } from "./fixtures/base";
-import type { DocScreenshotScenario, MockRule } from "./types";
+import type { DocScreenshotScenario, LocalStorageSeed, MockRule } from "./types";
+import { adminUser, storageOpsAdminUser, storageUser, superAdminUser } from "./fixtures/users";
 
-const superAdminUser = {
-  id: 1,
-  email: "admin.docs@example.com",
-  role: "ui_superadmin",
-  ui_language: "en",
-  can_access_ceph_admin: true,
-  manager_tool_access: {
-    bucket_compare: true,
-    bucket_integrity_check: true,
-    bucket_migration: true,
-    ceph_s3_user_keys: true,
-  },
-  authType: "password",
-  account_links: [
-    { account_id: 101, manager_role: "account_administrator", portal_role: "portal_manager" },
-  ],
-  s3_user_details: [{ id: 901, name: "helios-admin" }],
-  s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
-  capabilities: { can_manage_buckets: true, can_manage_iam: true, access_browser: true },
-};
-
-const adminUser = {
-  id: 2,
-  email: "platform.admin@example.com",
-  role: "ui_admin",
-  ui_language: "en",
-  can_access_ceph_admin: true,
-  manager_tool_access: {
-    bucket_compare: true,
-    bucket_integrity_check: true,
-    bucket_migration: true,
-    ceph_s3_user_keys: true,
-  },
-  authType: "password",
-  account_links: [
-    { account_id: 101, manager_role: "account_administrator", portal_role: "portal_manager" },
-  ],
-  s3_user_details: [{ id: 903, name: "platform-admin" }],
-  s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
-  capabilities: { can_manage_buckets: true, can_manage_iam: true, access_browser: true },
-};
-
-const storageOpsAdminUser = {
-  ...adminUser,
-  can_access_storage_ops: true,
-};
-
-const storageUser = {
-  id: 3,
-  email: "storage.user@example.com",
-  role: "ui_user",
-  ui_language: "en",
-  can_access_ceph_admin: false,
-  browser_advanced_features_enabled: true,
-  manager_tool_access: {
-    bucket_compare: true,
-    bucket_integrity_check: true,
-    bucket_migration: true,
-    ceph_s3_user_keys: true,
-  },
-  authType: "password",
-  account_links: [
-    { account_id: 101, manager_role: null, portal_role: "portal_user" },
-  ],
-  s3_user_details: [{ id: 904, name: "storage-user-helios" }],
-  s3_connection_details: [{ id: 701, name: "BlueHarbor Shared Connection", access_manager: true, access_browser: true }],
-  capabilities: { can_manage_buckets: true, can_manage_iam: true, access_browser: true },
-};
-
-function baseStorage(user: Record<string, unknown>) {
+function baseStorage(): LocalStorageSeed {
   return {
-    token: "docs-token",
-    user,
-    selectedWorkspace: "admin" as const,
+    selectedWorkspace: "admin",
     selectedManagerExecutionContextId: "acc-helios",
     selectedBrowserExecutionContextId: "acc-helios",
     selectedPortalAccountId: "101",
@@ -817,7 +747,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/admin",
     outputBasename: "user-overview",
     waitFor: "h1:has-text('Admin overview')",
-    storage: { ...baseStorage(superAdminUser), selectedWorkspace: "admin" },
+    user: superAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "admin" },
     mockRules: withBaseRules(),
   },
   {
@@ -826,7 +757,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/admin",
     outputBasename: "start-here",
     waitFor: "h1:has-text('Admin overview')",
-    storage: { ...baseStorage(superAdminUser), selectedWorkspace: "admin" },
+    user: superAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "admin" },
     actions: [{ type: "click", selector: "button[aria-label='Switch workspace']" }],
     mockRules: withBaseRules(),
   },
@@ -836,7 +768,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager",
     outputBasename: "use-cases-storage-admin",
     waitFor: "h1:has-text('Manager dashboard')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     mockRules: withBaseRules(),
   },
   {
@@ -845,8 +778,9 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/browser",
     outputBasename: "use-cases-storage-user",
     waitFor: "button[aria-label='Upload'], button[aria-label='Upload files']",
+    user: storageUser,
     storage: {
-      ...baseStorage(storageUser),
+      ...baseStorage(),
       selectedWorkspace: "browser",
       extraEntries: {
         [BROWSER_ROOT_UI_STATE_STORAGE_KEY]: browserFoldersPanelStateEntry,
@@ -869,7 +803,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/admin",
     outputBasename: "workspace-admin",
     waitFor: "h1:has-text('Admin overview')",
-    storage: { ...baseStorage(superAdminUser), selectedWorkspace: "admin" },
+    user: superAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "admin" },
     mockRules: withBaseRules(),
   },
   {
@@ -878,7 +813,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/admin/endpoint-status",
     outputBasename: "admin-endpoint-status",
     waitFor: "h1:has-text('Endpoint Status')",
-    storage: { ...baseStorage(superAdminUser), selectedWorkspace: "admin" },
+    user: superAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "admin" },
     actions: [
       { type: "wait", selector: "text=Endpoint Latency" },
       { type: "wait", selector: "text=Endpoint Timelines" },
@@ -897,7 +833,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/admin/billing",
     outputBasename: "admin-billing",
     waitFor: "h1:has-text('Billing')",
-    storage: { ...baseStorage(superAdminUser), selectedWorkspace: "admin" },
+    user: superAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "admin" },
     actions: [
       { type: "wait", selector: "text=Estimated cost" },
       { type: "wait", selector: "tr:has-text('Helios Retail')" },
@@ -917,7 +854,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/admin/users",
     outputBasename: "admin-ui-users",
     waitFor: "h1:has-text('UI Users')",
-    storage: { ...baseStorage(superAdminUser), selectedWorkspace: "admin" },
+    user: superAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "admin" },
     actions: [{ type: "wait", selector: "text=platform.admin@example.com" }],
     mockRules: withBaseRules(),
   },
@@ -927,7 +865,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/admin/storage-endpoints",
     outputBasename: "admin-storage-endpoints",
     waitFor: "h1:has-text('S3 Endpoints')",
-    storage: { ...baseStorage(superAdminUser), selectedWorkspace: "admin" },
+    user: superAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "admin" },
     actions: [{ type: "wait", selector: "text=KLOADMINDEFAULT" }],
     mockRules: withBaseRules(),
   },
@@ -937,7 +876,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager",
     outputBasename: "workspace-manager",
     waitFor: "h1:has-text('Manager dashboard')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     mockRules: withBaseRules(),
   },
   {
@@ -946,7 +886,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/browser?bucket=helios-retail-logs",
     outputBasename: "workspace-browser",
     waitFor: "button[aria-label='Upload'], button[aria-label='Upload files']",
-    storage: { ...baseStorage(storageUser), selectedWorkspace: "browser" },
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "browser" },
     actions: [{ type: "wait", selector: "text=daily/report-2026-03-08.json" }],
     mockRules: withBaseRules(),
   },
@@ -956,7 +897,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/portal",
     outputBasename: "workspace-portal",
     waitFor: "h1:has-text('Dashboard')",
-    storage: { ...baseStorage(storageUser), selectedWorkspace: "portal" },
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [
       { type: "wait", selector: "text=Storage overview" },
       { type: "wait", selector: "text=genomics-2026" },
@@ -970,7 +912,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/portal/storage-spaces",
     outputBasename: "portal-storage-spaces",
     waitFor: "h1:has-text('Spaces')",
-    storage: { ...baseStorage(storageUser), selectedWorkspace: "portal" },
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [
       { type: "wait", selector: "text=genomics-2026" },
       { type: "wait", selector: "text=photos" },
@@ -983,7 +926,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/portal/storage-spaces/genomics-2026?prefix=raw-data%2F2024%2F03%2F",
     outputBasename: "portal-object-list",
     waitFor: "h1:has-text('genomics-2026')",
-    storage: { ...baseStorage(storageUser), selectedWorkspace: "portal" },
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [
       { type: "wait", selector: "text=sample_001.fastq.gz" },
       { type: "wait", selector: "text=01-fastq" },
@@ -996,7 +940,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/portal/storage-spaces/genomics-2026?prefix=raw-data%2F2024%2F03%2F&object=raw-data%2F2024%2F03%2Fsample_001.fastq.gz&object_view=details",
     outputBasename: "portal-object-detail",
     waitFor: "[role='complementary'] h2:has-text('sample_001.fastq.gz')",
-    storage: { ...baseStorage(storageUser), selectedWorkspace: "portal" },
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [
       { type: "wait", selector: "text=General information" },
     ],
@@ -1008,7 +953,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/portal/usage",
     outputBasename: "portal-usage",
     waitFor: "h1:has-text('Storage health')",
-    storage: { ...baseStorage(storageUser), selectedWorkspace: "portal" },
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [
       { type: "click", selector: "button:has-text('By space')" },
       { type: "wait", selector: "text=Spaces by stored data" },
@@ -1025,7 +971,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/portal/access-keys",
     outputBasename: "portal-access-keys",
     waitFor: "h1:has-text('External S3 tools')",
-    storage: { ...baseStorage(storageUser), selectedWorkspace: "portal" },
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [
       { type: "wait", selector: "text=Tool access (1)" },
       { type: "click", selector: "button:has-text('Connect tool')" },
@@ -1041,7 +988,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/portal/settings",
     outputBasename: "portal-settings",
     waitFor: "h1:has-text('Settings')",
-    storage: { ...baseStorage(storageUser), selectedWorkspace: "portal" },
+    user: storageUser,
+    storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [{ type: "wait", selector: "text=Version history retention" }],
     mockRules: withBaseRules(),
   },
@@ -1051,7 +999,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/ceph-admin/buckets",
     outputBasename: "workspace-ceph-admin",
     waitFor: "h1:has-text('Buckets')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "ceph-admin" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
     mockRules: withBaseRules(),
   },
   {
@@ -1060,7 +1009,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/storage-ops/buckets",
     outputBasename: "workspace-storage-ops",
     waitFor: "h1:has-text('Buckets')",
-    storage: { ...baseStorage(storageOpsAdminUser), selectedWorkspace: "storage-ops" },
+    user: storageOpsAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "storage-ops" },
     mockRules: withBaseRules(storageOpsEnabledGeneralSettingsRule, storageOpsBucketsRule, storageOpsBucketsStreamRule),
   },
   {
@@ -1069,7 +1019,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/storage-ops",
     outputBasename: "storage-ops-dashboard",
     waitFor: "h1:has-text('Storage Ops')",
-    storage: { ...baseStorage(storageOpsAdminUser), selectedWorkspace: "storage-ops" },
+    user: storageOpsAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "storage-ops" },
     mockRules: withBaseRules(storageOpsEnabledGeneralSettingsRule, storageOpsSummaryRule, storageOpsBucketsRule, storageOpsBucketsStreamRule),
   },
   {
@@ -1078,7 +1029,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/buckets",
     outputBasename: "feature-buckets",
     waitFor: "h1:has-text('Buckets')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     mockRules: withBaseRules(),
   },
   {
@@ -1087,7 +1039,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/metrics",
     outputBasename: "feature-bucket-usage-stats",
     waitFor: "h1:has-text('Usage & Metrics')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     actions: [
       { type: "click", selector: "button:has-text('Usage composition')" },
       { type: "wait", selector: "text=Account usage composition" },
@@ -1102,7 +1055,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/buckets",
     outputBasename: "manager-bucket-configuration",
     waitFor: "h1:has-text('Buckets')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     mockRules: withBaseRules(),
   },
   {
@@ -1111,7 +1065,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/users",
     outputBasename: "feature-iam",
     waitFor: "h1:has-text('Users')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     mockRules: withBaseRules(),
   },
   {
@@ -1120,8 +1075,9 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/browser",
     outputBasename: "feature-objects-browser",
     waitFor: "button[aria-label='Upload'], button[aria-label='Upload files']",
+    user: storageUser,
     storage: {
-      ...baseStorage(storageUser),
+      ...baseStorage(),
       selectedWorkspace: "browser",
       extraEntries: {
         [BROWSER_ROOT_UI_STATE_STORAGE_KEY]: browserFoldersPanelStateEntry,
@@ -1155,8 +1111,9 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/browser",
     outputBasename: "feature-object-versions-browser",
     waitFor: "button[aria-label='Upload'], button[aria-label='Upload files']",
+    user: storageUser,
     storage: {
-      ...baseStorage(storageUser),
+      ...baseStorage(),
       selectedWorkspace: "browser",
       extraEntries: {
         [BROWSER_ROOT_UI_STATE_STORAGE_KEY]: browserFoldersPanelStateEntry,
@@ -1184,7 +1141,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/topics",
     outputBasename: "feature-topics",
     waitFor: "h1:has-text('SNS Topics')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     mockRules: withBaseRules(),
   },
   {
@@ -1193,7 +1151,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/ceph-admin/buckets",
     outputBasename: "ceph-admin-advanced-filter",
     waitFor: "h1:has-text('Buckets')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "ceph-admin" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
     actions: [
       { type: "click", selector: "button:has-text('Advanced filter')" },
       { type: "wait", selector: "p:has-text('Advanced filter')" },
@@ -1206,7 +1165,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/ceph-admin/buckets",
     outputBasename: "ceph-admin-ui-tags",
     waitFor: "h1:has-text('Buckets')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "ceph-admin" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
     actions: [
       { type: "click", selector: "table tbody tr:first-child input[type='checkbox']" },
       { type: "click", selector: "button[aria-label='Actions for 1 selected bucket']" },
@@ -1224,7 +1184,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/storage-ops/buckets",
     outputBasename: "storage-ops-ui-tags",
     waitFor: "h1:has-text('Buckets')",
-    storage: { ...baseStorage(storageOpsAdminUser), selectedWorkspace: "storage-ops" },
+    user: storageOpsAdminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "storage-ops" },
     actions: [
       { type: "click", selector: "table tbody tr:first-child input[type='checkbox']" },
       { type: "click", selector: "button[aria-label='Actions for 1 selected bucket']" },
@@ -1242,7 +1203,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/bucket-compare",
     outputBasename: "feature-bucket-compare",
     waitFor: "h1:has-text('Bucket compare')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     actions: [
       { type: "click", selector: "table tbody tr:first-child input[type='checkbox']" },
       { type: "click", selector: "button:has-text('Compare selected')" },
@@ -1260,7 +1222,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/bucket-integrity",
     outputBasename: "feature-bucket-integrity-check",
     waitFor: "h1:has-text('Bucket integrity')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     actions: [
       { type: "wait", selector: "input[placeholder='Filter buckets']" },
       { type: "wait", selector: "text=helios-retail-logs" },
@@ -1273,16 +1236,11 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/bucket-purge",
     outputBasename: "feature-bucket-purge",
     waitFor: "h1:has-text('Bucket purge')",
-    storage: {
-      ...baseStorage({
-        ...adminUser,
-        manager_tool_access: {
-          ...adminUser.manager_tool_access,
-          bucket_purge: true,
-        },
-      }),
-      selectedWorkspace: "manager",
+    user: {
+      ...adminUser,
+      manager_tool_access: { ...adminUser.manager_tool_access, bucket_purge: true },
     },
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     actions: [
       { type: "wait", selector: "text=helios-retail-logs" },
       { type: "click", selector: "table tbody tr:first-child input[type='checkbox']" },
@@ -1297,7 +1255,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/migrations",
     outputBasename: "feature-bucket-migration",
     waitFor: "h1:has-text('Bucket Migration')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager" },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager" },
     mockRules: withBaseRules(),
   },
   {
@@ -1306,7 +1265,8 @@ export const scenarios: DocScreenshotScenario[] = [
     route: "/manager/users",
     outputBasename: "troubleshooting",
     waitFor: "h1:has-text('Users')",
-    storage: { ...baseStorage(adminUser), selectedWorkspace: "manager", selectedManagerExecutionContextId: undefined },
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "manager", selectedManagerExecutionContextId: undefined },
     mockRules: withBaseRules(noManagerContextsRule),
   },
 ];
