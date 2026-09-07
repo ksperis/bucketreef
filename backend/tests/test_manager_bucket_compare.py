@@ -305,25 +305,25 @@ def test_compare_request_rejects_empty_feature_list_when_config_scope_enabled():
         )
 
 
-def test_require_bucket_compare_enabled_blocks_when_feature_disabled(monkeypatch):
+def test_require_bucket_compare_enabled_blocks_when_feature_disabled(db_session, monkeypatch):
     settings = AppSettings()
     settings.general.bucket_compare_enabled = False
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies_router.require_bucket_compare_enabled(_tool_user(), db=None)
+        dependencies_router.require_bucket_compare_enabled(_tool_user(), db=db_session)
 
     assert exc.value.status_code == 403
     assert "bucket compare feature is disabled" in str(exc.value.detail).lower()
 
 
-def test_require_bucket_compare_enabled_blocks_without_user_tool_access(monkeypatch):
+def test_require_bucket_compare_enabled_blocks_without_user_tool_access(db_session, monkeypatch):
     settings = AppSettings()
     settings.general.bucket_compare_enabled = True
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies_router.require_bucket_compare_enabled(_tool_user(bucket_compare=False), db=None)
+        dependencies_router.require_bucket_compare_enabled(_tool_user(bucket_compare=False), db=db_session)
 
     assert exc.value.status_code == 403
     assert str(exc.value.detail) == "Not authorized"
@@ -651,7 +651,7 @@ def test_compare_bucket_action_request_validates_action_and_parallelism():
         )
 
 
-def test_compare_bucket_action_feature_off_returns_403(monkeypatch):
+def test_compare_bucket_action_feature_off_returns_403(db_session, monkeypatch):
     settings = AppSettings()
     settings.general.bucket_compare_enabled = False
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
@@ -672,7 +672,7 @@ def test_compare_bucket_action_feature_off_returns_403(monkeypatch):
             source_account=_build_account(1),
             actor=SimpleNamespace(),
             service=BucketComparisonService(),
-            _tool_user=dependencies_router.require_bucket_compare_enabled(_tool_user()),
+            _tool_user=dependencies_router.require_bucket_compare_enabled(_tool_user(), db=db_session),
         )
 
     assert exc.value.status_code == 403

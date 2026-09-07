@@ -164,6 +164,16 @@ execution details; they do not grant a BucketReef Portal role.
 `EffectiveAccessService` is the authority for catalogue construction and
 execution of a selected context.
 
+Manager tool guards always resolve persisted direct and UI-group grants through
+this service; there is no user-only fallback without a database session. A
+migration API request reuses that resolution to build its complete
+`BucketMigrationAccessScope`, including administrator account contexts, rather
+than querying the grants independently for each subset. The migration worker
+uses the same scope builder but performs a fresh resolution at every existing
+creator-access checkpoint. No access snapshot is cached between requests or
+across migration execution checks; group revocations and expired connections
+remain effective before further work.
+
 | Workspace | Allowed UI-user contexts |
 |---|---|
 | Manager | `account_administrator` accounts, assigned RGW users, assigned shared Manager connections, and the owner's active private Manager connections. |
