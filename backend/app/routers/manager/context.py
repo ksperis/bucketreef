@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from dataclasses import dataclass
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -24,6 +24,7 @@ from app.services.s3_users_service import get_s3_users_service
 from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.rgw_supervision import has_supervision_credentials
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.rgw_identifiers import resolve_admin_uid
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -46,17 +47,16 @@ class _ManagerLimits:
     max_groups: Optional[int] = None
 
 
-def _manager_stats_state(account, actor) -> tuple[bool, Optional[str], Optional[str]]:
+def _manager_stats_state(
+    account: S3ExecutionContext, actor: ManagerActor,
+) -> tuple[bool, Optional[str], Optional[str]]:
     rgw_usage_metrics_enabled = bool(load_app_settings().manager.manager_rgw_usage_metrics_enabled)
-    connection_id = getattr(account, "s3_connection_id", None)
-    if connection_id is not None:
-        caps = getattr(account, "manager_capabilities", None)
-        if not caps or not caps.can_manage_buckets:
+    if account.context_kind == "connection":
+        if not account.manager_capabilities.can_manage_buckets:
             return False, "Metrics are not available for this connection.", None
-        source_connection = getattr(account, "source_connection", None)
-        if source_connection is None:
+        if account.source_connection is None:
             return False, "Metrics are unavailable: connection context is incomplete.", None
-        resolution = ConnectionIdentityService().resolve_metrics_identity(source_connection)
+        resolution = ConnectionIdentityService().resolve_metrics_identity(account.source_connection)
         if not resolution.eligible:
             return False, (resolution.reason or "Metrics are unavailable for this connection."), None
         if not rgw_usage_metrics_enabled:
@@ -71,10 +71,9 @@ def _manager_stats_state(account, actor) -> tuple[bool, Optional[str], Optional[
         return False, "RGW traffic and usage metrics are disabled.", None
     if not has_supervision_credentials(account):
         return False, None, None
-    if getattr(account, "s3_user_id", None) is not None and not getattr(account, "rgw_user_uid", None):
+    if account.context_kind == "s3_user" and not account.rgw_user_uid:
         return False, None, None
-    caps = getattr(account, "manager_capabilities", None)
-    if not caps or not caps.can_manage_buckets:
+    if not account.manager_capabilities.can_manage_buckets:
         return False, None, None
     if isinstance(actor, ManagerSessionPrincipal):
         return bool(actor.capabilities.can_view_traffic), None, None
@@ -83,22 +82,16 @@ def _manager_stats_state(account, actor) -> tuple[bool, Optional[str], Optional[
     return False, None, None
 
 
-def _manager_access_mode(
-    actor: ManagerActor,
-    s3_user_id: Optional[int],
-    s3_connection_id: Optional[int],
-) -> str:
-    if isinstance(actor, ManagerSessionPrincipal):
-        return "session"
-    if s3_connection_id is not None:
-        return "connection"
-    if s3_user_id is not None:
-        return "s3_user"
-    return "admin"
+def _manager_access_mode(account: S3ExecutionContext) -> str:
+    if account.context_kind == "account":
+        return "admin"
+    if account.context_kind in {"session", "connection", "s3_user"}:
+        return account.context_kind
+    raise RuntimeError("Unsupported Manager execution context")
 
 
 def _manager_browser_state(
-    account,
+    account: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
     access_service: Optional[EffectiveAccessService],
@@ -118,9 +111,8 @@ def _manager_browser_state(
 
     if resolved_access is None or access_service is None:
         raise RuntimeError("UI user effective access was not resolved")
-    s3_connection_id = getattr(account, "s3_connection_id", None)
-    if s3_connection_id is not None:
-        connection = db.query(S3Connection).filter(S3Connection.id == s3_connection_id).first()
+    if account.context_kind == "connection":
+        connection = db.query(S3Connection).filter(S3Connection.id == account.s3_connection_id).first()
         enabled = bool(
             connection
             and access_service.manager_browser_connection_is_allowed(
@@ -136,14 +128,12 @@ def _manager_browser_state(
             )
         return _ManagerBrowserState(enabled, message)
 
-    s3_user_id = getattr(account, "s3_user_id", None)
-    if s3_user_id is not None:
-        enabled = resolved_access.can_browse_s3_user(int(s3_user_id))
+    if account.context_kind == "s3_user":
+        enabled = account.s3_user_id is not None and resolved_access.can_browse_s3_user(account.s3_user_id)
         message = None if enabled else "Manager Browser data access is not allowed for this RGW user."
         return _ManagerBrowserState(enabled, message)
 
-    account_id = getattr(account, "id", None)
-    link = resolved_access.account_link_for(int(account_id)) if account_id else None
+    link = resolved_access.account_link_for(account.id) if account.id is not None else None
     enabled = bool(link and link.manager_browser_allowed)
     message = None
     if not enabled:
@@ -155,27 +145,24 @@ def _manager_browser_state(
 
 
 def _manager_iam_identity(
-    account,
+    account: S3ExecutionContext,
     actor: ManagerActor,
     access_mode: str,
     connection_iam_identity: Optional[str],
 ) -> Optional[str]:
     if access_mode == "admin":
-        return resolve_admin_uid(
-            getattr(account, "rgw_account_id", None),
-            getattr(account, "rgw_user_uid", None),
-        )
+        return resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
     if access_mode == "session" and isinstance(actor, ManagerSessionPrincipal):
         return actor.user_uid or actor.account_id or actor.account_name
     if access_mode == "s3_user":
-        return getattr(account, "rgw_user_uid", None)
+        return account.rgw_user_uid
     if access_mode == "connection":
         return connection_iam_identity
     return None
 
 
 def _manager_private_access_enabled(
-    account,
+    account: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
     resolved_access: Optional[ResolvedUserAccess],
@@ -185,38 +172,34 @@ def _manager_private_access_enabled(
     if resolved_access is None:
         raise RuntimeError("UI user effective access was not resolved")
     managed_private_access = ManagedPrivateAccessService(db)
-    if getattr(account, "s3_user_id", None) is not None:
+    if account.context_kind == "s3_user":
         return managed_private_access.rgw_user_provisioning_available(
             actor,
             account,
             resolved=resolved_access,
         )
 
-    capabilities = getattr(account, "manager_capabilities", None)
-    endpoint = getattr(account, "storage_endpoint", None)
+    endpoint = account.storage_endpoint
     return bool(
         managed_private_access.managed_provisioning_allowed(
             actor,
             resolved=resolved_access,
         )
-        and capabilities
-        and capabilities.can_manage_iam
+        and account.manager_capabilities.can_manage_iam
         and (endpoint is None or resolve_feature_flags(endpoint).iam_enabled)
     )
 
 
 def _manager_limits(
-    account,
+    account: S3ExecutionContext,
     db: Session,
     *,
     include_limits: bool,
-    s3_user_id: Optional[int],
-    s3_connection_id: Optional[int],
 ) -> _ManagerLimits:
-    if not include_limits or s3_connection_id is not None:
+    if not include_limits or account.context_kind == "connection":
         return _ManagerLimits()
-    if s3_user_id is not None:
-        s3_user = db.query(S3User).filter(S3User.id == s3_user_id).first()
+    if account.context_kind == "s3_user":
+        s3_user = db.query(S3User).filter(S3User.id == account.s3_user_id).first()
         if s3_user is None:
             return _ManagerLimits()
         quota_max_size_gb, quota_max_objects, max_buckets = get_s3_users_service(db).get_user_limits(s3_user)
@@ -226,8 +209,7 @@ def _manager_limits(
             max_buckets=max_buckets,
         )
 
-    account_id = getattr(account, "id", None)
-    s3_account = db.query(S3Account).filter(S3Account.id == account_id).first() if account_id else None
+    s3_account = db.query(S3Account).filter(S3Account.id == account.id).first() if account.id is not None else None
     if s3_account is None:
         return _ManagerLimits()
     (
@@ -250,15 +232,13 @@ def _manager_limits(
 
 @router.get("/context", response_model=ManagerContext)
 def get_manager_context(
-    account=Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_account_context),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
-    include_limits: bool = Query(default=False),
+    include_limits: Annotated[bool, Query()] = False,
 ) -> ManagerContext:
-    s3_user_id = getattr(account, "s3_user_id", None)
-    s3_connection_id = getattr(account, "s3_connection_id", None)
+    access_mode = _manager_access_mode(account)
     manager_stats_enabled, manager_stats_message, connection_iam_identity = _manager_stats_state(account, actor)
-    access_mode = _manager_access_mode(actor, s3_user_id, s3_connection_id)
     access_service = EffectiveAccessService(db) if isinstance(actor, User) else None
     resolved_access = access_service.resolve_user(actor) if access_service else None
     browser_state = _manager_browser_state(
@@ -295,8 +275,6 @@ def get_manager_context(
         account,
         db,
         include_limits=include_limits,
-        s3_user_id=s3_user_id,
-        s3_connection_id=s3_connection_id,
     )
 
     return ManagerContext(

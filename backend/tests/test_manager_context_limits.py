@@ -2,8 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from types import SimpleNamespace
 
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
 from app.db import User, UserRole
 from app.routers.manager import context as context_router
+from app.services.s3_execution_context import S3ExecutionContext
 from tests.s3_account_factory import make_s3_account
 
 
@@ -19,7 +24,7 @@ def _prepare_context(db_session, monkeypatch):
     monkeypatch.setattr(context_router, "_manager_stats_state", lambda *_args: (False, None, None))
     monkeypatch.setattr(context_router, "is_manager_bucket_quota_available", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(context_router, "is_manager_rgw_access_key_management_available", lambda *_args, **_kwargs: False)
-    return account, actor
+    return S3ExecutionContext.from_account(account), actor
 
 
 def test_manager_context_keeps_limits_deferred_by_default(db_session, monkeypatch):
@@ -34,7 +39,6 @@ def test_manager_context_keeps_limits_deferred_by_default(db_session, monkeypatc
         account=account,
         actor=actor,
         db=db_session,
-        include_limits=False,
     )
 
     assert payload.quota_max_size_gb is None
@@ -80,3 +84,38 @@ def test_manager_context_resolves_user_access_once(db_session, monkeypatch):
     )
 
     assert resolved_users == [actor]
+
+
+@pytest.mark.parametrize(
+    ("params", "status_code", "calls"),
+    [({}, 200, 0), ({"include_limits": "false"}, 200, 0), ({"include_limits": "true"}, 200, 1),
+     ({"include_limits": "invalid"}, 422, 0)],
+)
+def test_manager_context_limits_http_contract(db_session, monkeypatch, params, status_code, calls):
+    account, actor = _prepare_context(db_session, monkeypatch)
+    loaded = []
+
+    def get_limits(source):
+        loaded.append(source.id)
+        return (10.5, 2_000, 8, 20, 12, 6)
+
+    monkeypatch.setattr(
+        context_router, "get_s3_accounts_service",
+        lambda _db: SimpleNamespace(get_account_limits=get_limits),
+    )
+    application = FastAPI()
+    application.include_router(context_router.router)
+    application.dependency_overrides.update({
+        context_router.get_account_context: lambda: account,
+        context_router.get_current_actor: lambda: actor,
+        context_router.get_db: lambda: db_session,
+    })
+    with TestClient(application) as client:
+        response = client.get("/manager/context", params=params)
+
+    assert response.status_code == status_code, response.text
+    assert loaded == [account.id] * calls
+    if status_code == 200:
+        assert response.json()["access_mode"] == "admin"
+        assert response.json()["context_kind"] == "account"
+        assert response.json()["max_buckets"] == (8 if calls else None)
