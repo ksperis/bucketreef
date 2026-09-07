@@ -14,7 +14,8 @@ alerts, and password settings are managed from **User profile**.
 ## Prerequisites
 
 - Portal is enabled.
-- You are linked to the selected project.
+- You have an explicit **Portal user** or **Portal manager** role in the
+  selected project, directly or through a UI group.
 - The selected project is available in the Portal.
 
 ## Steps
@@ -30,10 +31,13 @@ alerts, and password settings are managed from **User profile**.
 
 ## Expected result
 
-Every project member sees the effective values. Portal Users, Account
-Administrators projected into Portal, non-delegated Portal Managers, and all
-other read-only cases cannot change the controls. A delegated Portal Manager
-can update the single shared project override also shown in Admin.
+Every Portal project member sees the effective values. Portal Users and
+non-delegated Portal Managers cannot change the controls. A delegated Portal
+Manager can update the single shared project override also shown in Admin.
+
+**Account administrator** is a separate Manager role: it grants neither Portal
+membership nor permission to edit Portal settings. A person with both roles
+uses their Portal role here, regardless of their Manager rights.
 
 ## You are done when
 
