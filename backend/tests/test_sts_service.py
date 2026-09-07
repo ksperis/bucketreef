@@ -131,7 +131,6 @@ def test_get_session_token_success_and_error_paths(monkeypatch):
     )
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: ok_client)
     access, secret, token, _ = sts_service.get_session_token(
-        "sess",
         900,
         "AK",
         "SK",
@@ -142,9 +141,9 @@ def test_get_session_token_success_and_error_paths(monkeypatch):
     bad_client = _FakeStsClient(session_payload={"Credentials": {"AccessKeyId": "only"}})
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: bad_client)
     with pytest.raises(RuntimeError, match="did not return credentials"):
-        sts_service.get_session_token("sess", 900, "AK", "SK", endpoint="https://sts.example.test")
+        sts_service.get_session_token(900, "AK", "SK", endpoint="https://sts.example.test")
 
     err_client = _FakeStsClient(error=_client_error("Throttling"))
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: err_client)
     with pytest.raises(RuntimeError, match="Unable to get session token"):
-        sts_service.get_session_token("sess", 900, "AK", "SK", endpoint="https://sts.example.test")
+        sts_service.get_session_token(900, "AK", "SK", endpoint="https://sts.example.test")
