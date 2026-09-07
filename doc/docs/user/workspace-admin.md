@@ -21,6 +21,10 @@ Use **Admin** for platform governance and global configuration.
    in S3 provider access logs, not Admin Audit.
 8. If superadmin, use **Settings** pages for global behavior, authentication options, UI-managed OIDC/LDAP providers, and key rotation.
 
+The RGW Accounts page uses `/admin/s3-accounts`. The former frontend alias
+`/admin/accounts` is no longer supported; update bookmarks to the canonical
+URL. Backend account endpoints under `/api/admin/accounts` are unchanged.
+
 ## Expected result
 
 Platform and tenant-entry resources are configured and auditable.

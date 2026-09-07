@@ -304,7 +304,6 @@ export function createAppRoutes() {
             <Route index element={<AdminDashboard />} />
             <Route path="profile" element={<AccountProfilePage />} />
             <Route path="s3-accounts" element={<S3AccountsPage />} />
-            <Route path="accounts" element={<Navigate to="/admin/s3-accounts" replace />} />
             <Route path="s3-users" element={<S3UsersPage />} />
             <Route path="s3-connections" element={<S3ConnectionsPage />} />
             <Route path="s3-users/:userId/keys" element={<S3UserKeysPage />} />
