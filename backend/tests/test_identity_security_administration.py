@@ -23,6 +23,7 @@ from app.db import (
 )
 from app.main import app
 from app.models.app_settings import AppSettings
+from app.models.user import ManagerToolAccess
 from app.routers import dependencies
 from app.services.api_token_service import ApiTokenService
 from app.services import app_settings_service
@@ -454,6 +455,43 @@ def test_user_update_step_up_depends_on_persisted_security_change(auth_client, d
     )
     assert role_change_without_policy.status_code == 200
     assert role_change_without_policy.json()["role"] == UserRole.UI_NONE.value
+
+
+@pytest.mark.parametrize("tool", list(ManagerToolAccess.model_fields))
+@pytest.mark.parametrize("current", [False, True])
+def test_each_manager_tool_mutation_requires_recent_mfa(auth_client, db_session, tool, current):
+    admin = _user(db_session, email="tool-guard-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
+    target = _user(db_session, email="tool-guard-target@example.com", role=UserRole.UI_USER.value)
+    setattr(target, f"can_access_manager_{tool}", current)
+    db_session.commit()
+    _set_admin_passkey_policy(db_session, True)
+    credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
+    headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
+    unchanged_payload = {"manager_tool_access": {tool: current}}
+    changed_payload = {"manager_tool_access": {tool: not current}}
+
+    unchanged = auth_client.put(f"/api/admin/users/{target.id}", json=unchanged_payload, headers=headers)
+    assert unchanged.status_code == 200
+    assert unchanged.json()["manager_tool_access"][tool] is current
+
+    denied = auth_client.put(f"/api/admin/users/{target.id}", json=changed_payload, headers=headers)
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == "Recent WebAuthn verification required"
+    db_session.refresh(target)
+    assert getattr(target, f"can_access_manager_{tool}") is current
+
+    clear_ui_client(auth_client)
+    verified = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=True)
+    updated = auth_client.put(
+        f"/api/admin/users/{target.id}",
+        json=changed_payload,
+        headers=trusted_origin_headers(csrf_token=verified.csrf_token),
+    )
+    assert updated.status_code == 200
+    expected = ManagerToolAccess(**{tool: not current}).model_dump()
+    assert updated.json()["manager_tool_access"] == expected
+    db_session.refresh(target)
+    assert getattr(target, f"can_access_manager_{tool}") is not current
 
 
 def test_stale_session_must_step_up_for_user_creation_and_deletion(auth_client, db_session):

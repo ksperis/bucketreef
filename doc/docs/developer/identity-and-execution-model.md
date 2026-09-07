@@ -174,6 +174,16 @@ creator-access checkpoint. No access snapshot is cached between requests or
 across migration execution checks; group revocations and expired connections
 remain effective before further work.
 
+`ManagerToolAccess` defines the tool list. The shared `manager_tool_access`
+module maps those fields to the same `can_access_manager_` columns on users and
+UI groups for persistence, public projections, effective-access aggregation,
+and sensitive-change detection. Public direct grants remain separate from
+group-derived effective grants. An omitted or null `manager_tool_access`
+preserves direct grants, unless a user's role no longer supports Manager;
+demotion to `ui_none` clears the user's direct tool grants. An explicit empty
+object resets all tools to false. A real change to a user's direct tools still
+requires the configured recent-authentication check, including revocation.
+
 | Workspace | Allowed UI-user contexts |
 |---|---|
 | Manager | `account_administrator` accounts, assigned RGW users, assigned shared Manager connections, and the owner's active private Manager connections. |

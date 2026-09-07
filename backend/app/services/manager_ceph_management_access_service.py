@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 from app.db import S3Account, S3User, StorageEndpoint, StorageProvider, User
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services import app_settings_service
-from app.services.effective_access_service import EffectiveAccessService, MANAGER_TOOL_ROLES
+from app.services.effective_access_service import EffectiveAccessService
+from app.services.manager_tool_access import MANAGER_TOOL_ROLES
 from app.services.rgw_admin import get_rgw_admin_client
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.storage_endpoint_admin_permissions import (

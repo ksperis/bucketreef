@@ -18,7 +18,6 @@ from app.db import (
     UiGroupS3Connection,
     UiGroupS3User,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
@@ -37,6 +36,7 @@ from app.models.user import (
 )
 from app.models.access_context import BucketMigrationAccessScope, EffectiveAccountGroupRole, EffectiveAccountLink
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
+from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS, MANAGER_TOOL_ROLES
 from app.utils.account_roles import (
     ManagerAccountRoleValue,
     PortalAccountRoleValue,
@@ -44,20 +44,6 @@ from app.utils.account_roles import (
 )
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
-
-
-MANAGER_TOOL_ROLES = {
-    UserRole.UI_SUPERADMIN.value,
-    UserRole.UI_ADMIN.value,
-    UserRole.UI_USER.value,
-}
-_MANAGER_TOOL_FIELDS = {
-    "bucket_compare": "can_access_manager_bucket_compare",
-    "bucket_integrity_check": "can_access_manager_bucket_integrity_check",
-    "bucket_migration": "can_access_manager_bucket_migration",
-    "feature_rules": "can_access_manager_feature_rules",
-    "bucket_purge": "can_access_manager_bucket_purge",
-}
 
 
 @dataclass
@@ -359,7 +345,7 @@ class EffectiveAccessService:
             **{
                 output_name: role_supports_tools
                 and self._user_or_group_flag(user, groups, user_field)
-                for output_name, user_field in _MANAGER_TOOL_FIELDS.items()
+                for output_name, user_field in MANAGER_TOOL_COLUMNS.items()
             }
         )
         browser_advanced = self._user_or_group_flag(

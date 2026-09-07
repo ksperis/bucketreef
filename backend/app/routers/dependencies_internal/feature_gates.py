@@ -14,7 +14,8 @@ from app.models.account_capabilities import AccountCapabilities
 from app.models.session import ManagerSessionPrincipal
 from app.services import app_settings_service
 from app.services.connection_identity_service import ConnectionIdentityService
-from app.services.effective_access_service import MANAGER_TOOL_ROLES, EffectiveAccessService, ResolvedUserAccess
+from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
+from app.services.manager_tool_access import MANAGER_TOOL_ROLES
 from app.services.manager_ceph_management_access_service import ManagerCephManagementAccessService
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.rgw_supervision import has_supervision_credentials

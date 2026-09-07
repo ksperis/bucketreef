@@ -20,13 +20,13 @@ from app.models.user import (
     LinkedS3Connection,
     LinkedS3User,
     LinkedUiGroup,
-    ManagerToolAccess,
     S3UserMembership,
     UiPreferences,
     UserOut,
 )
 from app.services.association_names import load_s3_user_names
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.manager_tool_access import read_manager_tool_access
 from app.services.user_avatar_service import UserAvatarService
 
 
@@ -213,15 +213,7 @@ class UserOutputService:
             can_provision_managed_private_connections=bool(
                 user.can_provision_managed_private_connections
             ),
-            manager_tool_access=ManagerToolAccess(
-                bucket_compare=bool(user.can_access_manager_bucket_compare),
-                bucket_integrity_check=bool(
-                    user.can_access_manager_bucket_integrity_check
-                ),
-                bucket_migration=bool(user.can_access_manager_bucket_migration),
-                feature_rules=bool(user.can_access_manager_feature_rules),
-                bucket_purge=bool(user.can_access_manager_bucket_purge),
-            ),
+            manager_tool_access=read_manager_tool_access(user),
             browser_advanced_features_enabled=bool(
                 user.browser_advanced_features_enabled
             ),
