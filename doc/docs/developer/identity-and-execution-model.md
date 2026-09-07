@@ -79,6 +79,17 @@ remain separated by execution fingerprint. Invalidation also detaches pending
 loads: existing callers may finish with their original result, but subsequent
 reads start a fresh load and an older result cannot repopulate the cache.
 
+Ceph Admin bucket listings have two endpoint-scoped cache layers: raw RGW
+payloads and prepared listing snapshots. Refresh and mutation invalidation
+atomically discard both layers and detach their pending loads. Old loads may
+finish for existing callers but cannot restore invalidated entries or displace
+new loads. Raw requests remain serialized per endpoint within the current
+load generation: a payload with statistics can satisfy a request without them,
+while a waiter rechecks its needs after an incomplete or failed request.
+Coordination state is released when loads finish; no idle endpoint locks are
+retained. The 30-minute TTL and limits of 16 raw payloads and 64 snapshots remain
+unchanged.
+
 Browser STS sessions reuse that execution fingerprint, together with the
 resolved STS endpoint and the caller's cache partition. Exported credentials
 remain isolated by authenticated UI session. The cache requests 900-second
