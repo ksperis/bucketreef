@@ -22,6 +22,7 @@ from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.routers.manager import buckets as manager_buckets
 from app.routers.manager import purge as manager_purge
 from app.routers.storage_ops import purge as storage_ops_purge
+from tests.execution_context_factory import make_s3_execution_context
 
 
 def _build_request(path: str = "/api/manager/bucket-purge/stream", query_string: bytes = b"account_id=s3u-1") -> Request:
@@ -91,9 +92,10 @@ def test_manager_purge_route_rejects_wrong_confirmation_with_400():
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_purge.require_bucket_purge_enabled] = lambda: _manager_tool_user()
-    app.dependency_overrides[manager_purge.get_account_context] = lambda: SimpleNamespace(
+    app.dependency_overrides[manager_purge.get_account_context] = lambda: make_s3_execution_context(
+        context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
-        manager_capabilities=SimpleNamespace(can_manage_buckets=True),
+        can_manage_buckets=True,
     )
     app.dependency_overrides[manager_purge.get_current_account_admin] = lambda: SimpleNamespace(id=1)
     try:
@@ -113,10 +115,10 @@ def test_manager_delete_with_purge_route_rejects_wrong_confirmation_with_400():
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_buckets.require_bucket_purge_enabled] = lambda: _manager_tool_user()
-    app.dependency_overrides[manager_buckets.get_account_context] = lambda: SimpleNamespace(
-        id=1,
+    app.dependency_overrides[manager_buckets.get_account_context] = lambda: make_s3_execution_context(
+        context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
-        manager_capabilities=SimpleNamespace(can_manage_buckets=True),
+        can_manage_buckets=True,
     )
     app.dependency_overrides[manager_buckets.get_current_account_admin] = lambda: SimpleNamespace(id=1)
     try:
@@ -159,9 +161,10 @@ def test_manager_purge_route_streams_progress_and_result(monkeypatch):
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_purge.require_bucket_purge_enabled] = lambda: _manager_tool_user()
-    app.dependency_overrides[manager_purge.get_account_context] = lambda: SimpleNamespace(
+    app.dependency_overrides[manager_purge.get_account_context] = lambda: make_s3_execution_context(
+        context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
-        manager_capabilities=SimpleNamespace(can_manage_buckets=True),
+        can_manage_buckets=True,
     )
     app.dependency_overrides[manager_purge.get_current_account_admin] = lambda: SimpleNamespace(id=1)
     monkeypatch.setattr(manager_purge, "BucketPurgeService", FakeService)
@@ -224,10 +227,10 @@ def test_manager_delete_with_purge_route_streams_progress_and_result(monkeypatch
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_buckets.require_bucket_purge_enabled] = lambda: _manager_tool_user()
-    app.dependency_overrides[manager_buckets.get_account_context] = lambda: SimpleNamespace(
-        id=1,
+    app.dependency_overrides[manager_buckets.get_account_context] = lambda: make_s3_execution_context(
+        context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
-        manager_capabilities=SimpleNamespace(can_manage_buckets=True),
+        can_manage_buckets=True,
     )
     app.dependency_overrides[manager_buckets.get_current_account_admin] = lambda: SimpleNamespace(id=1)
     monkeypatch.setattr(manager_buckets, "BucketPurgeService", FakeService)

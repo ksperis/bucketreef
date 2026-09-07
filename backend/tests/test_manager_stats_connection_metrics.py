@@ -20,6 +20,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services import app_settings_service, usage_history_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficWindow
+from tests.execution_context_factory import make_s3_execution_context
 
 
 def _request(path: str):
@@ -92,7 +93,9 @@ def test_manager_rgw_metrics_kill_switch_blocks_every_actor(monkeypatch, depende
 
     with pytest.raises(HTTPException) as exc:
         dependency(
-            account=S3Account(
+            account=make_s3_execution_context(
+                can_manage_buckets=True,
+                context_kind="session" if isinstance(actor, ManagerSessionPrincipal) else "account",
                 name="rgw-metrics-disabled",
                 rgw_account_id="rgw-metrics-disabled",
                 rgw_user_uid="rgw-metrics-disabled-admin",
@@ -126,7 +129,8 @@ def test_manager_rgw_metrics_ignore_bucket_composition_kill_switch(monkeypatch, 
 
     assert (
         dependency(
-            account=S3Account(
+            account=make_s3_execution_context(
+                can_manage_buckets=True,
                 name="rgw-metrics-enabled",
                 rgw_account_id="rgw-metrics-enabled",
                 rgw_user_uid="rgw-metrics-enabled-admin",
@@ -183,7 +187,8 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
 
 
 def test_manager_stats_overview_sanitizes_bucket_error_details():
-    account = S3Account(
+    account = make_s3_execution_context(
+        can_manage_buckets=True,
         name="stats-error-account",
         rgw_account_id="rgw-stats-error",
         rgw_user_uid="rgw-stats-error-admin",

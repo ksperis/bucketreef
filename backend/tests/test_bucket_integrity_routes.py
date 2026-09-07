@@ -26,6 +26,7 @@ from app.routers.ceph_admin.dependencies import CephAdminContext
 from app.routers.manager import integrity as manager_integrity
 from app.routers.storage_ops import integrity as storage_ops_integrity
 from app.services.bucket_integrity_service import BucketIntegrityCheckCancelled
+from tests.execution_context_factory import make_s3_execution_context
 
 
 def _build_request(path: str = "/api/manager/bucket-integrity/stream", query_string: bytes = b"") -> Request:
@@ -112,9 +113,10 @@ def test_manager_integrity_route_streams_progress_and_result(monkeypatch):
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
     app.dependency_overrides[manager_integrity.require_bucket_integrity_check_enabled] = lambda: None
-    app.dependency_overrides[manager_integrity.get_account_context] = lambda: SimpleNamespace(
+    app.dependency_overrides[manager_integrity.get_account_context] = lambda: make_s3_execution_context(
+        context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
-        manager_capabilities=SimpleNamespace(can_manage_buckets=True),
+        can_manage_buckets=True,
     )
     app.dependency_overrides[manager_integrity.get_current_account_admin] = lambda: SimpleNamespace(id=1)
     monkeypatch.setattr(manager_integrity, "BucketIntegrityCheckService", FakeService)
@@ -145,9 +147,10 @@ def test_manager_integrity_route_returns_403_when_flag_disabled(monkeypatch):
 
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None
-    app.dependency_overrides[manager_integrity.get_account_context] = lambda: SimpleNamespace(
+    app.dependency_overrides[manager_integrity.get_account_context] = lambda: make_s3_execution_context(
+        context_id="s3u-1", context_kind="s3_user", s3_user_id=1, id=None,
         name="Tenant A",
-        manager_capabilities=SimpleNamespace(can_manage_buckets=True),
+        can_manage_buckets=True,
     )
     app.dependency_overrides[manager_integrity.get_current_account_admin] = lambda: SimpleNamespace(id=1)
     app.dependency_overrides[dependencies_router.get_current_user] = lambda: _manager_tool_user()
