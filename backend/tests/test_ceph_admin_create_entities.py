@@ -22,24 +22,12 @@ from app.services import ceph_admin_bucket_listing_cache
 
 @pytest.fixture(autouse=True)
 def clear_ceph_admin_caches():
-    with account_listing_cache.ACCOUNTS_LIST_CACHE_LOCK:
-        account_listing_cache.ACCOUNTS_LIST_CACHE.clear()
-    with account_listing_cache.RGW_ACCOUNTS_PAYLOAD_CACHE_LOCK:
-        account_listing_cache.RGW_ACCOUNTS_PAYLOAD_CACHE.clear()
-    with user_listing_cache.USERS_LIST_CACHE_LOCK:
-        user_listing_cache.USERS_LIST_CACHE.clear()
-    with user_listing_cache.RGW_USERS_PAYLOAD_CACHE_LOCK:
-        user_listing_cache.RGW_USERS_PAYLOAD_CACHE.clear()
+    account_listing_cache.invalidate_accounts_listing_cache()
+    user_listing_cache.invalidate_users_listing_cache()
     ceph_admin_bucket_listing_cache.reset_ceph_admin_bucket_listing_caches_for_tests()
     yield
-    with account_listing_cache.ACCOUNTS_LIST_CACHE_LOCK:
-        account_listing_cache.ACCOUNTS_LIST_CACHE.clear()
-    with account_listing_cache.RGW_ACCOUNTS_PAYLOAD_CACHE_LOCK:
-        account_listing_cache.RGW_ACCOUNTS_PAYLOAD_CACHE.clear()
-    with user_listing_cache.USERS_LIST_CACHE_LOCK:
-        user_listing_cache.USERS_LIST_CACHE.clear()
-    with user_listing_cache.RGW_USERS_PAYLOAD_CACHE_LOCK:
-        user_listing_cache.RGW_USERS_PAYLOAD_CACHE.clear()
+    account_listing_cache.invalidate_accounts_listing_cache()
+    user_listing_cache.invalidate_users_listing_cache()
     ceph_admin_bucket_listing_cache.reset_ceph_admin_bucket_listing_caches_for_tests()
 
 
