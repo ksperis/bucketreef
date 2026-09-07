@@ -20,6 +20,7 @@ from app.db import (
     StorageEndpoint,
 )
 from app.services.app_settings_service import load_app_settings
+from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
 from app.services.healthcheck_common import (
     EndpointCheckTarget,
     HealthCheckProfile,
@@ -187,10 +188,10 @@ class HealthCheckService:
             return None, sanitized_error_log_detail(exc)
 
     def _s3_probe(self, target: EndpointCheckTarget, url: str) -> tuple[Optional[int], Optional[str]]:
-        access_key = (target.supervision_access_key or target.admin_access_key or "").strip() or None
-        secret_key = target.supervision_secret_key or target.admin_secret_key
-        if not access_key or not secret_key:
+        credentials = resolve_endpoint_read_credentials(target)
+        if credentials is None:
             return None, "S3 healthcheck mode requires supervision/admin credentials."
+        access_key, secret_key = credentials
 
         try:
             s3_client = get_s3_client(
