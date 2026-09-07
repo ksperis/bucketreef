@@ -3,10 +3,14 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
+from concurrent.futures import Future
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+import json
 from threading import Lock
-from typing import Optional
+from time import monotonic
+from typing import Callable, Literal, Optional
 
 from app.db import S3Connection, StorageProvider
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client
@@ -16,6 +20,7 @@ from app.utils.normalize import (
 )
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
+from app.utils.cache import prune_expired_lru_cache
 
 
 @dataclass(frozen=True)
@@ -37,41 +42,76 @@ class ConnectionIdentityResolution:
 
 @dataclass
 class _CacheEntry:
-    expires_at: datetime
+    expires_at: float
     value: ConnectionIdentityResolution
 
 
+@dataclass(frozen=True)
+class _CacheKey:
+    scope: Literal["identity", "metrics"]
+    fingerprint: str
+
+
 _CACHE_TTL_SECONDS = 60
-_CACHE: dict[tuple, _CacheEntry] = {}
+_CACHE_MAX_ENTRIES = 512
+_CACHE: OrderedDict[_CacheKey, _CacheEntry] = OrderedDict()
+_INFLIGHT: dict[_CacheKey, Future[ConnectionIdentityResolution]] = {}
 _CACHE_LOCK = Lock()
 
 
 def reset_connection_identity_cache_for_tests() -> None:
     with _CACHE_LOCK:
         _CACHE.clear()
+        _INFLIGHT.clear()
 
 
 class ConnectionIdentityService:
-    def __init__(self, ttl_seconds: int = _CACHE_TTL_SECONDS) -> None:
-        self.ttl_seconds = max(1, int(ttl_seconds))
-
     def resolve_metrics_identity(self, connection: S3Connection) -> ConnectionIdentityResolution:
-        key = self._cache_key(connection, scope="metrics")
-        cached = self._cache_get(key)
-        if cached is not None:
-            return cached
-        resolved = self._resolve_metrics_uncached(connection)
-        self._cache_set(key, resolved)
-        return resolved
+        return self._resolve_cached(connection, scope="metrics", resolver=self._resolve_metrics_uncached)
 
     def resolve_rgw_identity(self, connection: S3Connection) -> ConnectionIdentityResolution:
-        key = self._cache_key(connection, scope="identity")
-        cached = self._cache_get(key)
-        if cached is not None:
-            return cached
-        resolved = self._resolve_identity_uncached(connection)
-        self._cache_set(key, resolved)
-        return resolved
+        return self._resolve_cached(connection, scope="identity", resolver=self._resolve_identity_uncached)
+
+    def _resolve_cached(
+        self,
+        connection: S3Connection,
+        *,
+        scope: Literal["identity", "metrics"],
+        resolver: Callable[[S3Connection], ConnectionIdentityResolution],
+    ) -> ConnectionIdentityResolution:
+        key = self._cache_key(connection, scope=scope)
+        is_owner = False
+        with _CACHE_LOCK:
+            prune_expired_lru_cache(_CACHE, now=monotonic(), max_entries=_CACHE_MAX_ENTRIES)
+            cached = _CACHE.get(key)
+            if cached is not None:
+                _CACHE.move_to_end(key)
+                return cached.value
+            in_flight = _INFLIGHT.get(key)
+            if in_flight is None:
+                in_flight = Future()
+                _INFLIGHT[key] = in_flight
+                is_owner = True
+
+        if not is_owner:
+            return in_flight.result()
+
+        try:
+            resolved = resolver(connection)
+            with _CACHE_LOCK:
+                if _INFLIGHT.get(key) is in_flight:
+                    _CACHE[key] = _CacheEntry(expires_at=monotonic() + _CACHE_TTL_SECONDS, value=resolved)
+                    _CACHE.move_to_end(key)
+                    prune_expired_lru_cache(_CACHE, now=monotonic(), max_entries=_CACHE_MAX_ENTRIES)
+            in_flight.set_result(resolved)
+            return resolved
+        except BaseException as exc:
+            in_flight.set_exception(exc)
+            raise
+        finally:
+            with _CACHE_LOCK:
+                if _INFLIGHT.get(key) is in_flight:
+                    _INFLIGHT.pop(key, None)
 
     def _resolve_identity_uncached(self, connection: S3Connection) -> ConnectionIdentityResolution:
         endpoint = connection.storage_endpoint
@@ -240,50 +280,34 @@ class ConnectionIdentityService:
             reason=identity.reason or "Metrics are unavailable: unable to resolve RGW identity for this connection.",
         )
 
-    def _cache_key(self, connection: S3Connection, *, scope: str) -> tuple:
+    @staticmethod
+    def _cache_key(connection: S3Connection, *, scope: Literal["identity", "metrics"]) -> _CacheKey:
         endpoint = connection.storage_endpoint
-        endpoint_provider = ""
-        has_supervision_access_key = False
-        has_supervision_secret_key = False
-        features_config = ""
-        endpoint_updated = None
+        endpoint_configuration = None
         if endpoint is not None:
-            endpoint_provider = normalize_storage_provider(endpoint.provider).value
-            has_supervision_access_key = bool(endpoint.supervision_access_key)
-            has_supervision_secret_key = bool(endpoint.supervision_secret_key)
-            features_config = endpoint.features_config or ""
-            endpoint_updated = endpoint.updated_at
-        connection_updated = connection.updated_at
-        return (
-            scope,
+            endpoint_configuration = [
+                endpoint.id,
+                endpoint.updated_at.isoformat() if endpoint.updated_at is not None else None,
+                endpoint.provider,
+                endpoint.endpoint_url,
+                endpoint.region,
+                endpoint.verify_tls,
+                endpoint.features_config,
+                endpoint.supervision_access_key,
+                endpoint.supervision_secret_key,
+                endpoint.admin_access_key,
+                endpoint.admin_secret_key,
+            ]
+        payload = json.dumps([
             connection.id,
+            connection.updated_at.isoformat() if connection.updated_at is not None else None,
             connection.access_key_id.strip(),
             connection.storage_endpoint_id,
-            (connection.credential_owner_type or "").strip().lower(),
-            (connection.credential_owner_identifier or "").strip(),
-            endpoint_provider,
-            has_supervision_access_key,
-            has_supervision_secret_key,
-            features_config,
-            int(connection_updated.timestamp()) if isinstance(connection_updated, datetime) else 0,
-            int(endpoint_updated.timestamp()) if isinstance(endpoint_updated, datetime) else 0,
-        )
-
-    def _cache_get(self, key: tuple) -> Optional[ConnectionIdentityResolution]:
-        now = datetime.now(timezone.utc)
-        with _CACHE_LOCK:
-            cached = _CACHE.get(key)
-            if cached is None:
-                return None
-            if cached.expires_at <= now:
-                _CACHE.pop(key, None)
-                return None
-            return cached.value
-
-    def _cache_set(self, key: tuple, value: ConnectionIdentityResolution) -> None:
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.ttl_seconds)
-        with _CACHE_LOCK:
-            _CACHE[key] = _CacheEntry(expires_at=expires_at, value=value)
+            connection.credential_owner_type,
+            connection.credential_owner_identifier,
+            endpoint_configuration,
+        ], separators=(",", ":"))
+        return _CacheKey(scope=scope, fingerprint=sha256(payload.encode("utf-8")).hexdigest())
 
 
 def _identity_from_metadata(owner_type: Optional[str], owner_identifier: Optional[str]) -> tuple[Optional[str], Optional[str]]:
