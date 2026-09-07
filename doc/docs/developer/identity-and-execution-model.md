@@ -47,6 +47,13 @@ for password, role, activation, MFA, and external-identity changes.
 - Backend services resolve the executor from the requested context and reject
   incompatible contexts instead of silently switching to another identity.
 
+Account-scoped Portal routes receive `AccountAccess` for a persisted RGW `S3Account` after
+the dependency has checked the explicit account selection and Portal role.
+Connection, S3-user, and Ceph Admin selectors are rejected at that boundary.
+Portal bucket statistics therefore read Manager snapshots using the account
+ID directly; current Storage Space visibility and content-access checks still
+determine which snapshots can be returned.
+
 The transversal execution-context boundary uses the explicit, non-persistent
 `S3ExecutionContext`. Persistent RGW accounts selected through this boundary
 are copied before credentials are attached. Connections, S3 users,
