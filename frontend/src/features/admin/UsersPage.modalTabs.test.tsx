@@ -650,8 +650,8 @@ describe("UsersPage modal tabs", () => {
       "Associations",
       "Workspaces",
       "Connections",
-      "Browser",
       "Manager",
+      "Browser",
     ]);
     expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
@@ -754,8 +754,8 @@ describe("UsersPage modal tabs", () => {
       "Associations",
       "Workspaces",
       "Connections",
-      "Browser",
       "Manager",
+      "Browser",
     ]);
     expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
