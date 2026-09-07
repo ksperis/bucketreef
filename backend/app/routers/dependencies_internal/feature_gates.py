@@ -10,14 +10,14 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.access_context import BucketMigrationAccessScope, ManagerActor
-from app.models.account_capabilities import AccountCapabilities
 from app.models.session import ManagerSessionPrincipal
+from app.routers.manager.access import require_manager_capabilities
 from app.services import app_settings_service
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES
 from app.services.manager_ceph_management_access_service import ManagerCephManagementAccessService
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.services.rgw_supervision import has_supervision_credentials
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -40,25 +40,11 @@ _MANAGER_TOOL_GLOBAL_FIELDS: dict[ManagerToolKey, tuple[str, str]] = {
 }
 
 
-def _ensure_manager_capabilities(account: S3ExecutionTarget, require_iam: bool = False, require_usage: bool = False) -> None:
-    caps: Optional[AccountCapabilities] = getattr(account, "manager_capabilities", None)
-    if not caps:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account context unavailable")
-    if require_iam and not caps.can_manage_iam:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="IAM management not allowed for this account")
-    if require_iam:
-        endpoint = getattr(account, "storage_endpoint", None)
-        if endpoint and not resolve_feature_flags(endpoint).iam_enabled:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="IAM is disabled for this endpoint")
-    if require_usage and not caps.can_manage_buckets:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage metrics not available for this account")
-
-
 def _require_supervision_access(
-    account: S3ExecutionTarget,
+    account: S3ExecutionContext,
     actor: ManagerActor,
     disabled_detail: str,
-    required_feature: str,
+    required_feature: Literal["metrics", "usage"],
 ) -> ManagerActor:
     if not app_settings_service.load_app_settings().manager.manager_rgw_usage_metrics_enabled:
         raise HTTPException(
@@ -66,13 +52,20 @@ def _require_supervision_access(
             detail="RGW traffic and usage metrics are disabled",
         )
 
-    caps: Optional[AccountCapabilities] = getattr(account, "manager_capabilities", None)
-    endpoint = getattr(account, "storage_endpoint", None)
+    caps = require_manager_capabilities(account)
+    if isinstance(actor, ManagerSessionPrincipal) and not actor.capabilities.can_view_traffic:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this profile")
+    if not caps.can_manage_buckets:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this account")
+    endpoint = account.storage_endpoint
 
-    connection_id = getattr(account, "s3_connection_id", None)
-    if connection_id is not None:
-        source_connection = getattr(account, "source_connection", None)
-        if source_connection is None:
+    if account.context_kind == "connection":
+        source_connection = account.source_connection
+        if (
+            source_connection is None
+            or account.s3_connection_id is None
+            or source_connection.id != account.s3_connection_id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Metrics are unavailable: connection context is incomplete.",
@@ -97,23 +90,24 @@ def _require_supervision_access(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=disabled_detail)
     if not has_supervision_credentials(account):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Supervision credentials are not configured for this account")
-    if isinstance(actor, ManagerSessionPrincipal) and not actor.capabilities.can_view_traffic:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this profile")
-    if caps and not caps.can_manage_buckets:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this account")
     return actor
 
 
 def require_iam_capable_manager(
-    account: S3ExecutionTarget = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_account_context),
     actor: ManagerActor = Depends(get_current_actor),
 ) -> ManagerActor:
-    _ensure_manager_capabilities(account, require_iam=True)
+    caps = require_manager_capabilities(account)
+    if not caps.can_manage_iam:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="IAM management not allowed for this account")
+    endpoint = account.storage_endpoint
+    if endpoint and not resolve_feature_flags(endpoint).iam_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="IAM is disabled for this endpoint")
     return actor
 
 
 def require_usage_capable_manager(
-    account: S3ExecutionTarget = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_account_context),
     actor: ManagerActor = Depends(get_current_actor),
 ) -> ManagerActor:
     return _require_supervision_access(
@@ -125,11 +119,11 @@ def require_usage_capable_manager(
 
 
 def require_sns_capable_manager(
-    account: S3ExecutionTarget = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_account_context),
     actor: ManagerActor = Depends(get_current_actor),
 ) -> ManagerActor:
-    _ensure_manager_capabilities(account)
-    endpoint = getattr(account, "storage_endpoint", None)
+    require_manager_capabilities(account)
+    endpoint = account.storage_endpoint
     if endpoint:
         flags = resolve_feature_flags(endpoint)
         if not flags.sns_enabled:
@@ -138,7 +132,7 @@ def require_sns_capable_manager(
 
 
 def require_metrics_capable_manager(
-    account: S3ExecutionTarget = Depends(get_account_context),
+    account: S3ExecutionContext = Depends(get_account_context),
     actor: ManagerActor = Depends(get_current_actor),
 ) -> ManagerActor:
     return _require_supervision_access(

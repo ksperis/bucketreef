@@ -71,6 +71,18 @@ Ceph operations, and private-access provisioning remain governed by their
 existing access services and session capabilities. Limits are loaded only
 when `include_limits=true`, both over HTTP and in direct route calls.
 
+Manager IAM, SNS, statistics, and bucket-operation guards share the explicit
+`S3ExecutionContext`/`AccountCapabilities` boundary. Missing capabilities are
+rejected, never interpreted as unrestricted access. Statistics check bucket
+permission and the direct-session traffic capability before resolving a
+connection's RGW identity. Only the explicit `connection` kind triggers that
+lookup, and it requires a source connection matching the selected connection
+ID. Incidental source metadata on another execution kind cannot switch the
+identity. The statistics overview collects IAM counts only when
+`can_manage_iam` is granted. Existing endpoint feature flags, supervision
+credentials, workspace access, and native storage authorization remain
+independent checks.
+
 Browser listing/detail caches and the shared Manager/Storage Ops bucket cache
 use the same `s3_execution_cache_key` fingerprint. It includes the explicit
 context kind and ID, credentials, session token, endpoint, region, addressing

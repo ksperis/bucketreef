@@ -18,6 +18,7 @@ from app.routers.dependencies import (
     require_metrics_capable_manager,
     require_usage_capable_manager,
 )
+from app.routers.manager.access import require_manager_capabilities
 from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
 from app.services.app_settings_service import load_app_settings
 from app.services.buckets_service import BucketsService, get_buckets_service
@@ -52,6 +53,7 @@ def account_stats(
     bucket_service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(require_usage_capable_manager),
 ) -> dict:
+    caps = require_manager_capabilities(account)
     if not account.rgw_account_id and not account.rgw_user_uid:
         raise HTTPException(status_code=400, detail="Storage metrics not available for this account")
     try:
@@ -63,12 +65,11 @@ def account_stats(
             detail=f"Unable to fetch buckets: {sanitized_error_log_detail(exc)}",
         ) from exc
 
-    caps = getattr(account, "manager_capabilities", None)
     users: list = []
     groups: list = []
     roles: list = []
     policies: list = []
-    if not caps or caps.can_manage_iam:
+    if caps.can_manage_iam:
         access_key, secret_key = account.effective_rgw_credentials()
         if not access_key or not secret_key:
             raise HTTPException(status_code=400, detail="Execution context credentials are missing")
