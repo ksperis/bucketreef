@@ -1,18 +1,17 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import logging
-from datetime import datetime, timezone
-from typing import Optional, Tuple
+from collections.abc import Mapping
+from datetime import datetime
+from typing import Optional
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import get_settings
 from app.services.aws_client_config import build_interactive_aws_config
-from app.utils.time import normalize_utc
+from app.utils.time import normalize_utc, utcnow
 
 settings = get_settings()
-logger = logging.getLogger(__name__)
 
 
 def get_sts_client(
@@ -23,12 +22,11 @@ def get_sts_client(
     region: Optional[str] = None,
     verify_tls: bool = True,
 ):
-    resolved_endpoint = endpoint
-    if not resolved_endpoint:
+    if not endpoint:
         raise RuntimeError("STS endpoint is not configured")
-    client = boto3.client(
+    return boto3.client(
         "sts",
-        endpoint_url=resolved_endpoint,
+        endpoint_url=endpoint,
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         aws_session_token=session_token,
@@ -36,40 +34,6 @@ def get_sts_client(
         verify=verify_tls,
         config=build_interactive_aws_config(),
     )
-    return client
-
-
-def assume_role(
-    role_arn: str,
-    session_name: str,
-    duration_seconds: int,
-    access_key: str,
-    secret_key: str,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    verify_tls: bool = True,
-) -> Tuple[str, str, str, datetime]:
-    client = get_sts_client(access_key, secret_key, endpoint=endpoint, region=region, verify_tls=verify_tls)
-    try:
-        resp = client.assume_role(
-            RoleArn=role_arn,
-            RoleSessionName=session_name,
-            DurationSeconds=duration_seconds,
-        )
-        creds = resp.get("Credentials") or {}
-        access = creds.get("AccessKeyId")
-        secret = creds.get("SecretAccessKey")
-        token = creds.get("SessionToken")
-        expiration_raw = creds.get("Expiration")
-        if not access or not secret or not token:
-            raise RuntimeError("STS assume role did not return credentials")
-        if isinstance(expiration_raw, datetime):
-            expiration = expiration_raw
-        else:
-            expiration = datetime.fromisoformat(str(expiration_raw)) if expiration_raw else datetime.now(tz=timezone.utc)
-        return access, secret, token, normalize_utc(expiration, name="STS expiration")
-    except (ClientError, BotoCoreError) as exc:
-        raise RuntimeError(f"Unable to assume role {role_arn}: {exc}") from exc
 
 
 def get_session_token(
@@ -80,7 +44,7 @@ def get_session_token(
     session_token: Optional[str] = None,
     region: Optional[str] = None,
     verify_tls: bool = True,
-) -> Tuple[str, str, str, datetime]:
+) -> tuple[str, str, str, datetime]:
     client = get_sts_client(
         access_key,
         secret_key,
@@ -91,17 +55,22 @@ def get_session_token(
     )
     try:
         resp = client.get_session_token(DurationSeconds=duration_seconds)
-        creds = resp.get("Credentials") or {}
+        creds = resp.get("Credentials") if isinstance(resp, Mapping) else None
+        if not isinstance(creds, Mapping):
+            raise RuntimeError("STS get session token did not return credentials")
         access = creds.get("AccessKeyId")
         secret = creds.get("SecretAccessKey")
         token = creds.get("SessionToken")
         expiration_raw = creds.get("Expiration")
-        if not access or not secret or not token:
+        if any(not isinstance(value, str) or not value for value in (access, secret, token)):
             raise RuntimeError("STS get session token did not return credentials")
-        if isinstance(expiration_raw, datetime):
-            expiration = expiration_raw
-        else:
-            expiration = datetime.fromisoformat(str(expiration_raw)) if expiration_raw else datetime.now(tz=timezone.utc)
-        return access, secret, token, normalize_utc(expiration, name="STS expiration")
+        try:
+            expiration = expiration_raw if isinstance(expiration_raw, datetime) else datetime.fromisoformat(expiration_raw)
+            expiration = normalize_utc(expiration, name="STS expiration")
+        except (TypeError, ValueError):
+            raise RuntimeError("STS get session token did not return a valid timezone-aware expiration") from None
+        if expiration <= utcnow():
+            raise RuntimeError("STS get session token returned expired credentials")
+        return access, secret, token, expiration
     except (ClientError, BotoCoreError) as exc:
         raise RuntimeError(f"Unable to get session token: {exc}") from exc
