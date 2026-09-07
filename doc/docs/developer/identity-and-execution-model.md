@@ -71,6 +71,14 @@ digest, never raw credentials. Existing TTLs and mutation invalidation remain
 independent from authorization; a cache hit does not authorize a context or
 replace Portal's current Storage Space visibility checks.
 
+Usage-history subjects are local RGW accounts or S3 users, scoped to their
+storage endpoint. Trend filters use the explicit execution kind and the
+corresponding local subject ID. A direct S3 session bound to a local account
+can read that account's history; an unregistered session has no local history
+and returns empty baselines or an unavailable trend response. Connections and
+Ceph Admin contexts must not be reinterpreted as local history subjects, and
+missing IDs must never broaden a query to other subjects.
+
 ## Canonical UI roles
 
 `users.role` stores exactly one role: `ui_none`, `ui_user`, `ui_admin`, or

@@ -10,6 +10,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3Connection, S3User, StorageEndpoint, User, UserRole
+from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.session import ManagerSessionPrincipal, SessionCapabilities
 from app.routers import dependencies
@@ -581,7 +582,9 @@ def test_manager_usage_history_trends_are_scoped_to_account(db_session, monkeypa
     )
     db_session.commit()
 
-    payload = manager_stats_router.account_usage_history_trends(window="day", account=account, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_history_trends(
+        window="day", account=S3ExecutionContext.from_account(account), _={}, db=db_session,
+    )
 
     assert payload.available is True
     assert payload.granularity == "hourly"
@@ -677,3 +680,72 @@ def test_manager_usage_history_trends_return_unavailable_for_connection_context(
     assert payload.available is False
     assert "private connection contexts" in (payload.unavailable_reason or "")
     assert payload.points == []
+
+
+@pytest.mark.parametrize("registered_account", [False, True])
+@pytest.mark.parametrize("route", ["usage-trends", "usage-history-trends"])
+def test_manager_usage_trends_resolve_direct_session_history(
+    client, db_session, monkeypatch, registered_account, route,
+):
+    settings = _usage_history_settings(True)
+    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: settings)
+    now = datetime(2026, 6, 9, 12, tzinfo=UTC)
+    monkeypatch.setattr(manager_stats_router, "utcnow", lambda: now)
+    monkeypatch.setattr(usage_history_service, "utcnow", lambda: now)
+    endpoint = _ceph_endpoint("ceph-session-trends")
+    account = S3Account(
+        name="stored-account",
+        rgw_account_id="stored-account",
+        rgw_user_uid="stored-account-admin",
+        storage_endpoint=endpoint,
+    )
+    db_session.add_all([endpoint, account])
+    db_session.flush()
+    db_session.add(
+        QuotaUsageDaily(
+            day=date(2026, 6, 8),
+            storage_endpoint_id=endpoint.id,
+            s3_account_id=account.id,
+            last_used_bytes=111,
+            last_used_objects=11,
+            bucket_count=1,
+            samples_count=1,
+            updated_at=datetime(2026, 6, 8, 12, tzinfo=UTC),
+        ),
+    )
+    db_session.commit()
+    actor = ManagerSessionPrincipal(
+        session_id="usage-session",
+        actor_type="s3_key",
+        access_key="session-access-key",
+        secret_key="session-secret-key",
+        account_id=account.rgw_account_id if registered_account else "external-account",
+        account_name="Session account",
+        user_uid="session-user",
+        capabilities=SessionCapabilities(
+            can_manage_buckets=True,
+            can_view_traffic=True,
+            endpoint_url=endpoint.endpoint_url,
+        ),
+    )
+    app.dependency_overrides[dependencies.get_current_actor] = lambda: actor
+
+    response = client.get(f"/api/manager/stats/{route}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    if route == "usage-trends":
+        if registered_account:
+            assert payload["storage"]["used_bytes"] == 111
+            assert payload["objects"]["used_objects"] == 11
+        else:
+            assert payload == {}
+    else:
+        assert payload["available"] is registered_account
+        if registered_account:
+            assert [point["used_bytes"] for point in payload["points"]] == [111]
+            assert payload["summary"]["subjects_count"] == 1
+        else:
+            assert payload["points"] == []
+            assert payload["unavailable_reason"] == "Usage history trends are unavailable for this context."
