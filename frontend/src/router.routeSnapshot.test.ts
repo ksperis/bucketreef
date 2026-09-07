@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RouteObject } from "react-router-dom";
+import { matchRoutes, type RouteObject } from "react-router-dom";
 
 import { createAppRoutes } from "./router";
 
@@ -26,7 +26,6 @@ describe("route snapshot", () => {
       "/admin#index",
       "/admin/profile",
       "/admin/s3-accounts",
-      "/admin/accounts",
       "/admin/s3-users",
       "/admin/s3-connections",
       "/admin/s3-users/:userId/keys",
@@ -109,5 +108,19 @@ describe("route snapshot", () => {
       "/unauthorized",
       "/*",
     ]);
+  });
+
+  it.each(["/admin/accounts", "/admin/accounts/", "/admin/accounts?search=helios"])(
+    "uses the unknown-route fallback for the removed alias %s",
+    (path) => {
+      const matches = matchRoutes(createAppRoutes(), path);
+      expect(matches?.at(-1)?.route.path).toBe("*");
+    },
+  );
+
+  it("keeps the canonical Admin and distinct Ceph Admin account routes", () => {
+    const routes = createAppRoutes();
+    expect(matchRoutes(routes, "/admin/s3-accounts")?.at(-1)?.route.path).toBe("s3-accounts");
+    expect(matchRoutes(routes, "/ceph-admin/accounts")?.at(-1)?.route.path).toBe("accounts");
   });
 });
