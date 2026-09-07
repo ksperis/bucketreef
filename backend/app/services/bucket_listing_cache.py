@@ -5,15 +5,14 @@ from __future__ import annotations
 from collections import OrderedDict
 from concurrent.futures import Future
 from dataclasses import dataclass
-from hashlib import sha256
 from threading import Lock
 from time import monotonic
 from typing import Callable
 
-from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket import Bucket
+from app.services.s3_execution_client import s3_execution_cache_key
+from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.cache import prune_expired_lru_cache
-from app.utils.s3_endpoint import resolve_s3_client_options
 
 BUCKET_LISTING_CACHE_TTL_SECONDS = 1800.0
 BUCKET_LISTING_CACHE_MAX_ENTRIES = 512
@@ -22,7 +21,7 @@ BUCKET_LISTING_CACHE_MAX_ENTRIES = 512
 @dataclass(frozen=True)
 class BucketListingCacheKey:
     scope_key: str
-    creds_key: str
+    execution_key: str
     include_key: str
     with_stats: bool
 
@@ -86,30 +85,6 @@ def _account_scope_key(account: S3ExecutionTarget) -> str:
     return "unknown"
 
 
-def _account_credentials_key(account: S3ExecutionTarget) -> str:
-    access_key = ""
-    secret_key = ""
-    if hasattr(account, "effective_rgw_credentials"):
-        raw_access, raw_secret = account.effective_rgw_credentials()
-        access_key = str(raw_access or "")
-        secret_key = str(raw_secret or "")
-    endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(account)
-    session_token_resolver = getattr(account, "session_token", None)
-    session_token = session_token_resolver() if callable(session_token_resolver) else None
-    raw = "|".join(
-        [
-            access_key,
-            secret_key,
-            str(endpoint or ""),
-            str(region or ""),
-            "1" if force_path_style else "0",
-            "1" if verify_tls else "0",
-            str(session_token or ""),
-        ]
-    )
-    return sha256(raw.encode("utf-8")).hexdigest()
-
-
 def get_cached_bucket_listing_for_account(
     *,
     account: S3ExecutionTarget,
@@ -119,7 +94,7 @@ def get_cached_bucket_listing_for_account(
 ) -> list[Bucket]:
     key = BucketListingCacheKey(
         scope_key=_account_scope_key(account),
-        creds_key=_account_credentials_key(account),
+        execution_key=s3_execution_cache_key(account),
         include_key=_normalize_include_key(include),
         with_stats=bool(with_stats),
     )

@@ -1,8 +1,10 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import json
+from hashlib import sha256
 from typing import Any
 
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 
 
@@ -22,3 +24,18 @@ def s3_execution_client_kwargs(account: S3ExecutionTarget) -> dict[str, Any]:
         **resolve_s3_client_kwargs(account),
         "session_token": account.session_token(),
     }
+
+
+def s3_execution_cache_key(account: S3ExecutionTarget) -> str:
+    """Fingerprint the explicit execution identity and full S3 client configuration."""
+    identity = (
+        (account.context_kind, account.context_id)
+        if isinstance(account, S3ExecutionContext)
+        else ("account", str(account.id))
+    )
+    payload = json.dumps(
+        [identity, account.effective_rgw_credentials(), s3_execution_client_kwargs(account)],
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return sha256(payload.encode("utf-8")).hexdigest()

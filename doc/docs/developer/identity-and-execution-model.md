@@ -55,6 +55,15 @@ instantiate synthetic `S3Account` ORM records. `context_id` and `context_kind`
 are authoritative; database-like negative IDs and dynamically attached private
 attributes are not part of the contract.
 
+Browser listing/detail caches and the shared Manager/Storage Ops bucket cache
+use the same `s3_execution_cache_key` fingerprint. It includes the explicit
+context kind and ID, credentials, session token, endpoint, region, addressing
+mode, and TLS verification option. Rotating credentials or changing execution
+configuration must not reuse a previous cached response. Cache keys store the
+digest, never raw credentials. Existing TTLs and mutation invalidation remain
+independent from authorization; a cache hit does not authorize a context or
+replace Portal's current Storage Space visibility checks.
+
 ## Canonical UI roles
 
 `users.role` stores exactly one role: `ui_none`, `ui_user`, `ui_admin`, or
