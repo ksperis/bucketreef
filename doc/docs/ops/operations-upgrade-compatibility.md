@@ -556,13 +556,20 @@ downgrading.
 
 ## 2026-08 canonical access model migration
 
-Migration `0069_canonical_account_access_roles` is a breaking, DB-only
-migration. It replaces the two account-association dimensions with one ordered
-`role`, removes the legacy columns in the same release, and makes shared S3
+!!! note "Historical migration boundary"
+    This section describes the intermediate schema and API at revision `0069`.
+    The later [Manager and Portal account-role split](#2026-09-manager-and-portal-account-role-split)
+    replaces that single role with two independent axes. Current payloads use
+    `manager_role` and `portal_role`, not `role`; see the
+    [current access contract](../developer/identity-and-execution-model.md#account-access-axes).
+
+Migration `0069_canonical_account_access_roles` was a breaking, DB-only
+migration. It replaced the previous account-association dimensions with one ordered
+`role`, removed the legacy columns in the same release, and made shared S3
 connections Manager-only.
 
-The backend API accepts and returns only the canonical `role`; backend and
-frontend must therefore be deployed together across this migration boundary.
+At that release, the backend API accepted and returned only the canonical
+`role`; backend and frontend had to be deployed together across that boundary.
 
 ### Required deployment sequence
 
@@ -590,8 +597,8 @@ database role.
 
 ### Data transformation
 
-- `portal_user`, `portal_manager`, and `account_administrator` are the only
-  stored account roles.
+- At revision `0069`, `portal_user`, `portal_manager`, and
+  `account_administrator` were the only stored association `role` values.
 - Root account links always become `account_administrator`.
 - A legacy admin flag outranks a legacy Portal role.
 - Associations that previously granted no useful right are **deleted**, not

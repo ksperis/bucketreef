@@ -52,11 +52,28 @@ still exposes up to 20 members.
 In the UI user and UI group editors, association tabs first list the currently
 linked resources. Use **Add…** to open a searchable picker, confirm the pending
 selection with **Add selected**, and use **Remove** on an existing row to
-unlink it before saving. RGW account links expose one required role selector:
-**Portal user**, **Portal manager**, or **Account administrator**. The initial
-picker value is **Portal user** for a Portal-compatible account and **Account
-administrator** otherwise; the submitted payload is always explicit. Disabling
-Portal changes capability availability, not the stored role.
+unlink it before saving. Each RGW account association has two independent
+access controls, also available when linking users or groups from RGW Accounts:
+
+- **Manager**: **No Manager access** or **Account administrator**.
+- **Portal**: **No Portal access**, **Portal user**, or **Portal manager**.
+
+Choose at least one role before saving. Both can be granted on the same link:
+for example, **Account administrator** together with **Portal user** grants
+Manager administration and ordinary Portal membership, not Portal management.
+Use **Remove** to unlink the account instead of saving two absent roles.
+Direct and group grants combine independently for each workspace; removing a
+direct grant does not revoke an equivalent right inherited from a UI group.
+
+New links initially select **Portal user** with no Manager access when Portal
+is enabled, or **Account administrator** with no Portal access when it is off.
+Review this choice before adding the link. Disabling Portal makes its controls
+unavailable or read-only, but preserves stored Portal roles; it never converts
+them into Manager roles.
+
+Manager's embedded Browser additionally requires **Allow Manager Browser data
+access** on the same account association as **Account administrator**. That
+advanced opt-in does not grant standalone Browser or Portal access.
 
 Shared S3 Connections are Admin-managed, shared, and Manager-only. Their normal
 forms do not expose sharing, Manager, or Browser flags. A connection migrated

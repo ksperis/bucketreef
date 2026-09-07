@@ -12,8 +12,9 @@ Use this page when a term in the UI or documentation is unclear.
 | S3 connection | A credential-first connection to an S3-compatible endpoint. It is used for day-to-day bucket and object work across supported backends. |
 | Execution context | The selected identity and scope used to execute an action. It can be an account, connection, S3 user, or authorized Ceph Admin endpoint context. |
 | Storage Space | The Portal name for an assigned storage area. It can map to a bucket internally, but Portal keeps the user-facing language simple. |
-| Portal role | Owner for a private space, Viewer or Editor for a team space, and Manager for project-wide administration. These roles translate into storage-side permissions. |
-| Manager access | Per-user or inherited access to advanced Manager tools and managed private-connection provisioning. |
+| Portal project role | **Portal user** or **Portal manager** on an account association, directly or through a UI group. It grants project membership independently of Manager access. A Portal manager can administer all project spaces. |
+| Storage Space role | Owner for a private space, or Viewer/Editor for delegated access to a team space. These space-level rights are distinct from Portal project membership and are projected to IAM for personal S3 keys. |
+| Manager access | Access to authorized Manager execution contexts. An account association uses **Account administrator**, independently of its Portal role. Advanced tools and managed private-connection provisioning have separate user/group entitlements. |
 | Feature flag | A setting that enables or disables a workspace or feature globally or for a surface. |
 | Endpoint capability | A backend capability reported or configured for an endpoint, such as IAM, SNS, metrics, usage, SSE, replication, or static website support. |
 | UI Tags | Persistent BucketReef metadata used to organize bucket working sets. Ceph Admin UI Tags can be Private or Shared; Storage Ops UI Tags are always private. UI Tags never modify S3 Tags. |
