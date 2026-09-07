@@ -387,6 +387,15 @@ describe("GroupsPage", () => {
     render(<GroupsPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Create group" }));
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "General",
+      "Members",
+      "Associations",
+      "Workspaces",
+      "Connections",
+      "Manager",
+      "Browser",
+    ]);
     fireEvent.change(screen.getByPlaceholderText("Storage operators"), { target: { value: "ops-group" } });
 
     fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));

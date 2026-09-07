@@ -88,8 +88,8 @@ const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "associations", label: "Associations" },
   { id: "access", label: "Workspaces" },
   { id: "connections", label: "Connections" },
-  { id: "browser", label: "Browser" },
   { id: "manager", label: "Manager" },
+  { id: "browser", label: "Browser" },
 ];
 const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "general", label: "General" },

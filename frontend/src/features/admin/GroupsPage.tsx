@@ -1213,8 +1213,8 @@ export default function GroupsPage() {
                 { id: "associations", label: "Associations" },
                 { id: "workspaces", label: "Workspaces" },
                 { id: "connections", label: "Connections" },
-                { id: "browser", label: "Browser" },
                 { id: "manager", label: "Manager" },
+                { id: "browser", label: "Browser" },
               ]}
             >
 
