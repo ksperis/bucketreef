@@ -5,6 +5,7 @@ import hashlib
 from io import BytesIO
 
 import pytest
+from botocore.response import StreamingBody
 from pydantic import ValidationError
 
 from app.db import S3Account, StorageEndpoint
@@ -171,15 +172,11 @@ def test_download_object_passes_sse_customer(monkeypatch):
     calls: list[dict[str, object]] = []
     profiles: list[str] = []
 
-    class Body:
-        def iter_chunks(self, chunk_size=1024):  # noqa: ANN001
-            return iter([b"hello"])
-
     class FakeClient:
         def get_object(self, **kwargs):  # noqa: ANN001
             calls.append(kwargs)
             return {
-                "Body": Body(),
+                "Body": StreamingBody(BytesIO(b"hello"), 5),
                 "ContentType": "text/plain",
                 "ContentDisposition": 'attachment; filename="demo.txt"',
             }
@@ -193,16 +190,17 @@ def test_download_object_passes_sse_customer(monkeypatch):
         ),
     )
 
-    stream, content_type, filename = service.download_object(
+    download = service.download_object(
         "bucket-a",
         _account(),
         "docs/demo.txt",
         sse_customer=_sse_context(),
     )
 
-    assert content_type == "text/plain"
-    assert filename == "demo.txt"
-    assert next(iter(stream)) == b"hello"
+    assert download.content_type == "text/plain"
+    assert download.filename == "demo.txt"
+    assert download.body.read() == b"hello"
+    download.body.close()
     assert len(calls) == 1
     assert profiles == ["long_running"]
     for kwargs in calls:

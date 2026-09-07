@@ -2,11 +2,15 @@
 # Licensed under the Apache License, Version 2.0
 import base64
 import hashlib
+from io import BytesIO
+
+from botocore.response import StreamingBody
 
 from app.db import S3Account
 from app.main import app
 from app.routers import dependencies
 from app.routers import browser as browser_router
+from app.services.s3_object_download import S3ObjectDownload
 
 
 def _account() -> S3Account:
@@ -25,7 +29,7 @@ def test_browser_download_returns_stream(client):
             captured["key"] = key
             captured["version_id"] = version_id
             captured["sse_customer"] = sse_customer
-            return iter([b"file-bytes"]), "text/plain", "demo.txt"
+            return S3ObjectDownload(StreamingBody(BytesIO(b"file-bytes"), 10), "text/plain", "demo.txt")
 
     app.dependency_overrides[dependencies.get_account_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
@@ -81,7 +85,7 @@ def test_browser_download_passes_sse_customer_context_to_service(client):
             captured["bucket_name"] = bucket_name
             captured["key"] = key
             captured["sse_customer"] = sse_customer
-            return iter([b"ok"]), "application/octet-stream", "demo.bin"
+            return S3ObjectDownload(StreamingBody(BytesIO(b"ok"), 2), "application/octet-stream", "demo.bin")
 
     app.dependency_overrides[dependencies.get_account_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()

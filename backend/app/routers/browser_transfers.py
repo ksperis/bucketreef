@@ -26,6 +26,7 @@ from app.models.browser import (
 from app.models.object import ObjectUploadResponse
 from app.routers.browser_common import require_sse_feature
 from app.routers.auth_session_guards import current_auth_session
+from app.routers.s3_download_response import S3DownloadResponse
 from app.routers.dependencies import (
     get_account_context,
     get_current_account_admin,
@@ -34,7 +35,6 @@ from app.routers.dependencies import (
 from app.services.browser_service import BrowserService, get_browser_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_bad_gateway_from_runtime
-from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter()
 
@@ -114,17 +114,14 @@ def download_object(
     if sse_customer:
         require_sse_feature(account)
     try:
-        stream, content_type, filename = service.download_object(
+        download = service.download_object(
             bucket_name,
             account,
             key,
             version_id=version_id,
             sse_customer=sse_customer,
         )
-        headers = {}
-        if filename:
-            headers["Content-Disposition"] = build_attachment_content_disposition(filename)
-        return StreamingResponse(stream, media_type=content_type or "application/octet-stream", headers=headers)
+        return S3DownloadResponse(download)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

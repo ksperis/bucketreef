@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.browser import BrowserStsCredentials, SseCustomerContext, StsStatus
 from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_object_download import S3ObjectDownload
 from ._shared import _resolve_endpoint
 from .sts import BrowserStsRequestError, request_browser_sts_session
 
@@ -114,7 +115,7 @@ class BrowserTransfersMixin:
         *,
         version_id: Optional[str] = None,
         sse_customer: Optional[SseCustomerContext] = None,
-    ):
+    ) -> S3ObjectDownload:
         client = self._client(account, request_profile="long_running")
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:
@@ -127,9 +128,8 @@ class BrowserTransfersMixin:
         body = resp.get("Body")
         if not body:
             raise RuntimeError(f"Unable to download '{key}': empty response body")
-        stream = body.iter_chunks(chunk_size=1024 * 1024) if hasattr(body, "iter_chunks") else body
         content_type = resp.get("ContentType")
         filename = self._filename_from_content_disposition(resp.get("ContentDisposition"))
         if not filename:
             filename = os.path.basename(key) or key or "download"
-        return stream, content_type, filename
+        return S3ObjectDownload(body=body, content_type=content_type, filename=filename)
