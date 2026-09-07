@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.db import S3Account, StorageEndpoint, StorageProvider
-from app.services import browser_service
+from app.services import browser_service, sts_service
 from app.services.browser import context as browser_context
 from app.services.browser import sts as browser_sts
 from app.services.s3_execution_context import S3ExecutionContext
@@ -380,3 +380,38 @@ def test_browser_sts_cache_evicts_least_recently_used_entries(monkeypatch):
     assert read("first") == "sts-access-1"
     assert read("second") == "sts-access-4"
     assert len(browser_sts._STS_CACHE) == 2
+
+
+@pytest.mark.parametrize(
+    ("expiration", "error"),
+    [
+        (None, "STS get session token did not return a valid timezone-aware expiration"),
+        ("invalid-provider-private-value", "STS get session token did not return a valid timezone-aware expiration"),
+        ("2000-01-01T00:00:00+00:00", "STS get session token returned expired credentials"),
+    ],
+)
+def test_browser_sts_rejects_invalid_provider_expiration_without_caching(monkeypatch, expiration, error):
+    browser_sts._STS_CACHE.clear()
+    account = _account_with_sts_endpoint()
+
+    class InvalidExpirationClient:
+        def get_session_token(self, **kwargs):
+            return {
+                "Credentials": {
+                    "AccessKeyId": "provider-access",
+                    "SecretAccessKey": "provider-secret",
+                    "SessionToken": "provider-token",
+                    "Expiration": expiration,
+                },
+            }
+
+    monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: InvalidExpirationClient())
+    service = browser_service.BrowserService()
+
+    status = service.check_sts(account)
+    assert status.available is False
+    assert status.error == error
+    with pytest.raises(RuntimeError, match="Unable to request STS credentials: STS get session token"):
+        service.get_sts_credentials(account)
+    assert service._resolve_s3_credentials(account) == ("root", "secret", None)
+    assert not browser_sts._STS_CACHE

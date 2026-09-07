@@ -78,6 +78,10 @@ credentials, renews them two minutes before their provider expiration, purges
 expired entries across contexts, and retains at most 512 entries with
 least-recently-used eviction. Failure logs identify the explicit context, never its access key;
 the existing fallback to that context's original credentials is preserved.
+Provider responses must contain nonempty string credentials and an explicit
+timezone-aware expiration. SDK datetimes and ISO timestamps are normalized to
+UTC; missing, malformed, or already expired values produce a provider error,
+never a fabricated expiration or a cached invalid session.
 
 Usage-history subjects are local RGW accounts or S3 users, scoped to their
 storage endpoint. Trend filters use the explicit execution kind and the
