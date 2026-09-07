@@ -105,6 +105,8 @@ const roleAccessHelpItems = [
   { role: "Admin", access: "User access + /admin" },
   { role: "Superadmin", access: "Admin access + /admin settings" },
 ];
+const storageOpsAccessDescription =
+  "Grant direct /storage-ops access when the UI role is User, Admin, or Superadmin.";
 
 function RoleAccessHelp({
   open,
@@ -1370,8 +1372,7 @@ export default function UsersPage() {
                 }}
                 storageOps={{
                   title: "Storage Ops access",
-                  description:
-                    'Allow access to /storage-ops. Grantable by Admin or Superadmin for roles "User" and "Admin"; "Superadmin" role updates require Superadmin.',
+                  description: storageOpsAccessDescription,
                   checked: createCanGrantStorageOps && Boolean(form.can_access_storage_ops),
                   disabled: !createCanGrantStorageOps,
                   onChange: (value) =>
@@ -1736,8 +1737,7 @@ export default function UsersPage() {
                 }}
                 storageOps={{
                   title: "Storage Ops access",
-                  description:
-                    'Allow access to /storage-ops. Grantable by Admin or Superadmin for roles "User" and "Admin"; "Superadmin" role updates require Superadmin.',
+                  description: storageOpsAccessDescription,
                   checked: editCanGrantStorageOps && Boolean(editForm.can_access_storage_ops),
                   disabled: !editCanGrantStorageOps,
                   onChange: (value) =>
