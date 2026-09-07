@@ -966,6 +966,10 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
     expect(screen.getByText("Mass management workspaces")).toBeInTheDocument();
     expect(screen.getByText("Storage Ops access")).toBeInTheDocument();
+    expect(
+      screen.getByText("Grant direct /storage-ops access when the UI role is User, Admin, or Superadmin.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Superadmin role updates require Superadmin/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Allow access to /storage-ops" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
