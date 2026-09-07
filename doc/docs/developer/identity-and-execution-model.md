@@ -62,6 +62,15 @@ instantiate synthetic `S3Account` ORM records. `context_id` and `context_kind`
 are authoritative; database-like negative IDs and dynamically attached private
 attributes are not part of the contract.
 
+`/manager/context` consumes that explicit execution context directly. Its
+internal dispatch uses the execution kind, never the presence of optional
+source IDs to infer a different kind. Source IDs identify local records for
+the existing access checks and limit lookups. `access_mode` keeps its public
+values `admin`, `connection`, `s3_user`, and `session`; Browser availability,
+Ceph operations, and private-access provisioning remain governed by their
+existing access services and session capabilities. Limits are loaded only
+when `include_limits=true`, both over HTTP and in direct route calls.
+
 Browser listing/detail caches and the shared Manager/Storage Ops bucket cache
 use the same `s3_execution_cache_key` fingerprint. It includes the explicit
 context kind and ID, credentials, session token, endpoint, region, addressing
