@@ -22,6 +22,7 @@ from app.models.portal_access_logs import (
     PortalServerAccessRequesterIdentity,
 )
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
+from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
 from app.services.portal.server_access_log_records import (
     apply_server_access_log_filter,
     dash_to_none,
@@ -137,10 +138,10 @@ class PortalServerAccessLogQueriesMixin:
         admin_endpoint = resolve_admin_endpoint(endpoint)
         if not admin_endpoint:
             return None
-        access_key = getattr(endpoint, "supervision_access_key", None) or getattr(endpoint, "admin_access_key", None)
-        secret_key = getattr(endpoint, "supervision_secret_key", None) or getattr(endpoint, "admin_secret_key", None)
-        if not access_key or not secret_key:
+        credentials = resolve_endpoint_read_credentials(endpoint)
+        if credentials is None:
             return None
+        access_key, secret_key = credentials
         return get_rgw_admin_client(
             access_key=access_key,
             secret_key=secret_key,

@@ -13,6 +13,7 @@ from time import monotonic
 from typing import Callable, Literal, Optional
 
 from app.db import S3Connection, StorageProvider
+from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client
 from app.utils.normalize import (
     normalize_optional_string,
@@ -170,13 +171,8 @@ class ConnectionIdentityService:
                 reason="RGW identity is unavailable: admin endpoint is not configured for this endpoint.",
             )
 
-        lookup_access_key = (
-            endpoint.supervision_access_key or endpoint.admin_access_key
-        )
-        lookup_secret_key = (
-            endpoint.supervision_secret_key or endpoint.admin_secret_key
-        )
-        if not lookup_access_key or not lookup_secret_key:
+        credentials = resolve_endpoint_read_credentials(endpoint)
+        if credentials is None:
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
                 rgw_account_id=None,
@@ -184,6 +180,7 @@ class ConnectionIdentityService:
                 usage_enabled=usage_enabled,
                 reason="RGW identity is unavailable: lookup credentials are not configured for this endpoint.",
             )
+        lookup_access_key, lookup_secret_key = credentials
 
         try:
             rgw_admin = get_rgw_admin_client(

@@ -131,6 +131,15 @@ keys. Endpoint or credential changes therefore do not reuse an older resolution
 even when updates occur within one second. Identical concurrent lookups share a
 single result or error, and pending coordination is released on completion.
 
+Connection RGW identity lookups, endpoint S3 healthchecks, and Portal access-log
+requester enrichment share the endpoint read-credential selector. It chooses a
+complete supervision key pair first, then a complete administrator pair only
+when supervision credentials are incomplete. It never combines keys from
+different pairs or retries with administrator credentials after a provider
+denial. Without a complete pair, the existing unavailable result is preserved.
+Metrics and usage eligibility still require complete supervision credentials;
+this selector does not change native S3 execution identities or permissions.
+
 Usage-history subjects are local RGW accounts or S3 users, scoped to their
 storage endpoint. Trend filters use the explicit execution kind and the
 corresponding local subject ID. A direct S3 session bound to a local account
