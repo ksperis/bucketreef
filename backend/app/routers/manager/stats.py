@@ -46,10 +46,6 @@ def _safe_list(operation: str, func):
         return []
 
 
-def _usage_history_trend_filters(account: S3ExecutionContext, model) -> list | None:
-    return account_usage_trend_filters(account, model)
-
-
 @router.get("/overview")
 def account_stats(
     account: S3ExecutionContext = Depends(get_account_context),
@@ -135,7 +131,7 @@ def account_usage_history_trends(
     service = UsageHistoryService(db)
     if not load_app_settings().general.usage_history_enabled:
         return service.empty_trends(window=window, unavailable_reason="Usage history is disabled.")
-    if getattr(account, "s3_connection_id", None) is not None:
+    if account.context_kind == "connection":
         return service.empty_trends(
             window=window,
             unavailable_reason=(
@@ -143,11 +139,11 @@ def account_usage_history_trends(
                 "for RGW accounts and S3 users."
             ),
         )
-    if _usage_history_trend_filters(account, QuotaUsageDaily) is None:
+    if account_usage_trend_filters(account, QuotaUsageDaily) is None:
         return service.empty_trends(window=window, unavailable_reason="Usage history trends are unavailable for this context.")
     return service.aggregate_trends(
         window=window,
-        extra_filter_builder=lambda model: _usage_history_trend_filters(account, model) or [],
+        extra_filter_builder=lambda model: account_usage_trend_filters(account, model) or [],
     )
 
 

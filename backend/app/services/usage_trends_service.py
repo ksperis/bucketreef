@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Literal
 
 from sqlalchemy.orm import Session
 
 from app.db import QuotaUsageDaily
-from app.services.s3_execution_context import S3ExecutionTarget
-from app.models.usage_trends import UsageTrendBaseline, UsageTrendsResponse
+from app.models.usage_trends import UsageTrendBaseline, UsageTrendsResponse, UsageTrendWindow
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.time import utcnow
-
-UsageTrendWindow = Literal["month", "week", "day"]
 
 USAGE_TREND_WINDOWS: tuple[tuple[UsageTrendWindow, str, int], ...] = (
     ("month", "last 30 days", 28),
@@ -22,29 +19,29 @@ USAGE_TREND_WINDOWS: tuple[tuple[UsageTrendWindow, str, int], ...] = (
 
 
 def account_usage_trend_filters(account: S3ExecutionTarget, model=QuotaUsageDaily) -> list | None:
-    if getattr(account, "s3_connection_id", None) is not None:
-        return None
-    endpoint_id = getattr(account, "storage_endpoint_id", None)
+    endpoint_id = account.storage_endpoint_id
     if endpoint_id is None:
         return None
 
-    filters = [model.storage_endpoint_id == int(endpoint_id)]
-    s3_user_id = getattr(account, "s3_user_id", None)
-    if s3_user_id is not None:
-        filters.extend(
-            [
-                model.s3_user_id == int(s3_user_id),
+    if isinstance(account, S3ExecutionContext):
+        if account.context_kind == "s3_user":
+            if account.s3_user_id is None:
+                return None
+            return [
+                model.storage_endpoint_id == endpoint_id,
+                model.s3_user_id == account.s3_user_id,
                 model.s3_account_id.is_(None),
             ]
-        )
-    else:
-        filters.extend(
-            [
-                model.s3_account_id == int(account.id),
-                model.s3_user_id.is_(None),
-            ]
-        )
-    return filters
+        if account.context_kind not in {"account", "portal_account", "session"}:
+            return None
+
+    if account.id is None:
+        return None
+    return [
+        model.storage_endpoint_id == endpoint_id,
+        model.s3_account_id == account.id,
+        model.s3_user_id.is_(None),
+    ]
 
 
 def _serialize_usage_trend_baseline(
