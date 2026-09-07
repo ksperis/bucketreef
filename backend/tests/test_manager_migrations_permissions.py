@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
@@ -9,22 +10,22 @@ from app.db import BucketMigration, BucketMigrationItem, User, UserRole
 from app.main import app
 from app.models.access_context import BucketMigrationAccessScope
 from app.routers import dependencies
-from app.routers.dependencies_internal.feature_gates import (
-    build_bucket_migration_admin_account_context_ids,
-    build_bucket_migration_allowed_context_ids,
-    ensure_bucket_migration_allowed,
-)
+from app.routers.dependencies_internal.feature_gates import ensure_manager_tool_allowed
+from app.services.effective_access_service import EffectiveAccessService
 from tests.s3_account_factory import make_s3_account
 
 
-def _user(role: str, *, bucket_migration: bool = False) -> User:
-    return User(
+def _user(db_session, role: str, *, bucket_migration: bool = False) -> User:
+    user = User(
         email=f"{role}@example.com",
         hashed_password="x",
         is_active=True,
         role=role,
         can_access_manager_bucket_migration=bucket_migration,
     )
+    db_session.add(user)
+    db_session.commit()
+    return user
 
 
 def _settings(*, enabled: bool):
@@ -35,35 +36,35 @@ def _settings(*, enabled: bool):
     )
 
 
-def test_bucket_migration_allowed_for_admin_with_user_tool_access(monkeypatch):
+def test_bucket_migration_allowed_for_admin_with_user_tool_access(db_session, monkeypatch):
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: _settings(enabled=True))
-    ensure_bucket_migration_allowed(_user(UserRole.UI_ADMIN.value, bucket_migration=True))
+    ensure_manager_tool_allowed(_user(db_session, UserRole.UI_ADMIN.value, bucket_migration=True), "bucket_migration", db_session)
 
 
-def test_bucket_migration_allowed_for_ui_user_with_user_tool_access(monkeypatch):
+def test_bucket_migration_allowed_for_ui_user_with_user_tool_access(db_session, monkeypatch):
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: _settings(enabled=True))
-    ensure_bucket_migration_allowed(_user(UserRole.UI_USER.value, bucket_migration=True))
+    ensure_manager_tool_allowed(_user(db_session, UserRole.UI_USER.value, bucket_migration=True), "bucket_migration", db_session)
 
 
-def test_bucket_migration_forbidden_without_user_tool_access(monkeypatch):
+def test_bucket_migration_forbidden_without_user_tool_access(db_session, monkeypatch):
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: _settings(enabled=True))
     with pytest.raises(HTTPException) as exc:
-        ensure_bucket_migration_allowed(_user(UserRole.UI_USER.value))
+        ensure_manager_tool_allowed(_user(db_session, UserRole.UI_USER.value), "bucket_migration", db_session)
     assert exc.value.status_code == 403
 
 
-def test_bucket_migration_forbidden_when_feature_disabled(monkeypatch):
+def test_bucket_migration_forbidden_when_feature_disabled(db_session, monkeypatch):
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: _settings(enabled=False))
     with pytest.raises(HTTPException) as exc:
-        ensure_bucket_migration_allowed(_user(UserRole.UI_ADMIN.value, bucket_migration=True))
+        ensure_manager_tool_allowed(_user(db_session, UserRole.UI_ADMIN.value, bucket_migration=True), "bucket_migration", db_session)
     assert exc.value.status_code == 403
     assert "feature is disabled" in str(exc.value.detail).lower()
 
 
-def test_bucket_migration_forbidden_for_unassigned_user(monkeypatch):
+def test_bucket_migration_forbidden_for_unassigned_user(db_session, monkeypatch):
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: _settings(enabled=True))
     with pytest.raises(HTTPException) as exc:
-        ensure_bucket_migration_allowed(_user(UserRole.UI_NONE.value, bucket_migration=True))
+        ensure_manager_tool_allowed(_user(db_session, UserRole.UI_NONE.value, bucket_migration=True), "bucket_migration", db_session)
     assert exc.value.status_code == 403
 
 
@@ -228,8 +229,21 @@ def test_bucket_migration_scope_does_not_grant_superadmin_implicit_contexts(db_s
     db_session.add_all([user, account_a, account_b])
     db_session.commit()
 
-    allowed = build_bucket_migration_allowed_context_ids(db_session, user)
-    admin_contexts = build_bucket_migration_admin_account_context_ids(db_session, user)
+    scope = EffectiveAccessService(db_session).build_bucket_migration_scope(user)
 
-    assert allowed == set()
-    assert admin_contexts == set()
+    assert scope.allowed_context_ids == set()
+    assert scope.admin_account_context_ids == set()
+
+
+def test_bucket_migration_scope_resolves_access_once_per_request(db_session, monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: _settings(enabled=True))
+    user = _user(db_session, UserRole.UI_USER.value, bucket_migration=True)
+    resolve_user = EffectiveAccessService.resolve_user
+
+    with patch.object(EffectiveAccessService, "resolve_user", autospec=True, side_effect=resolve_user) as resolve:
+        scope = dependencies.get_current_bucket_migration_scope(user=user, db=db_session)
+
+    assert scope.user is user
+    assert scope.allowed_context_ids == set()
+    assert scope.admin_account_context_ids == set()
+    assert resolve.call_count == 1

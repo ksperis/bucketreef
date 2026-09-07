@@ -65,25 +65,25 @@ def _manager_tool_user(*, bucket_integrity_check: bool = True) -> User:
     )
 
 
-def test_require_bucket_integrity_enabled_blocks_when_feature_disabled(monkeypatch):
+def test_require_bucket_integrity_enabled_blocks_when_feature_disabled(db_session, monkeypatch):
     settings = AppSettings()
     settings.general.bucket_integrity_check_enabled = False
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies_router.require_bucket_integrity_check_enabled(_manager_tool_user(), db=None)
+        dependencies_router.require_bucket_integrity_check_enabled(_manager_tool_user(), db=db_session)
 
     assert exc.value.status_code == 403
     assert "bucket integrity check feature is disabled" in str(exc.value.detail).lower()
 
 
-def test_require_bucket_integrity_enabled_blocks_without_user_tool_access(monkeypatch):
+def test_require_bucket_integrity_enabled_blocks_without_user_tool_access(db_session, monkeypatch):
     settings = AppSettings()
     settings.general.bucket_integrity_check_enabled = True
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
 
     with pytest.raises(HTTPException) as exc:
-        dependencies_router.require_bucket_integrity_check_enabled(_manager_tool_user(bucket_integrity_check=False), db=None)
+        dependencies_router.require_bucket_integrity_check_enabled(_manager_tool_user(bucket_integrity_check=False), db=db_session)
 
     assert exc.value.status_code == 403
     assert str(exc.value.detail) == "Not authorized"

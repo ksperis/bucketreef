@@ -37,23 +37,7 @@ class BucketMigrationPersistenceMixin:
         ).first()
         if user is None:
             return set()
-        service = EffectiveAccessService(self.db)
-        effective = service.resolve_user(user)
-        allowed = {
-            str(link.account_id)
-            for link in effective.account_links
-            if service.manager_account_allowed(link)
-        }
-        allowed.update(f"s3u-{item}" for item in effective.s3_user_ids)
-        allowed.update(
-            f"conn-{connection.id}"
-            for connection in service.list_workspace_connections(
-                user,
-                workspace="manager",
-                resolved=effective,
-            )
-        )
-        return allowed
+        return EffectiveAccessService(self.db).build_bucket_migration_scope(user).allowed_context_ids
 
     def _assert_migration_creator_access(self, migration: BucketMigration) -> None:
         allowed = self._creator_allowed_context_ids(migration)

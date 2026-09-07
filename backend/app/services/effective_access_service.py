@@ -35,7 +35,7 @@ from app.models.user import (
     LinkedUiGroup,
     ManagerToolAccess,
 )
-from app.models.access_context import EffectiveAccountGroupRole, EffectiveAccountLink
+from app.models.access_context import BucketMigrationAccessScope, EffectiveAccountGroupRole, EffectiveAccountLink
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
 from app.utils.account_roles import (
     ManagerAccountRoleValue,
@@ -448,6 +448,31 @@ class EffectiveAccessService:
                 & (S3Connection.id.in_(effective.s3_connection_ids))
             ),
         ).all()
+
+    def build_bucket_migration_scope(
+        self,
+        user: User,
+        *,
+        resolved: ResolvedUserAccess | None = None,
+    ) -> BucketMigrationAccessScope:
+        effective = resolved if resolved is not None else self.resolve_user(user)
+        admin_account_context_ids = {
+            str(link.account_id)
+            for link in effective.account_links
+            if self.manager_account_allowed(link)
+        }
+        allowed_context_ids = admin_account_context_ids | {
+            f"s3u-{s3_user_id}" for s3_user_id in effective.s3_user_ids
+        }
+        allowed_context_ids.update(
+            f"conn-{connection.id}"
+            for connection in self.list_workspace_connections(user, workspace="manager", resolved=effective)
+        )
+        return BucketMigrationAccessScope(
+            user=user,
+            allowed_context_ids=allowed_context_ids,
+            admin_account_context_ids=admin_account_context_ids,
+        )
 
     def connection_is_allowed(
         self,

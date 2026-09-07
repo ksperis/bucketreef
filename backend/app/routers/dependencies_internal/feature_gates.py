@@ -8,13 +8,13 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import User, UserRole, UserS3Account
-from app.models.access_context import BucketMigrationAccessScope, EffectiveAccountLink, ManagerActor
+from app.db import User
+from app.models.access_context import BucketMigrationAccessScope, ManagerActor
 from app.models.account_capabilities import AccountCapabilities
 from app.models.session import ManagerSessionPrincipal
-from app.services import app_settings_service, effective_access_service
+from app.services import app_settings_service
 from app.services.connection_identity_service import ConnectionIdentityService
-from app.services.effective_access_service import EffectiveAccessService
+from app.services.effective_access_service import MANAGER_TOOL_ROLES, EffectiveAccessService, ResolvedUserAccess
 from app.services.manager_ceph_management_access_service import ManagerCephManagementAccessService
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.rgw_supervision import has_supervision_credentials
@@ -31,14 +31,6 @@ ManagerToolKey = Literal[
     "bucket_purge",
 ]
 
-_MANAGER_TOOL_ACCESS_FIELDS: dict[ManagerToolKey, str] = {
-    "bucket_compare": "can_access_manager_bucket_compare",
-    "bucket_integrity_check": "can_access_manager_bucket_integrity_check",
-    "bucket_migration": "can_access_manager_bucket_migration",
-    "feature_rules": "can_access_manager_feature_rules",
-    "bucket_purge": "can_access_manager_bucket_purge",
-}
-
 _MANAGER_TOOL_GLOBAL_FIELDS: dict[ManagerToolKey, tuple[str, str]] = {
     "bucket_compare": ("bucket_compare_enabled", "Bucket compare feature is disabled"),
     "bucket_integrity_check": ("bucket_integrity_check_enabled", "Bucket integrity check feature is disabled"),
@@ -46,11 +38,6 @@ _MANAGER_TOOL_GLOBAL_FIELDS: dict[ManagerToolKey, tuple[str, str]] = {
     "bucket_purge": ("bucket_purge_enabled", "Bucket purge feature is disabled"),
 }
 
-_MANAGER_TOOL_ROLES = {
-    UserRole.UI_SUPERADMIN.value,
-    UserRole.UI_ADMIN.value,
-    UserRole.UI_USER.value,
-}
 
 def _ensure_manager_capabilities(account: S3ExecutionTarget, require_iam: bool = False, require_usage: bool = False) -> None:
     caps: Optional[AccountCapabilities] = getattr(account, "manager_capabilities", None)
@@ -170,74 +157,24 @@ def _manager_tool_global_state(tool: ManagerToolKey) -> tuple[bool, str]:
     return bool(getattr(app_settings.general, global_field)), disabled_detail
 
 
-def user_has_manager_tool_access(user: User, tool: ManagerToolKey, db: Session | None = None) -> bool:
-    if db is not None:
-        access = effective_access_service.EffectiveAccessService(db).resolve_user(user).manager_tool_access
-        return bool(getattr(access, tool, False))
-    return bool(getattr(user, _MANAGER_TOOL_ACCESS_FIELDS[tool], False))
-
-
-def ensure_manager_tool_allowed(user: User, tool: ManagerToolKey, db: Session | None = None) -> None:
+def ensure_manager_tool_allowed(user: User, tool: ManagerToolKey, db: Session) -> ResolvedUserAccess:
     enabled, disabled_detail = _manager_tool_global_state(tool)
     if not enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=disabled_detail)
-    if user.role not in _MANAGER_TOOL_ROLES:
+    if user.role not in MANAGER_TOOL_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-    if user_has_manager_tool_access(user, tool, db=db):
-        return
+    effective = EffectiveAccessService(db).resolve_user(user)
+    if getattr(effective.manager_tool_access, tool):
+        return effective
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
-
-def ensure_bucket_migration_allowed(user: User, db: Session | None = None) -> None:
-    ensure_manager_tool_allowed(user, "bucket_migration", db=db)
-
-
-def _manager_link_allows_bucket_migration(
-    link: UserS3Account | EffectiveAccountLink,
-) -> bool:
-    return EffectiveAccessService.manager_account_allowed(link)
-
-
-def build_bucket_migration_allowed_context_ids(db: Session, user: User) -> set[str]:
-    allowed_context_ids: set[str] = set()
-
-    service = effective_access_service.EffectiveAccessService(db)
-    effective = service.resolve_user(user)
-    for link in effective.account_links:
-        if _manager_link_allows_bucket_migration(link):
-            allowed_context_ids.add(str(link.account_id))
-
-    for s3_user_id in effective.s3_user_ids:
-        allowed_context_ids.add(f"s3u-{s3_user_id}")
-
-    connections = service.list_workspace_connections(user, workspace="manager", resolved=effective)
-    for connection in connections:
-        allowed_context_ids.add(f"conn-{connection.id}")
-
-    return allowed_context_ids
-
-
-def build_bucket_migration_admin_account_context_ids(db: Session, user: User) -> set[str]:
-    admin_account_context_ids: set[str] = set()
-    account_links = effective_access_service.EffectiveAccessService(db).resolve_user(user).account_links
-    for link in account_links:
-        if _manager_link_allows_bucket_migration(link):
-            admin_account_context_ids.add(str(link.account_id))
-    return admin_account_context_ids
 
 
 def get_current_bucket_migration_scope(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> BucketMigrationAccessScope:
-    ensure_bucket_migration_allowed(user, db=db)
-    allowed_context_ids = build_bucket_migration_allowed_context_ids(db, user)
-    admin_account_context_ids = build_bucket_migration_admin_account_context_ids(db, user)
-    return BucketMigrationAccessScope(
-        user=user,
-        allowed_context_ids=allowed_context_ids,
-        admin_account_context_ids=admin_account_context_ids,
-    )
+    effective = ensure_manager_tool_allowed(user, "bucket_migration", db=db)
+    return EffectiveAccessService(db).build_bucket_migration_scope(user, resolved=effective)
 
 
 def require_bucket_compare_enabled(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
@@ -265,7 +202,7 @@ def require_bucket_usage_stats_enabled(user: User = Depends(get_current_user)) -
     app_settings = app_settings_service.load_app_settings()
     if not bool(app_settings.general.bucket_usage_stats_enabled):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bucket usage stats feature is disabled")
-    if user.role not in _MANAGER_TOOL_ROLES:
+    if user.role not in MANAGER_TOOL_ROLES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     return user
 
