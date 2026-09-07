@@ -29,7 +29,6 @@ from app.routers.sse_worker import (
     stream_cancellable_worker,
 )
 
-_K = TypeVar("_K")
 _T = TypeVar("_T")
 _R = TypeVar("_R")
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
@@ -47,9 +46,11 @@ class EndpointPayloadCacheKey:
     endpoint_id: int
 
 
+_K = TypeVar("_K", EndpointListCacheKey, EndpointPayloadCacheKey)
+
+
 @dataclass
 class EndpointCacheEntry:
-    endpoint_id: int
     expires_at: float
     value: Any
 
@@ -207,45 +208,76 @@ def coerce_number(value: object) -> float | None:
     return None
 
 
-def get_or_set_cache(
-    cache: OrderedDict[_K, EndpointCacheEntry],
-    lock: Lock,
-    key: _K,
-    *,
-    ttl_seconds: float,
-    max_entries: int,
-    builder: Callable[[], Any],
-) -> Any:
-    now = monotonic()
-    with lock:
-        prune_expired_lru_cache(cache, now=now, max_entries=max_entries)
-        cached = cache.get(key)
-        if cached is not None:
-            cache.move_to_end(key)
-            return cached.value
-    value = builder()
-    expires_at = monotonic() + ttl_seconds
-    with lock:
-        prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
-        cache[key] = EndpointCacheEntry(endpoint_id=getattr(key, "endpoint_id", 0), expires_at=expires_at, value=value)
-        cache.move_to_end(key)
-        prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
-    return value
+class EndpointListingCache:
+    """Own both identity-listing cache layers and invalidate their loads together."""
 
+    def __init__(
+        self,
+        *,
+        ttl_seconds: float = 30.0,
+        payload_max_entries: int = 16,
+        listing_max_entries: int = 64,
+    ) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._payload_max_entries = payload_max_entries
+        self._listing_max_entries = listing_max_entries
+        self._payloads: OrderedDict[EndpointPayloadCacheKey, EndpointCacheEntry] = OrderedDict()
+        self._listings: OrderedDict[EndpointListCacheKey, EndpointCacheEntry] = OrderedDict()
+        self._pending: dict[EndpointPayloadCacheKey | EndpointListCacheKey, set[object]] = {}
+        self._lock = Lock()
 
-def invalidate_cache(
-    cache: OrderedDict[_K, EndpointCacheEntry],
-    lock: Lock,
-    *,
-    endpoint_id: int | None = None,
-) -> None:
-    with lock:
-        if endpoint_id is None:
-            cache.clear()
-            return
-        keys = [key for key in cache.keys() if getattr(key, "endpoint_id", None) == endpoint_id]
-        for key in keys:
-            cache.pop(key, None)
+    def get_payload(self, endpoint_id: int, builder: Callable[[], list[Any]]) -> list[Any]:
+        return self._get_or_set(
+            self._payloads, EndpointPayloadCacheKey(endpoint_id), self._payload_max_entries, builder,
+        )
+
+    def get_listing(self, key: EndpointListCacheKey, builder: Callable[[], list[_T]]) -> list[_T]:
+        return self._get_or_set(self._listings, key, self._listing_max_entries, builder)
+
+    def _get_or_set(
+        self,
+        cache: OrderedDict[_K, EndpointCacheEntry],
+        key: _K,
+        max_entries: int,
+        builder: Callable[[], _T],
+    ) -> _T:
+        with self._lock:
+            prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
+            cached = cache.get(key)
+            if cached is not None:
+                cache.move_to_end(key)
+                return cached.value
+            load = object()
+            self._pending.setdefault(key, set()).add(load)
+
+        # Builders keep their own progress and cancellation callbacks. They must
+        # not share another request's cancellation or failure through a future.
+        try:
+            value = builder()
+            expires_at = monotonic() + self._ttl_seconds
+            with self._lock:
+                if load in self._pending.get(key, ()):
+                    cache[key] = EndpointCacheEntry(expires_at=expires_at, value=value)
+                    cache.move_to_end(key)
+                    prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
+            return value
+        finally:
+            with self._lock:
+                pending = self._pending.get(key)
+                if pending is not None:
+                    pending.discard(load)
+                    if not pending:
+                        self._pending.pop(key, None)
+
+    def invalidate(self, endpoint_id: int | None = None) -> None:
+        with self._lock:
+            for entries in (self._payloads, self._listings, self._pending):
+                if endpoint_id is None:
+                    entries.clear()
+                else:
+                    keys = [key for key in entries if key.endpoint_id == endpoint_id]
+                    for key in keys:
+                        entries.pop(key, None)
 
 
 def collect_filter_fields(parsed_filter: Any | None) -> set[str]:

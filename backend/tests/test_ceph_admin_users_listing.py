@@ -61,15 +61,9 @@ class FakeRGWAdmin:
 
 @pytest.fixture(autouse=True)
 def clear_users_listing_cache():
-    with user_listing_cache.USERS_LIST_CACHE_LOCK:
-        user_listing_cache.USERS_LIST_CACHE.clear()
-    with user_listing_cache.RGW_USERS_PAYLOAD_CACHE_LOCK:
-        user_listing_cache.RGW_USERS_PAYLOAD_CACHE.clear()
+    user_listing_cache.invalidate_users_listing_cache()
     yield
-    with user_listing_cache.USERS_LIST_CACHE_LOCK:
-        user_listing_cache.USERS_LIST_CACHE.clear()
-    with user_listing_cache.RGW_USERS_PAYLOAD_CACHE_LOCK:
-        user_listing_cache.RGW_USERS_PAYLOAD_CACHE.clear()
+    user_listing_cache.invalidate_users_listing_cache()
 
 
 def _build_ctx(

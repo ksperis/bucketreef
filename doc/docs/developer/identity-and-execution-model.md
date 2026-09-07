@@ -99,6 +99,17 @@ Coordination state is released when loads finish; no idle endpoint locks are
 retained. The 30-minute TTL and limits of 16 raw payloads and 64 snapshots remain
 unchanged.
 
+Ceph Admin RGW account and user listings share `EndpointListingCache`, with a
+separate instance for each entity type. It owns the raw and prepared cache
+layers under one lock, with a 30-second TTL and limits of 16 raw payloads and
+64 prepared listings. Invalidation clears both layers and detaches pending
+loads for the selected endpoint (or all endpoints). An older load cannot
+restore invalidated entries. Builders retain independent progress and
+cancellation callbacks; cancelling one request does not cancel another.
+Pending-load markers are released on success or failure. Account payload
+loading uses the internal client's explicit `list_accounts(include_details=False)`
+contract and never retries a `TypeError` through a different call signature.
+
 Browser STS sessions reuse that execution fingerprint, together with the
 resolved STS endpoint and the caller's cache partition. Exported credentials
 remain isolated by authenticated UI session. The cache requests 900-second

@@ -62,15 +62,9 @@ class FakeRGWAdminMetadataIds(FakeRGWAdmin):
 
 @pytest.fixture(autouse=True)
 def clear_accounts_listing_cache():
-    with account_listing_cache.ACCOUNTS_LIST_CACHE_LOCK:
-        account_listing_cache.ACCOUNTS_LIST_CACHE.clear()
-    with account_listing_cache.RGW_ACCOUNTS_PAYLOAD_CACHE_LOCK:
-        account_listing_cache.RGW_ACCOUNTS_PAYLOAD_CACHE.clear()
+    account_listing_cache.invalidate_accounts_listing_cache()
     yield
-    with account_listing_cache.ACCOUNTS_LIST_CACHE_LOCK:
-        account_listing_cache.ACCOUNTS_LIST_CACHE.clear()
-    with account_listing_cache.RGW_ACCOUNTS_PAYLOAD_CACHE_LOCK:
-        account_listing_cache.RGW_ACCOUNTS_PAYLOAD_CACHE.clear()
+    account_listing_cache.invalidate_accounts_listing_cache()
 
 
 def _build_ctx(
