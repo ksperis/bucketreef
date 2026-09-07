@@ -2,14 +2,17 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import Optional
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_client import require_s3_execution_credentials, s3_execution_cache_key
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.services.sts_service import get_session_token
+from app.utils.cache import prune_expired_lru_cache
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_sts_endpoint
 
@@ -17,6 +20,8 @@ from ._shared import _normalize_expiration
 
 STS_SESSION_DURATION_SECONDS = 900
 STS_CACHE_TTL_BUFFER = timedelta(minutes=2)
+STS_CACHE_MAX_ENTRIES = 512
+StsCacheKey = tuple[str, str, str]
 
 
 @dataclass(frozen=True)
@@ -26,8 +31,12 @@ class CachedStsCredentials:
     session_token: str
     expiration: datetime
 
+    @property
+    def expires_at(self) -> float:
+        return (_normalize_expiration(self.expiration) - STS_CACHE_TTL_BUFFER).timestamp()
 
-_STS_CACHE: dict[str, CachedStsCredentials] = {}
+
+_STS_CACHE: OrderedDict[StsCacheKey, CachedStsCredentials] = OrderedDict()
 _STS_CACHE_LOCK = Lock()
 
 
@@ -41,35 +50,35 @@ class BrowserStsSession:
     region: Optional[str]
 
 
-def _sts_cache_key(access_key: str, endpoint: str, cache_partition: Optional[str]) -> str:
+def _sts_cache_key(account: S3ExecutionTarget, endpoint: str, cache_partition: Optional[str]) -> StsCacheKey:
     partition = (cache_partition or "shared-runtime").strip() or "shared-runtime"
-    return f"{endpoint}::{access_key}::{partition}"
+    return s3_execution_cache_key(account), endpoint, partition
 
 
-def _get_cached_sts_credentials(cache_key: str) -> Optional[CachedStsCredentials]:
+def _get_cached_sts_credentials(cache_key: StsCacheKey) -> Optional[CachedStsCredentials]:
     now = datetime.now(tz=timezone.utc)
     with _STS_CACHE_LOCK:
+        prune_expired_lru_cache(_STS_CACHE, now=now.timestamp(), max_entries=STS_CACHE_MAX_ENTRIES)
         credentials = _STS_CACHE.get(cache_key)
         if not credentials:
             return None
-        expiration = _normalize_expiration(credentials.expiration)
-        if expiration - STS_CACHE_TTL_BUFFER > now:
-            return credentials
-        del _STS_CACHE[cache_key]
-    return None
+        _STS_CACHE.move_to_end(cache_key)
+        return credentials
 
 
-def _store_sts_credentials(cache_key: str, credentials: CachedStsCredentials) -> None:
+def _store_sts_credentials(cache_key: StsCacheKey, credentials: CachedStsCredentials) -> None:
     with _STS_CACHE_LOCK:
         _STS_CACHE[cache_key] = credentials
+        _STS_CACHE.move_to_end(cache_key)
+        prune_expired_lru_cache(
+            _STS_CACHE, now=datetime.now(tz=timezone.utc).timestamp(), max_entries=STS_CACHE_MAX_ENTRIES,
+        )
 
 
 def browser_sts_enabled(account: S3ExecutionTarget) -> bool:
-    if getattr(account, "s3_user_id", None) is not None:
+    if isinstance(account, S3ExecutionContext) and account.context_kind in {"s3_user", "connection"}:
         return False
-    if getattr(account, "s3_connection_id", None) is not None:
-        return False
-    endpoint = getattr(account, "storage_endpoint", None)
+    endpoint = account.storage_endpoint
     if not endpoint:
         return False
     return resolve_feature_flags(endpoint).sts_enabled
@@ -83,23 +92,22 @@ def request_browser_sts_session(
     if not browser_sts_enabled(account):
         raise RuntimeError("STS is disabled for this endpoint")
 
-    access_key, secret_key = account.effective_rgw_credentials()
-    if not access_key or not secret_key:
-        raise RuntimeError("S3 credentials missing for this account")
+    access_key, secret_key = require_s3_execution_credentials(
+        account, error_message="S3 credentials missing for this account",
+    )
 
     endpoint = resolve_sts_endpoint(account.storage_endpoint) if account.storage_endpoint else None
     if not endpoint:
         raise RuntimeError("STS endpoint is not configured for this account")
 
     _, region, _, verify_tls = resolve_s3_client_options(account)
-    cache_key = _sts_cache_key(access_key, endpoint, cache_partition)
+    cache_key = _sts_cache_key(account, endpoint, cache_partition)
     cached = _get_cached_sts_credentials(cache_key)
     if cached:
         return BrowserStsSession(credentials=cached, region=region)
 
     try:
         access, secret, token, expiration = get_session_token(
-            f"browser-{account.id or access_key[:8]}",
             STS_SESSION_DURATION_SECONDS,
             access_key,
             secret_key,

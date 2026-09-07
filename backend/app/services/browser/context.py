@@ -19,8 +19,8 @@ from app.models.browser import (
 )
 from app.services.aws_client_config import StorageRequestProfile
 from app.services.s3_client import get_s3_client
-from app.services.s3_execution_client import s3_execution_cache_key
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_client import require_s3_execution_credentials, s3_execution_cache_key
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 from app.utils.aws_errors import aws_error_code
 
@@ -39,16 +39,19 @@ logger = logging.getLogger(__name__)
 
 class BrowserContextMixin:
     def _resolve_s3_credentials(self, account: S3ExecutionTarget) -> tuple[str, str, Optional[str]]:
-        access_key, secret_key = account.effective_rgw_credentials()
-        if not access_key or not secret_key:
-            raise RuntimeError("S3 credentials missing for this account")
+        access_key, secret_key = require_s3_execution_credentials(
+            account, error_message="S3 credentials missing for this account",
+        )
         session_token = account.session_token()
         if not browser_sts_enabled(account):
             return access_key, secret_key, session_token
         try:
             credentials = request_browser_sts_session(account).credentials
         except RuntimeError as exc:
-            logger.info("STS session token unavailable for account %s: %s", account.id or access_key, exc)
+            context_id = account.context_id if isinstance(account, S3ExecutionContext) else account.id
+            logger.info(
+                "STS session token unavailable for context %s: %s", context_id, sanitized_error_log_detail(exc),
+            )
         else:
             return credentials.access_key_id, credentials.secret_access_key, credentials.session_token
         return access_key, secret_key, session_token

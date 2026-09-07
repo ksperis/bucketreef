@@ -71,6 +71,14 @@ digest, never raw credentials. Existing TTLs and mutation invalidation remain
 independent from authorization; a cache hit does not authorize a context or
 replace Portal's current Storage Space visibility checks.
 
+Browser STS sessions reuse that execution fingerprint, together with the
+resolved STS endpoint and the caller's cache partition. Exported credentials
+remain isolated by authenticated UI session. The cache requests 900-second
+credentials, renews them two minutes before their provider expiration, purges
+expired entries across contexts, and retains at most 512 entries with
+least-recently-used eviction. Failure logs identify the explicit context, never its access key;
+the existing fallback to that context's original credentials is preserved.
+
 Usage-history subjects are local RGW accounts or S3 users, scoped to their
 storage endpoint. Trend filters use the explicit execution kind and the
 corresponding local subject ID. A direct S3 session bound to a local account

@@ -73,7 +73,6 @@ def assume_role(
 
 
 def get_session_token(
-    session_name: str,
     duration_seconds: int,
     access_key: str,
     secret_key: str,
