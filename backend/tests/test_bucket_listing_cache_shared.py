@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
+
+import pytest
 
 from app.db import S3Account, User, UserRole
 from app.main import app
@@ -14,7 +17,9 @@ from app.routers.storage_ops import buckets as storage_ops_buckets_router
 from app.services.bucket_listing_cache import (
     get_cached_bucket_listing_for_account,
     invalidate_bucket_listing_cache,
+    invalidate_bucket_listing_cache_for_account,
 )
+from app.services.s3_execution_context import S3ExecutionContext
 from tests.execution_context_factory import make_execution_context
 
 
@@ -275,3 +280,46 @@ def test_shared_bucket_listing_cache_expires_after_ttl(monkeypatch):
     )
     assert len(third) == 1
     assert service.list_calls == 2
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"secret_key": "rotated-secret"},
+        {"session_token_value": "renewed-session"},
+        {"session_region": "us-west-2"},
+        {"session_force_path_style": False},
+        {"session_verify_tls": False},
+        {"context_kind": "portal_account"},
+    ],
+)
+def test_shared_cache_partitions_execution_configuration_and_invalidates_scope(changes):
+    account = _build_account()
+    access_key, secret_key = account.effective_rgw_credentials()
+    context = S3ExecutionContext.from_account(
+        account, access_key=access_key, secret_key=secret_key,
+    )
+    context.session_token_value = "original-session"
+    context.session_region = "us-east-1"
+    context.session_force_path_style = True
+    context.session_verify_tls = True
+    other = replace(context, **changes)
+    calls = 0
+
+    def builder():
+        nonlocal calls
+        calls += 1
+        return [Bucket(name=f"result-{calls}")]
+
+    def read(target):
+        return get_cached_bucket_listing_for_account(
+            account=target, include=set(), with_stats=False, builder=builder,
+        )[0].name
+
+    assert read(context) == "result-1"
+    assert read(context) == "result-1"
+    assert read(other) == "result-2"
+    assert read(other) == "result-2"
+    invalidate_bucket_listing_cache_for_account(account)
+    assert read(context) == "result-3"
+    assert read(other) == "result-4"

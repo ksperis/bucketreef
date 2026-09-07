@@ -19,6 +19,7 @@ from app.models.browser import (
 )
 from app.services.aws_client_config import StorageRequestProfile
 from app.services.s3_client import get_s3_client
+from app.services.s3_execution_client import s3_execution_cache_key
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 from app.utils.aws_errors import aws_error_code
@@ -30,7 +31,6 @@ from ._shared import (
     _OBJECT_LIST_CACHE,
     _OBJECT_SORT_SNAPSHOT_CACHE,
     _normalize_expiration,
-    _resolve_endpoint,
 )
 from .sts import browser_sts_enabled, request_browser_sts_session
 
@@ -91,23 +91,11 @@ class BrowserContextMixin:
             return None
         return etag.strip('"')
 
-    def _account_context_kind(self, account: S3ExecutionTarget) -> str:
-        context_kind = getattr(account, "context_kind", None)
-        if context_kind:
-            return str(context_kind)
-        if getattr(account, "s3_connection_id", None) is not None:
-            return "connection"
-        if getattr(account, "s3_user_id", None) is not None:
-            return "s3_user"
-        return "account"
-
     def _account_cache_key(self, account: S3ExecutionTarget) -> str:
         access_key, _ = account.effective_rgw_credentials()
         if not access_key:
             raise RuntimeError("S3 credentials missing for this account")
-        endpoint = _resolve_endpoint(account)
-        context_kind = self._account_context_kind(account)
-        return f"{endpoint}::{access_key}::{context_kind}"
+        return s3_execution_cache_key(account)
 
     def _object_list_cache_key(
         self,

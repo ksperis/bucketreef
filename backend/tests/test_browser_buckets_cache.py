@@ -1,9 +1,14 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from dataclasses import replace
+
+import pytest
+
 from app.db import S3Account, StorageEndpoint
 from app.services import browser_service
 from app.services.browser import _shared as browser_shared
 from app.services.browser import buckets as browser_buckets
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 def _account() -> S3Account:
@@ -98,3 +103,48 @@ def test_bucket_cache_invalidated_after_bucket_mutation(monkeypatch):
     service.search_buckets(_account(), page=1, page_size=10)
 
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"secret_key": "rotated-secret"},
+        {"session_token_value": "renewed-session"},
+        {"session_region": "us-west-2"},
+        {"session_force_path_style": False},
+        {"session_verify_tls": False},
+        {"context_id": "conn-2"},
+        {"context_kind": "session"},
+        {"session_endpoint": "https://other.example.test"},
+        {"access_key": "rotated-access-key"},
+    ],
+)
+def test_bucket_cache_does_not_reuse_another_execution_configuration(monkeypatch, changes):
+    _reset_browser_caches()
+    account = S3ExecutionContext(
+        context_id="conn-1",
+        context_kind="connection",
+        name="cache-test",
+        access_key="access-key",
+        secret_key="secret-key",
+        session_token_value="original-session",
+        session_endpoint="https://s3.example.test",
+        session_region="us-east-1",
+        session_force_path_style=True,
+        session_verify_tls=True,
+    )
+    calls = 0
+
+    class FakeClient:
+        def list_buckets(self):
+            nonlocal calls
+            calls += 1
+            return {"Buckets": [{"Name": f"result-{calls}"}]}
+
+    service = browser_service.BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
+
+    assert service.list_buckets(account)[0].name == "result-1"
+    assert service.list_buckets(account)[0].name == "result-1"
+    assert service.list_buckets(replace(account, **changes))[0].name == "result-2"
+    assert calls == 2
