@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import QuotaUsageDaily, S3Account, User
+from app.db import QuotaUsageDaily, User
 from app.models.access_context import AccountAccess
 from app.models.bucket_usage_stats import BucketUsageStatsAggregateResponse
 from app.models.portal_usage import (
@@ -30,30 +30,11 @@ from app.services.bucket_usage_stats_service import (
 from app.services.portal_service import PortalService
 from app.services.usage_history_service import UsageHistoryService
 from app.services.usage_trends_service import account_usage_trend_filters, build_account_usage_trends
+from app.utils.http_errors import raise_bad_gateway_from_runtime
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
 
 router = APIRouter()
-
-
-def _portal_usage_stats_source_scope_id(account: S3Account) -> str:
-    connection_id = getattr(account, "s3_connection_id", None)
-    if isinstance(connection_id, int) and connection_id > 0:
-        return f"conn-{connection_id}"
-
-    s3_user_id = getattr(account, "s3_user_id", None)
-    if isinstance(s3_user_id, int) and s3_user_id > 0:
-        return f"s3u-{s3_user_id}"
-
-    ceph_admin_endpoint_id = getattr(account, "ceph_admin_endpoint_id", None)
-    if isinstance(ceph_admin_endpoint_id, int) and ceph_admin_endpoint_id > 0:
-        return f"ceph-admin-{ceph_admin_endpoint_id}"
-
-    account_id = getattr(account, "id", None)
-    if isinstance(account_id, int) and account_id > 0:
-        return str(account_id)
-
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported portal account context")
 
 
 def _ensure_portal_bucket_usage_stats_enabled() -> None:
@@ -69,7 +50,7 @@ def portal_usage(
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
-    endpoint = getattr(access.account, "storage_endpoint", None)
+    endpoint = access.account.storage_endpoint
     if endpoint and not resolve_feature_flags(endpoint).metrics_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
     try:
@@ -86,7 +67,7 @@ def portal_usage_trends(
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
-    endpoint = getattr(access.account, "storage_endpoint", None)
+    endpoint = access.account.storage_endpoint
     if endpoint and not resolve_feature_flags(endpoint).metrics_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
     if not load_app_settings().general.usage_history_enabled:
@@ -108,11 +89,11 @@ def portal_usage_stats_latest(
         spaces = portal_service.list_storage_spaces(actor, access)
     except RuntimeError as exc:
         raise_portal_storage_runtime(exc)
-    source_scope_id = _portal_usage_stats_source_scope_id(access.account)
+    account_scope_id = str(access.account.id)
     targets = [
         BucketUsageStatsAggregateTarget(
             scope_kind="manager",
-            scope_id=source_scope_id,
+            scope_id=account_scope_id,
             bucket_name=space.internal_bucket_name or space.id,
         )
         for space in spaces
@@ -121,8 +102,8 @@ def portal_usage_stats_latest(
     aggregate = BucketUsageStatsService().get_aggregate_for_targets(
         db,
         scope_kind="portal",
-        scope_id=str(access.account.id),
-        scope_name=getattr(access.account, "name", None),
+        scope_id=account_scope_id,
+        scope_name=access.account.name,
         targets=targets,
     )
     return BucketUsageStatsAggregateResponse(aggregate=aggregate)
@@ -177,7 +158,7 @@ def portal_storage_space_usage_stats(
     snapshot = BucketUsageStatsService().get_latest(
         db,
         scope_kind="manager",
-        scope_id=_portal_usage_stats_source_scope_id(access.account),
+        scope_id=str(access.account.id),
         bucket_name=storage_space.internal_bucket_name,
     )
     if snapshot is None:
