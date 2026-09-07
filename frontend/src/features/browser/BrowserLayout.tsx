@@ -3,12 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import AccountControlIcon from "../../components/AccountControlIcon";
 import Layout from "../../components/Layout";
 import PageBanner from "../../components/PageBanner";
 import PageEmptyState from "../../components/PageEmptyState";
-import type { SidebarBodyRenderArgs } from "../../components/Sidebar";
+import type { SidebarBodyRenderArgs, SidebarLink } from "../../components/Sidebar";
 import TopbarContextAccountSelector, {
   type ContextAccessMode,
 } from "../../components/TopbarContextAccountSelector";
@@ -33,11 +33,16 @@ const BrowserSidebarSlotContext = createContext<BrowserSidebarSlotContextValue>(
   setSidebarBody: () => undefined,
 });
 
+const BROWSER_FALLBACK_NAV_LINKS: SidebarLink[] = [
+  { to: "/browser", label: "Browser", end: true, iconName: "folder" },
+];
+
 export function useBrowserSidebarSlot(): BrowserSidebarSlotContextValue {
   return useContext(BrowserSidebarSlotContext);
 }
 
 function BrowserShell() {
+  const location = useLocation();
   const {
     contexts,
     contextsLoaded,
@@ -50,6 +55,8 @@ function BrowserShell() {
   const [iamIdentity, setIamIdentity] = useState<string | null>(null);
   const [identityAccessMode, setIdentityAccessMode] = useState<ContextAccessMode>(null);
   const [sidebarBody, setSidebarBodyState] = useState<BrowserSidebarBodyRenderer | null>(null);
+  const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
+  const isBrowserExplorerRoute = normalizedPath === "/browser";
   const selected = contexts.find((a) => a.id === selectedContextId);
   const showSelector = requiresContextSelection && contexts.length > 1;
   const identityLabel = iamIdentity
@@ -64,6 +71,11 @@ function BrowserShell() {
       : sessionAccountName || "S3 session";
 
   useEffect(() => {
+    if (!isBrowserExplorerRoute) {
+      setIamIdentity(null);
+      setIdentityAccessMode(null);
+      return;
+    }
     if (!requiresContextSelection) {
       setIamIdentity(null);
       setIdentityAccessMode("session");
@@ -89,7 +101,7 @@ function BrowserShell() {
     return () => {
       isMounted = false;
     };
-  }, [requiresContextSelection, selectedContextId]);
+  }, [isBrowserExplorerRoute, requiresContextSelection, selectedContextId]);
 
   const handleS3AccountChange = (selectedValue: string) => {
     const value = selectedValue || null;
@@ -163,18 +175,19 @@ function BrowserShell() {
   return (
     <BrowserSidebarSlotContext.Provider value={sidebarSlotValue}>
       <Layout
+        navLinks={BROWSER_FALLBACK_NAV_LINKS}
         headerTitle="Browser"
         sidebarTitle="Browser"
         hideHeader
-        hideSidebar={!sidebarBody}
+        hideSidebar={isBrowserExplorerRoute && !sidebarBody}
         renderSidebarBody={sidebarBody ?? undefined}
-        topbarControlDescriptors={topbarControlDescriptors}
-        mainClassName="pb-0"
-        disableMainScroll
+        topbarControlDescriptors={isBrowserExplorerRoute ? topbarControlDescriptors : undefined}
+        mainClassName={isBrowserExplorerRoute ? "pb-0" : undefined}
+        disableMainScroll={isBrowserExplorerRoute}
         fullHeight
       >
-        {accessError ? <PageBanner tone="warning">{accessError}</PageBanner> : null}
-        {requiresContextSelection && contextsLoaded && !selectedContextId ? (
+        {isBrowserExplorerRoute && accessError ? <PageBanner tone="warning">{accessError}</PageBanner> : null}
+        {isBrowserExplorerRoute && requiresContextSelection && contextsLoaded && !selectedContextId ? (
           <>
             <h1 className="sr-only">Browser</h1>
             <PageEmptyState
