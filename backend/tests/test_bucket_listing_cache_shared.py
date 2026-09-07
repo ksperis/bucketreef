@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import replace
 
 import pytest
@@ -14,6 +15,7 @@ from app.models.execution_context import ExecutionContextCapabilities
 from app.routers import dependencies
 from app.routers.manager import buckets as manager_buckets_router
 from app.routers.storage_ops import buckets as storage_ops_buckets_router
+from app.services import bucket_listing_cache
 from app.services.bucket_listing_cache import (
     get_cached_bucket_listing_for_account,
     invalidate_bucket_listing_cache,
@@ -323,3 +325,217 @@ def test_shared_cache_partitions_execution_configuration_and_invalidates_scope(c
     invalidate_bucket_listing_cache_for_account(account)
     assert read(context) == "result-3"
     assert read(other) == "result-4"
+
+
+@pytest.mark.parametrize(
+    ("kind", "context_id", "source_ids"),
+    [
+        ("account", "1", {"id": 1}),
+        ("portal_account", "1", {"id": 1}),
+        ("connection", "conn-1", {"s3_connection_id": 1}),
+        ("s3_user", "s3u-1", {"s3_user_id": 1}),
+        ("ceph_admin", "ceph-admin-1", {"ceph_admin_endpoint_id": 1}),
+        ("session", "1", {"id": 1}),
+        ("session", "session:external", {"rgw_account_id": "external"}),
+    ],
+)
+def test_shared_cache_scope_uses_explicit_context_id(kind, context_id, source_ids):
+    context = S3ExecutionContext(
+        context_kind=kind,
+        context_id=context_id,
+        name="context",
+        access_key="AK",
+        secret_key="SK",
+        **source_ids,
+    )
+    without_source_metadata = replace(context, **dict.fromkeys(source_ids))
+    other_scope = replace(context, context_id=f"{context_id}-other")
+    calls = 0
+
+    def builder():
+        nonlocal calls
+        calls += 1
+        return [Bucket(name=f"result-{calls}")]
+
+    def read(target):
+        return get_cached_bucket_listing_for_account(
+            account=target, include=set(), with_stats=False, builder=builder,
+        )[0].name
+
+    assert read(context) == "result-1"
+    assert read(without_source_metadata) == "result-1"
+    assert read(other_scope) == "result-2"
+    invalidate_bucket_listing_cache_for_account(without_source_metadata)
+    assert read(context) == "result-3"
+    assert read(other_scope) == "result-2"
+
+
+@pytest.mark.parametrize("invalidate_all", [False, True])
+@pytest.mark.parametrize("old_finishes_first", [False, True])
+@pytest.mark.parametrize("old_fails", [False, True])
+def test_invalidation_detaches_pending_listing(
+    invalidate_all, old_finishes_first, old_fails,
+):
+    account = _build_account()
+    old_started = threading.Event()
+    new_started = threading.Event()
+    finish_old = threading.Event()
+    finish_new = threading.Event()
+    new_calls = 0
+    provider_error = RuntimeError("old provider failure")
+
+    def old_builder():
+        old_started.set()
+        assert finish_old.wait(timeout=5)
+        if old_fails:
+            raise provider_error
+        return [Bucket(name="old")]
+
+    def new_builder():
+        nonlocal new_calls
+        new_calls += 1
+        new_started.set()
+        assert finish_new.wait(timeout=5)
+        return [Bucket(name="fresh")]
+
+    def read(builder):
+        return get_cached_bucket_listing_for_account(
+            account=account, include=set(), with_stats=True, builder=builder,
+        )[0].name
+
+    def finish_old_read(future):
+        finish_old.set()
+        if old_fails:
+            with pytest.raises(RuntimeError) as error:
+                future.result(timeout=2)
+            assert error.value is provider_error
+        else:
+            assert future.result(timeout=2) == "old"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        old = pool.submit(read, old_builder)
+        try:
+            assert old_started.wait(timeout=2)
+            if invalidate_all:
+                invalidate_bucket_listing_cache()
+            else:
+                invalidate_bucket_listing_cache_for_account(account)
+            fresh = pool.submit(read, new_builder)
+            assert new_started.wait(timeout=2)
+            if old_finishes_first:
+                finish_old_read(old)
+            finish_new.set()
+            assert fresh.result(timeout=2) == "fresh"
+            if not old_finishes_first:
+                finish_old_read(old)
+            assert read(new_builder) == "fresh"
+            assert new_calls == 1
+        finally:
+            finish_old.set()
+            finish_new.set()
+
+
+@pytest.mark.parametrize("old_fails", [False, True])
+def test_invalidation_preserves_existing_waiters_and_new_load_ownership(monkeypatch, old_fails):
+    account = _build_account()
+    started = [threading.Event(), threading.Event()]
+    waiting = [threading.Event(), threading.Event()]
+    finish = [threading.Event(), threading.Event()]
+    loads = []
+    provider_error = RuntimeError("old provider failure")
+
+    class ObservedFuture(Future):
+        def __init__(self):
+            super().__init__()
+            self.waiting = waiting[len(loads)]
+            loads.append(self)
+
+        def result(self, timeout=None):
+            self.waiting.set()
+            return super().result(timeout=timeout)
+
+    monkeypatch.setattr(bucket_listing_cache, "Future", ObservedFuture)
+
+    def read(generation):
+        def builder():
+            started[generation].set()
+            assert finish[generation].wait(timeout=5)
+            if generation == 0 and old_fails:
+                raise provider_error
+            return [Bucket(name=f"generation-{generation}")]
+
+        return get_cached_bucket_listing_for_account(
+            account=account, include=set(), with_stats=False, builder=builder,
+        )[0].name
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        old = pool.submit(read, 0)
+        try:
+            assert started[0].wait(timeout=2)
+            old_waiter = pool.submit(read, 0)
+            assert waiting[0].wait(timeout=2)
+            invalidate_bucket_listing_cache_for_account(account)
+            fresh = pool.submit(read, 1)
+            assert started[1].wait(timeout=2)
+            finish[0].set()
+            for request in (old, old_waiter):
+                if old_fails:
+                    with pytest.raises(RuntimeError) as error:
+                        request.result(timeout=2)
+                    assert error.value is provider_error
+                else:
+                    assert request.result(timeout=2) == "generation-0"
+            fresh_waiter = pool.submit(read, 1)
+            assert waiting[1].wait(timeout=2)
+            finish[1].set()
+            assert fresh.result(timeout=2) == "generation-1"
+            assert fresh_waiter.result(timeout=2) == "generation-1"
+            assert read(1) == "generation-1"
+            assert len(loads) == 2
+        finally:
+            for event in finish:
+                event.set()
+
+
+def test_scoped_invalidation_preserves_unrelated_pending_load(monkeypatch):
+    account = _build_account()
+    other = _build_account()
+    other.id = 2
+    started = threading.Event()
+    waiting = threading.Event()
+    finish = threading.Event()
+    calls = 0
+
+    class ObservedFuture(Future):
+        def result(self, timeout=None):
+            waiting.set()
+            return super().result(timeout=timeout)
+
+    monkeypatch.setattr(bucket_listing_cache, "Future", ObservedFuture)
+
+    def builder():
+        nonlocal calls
+        calls += 1
+        started.set()
+        assert finish.wait(timeout=5)
+        return [Bucket(name="unaffected")]
+
+    def read():
+        return get_cached_bucket_listing_for_account(
+            account=account, include=set(), with_stats=False, builder=builder,
+        )[0].name
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(read)
+        try:
+            assert started.wait(timeout=2)
+            invalidate_bucket_listing_cache_for_account(other)
+            second = pool.submit(read)
+            assert waiting.wait(timeout=2)
+            finish.set()
+            assert first.result(timeout=2) == "unaffected"
+            assert second.result(timeout=2) == "unaffected"
+            assert read() == "unaffected"
+            assert calls == 1
+        finally:
+            finish.set()

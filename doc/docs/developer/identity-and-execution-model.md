@@ -71,6 +71,14 @@ digest, never raw credentials. Existing TTLs and mutation invalidation remain
 independent from authorization; a cache hit does not authorize a context or
 replace Portal's current Storage Space visibility checks.
 
+The shared Manager/Storage Ops bucket cache invalidates every execution variant
+of the selected `context_id` (or the persisted account ID), without inferring a
+scope from source metadata or display names. Account, Portal, and bound-session
+contexts retain the same account invalidation scope while their cached results
+remain separated by execution fingerprint. Invalidation also detaches pending
+loads: existing callers may finish with their original result, but subsequent
+reads start a fresh load and an older result cannot repopulate the cache.
+
 Browser STS sessions reuse that execution fingerprint, together with the
 resolved STS endpoint and the caller's cache partition. Exported credentials
 remain isolated by authenticated UI session. The cache requests 900-second

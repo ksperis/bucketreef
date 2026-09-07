@@ -11,7 +11,7 @@ from typing import Callable
 
 from app.models.bucket import Bucket
 from app.services.s3_execution_client import s3_execution_cache_key
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.cache import prune_expired_lru_cache
 
 BUCKET_LISTING_CACHE_TTL_SECONDS = 1800.0
@@ -28,7 +28,6 @@ class BucketListingCacheKey:
 
 @dataclass
 class BucketListingCacheEntry:
-    scope_key: str
     expires_at: float
     items: list[Bucket]
 
@@ -54,35 +53,8 @@ def _normalize_include_key(include: set[str]) -> str:
 
 
 def _account_scope_key(account: S3ExecutionTarget) -> str:
-    connection_id = getattr(account, "s3_connection_id", None)
-    if isinstance(connection_id, int) and connection_id > 0:
-        return f"conn-{connection_id}"
-
-    s3_user_id = getattr(account, "s3_user_id", None)
-    if isinstance(s3_user_id, int) and s3_user_id > 0:
-        return f"s3u-{s3_user_id}"
-
-    ceph_admin_endpoint_id = getattr(account, "ceph_admin_endpoint_id", None)
-    if isinstance(ceph_admin_endpoint_id, int) and ceph_admin_endpoint_id > 0:
-        return f"ceph-admin-{ceph_admin_endpoint_id}"
-
-    account_id = getattr(account, "id", None)
-    if isinstance(account_id, int) and account_id > 0:
-        return str(account_id)
-
-    rgw_account_id = str(getattr(account, "rgw_account_id", "") or "").strip()
-    if rgw_account_id:
-        return f"rgw:{rgw_account_id}"
-
-    context_id = str(getattr(account, "context_id", "") or "").strip()
-    if context_id:
-        return f"context:{context_id}"
-
-    fallback_name = str(getattr(account, "name", "") or "").strip()
-    if fallback_name:
-        return f"name:{fallback_name.lower()}"
-
-    return "unknown"
+    """Invalidate all execution variants of the explicitly selected resource."""
+    return account.context_id if isinstance(account, S3ExecutionContext) else str(account.id)
 
 
 def get_cached_bucket_listing_for_account(
@@ -125,22 +97,19 @@ def get_cached_bucket_listing_for_account(
         cached_items = _clone_bucket_list(items)
         expires_at = monotonic() + BUCKET_LISTING_CACHE_TTL_SECONDS
         with _BUCKET_LISTING_CACHE_LOCK:
-            prune_expired_lru_cache(
-                _BUCKET_LISTING_CACHE,
-                now=monotonic(),
-                max_entries=BUCKET_LISTING_CACHE_MAX_ENTRIES,
-            )
-            _BUCKET_LISTING_CACHE[key] = BucketListingCacheEntry(
-                scope_key=key.scope_key,
-                expires_at=expires_at,
-                items=cached_items,
-            )
-            _BUCKET_LISTING_CACHE.move_to_end(key)
-            prune_expired_lru_cache(
-                _BUCKET_LISTING_CACHE,
-                now=monotonic(),
-                max_entries=BUCKET_LISTING_CACHE_MAX_ENTRIES,
-            )
+            # An invalidated load may finish for its original callers, but must
+            # neither repopulate the cache nor replace a newer load's result.
+            if _BUCKET_LISTING_INFLIGHT.get(key) is in_flight:
+                _BUCKET_LISTING_CACHE[key] = BucketListingCacheEntry(
+                    expires_at=expires_at,
+                    items=cached_items,
+                )
+                _BUCKET_LISTING_CACHE.move_to_end(key)
+                prune_expired_lru_cache(
+                    _BUCKET_LISTING_CACHE,
+                    now=monotonic(),
+                    max_entries=BUCKET_LISTING_CACHE_MAX_ENTRIES,
+                )
         in_flight.set_result(cached_items)
         return _clone_bucket_list(cached_items)
     except Exception as exc:
@@ -154,12 +123,13 @@ def get_cached_bucket_listing_for_account(
 
 def invalidate_bucket_listing_cache(scope_key: str | None = None) -> None:
     with _BUCKET_LISTING_CACHE_LOCK:
-        if scope_key is None:
-            _BUCKET_LISTING_CACHE.clear()
-            return
-        invalid_keys = [key for key in _BUCKET_LISTING_CACHE.keys() if key.scope_key == scope_key]
-        for key in invalid_keys:
-            _BUCKET_LISTING_CACHE.pop(key, None)
+        for entries in (_BUCKET_LISTING_CACHE, _BUCKET_LISTING_INFLIGHT):
+            if scope_key is None:
+                entries.clear()
+            else:
+                invalid_keys = [key for key in entries if key.scope_key == scope_key]
+                for key in invalid_keys:
+                    entries.pop(key, None)
 
 
 def invalidate_bucket_listing_cache_for_account(account: S3ExecutionTarget) -> None:
