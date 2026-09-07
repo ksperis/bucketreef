@@ -122,6 +122,15 @@ timezone-aware expiration. SDK datetimes and ISO timestamps are normalized to
 UTC; missing, malformed, or already expired values produce a provider error,
 never a fabricated expiration or a cached invalid session.
 
+Connection RGW identity lookups use a separate 60-second monotonic cache, bounded
+to 512 entries with expired-entry pruning and least-recently-used eviction.
+Identity and metrics eligibility have distinct cache scopes. Keys fingerprint
+the connection metadata and full endpoint lookup configuration, including exact
+update timestamps and credentials, without retaining raw credentials in cache
+keys. Endpoint or credential changes therefore do not reuse an older resolution
+even when updates occur within one second. Identical concurrent lookups share a
+single result or error, and pending coordination is released on completion.
+
 Usage-history subjects are local RGW accounts or S3 users, scoped to their
 storage endpoint. Trend filters use the explicit execution kind and the
 corresponding local subject ID. A direct S3 session bound to a local account
