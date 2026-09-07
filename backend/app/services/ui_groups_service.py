@@ -29,6 +29,7 @@ from app.models.user import (
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
+from app.services.manager_tool_access import manager_tool_column_values, read_manager_tool_access
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
@@ -62,11 +63,7 @@ class UiGroupsService:
             can_access_storage_ops=bool(payload.can_access_storage_ops),
             can_create_manual_private_connections=bool(payload.can_create_manual_private_connections),
             can_provision_managed_private_connections=bool(payload.can_provision_managed_private_connections),
-            can_access_manager_bucket_compare=bool(manager_tool_access.bucket_compare),
-            can_access_manager_bucket_integrity_check=bool(manager_tool_access.bucket_integrity_check),
-            can_access_manager_bucket_migration=bool(manager_tool_access.bucket_migration),
-            can_access_manager_feature_rules=bool(manager_tool_access.feature_rules),
-            can_access_manager_bucket_purge=bool(manager_tool_access.bucket_purge),
+            **manager_tool_column_values(manager_tool_access),
             browser_advanced_features_enabled=bool(payload.browser_advanced_features_enabled),
             created_at=now,
             updated_at=now,
@@ -132,11 +129,8 @@ class UiGroupsService:
         if payload.can_provision_managed_private_connections is not None:
             group.can_provision_managed_private_connections = bool(payload.can_provision_managed_private_connections)
         if payload.manager_tool_access is not None:
-            group.can_access_manager_bucket_compare = bool(payload.manager_tool_access.bucket_compare)
-            group.can_access_manager_bucket_integrity_check = bool(payload.manager_tool_access.bucket_integrity_check)
-            group.can_access_manager_bucket_migration = bool(payload.manager_tool_access.bucket_migration)
-            group.can_access_manager_feature_rules = bool(payload.manager_tool_access.feature_rules)
-            group.can_access_manager_bucket_purge = bool(payload.manager_tool_access.bucket_purge)
+            for column, value in manager_tool_column_values(payload.manager_tool_access).items():
+                setattr(group, column, value)
         if payload.browser_advanced_features_enabled is not None:
             group.browser_advanced_features_enabled = bool(payload.browser_advanced_features_enabled)
         if payload.user_ids is not None:
@@ -309,13 +303,7 @@ class UiGroupsService:
             can_access_storage_ops=bool(group.can_access_storage_ops),
             can_create_manual_private_connections=bool(group.can_create_manual_private_connections),
             can_provision_managed_private_connections=bool(group.can_provision_managed_private_connections),
-            manager_tool_access=ManagerToolAccess(
-                bucket_compare=bool(group.can_access_manager_bucket_compare),
-                bucket_integrity_check=bool(group.can_access_manager_bucket_integrity_check),
-                bucket_migration=bool(group.can_access_manager_bucket_migration),
-                feature_rules=bool(group.can_access_manager_feature_rules),
-                bucket_purge=bool(group.can_access_manager_bucket_purge),
-            ),
+            manager_tool_access=read_manager_tool_access(group),
             browser_advanced_features_enabled=bool(group.browser_advanced_features_enabled),
             user_details=[
                 UserSummary(

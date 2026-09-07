@@ -6,21 +6,15 @@ from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.db import AuthSession, User, UserRole, is_admin_ui_role, is_superadmin_ui_role
-from app.models.user import ManagerToolAccess, UserUpdate
+from app.models.user import UserUpdate
 from app.routers.auth_session_guards import current_auth_session, require_recent_mfa, require_recent_primary_auth
 from app.services.app_settings_service import load_app_settings_for_db
+from app.services.manager_tool_access import read_manager_tool_access
 from app.services.webauthn_service import WebAuthnService
 
 
 STANDARD_UI_ROLES = {UserRole.UI_USER.value, UserRole.UI_NONE.value}
 PRIVILEGED_UI_ROLES = {UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value}
-_MANAGER_TOOL_COLUMNS = {
-    "bucket_compare": "can_access_manager_bucket_compare",
-    "bucket_integrity_check": "can_access_manager_bucket_integrity_check",
-    "bucket_migration": "can_access_manager_bucket_migration",
-    "feature_rules": "can_access_manager_feature_rules",
-    "bucket_purge": "can_access_manager_bucket_purge",
-}
 _DIRECT_ACCESS_FIELDS = (
     "can_access_ceph_admin",
     "can_access_storage_ops",
@@ -63,13 +57,6 @@ def require_admin_sensitive_action(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Recent WebAuthn verification required",
             )
-
-
-def _manager_tool_access_changed(user: User, requested: ManagerToolAccess) -> bool:
-    return any(
-        bool(getattr(user, column)) != bool(getattr(requested, field))
-        for field, column in _MANAGER_TOOL_COLUMNS.items()
-    )
 
 
 def _account_links_changed(user: User, payload: UserUpdate) -> bool:
@@ -128,10 +115,7 @@ def admin_user_update_requires_step_up(user: User, payload: UserUpdate) -> bool:
         requested = getattr(payload, field)
         if requested is not None and bool(requested) != bool(getattr(user, field)):
             return True
-    if payload.manager_tool_access is not None and _manager_tool_access_changed(
-        user,
-        payload.manager_tool_access,
-    ):
+    if payload.manager_tool_access is not None and read_manager_tool_access(user) != payload.manager_tool_access:
         return True
     if _account_links_changed(user, payload) or _s3_user_links_changed(user, payload):
         return True

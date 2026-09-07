@@ -45,6 +45,7 @@ from app.models.user import (
     validate_password_policy,
 )
 from app.services.external_identity_user_service import ExternalIdentityUserService
+from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.portal_ownership import require_no_private_storage_space_ownership
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
@@ -61,23 +62,11 @@ from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET
 logger = logging.getLogger(__name__)
 
 
-MANAGER_TOOL_ROLES = {
-    UserRole.UI_SUPERADMIN.value,
-    UserRole.UI_ADMIN.value,
-    UserRole.UI_USER.value,
-}
 MANAGER_ROLE_SCOPED_FIELDS = (
     "can_access_storage_ops",
     "can_create_manual_private_connections",
     "can_provision_managed_private_connections",
 )
-MANAGER_TOOL_COLUMNS = {
-    "bucket_compare": "can_access_manager_bucket_compare",
-    "bucket_integrity_check": "can_access_manager_bucket_integrity_check",
-    "bucket_migration": "can_access_manager_bucket_migration",
-    "feature_rules": "can_access_manager_feature_rules",
-    "bucket_purge": "can_access_manager_bucket_purge",
-}
 
 
 def _dump_ui_preferences(preferences: UiPreferences) -> str:
@@ -86,13 +75,6 @@ def _dump_ui_preferences(preferences: UiPreferences) -> str:
         ensure_ascii=True,
         sort_keys=True,
     )
-
-
-def _manager_tool_column_values(access: ManagerToolAccess, *, enabled: bool) -> dict[str, bool]:
-    return {
-        column: enabled and bool(getattr(access, field))
-        for field, column in MANAGER_TOOL_COLUMNS.items()
-    }
 
 
 class UsersService:
@@ -140,7 +122,7 @@ class UsersService:
                 bool(payload.can_provision_managed_private_connections) if manager_tools_supported else False
             ),
             browser_advanced_features_enabled=bool(payload.browser_advanced_features_enabled),
-            **_manager_tool_column_values(manager_tool_access, enabled=manager_tools_supported),
+            **manager_tool_column_values(manager_tool_access, enabled=manager_tools_supported),
         )
         self.db.add(user)
         self.db.flush()
@@ -196,7 +178,7 @@ class UsersService:
                 setattr(user, field, bool(requested) if manager_role else False)
 
         if payload.manager_tool_access is not None or not manager_role:
-            values = _manager_tool_column_values(
+            values = manager_tool_column_values(
                 payload.manager_tool_access or ManagerToolAccess(),
                 enabled=manager_role,
             )
