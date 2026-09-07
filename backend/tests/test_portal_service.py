@@ -5,6 +5,7 @@ import hashlib
 import json
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from botocore.exceptions import ClientError
+from botocore.response import StreamingBody
 from fastapi import HTTPException
 
 from app.db import (
@@ -57,6 +59,7 @@ from app.models.portal_versions import (
 )
 from app.models.access_context import AccountAccess
 from app.models.account_capabilities import AccountCapabilities
+from app.services.s3_object_download import S3ObjectDownload
 from app.routers import portal as portal_router
 from app.routers import portal_access_keys as portal_access_keys_router
 from app.routers import portal_traffic as portal_traffic_router
@@ -1796,7 +1799,7 @@ def test_portal_manager_can_read_and_modify_private_storage_space_content_owned_
             return {"ContentLength": 4, "ContentType": "text/plain"}
 
         def get_object(self, **_kwargs):
-            return {"Body": type("Body", (), {"read": lambda self, *_args: b"data"})()}
+            return {"Body": StreamingBody(BytesIO(b"data"), 4)}
 
         def delete_object(self, **_kwargs):
             return None
@@ -1805,7 +1808,9 @@ def test_portal_manager_can_read_and_modify_private_storage_space_content_owned_
     access = _portal_access(account, manager, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 
     assert service.get_storage_space_object_detail(manager, access, "private-data", "file.txt").size == 4
-    assert service.download_storage_space_object(manager, access, "private-data", "file.txt")[0].read() == b"data"
+    download = service.download_storage_space_object(manager, access, "private-data", "file.txt")
+    assert download.body.read() == b"data"
+    download.body.close()
     service.delete_storage_space_object(manager, access, "private-data", "file.txt")
 
 
@@ -3557,10 +3562,6 @@ def test_storage_space_role_matrix_for_files_shares_and_portal_settings(monkeypa
         ],
     )
 
-    class FakeBody:
-        def iter_chunks(self, chunk_size):  # noqa: ARG002
-            return iter([b"content"])
-
     class FakeClient:
         def __init__(self):
             self.uploads = 0
@@ -3571,7 +3572,7 @@ def test_storage_space_role_matrix_for_files_shares_and_portal_settings(monkeypa
             return {"Contents": [], "CommonPrefixes": [], "IsTruncated": False}
 
         def get_object(self, **kwargs):  # noqa: ARG002
-            return {"Body": FakeBody(), "ContentType": "text/plain"}
+            return {"Body": StreamingBody(BytesIO(b"content"), 7), "ContentType": "text/plain"}
 
         def upload_fileobj(self, *args, **kwargs):  # noqa: ARG002
             self.uploads += 1
@@ -3623,11 +3624,12 @@ def test_storage_space_role_matrix_for_files_shares_and_portal_settings(monkeypa
         db_session.add(actor_grant)
         db_session.commit()
 
-        stream, content_type, filename = service.download_storage_space_object(actor, access, "research-data", "raw-data/file.txt")
+        download = service.download_storage_space_object(actor, access, "research-data", "raw-data/file.txt")
 
-        assert list(stream) == [b"content"]
-        assert content_type == "text/plain"
-        assert filename == "file.txt"
+        assert download.body.read() == b"content"
+        download.body.close()
+        assert download.content_type == "text/plain"
+        assert download.filename == "file.txt"
 
         if can_write:
             service.delete_storage_space_object(actor, access, "research-data", "raw-data/file.txt")
@@ -6107,22 +6109,18 @@ def test_download_storage_space_object_streams_visible_object(monkeypatch, db_se
         ],
     )
 
-    class FakeBody:
-        def iter_chunks(self, chunk_size):  # noqa: ARG002
-            return iter([b"abc", b"def"])
-
     class FakeClient:
         def __init__(self):
             self.calls = []
 
         def get_object(self, **kwargs):
             self.calls.append(kwargs)
-            return {"Body": FakeBody(), "ContentType": "text/plain"}
+            return {"Body": StreamingBody(BytesIO(b"abcdef"), 6), "ContentType": "text/plain"}
 
     fake_client = FakeClient()
     monkeypatch.setattr(service, "_portal_object_client", lambda *_args, **_kwargs: fake_client)
 
-    stream, content_type, filename = service.download_storage_space_object(
+    download = service.download_storage_space_object(
         user,
         access,
         "research-data",
@@ -6130,9 +6128,10 @@ def test_download_storage_space_object_streams_visible_object(monkeypatch, db_se
     )
 
     assert fake_client.calls == [{"Bucket": "bucket-research-data", "Key": "raw-data/readme.txt"}]
-    assert list(stream) == [b"abc", b"def"]
-    assert content_type == "text/plain"
-    assert filename == "readme.txt"
+    assert list(download.body.iter_chunks(chunk_size=3)) == [b"abc", b"def"]
+    download.body.close()
+    assert download.content_type == "text/plain"
+    assert download.filename == "readme.txt"
 
 
 def test_portal_object_access_rejects_hidden_storage_space(monkeypatch, db_session):
@@ -6162,7 +6161,7 @@ def test_portal_object_download_route_does_not_require_application_audit(db_sess
             assert access_obj == access
             assert space_id == "research-data"
             assert key == "raw-data/readme.txt"
-            return iter([b"hello"]), "text/plain", "readme.txt"
+            return S3ObjectDownload(StreamingBody(BytesIO(b"hello"), 5), "text/plain", "readme.txt")
 
     response = portal_objects_router.portal_download_storage_space_object(
         "research-data",

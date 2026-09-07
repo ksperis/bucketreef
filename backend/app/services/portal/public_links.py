@@ -13,6 +13,7 @@ from app.db import PortalPublicLink as DBPortalPublicLink, S3Account, User
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.models.portal_sharing import PortalPublicLink
 from app.services.s3_client import get_s3_client
+from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.time import utcnow
 
@@ -177,7 +178,7 @@ class PortalPublicLinksMixin:
         self.db.commit()
         return self.list_storage_space_public_links(user, access, space_id, include_revoked=True)
 
-    def download_public_link(self, token: str):
+    def download_public_link(self, token: str) -> S3ObjectDownload:
         link = self.db.query(DBPortalPublicLink).filter(DBPortalPublicLink.token == token).first()
         if link is None:
             raise RuntimeError("Public link not found.")
@@ -210,6 +211,5 @@ class PortalPublicLinksMixin:
         body = resp.get("Body")
         if not body:
             raise RuntimeError("Unable to download this public link.")
-        stream = body.iter_chunks(chunk_size=1024 * 1024) if hasattr(body, "iter_chunks") else body
         filename = self._object_name(link.object_key) or "download"
-        return stream, resp.get("ContentType"), filename
+        return S3ObjectDownload(body=body, content_type=resp.get("ContentType"), filename=filename)

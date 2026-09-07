@@ -29,11 +29,11 @@ from app.routers.portal_common import (
     get_portal_service_dependency,
     raise_portal_storage_runtime,
 )
+from app.routers.s3_download_response import S3DownloadResponse
 from app.services.audit_service import AuditService
 from app.services.portal_service import PortalService
 from app.services.users_service import UsersService
 from app.utils.http_errors import raise_bad_gateway_from_runtime
-from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter()
 
@@ -132,7 +132,7 @@ def download_portal_public_link(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> StreamingResponse:
     try:
-        stream, content_type, filename = service.download_public_link(token)
+        download = service.download_public_link(token)
     except RuntimeError as exc:
         detail = sanitize_error_detail(str(exc))
         lowered = detail.lower()
@@ -141,8 +141,7 @@ def download_portal_public_link(
         if "expired" in lowered or "revoked" in lowered or "archived" in lowered or "suspended" in lowered:
             raise HTTPException(status_code=status.HTTP_410_GONE, detail=detail) from exc
         raise_bad_gateway_from_runtime(exc)
-    headers = {"Content-Disposition": build_attachment_content_disposition(filename)}
-    return StreamingResponse(stream, media_type=content_type or "application/octet-stream", headers=headers)
+    return S3DownloadResponse(download)
 
 
 @router.get("/storage-spaces/{space_id}/shares", response_model=list[PortalStorageSpaceShare])

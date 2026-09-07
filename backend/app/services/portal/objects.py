@@ -21,6 +21,7 @@ from app.models.portal_versions import (
 )
 from app.services.aws_client_config import StorageRequestProfile
 from app.services.s3_client import get_s3_client
+from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
 
 if TYPE_CHECKING:
@@ -408,7 +409,7 @@ class PortalObjectsMixin:
         access: "AccountAccess",
         space_id: str,
         key: str,
-    ):
+    ) -> S3ObjectDownload:
         target_key = (key or "").lstrip("/")
         if not target_key:
             raise RuntimeError("Object key is required.")
@@ -424,10 +425,9 @@ class PortalObjectsMixin:
         body = resp.get("Body")
         if not body:
             raise RuntimeError(f"Unable to download object '{target_key}': empty response body")
-        stream = body.iter_chunks(chunk_size=1024 * 1024) if hasattr(body, "iter_chunks") else body
         content_type = resp.get("ContentType")
         filename = self._object_name(target_key) or "download"
-        return stream, content_type, filename
+        return S3ObjectDownload(body=body, content_type=content_type, filename=filename)
 
     def _safe_content_preview(self, client, bucket_name: str, key: str, content_type: Optional[str]) -> tuple[str, Optional[str], Optional[str]]:
         normalized_type = (content_type or "").split(";")[0].strip().lower()

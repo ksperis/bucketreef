@@ -43,6 +43,21 @@ FastAPI-generated form and multipart schemas are the only exceptions.
   Its CLI and API callers share email/password validation, the empty-database
   invariant, atomic singleton consumption and secret-free auditing.
 
+## S3 download lifetime
+
+Browser object downloads, Portal Storage Space downloads, and Portal public
+links return an internal `S3ObjectDownload` from their service. This transfers
+ownership of the open SDK `StreamingBody` to the shared `S3DownloadResponse`;
+services must not discard it by returning only a chunk iterator.
+
+The response streams one-MiB chunks without loading the whole object and keeps
+the shared attachment-header encoding. It closes the provider body after
+success, read/send failure, or client disconnection, including cancellation
+before the first chunk. Cleanup runs outside the event loop and is shielded
+from request cancellation. A response-construction failure also closes the
+body. This lifecycle does not change execution identities, authorization,
+public-link status checks, SSE-C parameters, or version selection.
+
 ## Operational routes
 
 Internal cron routes are not UI routes. Keep them token-protected and documented

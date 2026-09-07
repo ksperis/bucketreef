@@ -29,9 +29,9 @@ from app.routers.portal_streams import (
     stream_portal_deleted_prefix_restore,
     stream_portal_storage_space_version_cleanup,
 )
+from app.routers.s3_download_response import S3DownloadResponse
 from app.services.audit_service import AuditService
 from app.services.portal_service import PortalService
-from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter()
 
@@ -232,10 +232,7 @@ def portal_download_storage_space_object(
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
-        stream, content_type, filename = service.download_storage_space_object(actor, access, space_id, key)
-        headers = {}
-        if filename:
-            headers["Content-Disposition"] = build_attachment_content_disposition(filename)
-        return StreamingResponse(stream, media_type=content_type or "application/octet-stream", headers=headers)
+        download = service.download_storage_space_object(actor, access, space_id, key)
+        return S3DownloadResponse(download)
     except RuntimeError as exc:
         raise_portal_storage_runtime(exc)
