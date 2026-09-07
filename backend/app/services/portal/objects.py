@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import closing
 from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from app.models.access_context import AccountAccess
 
 logger = logging.getLogger(__name__)
+_CONTENT_PREVIEW_MAX_BYTES = 64 * 1024
 
 
 class PortalObjectsMixin:
@@ -447,9 +449,12 @@ class PortalObjectsMixin:
                 return "image", None, "Image preview is not embedded in Portal yet. Download the file to inspect it."
             return "unavailable", None, "Preview is available only for small text files."
         try:
-            resp = client.get_object(Bucket=bucket_name, Key=key, Range="bytes=0-65535")
+            resp = client.get_object(Bucket=bucket_name, Key=key, Range=f"bytes=0-{_CONTENT_PREVIEW_MAX_BYTES - 1}")
             body = resp.get("Body")
-            raw = body.read() if hasattr(body, "read") else b""
+            if body is None:
+                return "unavailable", None, "Preview response body is missing."
+            with closing(body):
+                raw = body.read(_CONTENT_PREVIEW_MAX_BYTES)
             if not isinstance(raw, bytes):
                 return "unavailable", None, "Preview response could not be decoded."
             return "text", raw.decode("utf-8", errors="replace"), None

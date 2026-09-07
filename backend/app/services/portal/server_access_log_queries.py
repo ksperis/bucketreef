@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import closing
 from datetime import date as date_cls
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -90,6 +91,11 @@ class PortalServerAccessLogQueriesMixin:
     def _read_portal_server_access_log_object(self, client: Any, log_bucket: str, object_key: str) -> bytes:
         try:
             response = client.get_object(Bucket=log_bucket, Key=object_key)
+            body = response.get("Body")
+            if body is None:
+                raise RuntimeError(f"Unable to read Portal Server Access Logging object '{object_key}': missing response body")
+            with closing(body):
+                return body.read()
         except ClientError as exc:
             code = aws_error_code(exc, lowercase=True)
             if code in {"nosuchkey", "404", "notfound"}:
@@ -97,8 +103,6 @@ class PortalServerAccessLogQueriesMixin:
             raise RuntimeError(f"Unable to read Portal Server Access Logging object '{object_key}': {exc}") from exc
         except BotoCoreError as exc:
             raise RuntimeError(f"Unable to read Portal Server Access Logging object '{object_key}': {exc}") from exc
-        body = response.get("Body")
-        return body.read() if body is not None else b""
 
     def _portal_server_access_space_by_bucket(
         self,
