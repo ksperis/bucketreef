@@ -3222,10 +3222,6 @@ def test_portal_server_access_logs_parse_all_standard_records_and_filters(monkey
         ]
     )
 
-    class _Body:
-        def read(self):
-            return log_body.encode("utf-8")
-
     class _Client:
         def __init__(self):
             self.prefixes = []
@@ -3237,7 +3233,8 @@ def test_portal_server_access_logs_parse_all_standard_records_and_filters(monkey
         def get_object(self, **kwargs):
             assert kwargs["Bucket"] == service._portal_server_access_log_bucket_name(account)
             assert kwargs["Key"] == log_key
-            return {"Body": _Body()}
+            encoded = log_body.encode("utf-8")
+            return {"Body": StreamingBody(BytesIO(encoded), len(encoded))}
 
     service = PortalService(db_session)
     client = _Client()
@@ -3363,16 +3360,13 @@ def test_portal_server_access_logs_resolve_requester_identities(monkeypatch, db_
         ]
     )
 
-    class _Body:
-        def read(self):
-            return log_body.encode("utf-8")
-
     class _Client:
         def list_objects_v2(self, **_kwargs):
             return {"Contents": [{"Key": log_key}]}
 
         def get_object(self, **_kwargs):
-            return {"Body": _Body()}
+            encoded = log_body.encode("utf-8")
+            return {"Body": StreamingBody(BytesIO(encoded), len(encoded))}
 
     class _Admin:
         def __init__(self):
@@ -3692,10 +3686,6 @@ def test_object_detail_and_delete_use_safe_portal_operations(monkeypatch, db_ses
         ],
     )
 
-    class FakeBody:
-        def read(self):
-            return b"hello preview"
-
     class FakeClient:
         def __init__(self):
             self.deletes = []
@@ -3716,7 +3706,7 @@ def test_object_detail_and_delete_use_safe_portal_operations(monkeypatch, db_ses
                 "Key": "raw-data/readme.txt",
                 "Range": "bytes=0-65535",
             }
-            return {"Body": FakeBody()}
+            return {"Body": StreamingBody(BytesIO(b"hello preview"), 13)}
 
         def delete_object(self, **kwargs):
             self.deletes.append(kwargs)

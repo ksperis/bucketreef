@@ -58,6 +58,15 @@ from request cancellation. A response-construction failure also closes the
 body. This lifecycle does not change execution identities, authorization,
 public-link status checks, SSE-C parameters, or version selection.
 
+Portal text previews and access-log readers consume their SDK bodies inside a
+`contextlib.closing` scope so success and read failures both release the
+provider connection. Text previews request and read at most 64 KiB, even when
+the provider ignores the requested byte range; access-log reads retain the
+complete object. A missing response body is not treated as an empty file:
+previews report it as unavailable and log reads fail explicitly. A genuine
+empty body remains valid, and a log object deleted after listing is still
+ignored on `NoSuchKey`/not-found responses.
+
 ## Operational routes
 
 Internal cron routes are not UI routes. Keep them token-protected and documented
