@@ -1,5 +1,26 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-09 canonical Manager usage snapshot scopes
+
+Migration `0124_canonical_manager_usage_scopes` replaces accepted alternative
+spellings of Manager context IDs in bucket usage snapshots, such as `0001`,
+`conn-0008`, and `s3u-0003`, with the resolved identifiers `1`, `conn-8`, and
+`s3u-3`. Account, connection, and S3-user scopes stay separate. Direct-session
+IDs, unrecognized scopes, other workspaces, and historical audit rows are
+unchanged.
+
+When several snapshots map to the same context and bucket, the migration keeps
+the newest `calculated_at`, breaking ties by `updated_at` and then the highest
+row ID. It preserves that row's statistics, warnings, and timestamps and
+removes only its superseded duplicate snapshots. Back up the database first;
+downgrade leaves canonical snapshots intact and cannot restore discarded
+duplicates or their original selector spellings.
+
+Stop old backend instances and ongoing usage scans before applying the
+migration, then deploy the matching backend so subsequent scans use the
+resolved context ID. No runtime alias lookup is retained. Native storage
+permissions and the accepted request selectors are unchanged.
+
 ## 2026-09 least-privilege containers and strict network policy
 
 The application images now run with fixed non-root identities and a read-only

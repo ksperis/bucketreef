@@ -55,14 +55,12 @@ def stream_manager_bucket_integrity_check(
         since=payload.since,
         max_mb_per_object=payload.max_mb_per_object,
     )
-    context_id = request.query_params.get("account_id")
-    context_name = getattr(account, "name", None)
     targets = [
         BucketIntegrityResolvedTarget(
             account=account,
             bucket_name=bucket_name,
-            context_id=context_id,
-            context_name=context_name,
+            context_id=account.context_id,
+            context_name=account.name,
         )
         for bucket_name in bucket_names
     ]

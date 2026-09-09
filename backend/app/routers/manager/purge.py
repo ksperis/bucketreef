@@ -51,14 +51,12 @@ def stream_manager_bucket_purge(
     bucket_names = _require_buckets_payload(payload)
     require_bucket_management_context(account)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
-    context_id = request.query_params.get("account_id")
-    context_name = getattr(account, "name", None)
     targets = [
         BucketPurgeResolvedTarget(
             account=account,
             bucket_name=bucket_name,
-            context_id=context_id,
-            context_name=context_name,
+            context_id=account.context_id,
+            context_name=account.name,
         )
         for bucket_name in bucket_names
     ]
@@ -68,7 +66,7 @@ def stream_manager_bucket_purge(
         "bucket_sample": bucket_names[:20],
         "parallelism": options.parallelism,
         "include_versions": options.include_versions,
-        "context_id": context_id,
+        "context_id": account.context_id,
     }
     audit = BucketPurgeAuditLifecycle(
         record=partial(
