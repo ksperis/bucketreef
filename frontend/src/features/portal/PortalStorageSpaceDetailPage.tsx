@@ -6,14 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   deletePortalStorageSpace,
-  fetchPortalStorageSpaceSettings,
   restorePortalStorageSpaceObject,
   takePortalStorageSpaceOwnership,
   updatePortalStorageSpace,
-  updatePortalStorageSpaceSettings,
   type PortalStorageSpaceAccountMemberRole,
   type PortalStorageSpaceGrantRole,
-  type PortalStorageSpaceSettings,
 } from "../../api/portal";
 import {
   fetchPortalStorageSpaceAccessSummary,
@@ -31,21 +28,17 @@ import { createPortalRequest } from "../../api/portalRequests";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import Modal from "../../components/Modal";
 import WorkflowPage, { WorkflowActions, workflowPageHostClass } from "../../components/WorkflowPage";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
-import StorageSpaceIcon from "../../components/StorageSpaceIcon";
 import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
 import UiCard from "../../components/ui/UiCard";
-import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import {
   cx,
   uiButtonBaseClass,
   uiButtonVariants,
-  uiCheckboxClass,
   uiMutedTextClass,
   uiPanelMutedClass,
   uiTitleTextClass,
@@ -102,7 +95,12 @@ import {
 } from "./portalI18n";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 import { usePortalPublicLinkActions } from "./usePortalPublicLinkActions";
-import StorageSpaceIconPickerModal from "./StorageSpaceIconPickerModal";
+
+import { usePortalAccountContext } from "./PortalAccountContext";
+import PortalStorageSpaceSettings from "./PortalStorageSpaceSettings";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import { settingsLabels } from "../../components/settings/settingsLabels";
 
 type PendingAccessChange = {
   mode: PortalAccessMode;
@@ -122,37 +120,29 @@ type SpaceDetailTab =
   | "settings";
 
 export default function PortalStorageSpaceDetailPage() {
+  const { selectedAccountId } = usePortalAccountContext();
+  const { spaceId } = useParams();
+  return <StorageSpaceDetail key={`${selectedAccountId}:${spaceId}`} />;
+}
+
+function StorageSpaceDetail() {
   const { locale, t } = useI18n();
   const { spaceId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { generalSettings } = useGeneralSettings();
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<SpaceDetailTab>(() => {
-    const requestedTab = new URLSearchParams(location.search).get("tab");
-    return requestedTab === "collaborators" || requestedTab === "external-links" || requestedTab === "statistics" || requestedTab === "settings"
-      ? requestedTab
-      : "files";
-  });
+  const requested = new URLSearchParams(location.search).get("tab");
+  const activeTab: SpaceDetailTab = requested === "collaborators" || requested === "external-links" || requested === "statistics" || requested === "settings" ? requested : "files";
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const draftLabels = settingsLabels(t);
   const [trashRestoreTarget, setTrashRestoreTarget] =
     useState<BrowserDeletedObjectTarget | null>(null);
   const [restoringTrashKey, setRestoringTrashKey] = useState<string | null>(null);
   const [browserRefreshToken, setBrowserRefreshToken] = useState(0);
   const [deletedPrefixRestoreTarget, setDeletedPrefixRestoreTarget] =
     useState<BrowserObjectDetailsRouteTarget | null>(null);
-  const [metadataName, setMetadataName] = useState("");
-  const [metadataDescription, setMetadataDescription] = useState("");
   const [metadataBusy, setMetadataBusy] = useState(false);
-  const [spaceSettings, setSpaceSettings] = useState<PortalStorageSpaceSettings | null>(null);
-  const [spaceVersioningEnabled, setSpaceVersioningEnabled] = useState(false);
-  const [spaceLifecycleEnabled, setSpaceLifecycleEnabled] = useState(false);
-  const [spaceVersionHistoryRetentionDays, setSpaceVersionHistoryRetentionDays] = useState("");
-  const [spaceSettingsLoading, setSpaceSettingsLoading] = useState(false);
-  const [spaceSettingsSaving, setSpaceSettingsSaving] = useState(false);
-  const [spaceSettingsError, setSpaceSettingsError] = useState<string | null>(null);
-  const [spaceSettingsMessage, setSpaceSettingsMessage] = useState<string | null>(null);
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [iconDialogOpen, setIconDialogOpen] = useState(false);
   const [historyCleanupConfirmOpen, setHistoryCleanupConfirmOpen] = useState(false);
   const [historyCleanupDialogOpen, setHistoryCleanupDialogOpen] = useState(false);
   const [accessSummary, setAccessSummary] = useState<PortalStorageSpaceAccessSummary | null>(null);
@@ -195,6 +185,7 @@ export default function PortalStorageSpaceDetailPage() {
     refreshWorkspaceData = () => undefined,
   } = usePortalWorkspaceData({
     includeArchived: true,
+    preserveSpaceDataOnRefresh: true,
     includeUsage: activeTab === "statistics",
   });
   const decodedSpaceId = decodePortalRouteValue(spaceId);
@@ -233,10 +224,6 @@ export default function PortalStorageSpaceDetailPage() {
   );
   const onboardingState = (location.state as { portalSpaceCreated?: boolean; portalSpaceImported?: boolean } | null) ?? null;
   const showSpaceReadyBanner = Boolean(onboardingState?.portalSpaceCreated || onboardingState?.portalSpaceImported);
-  const requestedTab = useMemo(
-    () => new URLSearchParams(location.search).get("tab"),
-    [location.search],
-  );
   const showDeletedFiles = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("show_deleted") === "1";
@@ -258,7 +245,6 @@ export default function PortalStorageSpaceDetailPage() {
 
   const selectSpaceDetailTab = useCallback(
     (tab: SpaceDetailTab) => {
-      setActiveTab(tab);
       const params = new URLSearchParams(location.search);
       if (tab !== "files") {
         params.delete("object");
@@ -284,67 +270,9 @@ export default function PortalStorageSpaceDetailPage() {
 
   useEffect(() => {
     if (!space) return;
-    setMetadataName(space.name);
-    setMetadataDescription(space.description);
     setAccessMode(spaceAccessMode);
     setAccessAccountMemberRole(space.accountMemberRole ?? "Editor");
   }, [space, spaceAccessMode]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const canReadSettings = Boolean(space && (space.role === "Owner" || space.role === "Manager"));
-    setSpaceSettings(null);
-    setSpaceSettingsError(null);
-    setSpaceSettingsMessage(null);
-    if (!space || !accountIdForApi || !canReadSettings || activeTab !== "settings") {
-      setSpaceSettingsLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-    setSpaceSettingsLoading(true);
-    fetchPortalStorageSpaceSettings(accountIdForApi, space.id)
-      .then((settings) => {
-        if (cancelled) return;
-        setSpaceSettings(settings);
-        setSpaceVersioningEnabled(settings.versioning_enabled);
-        setSpaceLifecycleEnabled(settings.lifecycle_enabled);
-        setSpaceVersionHistoryRetentionDays(String(settings.version_history_retention_days));
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) {
-          setSpaceSettingsError(
-            extractApiError(
-              err,
-              t({
-                en: "Unable to load version history settings.",
-                fr: "Impossible de charger les paramètres d’historique des versions.",
-                de: "Einstellungen für den Versionsverlauf konnten nicht geladen werden.",
-              }),
-            ),
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setSpaceSettingsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accountIdForApi, activeTab, space, t]);
-
-  useEffect(() => {
-    if (
-      requestedTab === "files" ||
-      requestedTab === "collaborators" ||
-      requestedTab === "external-links" ||
-      requestedTab === "statistics" ||
-      requestedTab === "settings"
-    ) {
-      setActiveTab(requestedTab);
-    }
-  }, [requestedTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -472,77 +400,6 @@ export default function PortalStorageSpaceDetailPage() {
       cancelled = true;
     };
   }, [accessPeopleDialogOpen, accountIdForApi, accessChanged, accessSummary?.can_manage_access, savedAccessMode, space]);
-
-  const handleSaveMetadata = async () => {
-    if (!space || !accountIdForApi) return;
-    setMetadataBusy(true);
-    setMessage(null);
-    try {
-      await updatePortalStorageSpace(accountIdForApi, space.id, {
-        ...(space.nameEditable ? { name: metadataName.trim() || space.name } : {}),
-        description: metadataDescription.trim() || null,
-      });
-      refreshWorkspaceData();
-      setSettingsDialogOpen(false);
-      setMessage(t({ en: "Space updated.", fr: "Espace mis à jour.", de: "Bereich aktualisiert." }));
-    } catch (err) {
-      console.error(err);
-      setMessage(extractApiError(err, t({ en: "Unable to update this space.", fr: "Impossible de mettre à jour cet espace.", de: "Dieser Bereich kann nicht aktualisiert werden." })));
-    } finally {
-      setMetadataBusy(false);
-    }
-  };
-
-  const handleSaveSpaceSettings = async () => {
-    if (!space || !accountIdForApi || !spaceSettings?.can_update || spaceSettingsSaving) return;
-    const retentionDays = Number(spaceVersionHistoryRetentionDays);
-    if (!Number.isInteger(retentionDays) || retentionDays < 1) {
-      setSpaceSettingsMessage(null);
-      setSpaceSettingsError(
-        t({
-          en: "Version history retention must be a positive integer.",
-          fr: "La conservation de l’historique des versions doit être un entier positif.",
-          de: "Die Aufbewahrung des Versionsverlaufs muss eine positive ganze Zahl sein.",
-        }),
-      );
-      return;
-    }
-    setSpaceSettingsSaving(true);
-    setSpaceSettingsError(null);
-    setSpaceSettingsMessage(null);
-    try {
-      const updated = await updatePortalStorageSpaceSettings(accountIdForApi, space.id, {
-        versioning_enabled: spaceVersioningEnabled,
-        lifecycle_enabled: spaceLifecycleEnabled,
-        version_history_retention_days: retentionDays,
-      });
-      setSpaceSettings(updated);
-      setSpaceVersioningEnabled(updated.versioning_enabled);
-      setSpaceLifecycleEnabled(updated.lifecycle_enabled);
-      setSpaceVersionHistoryRetentionDays(String(updated.version_history_retention_days));
-      setSpaceSettingsMessage(
-        t({
-          en: "Version history settings saved.",
-          fr: "Paramètres d’historique des versions enregistrés.",
-          de: "Einstellungen für den Versionsverlauf gespeichert.",
-        }),
-      );
-    } catch (err) {
-      console.error(err);
-      setSpaceSettingsError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to update version history settings.",
-            fr: "Impossible de modifier les paramètres d’historique des versions.",
-            de: "Einstellungen für den Versionsverlauf konnten nicht aktualisiert werden.",
-          }),
-        ),
-      );
-    } finally {
-      setSpaceSettingsSaving(false);
-    }
-  };
 
   const handleArchive = () => {
     if (!space || !accountIdForApi) return;
@@ -807,9 +664,9 @@ export default function PortalStorageSpaceDetailPage() {
 
   const pageState = resolvePortalWorkspacePageState({
     accountLoading,
-    loading,
+    loading: loading && !space,
     accountError,
-    error,
+    error: space ? null : error,
     hasAccountContext,
     loadingMessage: t({ en: "Loading space...", fr: "Chargement de l'espace...", de: "Bereich wird geladen..." }),
     noAccountMessage: t({ en: "Select a project to view this space.", fr: "Sélectionnez un projet pour voir cet espace.", de: "Wählen Sie ein Projekt aus, um diesen Bereich anzuzeigen." }),
@@ -826,10 +683,8 @@ export default function PortalStorageSpaceDetailPage() {
   const canBrowse = Boolean(space.canBrowse) && !isArchived;
   const hasFullAccess = space.role === "Owner" || space.role === "Manager";
   const canConfigureIcon = state?.portal_role === "portal_manager";
-  const canRename = hasFullAccess && space.nameEditable;
   const canModifyObjects = canBrowse && (hasFullAccess || space.role === "Editor");
   const lockedBucketName = space.internalName ?? space.id;
-  const accessKeysPath = `/portal/access-keys?space_id=${encodeURIComponent(lockedBucketName)}&create=external`;
   const canInvitePeople = !isArchived && space.role === "Manager" && space.visibility === "shared";
   const knownCollaboratorCount = Math.max(
     space.shareCount ?? 0,
@@ -903,263 +758,6 @@ export default function PortalStorageSpaceDetailPage() {
     setHistoryCleanupConfirmOpen(false);
     setHistoryCleanupDialogOpen(true);
   };
-
-  const storageSpaceSettingsCard = hasFullAccess ? (
-    <UiCard
-      title={t({ en: "Space settings", fr: "Paramètres de l'espace", de: "Bereichseinstellungen" })}
-      description={t({
-        en: "Review the space identity and archive state. Edit only when these details need to change.",
-        fr: "Consultez l'identité de l'espace et son état d'archivage. Modifiez uniquement lorsque ces détails doivent changer.",
-        de: "Prüfen Sie Identität und Archivstatus des Bereichs. Bearbeiten Sie sie nur, wenn sich diese Details ändern sollen.",
-      })}
-      actions={
-        <div className="flex flex-wrap justify-end gap-2">
-          {space.canTakeOwnership ? (
-            <UiButton size="sm" variant="secondary" disabled={takeOwnershipBusy} onClick={() => setTakeOwnershipDialogOpen(true)}>
-              {t({ en: "Take ownership", fr: "Reprendre la propriété", de: "Eigentümerschaft übernehmen" })}
-            </UiButton>
-          ) : null}
-          <UiButton size="sm" variant="secondary" disabled={metadataBusy} onClick={() => setSettingsDialogOpen(true)}>
-            {t({ en: "Edit details", fr: "Modifier", de: "Details bearbeiten" })}
-          </UiButton>
-          {canConfigureIcon ? (
-            <UiButton size="sm" variant="secondary" onClick={() => setIconDialogOpen(true)}>
-              {t({ en: "Change icon", fr: "Modifier l’icône", de: "Symbol ändern" })}
-            </UiButton>
-          ) : null}
-          {isArchived ? (
-            <UiButton size="sm" variant="secondary" disabled={metadataBusy} onClick={handleRestore}>
-              {t({ en: "Restore", fr: "Restaurer", de: "Wiederherstellen" })}
-            </UiButton>
-          ) : (
-            <UiButton size="sm" variant="warning" disabled={metadataBusy} onClick={handleArchive}>
-              {t({ en: "Archive", fr: "Archiver", de: "Archivieren" })}
-            </UiButton>
-          )}
-          {space.canDelete ? (
-            <UiButton
-              size="sm"
-              variant="danger"
-              disabled={metadataBusy || deleteBusy}
-              onClick={() => {
-                setDeleteError(null);
-                setDeleteDialogOpen(true);
-              }}
-            >
-              {t({ en: "Delete space", fr: "Supprimer l'espace", de: "Bereich löschen" })}
-            </UiButton>
-          ) : null}
-        </div>
-      }
-    >
-      <dl className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div>
-          <dt className={cx("text-[11px] font-semibold uppercase", uiMutedTextClass)}>
-            {t({ en: "Space name", fr: "Nom de l'espace", de: "Name des Bereichs" })}
-          </dt>
-          <dd className={cx("mt-1 flex items-center gap-2 text-sm font-bold", uiTitleTextClass)}>
-            <StorageSpaceIcon icon={space.icon} name={space.name} size="sm" decorative />
-            <span>{space.name}</span>
-          </dd>
-        </div>
-        <div>
-          <dt className={cx("text-[11px] font-semibold uppercase", uiMutedTextClass)}>
-            {t({ en: "Description", fr: "Description", de: "Beschreibung" })}
-          </dt>
-          <dd className={cx("mt-1 text-sm font-medium", space.description ? uiTitleTextClass : uiMutedTextClass)}>
-            {space.description || t({ en: "No description", fr: "Aucune description", de: "Keine Beschreibung" })}
-          </dd>
-        </div>
-        <div>
-          <dt className={cx("text-[11px] font-semibold uppercase", uiMutedTextClass)}>
-            {t({ en: "Status", fr: "Statut", de: "Status" })}
-          </dt>
-          <dd className="mt-1">
-            <UiBadge tone={portalStorageSpaceStatusTone(space)}>{portalStatusLabel(space.status, t)}</UiBadge>
-          </dd>
-        </div>
-        <div>
-          <dt className={cx("text-[11px] font-semibold uppercase", uiMutedTextClass)}>
-            {t({ en: "Created", fr: "Créé", de: "Erstellt" })}
-          </dt>
-          <dd className={cx("mt-1 text-sm font-bold", uiTitleTextClass)}>{space.createdLabel}</dd>
-        </div>
-      </dl>
-    </UiCard>
-  ) : null;
-
-  const versionHistorySettingsCard = hasFullAccess ? (
-    <UiCard
-      title={t({
-        en: "Version history settings",
-        fr: "Paramètres de l’historique des versions",
-        de: "Einstellungen für den Versionsverlauf",
-      })}
-      description={t({
-        en: "Configure Versioning, Lifecycle and how long older file versions are retained for this Storage Space.",
-        fr: "Configurez le Versioning, le Lifecycle et la durée de conservation des anciennes versions de fichiers pour cet espace.",
-        de: "Konfigurieren Sie Versioning, Lifecycle und die Aufbewahrungsdauer älterer Dateiversionen für diesen Bereich.",
-      })}
-      actions={
-        <div className="flex flex-wrap justify-end gap-2">
-          <UiButton
-            size="sm"
-            variant="danger"
-            disabled={!canCleanHistory}
-            onClick={openHistoryCleanupDialog}
-          >
-            {t({ en: "Clean up history", fr: "Nettoyer l'historique", de: "Historie bereinigen" })}
-          </UiButton>
-          {spaceSettings?.can_update ? (
-          <UiButton
-            size="sm"
-            disabled={spaceSettingsLoading || spaceSettingsSaving}
-            onClick={handleSaveSpaceSettings}
-          >
-            {spaceSettingsSaving
-              ? t({ en: "Saving...", fr: "Enregistrement...", de: "Speichern..." })
-              : t({ en: "Save settings", fr: "Enregistrer", de: "Einstellungen speichern" })}
-          </UiButton>
-          ) : null}
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        {spaceSettingsLoading ? (
-          <PageBanner tone="info">
-            {t({
-              en: "Loading version history settings...",
-              fr: "Chargement des paramètres d’historique des versions...",
-              de: "Einstellungen für den Versionsverlauf werden geladen...",
-            })}
-          </PageBanner>
-        ) : null}
-        {spaceSettingsError ? <PageBanner tone="warning">{spaceSettingsError}</PageBanner> : null}
-        {spaceSettingsMessage ? <PageBanner tone="success">{spaceSettingsMessage}</PageBanner> : null}
-        {spaceSettings && !spaceSettings.can_update ? (
-          <PageBanner tone={isArchived ? "warning" : "info"}>
-            {isArchived
-              ? t({
-                  en: "Archived spaces keep their settings but cannot be changed.",
-                  fr: "Les espaces archivés conservent leurs paramètres mais ne peuvent pas être modifiés.",
-                  de: "Archivierte Bereiche behalten ihre Einstellungen, können aber nicht geändert werden.",
-                })
-              : t({
-                  en: "Owners can review these values. Only a project Portal Manager can change them.",
-                  fr: "Les Owners peuvent consulter ces valeurs. Seul un Portal Manager du projet peut les modifier.",
-                  de: "Eigentümer können diese Werte einsehen. Nur ein Portal Manager des Projekts kann sie ändern.",
-                })}
-          </PageBanner>
-        ) : null}
-        {spaceSettings ? (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-md border border-[color:var(--ui-border-soft)] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className={cx("text-xs font-bold", uiTitleTextClass)}>Versioning</div>
-                  <div className={cx("mt-1 text-[11px] font-semibold", uiMutedTextClass)}>
-                    {t({ en: "S3 status", fr: "Statut S3", de: "S3-Status" })}: {spaceSettings.versioning_status}
-                  </div>
-                </div>
-                <label className="inline-flex items-center gap-2 text-xs font-semibold">
-                  <input
-                    type="checkbox"
-                    className={uiCheckboxClass}
-                    checked={spaceVersioningEnabled}
-                    disabled={!spaceSettings.can_update || spaceSettingsSaving}
-                    onChange={(event) => setSpaceVersioningEnabled(event.target.checked)}
-                    aria-label="Versioning"
-                  />
-                  {spaceVersioningEnabled
-                    ? t({ en: "Enabled", fr: "Activé", de: "Aktiviert" })
-                    : t({ en: "Disabled", fr: "Désactivé", de: "Deaktiviert" })}
-                </label>
-              </div>
-            </div>
-            <div className="rounded-md border border-[color:var(--ui-border-soft)] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className={cx("text-xs font-bold", uiTitleTextClass)}>Lifecycle</div>
-                  <div className={cx("mt-1 text-[11px] font-semibold", uiMutedTextClass)}>
-                    {t({
-                      en: "Portal-managed history rules only",
-                      fr: "Règles d’historique gérées par le Portal uniquement",
-                      de: "Nur vom Portal verwaltete Verlaufsregeln",
-                    })}
-                  </div>
-                </div>
-                <label className="inline-flex items-center gap-2 text-xs font-semibold">
-                  <input
-                    type="checkbox"
-                    className={uiCheckboxClass}
-                    checked={spaceLifecycleEnabled}
-                    disabled={!spaceSettings.can_update || spaceSettingsSaving}
-                    onChange={(event) => setSpaceLifecycleEnabled(event.target.checked)}
-                    aria-label="Lifecycle"
-                  />
-                  {spaceLifecycleEnabled
-                    ? t({ en: "Enabled", fr: "Activé", de: "Aktiviert" })
-                    : t({ en: "Disabled", fr: "Désactivé", de: "Deaktiviert" })}
-                </label>
-              </div>
-            </div>
-            <div className="rounded-md border border-[color:var(--ui-border-soft)] p-3">
-              <label className={cx("text-xs font-bold", uiTitleTextClass)} htmlFor="space-version-history-retention">
-                {t({
-                  en: "Version history retention",
-                  fr: "Conservation de l’historique des versions",
-                  de: "Aufbewahrung des Versionsverlaufs",
-                })}
-              </label>
-              <div className="mt-2 flex items-center gap-2">
-                <UiInput
-                  id="space-version-history-retention"
-                  type="number"
-                  min={1}
-                  step={1}
-                  size="compact"
-                  className="w-24"
-                  value={spaceVersionHistoryRetentionDays}
-                  disabled={!spaceSettings.can_update || spaceSettingsSaving || !spaceLifecycleEnabled}
-                  onChange={(event) => setSpaceVersionHistoryRetentionDays(event.target.value)}
-                />
-                <span className={cx("text-xs font-semibold", uiMutedTextClass)}>
-                  {t({ en: "days", fr: "jours", de: "Tage" })}
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : null}
-        <div className="border-t border-[color:var(--ui-border-soft)] pt-4">
-          {!historyCleanupEnabled ? (
-            <PageBanner tone="info">
-              {t({
-                en: "History cleanup is disabled for this project.",
-                fr: "Le nettoyage de l'historique est désactivé pour ce projet.",
-                de: "Die Historienbereinigung ist für dieses Projekt deaktiviert.",
-              })}
-            </PageBanner>
-          ) : isArchived ? (
-            <PageBanner tone="warning">
-              {t({
-                en: "Restore this space before running history cleanup.",
-                fr: "Restaurez cet espace avant de nettoyer son historique.",
-                de: "Stellen Sie diesen Bereich wieder her, bevor Sie die Historie bereinigen.",
-              })}
-            </PageBanner>
-          ) : (
-            <p className={cx("ui-caption", uiMutedTextClass)}>
-              {t({
-                en: "Current files stay available. The cleanup only removes older file history and leftover deletion records.",
-                fr: "Les fichiers courants restent disponibles. Le nettoyage retire uniquement l'ancien historique des fichiers et les traces de suppression restantes.",
-                de: "Aktuelle Dateien bleiben verfügbar. Die Bereinigung entfernt nur ältere Dateihistorie und verbliebene Löschvermerke.",
-              })}
-            </p>
-          )}
-        </div>
-      </div>
-    </UiCard>
-  ) : null;
 
   const filesSection = (
     <section id="space-files" className="space-y-3">
@@ -1346,46 +944,6 @@ export default function PortalStorageSpaceDetailPage() {
     </section>
   ) : null;
 
-  const externalToolsCard = (
-    <UiCard title={t({ en: "Connect external tools", fr: "Connecter des outils externes", de: "Externe Werkzeuge verbinden" })}>
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
-        <div>
-          <div className={cx("text-[11px] font-semibold uppercase", uiMutedTextClass)}>
-            {t({ en: "Space", fr: "Espace", de: "Bereich" })}
-          </div>
-          <div className={cx("mt-1 break-all text-sm font-bold", uiTitleTextClass)}>{space.name}</div>
-        </div>
-        <div>
-          <div className={cx("text-[11px] font-semibold uppercase", uiMutedTextClass)}>
-            {t({ en: "Manual storage name", fr: "Nom de stockage manuel", de: "Manueller Speichername" })}
-          </div>
-          <div className={cx("mt-1 break-all font-mono text-sm font-bold", uiTitleTextClass)}>{lockedBucketName}</div>
-        </div>
-        {isArchived ? (
-          <span className="inline-flex h-9 items-center justify-center rounded-md border border-[color:var(--ui-border)] px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-300">
-            {t({ en: "Unavailable while archived", fr: "Indisponible si archivé", de: "Archiviert nicht verfügbar" })}
-          </span>
-        ) : (
-          <Link
-            to={accessKeysPath}
-            className="inline-flex h-9 items-center justify-center rounded-md border border-[color:var(--ui-border)] px-3 py-1.5 text-xs font-semibold text-primary hover:bg-[color:var(--ui-hover)] hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:text-primary-200"
-          >
-            {t({ en: "Connection details", fr: "Détails de connexion", de: "Verbindungsdetails" })}
-          </Link>
-        )}
-      </div>
-      <p className={cx("mt-3 ui-caption", uiMutedTextClass)}>
-        {isArchived
-          ? t({ en: "Archived spaces have no active external-tool access.", fr: "Les espaces archivés n'ont aucun accès actif pour les outils externes.", de: "Archivierte Bereiche haben keinen aktiven Zugriff für externe Werkzeuge." })
-          : t({
-              en: "Use this only when an external app asks for a storage or bucket name. Portal keeps showing the space name everywhere else.",
-              fr: "Utilisez ce nom uniquement lorsqu'une application externe demande un nom de stockage ou de bucket. Portal continue d'afficher le nom de l'espace partout ailleurs.",
-              de: "Verwenden Sie dies nur, wenn eine externe App nach einem Speicher- oder Bucket-Namen fragt. Portal zeigt sonst überall den Bereichsnamen.",
-            })}
-      </p>
-    </UiCard>
-  );
-
   return (
     <div
       className={workflowPageHostClass(
@@ -1413,6 +971,11 @@ export default function PortalStorageSpaceDetailPage() {
         ]}
       />
 
+      <SettingsNavigationGuard dirty={settingsDirty} title={draftLabels.discardTitle}
+        description={draftLabels.discardDescription} confirmLabel={draftLabels.discard}
+        cancelLabel={draftLabels.keepEditing} closeLabel={draftLabels.close}
+        onDiscard={() => setSettingsDirty(false)} />
+      {error && <PageBanner tone="error">{error}</PageBanner>}
       {message ? <PageBanner tone="info">{message}</PageBanner> : null}
       {showSpaceReadyBanner ? (
         <PageBanner tone="success">
@@ -1700,9 +1263,19 @@ export default function PortalStorageSpaceDetailPage() {
 
       {activeTab === "settings" ? (
         <PortalTabPanel idPrefix="portal-space-detail" tabId="settings">
-          {storageSpaceSettingsCard}
-          {versionHistorySettingsCard}
-          {externalToolsCard}
+          <PortalStorageSpaceSettings key={`${accountIdForApi}:${space.id}`}
+            accountId={accountIdForApi} space={space} canConfigureIcon={canConfigureIcon}
+            historyCleanupEnabled={historyCleanupEnabled} onDirtyChange={setSettingsDirty} onRefresh={refreshWorkspaceData}
+            managementActions={(historyDirty) => <div className="flex flex-wrap justify-end gap-2">
+              {space.canTakeOwnership && <SettingsButton variant="secondary" disabled={historyDirty || takeOwnershipBusy}
+                onClick={() => setTakeOwnershipDialogOpen(true)}>{t({ en: "Take ownership", fr: "Reprendre la propriété", de: "Eigentümerschaft übernehmen" })}</SettingsButton>}
+              <SettingsButton variant={isArchived ? "secondary" : "warning"} disabled={historyDirty || metadataBusy}
+                onClick={isArchived ? handleRestore : handleArchive}>{isArchived ? t({ en: "Restore", fr: "Restaurer", de: "Wiederherstellen" }) : t({ en: "Archive", fr: "Archiver", de: "Archivieren" })}</SettingsButton>
+              <SettingsButton variant="danger" disabled={historyDirty || !canCleanHistory} onClick={openHistoryCleanupDialog}>
+                {t({ en: "Clean up history", fr: "Nettoyer l’historique", de: "Historie bereinigen" })}</SettingsButton>
+              {space.canDelete && <SettingsButton variant="danger" disabled={historyDirty || metadataBusy || deleteBusy}
+                onClick={() => { setDeleteError(null); setDeleteDialogOpen(true); }}>{t({ en: "Delete space", fr: "Supprimer l’espace", de: "Bereich löschen" })}</SettingsButton>}
+            </div>} />
         </PortalTabPanel>
       ) : null}
 
@@ -1982,69 +1555,6 @@ export default function PortalStorageSpaceDetailPage() {
               }),
             );
           }}
-        />
-      ) : null}
-
-      {settingsDialogOpen && hasFullAccess ? (
-        <Modal
-          title={t({ en: "Edit space details", fr: "Modifier les détails de l'espace", de: "Bereichsdetails bearbeiten" })}
-          onClose={() => {
-            if (metadataBusy) return;
-            setSettingsDialogOpen(false);
-            setMetadataName(space.name);
-            setMetadataDescription(space.description);
-          }}
-          closeOnBackdropClick={!metadataBusy}
-          closeOnEscape={!metadataBusy}
-        >
-          <div className="space-y-4">
-            <UiInput
-              label={t({ en: "Space name", fr: "Nom de l'espace", de: "Name des Bereichs" })}
-              size="compact"
-              className="h-9 disabled:opacity-70"
-              value={metadataName}
-              onChange={(event) => setMetadataName(event.target.value)}
-              aria-label={t({ en: "Space name", fr: "Nom de l'espace", de: "Name des Bereichs" })}
-              disabled={!canRename || metadataBusy}
-              title={canRename ? t({ en: "Space name", fr: "Nom de l'espace", de: "Name des Bereichs" }) : t({ en: "Name locked for this space", fr: "Nom verrouillé pour cet espace", de: "Name für diesen Bereich gesperrt" })}
-            />
-            <UiInput
-              label={t({ en: "Space description", fr: "Description de l'espace", de: "Beschreibung des Bereichs" })}
-              size="compact"
-              className="h-9"
-              value={metadataDescription}
-              onChange={(event) => setMetadataDescription(event.target.value)}
-              aria-label={t({ en: "Space description", fr: "Description de l'espace", de: "Beschreibung des Bereichs" })}
-              disabled={metadataBusy}
-            />
-            <div className="flex flex-wrap justify-end gap-2">
-              <UiButton
-                variant="secondary"
-                disabled={metadataBusy}
-                onClick={() => {
-                  setSettingsDialogOpen(false);
-                  setMetadataName(space.name);
-                  setMetadataDescription(space.description);
-                }}
-              >
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
-              </UiButton>
-              <UiButton loading={metadataBusy} disabled={metadataBusy} onClick={handleSaveMetadata}>
-                {metadataBusy
-                  ? t({ en: "Saving...", fr: "Enregistrement...", de: "Wird gespeichert..." })
-                  : t({ en: "Save", fr: "Enregistrer", de: "Speichern" })}
-              </UiButton>
-            </div>
-          </div>
-        </Modal>
-      ) : null}
-
-      {iconDialogOpen && canConfigureIcon ? (
-        <StorageSpaceIconPickerModal
-          accountId={accountIdForApi}
-          space={space}
-          onClose={() => setIconDialogOpen(false)}
-          onSaved={refreshWorkspaceData}
         />
       ) : null}
 

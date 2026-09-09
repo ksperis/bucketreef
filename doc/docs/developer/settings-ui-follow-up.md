@@ -33,9 +33,29 @@ settings in three languages, both themes and desktop/mobile using API fixtures.
 Fixtures prove rendering and UI contracts, not successful Ceph operations.
 Temporary captures, auth state and reports are excluded from commits.
 
+## Portal settings coherence
+
+- [x] Storage Space settings: Identity, File history, External tools and Space management.
+- [x] Shared project override editor for Portal and the Admin RGW account Portal tab.
+- [x] Independent identity/icon saves, guarded dialog drafts, current values for read-only users.
+- [x] Draft-only inheritance reset preserving delegation, explicit field conflict reporting and fresh-read merges.
+- [x] Scoped responses and history drafts retained during identity/icon refreshes.
+- [x] English-only Admin and FR/EN/DE Portal; shared dimensions and themed controls.
+
+The client cannot make the existing APIs atomic. Storage history retains the
+server's existing preservation of foreign lifecycle rules and compensation on
+partial S3 failure. It never retries an ambiguous update automatically.
+The Admin API interprets delegation-only requests as preserving the current
+override; an explicit empty reset together with delegation uses
+`bucket_defaults: null`.
+
+The fixture scenarios exercise both editors and their dialog/viewport behavior.
+They do not constitute a successful real-Ceph validation. Temporary screenshots
+and authentication state remain excluded from commits.
+
 ## Deferred scope
 
-Other account, bucket and workspace forms keep their existing default
+Other account tabs, bucket and workspace forms keep their existing default
 presentation. Audit them separately before adoption; reuse the canonical
 settings components without expanding permissions or changing storage
 semantics. Converting the rest of the application's boolean controls and global

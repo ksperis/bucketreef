@@ -21,7 +21,7 @@ when needed.
 | Add existing storage | **Spaces > Add existing space** | Portal managers can expose existing buckets as spaces and choose the initial access mode. Selected people imports can include collaborators immediately. The added space opens with the same file and collaborator next steps. |
 | Choose a space icon | **Spaces > Icon** | Portal managers can choose a pictogram or upload a PNG/JPEG image up to 1 MiB. The icon is shared by the Portal and Browser space lists. |
 | Archive a space | Space actions | Archived spaces keep their bucket and metadata but suspend browsing, sharing, and public links. This is reversible. |
-| Configure version history | Space details > **Settings** | Owners can review Versioning, Lifecycle, and version history retention. A project Portal Manager can modify these values on an active space. |
+| Configure version history | Space details > **Settings** | Owners can review file-version retention, automatic cleanup, and the retention period. A project Portal Manager can modify these values on an active space. |
 | Review space statistics | Space details > **Statistics** | See current storage, remaining room, files, average size, file composition, and upload/download activity for this space only. |
 | Review external links | Space details > **External links** | Owners and managers can list active and revoked links for this space, copy their URLs, and revoke active links. Use the global Collaborators > **External links** view for an inventory across multiple spaces. |
 | Delete a space | Space settings > **Delete space** | Private owners and Portal managers can permanently delete active, archived, and imported spaces only after current files and file history have been removed. |
@@ -70,18 +70,36 @@ When a Portal manager creates or imports a Selected people space, selected colla
 
 ## Version history settings
 
-Open the Space **Settings** tab to review three bucket-level values:
+Open the Space **Settings** tab. **Identity** shows its name, description and
+icon. **Edit details** and **Change icon** open independent save dialogs; changes
+stay local until you save. Closing a changed dialog asks for confirmation.
 
-- **Versioning** shows whether new file versions are being created. Turning it
+**File history** contains three settings:
+
+- **Keep file versions** shows whether new file versions are being created. Turning it
   off suspends Versioning; it does not delete existing versions.
-- **Lifecycle** enables or removes only the two Portal-managed history rules.
+- **Automatic history cleanup** enables or removes only the two Portal-managed history rules.
 - **Version history retention** is the number of days older versions are kept
   by the Portal lifecycle rule.
 
 Owners see these values in read-only mode. Only a project Portal Manager can
-save them, and an archived space remains read-only. On an imported bucket,
-Portal preserves every lifecycle rule it does not own. Disabling Lifecycle
-removes only `ExpireDeleteMarkers` and `ExpireOldVersions`.
+save them, and an archived space remains read-only.
+
+Use **Save history settings** or **Cancel** after editing. Invalid retention
+values are reported next to the field. If another editor changed a setting you
+edited, your draft remains available and the conflicting setting is identified;
+cancel to load the current values. Turning off automatic cleanup does not store
+a new retention period. Identity and icon saves leave the history draft intact.
+
+**External tools** opens connection details on request. The technical storage
+name appears there, while the rest of Portal uses the space name.
+**Space management** contains archive/restore, manual cleanup and deletion,
+subject to your existing rights. Save or cancel history edits before running
+these operations. Current files are retained by history cleanup; permanent
+space deletion keeps its existing empty-space requirement and confirmation.
+
+On an imported bucket, Portal preserves every lifecycle rule it does not own.
+Disabling automatic cleanup removes only `ExpireDeleteMarkers` and `ExpireOldVersions`.
 
 ## Archiving and permanent deletion
 

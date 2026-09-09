@@ -1,3 +1,6 @@
+import PortalStorageSpaceSettings from "./PortalStorageSpaceSettings";
+import { transferableAbortController } from "node:util";
+import { setSessionUserCache } from "../../utils/workspaces";
 import {
   act,
   fireEvent,
@@ -7,7 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { createMemoryRouter, RouterProvider, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { ComponentProps } from "react";
 import PortalStorageSpaceDetailPage from "./PortalStorageSpaceDetailPage";
 import BrowserEmbed from "../browser/BrowserEmbed";
@@ -311,14 +314,17 @@ async function renderPage(initialEntries: ComponentProps<typeof MemoryRouter>["i
 
 async function openSettingsTab() {
   fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
-  await screen.findByRole("checkbox", { name: "Versioning" });
+  await screen.findByRole("heading", { name: "File history" });
 }
 
 describe("PortalStorageSpaceDetailPage", () => {
   beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => "blob:test-icon");
+    URL.revokeObjectURL = vi.fn();
     vi.clearAllMocks();
     mocks.deleteStorageSpaceMock.mockReset();
     window.localStorage.clear();
+    setSessionUserCache(null);
     mocks.usePortalWorkspaceDataMock.mockClear();
     mocks.fetchAccessSummaryMock.mockResolvedValue(accessSummaryFixture);
     mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({
@@ -479,6 +485,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(screen.queryByRole("link", { name: "Upload files" })).not.toBeInTheDocument();
     expect(mocks.usePortalWorkspaceDataMock).toHaveBeenCalledWith({
       includeArchived: true,
+      preserveSpaceDataOnRefresh: true,
       includeUsage: false,
     });
     expect(screen.getByTestId("portal-browser-embed")).toBeInTheDocument();
@@ -499,9 +506,9 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(screen.queryByTestId("portal-browser-embed")).not.toBeInTheDocument();
 
     await openSettingsTab();
-    expect(screen.getByRole("heading", { name: "Space settings" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Version history settings" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Connect external tools" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Identity" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "File history" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "External tools" })).toBeInTheDocument();
 
     const embedProps = vi.mocked(BrowserEmbed).mock.calls[0][0] as ComponentProps<typeof BrowserEmbed>;
     expect(embedProps).toMatchObject({
@@ -730,6 +737,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(await screen.findByRole("tabpanel", { name: "Statistics" })).toBeInTheDocument();
     expect(mocks.usePortalWorkspaceDataMock).toHaveBeenLastCalledWith({
       includeArchived: true,
+      preserveSpaceDataOnRefresh: true,
       includeUsage: true,
     });
     expect(screen.getByTestId("location-probe")).toHaveTextContent("?tab=statistics");
@@ -817,12 +825,12 @@ describe("PortalStorageSpaceDetailPage", () => {
   it("lets a Portal Manager configure Versioning, Lifecycle and version history retention", async () => {
     await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
 
-    const versioning = await screen.findByRole("checkbox", { name: "Versioning" });
-    const lifecycle = screen.getByRole("checkbox", { name: "Lifecycle" });
+    const versioning = await screen.findByRole("switch", { name: "Keep file versions" });
+    const lifecycle = screen.getByRole("switch", { name: "Automatic history cleanup" });
     fireEvent.click(versioning);
     expect(lifecycle).toBeChecked();
     fireEvent.change(screen.getByLabelText("Version history retention"), { target: { value: "45" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save history settings" }));
 
     await waitFor(() => {
       expect(mocks.updateStorageSpaceSettingsMock).toHaveBeenCalledWith("101", "research-data", {
@@ -891,11 +899,11 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
 
-    expect(await screen.findByRole("checkbox", { name: "Versioning" })).toBeDisabled();
-    expect(screen.getByRole("checkbox", { name: "Lifecycle" })).toBeDisabled();
-    expect(screen.getByLabelText("Version history retention")).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Save settings" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Only a project Portal Manager can change them/)).toBeInTheDocument();
+    expect(await screen.findByText("90 days")).toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save history settings" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Only a project Portal Manager can change these settings/)).toBeInTheDocument();
   });
 
   it("keeps archived Storage Space settings read-only", async () => {
@@ -911,9 +919,9 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
 
-    expect(await screen.findByText("Archived spaces keep their settings but cannot be changed.")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Versioning" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Save settings" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Archived spaces keep their history settings. Restore the space to change them.")).toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save history settings" })).not.toBeInTheDocument();
   });
 
   it("opens the deleted-files view and restores a deleted file", async () => {
@@ -1137,8 +1145,8 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await openSettingsTab();
     fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
-    expect(screen.getByLabelText("Space name")).toHaveClass("ui-control");
-    expect(screen.getByLabelText("Space name")).toBeDisabled();
+    expect(screen.queryByRole("textbox", { name: "Space name" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Name locked for this space/)).toBeInTheDocument();
     expect(screen.getByLabelText("Space description")).toHaveClass("ui-control");
     fireEvent.change(screen.getByLabelText("Space description"), {
       target: { value: "Updated description" },
@@ -1286,19 +1294,15 @@ describe("PortalStorageSpaceDetailPage", () => {
     );
   });
 
-  it("shows external-tool mapping without replacing the space name", async () => {
+  it("shows the external-tool storage mapping only on request", async () => {
     await renderPage();
-
     await openSettingsTab();
-    expect(await screen.findByRole("heading", { name: "Connect external tools" })).toBeInTheDocument();
-    expect(screen.getByText("research-data-internal")).toBeInTheDocument();
-    expect(screen.getByText("Manual storage name")).toBeInTheDocument();
-    expect(screen.getByText(/Use this only when an external app asks for a storage or bucket name/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Connection details" })).toHaveAttribute(
-      "href",
-      "/portal/access-keys?space_id=research-data-internal&create=external"
-    );
-    expect(screen.getAllByText("Research Data").length).toBeGreaterThan(1);
+    expect(screen.getByRole("heading", { name: "External tools" })).toBeInTheDocument();
+    expect(screen.queryByText("research-data-internal")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Connection details" }));
+    const dialog = screen.getByRole("dialog", { name: "Connection details" });
+    expect(within(dialog).getByText("research-data-internal")).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Configure access" })).toHaveAttribute("href", "/portal/access-keys?space_id=research-data-internal&create=external");
   });
 
   it("runs history cleanup after a button-only confirmation and shows progress", async () => {
@@ -1306,7 +1310,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await openSettingsTab();
     const versionHistorySection = screen
-      .getByRole("heading", { name: "Version history settings" })
+      .getByRole("heading", { name: "Space management" })
       .closest("section");
     if (!versionHistorySection) throw new Error("Version history settings section not found");
     expect(screen.queryByRole("heading", { name: "History cleanup" })).not.toBeInTheDocument();
@@ -1338,7 +1342,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     await renderPage();
 
     await openSettingsTab();
-    expect(await screen.findByText("History cleanup is disabled for this project.")).toBeInTheDocument();
+    expect(await screen.findByText("Manual history cleanup is disabled for this project.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clean up history" })).toBeDisabled();
   });
 
@@ -1471,7 +1475,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(screen.getByText(/Files are not available for this private space/i)).toBeInTheDocument();
     expect(screen.queryByTestId("portal-browser-embed")).not.toBeInTheDocument();
     await openSettingsTab();
-    expect(screen.getByRole("heading", { name: "Space settings" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Identity" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
@@ -1492,4 +1496,143 @@ describe("PortalStorageSpaceDetailPage", () => {
       expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith("101", "research-data", { archived: true });
     });
   });
+  it("keeps an invalid history draft, focuses its error and cancels without saving", async () => {
+    await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
+    const number = await screen.findByRole("spinbutton", { name: "Version history retention" });
+    fireEvent.change(number, { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "Archive" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save history settings" }));
+    expect(await screen.findByText("Enter a positive whole number.")).toBeInTheDocument();
+    await waitFor(() => expect(number).toHaveFocus());
+    expect(mocks.updateStorageSpaceSettingsMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(number).toHaveValue(90);
+    expect(screen.getByRole("button", { name: "Archive" })).toBeEnabled();
+  });
+
+  it("preserves unrelated concurrent history changes and refuses conflicting retention", async () => {
+    await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
+    const number = await screen.findByRole("spinbutton", { name: "Version history retention" });
+    fireEvent.change(number, { target: { value: "45" } });
+    mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: false, versioning_status: "Suspended", lifecycle_enabled: true, version_history_retention_days: 90, can_update: true });
+    fireEvent.click(screen.getByRole("button", { name: "Save history settings" }));
+    await waitFor(() => expect(mocks.updateStorageSpaceSettingsMock).toHaveBeenCalledWith("101", "research-data", { versioning_enabled: false, lifecycle_enabled: true, version_history_retention_days: 45 }));
+    await screen.findByText("Version history settings saved.");
+    fireEvent.change(number, { target: { value: "30" } });
+    mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: false, versioning_status: "Suspended", lifecycle_enabled: true, version_history_retention_days: 60, can_update: true });
+    fireEvent.click(screen.getByRole("button", { name: "Save history settings" }));
+    expect(await screen.findByText(/These settings changed on the server/)).toHaveTextContent("Version history retention");
+    expect(mocks.updateStorageSpaceSettingsMock).toHaveBeenCalledTimes(1);
+    expect(number).toHaveValue(30);
+  });
+
+  it("keeps the history draft after a server failure and does not retry", async () => {
+    mocks.updateStorageSpaceSettingsMock.mockRejectedValueOnce(new Error("Storage unavailable"));
+    await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
+    fireEvent.click(await screen.findByRole("switch", { name: "Keep file versions" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save history settings" }));
+    expect(await screen.findByText("Storage unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Keep file versions" })).not.toBeChecked();
+    expect(mocks.updateStorageSpaceSettingsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a save when editing rights have been revoked", async () => {
+    await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
+    fireEvent.click(await screen.findByRole("switch", { name: "Keep file versions" }));
+    mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: true, versioning_status: "Enabled", lifecycle_enabled: true, version_history_retention_days: 90, can_update: false });
+    fireEvent.click(screen.getByRole("button", { name: "Save history settings" }));
+    expect(await screen.findByText(/Your editing access has changed/)).toBeInTheDocument();
+    expect(mocks.updateStorageSpaceSettingsMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Save history settings" })).toBeDisabled();
+  });
+
+  it("protects identity and icon dialog drafts and retains failed identity edits", async () => {
+    await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
+    const description = screen.getByRole("textbox", { name: "Space description" });
+    fireEvent.change(description, { target: { value: "Unsaved description" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(description).toHaveValue("Unsaved description");
+    mocks.updateStorageSpaceMock.mockRejectedValueOnce(new Error("Metadata unavailable"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Metadata unavailable")).toBeInTheDocument();
+    expect(description).toHaveValue("Unsaved description");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change icon" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Database" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByRole("radio", { name: "Database" })).toBeChecked();
+    expect(mocks.updateStorageSpaceIconMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps history edits after an independent identity save and workspace refresh", async () => {
+    await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
+    const retention = await screen.findByRole("spinbutton", { name: "Version history retention" });
+    fireEvent.change(retention, { target: { value: "31" } });
+    fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Space description" }), { target: { value: "New description" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mocks.hookResult.refreshWorkspaceData).toHaveBeenCalled());
+    expect(retention).toHaveValue(31);
+    expect(mocks.updateStorageSpaceSettingsMock).not.toHaveBeenCalled();
+    expect(mocks.fetchStorageSpaceSettingsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks once before changing tabs and keeps the selected tab when navigation is refused", async () => {
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
+    setSessionUserCache({ id: 1, role: "ui_user" });
+    const router = createMemoryRouter([{ path: "/portal/storage-spaces/:spaceId", element: <PortalStorageSpaceDetailPage /> }], { initialEntries: ["/portal/storage-spaces/research-data?tab=settings"] });
+    render(<RouterProvider router={router} />);
+    fireEvent.click(await screen.findByRole("switch", { name: "Keep file versions" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    expect(screen.getAllByRole("dialog", { name: "Discard changes?" })).toHaveLength(1);
+    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(router.state.location.search).toBe("?tab=settings");
+    fireEvent.click(screen.getByRole("tab", { name: "Files" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(screen.getByRole("tab", { name: "Files" })).toHaveAttribute("aria-selected", "true");
+    await act(async () => router.dispose());
+    vi.unstubAllGlobals();
+  });
+
+  it("ignores a delayed history response from a previous space", async () => {
+    let resolveOld!: (value: unknown) => void;
+    mocks.fetchStorageSpaceSettingsMock.mockReturnValueOnce(new Promise((resolve) => { resolveOld = resolve; }));
+    const space = mocks.hookResult.workspace.spaces[0] as unknown as ComponentProps<typeof PortalStorageSpaceSettings>["space"];
+    const view = (id: string) => <MemoryRouter><PortalStorageSpaceSettings key={id} accountId="101" space={{ ...space, id }} canConfigureIcon historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
+    const rendered = render(view("old-space"));
+    mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: true, versioning_status: "Enabled", lifecycle_enabled: true, version_history_retention_days: 30, can_update: true });
+    rendered.rerender(view("new-space"));
+    expect(await screen.findByRole("spinbutton", { name: "Version history retention" })).toHaveValue(30);
+    await act(async () => resolveOld({ versioning_enabled: true, versioning_status: "Enabled", lifecycle_enabled: true, version_history_retention_days: 999, can_update: true }));
+    expect(screen.getByRole("spinbutton", { name: "Version history retention" })).toHaveValue(30);
+  });
+
+  it("retains history while refreshing existing space metadata", async () => {
+    const space = mocks.hookResult.workspace.spaces[0] as unknown as ComponentProps<typeof PortalStorageSpaceSettings>["space"];
+    const view = (description: string) => <MemoryRouter><PortalStorageSpaceSettings accountId="101" space={{ ...space, description }} canConfigureIcon historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
+    const rendered = render(view("Before"));
+    const retention = await screen.findByRole("spinbutton", { name: "Version history retention" });
+    fireEvent.change(retention, { target: { value: "33" } });
+    rendered.rerender(view("After"));
+    expect(screen.getByText("After")).toBeInTheDocument();
+    expect(retention).toHaveValue(33);
+    expect(mocks.fetchStorageSpaceSettingsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["type", "size"])("rejects an icon with invalid %s before upload", async (invalid) => {
+    await renderPage(["/portal/storage-spaces/research-data?tab=settings"]);
+    fireEvent.click(screen.getByRole("button", { name: "Change icon" }));
+    const file = new File([invalid === "size" ? new Uint8Array(1024 * 1024 + 1) : "svg"], "icon", { type: invalid === "size" ? "image/png" : "image/svg+xml" });
+    fireEvent.change(screen.getByLabelText("Custom image file"), { target: { files: [file] } });
+    expect(screen.getByRole("alert")).toHaveTextContent(invalid === "size" ? "1 MiB" : "PNG or JPEG");
+    expect(mocks.uploadStorageSpaceIconMock).not.toHaveBeenCalled();
+  });
+
 });

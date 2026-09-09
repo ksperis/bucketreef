@@ -197,6 +197,19 @@ router navigation and browser unload, while `useSettingsCloseGuard` protects
 explicit cancellation. Register one route guard for the whole page, including
 any dialog subdraft, so a navigation asks only once.
 
+Storage Space settings use independent save boundaries: identity and icon dialogs
+save their own API operation, while file-history controls share a page draft.
+Their buttons say **Save**, not **Apply**. Closing a modified dialog requires
+confirmation. A successful identity/icon save must not reset the history draft.
+Use **Apply** only when a dialog contributes to another form, such as project
+CORS origins. Avoid a global save spanning unrelated storage operations.
+
+The Admin RGW account Portal tab reuses the project settings editor, with an
+additional delegation section and English labels. Account and Portal saves are
+independent; only the relevant action bar appears. Retain both drafts across
+account tabs and aggregate them under one navigation/close protection.
+Resetting inheritance affects only the Portal draft and preserves delegation.
+
 The dirty-only Save/Cancel area stays sticky at the bottom of its content
 container and reserves its own space in the normal flow. Dialog **Apply** only
 copies the dialog's draft into the page. Defaults and Portal inheritance resets

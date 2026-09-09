@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyForm, mergeProjectOverrides } from "./portalSettingsForm";
+import { emptyForm, mergeProjectOverrides } from "./projectSettingsForm";
 
 describe("project override merge", () => {
   it("preserves unrelated flags and defaults changed on the server", () => {

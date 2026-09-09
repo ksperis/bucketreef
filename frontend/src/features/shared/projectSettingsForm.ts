@@ -4,6 +4,7 @@ import type { PortalProjectSettings } from "../../api/portalAccounts";
 type TriState = "inherit" | "enabled" | "disabled";
 
 export type ProjectSettingsForm = {
+  delegatedToPortalManagers: boolean;
   browserAccess: TriState;
   bucketCreate: TriState;
   namedBucketCreate: TriState;
@@ -20,6 +21,7 @@ export type ProjectSettingsForm = {
 };
 
 export const emptyForm: ProjectSettingsForm = {
+  delegatedToPortalManagers: false,
   browserAccess: "inherit",
   bucketCreate: "inherit",
   namedBucketCreate: "inherit",
@@ -55,6 +57,7 @@ export function formFromSettings(
     defaults?.noncurrent_version_expiration_days != null;
   const originsOverride = defaults?.cors_allowed_origins != null;
   return {
+    delegatedToPortalManagers: settings.delegated_to_portal_managers,
     browserAccess: resolveTriState(override.browser_access_enabled),
     bucketCreate: resolveTriState(override.allow_private_storage_space_create),
     namedBucketCreate: resolveTriState(
@@ -126,6 +129,17 @@ function buildOverride(form: ProjectSettingsForm): PortalSettingsOverride {
   return payload;
 }
 
+export class ProjectSettingsConflict extends Error {
+  constructor(public fields: string[]) {
+    super("project_settings_conflict");
+  }
+}
+
+export function mergeDelegation(before: boolean, desired: boolean, latest: boolean): boolean {
+  // Binary changes that already match the latest value are idempotent.
+  return before === desired ? latest : desired;
+}
+
 // The endpoint replaces the override. Preserve fields changed by another editor
 // unless this draft also changes them; in that case require a fresh review.
 export function mergeProjectOverrides(
@@ -137,6 +151,7 @@ export function mergeProjectOverrides(
   const desired = buildOverride(draft);
   const same = (a: unknown, b: unknown) =>
     JSON.stringify(a ?? undefined) === JSON.stringify(b ?? undefined);
+  const conflicts: string[] = [];
   const merge = <T extends object>(before: T, after: T, current: T): T => {
     const result = { ...current };
     for (const key of new Set([
@@ -145,7 +160,7 @@ export function mergeProjectOverrides(
     ]) as Set<keyof T>) {
       if (same(before[key], after[key])) continue;
       if (!same(before[key], current[key]) && !same(after[key], current[key]))
-        throw new Error("project_settings_conflict");
+        conflicts.push(String(key));
       if (after[key] == null) delete result[key];
       else result[key] = after[key];
     }
@@ -160,6 +175,7 @@ export function mergeProjectOverrides(
     desiredDefaults ?? {},
     latestDefaults ?? {},
   );
+  if (conflicts.length) throw new ProjectSettingsConflict(conflicts);
   return Object.keys(defaults).length
     ? { ...result, bucket_defaults: defaults }
     : result;
