@@ -144,6 +144,8 @@ def test_delete_remediation_keeps_exact_failed_keys_and_counts(failed_key):
     None, [], {"Errors": None}, {"Errors": {}}, {"Errors": [None]},
     {"Errors": [{}]}, {"Errors": [{"Key": None}]}, {"Errors": [{"Key": 42}]},
     {"Errors": [{"Key": "report.txt"}]},
+    {"Errors": [{"Key": " report.txt ", "VersionId": "unrequested"}]},
+    {"Errors": [{"Key": " report.txt ", "VersionId": 42}]},
 ])
 def test_delete_remediation_rejects_unattributable_error_responses(response):
     client = Mock()

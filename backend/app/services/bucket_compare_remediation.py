@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.services.s3_delete_response import parse_delete_objects_failures
 from app.utils.aws_errors import aws_error_code
 
 
@@ -162,18 +163,9 @@ def _delete_objects(client: Any, *, target_bucket: str, keys: list[str]) -> tupl
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to delete objects in bucket '{target_bucket}': {exc}") from exc
 
-        if not isinstance(response, dict) or not isinstance(response.get("Errors", []), list):
-            raise RuntimeError(f"Invalid DeleteObjects response for bucket '{target_bucket}'")
-        requested_keys = set(chunk)
-        failed_in_chunk: set[str] = set()
-        for error in response.get("Errors", []):
-            key = error.get("Key") if isinstance(error, dict) else None
-            if not isinstance(key, str) or key not in requested_keys:
-                raise RuntimeError(f"Invalid DeleteObjects response for bucket '{target_bucket}'")
-            failed_in_chunk.add(key)
-        succeeded += len(chunk) - len(failed_in_chunk)
-        if failed_in_chunk:
-            failed_keys.extend(sorted(failed_in_chunk))
+        failures = parse_delete_objects_failures(response, bucket_name=target_bucket, items=chunk_objects)
+        succeeded += len(chunk) - len(failures)
+        failed_keys.extend(sorted(failure.key for failure in failures))
     return succeeded, failed_keys
 
 

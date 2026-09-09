@@ -12,6 +12,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from botocore.parsers import ResponseParserError
 
 from app.services.s3_client import get_s3_client
+from app.services.s3_delete_response import ObjectDeletionFailure, parse_delete_objects_failures
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import format_s3_error
 
@@ -20,6 +21,33 @@ logger = logging.getLogger(__name__)
 
 class BucketNotEmptyError(RuntimeError):
     """Raised when attempting to delete a non-empty bucket without force."""
+
+
+class DeleteObjectsError(RuntimeError):
+    """A completed deletion batch with known successes and per-entry failures."""
+
+    def __init__(
+        self,
+        bucket_name: str,
+        deleted_count: int,
+        failures: list[ObjectDeletionFailure],
+        *,
+        after_batch_fallback: bool = False,
+    ) -> None:
+        self.deleted_count = deleted_count
+        self.failures = failures
+        sample = []
+        for failure in failures[:3]:
+            label = failure.key
+            if failure.version_id is not None:
+                label += f" (version {failure.version_id})"
+            sample.append(f"{label}: {failure.message}")
+        extra = f" (+{len(failures) - 3} more)" if len(failures) > 3 else ""
+        context = " after batch fallback" if after_batch_fallback else ""
+        super().__init__(
+            f"Unable to delete {len(failures)} object(s) in bucket '{bucket_name}'{context}: "
+            f"{', '.join(sample)}{extra}"
+        )
 
 
 @dataclass(frozen=True)
@@ -62,13 +90,17 @@ def delete_objects(client, bucket_name: str, items: Iterable[dict]) -> None:
 def delete_objects_count(client, bucket_name: str, items: Iterable[dict]) -> int:
     chunk = []
     deleted = 0
-    for item in items:
-        chunk.append(item)
-        if len(chunk) == 1000:
+    try:
+        for item in items:
+            chunk.append(item)
+            if len(chunk) == 1000:
+                deleted += _delete_objects_chunk(client, bucket_name, chunk)
+                chunk = []
+        if chunk:
             deleted += _delete_objects_chunk(client, bucket_name, chunk)
-            chunk = []
-    if chunk:
-        deleted += _delete_objects_chunk(client, bucket_name, chunk)
+    except DeleteObjectsError as exc:
+        exc.deleted_count += deleted
+        raise
     return deleted
 
 
@@ -81,7 +113,7 @@ def _is_delete_objects_parse_error(exc: Exception) -> bool:
 
 def _delete_object_kwargs(bucket_name: str, item: dict) -> dict[str, str]:
     kwargs = {"Bucket": bucket_name, "Key": str(item.get("Key") or "")}
-    version_id = str(item.get("VersionId") or "").strip()
+    version_id = str(item.get("VersionId") or "")
     if version_id:
         kwargs["VersionId"] = version_id
     return kwargs
@@ -94,7 +126,7 @@ def _delete_objects_individually(
     *,
     after_batch_fallback: bool = False,
 ) -> int:
-    failures: list[str] = []
+    failures: list[ObjectDeletionFailure] = []
     for item in chunk:
         kwargs = _delete_object_kwargs(bucket_name, item)
         key = kwargs["Key"]
@@ -105,18 +137,12 @@ def _delete_objects_individually(
             code = aws_error_code(exc, lowercase=True)
             if code in {"nosuchkey", "nosuchversion", "notfound"}:
                 continue
-            label = f"{key} (version {version_id})" if version_id else key
-            failures.append(f"{label}: {exc}")
+            failures.append(ObjectDeletionFailure(key, version_id, format_s3_error(exc)))
         except (BotoCoreError, ResponseParserError) as exc:
-            label = f"{key} (version {version_id})" if version_id else key
-            failures.append(f"{label}: {exc}")
+            failures.append(ObjectDeletionFailure(key, version_id, format_s3_error(exc)))
     if failures:
-        sample = failures[:3]
-        extra = f" (+{len(failures) - 3} more)" if len(failures) > 3 else ""
-        context = " after batch fallback" if after_batch_fallback else ""
-        raise RuntimeError(
-            f"Unable to delete {len(failures)} object(s) in bucket '{bucket_name}'{context}: "
-            f"{', '.join(sample)}{extra}"
+        raise DeleteObjectsError(
+            bucket_name, len(chunk) - len(failures), failures, after_batch_fallback=after_batch_fallback
         )
     return len(chunk)
 
@@ -142,23 +168,9 @@ def _delete_objects_chunk(client, bucket_name: str, chunk: list[dict]) -> int:
             )
             return _delete_objects_individually(client, bucket_name, chunk, after_batch_fallback=True)
         raise
-    errors = resp.get("Errors", []) if isinstance(resp, dict) else []
-    if errors:
-        sample = []
-        for err in errors[:3]:
-            key = err.get("Key", "unknown")
-            version_id = err.get("VersionId")
-            code = err.get("Code", "Error")
-            message = err.get("Message", "")
-            suffix = f" ({message})" if message else ""
-            if version_id:
-                sample.append(f"{code} for {key} (version {version_id}){suffix}")
-            else:
-                sample.append(f"{code} for {key}{suffix}")
-        extra = f" (+{len(errors) - 3} more)" if len(errors) > 3 else ""
-        raise RuntimeError(
-            f"Unable to delete {len(errors)} object(s) in bucket '{bucket_name}': {', '.join(sample)}{extra}"
-        )
+    failures = parse_delete_objects_failures(resp, bucket_name=bucket_name, items=chunk)
+    if failures:
+        raise DeleteObjectsError(bucket_name, len(chunk) - len(failures), failures)
     return len(chunk)
 
 
@@ -256,6 +268,19 @@ class _BucketContentPurger:
         )
 
     def _add_failure(self, stage: str, exc: Exception, items: list[dict] | None) -> None:
+        if isinstance(exc, DeleteObjectsError):
+            self.failed_count += len(exc.failures)
+            for failure in exc.failures[: self._FAILURE_SAMPLE_LIMIT - len(self.failures)]:
+                self.failures.append(
+                    BucketContentPurgeFailure(
+                        stage=stage,
+                        message=failure.message,
+                        key=failure.key,
+                        version_id=failure.version_id,
+                        count=1,
+                    )
+                )
+            return
         self.failed_count += len(items or []) or 1
         if len(self.failures) >= self._FAILURE_SAMPLE_LIMIT:
             return
@@ -278,6 +303,8 @@ class _BucketContentPurger:
             else:
                 deleted = delete_objects_count(self.client, self.bucket_name, items)
             return stage, deleted, None, None
+        except DeleteObjectsError as exc:
+            return stage, exc.deleted_count, items, exc
         except Exception as exc:  # noqa: BLE001
             return stage, 0, items, exc
 
