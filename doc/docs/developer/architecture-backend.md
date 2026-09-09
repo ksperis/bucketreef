@@ -87,6 +87,19 @@ versioned and current-object listings, rather than becoming a storage error.
 It unwinds the worker and client scopes without persisting the canceled scan,
 and the existing SSE boundary reports `canceled`.
 
+## Bucket comparison object identity
+
+Manager comparison remediation treats S3 object keys as opaque strings from
+the HTTP payload through copy, streamed copy, deletion, and workflow metadata.
+The request rejects empty keys and exact duplicates, but never trims keys or
+normalizes Unicode or path segments. Context and bucket-name validation remain
+separate from object-key identity.
+
+Delete remediation matches provider errors against the exact requested keys
+of that batch. Repeated errors for the same key count once. Malformed responses
+or errors identifying an unrequested key fail explicitly instead of reporting
+success or attributing failure to a different object.
+
 ## Operational routes
 
 Internal cron routes are not UI routes. Keep them token-protected and documented

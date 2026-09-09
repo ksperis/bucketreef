@@ -32,6 +32,11 @@ You get an actionable diff view to support controlled bucket alignment. Manager
 remediation actions apply only the exact object keys present in the current
 content diff section or object row.
 
+Object keys are used exactly as selected, including leading/trailing spaces,
+whitespace-only names, and distinct Unicode spellings. For example,
+`"report.txt"` and `" report.txt "` are different objects; remediation never trims
+or normalizes their names. Partial-failure samples retain those exact keys.
+
 ## You are done when
 
 The result summary is reviewed, the relevant rows are expanded, and any remediation action is limited to the exact object keys you intended to align.
