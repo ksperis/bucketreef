@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from botocore.exceptions import ClientError
 
@@ -16,6 +17,9 @@ from app.services.bucket_purge_service import (
 
 def test_delete_bucket_with_purge_deletes_contents_then_bucket(monkeypatch):
     class DeleteClient:
+        def close(self):
+            pass
+
         def __init__(self):
             self.object_list_calls = 0
             self.version_list_calls = 0
@@ -59,6 +63,9 @@ def test_delete_bucket_with_purge_deletes_contents_then_bucket(monkeypatch):
 
 def test_delete_bucket_with_purge_deletes_large_bucket_without_entry_limit(monkeypatch):
     class LargeBucketClient:
+        def close(self):
+            pass
+
         def __init__(self):
             self.object_list_calls = 0
             self.delete_object_calls: list[list[dict]] = []
@@ -100,7 +107,7 @@ def test_delete_bucket_with_purge_deletes_large_bucket_without_entry_limit(monke
 
 
 def test_delete_bucket_with_purge_preserves_content_purge_failures(monkeypatch):
-    client = SimpleNamespace(delete_bucket=lambda **kwargs: None)
+    client = SimpleNamespace(delete_bucket=lambda **kwargs: None, close=Mock())
     purge_failure = bucket_purge_service.s3_deletion.BucketContentPurgeFailure(
         stage="delete",
         message="object delete failed",
@@ -145,6 +152,9 @@ def test_delete_bucket_with_purge_preserves_content_purge_failures(monkeypatch):
 
 def test_delete_bucket_with_purge_reports_bucket_not_empty_race(monkeypatch):
     class DeleteClient:
+        def close(self):
+            pass
+
         def delete_bucket(self, **kwargs):
             raise ClientError(
                 {
@@ -197,6 +207,9 @@ def test_purge_progress_uses_rgw_stats_entry_estimate_before_listing(monkeypatch
             return [SimpleNamespace(name="bucket-a", object_count=5)]
 
     class PurgeClient:
+        def close(self):
+            pass
+
         def list_objects_v2(self, **kwargs):
             return {"Contents": [{"Key": "one.txt"}, {"Key": "two.txt"}]}
 
@@ -235,6 +248,9 @@ def test_purge_progress_continues_when_rgw_stats_are_unavailable(monkeypatch):
             raise RuntimeError("stats unavailable")
 
     class PurgeClient:
+        def close(self):
+            pass
+
         def list_objects_v2(self, **kwargs):
             return {"Contents": [{"Key": "one.txt"}]}
 
@@ -276,7 +292,7 @@ def test_purge_service_forwards_individual_delete_strategy(monkeypatch):
         captured.update(kwargs)
         return bucket_purge_service.s3_deletion.BucketContentPurgeResult(bucket_name=bucket_name)
 
-    client = SimpleNamespace()
+    client = SimpleNamespace(close=Mock())
     monkeypatch.setattr(bucket_purge_service, "BucketsService", NoStatsBucketsService)
     monkeypatch.setattr(BucketPurgeService, "_build_client", lambda self, account: client)
     monkeypatch.setattr(bucket_purge_service.s3_deletion, "purge_bucket_contents", fake_purge_bucket_contents)

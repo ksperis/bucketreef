@@ -67,6 +67,26 @@ previews report it as unavailable and log reads fail explicitly. A genuine
 empty body remains valid, and a log object deleted after listing is still
 ignored on `NoSuchKey`/not-found responses.
 
+## Long-running S3 client lifetime
+
+Bucket usage scans, integrity checks, purges, and content comparisons own their
+fresh S3 clients through `LongRunningS3ClientMixin._open_client`. The shared
+scope closes the SDK client's endpoint connections on success, failure, or
+cancellation. Worker pools must exit before their enclosing client scope so
+in-flight reads or deletions never use a client that has already been closed.
+
+Comparisons also close listing generators explicitly when temporary-index
+writes fail. Remediation owns both source and target clients in an `ExitStack`;
+failure to construct the target releases the already-created source client.
+An empty remediation opens neither client. Request profiles, credentials,
+storage-side authorization, and provider-specific listing behavior are
+unchanged.
+
+Usage scan cancellation remains a `BucketUsageStatsCancelled` signal through
+versioned and current-object listings, rather than becoming a storage error.
+It unwinds the worker and client scopes without persisting the canceled scan,
+and the existing SSE boundary reports `canceled`.
+
 ## Operational routes
 
 Internal cron routes are not UI routes. Keep them token-protected and documented

@@ -68,6 +68,9 @@ class FakeS3Client:
     def get_paginator(self, name: str) -> FakePaginator:
         return self.paginators[name]
 
+    def close(self):
+        pass
+
     def get_object(self, **kwargs):
         self.get_calls.append(kwargs)
         key = (kwargs["Key"], kwargs.get("VersionId"))

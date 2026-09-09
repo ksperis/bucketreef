@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from contextlib import ExitStack, closing
 from datetime import datetime
 import logging
 from typing import Any, Optional
@@ -32,35 +33,35 @@ class BucketComparisonService(LongRunningS3ClientMixin):
         self._configuration_reader = configuration_reader or BucketConfigurationService()
 
     def _list_bucket_objects_for_compare(self, bucket_name: str, account: S3ExecutionTarget):
-        client = self._build_client(account)
-        continuation_token: Optional[str] = None
-        while True:
-            kwargs: dict[str, Any] = {"Bucket": bucket_name, "MaxKeys": 1000}
-            if continuation_token:
-                kwargs["ContinuationToken"] = continuation_token
-            try:
-                page = client.list_objects_v2(**kwargs)
-            except (RuntimeError, ClientError, BotoCoreError) as exc:
-                detail = format_s3_error(exc, include_operation=True)
-                raise RuntimeError(f"Unable to list objects in bucket '{bucket_name}': {detail}") from exc
-            for entry in page.get("Contents", []) or []:
-                key = entry.get("Key")
-                if not isinstance(key, str) or not key:
-                    continue
-                etag_raw = entry.get("ETag")
-                etag = etag_raw.strip().strip('"') if isinstance(etag_raw, str) else None
-                last_modified = entry.get("LastModified")
-                storage_class = entry.get("StorageClass")
-                yield bucket_content_comparison.BucketCompareObjectEntry(
-                    key=key,
-                    size=int(entry.get("Size") or 0),
-                    etag=etag or None,
-                    last_modified=last_modified if isinstance(last_modified, datetime) else None,
-                    storage_class=storage_class if isinstance(storage_class, str) else None,
-                )
-            continuation_token = page.get("NextContinuationToken")
-            if not continuation_token:
-                break
+        with self._open_client(account) as client:
+            continuation_token: Optional[str] = None
+            while True:
+                kwargs: dict[str, Any] = {"Bucket": bucket_name, "MaxKeys": 1000}
+                if continuation_token:
+                    kwargs["ContinuationToken"] = continuation_token
+                try:
+                    page = client.list_objects_v2(**kwargs)
+                except (RuntimeError, ClientError, BotoCoreError) as exc:
+                    detail = format_s3_error(exc, include_operation=True)
+                    raise RuntimeError(f"Unable to list objects in bucket '{bucket_name}': {detail}") from exc
+                for entry in page.get("Contents", []) or []:
+                    key = entry.get("Key")
+                    if not isinstance(key, str) or not key:
+                        continue
+                    etag_raw = entry.get("ETag")
+                    etag = etag_raw.strip().strip('"') if isinstance(etag_raw, str) else None
+                    last_modified = entry.get("LastModified")
+                    storage_class = entry.get("StorageClass")
+                    yield bucket_content_comparison.BucketCompareObjectEntry(
+                        key=key,
+                        size=int(entry.get("Size") or 0),
+                        etag=etag or None,
+                        last_modified=last_modified if isinstance(last_modified, datetime) else None,
+                        storage_class=storage_class if isinstance(storage_class, str) else None,
+                    )
+                continuation_token = page.get("NextContinuationToken")
+                if not continuation_token:
+                    break
 
     def compare_bucket_content(
         self,
@@ -73,14 +74,10 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     ) -> BucketContentDiff:
         with TemporarySqliteStore(prefix="bucketreef-bucket-compare-") as store:
             index = bucket_content_comparison.BucketCompareObjectIndex(store.connection)
-            source_indexed_count = index.add_objects(
-                "source",
-                self._list_bucket_objects_for_compare(source_bucket, source_account),
-            )
-            target_indexed_count = index.add_objects(
-                "target",
-                self._list_bucket_objects_for_compare(target_bucket, target_account),
-            )
+            with closing(self._list_bucket_objects_for_compare(source_bucket, source_account)) as source_objects:
+                source_indexed_count = index.add_objects("source", source_objects)
+            with closing(self._list_bucket_objects_for_compare(target_bucket, target_account)) as target_objects:
+                target_indexed_count = index.add_objects("target", target_objects)
             diff = index.build_content_diff(
                 md5_resolver=etag_md5,
                 ignore_modified_after=ignore_modified_after,
@@ -134,26 +131,27 @@ class BucketComparisonService(LongRunningS3ClientMixin):
                 failed_keys_sample_limit=failed_keys_sample_limit,
             )
 
-        if action == "delete_target_only":
-            source_client = None
-            target_client = self._build_client(target_account)
-            same_endpoint = False
-        else:
-            source_client = self._build_client(source_account)
-            target_client = self._build_client(target_account)
-            same_endpoint = self._accounts_share_storage_endpoint(source_account, target_account)
+        with ExitStack() as clients:
+            if action == "delete_target_only":
+                source_client = None
+                target_client = clients.enter_context(self._open_client(target_account))
+                same_endpoint = False
+            else:
+                source_client = clients.enter_context(self._open_client(source_account))
+                target_client = clients.enter_context(self._open_client(target_account))
+                same_endpoint = self._accounts_share_storage_endpoint(source_account, target_account)
 
-        return bucket_compare_remediation.remediate_bucket_content(
-            source_client=source_client,
-            target_client=target_client,
-            source_bucket=source_bucket,
-            target_bucket=target_bucket,
-            action=action,
-            object_keys=object_keys,
-            same_endpoint=same_endpoint,
-            parallelism=parallelism,
-            failed_keys_sample_limit=failed_keys_sample_limit,
-        )
+            return bucket_compare_remediation.remediate_bucket_content(
+                source_client=source_client,
+                target_client=target_client,
+                source_bucket=source_bucket,
+                target_bucket=target_bucket,
+                action=action,
+                object_keys=object_keys,
+                same_endpoint=same_endpoint,
+                parallelism=parallelism,
+                failed_keys_sample_limit=failed_keys_sample_limit,
+            )
 
     def compare_bucket_configuration(
         self,

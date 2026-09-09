@@ -271,6 +271,9 @@ def test_manager_scan_persists_and_reads_resolved_scope(
     executed_contexts = []
 
     class FakeS3Client:
+        def close(self):
+            pass
+
         def get_paginator(self, operation):
             assert operation == "list_object_versions"
             return self

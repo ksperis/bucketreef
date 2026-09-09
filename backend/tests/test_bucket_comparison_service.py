@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime, timezone
 import shutil
+from unittest.mock import Mock
 
 import pytest
 from botocore.exceptions import ClientError
@@ -269,6 +270,9 @@ def test_compare_bucket_content_wraps_list_objects_client_error(monkeypatch):
     target = _build_account("target")
 
     class DeniedClient:
+        def close(self):
+            pass
+
         def list_objects_v2(self, **_kwargs):
             raise ClientError(
                 {"Error": {"Code": "AccessDenied", "Message": None}},
@@ -332,7 +336,7 @@ def test_compare_remediation_uses_requested_object_keys(monkeypatch):
         "_list_bucket_objects_for_compare",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("remediation must not re-list objects")),
     )
-    monkeypatch.setattr(service, "_build_client", lambda _account: object())
+    monkeypatch.setattr(service, "_build_client", lambda _account: Mock(spec=["close"]))
     monkeypatch.setattr(service, "_accounts_share_storage_endpoint", lambda _source, _target: True)
 
     def fake_remediate(**kwargs):
