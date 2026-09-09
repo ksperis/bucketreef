@@ -28,22 +28,11 @@ const PATH_SUGGESTION_SOURCE_WEIGHT: Record<PathSuggestionSource, number> = {
   remote: 100,
 };
 
-export const normalizePathDraftValue = (value: string) =>
-  value.trim().replace(/^\/+/, "");
-
 export const resolvePathDraftContext = (value: string): PathDraftContext => {
-  const cleaned = normalizePathDraftValue(value);
-  const hasTrailingSlash = cleaned.endsWith("/");
-  const slashIndex = cleaned.lastIndexOf("/");
-  const parentRaw = slashIndex >= 0 ? cleaned.slice(0, slashIndex + 1) : "";
-  const fragment = hasTrailingSlash
-    ? ""
-    : slashIndex >= 0
-      ? cleaned.slice(slashIndex + 1)
-      : cleaned;
+  const slashIndex = value.lastIndexOf("/");
   return {
-    parentPrefix: parentRaw ? normalizePrefix(parentRaw) : "",
-    fragment,
+    parentPrefix: value.slice(0, slashIndex + 1),
+    fragment: value.slice(slashIndex + 1),
   };
 };
 
@@ -53,16 +42,16 @@ export const buildPathSuggestionEntries = (
   fragment: string,
   source: PathSuggestionSource,
 ): PathSuggestion[] => {
-  const normalizedFragment = fragment.trim().toLowerCase();
+  const normalizedFragment = fragment.toLowerCase();
   const seen = new Set<string>();
   const entries: PathSuggestion[] = [];
   prefixes.forEach((entry) => {
-    const normalized = normalizePrefix(normalizePathDraftValue(entry || ""));
+    const normalized = normalizePrefix(entry);
     if (!normalized) return;
     if (parentPrefix && !normalized.startsWith(parentPrefix)) return;
     const relative = shortName(normalized, parentPrefix || "");
-    const label = relative.endsWith("/") ? relative.slice(0, -1) : relative;
-    if (!label) return;
+    if (!relative) return;
+    const label = (relative.endsWith("/") ? relative.slice(0, -1) : relative) || "/";
     if (normalizedFragment && !label.toLowerCase().includes(normalizedFragment))
       return;
     if (seen.has(normalized)) return;
@@ -76,7 +65,7 @@ const scorePathSuggestion = (
   entry: PathSuggestion,
   fragment: string,
 ): number => {
-  const query = fragment.trim().toLowerCase();
+  const query = fragment.toLowerCase();
   const label = entry.label.toLowerCase();
   let score = PATH_SUGGESTION_SOURCE_WEIGHT[entry.source] ?? 0;
   if (!query) {
@@ -129,11 +118,11 @@ export const mergePathSuggestions = (
     .slice(0, PATH_SUGGESTIONS_LIMIT);
 };
 
-const readPathHistoryStore = (): Record<string, string[]> => {
+const readPathHistoryStore = (): Record<string, unknown> => {
   if (typeof window === "undefined") return {};
   const parsed = readClientJson<unknown>(PATH_HISTORY_STORAGE_KEY);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-  return parsed as Record<string, string[]>;
+  return parsed as Record<string, unknown>;
 };
 
 export const readBucketPathHistory = (bucketName: string): string[] => {
@@ -143,7 +132,8 @@ export const readBucketPathHistory = (bucketName: string): string[] => {
   const seen = new Set<string>();
   const entries: string[] = [];
   rawEntries.forEach((value) => {
-    const normalized = normalizePrefix(normalizePathDraftValue(value || ""));
+    if (typeof value !== "string") return;
+    const normalized = normalizePrefix(value);
     if (!normalized) return;
     if (seen.has(normalized)) return;
     seen.add(normalized);
@@ -157,9 +147,7 @@ export const pushBucketPathHistory = (
   prefixValue: string,
 ): string[] => {
   if (!bucketName || typeof window === "undefined") return [];
-  const normalized = normalizePrefix(
-    normalizePathDraftValue(prefixValue || ""),
-  );
+  const normalized = normalizePrefix(prefixValue);
   if (!normalized) return readBucketPathHistory(bucketName);
   const store = readPathHistoryStore();
   const current = readBucketPathHistory(bucketName);

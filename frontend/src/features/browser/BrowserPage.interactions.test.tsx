@@ -3153,6 +3153,39 @@ describe("BrowserPage interactions", () => {
     expect(within(getContextPanel()).getByText("docs")).toBeInTheDocument();
   });
 
+  it.each([
+    { prefix: " a // b /", parents: [" a //", " a /", ""] },
+    { prefix: "/docs//", parents: ["/docs/", "/", ""] },
+  ])("navigates from the literal URL prefix $prefix through exact parents", async ({ prefix, parents }) => {
+    const user = userEvent.setup();
+    listBrowserObjectsMock.mockImplementation(
+      async (_accountId: string, _bucketName: string, options: { prefix?: string }) => ({
+        prefix: options.prefix ?? "", objects: [], prefixes: [], is_truncated: false,
+        next_continuation_token: null,
+      }),
+    );
+    renderPage({ initialEntry: `/browser?bucket=bucket-1&prefix=${encodeURIComponent(prefix)}` });
+    const expectPrefix = async (expected: string) => {
+      await waitFor(() => {
+        expect(listBrowserObjectsMock).toHaveBeenCalledWith(
+          "acc-1", "bucket-1", expect.objectContaining({ prefix: expected }),
+        );
+        const path = within(getContextToolbar()).getByRole("navigation", { name: "Current path" });
+        if (expected) {
+          expect(within(path).getAllByRole("button").at(-1)).toHaveAttribute("title", expected);
+        } else {
+          expect(within(path).getByText("(root)")).toBeInTheDocument();
+        }
+      });
+    };
+    await expectPrefix(prefix);
+    for (const parent of parents) {
+      await user.click(within(getContextToolbar()).getByRole("button", { name: "Parent folder" }));
+      await expectPrefix(parent);
+    }
+    expect(within(getContextToolbar()).getByRole("button", { name: "Parent folder" })).toBeDisabled();
+  });
+
   it("commits an edited path and returns to its parent from the context bar", async () => {
     const user = userEvent.setup();
     renderPage();

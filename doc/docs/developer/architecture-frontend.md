@@ -37,6 +37,19 @@
   `frontend/src/features/admin/adminBreadcrumbs.ts`, and
   `frontend/src/features/portal/portalBreadcrumbs.ts`.
 
+## Browser prefix identity
+
+S3 prefixes are literal object-key strings, not filesystem paths. URL selection,
+path editing, suggestions, and history preserve spaces and leading or repeated
+slashes. `normalizePrefix` only appends a missing final folder delimiter;
+`buildPrefixBreadcrumbs` shares exact ancestor targets between the breadcrumb,
+parent navigation, folder tree, and path details. Empty segments must not be
+filtered out. Recursive counts use the same exact prefix as the object list.
+
+Only the empty prefix means bucket root; `/` is a distinct literal prefix.
+Do not trim, resolve dot segments, or rewrite stored/remote names to compensate
+for earlier client normalization. No S3 data migration is needed for navigation.
+
 ## Overlay close guard
 
 Editable modals, drawers, and overlay panels must protect unapplied saveable

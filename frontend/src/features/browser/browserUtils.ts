@@ -45,6 +45,17 @@ export const normalizePrefix = (value: string) => {
   return value.endsWith("/") ? value : `${value}/`;
 };
 
+export const buildPrefixBreadcrumbs = (value: string) => {
+  const prefix = normalizePrefix(value);
+  if (!prefix) return [];
+  let current = "";
+  // Empty segments are literal S3 prefixes, not redundant path separators.
+  return prefix.slice(0, -1).split("/").map((part) => {
+    current += `${part}/`;
+    return { label: part || "/", prefix: current };
+  });
+};
+
 export const shortName = (key: string, basePrefix: string) => {
   if (!basePrefix) return key;
   if (key.startsWith(basePrefix)) return key.slice(basePrefix.length);

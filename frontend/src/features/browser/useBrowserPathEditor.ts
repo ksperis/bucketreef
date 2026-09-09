@@ -16,7 +16,6 @@ import { listBrowserObjects } from "../../api/browserObjects";
 import {
   buildPathSuggestionEntries,
   mergePathSuggestions,
-  normalizePathDraftValue,
   resolvePathDraftContext,
   type PathSuggestion,
 } from "./browserPathSuggestions";
@@ -99,8 +98,7 @@ export function useBrowserPathEditor({
   );
 
   const commit = useCallback(() => {
-    const trimmed = normalizePathDraftValue(value);
-    commitPrefix(trimmed ? normalizePrefix(trimmed) : "");
+    commitPrefix(normalizePrefix(value));
   }, [commitPrefix, value]);
 
   const cancel = useCallback(() => {

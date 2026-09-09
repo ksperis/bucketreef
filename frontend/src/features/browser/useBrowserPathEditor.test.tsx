@@ -137,6 +137,40 @@ describe("useBrowserPathEditor", () => {
     expect(preventDefault).toHaveBeenCalledTimes(2);
   });
 
+  it.each(["", "/", "//", " /docs// nested ", " /docs// nested /"])(
+    "commits the exact draft %j with only a final folder delimiter",
+    (draft) => {
+      const onCommit = vi.fn();
+      const history: string[] = [];
+      const localPrefixes: string[] = [];
+      const { result } = renderHook(() => useBrowserPathEditor({
+        accountId: "acc-1", bucketName: "bucket-a", enabled: true,
+        history, localPrefixes, onCommit, prefix: "start/",
+      }));
+      act(() => {
+        result.current.startEditing();
+        result.current.setValue(draft);
+      });
+      act(() => result.current.commit());
+      expect(onCommit).toHaveBeenCalledWith(
+        draft && !draft.endsWith("/") ? `${draft}/` : draft,
+      );
+    },
+  );
+
+  it("does not redirect an unchanged literal prefix", () => {
+    const onCommit = vi.fn();
+    const history: string[] = [];
+    const localPrefixes: string[] = [];
+    const { result } = renderHook(() => useBrowserPathEditor({
+      accountId: "acc-1", bucketName: "bucket-a", enabled: true,
+      history, localPrefixes, onCommit, prefix: " /docs// nested /",
+    }));
+    act(() => result.current.startEditing());
+    act(() => result.current.commit());
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   it("ignores a remote response after editing is cancelled", async () => {
     const pending = deferred<ReturnType<typeof response>>();
     apiMocks.listBrowserObjects.mockReturnValue(pending.promise);
