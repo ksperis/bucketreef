@@ -49,6 +49,10 @@ The project context and effective settings match the workspace you intended to
 review. If you are delegated, saving the draft updates the page
 with the resulting effective values.
 
+Administrators use the same editor in **Admin > RGW Accounts > Portal settings**,
+with an additional delegation switch. Restoring platform values does not change
+delegation. Portal and other account changes are saved independently.
+
 Changes remain in the form if saving fails. If another editor changed a value
 you also edited, the page reports a conflict instead of overwriting it. Cancel
 to load the current values. Changing project or leaving a modified form asks
@@ -72,7 +76,7 @@ settings or ask an administrator to review the project configuration.
     Delegation never creates a second settings layer: Admin and delegated Portal
     Managers edit the same project override. Project defaults affect newly
     created Storage Spaces only; use the Settings tab of an existing Space to
-    change its Versioning, Lifecycle, or version history retention.
+    change its file-version retention, automatic history cleanup, or retention period.
 
 ## Related pages
 

@@ -92,6 +92,21 @@ describe("Portal project settings", () => {
       expect(screen.queryByText("Storage used")).not.toBeInTheDocument();
     },
   );
+  it("keeps a draft when delegation is revoked and reloads current values on confirmed cancellation", async () => {
+    render(<PortalSettingsPage />);
+    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "disabled" } });
+    mocks.fetch.mockResolvedValue({ ...project, can_update: false, delegated_to_portal_managers: false });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await screen.findByText(/Your settings access has changed/);
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(screen.getByText("Project settings are managed by the platform administrator.")).toBeInTheDocument();
+  });
+
   it("saves a change and restores inheritance only after confirmation and Save", async () => {
     const initial = {
       ...project,

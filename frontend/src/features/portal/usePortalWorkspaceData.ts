@@ -70,6 +70,7 @@ function alertFromApi(item: PortalAlert, t: ReturnType<typeof useI18n>["t"]): Po
 
 export function usePortalWorkspaceData({
   includeArchived = false,
+  preserveSpaceDataOnRefresh = false,
   includeUsage = false,
   includeActivity = false,
   includeCollaborators = false,
@@ -81,6 +82,7 @@ export function usePortalWorkspaceData({
   trafficWindow = "week",
 }: {
   includeArchived?: boolean;
+  preserveSpaceDataOnRefresh?: boolean;
   includeUsage?: boolean;
   includeActivity?: boolean;
   includeCollaborators?: boolean;
@@ -181,7 +183,7 @@ export function usePortalWorkspaceData({
       })
       .catch((err) => {
         if (!cancelled) {
-          setStorageSpaces(null);
+          if (!preserveSpaceDataOnRefresh) setStorageSpaces(null);
           setStorageSpacesError(
             extractApiError(
               err,
@@ -200,7 +202,7 @@ export function usePortalWorkspaceData({
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, hasAccountContext, includeArchived, refreshToken, t]);
+  }, [accountIdForApi, hasAccountContext, includeArchived, preserveSpaceDataOnRefresh, refreshToken, t]);
 
   useEffect(() => {
     let cancelled = false;

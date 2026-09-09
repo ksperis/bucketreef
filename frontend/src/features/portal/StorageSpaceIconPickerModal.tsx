@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { S3AccountSelector } from "../../api/accountParams";
 import {
   updatePortalStorageSpaceIcon,
@@ -12,11 +12,11 @@ import type {
   StorageSpaceIconPreset,
   StorageSpaceIconSource,
 } from "../../api/storageSpaceIcons";
-import Modal from "../../components/Modal";
+import { SettingsDialog as Modal, SettingsButton as UiButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import { settingsLabels } from "../../components/settings/settingsLabels";
 import StorageSpaceIcon, {
   storageSpaceIconPresets,
 } from "../../components/StorageSpaceIcon";
-import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
@@ -39,11 +39,13 @@ export default function StorageSpaceIconPickerModal({
   space,
   onClose,
   onSaved,
+  onDirtyChange,
 }: {
   accountId: S3AccountSelector;
   space: PortalWorkspaceSpace;
   onClose: () => void;
   onSaved: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = useI18n();
   const initialSource: StorageSpaceIconSource = space.icon?.source ?? "preset";
@@ -53,15 +55,36 @@ export default function StorageSpaceIconPickerModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const labels = settingsLabels(t);
+  const dirty = source !== initialSource || (source === "preset" && preset !== (space.icon?.preset ?? "bucket")) || file !== null;
+  const [preview, setPreview] = useState<string | null>(null);
+  const active = useRef(true);
+  const pending = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const initialFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  useEffect(() => { onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (!file) { setPreview(null); return; }
+    const url = URL.createObjectURL(file); setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  const guard = useSettingsCloseGuard({ hasUnsavedChanges: dirty, onClose, disabled: busy,
+    title: labels.discardTitle, description: labels.discardDescription,
+    cancelLabel: labels.keepEditing, confirmLabel: labels.discard, closeLabel: labels.close });
+
   const save = async () => {
+    if (pending.current || !dirty) return;
     if (source === "uploaded" && !file && initialSource !== "uploaded") {
       setError(t({
         en: "Choose a PNG or JPEG image.",
         fr: "Choisissez une image PNG ou JPEG.",
         de: "Wählen Sie ein PNG- oder JPEG-Bild.",
       }));
+      fileInput.current?.focus();
       return;
     }
+    pending.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -73,28 +96,36 @@ export default function StorageSpaceIconPickerModal({
           preset: source === "preset" ? preset : null,
         });
       }
+      if (!active.current) return;
       onSaved();
       onClose();
     } catch (err) {
-      setError(extractApiError(err, t({
+      if (active.current) setError(extractApiError(err, t({
         en: "Unable to update the Storage Space icon.",
         fr: "Impossible de mettre à jour l’icône de l’espace.",
         de: "Das Symbol des Speicherbereichs konnte nicht aktualisiert werden.",
       })));
     } finally {
-      setBusy(false);
+      pending.current = false;
+      if (active.current) setBusy(false);
     }
   };
 
   return (
+    <>
     <Modal
       title={t({ en: "Storage Space icon", fr: "Icône de l’espace", de: "Speicherbereichssymbol" })}
-      onClose={onClose}
+      onClose={guard.requestClose}
+      initialFocusRef={initialFocus}
+      closeLabel={labels.close}
+      closeAriaLabel={labels.close}
       maxWidthClass="max-w-xl"
       closeOnBackdropClick={!busy}
       closeOnEscape={!busy}
     >
-      <div className="space-y-5">
+      <div className="space-y-5" ref={(node) => { initialFocus.current = node?.querySelector('input:checked') ?? null; }}>
+        {source === "uploaded" && !preview && initialSource === "uploaded" && <StorageSpaceIcon icon={space.icon} name={space.name} size="md" decorative />}
+        {source === "uploaded" && preview && <img src={preview} alt={t({ en: "Icon preview", fr: "Aperçu de l’icône", de: "Symbolvorschau" })} className="h-16 w-16 rounded object-contain" />}
         <p className={cx("text-sm", uiMutedTextClass)}>
           {t({
             en: "Choose a pictogram or upload a custom PNG/JPEG image (1 MiB maximum).",
@@ -114,13 +145,14 @@ export default function StorageSpaceIconPickerModal({
                 <label
                   key={candidate}
                   className={cx(
-                    "flex cursor-pointer flex-col items-center gap-2 rounded-md border p-3 text-xs font-semibold transition",
+                    "flex cursor-pointer flex-col items-center gap-2 rounded-md border p-3 text-xs font-semibold transition has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary",
                     selected
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-[color:var(--ui-border-soft)] hover:border-primary/50",
                   )}
                 >
                   <input
+                    disabled={busy}
                     type="radio"
                     name="storage-space-icon"
                     value={candidate}
@@ -130,7 +162,7 @@ export default function StorageSpaceIconPickerModal({
                       setPreset(candidate);
                       setError(null);
                     }}
-                    className="sr-only"
+                    className="sr-only peer"
                   />
                   <StorageSpaceIcon
                     icon={{ source: "preset", preset: candidate }}
@@ -155,6 +187,7 @@ export default function StorageSpaceIconPickerModal({
         >
           <span className="flex items-center gap-2 text-sm font-semibold">
             <input
+              disabled={busy}
               type="radio"
               name="storage-space-icon"
               checked={source === "uploaded"}
@@ -167,6 +200,10 @@ export default function StorageSpaceIconPickerModal({
           </span>
           <input
             type="file"
+            ref={fileInput}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? "space-icon-error" : undefined}
+            disabled={busy}
             accept="image/png,image/jpeg"
             aria-label={t({ en: "Custom image file", fr: "Fichier image personnalisé", de: "Eigene Bilddatei" })}
             className="mt-3 block w-full text-sm"
@@ -189,17 +226,19 @@ export default function StorageSpaceIconPickerModal({
           />
         </label>
 
-        {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
+        {error ? <div id="space-icon-error"><UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage></div> : null}
 
         <div className="flex justify-end gap-2">
-          <UiButton variant="secondary" onClick={onClose} disabled={busy}>
+          <UiButton variant="secondary" onClick={guard.requestClose} disabled={busy}>
             {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
           </UiButton>
-          <UiButton onClick={save} loading={busy}>
+          <UiButton onClick={save} loading={busy} disabled={!dirty || busy}>
             {t({ en: "Save icon", fr: "Enregistrer l’icône", de: "Symbol speichern" })}
           </UiButton>
         </div>
       </div>
     </Modal>
+    {guard.confirmationDialog}
+    </>
   );
 }

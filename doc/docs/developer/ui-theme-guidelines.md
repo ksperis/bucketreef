@@ -115,6 +115,7 @@ booleans use an explicit three-state selector, with a separate Customize switch
 for numeric and list overrides.
 
 The compact presentation is explicit. Nonmigrated consumers keep the default
-`SettingsLayout` presentation, including account override editors and bucket
-configuration. The former Portal alias facade and unused card/form helpers have
-been removed; import the canonical components directly.
+`SettingsLayout` presentation, including bucket configuration. Account Portal
+overrides and Storage Space settings now use the compact presentation. The former
+Portal alias facade and unused card/form helpers have been removed; import the
+canonical components directly.
