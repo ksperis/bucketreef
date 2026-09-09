@@ -490,7 +490,7 @@ describe("BucketOpsWorkbench atomic quota columns", () => {
     );
     const selectedBadge = selectedUrgent.parentElement as HTMLElement;
     expect(selectedBadge).toHaveAttribute("data-tag-selection-state", "selected");
-    expect(selectedBadge).toHaveClass("bg-red-50", "ring-2", "shadow-md", "!border-dashed");
+    expect(selectedBadge).toHaveClass("bg-red-50", "ring-2", "!border-dashed");
     expect(within(selectedBadge).getByText("✓")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add UI tag filter urgent, Private" })

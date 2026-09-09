@@ -12,7 +12,7 @@ import type { TagColorKey, TagScope } from "../api/tags";
 import { getTagColorOption, TAG_COLOR_OPTIONS } from "../utils/tagPalette";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import UiRemoveIcon from "./ui/UiRemoveIcon";
-import { cx, uiLabelClass } from "./ui/styles";
+import { cx, uiBadgeShapeClass, uiLabelClass } from "./ui/styles";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
 
 type UiTagVisibility = "private" | "shared";
@@ -69,14 +69,17 @@ export function UiTagBadge({
   return (
     <span
       className={cx(
-        "inline-flex max-w-full items-center overflow-hidden rounded-full border shadow-sm transition",
+        "inline-flex max-w-full items-center overflow-hidden transition",
+        uiBadgeShapeClass,
         getTagColorOption(colorKey).badgeClassName,
         visibility === "private" && "!border-dashed",
         visibility === "shared" && "!border-solid",
         active && "ring-2 ring-primary/40",
-        selectionState === "selected" && "ring-2 ring-primary/50 shadow-md",
+        selectionState === "selected" && "ring-2 ring-primary/50",
         selectionState === "available" &&
-          "!bg-transparent shadow-none hover:!bg-slate-50 focus-within:!bg-slate-50 focus-within:ring-2 focus-within:ring-primary/40 dark:hover:!bg-slate-800/70 dark:focus-within:!bg-slate-800/70",
+          "!bg-transparent hover:!bg-slate-50 focus-within:!bg-slate-50 dark:hover:!bg-slate-800/70 dark:focus-within:!bg-slate-800/70",
+        (onClick || onRemove) &&
+          "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-700 dark:focus-within:outline-primary-200",
         disabled && "opacity-60",
         className
       )}
@@ -90,14 +93,14 @@ export function UiTagBadge({
           onClick={onClick}
           disabled={disabled}
           aria-label={ariaLabel ?? `Configure UI tag ${accessibleLabel}`}
-          className="inline-flex min-w-0 items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4 focus:outline-none"
+          className="inline-flex min-w-0 items-center gap-1 px-2 py-0.5 text-[10px] font-medium leading-4 focus:outline-none"
         >
           {labelContent}
         </button>
       ) : (
         <span
           aria-label={ariaLabel ?? accessibleLabel}
-          className="inline-flex min-w-0 items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4"
+          className="inline-flex min-w-0 items-center gap-1 px-2 py-0.5 text-[10px] font-medium leading-4"
         >
           {labelContent}
         </span>

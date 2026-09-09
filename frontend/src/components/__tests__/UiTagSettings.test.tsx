@@ -25,7 +25,6 @@ describe("UiTagBadge filter states", () => {
       "!bg-transparent",
       "border-pink-200",
       "text-pink-700",
-      "shadow-none",
       "hover:!bg-slate-50",
       "focus-within:!bg-slate-50",
       "dark:hover:!bg-slate-800/70",
@@ -56,7 +55,6 @@ describe("UiTagBadge filter states", () => {
       "bg-blue-50",
       "ring-2",
       "ring-primary/50",
-      "shadow-md",
       "!border-solid"
     );
     expect(within(badge).getByText("✓")).toHaveAttribute("aria-hidden", "true");

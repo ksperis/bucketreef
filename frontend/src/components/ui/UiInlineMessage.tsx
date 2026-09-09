@@ -2,13 +2,14 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ReactNode } from "react";
+import { ReactNode, type AriaRole } from "react";
 import { UiTone, cx, uiToneBannerClasses } from "./styles";
 
 type UiInlineMessageTone = "neutral" | "info" | "success" | "warning" | "error";
 
 type UiInlineMessageProps = {
   tone?: UiInlineMessageTone;
+  role?: AriaRole;
   children: ReactNode;
   className?: string;
 };
@@ -21,10 +22,10 @@ const toneMap: Record<UiInlineMessageTone, UiTone> = {
   error: "danger",
 };
 
-export default function UiInlineMessage({ tone = "neutral", children, className }: UiInlineMessageProps) {
+export default function UiInlineMessage({ tone = "neutral", children, className, role }: UiInlineMessageProps) {
   if (!children) return null;
   return (
-    <div className={cx("rounded-md border px-3 py-2 ui-caption", uiToneBannerClasses[toneMap[tone]], className)}>
+    <div role={role} className={cx("rounded-md border px-3 py-2 ui-caption", uiToneBannerClasses[toneMap[tone]], className)}>
       {children}
     </div>
   );

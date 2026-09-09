@@ -608,7 +608,7 @@ describe("AccountsPage modal tabs", () => {
     expect(
       screen.getByText("Allow Ceph bucket quota updates for this S3 Account in Manager.")
     ).toBeInTheDocument();
-    const quotaCheckbox = screen.getByRole("checkbox", { name: /Bucket quota management/ });
+    const quotaCheckbox = screen.getByRole("switch", { name: /Bucket quota management/ });
     expect(quotaCheckbox).not.toBeChecked();
     fireEvent.click(quotaCheckbox);
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -634,7 +634,7 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
 
-    const quotaCheckbox = screen.getByRole("checkbox", { name: /Bucket quota management/ });
+    const quotaCheckbox = screen.getByRole("switch", { name: /Bucket quota management/ });
     expect(quotaCheckbox).not.toBeChecked();
     fireEvent.click(quotaCheckbox);
 
@@ -671,7 +671,7 @@ describe("AccountsPage modal tabs", () => {
     expect(
       await screen.findByText("Requires buckets=write on the endpoint Admin Ops identity before this grant can be enabled.")
     ).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /Bucket quota management/ })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: /Bucket quota management/ })).toBeDisabled();
   });
 
   it("shows portal overrides tab when the portal feature is enabled", async () => {

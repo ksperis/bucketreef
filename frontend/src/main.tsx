@@ -13,6 +13,7 @@ import { bootstrapBranding } from "./components/ui/brandingRuntime";
 import { installConsoleRedaction } from "./utils/runtimeDiagnostics";
 import { SessionProvider } from "./auth/SessionProvider";
 import { PRODUCT_TITLE } from "./constants/product";
+import RecoveryCodeHandoffBoundary from "./auth/RecoveryCodeHandoffBoundary";
 
 const root = document.getElementById("root");
 document.title = PRODUCT_TITLE;
@@ -25,7 +26,7 @@ ReactDOM.createRoot(root as HTMLElement).render(
       <LanguageProvider>
         <SessionProvider>
           <GeneralSettingsProvider>
-            <AppRouter />
+            <RecoveryCodeHandoffBoundary><AppRouter /></RecoveryCodeHandoffBoundary>
           </GeneralSettingsProvider>
         </SessionProvider>
       </LanguageProvider>

@@ -17,7 +17,7 @@ Use **Browser** for direct bucket/object operations.
 2. Select a private connection or an enabled Portal project in the top selector.
    - The selected context is recorded in `?ctx=` and remains independent in
      each open tab.
-   - If you enabled **Show tags in top selectors** from [User profile](profile.md), compact color-coded `Standard` context and endpoint tags are shown directly in the selector. `Administrative` tags remain limited to management surfaces.
+   - If you enabled **Show selector tags** from [User profile](profile.md), compact color-coded `Standard` context and endpoint tags are shown directly in the selector. `Administrative` tags remain limited to management surfaces.
 3. Navigate buckets and prefixes.
    - Use the workspace sidebar to search and switch buckets directly from the workspace.
    - The object list starts in Compact view with the Folders panel hidden, so

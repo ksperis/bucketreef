@@ -181,7 +181,7 @@ export default function Sidebar({
   const activeLinkClasses =
     compact
       ? "shell-sidebar-item-active"
-      : "shell-sidebar-item-active before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-primary";
+      : "shell-sidebar-item-active before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:bg-primary dark:before:bg-primary-400";
   const containerClasses =
     variant === "desktop"
       ? "shell-sidebar relative hidden h-full shrink-0 border-r md:flex md:flex-col transition-[width] duration-200 ease-out"
@@ -337,13 +337,13 @@ export default function Sidebar({
           aria-label={compact ? "Profile" : undefined}
           title={compact ? "Profile" : undefined}
           className={({ isActive }) =>
-            `group flex h-9 w-full items-center rounded-md text-[12px] font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
-              compact ? "justify-center px-2" : "gap-2 px-2.5"
-            } ${isActive ? "shell-sidebar-item-active" : "shell-sidebar-item"}`
+            `${baseLinkClasses} w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${isActive ? activeLinkClasses : inactiveLinkClasses}`
           }
         >
-          <UserProfileIcon className="h-4 w-4 shrink-0" />
-          {!compact && <span>Profile</span>}
+          <div className={`flex min-w-0 items-center ${compact ? "" : "gap-1.5"}`}>
+            <UserProfileIcon className="h-4 w-4 shrink-0" />
+            {!compact && <span className="truncate">Profile</span>}
+          </div>
         </NavLink>
       </div>
     </aside>

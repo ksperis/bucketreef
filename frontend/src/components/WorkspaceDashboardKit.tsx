@@ -632,7 +632,7 @@ export function WorkspaceFeatureSummaryCard({ group }: { group: WorkspaceDashboa
         <h2 className="ui-body font-semibold text-[var(--ui-text)]">{group.title}</h2>
         <UiBadge
           tone={enabledFeatures.length > 0 ? "success" : "neutral"}
-          className="rounded-md px-2 py-0 text-[11px] leading-5"
+          className="px-2 py-0 text-[11px] leading-5"
         >
           {enabledFeatures.length} enabled
         </UiBadge>
@@ -640,7 +640,7 @@ export function WorkspaceFeatureSummaryCard({ group }: { group: WorkspaceDashboa
       {enabledFeatures.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {enabledFeatures.map((feature) => (
-            <UiBadge key={feature.id} tone="success" className="gap-1.5 rounded-md px-2 py-0 text-[11px] leading-5">
+            <UiBadge key={feature.id} tone="success" className="gap-1.5 px-2 py-0 text-[11px] leading-5">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               <span>{feature.label}</span>
               {feature.massManagement && (

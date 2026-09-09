@@ -24,6 +24,9 @@ type ConfirmActionDialogProps = {
   description: ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
+  processingLabel?: string;
+  impactLabel?: string;
+  closeLabel?: string;
   tone?: "danger" | "primary";
   loading?: boolean;
   confirmDisabled?: boolean;
@@ -41,6 +44,9 @@ export default function ConfirmActionDialog({
   description,
   confirmLabel,
   cancelLabel = "Cancel",
+  processingLabel = "Processing...",
+  impactLabel = "Impact",
+  closeLabel,
   tone = "danger",
   loading = false,
   confirmDisabled = false,
@@ -59,6 +65,9 @@ export default function ConfirmActionDialog({
       maxWidthClass={maxWidthClass}
       zIndexClass={zIndexClass}
       closeOnBackdropClick={!loading}
+      closeOnEscape={!loading}
+      closeLabel={closeLabel}
+      closeAriaLabel={closeLabel}
     >
       <div className="space-y-4">
         <p className={cx("ui-body", uiMutedTextClass)}>{description}</p>
@@ -85,7 +94,7 @@ export default function ConfirmActionDialog({
         {impacts.length > 0 ? (
           <div className={cx("rounded-md px-4 py-4", uiToneBannerClasses.warning)}>
             <p className="ui-caption font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-100">
-              Impact
+              {impactLabel}
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 ui-body text-amber-900 dark:text-amber-100">
               {impacts.map((impact, index) => (
@@ -110,7 +119,7 @@ export default function ConfirmActionDialog({
             onClick={onConfirm}
             disabled={loading || confirmDisabled}
           >
-            {loading ? "Processing..." : confirmLabel}
+            {loading ? processingLabel : confirmLabel}
           </UiButton>
         </div>
       </div>

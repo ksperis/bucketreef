@@ -404,7 +404,7 @@ export default function PortalUsagePage() {
                 <div className="flex items-center justify-between gap-3">
                   <p className={uiLabelClass}>{t({ en: "Backend status", fr: "Statut du backend", de: "Backend-Status" })}</p>
                   {!healthLoading ? (
-                    <UiBadge tone={backendStatusTone(backendStatus)} className="rounded-md px-2 py-0 text-[11px] leading-5">
+                    <UiBadge tone={backendStatusTone(backendStatus)} className="px-2 py-0 text-[11px] leading-5">
                       {backendStatusLabel(backendStatus, t)}
                     </UiBadge>
                   ) : null}

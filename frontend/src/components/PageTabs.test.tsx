@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import PageTabs, { PageTabPanel } from "./PageTabs";
 
-function SemanticTabs() {
+function SemanticTabs({ variant }: { variant: "bar" | "line" | "card" }) {
   const [activeTab, setActiveTab] = useState("connection");
   return (
     <>
@@ -22,7 +22,7 @@ function SemanticTabs() {
         onChange={setActiveTab}
         ariaLabel="Endpoint sections"
         idPrefix="endpoint-editor"
-        variant="bar"
+        variant={variant}
       />
       <PageTabPanel idPrefix="endpoint-editor" tabId={activeTab}>
         {activeTab === "connection" ? "Connection panel" : "Credentials panel"}
@@ -32,8 +32,8 @@ function SemanticTabs() {
 }
 
 describe("PageTabs", () => {
-  it("links semantic tabs to their panels and supports arrow-key navigation", () => {
-    render(<SemanticTabs />);
+  it.each(["bar", "line", "card"] as const)("links %s tabs to their panels and supports keyboard navigation", variant => {
+    render(<SemanticTabs variant={variant} />);
 
     const connectionTab = screen.getByRole("tab", { name: "Connection" });
     expect(connectionTab).toHaveAttribute("id", "endpoint-editor-tab-connection");
@@ -54,6 +54,13 @@ describe("PageTabs", () => {
       "endpoint-editor-panel-credentials",
     );
     expect(screen.getByRole("tab", { name: "Disabled" })).toBeDisabled();
+    fireEvent.keyDown(credentialsTab, { key: "Home" });
+    expect(connectionTab).toHaveFocus();
+    expect(connectionTab).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(connectionTab, { key: "End" });
+    expect(credentialsTab).toHaveFocus();
+    fireEvent.keyDown(credentialsTab, { key: "ArrowLeft" });
+    expect(connectionTab).toHaveFocus();
   });
 
   it("renders content below bar tabs without adding a card frame", () => {
@@ -86,7 +93,7 @@ describe("PageTabs", () => {
       />
     );
 
-    expect(container.firstElementChild).toHaveClass("border-b", "pb-3");
+    expect(container.firstElementChild).toHaveClass("border-b");
     expect(container.firstElementChild).toHaveClass("border-[color:var(--ui-border-soft)]");
     expect(screen.getByText("General").parentElement).toHaveClass("min-w-0", "flex-1", "flex-wrap");
   });

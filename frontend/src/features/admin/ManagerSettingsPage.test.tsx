@@ -324,7 +324,7 @@ describe("ManagerSettingsPage", () => {
     expect(screen.getByText("Optional administrative and operational tools available in Manager.")).toBeInTheDocument();
     expect(screen.queryByText(/Workspace access/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/non-admin/i)).not.toBeInTheDocument();
-    expect(screen.getAllByRole("checkbox").map((toggle) => toggle.getAttribute("aria-label"))).toEqual([
+    expect(screen.getAllByRole("switch").map((toggle) => toggle.getAttribute("aria-label"))).toEqual([
       "Bucket composition statistics",
       "RGW traffic and usage metrics",
       "Bucket quota management",

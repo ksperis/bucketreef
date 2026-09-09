@@ -411,9 +411,9 @@ describe("S3UsersPage modal tabs", () => {
       screen.getByText("Allow Ceph bucket quota updates for this RGW User in Manager.")
     ).toBeInTheDocument();
     expect(screen.getByText("Allow access to Manager > Ceph > Access keys.")).toBeInTheDocument();
-    const quotaCheckbox = screen.getByRole("checkbox", { name: /Bucket quota management/ });
-    const keysCheckbox = screen.getByRole("checkbox", { name: /Ceph S3 User keys/ });
-    const privateCheckbox = screen.getByRole("checkbox", { name: /Managed private connection provisioning/ });
+    const quotaCheckbox = screen.getByRole("switch", { name: /Bucket quota management/ });
+    const keysCheckbox = screen.getByRole("switch", { name: /Ceph S3 User keys/ });
+    const privateCheckbox = screen.getByRole("switch", { name: /Managed private connection provisioning/ });
     expect(quotaCheckbox).not.toBeChecked();
     expect(keysCheckbox).not.toBeChecked();
     expect(privateCheckbox).not.toBeChecked();
@@ -449,8 +449,8 @@ describe("S3UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
 
-    const quotaCheckbox = screen.getByRole("checkbox", { name: /Bucket quota management/ });
-    const keysCheckbox = screen.getByRole("checkbox", { name: /Ceph S3 User keys/ });
+    const quotaCheckbox = screen.getByRole("switch", { name: /Bucket quota management/ });
+    const keysCheckbox = screen.getByRole("switch", { name: /Ceph S3 User keys/ });
     expect(quotaCheckbox).not.toBeChecked();
     expect(keysCheckbox).not.toBeChecked();
     fireEvent.click(quotaCheckbox);
