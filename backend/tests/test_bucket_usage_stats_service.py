@@ -39,6 +39,9 @@ class FakeS3Client:
     def get_paginator(self, name: str) -> FakePaginator:
         return self.paginators[name]
 
+    def close(self):
+        pass
+
 
 class FakeUsageStatsService(BucketUsageStatsService):
     def __init__(self, client: FakeS3Client):

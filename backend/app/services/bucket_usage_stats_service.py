@@ -173,50 +173,54 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         progress_callback: ProgressCallback | None = None,
         cancel_check: CancelCheck | None = None,
     ) -> BucketUsageStatsSnapshot:
-        client = self._build_client(target.account)
-        calculated_at = utcnow()
-        warnings: list[str] = []
-        scan_mode: BucketUsageStatsScanMode = "versions"
-        version_listing_available = True
-        scan = BucketUsageScan(calculated_at)
-        try:
-            self._scan_version_entries(
-                client,
-                target,
-                scan,
-                progress_callback=progress_callback,
-                cancel_check=cancel_check,
-            )
-        except (ClientError, BotoCoreError, RuntimeError) as exc:
-            if not _is_version_listing_unsupported(exc):
-                raise RuntimeError(
-                    f"Unable to list object versions for '{target.bucket_name}': {format_s3_error(exc)}"
-                ) from exc
-            warnings.append(
-                "Version listing is unavailable for this endpoint. "
-                "Statistics were calculated from current objects only."
-            )
-            scan_mode = "current_only"
-            version_listing_available = False
+        with self._open_client(target.account) as client:
+            calculated_at = utcnow()
+            warnings: list[str] = []
+            scan_mode: BucketUsageStatsScanMode = "versions"
+            version_listing_available = True
             scan = BucketUsageScan(calculated_at)
             try:
-                self._scan_current_entries(
+                self._scan_version_entries(
                     client,
                     target,
                     scan,
                     progress_callback=progress_callback,
                     cancel_check=cancel_check,
                 )
-            except (ClientError, BotoCoreError, RuntimeError) as fallback_exc:
-                raise RuntimeError(
-                    f"Unable to list current objects for '{target.bucket_name}': {format_s3_error(fallback_exc)}"
-                ) from fallback_exc
-        return scan.snapshot(
-            target,
-            scan_mode=scan_mode,
-            version_listing_available=version_listing_available,
-            warnings=warnings,
-        )
+            except BucketUsageStatsCancelled:
+                raise
+            except (ClientError, BotoCoreError, RuntimeError) as exc:
+                if not _is_version_listing_unsupported(exc):
+                    raise RuntimeError(
+                        f"Unable to list object versions for '{target.bucket_name}': {format_s3_error(exc)}"
+                    ) from exc
+                warnings.append(
+                    "Version listing is unavailable for this endpoint. "
+                    "Statistics were calculated from current objects only."
+                )
+                scan_mode = "current_only"
+                version_listing_available = False
+                scan = BucketUsageScan(calculated_at)
+                try:
+                    self._scan_current_entries(
+                        client,
+                        target,
+                        scan,
+                        progress_callback=progress_callback,
+                        cancel_check=cancel_check,
+                    )
+                except BucketUsageStatsCancelled:
+                    raise
+                except (ClientError, BotoCoreError, RuntimeError) as fallback_exc:
+                    raise RuntimeError(
+                        f"Unable to list current objects for '{target.bucket_name}': {format_s3_error(fallback_exc)}"
+                    ) from fallback_exc
+            return scan.snapshot(
+                target,
+                scan_mode=scan_mode,
+                version_listing_available=version_listing_available,
+                warnings=warnings,
+            )
 
     def _scan_version_entries(
         self,

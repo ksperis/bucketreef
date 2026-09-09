@@ -356,16 +356,16 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             )
 
         try:
-            client = self._build_client(target.account)
-            result = s3_deletion.purge_bucket_contents(
-                client,
-                target.bucket_name,
-                parallelism=options.parallelism,
-                include_versions=options.include_versions,
-                individual_deletes=options.individual_deletes,
-                progress_callback=low_progress,
-                cancel_check=cancel_check,
-            )
+            with self._open_client(target.account) as client:
+                result = s3_deletion.purge_bucket_contents(
+                    client,
+                    target.bucket_name,
+                    parallelism=options.parallelism,
+                    include_versions=options.include_versions,
+                    individual_deletes=options.individual_deletes,
+                    progress_callback=low_progress,
+                    cancel_check=cancel_check,
+                )
             status: BucketPurgeStatus = "completed" if result.failed_count == 0 else "completed_with_errors"
             failures = [
                 BucketPurgeFailure(
@@ -429,47 +429,47 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             cancel_check=cancel_check,
         )
         try:
-            client = self._build_client(target.account)
-            purge_result = s3_deletion.purge_bucket_contents(
-                client,
-                target.bucket_name,
-                parallelism=state.options.parallelism,
-                include_versions=state.options.include_versions,
-                individual_deletes=state.options.individual_deletes,
-                progress_callback=lambda progress: self._emit_delete_purge_progress(
-                    state,
-                    progress,
-                ),
-                cancel_check=state.cancel_check,
-            )
-            self._apply_delete_purge_result(state, purge_result)
-            if purge_result.failed_count > 0:
-                return self._delete_purge_failure_result(state, purge_result)
+            with self._open_client(target.account) as client:
+                purge_result = s3_deletion.purge_bucket_contents(
+                    client,
+                    target.bucket_name,
+                    parallelism=state.options.parallelism,
+                    include_versions=state.options.include_versions,
+                    individual_deletes=state.options.individual_deletes,
+                    progress_callback=lambda progress: self._emit_delete_purge_progress(
+                        state,
+                        progress,
+                    ),
+                    cancel_check=state.cancel_check,
+                )
+                self._apply_delete_purge_result(state, purge_result)
+                if purge_result.failed_count > 0:
+                    return self._delete_purge_failure_result(state, purge_result)
 
-            self._emit_bucket_deletion_progress(
-                state,
-                stage="delete_bucket",
-                completed_buckets=0,
-                bucket_deleted=False,
-                message=f"Deleting bucket {target.bucket_name}...",
-            )
-            delete_failure = self._delete_empty_bucket(client, state)
-            if delete_failure is not None:
-                return delete_failure
-            self._emit_bucket_deletion_progress(
-                state,
-                stage="completed",
-                completed_buckets=1,
-                bucket_deleted=True,
-                message=f"Deleted bucket {target.bucket_name}.",
-            )
-            return self._build_bucket_delete_result(
-                state,
-                status="completed",
-                failed_count=0,
-                bucket_deleted=True,
-                failures_sample=[],
-            )
+                self._emit_bucket_deletion_progress(
+                    state,
+                    stage="delete_bucket",
+                    completed_buckets=0,
+                    bucket_deleted=False,
+                    message=f"Deleting bucket {target.bucket_name}...",
+                )
+                delete_failure = self._delete_empty_bucket(client, state)
+                if delete_failure is not None:
+                    return delete_failure
+                self._emit_bucket_deletion_progress(
+                    state,
+                    stage="completed",
+                    completed_buckets=1,
+                    bucket_deleted=True,
+                    message=f"Deleted bucket {target.bucket_name}.",
+                )
+                return self._build_bucket_delete_result(
+                    state,
+                    status="completed",
+                    failed_count=0,
+                    bucket_deleted=True,
+                    failures_sample=[],
+                )
         except BucketPurgeCancelled:
             raise
         except Exception as exc:  # noqa: BLE001

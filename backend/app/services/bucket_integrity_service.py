@@ -430,10 +430,12 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
 
         emit("list", force=True, message=f"Listing {target.bucket_name}...")
         try:
-            client = self._build_client(target.account)
             worker_count = max(1, min(int(options.parallelism), 64))
             pending = set()
-            with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-integrity") as executor:
+            with (
+                self._open_client(target.account) as client,
+                ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-integrity") as executor,
+            ):
                 for obj in self._iter_objects(
                     client,
                     target.bucket_name,
