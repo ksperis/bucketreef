@@ -4,13 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import sessionmaker
 
-from app.db import S3Account, StorageEndpoint, User, UserRole
+from app.db import S3Account, StorageEndpoint, User, UserRole, UserS3Account
+from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as SnapshotRow
 from app.main import app
 from app.models.account_capabilities import AccountCapabilities
 from app.models.bucket_usage_stats import BucketUsageStatsDistributionEntry, BucketUsageStatsSnapshot
+from app.models.session import ManagerSessionPrincipal, SessionCapabilities
 from app.routers import dependencies
 from app.routers.admin import usage_stats as admin_usage_stats_router
 from app.routers.ceph_admin import usage_stats as ceph_usage_stats_router
@@ -239,6 +243,85 @@ def _persist_endpoint_and_accounts(db_session):
     db_session.add_all([endpoint, account_a, account_b])
     db_session.commit()
     return endpoint, account_a, account_b
+
+
+@pytest.mark.parametrize("actor_kind, selector", [
+    ("ui", "0001"), ("ui", " +001 "), ("session", "0001"),
+    ("session", None), ("unbound-session", None),
+])
+def test_manager_scan_persists_and_reads_resolved_scope(
+    client, db_session, test_engine, monkeypatch, actor_kind, selector,
+):
+    endpoint, account, _other_account = _persist_endpoint_and_accounts(db_session)
+    user = _tool_user()
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(UserS3Account(
+        user_id=user.id, account_id=account.id,
+        manager_role="account_administrator", portal_role=None,
+    ))
+    db_session.commit()
+    expected_scope = "session:rgw-external" if actor_kind == "unbound-session" else str(account.id)
+    actor = user if actor_kind == "ui" else ManagerSessionPrincipal(
+        session_id="usage-test", access_key="SESSION-AK", secret_key="SESSION-SK",
+        actor_type="account", account_id="rgw-external" if actor_kind == "unbound-session" else account.rgw_account_id,
+        account_name="Session executor", user_uid="session-user",
+        capabilities=SessionCapabilities(can_manage_buckets=True, endpoint_url=endpoint.endpoint_url),
+    )
+    executed_contexts = []
+
+    class FakeS3Client:
+        def get_paginator(self, operation):
+            assert operation == "list_object_versions"
+            return self
+
+        def paginate(self, *, Bucket):
+            assert Bucket == "bucket-a"
+            yield {"Versions": [{
+                "Key": "document.txt", "Size": 10, "IsLatest": True,
+                "LastModified": datetime(2026, 9, 9, tzinfo=timezone.utc),
+                "StorageClass": "STANDARD",
+            }]}
+
+    def build_client(_service, execution_context):
+        executed_contexts.append(execution_context)
+        return FakeS3Client()
+
+    app.dependency_overrides[dependencies.get_current_actor] = lambda: actor
+    app.dependency_overrides[dependencies.get_current_account_admin] = lambda: actor
+    app.dependency_overrides[dependencies.require_manager_enabled] = lambda: None
+    app.dependency_overrides[manager_usage_stats_router.require_bucket_usage_stats_enabled] = lambda: user
+    app.dependency_overrides[manager_usage_stats_router.get_buckets_service] = lambda: object()
+    monkeypatch.setattr(manager_usage_stats_router, "_list_manager_bucket_names", lambda *_args: ["bucket-a"])
+    monkeypatch.setattr(manager_usage_stats_router, "SessionLocal", sessionmaker(bind=test_engine))
+    monkeypatch.setattr(BucketUsageStatsService, "_build_client", build_client)
+    canonical_params = {} if selector is None else {"account_id": expected_scope}
+
+    for params in ({} if selector is None else {"account_id": selector}, canonical_params):
+        response = client.post("/api/manager/buckets/bucket-a/usage-stats/stream", params=params)
+        assert response.status_code == 200, response.text
+        assert '"status":"completed"' in response.text
+        assert f'"context_id":"{expected_scope}"' in response.text
+
+        latest = client.get("/api/manager/buckets/bucket-a/usage-stats", params=canonical_params)
+        assert latest.status_code == 200, latest.text
+        snapshot = latest.json()["snapshot"]
+        assert snapshot is not None
+        assert snapshot["scope_id"] == expected_scope
+        assert snapshot["total_bytes"] == 10
+        aggregate = client.get("/api/manager/usage-stats/latest", params=canonical_params)
+        assert aggregate.status_code == 200, aggregate.text
+        assert aggregate.json()["aggregate"]["scope_id"] == expected_scope
+        assert aggregate.json()["aggregate"]["total_bytes"] == 10
+        assert aggregate.json()["aggregate"]["buckets_with_snapshot"] == 1
+
+    row, = db_session.query(SnapshotRow).all()
+    assert (row.scope_kind, row.scope_id, row.bucket_name) == ("manager", expected_scope, "bucket-a")
+    assert len(executed_contexts) == 2
+    assert all(context.context_id == expected_scope for context in executed_contexts)
+    assert all(context.context_kind == ("account" if actor_kind == "ui" else "session") for context in executed_contexts)
+    expected_key = account.rgw_access_key if actor_kind == "ui" else "SESSION-AK"
+    assert all(context.access_key == expected_key for context in executed_contexts)
 
 
 def test_admin_usage_stats_latest_aggregates_managed_account_scopes(client: TestClient, db_session, monkeypatch):

@@ -293,18 +293,16 @@ def stream_delete_bucket_with_purge(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Confirmation must be exactly '{expected}'.")
     require_bucket_management_context(account)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=True)
-    context_id = request.query_params.get("account_id") or account.context_id
-    context_name = getattr(account, "name", None)
     target = BucketPurgeResolvedTarget(
         account=account,
         bucket_name=bucket_name,
-        context_id=context_id,
-        context_name=context_name,
+        context_id=account.context_id,
+        context_name=account.name,
     )
     service = BucketPurgeService()
     base_metadata = {
         "bucket_name": bucket_name,
-        "context_id": context_id,
+        "context_id": account.context_id,
         "parallelism": options.parallelism,
         "include_versions": True,
         "confirmation": "matched",
