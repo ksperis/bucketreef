@@ -42,11 +42,18 @@ applies the administrative authorization path to every object and version.
 Bucket metadata and configuration, including policies, lifecycle rules, CORS,
 notifications, and versioning settings, are kept.
 
+If a batch is only partly successful, the result retains its confirmed deletion
+count and identifies the failed entries by their exact object key and version
+ID. Repeated errors for the same entry do not inflate the failure count. When
+the storage response cannot identify the failed entries unambiguously, that
+batch is reported as failed rather than counted as deleted.
+
 Deleting a bucket is a separate Manager bucket action. From **Manager >
 Buckets**, empty buckets use the normal delete confirmation. Deleting a
 non-empty bucket requires bucket purge access, first runs a guarded purge, and
 then removes the bucket itself. That delete flow removes the bucket and its S3
 configuration; this purge tool does not.
+The bucket itself is not deleted if any content-purge failures remain.
 
 ## You are done when
 

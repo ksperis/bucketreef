@@ -100,6 +100,30 @@ of that batch. Repeated errors for the same key count once. Malformed responses
 or errors identifying an unrequested key fail explicitly instead of reporting
 success or attributing failure to a different object.
 
+## S3 deletion outcomes
+
+`s3_delete_response.parse_delete_objects_failures` is the shared response
+validator for comparison remediation and `s3_deletion`. It matches errors to
+the exact requested key and version ID within the current batch. An omitted
+error version ID is attributable only when that key identifies a single
+target. Ambiguous or unrequested identities fail explicitly; repeated provider
+errors never multiply the failure count for a requested entry. Responses
+without errors need not include a `Deleted` list.
+
+The deletion helpers still raise on partial failure rather than claiming that
+the whole request succeeded. `DeleteObjectsError` carries confirmed successes
+and individual failures, including prior successful batches. Bucket purges
+retain these partial counts in progress and final results, with a bounded
+sample identifying the actual failed objects, versions, or delete markers.
+Unattributable responses and transport failures count the affected batch as
+failed, not as confirmed deletions. Deleting the bucket remains blocked after any
+content-purge failure.
+
+The existing invalid-XML fallback and explicit individual-delete mode remain
+available. Both preserve opaque keys and version IDs, including whitespace;
+not-found results from individual retries remain idempotent successes. Browser
+and Portal cleanup callers retain their fail-on-error contract.
+
 ## Operational routes
 
 Internal cron routes are not UI routes. Keep them token-protected and documented

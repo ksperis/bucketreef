@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
 from botocore.exceptions import ClientError
 
 from app.services import bucket_purge_service
@@ -13,6 +14,7 @@ from app.services.bucket_purge_service import (
     BucketPurgeResolvedTarget,
     BucketPurgeService,
 )
+from tests.execution_context_factory import make_s3_execution_context
 
 
 def test_delete_bucket_with_purge_deletes_contents_then_bucket(monkeypatch):
@@ -148,6 +150,35 @@ def test_delete_bucket_with_purge_preserves_content_purge_failures(monkeypatch):
     assert result.deleted_objects == 1
     assert result.failed_count == 2
     assert result.buckets[0].failures_sample[0].key == "blocked.txt"
+
+
+@pytest.mark.parametrize("delete_bucket", [False, True])
+def test_real_partial_purge_preserves_counts_and_never_deletes_the_bucket(monkeypatch, delete_bucket):
+    client = Mock()
+    client.list_objects_v2.return_value = {"Contents": [{"Key": "ok"}, {"Key": " blocked "}]}
+    client.list_object_versions.return_value = {}
+    client.delete_objects.return_value = {"Errors": [{"Key": " blocked ", "Code": "AccessDenied"}]}
+    monkeypatch.setattr(BucketPurgeService, "_build_client", lambda self, account: client)
+    monkeypatch.setattr(bucket_purge_service.BucketsService, "list_buckets", lambda *_args, **_kwargs: [])
+    target = BucketPurgeResolvedTarget(
+        account=make_s3_execution_context(can_manage_buckets=True), bucket_name="target", context_id="1",
+    )
+    service = BucketPurgeService()
+    progress = []
+
+    if delete_bucket:
+        result = service.run_delete_bucket_with_purge(target, BucketPurgeOptions(), progress_callback=progress.append)
+    else:
+        result = service.run([target], BucketPurgeOptions(), progress_callback=progress.append)
+
+    assert result.status == ("failed" if delete_bucket else "completed_with_errors")
+    assert (result.listed_objects, result.deleted_objects, result.failed_count) == (2, 1, 1)
+    assert result.bucket_deleted is False
+    failure = result.buckets[0].failures_sample[0]
+    assert (failure.key, failure.version_id, failure.count) == (" blocked ", None, 1)
+    assert (progress[-1].deleted_objects, progress[-1].failed_count) == (1, 1)
+    client.delete_bucket.assert_not_called()
+    client.close.assert_called_once_with()
 
 
 def test_delete_bucket_with_purge_reports_bucket_not_empty_race(monkeypatch):

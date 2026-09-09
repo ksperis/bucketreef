@@ -463,7 +463,7 @@ def test_purge_bucket_contents_preserves_version_pagination_markers():
     ]
 
 
-def test_purge_bucket_contents_reports_failed_batch_without_stopping_completion():
+def test_purge_bucket_contents_reports_partial_batch_failure_without_stopping_completion():
     class FailingDeleteClient:
         def list_objects_v2(self, **kwargs):  # noqa: ARG002
             return {"Contents": [{"Key": "first"}, {"Key": "second"}]}
@@ -485,15 +485,16 @@ def test_purge_bucket_contents_reports_failed_batch_without_stopping_completion(
     )
 
     assert result.listed_objects == 2
-    assert result.deleted_objects == 0
-    assert result.failed_count == 2
+    assert result.deleted_objects == 1
+    assert result.failed_count == 1
     assert len(result.failures_sample) == 1
     assert result.failures_sample[0].stage == "objects"
     assert result.failures_sample[0].key == "first"
-    assert result.failures_sample[0].count == 2
+    assert result.failures_sample[0].count == 1
     assert "AccessDenied" in result.failures_sample[0].message
     assert progress_events[-1].stage == "completed"
-    assert progress_events[-1].failed_count == 2
+    assert progress_events[-1].deleted_objects == 1
+    assert progress_events[-1].failed_count == 1
 
 
 def test_purge_bucket_contents_tolerates_missing_bucket_before_deletion():
