@@ -12,6 +12,7 @@ vi.mock("./client", () => ({
 }));
 
 import {
+  fetchBrowserObjectColumns,
   fetchObjectMetadata,
   listBrowserObjects,
   listObjectVersions,
@@ -35,6 +36,35 @@ describe("browser object api", () => {
     clientMock.put.mockReset();
     clientMock.put.mockResolvedValue({ data: { key: "demo.txt", tags: [] } });
   });
+
+  it.each([" report.txt ", " ", "cafe\u0301.txt", "dir/../literal%2F+#"])(
+    "preserves exact object keys in column and version requests: %j",
+    async (key) => {
+      const payload = { keys: [key], columns: ["tags_count" as const] };
+      await fetchBrowserObjectColumns("conn-7", "bucket-a", payload);
+      expect(clientMock.post).toHaveBeenCalledWith(
+        "/browser/buckets/bucket-a/objects/columns",
+        payload,
+        expect.objectContaining({ params: { account_id: "conn-7" } }),
+      );
+
+      await listObjectVersions("conn-7", "bucket-a", {
+        key,
+        keyMarker: key + "next",
+        versionIdMarker: " version ",
+      });
+      expect(clientMock.get).toHaveBeenCalledWith(
+        "/browser/buckets/bucket-a/versions",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            key,
+            key_marker: key + "next",
+            version_id_marker: " version ",
+          }),
+        }),
+      );
+    },
+  );
 
   it("passes force_refresh when listing objects with an explicit refresh", async () => {
     await listBrowserObjects("conn-7", "bucket-a", {
