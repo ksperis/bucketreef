@@ -1,196 +1,291 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PortalProjectSettings } from "../../api/portalAccounts";
+import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 import PortalSettingsPage from "./PortalSettingsPage";
 
 const mocks = vi.hoisted(() => ({
-  fetchCurrentUserMock: vi.fn(),
-  fetchProjectSettingsMock: vi.fn(),
-  updateProjectSettingsMock: vi.fn(),
-  accountContext: {
-    accounts: [
-      {
-        id: "101",
-        name: "Research Account",
-        tags: [],
-        storage_endpoint_name: "ceph-eu",
-      },
-    ],
+  fetch: vi.fn(),
+  save: vi.fn(),
+  context: {
     selectedAccount: {
-      id: "101",
-      name: "Research Account",
-      tags: [],
-      storage_endpoint_name: "ceph-eu",
+      id: 101,
+      name: "Research",
+      storage_endpoint_name: "Ceph EU",
     },
     selectedAccountId: "101",
-    setSelectedAccountId: vi.fn(),
-    loading: false,
-  },
-  workspaceData: {
-    workspace: {
-      usedBytes: 1024,
-      spaces: [
-        { id: "space-a", status: "Active" },
-        { id: "space-b", status: "Archived" },
-      ],
-    },
     loading: false,
   },
 }));
-
-vi.mock("../../api/users", () => ({
-  fetchCurrentUser: () => mocks.fetchCurrentUserMock(),
-}));
-
 vi.mock("../../api/portalAccounts", () => ({
-  fetchPortalProjectSettings: (...args: unknown[]) => mocks.fetchProjectSettingsMock(...args),
-  updatePortalProjectSettings: (...args: unknown[]) => mocks.updateProjectSettingsMock(...args),
+  fetchPortalProjectSettings: (...args: unknown[]) => mocks.fetch(...args),
+  updatePortalProjectSettings: (...args: unknown[]) => mocks.save(...args),
 }));
-
 vi.mock("./PortalAccountContext", () => ({
-  usePortalAccountContext: () => mocks.accountContext,
+  usePortalAccountContext: () => mocks.context,
 }));
-
-vi.mock("./usePortalWorkspaceData", () => ({
-  usePortalWorkspaceData: () => mocks.workspaceData,
-}));
-
-describe("PortalSettingsPage", () => {
-  const projectSettings = {
-    effective: {
-      browser_access_enabled: true,
-      allow_private_storage_space_create: true,
-      allow_portal_named_bucket_create: false,
-      allow_portal_user_access_key_create: true,
-      server_access_logging_enabled: true,
-      server_access_log_retention_days: 30,
-      storage_space_version_cleanup_enabled: true,
-      max_portal_user_access_keys: 2,
-      bucket_defaults: {
-        versioning: true,
-        enable_lifecycle: true,
-        noncurrent_version_expiration_days: 90,
-        enable_cors: false,
-        cors_allowed_origins: ["https://portal.example.test"],
-      },
+const project: PortalProjectSettings = {
+  effective: {
+    browser_access_enabled: true,
+    allow_private_storage_space_create: true,
+    allow_portal_named_bucket_create: false,
+    allow_portal_user_access_key_create: true,
+    server_access_logging_enabled: true,
+    server_access_log_retention_days: 30,
+    storage_space_version_cleanup_enabled: true,
+    max_portal_user_access_keys: 2,
+    bucket_defaults: {
+      versioning: true,
+      enable_lifecycle: true,
+      noncurrent_version_expiration_days: 90,
+      enable_cors: false,
+      cors_allowed_origins: ["https://portal.example.test"],
     },
-    project_override: {},
-    delegated_to_portal_managers: false,
-    can_update: false,
-  };
-
+  },
+  project_override: {},
+  delegated_to_portal_managers: true,
+  can_update: true,
+};
+describe("Portal project settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.accountContext.selectedAccountId = "101";
-    mocks.accountContext.loading = false;
-    mocks.workspaceData.loading = false;
-    mocks.fetchCurrentUserMock.mockResolvedValue({
-      id: 7,
-      email: "portal@example.com",
-      account_links: [{ account_id: 101, manager_role: null, portal_role: "portal_user" }],
-    });
-    mocks.fetchProjectSettingsMock.mockResolvedValue(projectSettings);
-    mocks.updateProjectSettingsMock.mockImplementation((_accountId, payload) =>
-      Promise.resolve({
-        ...projectSettings,
-        project_override: payload,
-        delegated_to_portal_managers: true,
-        can_update: true,
-      })
-    );
+    setSessionUserCache(null);
+    localStorage.clear();
+    mocks.context.selectedAccountId = "101";
+    mocks.fetch.mockResolvedValue(project);
+    mocks.save.mockImplementation(async (_id, payload) => ({
+      ...project,
+      project_override: payload,
+    }));
   });
-
-  it("shows the selected project and effective settings in read-only mode", async () => {
+  it.each([false, true])(
+    "shows effective values and the read-only reason (delegation=%s)",
+    async (delegated) => {
+      mocks.fetch.mockResolvedValue({
+        ...project,
+        can_update: false,
+        delegated_to_portal_managers: delegated,
+      });
+      render(<PortalSettingsPage />);
+      expect(
+        await screen.findByText(
+          delegated
+            ? "Only delegated project managers can edit these settings."
+            : "Project settings are managed by the platform administrator.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Research")).toBeInTheDocument();
+      expect(screen.getByText("Ceph EU")).toBeInTheDocument();
+      expect(screen.getAllByText("Platform").length).toBeGreaterThan(0);
+      expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Save changes" }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Storage used")).not.toBeInTheDocument();
+    },
+  );
+  it("saves a change and restores inheritance only after confirmation and Save", async () => {
+    const initial = {
+      ...project,
+      project_override: { browser_access_enabled: true },
+    };
+    mocks.fetch.mockResolvedValue(initial);
     render(<PortalSettingsPage />);
-
-    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
-    expect(screen.getByText("Review the effective settings for the selected project.")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Project" })).toBeInTheDocument();
-    expect(screen.getByText("Research Account")).toBeInTheDocument();
-    expect(screen.getByText("Workspace access")).toBeInTheDocument();
-    expect(await screen.findByText("User")).toBeInTheDocument();
-    expect(screen.getByText("ceph-eu")).toBeInTheDocument();
-    expect(screen.getByText("1 active / 2 total")).toBeInTheDocument();
-    expect(screen.getByText("1.0 KB")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Project settings" })).toBeInTheDocument();
-    expect(screen.getByText("Version history retention")).toBeInTheDocument();
-    expect(screen.getByLabelText("Browser workspace access override")).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
-
-    expect(screen.queryByRole("button", { name: "Profile" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Preferences" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Security" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Project" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit profile" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit preferences" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Change password" })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Display name")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Language")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
-    await waitFor(() => expect(mocks.fetchCurrentUserMock).toHaveBeenCalledTimes(1));
-    expect(mocks.fetchProjectSettingsMock).toHaveBeenCalledWith("101");
-  });
-
-  it("lets a delegated Portal Manager save and reset the shared project override", async () => {
-    mocks.fetchProjectSettingsMock.mockResolvedValue({
-      ...projectSettings,
-      delegated_to_portal_managers: true,
-      can_update: true,
-    });
-
-    render(<PortalSettingsPage />);
-
-    fireEvent.change(await screen.findByLabelText("Browser workspace access override"), {
+    fireEvent.change(await screen.findByLabelText("Browser workspace access"), {
       target: { value: "disabled" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() => {
-      expect(mocks.updateProjectSettingsMock).toHaveBeenCalledWith("101", {
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(mocks.save).toHaveBeenCalledWith("101", {
         browser_access_enabled: false,
-      });
+      }),
+    );
+    mocks.fetch.mockResolvedValue({
+      ...project,
+      project_override: { browser_access_enabled: false },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Reset overrides" }));
-    expect(screen.getByRole("heading", { name: "Reset all project overrides?" })).toBeInTheDocument();
-    expect(screen.getAllByText("Research Account").length).toBeGreaterThan(1);
-    expect(mocks.updateProjectSettingsMock).toHaveBeenCalledTimes(1);
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reset overrides" }));
-    await waitFor(() => expect(mocks.updateProjectSettingsMock).toHaveBeenLastCalledWith("101", {}));
+    await screen.findByText("Project settings saved.");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restore platform values" }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Apply" }),
+    );
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Browser workspace access")).toHaveValue(
+      "inherit",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(mocks.save).toHaveBeenLastCalledWith("101", {}));
   });
-
-  it("reloads settings when the selected project changes", async () => {
+  it("cancels drafts and validates an empty customized number without clamping it", async () => {
+    render(<PortalSettingsPage />);
+    fireEvent.click(
+      await screen.findByRole("switch", {
+        name: "Customize — Version history retention",
+      }),
+    );
+    const number = screen.getByRole("spinbutton", {
+      name: "Version history retention",
+    });
+    fireEvent.change(number, { target: { value: "" } });
+    expect(number).toHaveValue(null);
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(
+      await screen.findByText("Enter a positive whole number."),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(number).toHaveFocus());
+    expect(mocks.save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(
+      screen.getByRole("switch", {
+        name: "Customize — Version history retention",
+      }),
+    ).not.toBeChecked();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+  });
+  it("keeps CORS dialog edits local until Apply and keeps the page draft on failure", async () => {
+    render(<PortalSettingsPage />);
+    fireEvent.click(
+      await screen.findByRole("switch", { name: "Customize — CORS origins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "CORS origins" }), {
+      target: { value: "https://draft.test" },
+    });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Cancel",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    expect(screen.getByRole("textbox", { name: "CORS origins" })).toHaveValue(
+      "https://portal.example.test",
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "CORS origins" }), {
+      target: { value: "https://applied.test" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(mocks.save).not.toHaveBeenCalled();
+    mocks.save.mockRejectedValueOnce(new Error("network"));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(
+      await screen.findByText(/Unable to save project settings/),
+    ).toBeInTheDocument();
+    expect(mocks.save).toHaveBeenLastCalledWith("101", {
+      bucket_defaults: { cors_allowed_origins: ["https://applied.test"] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    expect(screen.getByRole("textbox", { name: "CORS origins" })).toHaveValue(
+      "https://applied.test",
+    );
+  });
+  it("preserves a concurrent edit and refuses conflicting changes", async () => {
+    render(<PortalSettingsPage />);
+    fireEvent.click(
+      await screen.findByRole("switch", {
+        name: "Customize — Version history retention",
+      }),
+    );
+    fireEvent.change(screen.getByRole("spinbutton"), {
+      target: { value: "45" },
+    });
+    mocks.fetch.mockResolvedValue({
+      ...project,
+      project_override: {
+        bucket_defaults: { noncurrent_version_expiration_days: 30 },
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(
+      await screen.findByText(/A setting you edited has changed on the server/),
+    ).toBeInTheDocument();
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(screen.getByRole("spinbutton")).toHaveValue(45);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(screen.getByRole("spinbutton")).toHaveValue(30);
+  });
+  it("ignores a late response from a previously selected project", async () => {
+    let resolve!: (value: PortalProjectSettings) => void;
+    mocks.fetch.mockImplementationOnce(
+      () =>
+        new Promise<PortalProjectSettings>((done) => {
+          resolve = done;
+        }),
+    );
     const { rerender } = render(<PortalSettingsPage />);
-    await waitFor(() => expect(mocks.fetchProjectSettingsMock).toHaveBeenCalledWith("101"));
-
-    mocks.accountContext.selectedAccountId = "202";
+    mocks.context.selectedAccountId = "202";
     rerender(<PortalSettingsPage />);
-
-    await waitFor(() => expect(mocks.fetchProjectSettingsMock).toHaveBeenCalledWith("202"));
+    expect(
+      await screen.findByLabelText("Browser workspace access"),
+    ).toHaveValue("inherit");
+    await act(async () =>
+      resolve({
+        ...project,
+        project_override: { browser_access_enabled: false },
+      }),
+    );
+    expect(screen.getByLabelText("Browser workspace access")).toHaveValue(
+      "inherit",
+    );
   });
-
   it.each([
-    ["portal_manager", "Manager"],
-    ["portal_user", "User"],
-  ] as const)("renders %s project access as %s", async (portalRole, expectedLabel) => {
-    mocks.fetchCurrentUserMock.mockResolvedValue({
-      id: 7,
-      email: "portal@example.com",
-      account_links: [{ account_id: 101, manager_role: null, portal_role: portalRole }],
-    });
-
-    render(<PortalSettingsPage />);
-
-    expect(await screen.findByText(expectedLabel)).toBeInTheDocument();
-  });
-
-  it("keeps the project card visible while project data is loading", async () => {
-    mocks.accountContext.loading = true;
-    mocks.workspaceData.loading = true;
-
-    render(<PortalSettingsPage />);
-
-    expect(screen.getByRole("heading", { name: "Project" })).toBeInTheDocument();
-    expect(screen.getByText("Loading project settings...")).toBeInTheDocument();
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
-    await waitFor(() => expect(mocks.fetchCurrentUserMock).toHaveBeenCalledTimes(1));
-  });
+    [
+      "en",
+      "Settings",
+      "Customize — CORS origins",
+      "Configure",
+      "One origin per line, or * for all origins.",
+      "Currently applied: 90 days",
+    ],
+    [
+      "fr",
+      "Paramètres",
+      "Personnaliser — Origines CORS",
+      "Configurer",
+      "Une origine par ligne, ou * pour toutes les origines.",
+      "Actuellement appliqué : 90 jours",
+    ],
+    [
+      "de",
+      "Einstellungen",
+      "Anpassen — CORS-Ursprünge",
+      "Konfigurieren",
+      "Ein Ursprung pro Zeile oder * für alle Ursprünge.",
+      "Derzeit angewendet: 90 Tage",
+    ],
+  ])(
+    "translates Portal and its dialog in %s",
+    async (locale, title, customize, configure, help, days) => {
+      setSessionUserCache({ id: 1, ui_language: locale as "en" | "fr" | "de" });
+      render(
+        <LanguageProvider>
+          <PortalSettingsPage />
+        </LanguageProvider>,
+      );
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+      fireEvent.click(await screen.findByRole("switch", { name: customize }));
+      fireEvent.click(screen.getByRole("button", { name: configure }));
+      expect(screen.getByText(help)).toBeInTheDocument();
+      expect(
+        screen.getByText(days.replace("appliqué :", "appliqué:")),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("One origin per line", { exact: true }),
+      ).not.toBeInTheDocument();
+    },
+  );
 });

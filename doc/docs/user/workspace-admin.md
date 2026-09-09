@@ -133,3 +133,27 @@ image up to 1 MiB. Group images never use Gravatar or an OIDC profile image.
   <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="../../assets/screenshots/user/workspace-admin.light.png" alt="Admin workspace with platform-level navigation" loading="lazy">
   <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="../../assets/screenshots/user/workspace-admin.dark.png" alt="Admin workspace with platform-level navigation" loading="lazy">
 </div>
+
+## Editing platform settings
+
+General, Authentication, Browser, Manager and Portal settings use compact
+sections with one **Save changes / Cancel** area that appears after an edit.
+**Reset to defaults** loads defaults for the current page into its draft;
+review them and save to apply them. Other settings pages are preserved.
+Concurrent edits to the same field are reported instead of overwritten.
+
+General contains workspace availability, services, quota alerts and branding.
+**Configure SMTP** opens an internal draft with an explicit test-email action;
+testing does not save that draft. **Apply** copies dialog values to the page.
+The branding preview is local until a successful save updates the interface.
+Manager migration limits and Portal CORS origins use the same dialog pattern.
+
+Authentication lists external providers separately from the global login and
+security policy. **Add**, **Edit** and **View** open dedicated OIDC/LDAP pages,
+with a return to Authentication. Provider saves are independent of policy
+saves. Environment-managed values stay locked. Existing secrets are not shown;
+leave them blank to keep the stored secret, following the field's explicit
+removal controls. Sensitive updates retain passkey verification.
+
+These administration pages remain in English. The user Portal project settings
+and shared profile support English, French and German.

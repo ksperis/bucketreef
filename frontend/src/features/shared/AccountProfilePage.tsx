@@ -3,10 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useContext, useEffect, useMemo, useState } from "react";
-import { UNSAFE_DataRouterContext, useBlocker, useLocation, useSearchParams } from "react-router-dom";
+import { UNSAFE_DataRouterContext, useLocation, useSearchParams } from "react-router-dom";
 
 import PageShell from "../../components/PageShell";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { ProfileConfirmation } from "./ProfileControls";
 import { useProfileI18n } from "./profileMessages";
 import {
@@ -21,13 +22,6 @@ import {
 } from "../../navigation/workspacePages";
 
 type AccountTab = "profile" | "security" | "connections";
-
-function ProfileRouteGuard({ dirty, onDiscard }: { dirty: boolean; onDiscard: () => void }) {
-  const { text } = useProfileI18n();
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && Boolean(readStoredUser()) && (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search));
-  if (blocker.state !== "blocked") return null;
-  return <ProfileConfirmation title={text("discardTitle")} description={text("discardDescription")} confirmLabel={text("discard")} cancelLabel={text("keepEditing")} zIndexClass="z-[110]" onCancel={() => blocker.reset()} onConfirm={() => { onDiscard(); blocker.proceed(); }} />;
-}
 
 export default function AccountProfilePage() {
   const { text } = useProfileI18n();
@@ -59,13 +53,6 @@ export default function AccountProfilePage() {
     setSearchParams(next, { replace: true });
   }, [activeTab, requestedTab, searchParams, setSearchParams]);
 
-  useEffect(() => {
-    if (!hasUnsavedChanges) return;
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [hasUnsavedChanges]);
-
   const applyTabChange = (tab: AccountTab) => {
     if (!hasDataRouter) setHasUnsavedChanges(false);
     const next = new URLSearchParams(searchParams);
@@ -92,6 +79,7 @@ export default function AccountProfilePage() {
     <PageShell
       className="account-profile"
       title={text("title")}
+      breadcrumbLabel={text("breadcrumb")}
       description={text(isS3Session ? "temporary" : "intro")}
       breadcrumbs={buildWorkspaceBreadcrumbs(workspace, { label: text("profile") })}
     >
@@ -112,7 +100,7 @@ export default function AccountProfilePage() {
         ) : null}
         {activeTab === "security" ? <SecurityPage onUnsavedChangesChange={setHasUnsavedChanges} /> : null}
       </PageTabPanel>
-      {hasDataRouter && <ProfileRouteGuard dirty={hasUnsavedChanges} onDiscard={() => setHasUnsavedChanges(false)} />}
+      <SettingsNavigationGuard dirty={hasUnsavedChanges} onDiscard={() => setHasUnsavedChanges(false)} title={text("discardTitle")} description={text("discardDescription")} confirmLabel={text("discard")} cancelLabel={text("keepEditing")} closeLabel={text("close")} />
       {pendingTab ? (
         <ProfileConfirmation
           title={text("discardTitle")}

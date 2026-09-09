@@ -95,3 +95,26 @@ surfaces, not like a separate marketing site.
 - Validate meaningful documentation theme changes with a strict MkDocs build,
   the screenshot reference check, and at least one desktop/mobile render smoke
   of a table-heavy docs page.
+
+## Compact settings tokens
+
+`components/settings/compactSettings.css` owns the opt-in settings geometry:
+`--settings-content-width` (1120px), `--settings-title-width` (190px),
+`--settings-section-gap` (20px), `--settings-row-height` (56px minimum) and
+`--settings-control-height` (32px desktop / 44px below 1024px). Change these
+shared tokens instead of copying dimensions into page-specific styles. Rows
+may grow for translated labels; do not clip text or reduce mobile targets.
+
+Compact sections, inline status badges and the sticky action area use the
+existing surface, border, text and primary palette tokens. Branding previews
+scope generated primary variables to their demonstration container; they must
+not call the global branding runtime until a server save succeeds. Check both
+light and dark themes and a custom accent. Switches represent binary settings;
+checkboxes remain for multiple selections and acknowledgements. Inheritable
+booleans use an explicit three-state selector, with a separate Customize switch
+for numeric and list overrides.
+
+The compact presentation is explicit. Nonmigrated consumers keep the default
+`SettingsLayout` presentation, including account override editors and bucket
+configuration. The former Portal alias facade and unused card/form helpers have
+been removed; import the canonical components directly.

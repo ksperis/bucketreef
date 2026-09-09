@@ -1,0 +1,123 @@
+/* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { type ComponentProps, type ReactNode, useId } from "react";
+import Modal from "../Modal";
+import ConfirmActionDialog from "../ConfirmActionDialog";
+import UiButton from "../ui/UiButton";
+import UiInput from "../ui/UiInput";
+import { useUnsavedChangesGuard } from "../useUnsavedChangesGuard";
+
+export function SettingsButton({
+  className = "",
+  size = "sm",
+  ...props
+}: ComponentProps<typeof UiButton>) {
+  return (
+    <UiButton
+      {...props}
+      size={size}
+      className={`settings-control ${className}`}
+    />
+  );
+}
+
+export function SettingsDialog(props: ComponentProps<typeof Modal>) {
+  return (
+    <div className="settings-dialog">
+      <Modal maxWidthClass="max-w-lg" {...props} />
+    </div>
+  );
+}
+
+export function SettingsConfirmation(
+  props: ComponentProps<typeof ConfirmActionDialog>,
+) {
+  return (
+    <div className="settings-dialog">
+      <ConfirmActionDialog {...props} />
+    </div>
+  );
+}
+
+export function useSettingsCloseGuard(
+  options: Parameters<typeof useUnsavedChangesGuard>[0],
+) {
+  const guard = useUnsavedChangesGuard({ zIndexClass: "z-[110]", ...options });
+  return {
+    ...guard,
+    confirmationDialog: guard.confirmationDialog && (
+      <div className="settings-dialog">{guard.confirmationDialog}</div>
+    ),
+  };
+}
+
+export function SettingsActions({
+  dirty,
+  busy,
+  onSave,
+  onCancel,
+  saveLabel = "Save changes",
+  cancelLabel = "Cancel",
+  savingLabel = "Saving...",
+  disabled,
+  saveAriaLabel,
+}: {
+  dirty: boolean;
+  busy?: boolean;
+  disabled?: boolean;
+  saveAriaLabel?: string;
+  onSave: () => void;
+  onCancel: () => void;
+  saveLabel?: string;
+  cancelLabel?: string;
+  savingLabel?: string;
+}) {
+  if (!dirty) return null;
+  return (
+    <div className="settings-actions">
+      <SettingsButton variant="secondary" disabled={busy} onClick={onCancel}>
+        {cancelLabel}
+      </SettingsButton>
+      <SettingsButton
+        disabled={busy || disabled}
+        aria-label={saveAriaLabel}
+        onClick={onSave}
+      >
+        {busy ? savingLabel : saveLabel}
+      </SettingsButton>
+    </div>
+  );
+}
+
+export function SettingsField({
+  label,
+  error,
+  help,
+  className = "",
+  ...props
+}: ComponentProps<typeof UiInput> & {
+  label: string;
+  error?: string;
+  help?: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div className="min-w-0">
+      <UiInput
+        {...props}
+        aria-label={label}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error || help ? id : undefined}
+        className={`settings-control ${className}`}
+      />
+      {(error || help) && (
+        <p
+          id={id}
+          role={error ? "alert" : undefined}
+          className={`mt-1 text-xs ${error ? "text-rose-700 dark:text-rose-300" : "text-[var(--ui-text-muted)]"}`}
+        >
+          {error || help}
+        </p>
+      )}
+    </div>
+  );
+}

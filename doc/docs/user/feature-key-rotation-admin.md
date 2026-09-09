@@ -18,9 +18,13 @@ Use **Admin > Settings > Key Rotation** for planned credential rotation, inciden
 1. Open **Admin > Settings > Key Rotation**.
 2. Select the endpoint or endpoints to rotate.
 3. Select only the key types required by the maintenance plan.
-4. Confirm the operation and wait for the result.
-5. Validate endpoint health, Manager context access, Browser access, and any scheduled collection job that uses the rotated credential.
-6. Review audit logs for the actor, endpoint, and key type.
+4. Choose whether previous keys should be disabled or permanently deleted
+   after replacement. Click **Run rotation**, review the endpoints, categories
+   and old-key handling, then **Confirm rotation**.
+5. Wait for the actual result. Review rotated, failed and skipped entries;
+   key identifiers are available in each result's details.
+6. Validate endpoint health, Manager context access, Browser access, and any scheduled collection job that uses the rotated credential.
+7. Review audit logs for the actor, endpoint, and key type.
 
 ## Expected result
 
@@ -38,6 +42,10 @@ Only superadmins can access key rotation. Check role assignment before checking 
 
 !!! warning
     Key rotation can interrupt automation that still depends on an old credential. Validate schedulers, CronJobs, external integrations, and backup access after rotation.
+
+A failed or timed-out request can have a partial outcome. Keep the displayed
+results and verify existing keys before starting another rotation. The page
+never automatically repeats an uncertain operation.
 
 ### Endpoints managed by the environment
 
