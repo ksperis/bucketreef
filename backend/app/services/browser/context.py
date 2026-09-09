@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -249,6 +251,15 @@ class BrowserContextMixin:
         except RuntimeError:
             return
         self.invalidate_object_list_cache(account_key, bucket_name)
+
+    @contextmanager
+    def _object_mutation(self, account: S3ExecutionTarget, *bucket_names: str) -> Iterator[None]:
+        """Expire object views even when a mutation fails after changing storage."""
+        try:
+            yield
+        finally:
+            for bucket_name in dict.fromkeys(bucket_names):
+                self.invalidate_object_list_cache_for_account(account, bucket_name)
 
     def get_bucket_cors_status(
         self,

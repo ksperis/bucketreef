@@ -64,11 +64,12 @@ class BrowserVersionsMixin:
                     if not versions_batch:
                         return
                     batch = list(versions_batch)
-                    delete_objects(
-                        client,
-                        bucket_name,
-                        [{"Key": key, "VersionId": version_id} for key, version_id in batch],
-                    )
+                    with self._object_mutation(account, bucket_name):
+                        delete_objects(
+                            client,
+                            bucket_name,
+                            [{"Key": key, "VersionId": version_id} for key, version_id in batch],
+                        )
                     cleanup_store.remove_versions(batch)
                     deleted_versions += len(batch)
                     versions_batch.clear()
@@ -105,11 +106,12 @@ class BrowserVersionsMixin:
                     if not markers_batch:
                         return
                     batch = list(markers_batch)
-                    delete_objects(
-                        client,
-                        bucket_name,
-                        [{"Key": key, "VersionId": version_id} for key, version_id in batch],
-                    )
+                    with self._object_mutation(account, bucket_name):
+                        delete_objects(
+                            client,
+                            bucket_name,
+                            [{"Key": key, "VersionId": version_id} for key, version_id in batch],
+                        )
                     deleted_delete_markers += len(batch)
                     markers_batch.clear()
 
@@ -120,7 +122,6 @@ class BrowserVersionsMixin:
                             flush_markers_batch()
                     flush_markers_batch()
 
-            self.invalidate_object_list_cache_for_account(account, bucket_name)
             return CleanupObjectVersionsResponse(
                 prefix=prefix or None,
                 deleted_versions=deleted_versions,
