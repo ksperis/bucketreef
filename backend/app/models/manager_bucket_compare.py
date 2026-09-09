@@ -48,17 +48,13 @@ class ManagerBucketCompareActionRequest(ApiModel):
         self.target_context_id = (self.target_context_id or "").strip()
         self.source_bucket = (self.source_bucket or "").strip()
         self.target_bucket = (self.target_bucket or "").strip()
-        normalized_keys: list[str] = []
         seen_keys: set[str] = set()
-        for raw_key in self.object_keys:
-            key = (raw_key or "").strip()
+        for key in self.object_keys:
             if not key:
-                raise ValueError("object_keys cannot contain blank keys.")
+                raise ValueError("object_keys cannot contain empty keys.")
             if key in seen_keys:
                 raise ValueError("object_keys cannot contain duplicate keys.")
             seen_keys.add(key)
-            normalized_keys.append(key)
-        self.object_keys = normalized_keys
         if not self.target_context_id:
             raise ValueError("target_context_id is required.")
         if not self.source_bucket:

@@ -470,9 +470,9 @@ def test_compare_bucket_action_forwards_object_keys(monkeypatch):
     )
 
     assert response.planned_count == 1
-    assert captured["object_keys"] == ["logs/a.txt"]
+    assert captured["object_keys"] == [" logs/a.txt "]
     assert audit.calls[0]["metadata"]["object_keys_count"] == 1
-    assert audit.calls[0]["metadata"]["object_keys_sample"] == ["logs/a.txt"]
+    assert audit.calls[0]["metadata"]["object_keys_sample"] == [" logs/a.txt "]
 
 
 def test_compare_bucket_action_delete_returns_partial_failure(monkeypatch):
@@ -638,7 +638,7 @@ def test_compare_bucket_action_request_validates_action_and_parallelism():
             source_bucket="bucket-a",
             target_bucket="bucket-b",
             action="sync_source_only",
-            object_keys=["logs/a.txt", " logs/a.txt "],
+            object_keys=["logs/a.txt", "logs/a.txt"],
         )
 
     with pytest.raises(ValidationError):
@@ -647,7 +647,7 @@ def test_compare_bucket_action_request_validates_action_and_parallelism():
             source_bucket="bucket-a",
             target_bucket="bucket-b",
             action="sync_source_only",
-            object_keys=[" "],
+            object_keys=[""],
         )
 
 
