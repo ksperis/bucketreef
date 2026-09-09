@@ -91,6 +91,11 @@ Select the execution context before choosing a bucket. The same bucket name may 
 
 Object-level operations are executed with current context credentials and reflected immediately.
 
+Names are exact: `"report.txt"` and `" report.txt "` identify different objects.
+Metadata/tag columns and object history keep these distinctions, including
+names composed only of spaces. Opening an object's history does not substitute
+the history of a trimmed name or a neighboring prefix.
+
 An error does not mean that every requested change was rolled back. After a
 failed deletion, copy, move, or upload, refresh the list before retrying. For
 writes handled by the backend, affected object listings and metadata/tag columns

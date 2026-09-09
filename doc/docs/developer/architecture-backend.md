@@ -67,6 +67,27 @@ previews report it as unavailable and log reads fail explicitly. A genuine
 empty body remains valid, and a log object deleted after listing is still
 ignored on `NoSuchKey`/not-found responses.
 
+## Browser object read identity
+
+Object-column reads preserve each key exactly through HTTP validation, S3 HEAD
+and tagging requests, cache lookup, and response mapping. Only exact duplicate
+keys are deduplicated, in first-occurrence order; whitespace, Unicode, percent
+characters, and path segments are never normalized. A refused read remains an
+error for that exact key, without retrying a trimmed or otherwise altered name.
+
+`ObjectColumnsRequest` requires both `keys` (1–200 nonempty strings) and
+`columns` (1–6 supported column names). A whitespace-only object key is valid;
+an empty string is not. Missing fields and invalid entries return `422` before
+any storage read.
+
+Version listing distinguishes an omitted exact `key` from the prefix-listing
+mode. A supplied key must be nonempty and is sent unchanged as the S3 prefix,
+with no delimiter; versions and delete markers are filtered by exact equality.
+An empty key is rejected rather than broadening the request to a prefix or
+whole-bucket listing. Omitted keys retain hierarchical prefix listing. S3 key
+and version markers pass through unchanged, including on pages containing only
+neighboring keys so the caller can continue pagination.
+
 ## Browser mutation cache lifetime
 
 Browser mutations use `BrowserContextMixin._object_mutation` around the storage

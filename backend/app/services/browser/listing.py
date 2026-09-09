@@ -301,14 +301,14 @@ class BrowserListingMixin:
         max_keys: int = 1000,
     ) -> ListObjectVersionsResponse:
         client = self._client(account)
-        filter_key = (key or "").strip() or None
-        query_prefix = filter_key or (prefix or "")
+        filter_key = key
+        query_prefix = filter_key if filter_key is not None else prefix
         kwargs = {
             "Bucket": bucket_name,
             "Prefix": query_prefix,
             "MaxKeys": max_keys,
         }
-        if delimiter and not filter_key:
+        if delimiter and filter_key is None:
             kwargs["Delimiter"] = delimiter
         if key_marker:
             kwargs["KeyMarker"] = key_marker
@@ -324,7 +324,7 @@ class BrowserListingMixin:
             key = ver.get("Key")
             if not key:
                 continue
-            if filter_key and key != filter_key:
+            if filter_key is not None and key != filter_key:
                 continue
             versions.append(
                 BrowserObjectVersion(
@@ -341,7 +341,7 @@ class BrowserListingMixin:
             key = marker.get("Key")
             if not key:
                 continue
-            if filter_key and key != filter_key:
+            if filter_key is not None and key != filter_key:
                 continue
             delete_markers.append(
                 BrowserObjectVersion(
@@ -352,7 +352,7 @@ class BrowserListingMixin:
                     last_modified=marker.get("LastModified"),
                 )
             )
-        response_prefix = filter_key or (prefix or None)
+        response_prefix = filter_key if filter_key is not None else (prefix or None)
         return ListObjectVersionsResponse(
             prefix=response_prefix,
             common_prefixes=[

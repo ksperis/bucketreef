@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Annotated, Optional, Literal
 
 from pydantic import Field
 
@@ -63,8 +63,8 @@ class ListBrowserObjectsResponse(ApiModel):
 
 
 class ObjectColumnsRequest(ApiModel):
-    keys: list[str] = Field(default_factory=list, min_length=1, max_length=200)
-    columns: list[BrowserObjectLazyColumn] = Field(default_factory=list, min_length=1, max_length=6)
+    keys: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1, max_length=200)
+    columns: list[BrowserObjectLazyColumn] = Field(min_length=1, max_length=6)
 
 
 class ObjectColumnValues(ApiModel):

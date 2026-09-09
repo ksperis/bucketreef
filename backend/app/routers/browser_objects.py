@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -41,7 +41,7 @@ def list_versions(
     bucket_name: str,
     prefix: str = "",
     delimiter: Optional[str] = None,
-    key: Optional[str] = None,
+    key: Annotated[Optional[str], Query(min_length=1)] = None,
     key_marker: Optional[str] = None,
     version_id_marker: Optional[str] = None,
     max_keys: int = Query(default=1000, ge=1, le=1000),

@@ -310,22 +310,13 @@ class BrowserObjectDetailsMixin:
         columns: set[BrowserObjectLazyColumn],
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> ObjectColumnsResponse:
-        normalized_keys: list[str] = []
-        seen_keys: set[str] = set()
-        for raw_key in keys:
-            key = str(raw_key or "").strip()
-            if not key or key in seen_keys:
-                continue
-            seen_keys.add(key)
-            normalized_keys.append(key)
-
         head_columns = {"content_type", "metadata_count", "cache_control", "expires", "restore_status"}
         tags_columns = {"tags_count"}
         wants_head = bool(columns & head_columns)
         wants_tags = bool(columns & tags_columns)
         items: list[ObjectColumnValues] = []
 
-        for key in normalized_keys:
+        for key in dict.fromkeys(keys):
             head_value: Optional[_ObjectLazyHeadCacheValue] = None
             tags_value: Optional[_ObjectLazyTagsCacheValue] = None
             if wants_head:
