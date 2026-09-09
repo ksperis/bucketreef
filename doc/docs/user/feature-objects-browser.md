@@ -91,6 +91,11 @@ Select the execution context before choosing a bucket. The same bucket name may 
 
 Object-level operations are executed with current context credentials and reflected immediately.
 
+An error does not mean that every requested change was rolled back. After a
+failed deletion, copy, move, or upload, refresh the list before retrying. For
+writes handled by the backend, affected object listings and metadata/tag columns
+are expired from its cache even when the write reports an error.
+
 ## You are done when
 
 The object list, details drawer, or Operations overview shows the expected completed state for the selected object or prefix.

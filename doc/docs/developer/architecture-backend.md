@@ -67,6 +67,28 @@ previews report it as unavailable and log reads fail explicitly. A genuine
 empty body remains valid, and a log object deleted after listing is still
 ignored on `NoSuchKey`/not-found responses.
 
+## Browser mutation cache lifetime
+
+Browser mutations use `BrowserContextMixin._object_mutation` around the storage
+write, not around input validation or read-only preparation. On both success
+and failure, the scope invalidates the affected execution context and buckets'
+object listings, sorted snapshots, and lazy metadata/tag columns. A partial
+DeleteObjects response, failed post-copy tag restoration or move verification,
+or ambiguous transport error must not preserve a pre-mutation cached view.
+Existing storage errors and copy-before-delete safeguards still propagate.
+
+Copies invalidate only the destination bucket; moves invalidate source and
+destination once each. Version cleanup invalidates after each attempted batch,
+before local bookkeeping, even if a later step aborts. Empty cleanup scans and
+failures before any write do not invalidate object views. Creating a bucket
+also invalidates the context's bucket list if its optional versioning setup
+fails after creation. Cache entries for unrelated contexts and buckets remain
+untouched.
+
+This scope covers backend-observed mutations. Direct presigned transfers still
+need the caller's explicit listing refresh; TTLs and `force_refresh` remain
+available for changes performed outside the backend.
+
 ## Long-running S3 client lifetime
 
 Bucket usage scans, integrity checks, purges, and content comparisons own their

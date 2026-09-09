@@ -120,53 +120,52 @@ class BrowserObjectOperationsMixin:
                 kwargs["Tagging"] = tag_str
         if payload.acl:
             kwargs["ACL"] = payload.acl
-        try:
-            resp = client.copy_object(**kwargs)
-            destination_version_id = resp.get("VersionId")
-            if payload.replace_tags:
-                tagging_kwargs: dict[str, object] = {
-                    "Bucket": bucket_name,
-                    "Key": payload.destination_key,
-                }
-                if destination_version_id:
-                    tagging_kwargs["VersionId"] = destination_version_id
-                tag_set = [
-                    {"Key": tag.key, "Value": tag.value}
-                    for tag in payload.tags
-                    if tag.key is not None and str(tag.key).strip()
-                ]
-                if tag_set:
-                    client.put_object_tagging(**tagging_kwargs, Tagging={"TagSet": tag_set})
-                else:
-                    client.delete_object_tagging(**tagging_kwargs)
-            if payload.move:
-                source_head_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
-                if payload.source_version_id:
-                    source_head_kwargs["VersionId"] = payload.source_version_id
-                source_head = client.head_object(**source_head_kwargs)
-                destination_head_kwargs = {"Bucket": bucket_name, "Key": payload.destination_key}
-                if destination_version_id:
-                    destination_head_kwargs["VersionId"] = destination_version_id
-                destination_head = client.head_object(**destination_head_kwargs)
-                source_etag = self._clean_etag(source_head.get("ETag"))
-                destination_etag = self._clean_etag(destination_head.get("ETag"))
-                source_size = int(source_head.get("ContentLength") or 0)
-                destination_size = int(destination_head.get("ContentLength") or 0)
-                if source_size != destination_size:
-                    raise RuntimeError("Copy verification failed (size mismatch).")
-                if not source_etag or not destination_etag:
-                    raise RuntimeError("Copy verification failed (missing ETag).")
-                if source_etag != destination_etag:
-                    raise RuntimeError("Copy verification failed (ETag mismatch).")
-                delete_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
-                if payload.source_version_id:
-                    delete_kwargs["VersionId"] = payload.source_version_id
-                client.delete_object(**delete_kwargs)
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to copy object '{payload.source_key}' -> '{payload.destination_key}': {exc}") from exc
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
-        if source_bucket != bucket_name or payload.move:
-            self.invalidate_object_list_cache_for_account(account, source_bucket)
+        affected_buckets = (bucket_name, source_bucket) if payload.move else (bucket_name,)
+        with self._object_mutation(account, *affected_buckets):
+            try:
+                resp = client.copy_object(**kwargs)
+                destination_version_id = resp.get("VersionId")
+                if payload.replace_tags:
+                    tagging_kwargs: dict[str, object] = {
+                        "Bucket": bucket_name,
+                        "Key": payload.destination_key,
+                    }
+                    if destination_version_id:
+                        tagging_kwargs["VersionId"] = destination_version_id
+                    tag_set = [
+                        {"Key": tag.key, "Value": tag.value}
+                        for tag in payload.tags
+                        if tag.key is not None and str(tag.key).strip()
+                    ]
+                    if tag_set:
+                        client.put_object_tagging(**tagging_kwargs, Tagging={"TagSet": tag_set})
+                    else:
+                        client.delete_object_tagging(**tagging_kwargs)
+                if payload.move:
+                    source_head_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
+                    if payload.source_version_id:
+                        source_head_kwargs["VersionId"] = payload.source_version_id
+                    source_head = client.head_object(**source_head_kwargs)
+                    destination_head_kwargs = {"Bucket": bucket_name, "Key": payload.destination_key}
+                    if destination_version_id:
+                        destination_head_kwargs["VersionId"] = destination_version_id
+                    destination_head = client.head_object(**destination_head_kwargs)
+                    source_etag = self._clean_etag(source_head.get("ETag"))
+                    destination_etag = self._clean_etag(destination_head.get("ETag"))
+                    source_size = int(source_head.get("ContentLength") or 0)
+                    destination_size = int(destination_head.get("ContentLength") or 0)
+                    if source_size != destination_size:
+                        raise RuntimeError("Copy verification failed (size mismatch).")
+                    if not source_etag or not destination_etag:
+                        raise RuntimeError("Copy verification failed (missing ETag).")
+                    if source_etag != destination_etag:
+                        raise RuntimeError("Copy verification failed (ETag mismatch).")
+                    delete_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
+                    if payload.source_version_id:
+                        delete_kwargs["VersionId"] = payload.source_version_id
+                    client.delete_object(**delete_kwargs)
+            except (ClientError, BotoCoreError) as exc:
+                raise RuntimeError(f"Unable to copy object '{payload.source_key}' -> '{payload.destination_key}': {exc}") from exc
 
     def delete_objects(
         self,
@@ -187,11 +186,11 @@ class BrowserObjectOperationsMixin:
         if not items:
             return 0
         client = self._client(account)
-        try:
-            delete_objects(client, bucket_name, items)
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to delete objects in bucket '{bucket_name}': {exc}") from exc
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
+        with self._object_mutation(account, bucket_name):
+            try:
+                delete_objects(client, bucket_name, items)
+            except (ClientError, BotoCoreError) as exc:
+                raise RuntimeError(f"Unable to delete objects in bucket '{bucket_name}': {exc}") from exc
         return len(items)
 
     def create_folder(
@@ -202,11 +201,11 @@ class BrowserObjectOperationsMixin:
     ) -> None:
         client = self._client(account)
         key = prefix if prefix.endswith("/") else f"{prefix}/"
-        try:
-            client.put_object(Bucket=bucket_name, Key=key, Body=b"")
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to create folder '{key}': {exc}") from exc
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
+        with self._object_mutation(account, bucket_name):
+            try:
+                client.put_object(Bucket=bucket_name, Key=key, Body=b"")
+            except (ClientError, BotoCoreError) as exc:
+                raise RuntimeError(f"Unable to create folder '{key}': {exc}") from exc
 
     def initiate_multipart_upload(
         self,
@@ -318,16 +317,16 @@ class BrowserObjectOperationsMixin:
         client = self._client(account, request_profile="long_running")
         sorted_parts = sorted(payload.parts, key=lambda part: part.part_number)
         completed = [{"ETag": part.etag, "PartNumber": part.part_number} for part in sorted_parts]
-        try:
-            client.complete_multipart_upload(
-                Bucket=bucket_name,
-                Key=key,
-                UploadId=upload_id,
-                MultipartUpload={"Parts": completed},
-            )
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to complete multipart upload for '{key}': {exc}") from exc
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
+        with self._object_mutation(account, bucket_name):
+            try:
+                client.complete_multipart_upload(
+                    Bucket=bucket_name,
+                    Key=key,
+                    UploadId=upload_id,
+                    MultipartUpload={"Parts": completed},
+                )
+            except (ClientError, BotoCoreError) as exc:
+                raise RuntimeError(f"Unable to complete multipart upload for '{key}': {exc}") from exc
 
     def abort_multipart_upload(
         self,
@@ -337,8 +336,8 @@ class BrowserObjectOperationsMixin:
         upload_id: str,
     ) -> None:
         client = self._client(account, request_profile="long_running")
-        try:
-            client.abort_multipart_upload(Bucket=bucket_name, Key=key, UploadId=upload_id)
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to abort multipart upload for '{key}': {exc}") from exc
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
+        with self._object_mutation(account, bucket_name):
+            try:
+                client.abort_multipart_upload(Bucket=bucket_name, Key=key, UploadId=upload_id)
+            except (ClientError, BotoCoreError) as exc:
+                raise RuntimeError(f"Unable to abort multipart upload for '{key}': {exc}") from exc

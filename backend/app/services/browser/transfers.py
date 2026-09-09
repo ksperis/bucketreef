@@ -64,13 +64,13 @@ class BrowserTransfersMixin:
         extra_args.update(self._sse_customer_params(sse_customer))
         try:
             file_obj.seek(0)
-            if extra_args:
-                client.upload_fileobj(file_obj, bucket_name, key, ExtraArgs=extra_args)
-            else:
-                client.upload_fileobj(file_obj, bucket_name, key)
+            with self._object_mutation(account, bucket_name):
+                if extra_args:
+                    client.upload_fileobj(file_obj, bucket_name, key, ExtraArgs=extra_args)
+                else:
+                    client.upload_fileobj(file_obj, bucket_name, key)
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to upload '{key}': {exc}") from exc
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
 
     def upload_via_proxy(
         self,

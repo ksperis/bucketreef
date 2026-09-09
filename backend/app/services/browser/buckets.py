@@ -137,21 +137,16 @@ class BrowserBucketsMixin:
         versioning: bool = False,
     ) -> None:
         access_key, secret_key, session_token = self._resolve_s3_credentials(account)
-        s3_create_bucket(
-            bucket_name,
-            access_key=access_key,
-            secret_key=secret_key,
-            session_token=session_token,
+        client_options = {
             **self._s3_client_kwargs(account),
-        )
-        if versioning:
-            s3_set_bucket_versioning(
-                bucket_name,
-                enabled=True,
-                access_key=access_key,
-                secret_key=secret_key,
-                session_token=session_token,
-                **self._s3_client_kwargs(account),
-            )
-        self.invalidate_bucket_list_cache_for_account(account)
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
+            "access_key": access_key,
+            "secret_key": secret_key,
+            "session_token": session_token,
+        }
+        with self._object_mutation(account, bucket_name):
+            try:
+                s3_create_bucket(bucket_name, **client_options)
+                if versioning:
+                    s3_set_bucket_versioning(bucket_name, enabled=True, **client_options)
+            finally:
+                self.invalidate_bucket_list_cache_for_account(account)

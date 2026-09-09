@@ -392,13 +392,14 @@ class BrowserObjectDetailsMixin:
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
-        try:
-            if tag_set:
-                client.put_object_tagging(**kwargs, Tagging={"TagSet": tag_set})
-            else:
-                client.delete_object_tagging(**kwargs)
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to update tags for '{key}': {exc}") from exc
+        with self._object_mutation(account, bucket_name):
+            try:
+                if tag_set:
+                    client.put_object_tagging(**kwargs, Tagging={"TagSet": tag_set})
+                else:
+                    client.delete_object_tagging(**kwargs)
+            except (ClientError, BotoCoreError) as exc:
+                raise RuntimeError(f"Unable to update tags for '{key}': {exc}") from exc
         return ObjectTags(key=key, tags=tags, version_id=version_id)
 
     def update_object_metadata(
@@ -410,16 +411,15 @@ class BrowserObjectDetailsMixin:
         client = self._client(account)
         current, current_tag_set = _load_metadata_copy_state(client, bucket_name, payload)
         copy_request = _metadata_copy_request(bucket_name, payload, current, current_tag_set)
-        copied_version_id = _copy_metadata(client, payload, copy_request)
-        _restore_copied_tags(
-            client,
-            bucket_name,
-            payload.key,
-            current_tag_set,
-            copied_version_id,
-        )
-
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
+        with self._object_mutation(account, bucket_name):
+            copied_version_id = _copy_metadata(client, payload, copy_request)
+            _restore_copied_tags(
+                client,
+                bucket_name,
+                payload.key,
+                current_tag_set,
+                copied_version_id,
+            )
         return self.head_object(bucket_name, account, payload.key, version_id=None)
 
     def get_object_acl(
@@ -610,8 +610,8 @@ class BrowserObjectDetailsMixin:
         }
         if payload.version_id:
             kwargs["VersionId"] = payload.version_id
-        try:
-            client.restore_object(**kwargs)
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to restore '{payload.key}': {exc}") from exc
-        self.invalidate_object_list_cache_for_account(account, bucket_name)
+        with self._object_mutation(account, bucket_name):
+            try:
+                client.restore_object(**kwargs)
+            except (ClientError, BotoCoreError) as exc:
+                raise RuntimeError(f"Unable to restore '{payload.key}': {exc}") from exc
