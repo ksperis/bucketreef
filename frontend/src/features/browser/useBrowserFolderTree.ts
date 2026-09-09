@@ -18,6 +18,7 @@ import {
   TREE_PREFIXES_PAGE_SIZE,
 } from "./browserConstants";
 import {
+  buildPrefixBreadcrumbs,
   buildTreeNodes,
   findTreeNodeByPrefix,
   normalizePrefix,
@@ -251,12 +252,10 @@ export function useBrowserFolderTree({
       }
       return;
     }
-    const segments = targetPrefix.split("/").filter(Boolean);
-    let currentPrefix = "";
-    const prefixesToExpand: string[] = [];
-    for (const segment of segments) {
-      currentPrefix = `${currentPrefix}${segment}/`;
-      prefixesToExpand.push(currentPrefix);
+    const prefixesToExpand = buildPrefixBreadcrumbs(targetPrefix).map(
+      (entry) => entry.prefix,
+    );
+    for (const currentPrefix of prefixesToExpand) {
       const node = findTreeNodeByPrefix(treeNodes, currentPrefix);
       if (!node) return;
       if (!node.isLoaded && !node.isLoading) {

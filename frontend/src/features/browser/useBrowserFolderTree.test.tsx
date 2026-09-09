@@ -125,6 +125,27 @@ describe("useBrowserFolderTree", () => {
     ).toBe(true);
   });
 
+  it("loads empty segments and spaces as exact ancestors", async () => {
+    const prefixes = ["", "/", "/ docs /", "/ docs //", "/ docs //nested /"];
+    apiMocks.listBrowserObjects.mockImplementation(
+      (_accountId: string, _bucketName: string, options: { prefix: string }) => {
+        const index = prefixes.indexOf(options.prefix);
+        const next = index >= 0 ? prefixes[index + 1] : undefined;
+        return Promise.resolve(prefixPage(next ? [next] : []));
+      },
+    );
+    const options = { ...createOptions(), prefix: "/ docs //nested /" };
+    const { result } = renderHook(() => useBrowserFolderTree(options));
+
+    await waitFor(() => {
+      expect(findNode(result.current.treeRootNode, options.prefix)?.isLoaded).toBe(true);
+    });
+    expect(apiMocks.listBrowserObjects.mock.calls.map((call) => call[2].prefix)).toEqual(prefixes);
+    for (const prefix of prefixes) {
+      expect(findNode(result.current.treeRootNode, prefix)?.isExpanded).toBe(true);
+    }
+  });
+
   it("ignores an old bucket child response even when abort is ignored", async () => {
     const oldChildRequest = deferred<ListBrowserObjectsResponse>();
     apiMocks.listBrowserObjects.mockImplementation(

@@ -96,6 +96,13 @@ Metadata/tag columns and object history keep these distinctions, including
 names composed only of spaces. Opening an object's history does not substitute
 the history of a trimmed name or a neighboring prefix.
 
+Folder navigation also preserves spaces and leading or repeated `/` characters.
+For example, `docs/`, `/docs/`, and `docs//` are distinct prefixes. The URL,
+editable path, suggestions, recent paths, parent navigation, and path details
+keep these distinctions. An empty path (or the **root** button) selects the
+bucket root; entering `/` selects the literal `/` prefix. A missing final `/`
+is added when entering a folder path. Existing objects are never renamed.
+
 An error does not mean that every requested change was rolled back. After a
 failed deletion, copy, move, or upload, refresh the list before retrying. For
 writes handled by the backend, affected object listings and metadata/tag columns

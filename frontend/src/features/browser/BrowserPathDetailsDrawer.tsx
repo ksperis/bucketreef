@@ -11,6 +11,7 @@ import ObjectDetailsDrawer from "../shared/ObjectDetailsDrawer";
 import DetailsList from "../shared/DetailsList";
 import { useBrowserContextCounts } from "./useBrowserContextCounts";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
+import { buildPrefixBreadcrumbs, normalizePrefix } from "./browserUtils";
 
 type BrowserPathDetailsDrawerProps = {
   accountId: S3AccountSelector;
@@ -33,11 +34,9 @@ export default function BrowserPathDetailsDrawer({
   onClose,
   onCopyPath,
 }: BrowserPathDetailsDrawerProps) {
-  const normalizedPrefix = prefix.replace(/^\/+/, "").replace(/\/+$/, "");
-  const name =
-    normalizedPrefix.split("/").filter(Boolean).at(-1) ?? "Bucket root";
-  const path = normalizedPrefix ? `${bucketName}/${normalizedPrefix}` : bucketName;
-  const recursivePrefix = normalizedPrefix ? `${normalizedPrefix}/` : "";
+  const recursivePrefix = normalizePrefix(prefix);
+  const name = buildPrefixBreadcrumbs(recursivePrefix).at(-1)?.label ?? "Bucket root";
+  const path = recursivePrefix ? `${bucketName}/${recursivePrefix.slice(0, -1)}` : bucketName;
   const { count, counts, error, loading } = useBrowserContextCounts({
     accountId,
     bucketName,
@@ -67,11 +66,11 @@ export default function BrowserPathDetailsDrawer({
             { label: "Path", value: path, mono: true },
             {
               label: "Kind",
-              value: normalizedPrefix ? "Folder prefix" : "Bucket root",
+              value: recursivePrefix ? "Folder prefix" : "Bucket root",
             },
             {
               label: "S3 prefix",
-              value: normalizedPrefix ? `${normalizedPrefix}/` : "(empty)",
+              value: recursivePrefix || "(empty)",
               mono: true,
             },
           ]}

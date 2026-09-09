@@ -145,6 +145,7 @@ import {
 } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import {
+  buildPrefixBreadcrumbs,
   formatDateTime,
   getSelectionInfo,
   normalizePrefix,
@@ -308,7 +309,7 @@ export default function BrowserPage({
     [searchParams],
   );
   const requestedPrefix = useMemo(
-    () => normalizePrefix(searchParams.get("prefix")?.trim() ?? ""),
+    () => normalizePrefix(searchParams.get("prefix") ?? ""),
     [searchParams],
   );
   const {
@@ -1054,10 +1055,6 @@ export default function BrowserPage({
     tagsColumnVisible: lazyTagsColumnsVisible,
     viewportRef: objectsListViewportRef,
   });
-  const prefixParts = useMemo(
-    () => prefix.split("/").filter(Boolean),
-    [prefix],
-  );
   const bucketDisplayNameByName = useMemo(() => {
     const next = new Map<string, string>();
     bucketMenuItems.forEach((bucket) => {
@@ -1275,19 +1272,9 @@ export default function BrowserPage({
     };
   }, [canLoadMoreBucketResults, handleBucketMenuLoadMore, useBucketsPanel]);
 
-  const breadcrumbs = useMemo(() => {
-    let current = "";
-    return prefixParts.map((part) => {
-      current = `${current}${part}/`;
-      return { label: part, prefix: current };
-    });
-  }, [prefixParts]);
-
-  const parentPrefix = useMemo(() => {
-    if (prefixParts.length <= 1) return "";
-    return `${prefixParts.slice(0, -1).join("/")}/`;
-  }, [prefixParts]);
-  const canGoUp = prefixParts.length > 0;
+  const breadcrumbs = useMemo(() => buildPrefixBreadcrumbs(prefix), [prefix]);
+  const parentPrefix = breadcrumbs.at(-2)?.prefix ?? "";
+  const canGoUp = breadcrumbs.length > 0;
 
   const availableStorageClasses = useMemo(
     () => collectAvailableStorageClasses(items),
@@ -2276,9 +2263,7 @@ export default function BrowserPage({
         const pathItem: BrowserItem = {
           id: `path:${bucketName}:${normalizedPrefix}`,
           key: normalizedPrefix,
-          name:
-            normalizedPrefix.split("/").filter(Boolean).at(-1) ??
-            "Bucket root",
+          name: breadcrumbs.at(-1)?.label ?? "Bucket root",
           type: "folder",
           size: "-",
           modified: "-",
@@ -2294,9 +2279,7 @@ export default function BrowserPage({
         deletedObjectsOptions?.onRestorePrefix?.({
           bucketName,
           key: normalizedPrefix,
-          name:
-            normalizedPrefix.split("/").filter(Boolean).at(-1) ??
-            normalizedPrefix,
+          name: breadcrumbs.at(-1)?.label ?? normalizedPrefix,
         }),
       toggleShowFolders: toggleFolderItems,
       toggleShowDeleted: toggleDeletedObjects,
