@@ -552,7 +552,7 @@ async function openContextMoreMenu(user: ReturnType<typeof userEvent.setup>) {
 
 function expectPassiveStatusBadge(badge: HTMLElement) {
   const className = badge.getAttribute("class") ?? "";
-  expect(className).toContain("rounded-full");
+  expect(badge).toHaveClass("rounded", "border");
   expect(className).not.toContain("rounded-md");
   expect(className).not.toContain("shadow-sm");
   expect(className).not.toContain("hover:border-primary");

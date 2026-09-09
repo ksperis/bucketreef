@@ -28,14 +28,24 @@ export function isRecentWebAuthnVerificationCancelled(error: unknown): boolean {
   return error instanceof RecentWebAuthnVerificationCancelledError;
 }
 
-function verificationFailureMessage(error: unknown): string {
+type StepUpLabels = {
+  title?: string;
+  description?: string;
+  cancel?: string;
+  close?: string;
+  cancelled?: string;
+  failure?: (error: unknown) => string;
+};
+
+function verificationFailureMessage(error: unknown, labels: StepUpLabels): string {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
-    return "Passkey verification was cancelled or timed out. Please try again.";
+    return labels.cancelled ?? "Passkey verification was cancelled or timed out. Please try again.";
   }
-  return extractApiError(error, "Passkey verification failed. Please try again.");
+  return labels.failure?.(error) ?? extractApiError(error, "Passkey verification failed. Please try again.");
 }
 
-export function useRecentWebAuthnStepUp() {
+const defaultLabels: StepUpLabels = {};
+export function useRecentWebAuthnStepUp(labels: StepUpLabels = defaultLabels) {
   const pendingRetryRef = useRef<PendingRetry | null>(null);
   const [promptOpen, setPromptOpen] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -55,12 +65,12 @@ export function useRecentWebAuthnStepUp() {
       await finishRecentWebAuthnVerification(credential);
       return true;
     } catch (error) {
-      setVerificationError(verificationFailureMessage(error));
+      setVerificationError(verificationFailureMessage(error, labels));
       return false;
     } finally {
       setVerifying(false);
     }
-  }, []);
+  }, [labels]);
 
   const queueRetry = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
     if (pendingRetryRef.current) {
@@ -110,7 +120,9 @@ export function useRecentWebAuthnStepUp() {
 
   const verificationDialog = useMemo(() => promptOpen ? (
     <Modal
-      title="Verify with passkey"
+      title={labels.title ?? "Verify with passkey"}
+      closeLabel={labels.close}
+      closeAriaLabel={labels.close}
       onClose={cancelPrompt}
       maxWidthClass="max-w-lg"
       zIndexClass="z-[90]"
@@ -119,16 +131,16 @@ export function useRecentWebAuthnStepUp() {
     >
       <div className="space-y-4">
         <p className="ui-body text-[var(--ui-text)]">
-          Confirm your identity to continue this sensitive action in the current session.
+          {labels.description ?? "Confirm your identity to continue this sensitive action in the current session."}
         </p>
         {verificationError ? <PageBanner tone="error">{verificationError}</PageBanner> : null}
         <div className="flex justify-end gap-2">
-          <UiButton variant="secondary" onClick={cancelPrompt} disabled={verifying}>Cancel</UiButton>
-          <UiButton onClick={() => void confirmPrompt()} loading={verifying}>Verify with passkey</UiButton>
+          <UiButton variant="secondary" onClick={cancelPrompt} disabled={verifying}>{labels.cancel ?? "Cancel"}</UiButton>
+          <UiButton onClick={() => void confirmPrompt()} loading={verifying}>{labels.title ?? "Verify with passkey"}</UiButton>
         </div>
       </div>
     </Modal>
-  ) : null, [cancelPrompt, confirmPrompt, promptOpen, verificationError, verifying]);
+  ) : null, [cancelPrompt, confirmPrompt, labels, promptOpen, verificationError, verifying]);
 
   return {
     runWithStepUp,

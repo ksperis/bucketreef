@@ -86,7 +86,7 @@ workspace-specific visual themes when a shared product pattern fits.
 | Lists and inventory pages | `DataTableShell`, `ui-data-table`, `uiTableContainerClass` | Keep tables compact. Use explicit empty and unavailable states. |
 | Search, filters, and column controls | `ListToolbar`, `PageControlStrip`, `ActiveFiltersBar`, shared compact toolbar classes | Advanced filters should not introduce frontend-only behavior unless the backend data is already present and bounded. |
 | Cards, panels, and page sections | `uiCardClass`, `uiPanelClass`, `uiCardMutedClass`, `uiPanelMutedClass` | Standard cards use 8px radius and soft/no shadows. Avoid decorative nesting. |
-| Forms and settings | `ui-control`, `uiLabelClass`, `UiCheckboxField`, `UiDetails`, settings panels | Compute dirty state from saveable fields only. |
+| Forms and settings | `ui-control`, `uiLabelClass`, `SettingsSwitch`, `UiCheckboxField`, `UiDetails`, settings panels | Switches for on/off settings; checkboxes for multiple selections and acknowledgements. Compute dirty state from saveable fields only. |
 | Long operations and large forms | `WorkflowPage`, `WorkflowTabs`, `WorkflowSection`, `WorkflowActions`, `workflowPageHostClass` | Replace the current list content with a focused in-page workflow. Keep the page header full-width so its actions stay aligned with listing pages; apply `width` only to the left-aligned content wrapper and never center the form body. |
 | Dialogs, drawers, and overlays | `Modal`, shared menu classes, `AnchoredPortalMenu`, `useUnsavedChangesGuard` | Reserve overlays for short, contextual tasks. Editable overlays must protect unapplied changes on every close path. |
 | Inline status, warnings, and capability gaps | `UiBadge`, `UiInlineMessage`, `PageBanner`, `PageEmptyState`, `MetricsUnavailableCard` | Distinguish missing data, disabled features, denied permissions, and unsupported backend capability. |
@@ -106,6 +106,87 @@ contextual drawer, which overlays the list on desktop and becomes a modal
 full-screen surface below 1024px. Keep the header limited to the resource name,
 path, actions, tabs, and actual warnings/status; do not repeat object metadata
 under the tabs.
+
+## Selection indicators and binary settings
+
+- `PageTabs variant="line"` uses a 3px primary-color underline, accented text,
+  a transparent selected background and a shared thin baseline. `PortalPageTabs`
+  and `WorkflowTabs` inherit this pattern. Keep `bar` and `card` for their
+  existing embedded/contained uses.
+- Tabs remain at least 32px high on desktop (1024px and above) and 44px below
+  that breakpoint. Allow labels and tabs to wrap, with visible keyboard focus;
+  preserve arrow, Home and End navigation and disabled-tab behavior.
+- The sidebar uses the same primary color for its vertical selection marker.
+  Profile reuses the navigation links' active and inactive styling, including
+  the marker in expanded/mobile navigation and the icon state when collapsed.
+- Use `SettingsSwitch` for on/off settings, including profile tag visibility
+  and quota notifications. Its 36 x 20px track sits inside a 36 x 32px desktop
+  target or a minimum 44 x 44px target below 1024px. Use theme primary for on,
+  neutral for off, a visible focus outline and a disabled state. Expose a named
+  switch with its checked state and native Space-key operation.
+- A switch changes the current form draft; it does not imply immediate saving.
+  Preserve the owning form's Save/Cancel, error and permission behavior.
+  Keep `UiCheckboxField` for list selections and acknowledgements. Migrate other
+  checkbox-based settings during the [separate follow-up](settings-ui-follow-up.md).
+
+## Compact badges and tags
+
+- Use `UiBadge` for statuses and `UiTagBadge` for user-defined tags. Both use
+  `uiBadgeShapeClass`: 4px corners and a thin 1px border, with a pale fill,
+  medium-weight text and no elevation. `PropertySummaryChip` reuses `UiBadge`.
+  Avoid pill shapes and page-specific radius overrides for these labels.
+- Keep existing heights, padding and truncation in dense lists. Browser's
+  small content badges retain their 10px `ui-badge` typography.
+- Keep semantic status colors and user-selected tag colors in light/dark
+  mode. Use theme primary for contextual markers such as the current session.
+- Interactive tags keep their edit/remove actions, visible keyboard focus,
+  private/shared border styles and selected/available indicators. Selection
+  may use an outline or ring, without adding a drop shadow.
+
+## Compact settings with section titles at the side
+
+The personal profile uses the opt-in `SettingsSection presentation="compact"`
+and `SettingsItem compact` presentation from `components/settings/SettingsLayout`.
+The default rendering remains unchanged for existing settings consumers.
+
+- Keep the content left-aligned, at most 1120px wide. At desktop widths of
+  1024px and above, reserve 190px for the section title and a short description,
+  with a 24px gutter. Below 1024px, place the title above the settings.
+- Use flat rows separated by soft token borders. Rows normally measure 56–64px,
+  with 14px primary text, 13px descriptions and 20px section padding. Allow
+  rows to grow for translated text; never truncate instructions to force height.
+- Use 32px minimum controls on desktop and 44px touch targets below 1024px.
+  An icon, a real status and an action are optional. Avoid nested cards and
+  repeated section titles. Both themes use the existing `ui-*` tokens.
+- Show identity information as text. Short name/avatar/password edits belong
+  in a `Modal`; detailed passkey/account lists and session diagnostics open on
+  demand. Keep technical addresses and authentication identifiers in details.
+- Group related preferences under a single dirty-only Save/Cancel area. Commit
+  server preferences before applying local theme, language and navigation
+  choices. Retain drafts on failure and protect dialog closure, tab changes,
+  route navigation and browser history with the shared confirmation pattern.
+- Translate the profile header, two personal tabs, dialogs, errors and
+  accessible controls using `useI18n` in English, French and German. Preserve
+  automatic language selection. Use `Intl` for local dates, numbers and plurals.
+  Classify security errors before translating their display text.
+- Explain actual revocation effects, including the current session and personal
+  API tokens. Never invent recovery-code counts or a saved status. New recovery
+  codes are delivered by an in-memory boundary above authenticated routes;
+  authentication is cleared normally and protected routes stay inaccessible.
+  A concurrent 401 only defers the hard login redirect while delivery is active.
+  On acknowledgement/page exit, forget codes; never persist or log them.
+
+Examples: identity with a read-only email and an Edit action; theme with an
+inline select; a session with browser/system, recent activity, Details and
+Sign out. Use tables for connection inventories: the private S3 tab shares the
+flat outer framing while retaining its existing dense table and editing flow.
+Its table/editor translation is outside this profile delivery.
+
+Validate a 1440 × 900 viewport with two open sessions: all three security sections
+must fit without opening details. Check German wrapping, keyboard focus, mobile
+touch targets, both themes and actual authenticated routes.
+
+Further adoption is tracked separately in [Settings UI follow-up](settings-ui-follow-up.md).
 
 ## Page or modal decision
 

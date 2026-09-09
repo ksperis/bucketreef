@@ -85,7 +85,7 @@ export default function PageTabs({
 
   const tabList = (
     <div
-      className="flex min-w-0 flex-1 flex-wrap gap-2"
+      className={cx("flex min-w-0 flex-1 flex-wrap", variant === "line" ? "gap-x-2 gap-y-1" : "gap-2")}
       role={ariaLabel ? "tablist" : undefined}
       aria-label={ariaLabel}
     >
@@ -104,10 +104,17 @@ export default function PageTabs({
             onClick={() => onChange(tab.id)}
             onKeyDown={(event) => handleKeyDown(event, tab.id)}
             className={[
-              "rounded-md px-2.5 py-1.5 ui-caption font-semibold transition",
-              isActive
-                ? "bg-[var(--ui-selected-bg)] text-primary dark:text-[var(--ui-text)]"
-                : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-hover)] hover:text-[var(--ui-text)]",
+              "px-2.5 py-1.5 ui-caption font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-700 dark:focus-visible:outline-primary-200",
+              variant === "line"
+                ? "min-h-11 min-w-0 max-w-full break-words border-b-[3px] lg:min-h-8"
+                : "rounded-md",
+              variant === "line"
+                ? isActive
+                  ? "border-primary bg-transparent text-primary-700 dark:border-primary-400 dark:text-primary-200"
+                  : "border-transparent text-[var(--ui-text-muted)] enabled:hover:bg-[var(--ui-hover)] enabled:hover:text-[var(--ui-text)]"
+                : isActive
+                  ? "bg-[var(--ui-selected-bg)] text-primary dark:text-[var(--ui-text)]"
+                  : "text-[var(--ui-text-muted)] enabled:hover:bg-[var(--ui-hover)] enabled:hover:text-[var(--ui-text)]",
               tab.disabled ? "opacity-50" : "",
             ].join(" ")}
           >
@@ -124,12 +131,12 @@ export default function PageTabs({
       <div
         className={cx(
           "flex min-w-0 flex-wrap items-center justify-between gap-2",
-          variant === "line" && "border-b pb-3",
+          variant === "line" && "border-b",
           variant === "line" && uiDividerClass,
         )}
       >
         {tabList}
-        {headerActions ? <div className="flex items-center gap-2">{headerActions}</div> : null}
+        {headerActions ? <div className="flex min-w-0 flex-wrap items-center gap-2">{headerActions}</div> : null}
       </div>
     );
     if (!activeContent) return tabBar;

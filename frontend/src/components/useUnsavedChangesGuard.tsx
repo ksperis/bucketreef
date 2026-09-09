@@ -13,6 +13,7 @@ type UseUnsavedChangesGuardOptions = {
   description?: ReactNode;
   cancelLabel?: string;
   confirmLabel?: string;
+  closeLabel?: string;
   zIndexClass?: string;
 };
 
@@ -24,6 +25,7 @@ export function useUnsavedChangesGuard({
   description = "You have unapplied changes. Closing this dialog will discard them.",
   cancelLabel = "Keep editing",
   confirmLabel = "Discard changes",
+  closeLabel,
   zIndexClass = "z-[70]",
 }: UseUnsavedChangesGuardOptions) {
   const [confirmingClose, setConfirmingClose] = useState(false);
@@ -54,13 +56,14 @@ export function useUnsavedChangesGuard({
           description={description}
           confirmLabel={confirmLabel}
           cancelLabel={cancelLabel}
+          closeLabel={closeLabel}
           tone="danger"
           zIndexClass={zIndexClass}
           onCancel={keepEditing}
           onConfirm={discardChanges}
         />
       ) : null,
-    [cancelLabel, confirmLabel, confirmingClose, description, discardChanges, keepEditing, title, zIndexClass]
+    [cancelLabel, closeLabel, confirmLabel, confirmingClose, description, discardChanges, keepEditing, title, zIndexClass]
   );
 
   return {
@@ -70,4 +73,3 @@ export function useUnsavedChangesGuard({
     closeWithoutConfirmation: onClose,
   };
 }
-

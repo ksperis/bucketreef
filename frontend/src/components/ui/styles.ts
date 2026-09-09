@@ -75,6 +75,8 @@ export const uiDataTableClass = "ui-data-table";
 export const uiTableContainerClass =
   "overflow-x-auto rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)]";
 
+export const uiBadgeShapeClass = "rounded border";
+
 export const uiToneBadgeClasses: Record<UiTone, string> = {
   neutral: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200",
   info: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-100",

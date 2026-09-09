@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { transferableAbortController } from "node:util";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { createMemoryRouter, Link, MemoryRouter, Route, RouterProvider, Routes, useLocation } from "react-router-dom";
 
 import AccountProfilePage from "./AccountProfilePage";
 import { setSessionUserCache } from "../../utils/workspaces";
@@ -20,7 +21,7 @@ vi.mock("./ProfilePage", () => ({
 }));
 
 vi.mock("./SecurityPage", () => ({
-  default: () => <div>Security content</div>,
+  default: ({ onUnsavedChangesChange }: { onUnsavedChangesChange?: (dirty: boolean) => void }) => <div>Security content<button onClick={() => onUnsavedChangesChange?.(true)}>Edit password</button></div>,
 }));
 
 function LocationProbe() {
@@ -40,6 +41,8 @@ function renderPage(initialEntry = "/profile") {
 
 describe("AccountProfilePage", () => {
   beforeEach(() => {
+    // Node fetch requires its own AbortSignal rather than the JSDOM implementation.
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     setSessionUserCache({
       role: "ui_superadmin",
       authType: "password",
@@ -54,7 +57,7 @@ describe("AccountProfilePage", () => {
   afterEach(() => {
     setSessionUserCache(null);
     window.localStorage.clear();
-    vi.restoreAllMocks();
+    vi.restoreAllMocks(); vi.unstubAllGlobals();
   });
 
   it("shows permitted tabs and synchronizes the selected tab with the URL", async () => {
@@ -65,7 +68,7 @@ describe("AccountProfilePage", () => {
     expect(screen.getByRole("tab", { name: "Private S3 connections" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Security" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "API tokens" })).not.toBeInTheDocument();
-    expect(screen.getByText("Manage your personal details, preferences, sign-in security, and private connections.")).toBeInTheDocument();
+    expect(screen.getByText("Your details, preferences, and sign-in security.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Private S3 connections" }));
     expect(screen.getByText("Connections content")).toBeInTheDocument();
@@ -78,7 +81,7 @@ describe("AccountProfilePage", () => {
 
     expect(screen.queryByRole("button", { name: "Private S3 connections" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "API tokens" })).not.toBeInTheDocument();
-    expect(screen.getByText("Manage your personal details, preferences, and sign-in security.")).toBeInTheDocument();
+    expect(screen.getByText("Your details, preferences, and sign-in security.")).toBeInTheDocument();
     expect(await screen.findByText("/profile?tab=profile")).toBeInTheDocument();
   });
 
@@ -108,7 +111,7 @@ describe("AccountProfilePage", () => {
     expect(screen.getByRole("dialog", { name: "Discard unsaved changes?" })).toBeInTheDocument();
     expect(screen.getByText("Profile content")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(screen.queryByRole("dialog", { name: "Discard unsaved changes?" })).not.toBeInTheDocument();
     expect(screen.getByText("Profile content")).toBeInTheDocument();
 
@@ -124,4 +127,32 @@ describe("AccountProfilePage", () => {
     expect(screen.getByRole("link", { name: "Browser" })).toHaveAttribute("href", "/browser");
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
+  it.each(["admin", "browser", "manager", "portal", "ceph-admin", "storage-ops"])("mounts the shared tabs under /%s/profile", async workspace => {
+    renderPage(`/${workspace}/profile?tab=security`);
+    expect(screen.getByText("Security content")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Security" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("protects route navigation and browser history as well as security tab changes", async () => {
+    const user = userEvent.setup();
+    const router = createMemoryRouter([
+      { path: "/browser/profile", element: <><AccountProfilePage /><Link to="/browser">Leave profile</Link></> },
+      { path: "/browser", element: <div>Browser content</div> },
+    ], { initialEntries: ["/browser", "/browser/profile?tab=security"] });
+    render(<RouterProvider router={router} />);
+    await user.click(screen.getByRole("button", { name: "Edit password" }));
+    await user.click(screen.getByRole("tab", { name: "Profile and preferences" }));
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByText("Security content")).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Leave profile" }));
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByText("Security content")).toBeInTheDocument();
+    // POP navigation is subject to the same guard as a link or a tab.
+    await import("@testing-library/react").then(({ act }) => act(async () => { await router.navigate(-1); }));
+    expect(await screen.findByRole("dialog", { name: "Discard unsaved changes?" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    await waitFor(() => expect(screen.getByText("Browser content")).toBeInTheDocument());
+  });
+
 });

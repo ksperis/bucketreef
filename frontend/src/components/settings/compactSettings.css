@@ -1,0 +1,22 @@
+/* Opt-in settings presentation. Existing settings consumers retain their layout. */
+.settings-compact { width: 100%; max-width: 1120px; }
+.settings-section-compact { display: grid; gap: 12px; padding: 20px 0; border-top: 1px solid var(--ui-border-soft); }
+.settings-section-compact:first-child { border-top: 0; padding-top: 0; }
+.settings-item-compact { display: grid; gap: 8px 16px; min-height: 56px; padding: 10px 0; border-top: 1px solid var(--ui-border-soft); }
+.settings-item-compact:first-child { border-top: 0; }
+.settings-item-action { min-width: 0; }
+.settings-item-action > * { max-width: 100%; }
+.settings-dialog button, .settings-control { min-height: 44px; height: auto; font-size: 14px; line-height: 20px; white-space: normal; }
+.settings-form label { text-transform: none; font-size: 14px; letter-spacing: normal; }
+.settings-form input:not([type="checkbox"]):not([type="file"]), .settings-form select { min-height: 44px; }
+@media (min-width: 640px) {
+  .settings-item-compact { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .settings-item-action { justify-self: end; max-width: 22rem; }
+}
+@media (min-width: 1024px) {
+  .settings-section-compact { grid-template-columns: 190px minmax(0, 1fr); gap: 24px; }
+  .settings-dialog button, .settings-control { min-height: 32px; padding-top: 5px; padding-bottom: 5px; }
+  .settings-form input:not([type="checkbox"]):not([type="file"]), .settings-form select { min-height: 32px; }
+}
+
+.settings-preferences > .settings-section-compact:first-child { border-top: 1px solid var(--ui-border-soft); padding-top: 20px; }

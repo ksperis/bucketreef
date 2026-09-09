@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { CLIENT_STORAGE_KEYS, clearAuthStorage, readClientStorage } from "../utils/clientStorage";
+import { deferRecoveryAuthRedirect } from "../auth/recoveryCodeHandoff";
 import { readStoredUser } from "../utils/workspaces";
 import { coordinateAuthRefresh } from "./authRefreshCoordinator";
 
@@ -92,6 +93,7 @@ function handleAuthRedirect() {
   if (typeof window === "undefined") return;
   clearAuthStorage();
   window.dispatchEvent(new CustomEvent("bucketreef:session-ended"));
+  if (deferRecoveryAuthRedirect()) return;
   if (window.location.pathname !== "/login") window.location.replace("/login");
 }
 

@@ -657,7 +657,7 @@ function BackendHealthCard({
               <WorkspaceStatusDot status={healthStatus} />
               <span className="truncate">{endpoint.name}</span>
             </p>
-            <UiBadge tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : "warning"} className="rounded-md px-2 py-0 text-[11px] leading-5">
+            <UiBadge tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : "warning"} className="px-2 py-0 text-[11px] leading-5">
               {stale ? "Stale" : formatStatus(healthStatus)}
             </UiBadge>
           </div>
@@ -720,7 +720,7 @@ function IncidentStrip({
                 <span className={cx("h-2.5 w-2.5 rounded-full", incident.ongoing ? "bg-amber-500" : "bg-emerald-500")} />
                 {incident.endpoint_name}
               </span>
-              <UiBadge tone={incident.ongoing ? "warning" : "success"} className="rounded-md px-2 py-0 text-[11px] leading-5">
+              <UiBadge tone={incident.ongoing ? "warning" : "success"} className="px-2 py-0 text-[11px] leading-5">
                 {incident.ongoing ? "In progress" : "Resolved"}
               </UiBadge>
               <span className={cx("ui-caption", uiMutedTextClass)}>

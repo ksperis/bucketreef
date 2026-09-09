@@ -828,22 +828,22 @@ describe("UsersPage modal tabs", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Connections" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Allow manual private connection creation" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Allow manual private connection creation" }));
     fireEvent.click(screen.getByRole("tab", { name: "Manager" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Allow managed private connection provisioning" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Allow managed private connection provisioning" }));
 
     expect(screen.getByText("Bucket tools")).toBeInTheDocument();
     expect(screen.queryByText("Privileged Ceph access")).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Bucket quota management" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Ceph S3 User keys" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Bucket quota management" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Ceph S3 User keys" })).not.toBeInTheDocument();
     const bucketToolsGroup = screen.getByText("Bucket tools").closest("div");
     expect(bucketToolsGroup).not.toBeNull();
     expect(within(bucketToolsGroup as HTMLElement).getByText("Bucket compare")).toBeInTheDocument();
     expect(within(bucketToolsGroup as HTMLElement).getByText("Bucket integrity check")).toBeInTheDocument();
     expect(within(bucketToolsGroup as HTMLElement).getByText("Bucket migration")).toBeInTheDocument();
 
-    const compareToggle = screen.getByRole("checkbox", { name: /Bucket compare/i });
-    const migrationToggle = screen.getByRole("checkbox", { name: /Bucket migration/i });
+    const compareToggle = screen.getByRole("switch", { name: /Bucket compare/i });
+    const migrationToggle = screen.getByRole("switch", { name: /Bucket migration/i });
     expect(compareToggle).not.toBeChecked();
     expect(migrationToggle).toBeDisabled();
     expect(screen.getAllByText("Disabled globally").length).toBeGreaterThanOrEqual(1);
@@ -892,7 +892,7 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Manager" }));
 
-    const toggle = screen.getByRole("checkbox", {
+    const toggle = screen.getByRole("switch", {
       name: "Allow managed private connection provisioning",
     });
     expect(toggle).toBeChecked();
@@ -970,7 +970,7 @@ describe("UsersPage modal tabs", () => {
       screen.getByText("Grant direct /storage-ops access when the UI role is User, Admin, or Superadmin.")
     ).toBeInTheDocument();
     expect(screen.queryByText(/Superadmin role updates require Superadmin/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Allow access to /storage-ops" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Allow access to /storage-ops" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
@@ -992,7 +992,7 @@ describe("UsersPage modal tabs", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Browser" }));
     expect(screen.getByText("Browser options for this UI user. Groups can also grant these options.")).toBeInTheDocument();
-    const advancedToggle = screen.getByRole("checkbox", { name: "Enable technical S3 tools" });
+    const advancedToggle = screen.getByRole("switch", { name: "Enable technical S3 tools" });
     expect(advancedToggle).not.toBeChecked();
     fireEvent.click(advancedToggle);
     fireEvent.click(screen.getByRole("button", { name: "Create" }));

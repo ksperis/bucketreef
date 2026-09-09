@@ -52,11 +52,14 @@ vi.mock("../../components/theme", () => ({
 }));
 
 vi.mock("../../components/language", () => ({
+  useOptionalLanguage: () => undefined,
   useLanguage: () => ({
     languagePreference: "auto",
     setLanguagePreference: setLanguagePreferenceMock,
   }),
 }));
+
+vi.mock("../../api/executionContexts", () => ({ getWorkspaceAccess: async () => ({ manager: { available: false }, browser: { available: true }, portal: { available: false } }) }));
 
 vi.mock("../../api/users", () => ({
   fetchCurrentUser: () => fetchCurrentUserMock(),
@@ -122,6 +125,8 @@ describe("ProfilePage live validation", () => {
   });
 
   beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => "blob:avatar-preview");
+    URL.revokeObjectURL = vi.fn();
     connectionPermissionsMock.canAccess = true;
     connectionPermissionsMock.canCreateManual = true;
     listConnectionsMock.mockResolvedValue([]);
@@ -185,10 +190,10 @@ describe("ProfilePage live validation", () => {
   it("describes an administrator-managed identity as read-only", async () => {
     render(<ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />);
 
-    expect(await screen.findByText("Review your account identity and profile image.")).toBeInTheDocument();
-    expect(screen.getByText("Your display name is managed by an application administrator.")).toBeInTheDocument();
+    expect(await screen.findByText("Your personal details and profile image.")).toBeInTheDocument();
+    expect(screen.getByText("Managed by your administrator.")).toBeInTheDocument();
     expect(screen.queryByText("Update the display name for your account.")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save profile" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Edit name" })).not.toBeInTheDocument();
   });
 
   it("selects an avatar source and explains identity-provider fallback", async () => {
@@ -204,20 +209,24 @@ describe("ProfilePage live validation", () => {
 
     render(<ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />);
 
-    expect(await screen.findByText("Identity provider image.", { exact: false })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Initials" }));
+    expect(await screen.findByText("Identity provider", { exact: false })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
+    fireEvent.change(screen.getByLabelText("Image source"), { target: { value: "initials" } });
+    expect(updateCurrentUserMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
 
     await waitFor(() => {
       expect(updateCurrentUserMock).toHaveBeenCalledWith({ avatar_preference: "initials" });
     });
-    expect(await screen.findByText("Avatar updated.")).toBeInTheDocument();
+    expect(await screen.findByText("Profile image saved.")).toBeInTheDocument();
   });
 
   it("uploads and removes a profile image", async () => {
     const { container } = render(
       <ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />,
     );
-    await screen.findByText("Profile image");
+    await screen.findByText("Admin User");
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
     const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
     expect(fileInput).not.toBeNull();
 
@@ -225,21 +234,38 @@ describe("ProfilePage live validation", () => {
       type: "image/png",
     });
     fireEvent.change(fileInput!, { target: { files: [file] } });
+    expect(uploadCurrentUserAvatarMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
 
     await waitFor(() => {
       expect(uploadCurrentUserAvatarMock).toHaveBeenCalledWith(file);
     });
-    fireEvent.click(await screen.findByRole("button", { name: "Remove uploaded image" }));
+    await screen.findByText("Profile image saved.");
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove uploaded image" }));
+    expect(deleteCurrentUserAvatarMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
 
     await waitFor(() => {
       expect(deleteCurrentUserAvatarMock).toHaveBeenCalledTimes(1);
     });
-    expect(await screen.findByText("Profile image removed.")).toBeInTheDocument();
+    expect(await screen.findByText("Profile image saved.")).toBeInTheDocument();
+  });
+
+  it("does not carry a discarded preference draft into the private connections tab", async () => {
+    const onDirty = vi.fn();
+    const { rerender } = render(<ProfilePage showPageHeader={false} onUnsavedChangesChange={onDirty} />);
+    await screen.findByText("Admin User");
+    fireEvent.click(screen.getByRole("switch", { name: "Show selector tags" }));
+    expect(onDirty).toHaveBeenLastCalledWith(true);
+    rerender(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection onUnsavedChangesChange={onDirty} />);
+    await screen.findByRole("table");
+    expect(onDirty).toHaveBeenLastCalledWith(false);
   });
 
   it("shows validation error without disabling Create connection", async () => {
     render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
-    await screen.findByText("Private S3 connections");
+    await screen.findByRole("table");
 
     fireEvent.click(screen.getByRole("button", { name: "Add connection" }));
     await screen.findByText("Add private S3 connection");
@@ -580,8 +606,8 @@ describe("ProfilePage live validation", () => {
   it("saves the selector-tags preference to localStorage", async () => {
     render(<ProfilePage showPageHeader={false} showConnectionsSection={false} />);
 
-    await screen.findByText("Preferences");
-    fireEvent.click(screen.getByRole("checkbox", { name: /show tags in top selectors/i }));
+    await screen.findByText("Admin User");
+    fireEvent.click(screen.getByRole("switch", { name: /show selector tags/i }));
     fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
 
     await waitFor(() => {
@@ -597,12 +623,14 @@ describe("ProfilePage live validation", () => {
     try {
       render(<ProfilePage showPageHeader={false} showConnectionsSection={false} />);
 
-      await screen.findByText("Preferences");
+      await screen.findByText("Admin User");
+      fireEvent.click(screen.getByRole("switch", { name: /show selector tags/i }));
       fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
 
-      const errorMessage = await screen.findByText("Unable to save language preference.");
+      const errorMessage = await screen.findByText("Unable to save your changes.");
       expect(errorMessage).toHaveClass("border-rose-200");
-      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.any(Error));
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+      expect(setThemeMock).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
     }
@@ -629,7 +657,7 @@ describe("ProfilePage live validation", () => {
 
   it("uses the inline private tag editor in the create modal", async () => {
     render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
-    await screen.findByText("Private S3 connections");
+    await screen.findByRole("table");
 
     fireEvent.click(screen.getByRole("button", { name: "Add connection" }));
     await screen.findByText("Add private S3 connection");

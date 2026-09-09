@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ReactNode } from "react";
-import { cx, UiTone, uiToneBadgeClasses } from "./styles";
+import { cx, UiTone, uiBadgeShapeClass, uiToneBadgeClasses } from "./styles";
 
 type UiBadgeProps = {
   tone?: UiTone;
@@ -24,7 +24,8 @@ export default function UiBadge({
     <span
       title={title}
       className={cx(
-        "inline-flex items-center rounded-full border px-2 py-0.5 ui-caption font-semibold",
+        "inline-flex items-center px-2 py-0.5 ui-caption font-medium",
+        uiBadgeShapeClass,
         !disableToneStyles && uiToneBadgeClasses[tone],
         className
       )}

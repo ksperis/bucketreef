@@ -36,9 +36,25 @@ The frontend theme is anchored by the shared shell and UI tokens in
 - Buttons: use `UiButton`, `uiButtonBaseClass`, `uiButtonVariants`, or
   `uiIconButtonClass`; keep custom button chains for exceptional states only.
 - Forms: use `ui-control`, `uiInputClass`, `uiLabelClass`, and
-  `uiCheckboxClass`.
+  `uiCheckboxClass`. Use `SettingsSwitch` for binary settings, reserving
+  checkboxes for selections and acknowledgements. Switches use theme primary
+  for on and `--ui-text-muted` for the neutral off track; green remains a
+  semantic success color, not a fixed switch color.
+- Selection: line tabs use a 3px primary underline and primary `700` text in
+  light mode / `200` in dark mode. Sidebar links, including Profile, reuse the
+  shared active styling and vertical primary marker. Keep shell backgrounds
+  on `shell-*` tokens and content backgrounds on `ui-*` tokens.
+- Use primary `500` in light mode and `400` in dark mode for active tab/sidebar
+  markers and switch tracks. The lighter dark-mode shade keeps these small
+  indicators legible, including with darker custom branding colors.
+- Keyboard focus on line tabs and switches uses an opaque primary `700` / `200`
+  outline so it remains visible on both themes and with custom branding.
 - Modals and menus: use `Modal`, `uiMenuClass`, `uiMenuItemClass`, shell menu
   classes in the topbar, and `AnchoredPortalMenu` for positioned menus.
+- Badges and tags: use `UiBadge` / `UiTagBadge` and their shared
+  `uiBadgeShapeClass` (4px radius, 1px border), pale tone fill and medium text,
+  without shadows. Preserve semantic tones and custom tag palettes in both
+  themes; contextual markers use `primary`. Keep list-specific compact sizes.
 
 ## Patterns To Avoid
 
@@ -46,7 +62,7 @@ The frontend theme is anchored by the shared shell and UI tokens in
 - Avoid `bg-gradient-*`, `backdrop-blur`, `shadow-xl`, `shadow-2xl`,
   `rounded-xl`, and `rounded-2xl` on standard workspace surfaces.
 - Keep strong shadows, translucent overlays, and larger radii for justified
-  cases: authentication screens, popovers, overlays, alerts, badges, pills, and
+  cases: authentication screens, popovers, overlays, alerts, and
   temporary operation states.
 - Do not use visual refactors to change backend contracts, permissions, IAM/S3
   semantics, routes, or execution context behavior.

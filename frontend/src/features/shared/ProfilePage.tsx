@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { isApiError } from "../../api/client";
 import { useSearchParams } from "react-router-dom";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
@@ -14,24 +14,11 @@ import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiTagEditor from "../../components/UiTagEditor";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiButton from "../../components/ui/UiButton";
-import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
-import UiSelect from "../../components/ui/UiSelect";
-import UserAvatar from "../../components/UserAvatar";
 import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
 import { toolbarCompactInputClasses } from "../../components/toolbarControlClasses";
 import { cx, uiDataTableClass } from "../../components/ui/styles";
-import { useTheme } from "../../components/theme";
-import { UiLanguagePreference, useLanguage } from "../../components/language";
-import {
-  deleteCurrentUserAvatar,
-  fetchCurrentUser,
-  updateCurrentUser,
-  uploadCurrentUserAvatar,
-  type UserAvatarDescriptor,
-  type UserAvatarPreference,
-} from "../../api/users";
 import {
   S3Connection,
   createConnection,
@@ -44,30 +31,18 @@ import {
 } from "../../api/connections";
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
 import { retryManagedPrivateAccessCleanup } from "../../api/managedPrivateAccess";
-import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { useLiveS3CredentialsValidation } from "./useLiveS3CredentialsValidation";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
-import { stableSignature } from "../../utils/stableSignature";
-import { removeClientStorage, writeClientStorage } from "../../utils/clientStorage";
-import { updateStoredUserProfile } from "./profileStoredUser";
 import {
-  WORKSPACE_STORAGE_KEY,
   canAccessPrivateConnectionsSection,
   canCreateManualPrivateConnections,
-  isAdminLikeRole,
   type SessionUser,
-  type WorkspaceId,
   readStoredUser,
-  readStoredWorkspaceId,
-  resolveAvailableWorkspacesWithFlags,
 } from "../../utils/workspaces";
-import {
-  readSelectorTagsPreference,
-  writeSelectorTagsPreference,
-} from "../../utils/selectorTagsPreference";
 import { buildUiTagItems } from "../../utils/uiTags";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
+import ProfilePreferencesPage from "./ProfilePreferencesPage";
 import S3ConnectionAccessFields from "./S3ConnectionAccessFields";
 import S3ConnectionCredentialFields from "./S3ConnectionCredentialFields";
 import S3ConnectionEndpointFields from "./S3ConnectionEndpointFields";
@@ -97,15 +72,6 @@ type PendingPrivateConnectionDelete = {
 
 const privateConnectionsTableClass = cx(uiDataTableClass, "compact-table min-w-full");
 
-function persistStoredUser(values: {
-  fullName?: string | null;
-  uiLanguage?: "en" | "fr" | "de" | null;
-  avatar?: UserAvatarDescriptor | null;
-}) {
-  if (typeof window === "undefined") return;
-  updateStoredUserProfile(values);
-}
-
 function getErrorMessage(error: unknown, fallback: string): string {
   if (isApiError(error)) {
     const detail = error.response?.data?.detail;
@@ -117,13 +83,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
     }
   }
   return fallback;
-}
-
-function avatarSourceLabel(avatar?: UserAvatarDescriptor | null): string {
-  if (avatar?.source === "uploaded") return "Uploaded profile image";
-  if (avatar?.source === "provider") return "Identity provider image";
-  if (avatar?.source === "gravatar") return "Gravatar";
-  return "Initials";
 }
 
 type ProfilePageProps = {
@@ -146,29 +105,7 @@ export default function ProfilePage({
   const storedUser = useMemo<SessionUser | null>(() => readStoredUser(), []);
   const authType = storedUser?.authType ?? null;
   const isS3Session = authType === "s3_session";
-  const { generalSettings } = useGeneralSettings();
-  const canEditProfileName = !isS3Session && generalSettings.allow_user_profile_name_edit;
-  const { theme, setTheme } = useTheme();
-  const { languagePreference, setLanguagePreference } = useLanguage();
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileMessage, setProfileMessage] = useState<string | null>(null);
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [fullName, setFullName] = useState("");
-  const [avatar, setAvatar] = useState<UserAvatarDescriptor | null>(storedUser?.avatar ?? null);
-  const [avatarBusy, setAvatarBusy] = useState(false);
-  const [avatarError, setAvatarError] = useState<string | null>(null);
-  const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
-  const [profileTouched, setProfileTouched] = useState(false);
-  const [profileInitialSignature, setProfileInitialSignature] = useState(() => stableSignature({ fullName: "" }));
-  const [preferencesMessage, setPreferencesMessage] = useState<string | null>(null);
-  const [preferencesMessageTone, setPreferencesMessageTone] = useState<"success" | "error">("success");
-  const [preferencesTheme, setPreferencesTheme] = useState<"light" | "dark">(theme);
-  const [preferencesLanguage, setPreferencesLanguage] = useState<UiLanguagePreference>(languagePreference);
-  const [preferencesShowSelectorTags, setPreferencesShowSelectorTags] = useState<boolean>(() => readSelectorTagsPreference());
-  const [preferencesTouched, setPreferencesTouched] = useState(false);
-  const [quotaAlertsEnabled, setQuotaAlertsEnabled] = useState(true);
-  const [quotaAlertsGlobalWatch, setQuotaAlertsGlobalWatch] = useState(false);
+  const [settingsHaveUnsavedChanges, setSettingsHaveUnsavedChanges] = useState(false);
   const [connections, setConnections] = useState<S3Connection[]>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const [connectionsError, setConnectionsError] = useState<string | null>(null);
@@ -214,62 +151,10 @@ export default function ProfilePage({
     { kind: "private" },
     Boolean(showCreateConnectionModal || editingConnectionId != null)
   );
-  const availableWorkspaces = useMemo(
-    () => resolveAvailableWorkspacesWithFlags(storedUser, generalSettings),
-    [generalSettings, storedUser]
-  );
-  const [preferredWorkspace, setPreferredWorkspace] = useState<WorkspaceId | null>(() => readStoredWorkspaceId());
-  const [preferencesInitialSignature, setPreferencesInitialSignature] = useState(() =>
-    stableSignature({
-      preferencesTheme: theme,
-      preferencesLanguage: languagePreference,
-      preferredWorkspace: readStoredWorkspaceId(),
-      preferencesShowSelectorTags: readSelectorTagsPreference(),
-      quotaAlertsEnabled: true,
-      quotaAlertsGlobalWatch: false,
-    })
-  );
-  const canConfigureGlobalQuotaWatch = isAdminLikeRole(storedUser?.role);
   const canCreateManualConnections =
     !isS3Session && canCreateManualPrivateConnections(storedUser);
   const canAccessConnectionsSection =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);
-
-  const profileCurrentSignature = useMemo(() => stableSignature({ fullName }), [fullName]);
-  const preferencesCurrentSignature = useMemo(
-    () =>
-      stableSignature({
-        preferencesTheme,
-        preferencesLanguage,
-        preferredWorkspace,
-        preferencesShowSelectorTags,
-        quotaAlertsEnabled,
-        quotaAlertsGlobalWatch: canConfigureGlobalQuotaWatch ? quotaAlertsGlobalWatch : false,
-      }),
-    [
-      canConfigureGlobalQuotaWatch,
-      preferencesLanguage,
-      preferencesShowSelectorTags,
-      preferencesTheme,
-      preferredWorkspace,
-      quotaAlertsEnabled,
-      quotaAlertsGlobalWatch,
-    ]
-  );
-  const settingsHaveUnsavedChanges =
-    showSettingsCards &&
-    ((profileTouched && profileCurrentSignature !== profileInitialSignature) ||
-      (preferencesTouched && preferencesCurrentSignature !== preferencesInitialSignature));
-
-  useEffect(() => {
-    if (!showSettingsCards || profileTouched) return;
-    setProfileInitialSignature(profileCurrentSignature);
-  }, [profileCurrentSignature, profileTouched, showSettingsCards]);
-
-  useEffect(() => {
-    if (!showSettingsCards || preferencesTouched) return;
-    setPreferencesInitialSignature(preferencesCurrentSignature);
-  }, [preferencesCurrentSignature, preferencesTouched, showSettingsCards]);
 
   const createConnectionValidationPayload = useMemo(
     () =>
@@ -388,8 +273,8 @@ export default function ProfilePage({
     (Boolean(editingConnection) && editConnectionCurrentSignature !== editConnectionInitialSignature);
 
   useEffect(() => {
-    onUnsavedChangesChange?.(settingsHaveUnsavedChanges || connectionHasUnsavedChanges);
-  }, [connectionHasUnsavedChanges, onUnsavedChangesChange, settingsHaveUnsavedChanges]);
+    onUnsavedChangesChange?.((showSettingsCards && settingsHaveUnsavedChanges) || connectionHasUnsavedChanges);
+  }, [connectionHasUnsavedChanges, onUnsavedChangesChange, settingsHaveUnsavedChanges, showSettingsCards]);
 
   const createConnectionCloseGuard = useUnsavedChangesGuard({
     hasUnsavedChanges: showCreateConnectionModal && createConnectionCurrentSignature !== createConnectionInitialSignature,
@@ -404,57 +289,6 @@ export default function ProfilePage({
     disabled: editingConnection ? savingConnectionBusyId === editingConnection.id : false,
     zIndexClass: "z-[70]",
   });
-
-  useEffect(() => {
-    setPreferencesTheme(theme);
-  }, [theme]);
-
-  useEffect(() => {
-    setPreferencesLanguage(languagePreference);
-  }, [languagePreference]);
-
-  useEffect(() => {
-    if (!showSettingsCards) return;
-    if (availableWorkspaces.length === 0) {
-      setPreferredWorkspace(null);
-      return;
-    }
-    setPreferredWorkspace((previous) => {
-      if (previous && availableWorkspaces.some((workspace) => workspace.id === previous)) return previous;
-      const stored = readStoredWorkspaceId();
-      if (stored && availableWorkspaces.some((workspace) => workspace.id === stored)) return stored;
-      return availableWorkspaces[0].id;
-    });
-  }, [availableWorkspaces, showSettingsCards]);
-
-  useEffect(() => {
-    if (!showSettingsCards || isS3Session) return;
-    setProfileLoading(true);
-    setProfileError(null);
-    fetchCurrentUser()
-      .then((user) => {
-        const nextFullName = user.full_name ?? "";
-        const nextLanguage = user.ui_language ?? "auto";
-        const nextQuotaAlertsEnabled = user.quota_alerts_enabled !== false;
-        const nextQuotaAlertsGlobalWatch = Boolean(user.quota_alerts_global_watch);
-        setFullName(nextFullName);
-        setAvatar(user.avatar ?? null);
-        setProfileTouched(false);
-        setLanguagePreference(nextLanguage);
-        setPreferencesLanguage(nextLanguage);
-        setQuotaAlertsEnabled(nextQuotaAlertsEnabled);
-        setQuotaAlertsGlobalWatch(nextQuotaAlertsGlobalWatch);
-        setPreferencesTouched(false);
-        persistStoredUser({ uiLanguage: user.ui_language ?? null, avatar: user.avatar ?? null });
-      })
-      .catch((error) => {
-        console.error(error);
-        setProfileError(getErrorMessage(error, "Unable to load user profile."));
-      })
-      .finally(() => {
-        setProfileLoading(false);
-      });
-  }, [isS3Session, setLanguagePreference, showSettingsCards]);
 
   useEffect(() => {
     if (!showConnectionsSection || !canAccessConnectionsSection) {
@@ -678,131 +512,6 @@ export default function ProfilePage({
       ),
     );
     setEditingConnectionId(connection.id);
-  };
-
-  const handleProfileSave = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!canEditProfileName) return;
-    setProfileSaving(true);
-    setProfileError(null);
-    setProfileMessage(null);
-    try {
-      const updated = await updateCurrentUser({ full_name: fullName.trim() || null });
-      const updatedName = updated.full_name ?? null;
-      setFullName(updatedName ?? "");
-      setProfileInitialSignature(stableSignature({ fullName: updatedName ?? "" }));
-      setProfileTouched(false);
-      persistStoredUser({ fullName: updatedName });
-      setProfileMessage("Profile updated.");
-    } catch (error) {
-      console.error(error);
-      setProfileError(getErrorMessage(error, "Unable to save profile."));
-    } finally {
-      setProfileSaving(false);
-    }
-  };
-
-  const applyAvatarResponse = (updatedAvatar?: UserAvatarDescriptor | null) => {
-    const nextAvatar = updatedAvatar ?? null;
-    setAvatar(nextAvatar);
-    persistStoredUser({ avatar: nextAvatar });
-  };
-
-  const handleAvatarPreferenceChange = async (preference: UserAvatarPreference) => {
-    if (isS3Session || avatarBusy) return;
-    setAvatarBusy(true);
-    setAvatarError(null);
-    try {
-      const updated = await updateCurrentUser({ avatar_preference: preference });
-      applyAvatarResponse(updated.avatar);
-      setProfileMessage("Avatar updated.");
-    } catch (error) {
-      console.error(error);
-      setAvatarError(getErrorMessage(error, "Unable to update avatar."));
-    } finally {
-      setAvatarBusy(false);
-    }
-  };
-
-  const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || isS3Session || avatarBusy) return;
-    if (!["image/png", "image/jpeg"].includes(file.type)) {
-      setAvatarError("Choose a PNG or JPEG image.");
-      return;
-    }
-    if (file.size > 1024 * 1024) {
-      setAvatarError("Avatar image must be 1 MiB or smaller.");
-      return;
-    }
-    setAvatarBusy(true);
-    setAvatarError(null);
-    setProfileMessage(null);
-    try {
-      const updated = await uploadCurrentUserAvatar(file);
-      applyAvatarResponse(updated.avatar);
-      setProfileMessage("Profile image uploaded.");
-    } catch (error) {
-      console.error(error);
-      setAvatarError(getErrorMessage(error, "Unable to upload profile image."));
-    } finally {
-      setAvatarBusy(false);
-    }
-  };
-
-  const handleAvatarDelete = async () => {
-    if (isS3Session || avatarBusy) return;
-    setAvatarBusy(true);
-    setAvatarError(null);
-    setProfileMessage(null);
-    try {
-      const updated = await deleteCurrentUserAvatar();
-      applyAvatarResponse(updated.avatar);
-      setProfileMessage("Profile image removed.");
-    } catch (error) {
-      console.error(error);
-      setAvatarError(getErrorMessage(error, "Unable to remove profile image."));
-    } finally {
-      setAvatarBusy(false);
-    }
-  };
-
-  const handlePreferencesSave = async (event: FormEvent) => {
-    event.preventDefault();
-    setPreferencesMessage(null);
-    setPreferencesMessageTone("success");
-    setTheme(preferencesTheme);
-    if (!isS3Session) {
-      try {
-        const updated = await updateCurrentUser({
-          ui_language: preferencesLanguage === "auto" ? null : preferencesLanguage,
-          quota_alerts_enabled: quotaAlertsEnabled,
-          quota_alerts_global_watch: canConfigureGlobalQuotaWatch ? quotaAlertsGlobalWatch : false,
-        });
-        setLanguagePreference(updated.ui_language ?? "auto");
-        setQuotaAlertsEnabled(updated.quota_alerts_enabled !== false);
-        setQuotaAlertsGlobalWatch(Boolean(updated.quota_alerts_global_watch));
-        persistStoredUser({ uiLanguage: updated.ui_language ?? null });
-      } catch (error) {
-        console.error(error);
-        setPreferencesMessageTone("error");
-        setPreferencesMessage(getErrorMessage(error, "Unable to save language preference."));
-        return;
-      }
-    } else {
-      setLanguagePreference(preferencesLanguage);
-    }
-    if (preferredWorkspace) {
-      writeClientStorage(WORKSPACE_STORAGE_KEY, preferredWorkspace);
-    } else {
-      removeClientStorage(WORKSPACE_STORAGE_KEY);
-    }
-    writeSelectorTagsPreference(preferencesShowSelectorTags);
-    setPreferencesInitialSignature(preferencesCurrentSignature);
-    setPreferencesTouched(false);
-    setPreferencesMessageTone("success");
-    setPreferencesMessage("Preferences saved.");
   };
 
   const handleCreatePrivateConnection = async (event: FormEvent) => {
@@ -1113,9 +822,6 @@ export default function ProfilePage({
     setConnectionsPage(1);
   };
 
-  const cardClasses = "ui-surface-card";
-  const sectionHeadingClasses = "ui-body font-semibold text-slate-900 dark:text-slate-100";
-  const sectionDescriptionClasses = "ui-caption text-slate-500 dark:text-slate-400";
 
   return (
     <div className={workflowPageHostClass(showConnectionsSection && (showCreateConnectionModal || Boolean(editingConnection)))}>
@@ -1127,255 +833,10 @@ export default function ProfilePage({
         />
       )}
 
-      {showSettingsCards && profileLoading && <PageBanner tone="info">Loading profile...</PageBanner>}
-      {showSettingsCards && profileError && <PageBanner tone="error">{profileError}</PageBanner>}
+      {showSettingsCards && <ProfilePreferencesPage onUnsavedChangesChange={setSettingsHaveUnsavedChanges} />}
 
-      {showSettingsCards && <div className="grid gap-4 lg:grid-cols-2">
-        <form onSubmit={handleProfileSave} className={cardClasses}>
-          <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-            <h2 className={sectionHeadingClasses}>Identity</h2>
-            <p className={sectionDescriptionClasses}>
-              {isS3Session
-                ? "Review the identity assigned to this temporary session."
-                : canEditProfileName
-                  ? "Update the display name for your account."
-                  : "Review your account identity and profile image."}
-            </p>
-          </div>
-          <div className="space-y-4 px-5 py-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <UiInput
-                label="Email"
-                type="email"
-                value={storedUser?.email ?? ""}
-                disabled
-                className="cursor-not-allowed opacity-70"
-              />
-              <UiInput
-                label="Name"
-                value={fullName}
-                onChange={(event) => {
-                  setProfileTouched(true);
-                  setFullName(event.target.value);
-                }}
-                disabled={!canEditProfileName}
-                className={!canEditProfileName ? "cursor-not-allowed opacity-70" : undefined}
-                placeholder="Your name"
-              />
-            </div>
-            <div className="rounded-md border border-[color:var(--ui-border-soft)] bg-[var(--ui-surface-muted)] p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                <UserAvatar
-                  avatar={avatar}
-                  name={fullName || storedUser?.email}
-                  email={storedUser?.email}
-                  size="xl"
-                />
-                <div className="min-w-0 flex-1 space-y-3">
-                  <div>
-                    <div className="text-sm font-bold text-[var(--ui-text)]">Profile image</div>
-                    <div className="ui-caption text-[var(--ui-text-muted)]">
-                      {avatarSourceLabel(avatar)}. Automatic mode uses an uploaded image, then the image from your identity provider, then Gravatar, with initials as fallback.
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <UiButton
-                      size="xs"
-                      variant={avatar?.preference === "auto" ? "primary" : "secondary"}
-                      aria-pressed={avatar?.preference === "auto"}
-                      disabled={isS3Session || avatarBusy}
-                      onClick={() => void handleAvatarPreferenceChange("auto")}
-                    >
-                      Automatic
-                    </UiButton>
-                    <UiButton
-                      size="xs"
-                      variant={avatar?.preference === "gravatar" ? "primary" : "secondary"}
-                      aria-pressed={avatar?.preference === "gravatar"}
-                      disabled={isS3Session || avatarBusy}
-                      onClick={() => void handleAvatarPreferenceChange("gravatar")}
-                    >
-                      Gravatar
-                    </UiButton>
-                    <UiButton
-                      size="xs"
-                      variant={avatar?.preference === "initials" ? "primary" : "secondary"}
-                      aria-pressed={avatar?.preference === "initials"}
-                      disabled={isS3Session || avatarBusy}
-                      onClick={() => void handleAvatarPreferenceChange("initials")}
-                    >
-                      Initials
-                    </UiButton>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      ref={avatarFileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      className="sr-only"
-                      tabIndex={-1}
-                      onChange={handleAvatarUpload}
-                    />
-                    <UiButton
-                      size="xs"
-                      variant="secondary"
-                      disabled={isS3Session || avatarBusy}
-                      loading={avatarBusy}
-                      onClick={() => avatarFileInputRef.current?.click()}
-                    >
-                      Upload image
-                    </UiButton>
-                    {avatar?.source === "uploaded" ? (
-                      <UiButton
-                        size="xs"
-                        variant="ghost"
-                        disabled={isS3Session || avatarBusy}
-                        onClick={() => void handleAvatarDelete()}
-                      >
-                        Remove uploaded image
-                      </UiButton>
-                    ) : null}
-                    <span className="ui-caption text-[var(--ui-text-muted)]">PNG or JPEG, maximum 1 MiB.</span>
-                  </div>
-                  {avatarError ? <UiInlineMessage tone="error">{avatarError}</UiInlineMessage> : null}
-                </div>
-              </div>
-            </div>
-            {isS3Session && (
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Temporary S3 session: user profile is not editable.
-              </p>
-            )}
-            {!isS3Session && !canEditProfileName && (
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Your display name is managed by an application administrator.
-              </p>
-            )}
-            {profileMessage && <UiInlineMessage tone="success">{profileMessage}</UiInlineMessage>}
-            <div>
-              <UiButton type="submit" size="sm" disabled={profileSaving || !canEditProfileName}>
-                {profileSaving ? "Saving..." : "Save profile"}
-              </UiButton>
-            </div>
-          </div>
-        </form>
-
-        <form onSubmit={handlePreferencesSave} className={cardClasses}>
-          <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-            <h2 className={sectionHeadingClasses}>Preferences</h2>
-            <p className={sectionDescriptionClasses}>Language, theme, and default workspace after sign-in.</p>
-          </div>
-          <div className="space-y-4 px-5 py-5">
-            <div className="grid gap-3 md:grid-cols-3">
-              <UiSelect
-                label="Language"
-                value={preferencesLanguage}
-                onChange={(event) => {
-                  setPreferencesTouched(true);
-                  setPreferencesLanguage(event.target.value as UiLanguagePreference);
-                }}
-              >
-                <option value="en">English</option>
-                <option value="fr">French</option>
-                <option value="de">Deutsch</option>
-                <option value="auto">Auto (browser)</option>
-              </UiSelect>
-              <UiSelect
-                label="Theme"
-                value={preferencesTheme}
-                onChange={(event) => {
-                  setPreferencesTouched(true);
-                  setPreferencesTheme(event.target.value as "light" | "dark");
-                }}
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </UiSelect>
-              <UiSelect
-                label="Default workspace"
-                value={preferredWorkspace ?? ""}
-                onChange={(event) => {
-                  setPreferencesTouched(true);
-                  setPreferredWorkspace((event.target.value as WorkspaceId) || null);
-                }}
-                disabled={availableWorkspaces.length === 0}
-              >
-                {availableWorkspaces.length === 0 && <option value="">No workspace available</option>}
-                {availableWorkspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.label}
-                  </option>
-                ))}
-              </UiSelect>
-            </div>
-            <UiCheckboxField
-                checked={preferencesShowSelectorTags}
-                onChange={(event) => {
-                  setPreferencesTouched(true);
-                  setPreferencesShowSelectorTags(event.target.checked);
-                }}
-                className="flex items-start rounded-md border border-[color:var(--ui-border)] px-3 py-3"
-                checkboxClassName="mt-1"
-            >
-              <span>
-                <span className="ui-body text-slate-700 dark:text-slate-200">Show tags in top selectors</span>
-                <span className="mt-1 block ui-caption text-slate-500 dark:text-slate-400">
-                  Display compact endpoint and context tags in the topbar selectors on this browser only.
-                </span>
-              </span>
-            </UiCheckboxField>
-            {!isS3Session && (
-              <div className="grid gap-3 md:grid-cols-2">
-                <UiCheckboxField
-                  checked={quotaAlertsEnabled}
-                  onChange={(event) => {
-                    setPreferencesTouched(true);
-                    setQuotaAlertsEnabled(event.target.checked);
-                  }}
-                  className="flex rounded-md border border-[color:var(--ui-border)] px-3 py-2"
-                >
-                  <span className="ui-body text-slate-700 dark:text-slate-200">Receive quota alert emails</span>
-                </UiCheckboxField>
-                {canConfigureGlobalQuotaWatch && (
-                  <UiCheckboxField
-                    checked={quotaAlertsGlobalWatch}
-                    onChange={(event) => {
-                      setPreferencesTouched(true);
-                      setQuotaAlertsGlobalWatch(event.target.checked);
-                    }}
-                    className="flex rounded-md border border-[color:var(--ui-border)] px-3 py-2"
-                  >
-                    <span className="ui-body text-slate-700 dark:text-slate-200">
-                      Global quota watch (all storage spaces)
-                    </span>
-                  </UiCheckboxField>
-                )}
-              </div>
-            )}
-            {preferencesMessage && <UiInlineMessage tone={preferencesMessageTone}>{preferencesMessage}</UiInlineMessage>}
-            <div>
-              <UiButton type="submit" size="sm">
-                Save preferences
-              </UiButton>
-            </div>
-          </div>
-        </form>
-      </div>}
-
-      {showConnectionsSection && <section className={cardClasses}>
-        <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className={sectionHeadingClasses}>Private S3 connections</h2>
-            <p className={sectionDescriptionClasses}>List your connections and manage credentials.</p>
-          </div>
-          {canCreateManualConnections && (
-            <UiButton size="sm" onClick={openCreateConnectionModal}>
-              Add connection
-            </UiButton>
-          )}
-        </div>
-
-        <div className="space-y-4 px-5 py-5">
+      {showConnectionsSection && <section className="settings-compact">
+        <div className="space-y-4">
           {!canCreateManualConnections && (
             <PageBanner tone="info">
               Creation, endpoint changes, identity changes, and credential replacement are disabled. Existing connections remain available for metadata, workspace access, activation, cleanup, and deletion.
@@ -1390,17 +851,24 @@ export default function ProfilePage({
                     {filteredConnections.length} connections shown
                     {filteredConnections.length !== connections.length ? ` of ${connections.length}` : ""}
                   </p>
-                  <div className="flex items-center gap-2">
-                    <span className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      Search
-                    </span>
-                    <input
-                      type="text"
-                      value={connectionsFilter}
-                      onChange={(event) => handleConnectionsFilterChange(event.target.value)}
-                      placeholder="Name, endpoint, provider, tag..."
-                      className={`${toolbarCompactInputClasses} w-full sm:w-72`}
-                    />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Search
+                      </span>
+                      <input
+                        type="text"
+                        value={connectionsFilter}
+                        onChange={(event) => handleConnectionsFilterChange(event.target.value)}
+                        placeholder="Name, endpoint, provider, tag..."
+                        className={`${toolbarCompactInputClasses} min-w-0 w-full sm:w-72`}
+                      />
+                    </div>
+                    {canCreateManualConnections && (
+                      <UiButton size="sm" onClick={openCreateConnectionModal}>
+                        Add connection
+                      </UiButton>
+                    )}
                   </div>
                 </div>
                 {selectedFilteredConnectionIds.length > 0 && (

@@ -12,13 +12,22 @@ Use this page when you need to adjust personal UI preferences, manage your sign-
 ## Steps
 
 1. Select **Profile** at the bottom of the sidebar, just above **Collapse**, or use the account menu in the topbar. The profile page opens inside your current workspace so its navigation and context remain available.
-2. Use the **Profile** tab to update your avatar and preferences. The application administrator decides whether users may also edit their own full name.
+2. Use the **Profile and preferences** tab to update your avatar and preferences. The application administrator decides whether users may also edit their own full name.
    - choose your profile image source: automatic, Gravatar, or initials,
    - upload or remove a personal PNG or JPEG image up to 1 MiB,
    - choose language and theme,
    - set the default workspace after sign-in,
-   - enable **Show tags in top selectors** if you want compact color-coded tags in the topbar context and endpoint selectors on this browser,
+   - enable **Show selector tags** if you want compact color-coded tags in the topbar context and endpoint selectors on this browser,
    - choose whether you receive quota alert emails.
+   - save the preference group with **Save**, or use **Cancel** to restore it.
+
+   The name and profile image each open a short **Edit** dialog. Image source
+   and file selections stay in draft until **Save**. Unsaved edits are protected
+   when closing dialogs, changing tabs, leaving the route or using browser history.
+   English, French and German are available; **Automatic (browser)** follows your
+   browser language. If saving server preferences fails, the choices remain in
+   the form and local theme changes are not applied.
+
 3. Use the **Private S3 connections** tab when it is available:
    - create or edit your own private connection,
    - manage tags directly from the main form: add them inline, remove them with `×`, and click a tag badge to open its compact settings popover for color and `Standard` / `Administrative` scope,
@@ -27,7 +36,21 @@ Use this page when you need to adjust personal UI preferences, manage your sign-
    - delete a **Server managed** connection from this inventory when you no
      longer need it; BucketReef first removes the remote key and dedicated IAM
      identity, when applicable, before removing the local connection.
-4. Use the **Security** tab to change an existing local password, enroll or review passkeys, regenerate ten one-time recovery codes, inspect your sessions, and review your external identities. Store newly displayed recovery codes outside the browser. The application administrator decides whether users may unlink external identities; the last password, OIDC, or LDAP sign-in method can never be removed. A passkey does not count as that primary method.
+4. Use the **Security** tab to change an existing local password, enroll or review passkeys, renew one-time recovery codes, inspect your sessions, and review your external identities. Store newly displayed recovery codes outside the browser. The application administrator decides whether users may unlink external identities; the last password, OIDC, or LDAP sign-in method can never be removed. A passkey does not count as that primary method.
+   - **Sign-in methods** shows your current passkey, password and linked-account
+     state. Open details when needed. Choose a name when adding a passkey; add
+     another key before removing the last one required by your organization.
+   - **Recover access** explains recovery codes. Renewal invalidates previous
+     codes and signs out all sessions, including this one, and revokes personal
+     API tokens. Save the new codes from the dedicated delivery screen before
+     acknowledging it and returning to sign-in. They are shown only in memory;
+     reloading the page loses them.
+   - **Open sessions** puts this session first and excludes expired/revoked
+     sessions. Browser, system and recent activity help identify each session;
+     **Details** exposes technical information. **Sign out** affects the chosen
+     other session. **Sign out all sessions** also closes this session and
+     revokes personal API tokens, as its confirmation explains.
+
 5. Administrators manage platform sessions and manual identity-link requests from **Platform > Identity security**. Superadmins manage scoped automation tokens from **Settings > API tokens**.
 
 ## Expected result

@@ -320,7 +320,7 @@ function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
                 </div>
                 {row.space && row.role ? (
                   <div className="mt-1 flex flex-wrap gap-1.5 pl-9">
-                    <UiBadge tone={portalRoleTone(row.role)} className="rounded-md px-2 py-0 text-[11px] leading-5">
+                    <UiBadge tone={portalRoleTone(row.role)} className="px-2 py-0 text-[11px] leading-5">
                       {portalRoleLabel(row.role, t)}
                     </UiBadge>
                   </div>
@@ -388,7 +388,7 @@ function AlertsCard({
           </p>
           <UiBadge
             tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : healthStatus === "degraded" ? "warning" : "neutral"}
-            className="rounded-md px-2 py-0 text-[11px] leading-5"
+            className="px-2 py-0 text-[11px] leading-5"
           >
             {healthStatus === "up"
               ? t({ en: "Operational", fr: "Opérationnel", de: "Betriebsbereit" })
@@ -410,7 +410,7 @@ function AlertsCard({
                 <p className="truncate ui-caption font-semibold text-[var(--ui-text)]">{alert.title}</p>
                 <p className={cx("mt-0.5 truncate ui-caption", uiMutedTextClass)}>{alert.description}</p>
               </div>
-              <UiBadge tone={alertTone(alert.tone)} className="rounded-md px-2 py-0 text-[11px] leading-5">
+              <UiBadge tone={alertTone(alert.tone)} className="px-2 py-0 text-[11px] leading-5">
                 {alert.severityLabel ?? t({ en: "Info", fr: "Info", de: "Info" })}
               </UiBadge>
             </div>
