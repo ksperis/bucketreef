@@ -2,13 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { FormHTMLAttributes, ReactNode, useId } from "react";
+import { ReactNode, useId } from "react";
 import UiBadge from "../ui/UiBadge";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
-  uiCardClass,
   uiCheckboxClass,
   uiDividerClass,
   uiInputClass,
@@ -42,6 +39,8 @@ type SettingsSwitchProps = {
   checked: boolean;
   disabled?: boolean;
   ariaLabel: string;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
   onChange: (value: boolean) => void;
 };
 
@@ -67,43 +66,13 @@ type SettingsChoiceRowProps = {
   className?: string;
 };
 
-type SettingsCardProps = {
-  children: ReactNode;
-  className?: string;
-  padded?: boolean;
-};
-
-type SettingsFormCardProps = FormHTMLAttributes<HTMLFormElement> & {
-  children: ReactNode;
-};
-
 export const settingsInputClassName = uiInputClass;
 export const settingsTextareaClassName = cx(uiInputClass, "min-h-[96px]");
-export const settingsCompactInputClassName = cx(uiInputClass, "ui-caption py-1.5");
-export const settingsLabelClassName = cx("ui-caption font-semibold", uiTitleTextClass);
+export const settingsLabelClassName = cx(
+  "ui-caption font-semibold",
+  uiTitleTextClass,
+);
 export const settingsHelperClassName = cx("mt-1 ui-caption", uiMutedTextClass);
-export const settingsInlineButtonClassName = cx(
-  uiButtonBaseClass,
-  uiButtonVariants.secondary,
-  "h-7 px-2.5 py-1 ui-caption"
-);
-export const settingsPrimaryActionButtonClassName = cx(
-  uiButtonBaseClass,
-  uiButtonVariants.primary,
-  "h-8 px-4 py-2 ui-caption"
-);
-
-export function SettingsCard({ children, className, padded = true }: SettingsCardProps) {
-  return <section className={cx(uiCardClass, padded && "p-4 sm:p-5", className)}>{children}</section>;
-}
-
-export function SettingsFormCard({ children, className, ...props }: SettingsFormCardProps) {
-  return (
-    <form className={cx(uiCardClass, "p-4 sm:p-5", className)} {...props}>
-      {children}
-    </form>
-  );
-}
 
 export const SettingsSection = ({
   title,
@@ -118,8 +87,17 @@ export const SettingsSection = ({
     return (
       <section aria-labelledby={headingId} className="settings-section-compact">
         <div>
-          <h2 id={headingId} className="text-base font-semibold text-[var(--ui-text)]">{title}</h2>
-          {description && <p className="mt-1 text-[13px] leading-5 text-[var(--ui-text-muted)]">{description}</p>}
+          <h2
+            id={headingId}
+            className="text-base font-semibold text-[var(--ui-text)]"
+          >
+            {title}
+          </h2>
+          {description && (
+            <p className="mt-1 text-[13px] leading-5 text-[var(--ui-text-muted)]">
+              {description}
+            </p>
+          )}
         </div>
         <div className="min-w-0">{children}</div>
       </section>
@@ -129,48 +107,82 @@ export const SettingsSection = ({
     "mt-3 grid",
     layout === "grid" &&
       columns === 2 &&
-      "gap-x-6 md:grid-cols-2 md:[&>*:nth-child(2)]:border-t-0 md:[&>*:nth-child(2)]:pt-0"
+      "gap-x-6 md:grid-cols-2 md:[&>*:nth-child(2)]:border-t-0 md:[&>*:nth-child(2)]:pt-0",
   );
 
   return (
     <div>
-      <p className={cx("ui-caption font-semibold uppercase", uiMutedTextClass)}>{title}</p>
-      {description && <p className={cx("ui-caption", uiMutedTextClass)}>{description}</p>}
+      <p className={cx("ui-caption font-semibold uppercase", uiMutedTextClass)}>
+        {title}
+      </p>
+      {description && (
+        <p className={cx("ui-caption", uiMutedTextClass)}>{description}</p>
+      )}
       <div className={layoutClass}>{children}</div>
     </div>
   );
 };
 
-export const SettingsItem = ({ title, description, action, children, className, icon, status, compact }: SettingsItemProps) => compact ? (
-  <div className={cx("settings-item-compact", className)}>
-    <div className="flex min-w-0 items-center gap-3">
-      {icon && <span aria-hidden="true" className="shrink-0 text-[var(--ui-text-muted)]">{icon}</span>}
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold text-[var(--ui-text)]">{title}</h3>{status}</div>
-        {description && <div className="mt-0.5 break-words text-[13px] leading-5 text-[var(--ui-text-muted)]">{description}</div>}
+export const SettingsItem = ({
+  title,
+  description,
+  action,
+  children,
+  className,
+  icon,
+  status,
+  compact,
+}: SettingsItemProps) =>
+  compact ? (
+    <div className={cx("settings-item-compact", className)}>
+      <div className="flex min-w-0 items-center gap-3">
+        {icon && (
+          <span
+            aria-hidden="true"
+            className="shrink-0 text-[var(--ui-text-muted)]"
+          >
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-[var(--ui-text)]">
+              {title}
+            </h3>
+            {status}
+          </div>
+          {description && (
+            <div className="mt-0.5 break-words text-[13px] leading-5 text-[var(--ui-text-muted)]">
+              {description}
+            </div>
+          )}
+        </div>
       </div>
+      {action && <div className="settings-item-action">{action}</div>}
+      {children && <div className="min-w-0 sm:col-span-2">{children}</div>}
     </div>
-    {action && <div className="settings-item-action">{action}</div>}
-    {children && <div className="min-w-0 sm:col-span-2">{children}</div>}
-  </div>
-) : (
-  <div
-    className={cx(
-      "border-t py-3 text-[var(--ui-text)] first:border-t-0 first:pt-0 last:pb-0",
-      uiDividerClass,
-      className
-    )}
-  >
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0">
-        <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{title}</p>
-        {description && <p className={cx("ui-caption", uiMutedTextClass)}>{description}</p>}
+  ) : (
+    <div
+      className={cx(
+        "border-t py-3 text-[var(--ui-text)] first:border-t-0 first:pt-0 last:pb-0",
+        uiDividerClass,
+        className,
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className={cx("ui-body font-semibold", uiTitleTextClass)}>
+            {title}
+          </p>
+          {description && (
+            <p className={cx("ui-caption", uiMutedTextClass)}>{description}</p>
+          )}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {children}
     </div>
-    {children}
-  </div>
-);
+  );
 
 export const SettingsChoiceRow = ({
   title,
@@ -185,8 +197,10 @@ export const SettingsChoiceRow = ({
     className={cx(
       "flex items-start gap-3 border-t py-3 ui-caption first:border-t-0 first:pt-0 last:pb-0",
       uiDividerClass,
-      disabled ? "cursor-not-allowed text-[var(--ui-text-muted)] opacity-70" : "cursor-pointer text-[var(--ui-text)]",
-      className
+      disabled
+        ? "cursor-not-allowed text-[var(--ui-text-muted)] opacity-70"
+        : "cursor-pointer text-[var(--ui-text)]",
+      className,
     )}
   >
     <input
@@ -197,15 +211,33 @@ export const SettingsChoiceRow = ({
       className={`mt-0.5 ${settingsCheckboxClassName}`}
     />
     <span className="min-w-0 flex-1">
-      <span className={cx("block font-semibold", disabled ? uiMutedTextClass : uiTitleTextClass)}>{title}</span>
-      {description && <span className="block text-[var(--ui-text-muted)]">{description}</span>}
+      <span
+        className={cx(
+          "block font-semibold",
+          disabled ? uiMutedTextClass : uiTitleTextClass,
+        )}
+      >
+        {title}
+      </span>
+      {description && (
+        <span className="block text-[var(--ui-text-muted)]">{description}</span>
+      )}
       {children}
     </span>
   </label>
 );
 
-export const SettingsSwitch = ({ checked, disabled, ariaLabel, onChange }: SettingsSwitchProps) => (
-  <label className={`relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center lg:min-h-8 lg:min-w-9 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+export const SettingsSwitch = ({
+  checked,
+  disabled,
+  ariaLabel,
+  ariaInvalid,
+  ariaDescribedBy,
+  onChange,
+}: SettingsSwitchProps) => (
+  <label
+    className={`relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center lg:min-h-8 lg:min-w-9 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+  >
     <input
       type="checkbox"
       role="switch"
@@ -214,8 +246,13 @@ export const SettingsSwitch = ({ checked, disabled, ariaLabel, onChange }: Setti
       onChange={(e) => onChange(e.target.checked)}
       disabled={disabled}
       aria-label={ariaLabel}
+      aria-invalid={ariaInvalid}
+      aria-describedby={ariaDescribedBy}
     />
-    <span aria-hidden="true" className="pointer-events-none relative h-5 w-9 shrink-0 rounded-full bg-[var(--ui-text-muted)] transition-colors peer-checked:bg-primary dark:peer-checked:bg-primary-400 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-700 dark:peer-focus-visible:outline-primary-200 peer-checked:[&>span]:translate-x-4">
+    <span
+      aria-hidden="true"
+      className="pointer-events-none relative h-5 w-9 shrink-0 rounded-full bg-[var(--ui-text-muted)] transition-colors peer-checked:bg-primary dark:peer-checked:bg-primary-400 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-700 dark:peer-focus-visible:outline-primary-200 peer-checked:[&>span]:translate-x-4"
+    >
       <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform motion-reduce:transition-none" />
     </span>
   </label>
@@ -239,6 +276,8 @@ export const SettingsToggleAction = ({
   checked,
   disabled,
   ariaLabel,
+  ariaInvalid,
+  ariaDescribedBy,
   onChange,
   badge,
   className,
@@ -252,7 +291,14 @@ export const SettingsToggleAction = ({
         className={badge.className}
       />
     )}
-    <SettingsSwitch checked={checked} disabled={disabled} ariaLabel={ariaLabel} onChange={onChange} />
+    <SettingsSwitch
+      checked={checked}
+      disabled={disabled}
+      ariaLabel={ariaLabel}
+      ariaInvalid={ariaInvalid}
+      ariaDescribedBy={ariaDescribedBy}
+      onChange={onChange}
+    />
   </div>
 );
 

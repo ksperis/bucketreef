@@ -5,6 +5,7 @@ import { classifyApiError } from "../../utils/apiError";
 
 const m = (en: string, fr: string, de: string) => ({ en, fr, de });
 export const profileMessages = {
+  breadcrumb: m("Breadcrumb", "Fil d’Ariane", "Brotkrumennavigation"),
   title: m("My profile", "Mon profil", "Mein Profil"),
   profile: m("Profile", "Profil", "Profil"),
   preferencesTab: m("Profile and preferences", "Profil et préférences", "Profil und Einstellungen"),

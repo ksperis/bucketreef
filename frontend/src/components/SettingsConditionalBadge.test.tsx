@@ -1,15 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { PortalSettingsConditionalBadge } from "./PortalSettingsLayout";
+import { SettingsConditionalBadge } from "./settings/SettingsLayout";
 
-describe("PortalSettingsConditionalBadge", () => {
+describe("SettingsConditionalBadge", () => {
   it("renders the badge when visible=true", () => {
-    render(<PortalSettingsConditionalBadge visible label="Experimental" />);
+    render(<SettingsConditionalBadge visible label="Experimental" />);
     expect(screen.getByText("Experimental")).toBeInTheDocument();
   });
 
   it("does not render the badge when visible=false", () => {
-    render(<PortalSettingsConditionalBadge visible={false} label="Experimental" />);
+    render(<SettingsConditionalBadge visible={false} label="Experimental" />);
     expect(screen.queryByText("Experimental")).not.toBeInTheDocument();
   });
 });

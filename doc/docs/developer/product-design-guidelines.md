@@ -70,7 +70,7 @@ workspace-specific visual themes when a shared product pattern fits.
 
 | Workspace | User job | Design posture | Preferred patterns | Avoid |
 | --- | --- | --- | --- | --- |
-| `/portal` | End-user storage workspace for files, shares, governance activity, usage, and personal settings. | Approachable, compact, user-facing, and bounded to visible Storage Spaces. | `PageHeader`, `WorkspaceDashboardKit`, `PageTabs variant="line"`, `PortalSettingsLayout`, locked `BrowserEmbed` with the `portal-basic` profile. | IAM jargon, ARNs, principals, policy JSON, bucket diagnostics, lifecycle, replication, versioning, `/portal/browser`, fake production data. |
+| `/portal` | End-user storage workspace for files, shares, governance activity, usage, and personal settings. | Approachable, compact, user-facing, and bounded to visible Storage Spaces. | `PageHeader`, `WorkspaceDashboardKit`, `PageTabs variant="line"`, `SettingsLayout`, locked `BrowserEmbed` with the `portal-basic` profile. | IAM jargon, ARNs, principals, policy JSON, bucket diagnostics, lifecycle, replication, versioning, `/portal/browser`, fake production data. |
 | `/browser` | Advanced object explorer and object-operation workspace. | Task-first, technical, and explicit about selected execution context. | `BrowserPage`, `BrowserEmbed`, compact embedded profiles, advanced root profile only when access allows it. | Duplicate browser implementations, hidden context switching, advanced chrome for simple embedded surfaces. |
 | `/manager` | S3 and IAM configuration console for accounts, connections, users, groups, roles, policies, buckets, and bucket features. | Dense, accurate, and native to S3/IAM semantics. | `PageHeader`, `PageTabs`, `DataTableShell`, `ListToolbar`, `BucketFeatureCard`, shared metrics and dashboard components. | Hiding native S3/IAM meaning, Portal wording, platform-governance settings that belong in Admin. |
 | `/admin` | Platform governance for UI users, endpoints, accounts, feature flags, audit, billing, health, and global settings. | Administrative, auditable, and oriented around platform state. | `PageHeader`, settings panels, `WorkflowTabs`, shared association summaries, shared metrics cards. | Generic S3 object workflows, tenant operations without explicit governance context, local-only visual patterns. |
@@ -145,7 +145,7 @@ under the tabs.
 
 ## Compact settings with section titles at the side
 
-The personal profile uses the opt-in `SettingsSection presentation="compact"`
+The personal profile and the seven migrated settings pages use the opt-in `SettingsSection presentation="compact"`
 and `SettingsItem compact` presentation from `components/settings/SettingsLayout`.
 The default rendering remains unchanged for existing settings consumers.
 
@@ -185,6 +185,59 @@ Its table/editor translation is outside this profile delivery.
 Validate a 1440 × 900 viewport with two open sessions: all three security sections
 must fit without opening details. Check German wrapping, keyboard focus, mobile
 touch targets, both themes and actual authenticated routes.
+
+### Settings composition and persistence
+
+Use `SettingsButton`, `SettingsDialog`, `SettingsConfirmation`, `SettingsField`
+and `SettingsActions` from `components/settings/SettingsControls`. Profile
+wrappers only inject translated labels. `useSettingsDraft` holds the baseline
+and editable values; page adapters own conversions, validation and persistence.
+This is not a schema-driven form engine. `SettingsNavigationGuard` protects
+router navigation and browser unload, while `useSettingsCloseGuard` protects
+explicit cancellation. Register one route guard for the whole page, including
+any dialog subdraft, so a navigation asks only once.
+
+The dirty-only Save/Cancel area stays sticky at the bottom of its content
+container and reserves its own space in the normal flow. Dialog **Apply** only
+copies the dialog's draft into the page. Defaults and Portal inheritance resets
+also modify drafts only, after confirmation. Keep temporarily empty numeric
+inputs; validate ranges and dependencies on Apply/Save and focus the first
+invalid field. Retain values after failures.
+
+Admin pages enumerate the leaf paths they own. `useAppSettingsDraft` reads the
+latest full configuration before saving, merges only changed owned values and
+refuses conflicting edits to the same field. It preserves unrelated changes,
+including in the same section. This client check does not provide an atomic
+server lock: a write after the last read remains a concurrency limitation of
+the existing API. Cancel after a conflict loads the reviewed server snapshot.
+Branding is previewed inside a scoped demonstration; global theme and workspace
+availability update only after a successful server response.
+
+Portal keeps tri-state booleans (**Platform value / Enabled / Disabled**).
+Numbers and lists use **Customize** switches. Show currently applied values
+and their origin beside the draft controls. The project API does not return
+platform values hidden by a current override: do not invent a future inherited
+value. Resolve it on Save. Read-only views show effective text and the delegation
+or role restriction. Project switching updates context and persisted selection
+only after the URL navigation is accepted; remount the form by project ID and
+ignore late responses from previous instances.
+
+Use short dialogs for SMTP, migration limits and CORS origins. OIDC and LDAP
+providers have independent dedicated create/edit/view pages under Authentication;
+the global security policy saves separately. Keep write-only secrets empty on
+edit, retain environment locks and the existing WebAuthn verification contract.
+Key rotation is an explicit operation with a scope/effect confirmation and real
+partial results; never simulate progress or automatically retry an ambiguous
+failure.
+
+### Translation boundary
+
+The shared profile retains English, French and German in all six mounts. This
+pass adds those languages only to the user Portal project settings and its
+dialogs. All six Admin settings pages and provider editors stay English,
+including Admin Browser and Admin Portal settings. Shared controls accept
+explicit labels and default to English; never make a shared component translate
+unrelated consumers implicitly. Remaining global translation is out of scope.
 
 Further adoption is tracked separately in [Settings UI follow-up](settings-ui-follow-up.md).
 

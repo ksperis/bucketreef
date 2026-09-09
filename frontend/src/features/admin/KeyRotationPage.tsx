@@ -2,21 +2,36 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyRotationResponse,
   KeyRotationResultItem,
   KeyRotationType,
   rotateS3Keys,
 } from "../../api/keyRotation";
-import { StorageEndpoint, listStorageEndpoints } from "../../api/storageEndpoints";
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import {
+  StorageEndpoint,
+  listStorageEndpoints,
+} from "../../api/storageEndpoints";
+import DataTableShell, {
+  type DataTableColumn,
+} from "../../components/list/DataTableShell";
 import ListToolbar from "../../components/ListToolbar";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
-import UiButton from "../../components/ui/UiButton";
-import { SettingsCard, SettingsChoiceRow } from "../../components/settings/SettingsLayout";
+import UiBadge from "../../components/ui/UiBadge";
+import {
+  SettingsButton,
+  SettingsConfirmation,
+} from "../../components/settings/SettingsControls";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import {
+  SettingsChoiceRow,
+  SettingsSection,
+  SettingsItem,
+  SettingsSwitch,
+} from "../../components/settings/SettingsLayout";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
 
@@ -34,12 +49,14 @@ const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
   {
     value: "endpoint_admin",
     label: "Endpoint admin keys",
-    description: "Rotate admin credentials configured on each selected endpoint.",
+    description:
+      "Rotate admin credentials configured on each selected endpoint.",
   },
   {
     value: "endpoint_supervision",
     label: "Endpoint supervision keys",
-    description: "Rotate supervision credentials used for usage and metrics collection.",
+    description:
+      "Rotate supervision credentials used for usage and metrics collection.",
   },
   {
     value: "account",
@@ -54,7 +71,8 @@ const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
   {
     value: "ceph_admin",
     label: "Ceph-admin keys",
-    description: "Rotate dedicated Ceph Admin credentials configured on endpoints.",
+    description:
+      "Rotate dedicated Ceph Admin credentials configured on endpoints.",
   },
 ];
 
@@ -74,22 +92,13 @@ const ENV_MANAGED_ENDPOINT_KEY_TYPES: KeyRotationType[] = [
 
 function isEndpointEligible(endpoint: StorageEndpoint): boolean {
   if (endpoint.provider !== "ceph") return false;
-  const adminEnabled = endpoint.capabilities?.admin ?? endpoint.features?.admin?.enabled ?? false;
+  const adminEnabled =
+    endpoint.capabilities?.admin ?? endpoint.features?.admin?.enabled ?? false;
   return Boolean(adminEnabled);
 }
 
 function extractError(err: unknown): string {
   return extractApiError(err, "Unable to run key rotation.");
-}
-
-function statusBadgeClassName(status: KeyRotationResultItem["status"]): string {
-  if (status === "rotated") {
-    return "inline-flex rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100";
-  }
-  if (status === "failed") {
-    return "inline-flex rounded-full bg-rose-100 px-2 py-0.5 font-semibold text-rose-700 dark:bg-rose-900/30 dark:text-rose-100";
-  }
-  return "inline-flex rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200";
 }
 
 const resultTableColumns: Array<DataTableColumn<KeyRotationResultRow>> = [
@@ -112,7 +121,19 @@ const resultTableColumns: Array<DataTableColumn<KeyRotationResultRow>> = [
   {
     id: "status",
     label: "Status",
-    render: (item) => <span className={statusBadgeClassName(item.status)}>{item.status}</span>,
+    render: (item) => (
+      <UiBadge
+        tone={
+          item.status === "rotated"
+            ? "success"
+            : item.status === "failed"
+              ? "danger"
+              : "neutral"
+        }
+      >
+        {item.status}
+      </UiBadge>
+    ),
   },
   {
     id: "details",
@@ -121,9 +142,12 @@ const resultTableColumns: Array<DataTableColumn<KeyRotationResultRow>> = [
       <>
         {item.message}
         {item.old_access_key && item.new_access_key ? (
-          <span className="ml-1 text-slate-500 dark:text-slate-400">
-            ({item.old_access_key} -&gt; {item.new_access_key})
-          </span>
+          <details className="text-[var(--ui-text-muted)]">
+            <summary className="cursor-pointer">Key identifiers</summary>
+            <span className="break-all font-mono text-xs">
+              {item.old_access_key} → {item.new_access_key}
+            </span>
+          </details>
         ) : null}
       </>
     ),
@@ -145,7 +169,17 @@ export default function KeyRotationPage() {
     "s3_user",
     "ceph_admin",
   ]);
+  const [previousResult, setPreviousResult] = useState(false);
   const [deactivateOnly, setDeactivateOnly] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const pending = useRef(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -156,7 +190,9 @@ export default function KeyRotationPage() {
         const loadedEndpoints = await listStorageEndpoints();
         if (!mounted) return;
         setEndpoints(loadedEndpoints);
-        const eligibleIds = loadedEndpoints.filter((endpoint) => isEndpointEligible(endpoint)).map((endpoint) => endpoint.id);
+        const eligibleIds = loadedEndpoints
+          .filter((endpoint) => isEndpointEligible(endpoint))
+          .map((endpoint) => endpoint.id);
         setSelectedEndpointIds(eligibleIds);
       } catch (err) {
         if (!mounted) return;
@@ -173,14 +209,16 @@ export default function KeyRotationPage() {
 
   const eligibleEndpoints = useMemo(
     () => endpoints.filter((endpoint) => isEndpointEligible(endpoint)),
-    [endpoints]
+    [endpoints],
   );
   const selectedEnvManagedEndpoints = useMemo(
     () =>
       eligibleEndpoints.filter(
-        (endpoint) => selectedEndpointIds.includes(endpoint.id) && endpoint.is_editable === false
+        (endpoint) =>
+          selectedEndpointIds.includes(endpoint.id) &&
+          endpoint.is_editable === false,
       ),
-    [eligibleEndpoints, selectedEndpointIds]
+    [eligibleEndpoints, selectedEndpointIds],
   );
   const hasSelectedEnvManagedEndpointKeys =
     selectedEnvManagedEndpoints.length > 0 &&
@@ -191,7 +229,7 @@ export default function KeyRotationPage() {
         ...item,
         rowKey: `${item.endpoint_id}-${item.key_type}-${item.target_id ?? "none"}-${index}`,
       })),
-    [result?.results]
+    [result?.results],
   );
   const resultTableStatus = resolveListTableStatus({
     loading: false,
@@ -199,16 +237,23 @@ export default function KeyRotationPage() {
     rowCount: resultRows.length,
   });
 
-  const runDisabled = running || selectedEndpointIds.length === 0 || selectedTypes.length === 0;
+  const runDisabled =
+    running || selectedEndpointIds.length === 0 || selectedTypes.length === 0;
 
   const toggleEndpoint = (endpointId: number) => {
     setSelectedEndpointIds((prev) =>
-      prev.includes(endpointId) ? prev.filter((id) => id !== endpointId) : [...prev, endpointId]
+      prev.includes(endpointId)
+        ? prev.filter((id) => id !== endpointId)
+        : [...prev, endpointId],
     );
   };
 
   const toggleType = (type: KeyRotationType) => {
-    setSelectedTypes((prev) => (prev.includes(type) ? prev.filter((entry) => entry !== type) : [...prev, type]));
+    setSelectedTypes((prev) =>
+      prev.includes(type)
+        ? prev.filter((entry) => entry !== type)
+        : [...prev, type],
+    );
   };
 
   const selectAllEndpoints = () => {
@@ -228,7 +273,10 @@ export default function KeyRotationPage() {
   };
 
   const runRotation = async () => {
-    if (runDisabled) return;
+    if (runDisabled || pending.current) return;
+    pending.current = true;
+    setConfirmOpen(false);
+    setPreviousResult(Boolean(result));
     setRunning(true);
     setError(null);
     setActionMessage(null);
@@ -238,138 +286,107 @@ export default function KeyRotationPage() {
         key_types: selectedTypes,
         deactivate_only: deactivateOnly,
       });
+      if (!active.current) return;
       setResult(response);
+      setPreviousResult(false);
       if (response.summary.failed > 0) {
-        setActionMessage("Rotation completed with errors. Review details below.");
+        setActionMessage(
+          "Rotation completed with errors. Review details below.",
+        );
       } else if (response.summary.skipped > 0) {
-        setActionMessage("Rotation completed with skipped items. Review details below.");
+        setActionMessage(
+          "Rotation completed with skipped items. Review details below.",
+        );
       } else {
         setActionMessage("Rotation completed successfully.");
       }
     } catch (err) {
-      setError(extractError(err));
+      if (active.current)
+        setError(
+          `${extractError(err)} The outcome may be incomplete. Review the existing keys before starting another rotation.`,
+        );
     } finally {
-      setRunning(false);
+      pending.current = false;
+      if (active.current) setRunning(false);
     }
   };
 
   return (
     <PageShell
       title="S3 key rotation"
-      description="Rotate endpoint and managed RGW keys across selected storage endpoints."
+      description="Replace managed RGW keys on selected Ceph endpoints."
       breadcrumbs={adminPageBreadcrumbs("key-rotation")}
-      actions={[
-        {
-          label: running ? "Rotating..." : "Run rotation",
-          onClick: runRotation,
-          disabled: runDisabled,
-        },
-      ]}
     >
-
-      {loading && <PageBanner tone="info">Loading endpoints...</PageBanner>}
-      {error && <PageBanner tone="error">{error}</PageBanner>}
-      {actionMessage && (
-        <PageBanner tone={result?.summary.failed || result?.summary.skipped ? "warning" : "success"}>
-          {actionMessage}
-        </PageBanner>
-      )}
-      {hasSelectedEnvManagedEndpointKeys && (
-        <PageBanner tone="warning">
-          Endpoint admin, supervision, and Ceph-admin keys managed by ENV_STORAGE_ENDPOINTS will be
-          skipped. Rotate them externally and redeploy with the updated environment values. Account
-          and S3 user keys remain eligible.
-        </PageBanner>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SettingsCard>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
-              <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Endpoints</p>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Select one or more Ceph endpoints with admin API enabled.
-              </p>
+      <div className="settings-compact">
+        {loading && <PageBanner tone="info">Loading endpoints...</PageBanner>}
+        {error && <PageBanner tone="error">{error}</PageBanner>}
+        {actionMessage && (
+          <PageBanner
+            tone={
+              result?.summary.failed || result?.summary.skipped
+                ? "warning"
+                : "success"
+            }
+          >
+            {actionMessage}
+          </PageBanner>
+        )}
+        <fieldset disabled={running || loading} className="min-w-0">
+          <SettingsSection
+            presentation="compact"
+            title="Endpoints"
+            description="Select Ceph endpoints with the admin API enabled."
+          >
+            <div className="flex flex-wrap justify-end gap-2">
+              <SettingsButton variant="ghost" onClick={selectAllEndpoints}>
+                Select all endpoints
+              </SettingsButton>
+              <SettingsButton variant="ghost" onClick={clearAllEndpoints}>
+                Clear endpoints
+              </SettingsButton>
             </div>
-            <div className="flex gap-2">
-              <UiButton
-                type="button"
-                onClick={selectAllEndpoints}
-                variant="secondary"
-                size="xs"
+            {endpoints.map((endpoint) => (
+              <SettingsChoiceRow
+                key={endpoint.id}
+                title={endpoint.name}
+                description={`${endpoint.endpoint_url} · ${endpoint.provider}`}
+                checked={selectedEndpointIds.includes(endpoint.id)}
+                disabled={!isEndpointEligible(endpoint)}
+                onChange={() => toggleEndpoint(endpoint.id)}
               >
-                Select all
-              </UiButton>
-              <UiButton
-                type="button"
-                onClick={clearAllEndpoints}
-                variant="secondary"
-                size="xs"
-              >
-                Clear
-              </UiButton>
-            </div>
-          </div>
-          <div>
-            {endpoints.map((endpoint) => {
-              const eligible = isEndpointEligible(endpoint);
-              const envManaged = endpoint.is_editable === false;
-              return (
-                <SettingsChoiceRow
-                  key={endpoint.id}
-                  title={endpoint.name}
-                  description={`${endpoint.endpoint_url} · ${endpoint.provider}${
-                    envManaged ? " · managed by environment" : ""
-                  }`}
-                  checked={selectedEndpointIds.includes(endpoint.id)}
-                  disabled={!eligible}
-                  onChange={() => toggleEndpoint(endpoint.id)}
-                >
-                  {!eligible && (
-                    <span className="block text-amber-700 dark:text-amber-300">
-                      Unsupported: endpoint is not Ceph or admin feature is disabled.
-                    </span>
-                  )}
-                  {eligible && envManaged && (
-                    <span className="block text-amber-700 dark:text-amber-300">
-                      Endpoint credentials must be rotated through ENV_STORAGE_ENDPOINTS.
-                    </span>
-                  )}
-                </SettingsChoiceRow>
-              );
-            })}
-            {!loading && endpoints.length === 0 && (
-              <p className="ui-caption text-slate-500 dark:text-slate-400">No storage endpoints found.</p>
+                {!isEndpointEligible(endpoint) ? (
+                  <span className="block text-amber-700 dark:text-amber-300">
+                    Unavailable: requires Ceph with the admin API enabled.
+                  </span>
+                ) : endpoint.is_editable === false ? (
+                  <span className="block text-[var(--ui-text-muted)]">
+                    Endpoint credentials are managed by ENV_STORAGE_ENDPOINTS.
+                  </span>
+                ) : null}
+              </SettingsChoiceRow>
+            ))}
+            {!loading && !endpoints.length && (
+              <p className="settings-readonly">No storage endpoints found.</p>
             )}
-          </div>
-        </SettingsCard>
-
-        <SettingsCard>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
-              <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Key types</p>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">Choose the key categories to rotate.</p>
+            {!loading && !selectedEndpointIds.length && (
+              <p className="text-sm text-[var(--ui-text-muted)]">
+                Select at least one eligible endpoint.
+              </p>
+            )}
+          </SettingsSection>
+          <SettingsSection
+            presentation="compact"
+            title="Key categories"
+            description="Only the selected categories will be processed."
+          >
+            <div className="flex flex-wrap justify-end gap-2">
+              <SettingsButton variant="ghost" onClick={selectAllTypes}>
+                Select all categories
+              </SettingsButton>
+              <SettingsButton variant="ghost" onClick={clearAllTypes}>
+                Clear categories
+              </SettingsButton>
             </div>
-            <div className="flex gap-2">
-              <UiButton
-                type="button"
-                onClick={selectAllTypes}
-                variant="secondary"
-                size="xs"
-              >
-                Select all
-              </UiButton>
-              <UiButton
-                type="button"
-                onClick={clearAllTypes}
-                variant="secondary"
-                size="xs"
-              >
-                Clear
-              </UiButton>
-            </div>
-          </div>
-          <div>
             {ROTATION_TYPE_OPTIONS.map((option) => (
               <SettingsChoiceRow
                 key={option.value}
@@ -379,44 +396,90 @@ export default function KeyRotationPage() {
                 onChange={() => toggleType(option.value)}
               />
             ))}
-          </div>
-
-          <div className="mt-4 border-t border-[color:var(--ui-border-soft)] pt-4">
-            <SettingsChoiceRow
+            {!selectedTypes.length && (
+              <p className="settings-readonly">
+                Select at least one key category.
+              </p>
+            )}
+          </SettingsSection>
+          <SettingsSection presentation="compact" title="Previous keys">
+            <SettingsItem
+              compact
               title="Disable old keys only"
-              description="Keep previous keys but suspend them instead of deleting them."
-              checked={deactivateOnly}
-              onChange={setDeactivateOnly}
+              description={
+                deactivateOnly
+                  ? "Keep old keys in an inactive state after replacement."
+                  : "Delete old keys after replacement. This cannot be undone."
+              }
+              action={
+                <SettingsSwitch
+                  ariaLabel="Disable old keys only"
+                  checked={deactivateOnly}
+                  onChange={setDeactivateOnly}
+                />
+              }
             />
-          </div>
-        </SettingsCard>
-      </div>
-
-      {result && (
-        <SettingsCard padded={false}>
-          <ListToolbar
-            title="Execution summary"
-            description={`Mode: ${result.mode === "deactivate_old_keys" ? "Deactivate old keys" : "Delete old keys"}`}
-            countLabel={`${result.results.length} detailed result${result.results.length === 1 ? "" : "s"}`}
+          </SettingsSection>
+        </fieldset>
+        <SettingsSection
+          presentation="compact"
+          title="Execution"
+          description="Review the scope before starting. Rotation can return partial results."
+        >
+          {hasSelectedEnvManagedEndpointKeys && (
+            <PageBanner tone="warning">
+              Endpoint admin, supervision, and Ceph-admin keys managed by
+              ENV_STORAGE_ENDPOINTS will be skipped. Rotate them externally and
+              redeploy with the updated environment values. Account and S3 user
+              keys remain eligible.
+            </PageBanner>
+          )}
+          <SettingsItem
+            compact
+            title={running ? "Rotation in progress" : selectedEndpointIds.length && selectedTypes.length ? "Ready to review" : "Choose rotation scope"}
+            description={
+              running
+                ? "The operation continues on the server. Wait for its results before starting another rotation."
+                : `${selectedEndpointIds.length} endpoint(s) · ${selectedTypes.length} key categories · ${deactivateOnly ? "disable" : "delete"} previous keys`
+            }
+            action={
+              <SettingsButton
+                disabled={runDisabled || loading}
+                onClick={() => setConfirmOpen(true)}
+              >
+                {running ? "Rotating..." : "Run rotation"}
+              </SettingsButton>
+            }
           />
-          <div className="space-y-3 px-5 pb-5 pt-3">
-            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <div className="rounded-lg bg-slate-50 px-3 py-2 ui-caption dark:bg-slate-800/60">Total: {result.summary.total}</div>
-              <div className="rounded-lg bg-emerald-50 px-3 py-2 ui-caption text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100">
+        </SettingsSection>
+        {result && (
+          <section
+            aria-label="Rotation results"
+            className="border-t border-[var(--ui-border-soft)] pt-5"
+          >
+            <ListToolbar
+              title={
+                previousResult
+                  ? "Previous execution summary"
+                  : "Execution summary"
+              }
+              description={`Mode: ${result.mode === "deactivate_old_keys" ? "Deactivate old keys" : "Delete old keys"}`}
+              countLabel={`${result.results.length} detailed result${result.results.length === 1 ? "" : "s"}`}
+            />
+            <div className="my-3 flex flex-wrap gap-2">
+              <UiBadge>Total: {result.summary.total}</UiBadge>
+              <UiBadge tone="success">
                 Rotated: {result.summary.rotated}
-              </div>
-              <div className="rounded-lg bg-rose-50 px-3 py-2 ui-caption text-rose-700 dark:bg-rose-900/30 dark:text-rose-100">
-                Failed: {result.summary.failed}
-              </div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2 ui-caption dark:bg-slate-800/60">Skipped: {result.summary.skipped}</div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2 ui-caption dark:bg-slate-800/60">
+              </UiBadge>
+              <UiBadge tone="danger">Failed: {result.summary.failed}</UiBadge>
+              <UiBadge>Skipped: {result.summary.skipped}</UiBadge>
+              <UiBadge>
                 Old keys deleted: {result.summary.deleted_old_keys}
-              </div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2 ui-caption dark:bg-slate-800/60">
+              </UiBadge>
+              <UiBadge>
                 Old keys disabled: {result.summary.disabled_old_keys}
-              </div>
+              </UiBadge>
             </div>
-
             <DataTableShell
               columns={resultTableColumns}
               rows={resultRows}
@@ -429,9 +492,51 @@ export default function KeyRotationPage() {
               responsiveCards
               tableClassName="compact-table"
             />
-          </div>
-        </SettingsCard>
+          </section>
+        )}
+      </div>
+      {confirmOpen && (
+        <SettingsConfirmation
+          title="Run key rotation?"
+          description="New keys will replace the selected managed credentials. Applications using old keys may lose access."
+          confirmLabel="Confirm rotation"
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={() => void runRotation()}
+          details={[
+            {
+              label: "Endpoints",
+              value: eligibleEndpoints
+                .filter((endpoint) => selectedEndpointIds.includes(endpoint.id))
+                .map((endpoint) => endpoint.name)
+                .join(", "),
+            },
+            {
+              label: "Key categories",
+              value: selectedTypes
+                .map((type) => KEY_TYPE_LABEL[type])
+                .join(", "),
+            },
+            {
+              label: "Previous keys",
+              value: deactivateOnly
+                ? "Disable after replacement"
+                : "Permanently delete after replacement",
+            },
+          ]}
+          warning={
+            hasSelectedEnvManagedEndpointKeys
+              ? "Environment-managed endpoint credentials will be skipped. Account and S3 user keys remain eligible."
+              : undefined
+          }
+        />
       )}
+      <SettingsNavigationGuard
+        dirty={running}
+        title="Leave this rotation?"
+        description="The server operation will continue. You may lose access to its detailed results on this page."
+        confirmLabel="Leave page"
+        cancelLabel="Wait for results"
+      />
     </PageShell>
   );
 }

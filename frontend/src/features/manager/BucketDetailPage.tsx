@@ -30,7 +30,7 @@ import { useS3AccountContext } from "./S3AccountContext";
 import TrafficAnalytics from "./TrafficAnalytics";
 import BucketUsageStatsPanel from "../shared/BucketUsageStatsPanel";
 import PropertySummaryChip, { PropertySummaryTone } from "../../components/PropertySummaryChip";
-import { PortalSettingsSwitch } from "../../components/PortalSettingsLayout";
+import { SettingsSwitch } from "../../components/settings/SettingsLayout";
 import { useCephAdminEndpoint } from "../cephAdmin/CephAdminEndpointContext";
 import {
   BucketFeatureCard,
@@ -1642,7 +1642,7 @@ function BucketDetailPageContent({
                               Suspended
                             </span>
                           )}
-                          <PortalSettingsSwitch
+                          <SettingsSwitch
                             checked={versioningDraftEnabled}
                             disabled={updatingVersioning || versioningLoading || Boolean(versioningLoadError) || versioningDisableBlocked}
                             ariaLabel="Enable versioning"
@@ -1774,7 +1774,7 @@ function BucketDetailPageContent({
                               Write-once retention controls for bucket objects.
                             </p>
                           </div>
-                          <PortalSettingsSwitch
+                          <SettingsSwitch
                             checked={objectLockEnabled ?? false}
                             disabled={objectLockPersistentlyEnabled || objectLockLoading || Boolean(objectLockLoadError) || objectLockNotImplemented}
                             ariaLabel="Enable object lock"

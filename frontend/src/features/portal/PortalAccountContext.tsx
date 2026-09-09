@@ -102,24 +102,18 @@ export function PortalAccountProvider({ children }: { children: ReactNode }) {
       fallbackValues: [readClientStorage(PORTAL_ACCOUNT_STORAGE_KEY), preferred],
     });
     if (!nextId) return;
-    if (nextId !== selectedAccountId) {
-      setSelectedAccountId(nextId);
-    }
-    writeClientStorage(PORTAL_ACCOUNT_STORAGE_KEY, nextId);
     if (urlAccount !== nextId) {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set(PORTAL_ACCOUNT_URL_PARAM, nextId);
       setSearchParams(nextParams, { replace: true });
+      return;
     }
+    // Commit the context only after the router has accepted the navigation.
+    setSelectedAccountId(nextId);
+    writeClientStorage(PORTAL_ACCOUNT_STORAGE_KEY, nextId);
   }, [accounts, loaded, searchParams, selectedAccountId, setSearchParams]);
 
   const updateSelected = (id: string | null) => {
-    setSelectedAccountId(id);
-    if (id === null) {
-      removeClientStorage(PORTAL_ACCOUNT_STORAGE_KEY);
-    } else {
-      writeClientStorage(PORTAL_ACCOUNT_STORAGE_KEY, id);
-    }
     const nextParams = new URLSearchParams(searchParams);
     if (id === null) {
       nextParams.delete(PORTAL_ACCOUNT_URL_PARAM);

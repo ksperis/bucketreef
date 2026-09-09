@@ -8,10 +8,18 @@ import { SettingsSwitch } from "./SettingsLayout";
 describe("SettingsSwitch", () => {
   it("exposes a named switch and toggles with Space or pointer without submitting a form", async () => {
     const user = userEvent.setup();
-    const submit = vi.fn(event => event.preventDefault());
+    const submit = vi.fn((event) => event.preventDefault());
     function Settings() {
       const [checked, setChecked] = useState(false);
-      return <form onSubmit={submit}><SettingsSwitch ariaLabel="Quota alerts" checked={checked} onChange={setChecked} /></form>;
+      return (
+        <form onSubmit={submit}>
+          <SettingsSwitch
+            ariaLabel="Quota alerts"
+            checked={checked}
+            onChange={setChecked}
+          />
+        </form>
+      );
     }
     render(<Settings />);
     const control = screen.getByRole("switch", { name: "Quota alerts" });
@@ -28,7 +36,14 @@ describe("SettingsSwitch", () => {
   it("does not change or receive keyboard focus when disabled", async () => {
     const user = userEvent.setup();
     const change = vi.fn();
-    render(<SettingsSwitch ariaLabel="Quota alerts" checked disabled onChange={change} />);
+    render(
+      <SettingsSwitch
+        ariaLabel="Quota alerts"
+        checked
+        disabled
+        onChange={change}
+      />,
+    );
     const control = screen.getByRole("switch", { name: "Quota alerts" });
     await user.click(control);
     await user.tab();

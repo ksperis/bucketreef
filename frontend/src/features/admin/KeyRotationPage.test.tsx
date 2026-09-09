@@ -79,6 +79,8 @@ describe("KeyRotationPage", () => {
     expect(screen.getByText("Archive S3")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
+    expect(mocks.rotateS3Keys).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rotation" }));
 
     await waitFor(() =>
       expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
@@ -95,7 +97,7 @@ describe("KeyRotationPage", () => {
     expect(within(table).getByText("Account").closest("td")).toHaveAttribute("data-label", "Type");
     expect(within(table).getByText("Tenant A").closest("td")).toHaveAttribute("data-label", "Target");
     expect(within(table).getByText("rotated").closest("td")).toHaveAttribute("data-label", "Status");
-    expect(within(table).getByText(/OLD123 -> NEW456/).closest("td")).toHaveAttribute("data-label", "Details");
+    expect(within(table).getByText(/OLD123 → NEW456/).closest("td")).toHaveAttribute("data-label", "Details");
   });
 
   it("warns that environment-managed endpoint keys will be skipped", async () => {
@@ -139,9 +141,11 @@ describe("KeyRotationPage", () => {
     expect(
       screen.getByText(/Endpoint admin, supervision, and Ceph-admin keys managed by ENV_STORAGE_ENDPOINTS/)
     ).toBeInTheDocument();
-    expect(screen.getByText(/Endpoint credentials must be rotated through ENV_STORAGE_ENDPOINTS/)).toBeInTheDocument();
+    expect(screen.getByText(/Endpoint credentials are managed by ENV_STORAGE_ENDPOINTS/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
+    expect(mocks.rotateS3Keys).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rotation" }));
 
     await waitFor(() =>
       expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
@@ -153,4 +157,43 @@ describe("KeyRotationPage", () => {
     expect(await screen.findByText("Rotation completed with skipped items. Review details below.")).toBeInTheDocument();
     expect(screen.getByText("Skipped: 3")).toBeInTheDocument();
   });
+  it("requires selections and cancellation never launches a rotation", async () => {
+    renderPage(); await screen.findByText("Ceph main");
+    fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Permanently delete after replacement");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mocks.rotateS3Keys).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Clear endpoints" }));
+    expect(screen.getByRole("button", { name: "Run rotation" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Select all endpoints" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear categories" }));
+    expect(screen.getByRole("button", { name: "Run rotation" })).toBeDisabled();
+  });
+  it("prevents duplicate launches and freezes selections while running", async () => {
+    mocks.rotateS3Keys.mockImplementationOnce(() => new Promise(() => {}));
+    renderPage(); await screen.findByText("Ceph main");
+    fireEvent.click(screen.getByRole("switch", { name: "Disable old keys only" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Disable after replacement");
+    const confirm = screen.getByRole("button", { name: "Confirm rotation" });
+    fireEvent.click(confirm); fireEvent.click(confirm);
+    expect(mocks.rotateS3Keys).toHaveBeenCalledOnce();
+    expect(mocks.rotateS3Keys.mock.calls[0][0].deactivate_only).toBe(true);
+    expect(screen.getByRole("button", { name: "Rotating..." })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Disable old keys only" })).toBeDisabled();
+  });
+  it("retains previous results after an ambiguous failure without retrying", async () => {
+    renderPage(); await screen.findByText("Ceph main");
+    fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rotation" }));
+    await screen.findByText("Rotation completed successfully.");
+    mocks.rotateS3Keys.mockRejectedValueOnce(new Error("Timeout"));
+    fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rotation" }));
+    expect(await screen.findByText(/The outcome may be incomplete/)).toBeInTheDocument();
+    expect(screen.getByText("Previous execution summary")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(mocks.rotateS3Keys).toHaveBeenCalledTimes(2);
+  });
+
 });

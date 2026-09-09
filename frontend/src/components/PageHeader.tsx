@@ -19,6 +19,7 @@ export type PageHeaderProps = {
   title: string;
   description?: ReactNode;
   breadcrumbs?: PageBreadcrumb[];
+  breadcrumbLabel?: string;
   actions?: Action[];
   inlineContent?: ReactNode;
   metaContent?: ReactNode;
@@ -29,6 +30,7 @@ export default function PageHeader({
   title,
   description,
   breadcrumbs = [],
+  breadcrumbLabel = "Breadcrumb",
   actions = [],
   inlineContent,
   metaContent,
@@ -79,7 +81,7 @@ export default function PageHeader({
       <div className="min-w-0">
         {breadcrumbs.length > 0 && (
           <nav
-            aria-label="Breadcrumb"
+            aria-label={breadcrumbLabel}
             className={cx("mb-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold leading-4", uiMutedTextClass)}
           >
             {breadcrumbs.map((bc, idx) => (

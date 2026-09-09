@@ -106,7 +106,7 @@ describe("PortalSettingsPage", () => {
     render(<PortalSettingsPage />);
 
     expect(
-      await screen.findByText("Configure Portal self-service behavior and backing storage defaults.")
+      await screen.findByText("Platform capabilities and defaults for Portal projects.")
     ).toBeInTheDocument();
     const input = (await screen.findByLabelText("Max S3 access keys per portal user")) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "5" } });
@@ -135,7 +135,7 @@ describe("PortalSettingsPage", () => {
   it("sends server access log retention in save payload", async () => {
     render(<PortalSettingsPage />);
 
-    const input = (await screen.findByLabelText("Server access log retention days")) as HTMLInputElement;
+    const input = (await screen.findByLabelText("Server access log retention")) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "45" } });
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -150,7 +150,7 @@ describe("PortalSettingsPage", () => {
   it("sends version history retention days in save payload", async () => {
     render(<PortalSettingsPage />);
 
-    const input = (await screen.findByLabelText("Version history retention days")) as HTMLInputElement;
+    const input = (await screen.findByLabelText("Version history retention")) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "45" } });
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -165,20 +165,20 @@ describe("PortalSettingsPage", () => {
   it("rejects a non-positive version history retention", async () => {
     render(<PortalSettingsPage />);
 
-    const input = (await screen.findByLabelText("Version history retention days")) as HTMLInputElement;
+    const input = (await screen.findByLabelText("Version history retention")) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "0" } });
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
-    expect(await screen.findByText("Version history retention must be a positive integer.")).toBeInTheDocument();
+    expect(await screen.findByText("Version history retention must be a whole number of at least 1.")).toBeInTheDocument();
     expect(updateAppSettingsMock).not.toHaveBeenCalled();
   });
 
   it("saves named storage creation setting without override policy controls", async () => {
     render(<PortalSettingsPage />);
 
-    fireEvent.click(await screen.findByLabelText("Portal named storage creation"));
-    fireEvent.click(screen.getByLabelText("Portal Server Access Logging"));
-    fireEvent.click(screen.getByLabelText("Portal Storage Space history cleanup"));
+    fireEvent.click(await screen.findByLabelText("Named storage creation"));
+    fireEvent.click(screen.getByLabelText("Server access logging"));
+    fireEvent.click(screen.getByLabelText("Storage Space history cleanup"));
     expect(screen.queryByRole("checkbox", { name: "Allow override" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));

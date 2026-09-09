@@ -1,40 +1,47 @@
-# Settings UI follow-up
+# Settings UI generalization
 
-Status: **planned, separate delivery**. The compact personal profile provides the
-shared presentation and [product contract](product-design-guidelines.md#compact-settings-with-section-titles-at-the-side).
-Other settings pages retain their current layout. Shared line tabs now use an
-underline, sidebar Profile selection matches other links, and existing switches
-follow the configured theme color with accessible focus and touch targets.
-The profile's three binary preferences now use the same switch component.
-Shared status badges, property summaries and user-defined tags now follow the
-compact 4px-corner, thin-border pattern described in the product guidelines.
-Reuse these components when migrating the candidate pages.
+Status: **implemented for the seven agreed pages**. The compact profile and
+shared selection controls were delivered first; the settings migration is a
+separate local commit. See the [product contract](product-design-guidelines.md#compact-settings-with-section-titles-at-the-side)
+and [theme tokens](ui-theme-guidelines.md#compact-settings-tokens).
 
-## Candidate pages
+## Delivered scope
 
-- [ ] Audit the Admin Browser settings page.
-- [ ] Audit the Admin Manager settings page.
-- [ ] Audit the Admin Portal settings page.
-- [ ] Audit the user Portal settings page.
+| Page | Content / detail entry points |
+| --- | --- |
+| Admin General | Workspaces, services, quota alerts, branding; SMTP draft dialog and explicit test. |
+| Admin Browser | Workspace availability, direct transfers, server relay, ZIP thresholds. |
+| Admin Manager | Measurements, administrative access, bucket tools; migration limits dialog. |
+| Admin Portal | Access and creation, personal keys, logging/history, new-space defaults; CORS dialog. |
+| Admin Authentication | Access-key login, security policy, compact provider lists; dedicated OIDC/LDAP pages. |
+| Admin Key Rotation | Endpoint and key-category selections, previous-key handling, confirmation and real results. |
+| User Portal Settings | Project/access summary, capabilities, new-space defaults; effective origin and draft inheritance. |
 
-For each candidate, inventory its current `SettingsLayout`/`PortalSettingsLayout`
-usage, permissions, server/local persistence boundaries, translations and dirty
-state. Propose compact sections and decide which details should open on demand.
-Preserve each workspace's vocabulary and access semantics.
+- [x] Explicit compact layout, themed switches and 4px shared badges.
+- [x] Shared controls, dialogs, dirty actions and close/navigation guards.
+- [x] Page-owned configuration scopes, fresh-read merge and conflict detection.
+- [x] Draft-only defaults and inheritance reset, numeric validation and failure retention.
+- [x] Deferred Portal project selection and stale-response protection.
+- [x] Retained API, secret, WebAuthn and authorization contracts.
+- [x] Removed PortalSettingsLayout aliases and obsolete settings card helpers.
+- [x] English-only Admin; FR/EN/DE user Portal and existing shared profile.
 
-## Migration pass
+Targeted unit tests cover persistence, conflicts, dialogs, project switching,
+provider secrets and rotation confirmation. Authenticated Admin/Browser smoke
+checks live in `e2e/agent-ui`; `settingsVisualQa.spec.ts` exercises the Portal
+settings in three languages, both themes and desktop/mobile using API fixtures.
+Fixtures prove rendering and UI contracts, not successful Ceph operations.
+Temporary captures, auth state and reports are excluded from commits.
 
-- [ ] Agree the audited scope and visual examples before migrating pages.
-- [ ] Adopt the compact presentation explicitly; do not change shared defaults.
-- [ ] Migrate remaining on/off settings from checkboxes to `SettingsSwitch`.
-  Keep list selections and acknowledgements as checkboxes, and preserve each
-  form's draft/save behavior. Include the two Portal override controls in this
-  inventory; do not broaden permissions or change persistence while restyling.
-- [ ] Keep shared Save/Cancel behavior only where fields form one coherent
-  transaction, with inline error handling and draft protection.
-- [ ] Translate new labels and accessible names without mixing languages inside
-  the migrated workflow.
-- [ ] Validate desktop density, German wrapping, keyboard focus, touch targets,
-  light/dark modes and authenticated permissions for every migrated page.
-- [ ] Record screenshots and update the guidelines if a new reusable pattern is
-  needed. Keep temporary captures and authentication artifacts out of Git.
+## Deferred scope
+
+Other account, bucket and workspace forms keep their existing default
+presentation. Audit them separately before adoption; reuse the canonical
+settings components without expanding permissions or changing storage
+semantics. Converting the rest of the application's boolean controls and global
+translation are separate decisions. Private S3 connection inventories retain
+their existing table/editor behavior and translation scope.
+
+The current full-configuration API has no atomic concurrency lock. The client
+refuses conflicts present at its pre-save read; eliminating the residual race
+would require a separate server concurrency contract.

@@ -61,6 +61,7 @@ const AuthenticationSettingsPage = lazy(() => import("./features/admin/Authentic
 const ManagerSettingsPage = lazy(() => import("./features/admin/ManagerSettingsPage"));
 const AdminPortalSettingsPage = lazy(() => import("./features/admin/PortalSettingsPage"));
 const BrowserSettingsPage = lazy(() => import("./features/admin/BrowserSettingsPage"));
+const AuthProviderPage = lazy(() => import("./features/admin/settings/AuthProviderPage"));
 const KeyRotationPage = lazy(() => import("./features/admin/KeyRotationPage"));
 const BucketsPage = lazy(() => import("./features/manager/BucketsPage"));
 const ManagerDashboard = lazy(() => import("./features/manager/ManagerDashboard"));
@@ -322,6 +323,10 @@ export function createAppRoutes() {
             <Route element={<RequireRole roles={[SUPERADMIN_ROLE]} />}>
               <Route path="general-settings" element={<GeneralSettingsPage />} />
               <Route path="authentication-settings" element={<AuthenticationSettingsPage />} />
+              <Route path="authentication-settings/oidc/new" element={<AuthProviderPage kind="oidc" />} />
+              <Route path="authentication-settings/oidc/providers/:providerId" element={<AuthProviderPage kind="oidc" />} />
+              <Route path="authentication-settings/ldap/new" element={<AuthProviderPage kind="ldap" />} />
+              <Route path="authentication-settings/ldap/providers/:providerId" element={<AuthProviderPage kind="ldap" />} />
               <Route path="manager-settings" element={<ManagerSettingsPage />} />
               <Route path="portal-settings" element={<AdminPortalSettingsRoute />} />
               <Route path="browser-settings" element={<BrowserSettingsPage />} />

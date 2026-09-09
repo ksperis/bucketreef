@@ -1,6 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { transferableAbortController } from "node:util";
+import { useState } from "react";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import { setSessionUserCache } from "../../utils/workspaces";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { createMemoryRouter, RouterProvider, MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PortalAccount } from "../../api/portalAccounts";
 import { PortalAccountProvider, usePortalAccountContext } from "./PortalAccountContext";
@@ -100,4 +104,34 @@ describe("PortalAccountProvider", () => {
 
     await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("102"));
   });
+});
+
+function GuardedSettings() {
+  const { selectedAccountId, setSelectedAccountId } = usePortalAccountContext();
+  const [dirty, setDirty] = useState(false);
+  return <><div data-testid="active-project">{selectedAccountId}</div><button onClick={() => setDirty(true)}>Edit setting</button><button onClick={() => setSelectedAccountId("102")}>Select project 102</button><SettingsNavigationGuard dirty={dirty} onDiscard={() => setDirty(false)} /></>;
+}
+
+it("defers project context and storage until navigation is accepted once", async () => {
+  vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
+  setSessionUserCache({ id: 1 });
+  listPortalAccountsMock.mockResolvedValue(ACCOUNTS);
+  const router = createMemoryRouter([{ path: "/portal/settings", element: <PortalAccountProvider><GuardedSettings /></PortalAccountProvider> }], { initialEntries: ["/portal/settings?project=101"] });
+  render(<RouterProvider router={router} />);
+  await waitFor(() => expect(screen.getByTestId("active-project")).toHaveTextContent("101"));
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Edit setting"));
+  await user.click(screen.getByText("Select project 102"));
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(screen.getByTestId("active-project")).toHaveTextContent("101");
+  expect(localStorage.getItem("selectedPortalAccountId")).toBe("101");
+  await user.click(screen.getByText("Keep editing"));
+  expect(router.state.location.search).toBe("?project=101");
+  await user.click(screen.getByText("Select project 102"));
+  await user.click(screen.getByRole("button", { name: "Discard changes" }));
+  await waitFor(() => expect(screen.getByTestId("active-project")).toHaveTextContent("102"));
+  expect(localStorage.getItem("selectedPortalAccountId")).toBe("102");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await act(async () => router.dispose());
+  setSessionUserCache(null);
 });

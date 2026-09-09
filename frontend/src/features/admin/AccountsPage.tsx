@@ -53,7 +53,7 @@ import AccountAccessRoleSelectors, {
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
-import { PortalSettingsItem, PortalSettingsSection } from "../../components/PortalSettingsLayout";
+import { SettingsItem, SettingsSection } from "../../components/settings/SettingsLayout";
 import StorageUsageCard from "../../components/StorageUsageCard";
 import DataTableShell, {
   dataTableDefaultActionProps,
@@ -2165,8 +2165,8 @@ export default function S3AccountsPage() {
                     )}
                     {portalAccountSettings && effectivePortalSettings && (
                       <div className="space-y-4">
-                        <PortalSettingsSection title="DELEGATION" layout="grid">
-                          <PortalSettingsItem
+                        <SettingsSection title="DELEGATION" layout="grid">
+                          <SettingsItem
                             title="Portal manager settings"
                             description="Allow Portal managers for this project to edit the shared Portal overrides from Portal settings."
                             action={
@@ -2183,10 +2183,10 @@ export default function S3AccountsPage() {
                               </label>
                             }
                           />
-                        </PortalSettingsSection>
+                        </SettingsSection>
 
-                        <PortalSettingsSection title="UI" layout="grid">
-                          <PortalSettingsItem
+                        <SettingsSection title="UI" layout="grid">
+                          <SettingsItem
                             title="Browser workspace access"
                             description={`Effective for this project: ${
                               effectivePortalSettings.browser_access_enabled ? "enabled" : "disabled"
@@ -2205,7 +2205,7 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                          <PortalSettingsItem
+                          <SettingsItem
                             title="Private Storage Space creation"
                             description={`Effective for Portal users and managers: ${
                               effectivePortalSettings.allow_private_storage_space_create ? "enabled" : "disabled"
@@ -2223,7 +2223,7 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                          <PortalSettingsItem
+                          <SettingsItem
                             title="Named bucket creation"
                             description={`Effective for portal users: ${
                               effectivePortalSettings.allow_portal_named_bucket_create ? "enabled" : "disabled"
@@ -2241,7 +2241,7 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                          <PortalSettingsItem
+                          <SettingsItem
                             title="Access key management"
                             description={`Effective for portal users: ${
                               effectivePortalSettings.allow_portal_user_access_key_create ? "enabled" : "disabled"
@@ -2259,7 +2259,7 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                          <PortalSettingsItem
+                          <SettingsItem
                             title="Server access logging"
                             description={`Effective for storage spaces: ${
                               effectivePortalSettings.server_access_logging_enabled ? "enabled" : "disabled"
@@ -2277,7 +2277,7 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                          <PortalSettingsItem
+                          <SettingsItem
                             title="Storage Space history cleanup"
                             description={`Effective for storage spaces: ${
                               effectivePortalSettings.storage_space_version_cleanup_enabled ? "enabled" : "disabled"
@@ -2295,10 +2295,10 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                        </PortalSettingsSection>
+                        </SettingsSection>
 
-                        <PortalSettingsSection title="BUCKET DEFAULTS" layout="grid">
-                          <PortalSettingsItem
+                        <SettingsSection title="BUCKET DEFAULTS" layout="grid">
+                          <SettingsItem
                             title="Versioning"
                             description={`Effective: ${effectivePortalSettings.bucket_defaults.versioning ? "enabled" : "disabled"}`}
                             action={
@@ -2314,7 +2314,7 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                          <PortalSettingsItem
+                          <SettingsItem
                             title="Lifecycle"
                             description={`Effective: ${
                               effectivePortalSettings.bucket_defaults.enable_lifecycle ? "enabled" : "disabled"
@@ -2332,7 +2332,7 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                          <PortalSettingsItem
+                          <SettingsItem
                             title="Version history retention"
                             description={`Effective for new Storage Spaces: ${effectivePortalSettings.bucket_defaults.noncurrent_version_expiration_days} days. Existing buckets are unchanged.`}
                             action={
@@ -2364,8 +2364,8 @@ export default function S3AccountsPage() {
                               }
                               aria-label="Account version history retention days"
                             />
-                          </PortalSettingsItem>
-                          <PortalSettingsItem
+                          </SettingsItem>
+                          <SettingsItem
                             title="CORS"
                             description={`Effective: ${
                               effectivePortalSettings.bucket_defaults.enable_cors ? "enabled" : "disabled"
@@ -2383,7 +2383,7 @@ export default function S3AccountsPage() {
                               </select>
                             }
                           />
-                          <PortalSettingsItem
+                          <SettingsItem
                             title="CORS origins"
                             description={adminBucketCorsOriginsOverride ? "Override active" : "Inherits defaults"}
                             className="md:col-span-2"
@@ -2408,8 +2408,8 @@ export default function S3AccountsPage() {
                               placeholder="https://portal.example.com"
                               disabled={!adminBucketCorsOriginsOverride || portalSettingsLoading || portalSettingsSaving}
                             />
-                          </PortalSettingsItem>
-                        </PortalSettingsSection>
+                          </SettingsItem>
+                        </SettingsSection>
                       </div>
                     )}
                   </div>

@@ -1,3 +1,6 @@
+import { transferableAbortController } from "node:util";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import AuthProviderPage from "./settings/AuthProviderPage";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -252,14 +255,6 @@ function buildEnvLdapProvider(): LdapProviderAdminItem {
   });
 }
 
-function sectionByText(text: string): HTMLElement {
-  const section = screen.getByText(text).closest("section");
-  if (!section) {
-    throw new Error(`Unable to find section for ${text}`);
-  }
-  return section;
-}
-
 function firstButton(name: string): HTMLElement {
   const buttons = screen.getAllByRole("button", { name });
   const button = buttons[0];
@@ -269,9 +264,22 @@ function firstButton(name: string): HTMLElement {
   return button;
 }
 
+function renderPage() {
+  const router = createMemoryRouter([
+    { path: "/admin/authentication-settings", element: <AuthenticationSettingsPage /> },
+    ...(["oidc", "ldap"] as const).flatMap(kind => [
+      { path: `/admin/authentication-settings/${kind}/new`, element: <AuthProviderPage kind={kind} /> },
+      { path: `/admin/authentication-settings/${kind}/providers/:providerId`, element: <AuthProviderPage kind={kind} /> },
+    ]),
+  ], { initialEntries: ["/admin/authentication-settings"] });
+  render(<RouterProvider router={router} />);
+  return router;
+}
+
 describe("AuthenticationSettingsPage", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     fetchAppSettingsMock.mockResolvedValue(buildSettings());
     fetchDefaultAppSettingsMock.mockResolvedValue(buildSettings());
     updateAppSettingsMock.mockImplementation(async (payload: AppSettings) => payload);
@@ -313,7 +321,7 @@ describe("AuthenticationSettingsPage", () => {
   });
 
   it("renders the authentication toggles", async () => {
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
     expect(await screen.findByRole("heading", { name: "Authentication settings" })).toBeInTheDocument();
     expect(screen.getByLabelText("Access-key login")).toBeInTheDocument();
@@ -328,7 +336,7 @@ describe("AuthenticationSettingsPage", () => {
 
   it("warns explicitly before disabling required administrator passkeys", async () => {
     const user = userEvent.setup();
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
     await user.click(await screen.findByLabelText("Require passkeys for administrators"));
 
@@ -340,7 +348,7 @@ describe("AuthenticationSettingsPage", () => {
 
   it("saves authentication changes and refreshes general settings context", async () => {
     const user = userEvent.setup();
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
     await user.click(await screen.findByLabelText("Access-key login"));
     await user.click(screen.getByRole("button", { name: /save changes/i }));
@@ -359,7 +367,7 @@ describe("AuthenticationSettingsPage", () => {
     updateAppSettingsMock
       .mockRejectedValueOnce(recentWebAuthnRequiredError())
       .mockImplementationOnce(async (payload: AppSettings) => payload);
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
     await user.click(await screen.findByLabelText("Access-key login"));
     await user.click(screen.getByRole("button", { name: /save changes/i }));
@@ -372,14 +380,14 @@ describe("AuthenticationSettingsPage", () => {
     expect(screen.getByText("Settings saved.")).toBeInTheDocument();
   });
 
-  it("shows the custom endpoint warning only when custom endpoint login is enabled", async () => {
+  it("explains custom endpoint restrictions and requires access-key login", async () => {
     const user = userEvent.setup();
-    render(<AuthenticationSettingsPage />);
-
-    expect(screen.queryByText(/custom endpoints are restricted to public https targets/i)).not.toBeInTheDocument();
-
-    await user.click(await screen.findByLabelText("Custom login endpoint"));
-    expect(screen.getByText(/custom endpoints are restricted to public https targets/i)).toBeInTheDocument();
+    renderPage();
+    expect(await screen.findByLabelText("Custom login endpoint")).toBeDisabled();
+    expect(screen.getByText(/Public HTTPS targets only/)).toBeInTheDocument();
+    await user.click(screen.getByLabelText("Access-key login"));
+    await user.click(screen.getByLabelText("Custom login endpoint"));
+    expect(screen.getByLabelText("Custom login endpoint")).toBeChecked();
   });
 
   it("resets only authentication fields to defaults", async () => {
@@ -393,10 +401,10 @@ describe("AuthenticationSettingsPage", () => {
     defaultSettings.general.allow_login_custom_endpoint = true;
     defaultSettings.general.manager_enabled = true;
     defaultSettings.branding.primary_color = "#dc2626";
-    fetchAppSettingsMock.mockResolvedValueOnce(initialSettings);
+    fetchAppSettingsMock.mockResolvedValue(initialSettings);
     fetchDefaultAppSettingsMock.mockResolvedValueOnce(defaultSettings);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
     await screen.findByLabelText("Access-key login");
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
@@ -425,9 +433,9 @@ describe("AuthenticationSettingsPage", () => {
       buildOidcProvider({ provider_id: "ui", display_name: "UI Provider" }),
     ]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
-    expect(await screen.findByText("OIDC PROVIDERS")).toBeInTheDocument();
+    expect(await screen.findByText("OIDC providers")).toBeInTheDocument();
     expect(screen.getAllByText("Google").length).toBeGreaterThan(0);
     expect(screen.getAllByText("UI Provider").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Environment").length).toBeGreaterThan(0);
@@ -437,16 +445,16 @@ describe("AuthenticationSettingsPage", () => {
 
   it("shows environment providers as locked read-only fields", async () => {
     const user = userEvent.setup();
-    fetchOidcAdminProvidersMock.mockResolvedValueOnce([buildEnvOidcProvider()]);
+    fetchOidcAdminProvidersMock.mockResolvedValue([buildEnvOidcProvider()]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getAllByRole("button", { name: "View OIDC provider google" }).length).toBeGreaterThan(0);
     });
     await user.click(firstButton("View OIDC provider google"));
 
-    expect(await screen.findByText("View OIDC provider")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "View OIDC provider" })).toBeInTheDocument();
     expect(screen.getByLabelText("Display name")).toBeDisabled();
     expect(screen.getByLabelText("Client secret")).toBeDisabled();
     expect(screen.getByText("Forced by OIDC_PROVIDERS__GOOGLE__DISPLAY_NAME.")).toBeInTheDocument();
@@ -459,23 +467,22 @@ describe("AuthenticationSettingsPage", () => {
       buildOidcProvider({ provider_id: "google", display_name: "Google", has_client_secret: true }),
     ]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
-    await screen.findByText("OIDC PROVIDERS");
-    const oidcSection = sectionByText("OIDC PROVIDERS");
-    await user.click(within(oidcSection).getByRole("button", { name: "Add OIDC provider" }));
-    await user.type(within(oidcSection).getByLabelText("Provider ID"), "google");
-    await user.type(within(oidcSection).getByLabelText("Display name"), "Google");
+    await screen.findByText("OIDC providers");
+    await user.click(screen.getByRole("button", { name: "Add OIDC provider" }));
+    await user.type(screen.getByLabelText("Provider ID"), "google");
+    await user.type(screen.getByLabelText("Display name"), "Google");
     await user.type(
-      within(oidcSection).getByLabelText("Discovery URL"),
+      screen.getByLabelText("Discovery URL"),
       "https://issuer.example.test/.well-known/openid-configuration"
     );
-    await user.type(within(oidcSection).getByLabelText("Client ID"), "client-id");
-    await user.type(within(oidcSection).getByLabelText("Redirect URI"), "https://app.example.test/auth/callback");
-    await user.type(within(oidcSection).getByLabelText("Client secret"), "super-secret");
-    await user.selectOptions(within(oidcSection).getByLabelText("Identity linking policy"), "trusted_email");
-    await user.type(within(oidcSection).getByLabelText("Trusted email domains"), "Example.COM\ncorp.example.com");
-    await user.click(within(oidcSection).getByRole("button", { name: "Save OIDC provider" }));
+    await user.type(screen.getByLabelText("Client ID"), "client-id");
+    await user.type(screen.getByLabelText("Redirect URI"), "https://app.example.test/auth/callback");
+    await user.type(screen.getByLabelText("Client secret"), "super-secret");
+    await user.selectOptions(screen.getByLabelText("Identity linking policy"), "trusted_email");
+    await user.type(screen.getByLabelText("Trusted email domains"), "Example.COM\ncorp.example.com");
+    await user.click(screen.getByRole("button", { name: "Save OIDC provider" }));
 
     await waitFor(() => {
       expect(createOidcAdminProviderMock).toHaveBeenCalledTimes(1);
@@ -492,17 +499,15 @@ describe("AuthenticationSettingsPage", () => {
   it("edits an OIDC provider while preserving a blank client secret", async () => {
     const user = userEvent.setup();
     const provider = buildOidcProvider({ has_client_secret: true });
-    fetchOidcAdminProvidersMock.mockResolvedValueOnce([provider]).mockResolvedValueOnce([
-      buildOidcProvider({ display_name: "Updated Provider", has_client_secret: true }),
-    ]);
+    fetchOidcAdminProvidersMock.mockResolvedValue([provider]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getAllByRole("button", { name: "Edit OIDC provider ui" }).length).toBeGreaterThan(0);
     });
     await user.click(firstButton("Edit OIDC provider ui"));
-    const displayName = screen.getByLabelText("Display name");
+    const displayName = await screen.findByLabelText("Display name");
     await user.clear(displayName);
     await user.type(displayName, "Updated Provider");
     expect(screen.getByLabelText("Client secret")).toHaveAttribute("placeholder", "Stored secret is not displayed");
@@ -524,13 +529,13 @@ describe("AuthenticationSettingsPage", () => {
       buildOidcProvider({ provider_id: "ui", display_name: "UI Provider" }),
     ]).mockResolvedValueOnce([]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getAllByText("Google").length).toBeGreaterThan(0);
     });
-    const googleRow = screen.getAllByText("Google")[0].closest("tr") as HTMLElement;
-    const uiProviderRow = screen.getAllByText("UI Provider")[0].closest("tr") as HTMLElement;
+    const googleRow = screen.getAllByText("Google")[0].closest(".settings-item-compact") as HTMLElement;
+    const uiProviderRow = screen.getAllByText("UI Provider")[0].closest(".settings-item-compact") as HTMLElement;
     expect(within(googleRow).queryByRole("button", { name: "Delete OIDC provider google" })).toBeNull();
     await user.click(within(uiProviderRow).getByRole("button", { name: "Delete OIDC provider ui" }));
     expect(deleteOidcAdminProviderMock).not.toHaveBeenCalled();
@@ -548,32 +553,30 @@ describe("AuthenticationSettingsPage", () => {
       buildLdapProvider({ provider_id: "ui-ldap", display_name: "UI LDAP" }),
     ]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
-    expect(await screen.findByText("LDAP PROVIDERS")).toBeInTheDocument();
-    const ldapSection = sectionByText("LDAP PROVIDERS");
-    expect(within(ldapSection).getAllByText("Corporate LDAP").length).toBeGreaterThan(0);
-    expect(within(ldapSection).getAllByText("UI LDAP").length).toBeGreaterThan(0);
-    expect(within(ldapSection).getAllByText("Environment").length).toBeGreaterThan(0);
-    expect(within(ldapSection).getAllByText("UI").length).toBeGreaterThan(0);
-    expect(within(ldapSection).getAllByText("Enabled").length).toBeGreaterThanOrEqual(2);
+    expect(await screen.findByText("LDAP providers")).toBeInTheDocument();
+    expect(screen.getAllByText("Corporate LDAP").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("UI LDAP").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Environment").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("UI").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Enabled").length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows environment LDAP providers as locked read-only fields", async () => {
     const user = userEvent.setup();
-    fetchLdapAdminProvidersMock.mockResolvedValueOnce([buildEnvLdapProvider()]);
+    fetchLdapAdminProvidersMock.mockResolvedValue([buildEnvLdapProvider()]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
-    await screen.findByText("LDAP PROVIDERS");
-    const ldapSection = sectionByText("LDAP PROVIDERS");
-    await user.click(within(ldapSection).getAllByRole("button", { name: "View LDAP provider corp" })[0]);
+    await screen.findByText("LDAP providers");
+    await user.click(screen.getAllByRole("button", { name: "View LDAP provider corp" })[0]);
 
-    expect(await within(ldapSection).findByText("View LDAP provider")).toBeInTheDocument();
-    expect(within(ldapSection).getByLabelText("LDAP Display name")).toBeDisabled();
-    expect(within(ldapSection).getByLabelText("LDAP Bind password")).toBeDisabled();
-    expect(within(ldapSection).getByText("Forced by LDAP_PROVIDERS__CORP__URL.")).toBeInTheDocument();
-    expect(within(ldapSection).queryByRole("button", { name: "Save LDAP provider" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "View LDAP provider" })).toBeInTheDocument();
+    expect(screen.getByLabelText("LDAP Display name")).toBeDisabled();
+    expect(screen.getByLabelText("LDAP Bind password")).toBeDisabled();
+    expect(screen.getByText("Forced by LDAP_PROVIDERS__CORP__URL.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save LDAP provider" })).not.toBeInTheDocument();
   });
 
   it("creates an LDAP provider with a write-only bind password", async () => {
@@ -582,20 +585,19 @@ describe("AuthenticationSettingsPage", () => {
       buildLdapProvider({ provider_id: "corp", display_name: "Corporate LDAP", has_bind_password: true }),
     ]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
-    await screen.findByText("LDAP PROVIDERS");
-    const ldapSection = sectionByText("LDAP PROVIDERS");
-    await user.click(within(ldapSection).getByRole("button", { name: "Add LDAP provider" }));
-    await user.type(within(ldapSection).getByLabelText("LDAP Provider ID"), "corp");
-    await user.type(within(ldapSection).getByLabelText("LDAP Display name"), "Corporate LDAP");
-    const urlInput = within(ldapSection).getByLabelText("LDAP URL");
+    await screen.findByText("LDAP providers");
+    await user.click(screen.getByRole("button", { name: "Add LDAP provider" }));
+    await user.type(screen.getByLabelText("LDAP Provider ID"), "corp");
+    await user.type(screen.getByLabelText("LDAP Display name"), "Corporate LDAP");
+    const urlInput = screen.getByLabelText("LDAP URL");
     await user.clear(urlInput);
     await user.type(urlInput, "ldaps://ldap.example.test");
-    await user.type(within(ldapSection).getByLabelText("LDAP Bind DN"), "cn=bucketreef,ou=svc,dc=example,dc=test");
-    await user.type(within(ldapSection).getByLabelText("LDAP Bind password"), "ldap-secret");
-    await user.type(within(ldapSection).getByLabelText("LDAP User base DN"), "ou=people,dc=example,dc=test");
-    await user.click(within(ldapSection).getByRole("button", { name: "Save LDAP provider" }));
+    await user.type(screen.getByLabelText("LDAP Bind DN"), "cn=bucketreef,ou=svc,dc=example,dc=test");
+    await user.type(screen.getByLabelText("LDAP Bind password"), "ldap-secret");
+    await user.type(screen.getByLabelText("LDAP User base DN"), "ou=people,dc=example,dc=test");
+    await user.click(screen.getByRole("button", { name: "Save LDAP provider" }));
 
     await waitFor(() => {
       expect(createLdapAdminProviderMock).toHaveBeenCalledTimes(1);
@@ -613,24 +615,23 @@ describe("AuthenticationSettingsPage", () => {
       buildLdapProvider({ bind_dn: null, has_bind_password: false }),
     ]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
-    await screen.findByText("LDAP PROVIDERS");
-    const ldapSection = sectionByText("LDAP PROVIDERS");
-    await user.click(within(ldapSection).getByRole("button", { name: "Add LDAP provider" }));
-    await user.type(within(ldapSection).getByLabelText("LDAP Provider ID"), "anonymous");
-    await user.type(within(ldapSection).getByLabelText("LDAP Display name"), "Anonymous LDAP");
-    const urlInput = within(ldapSection).getByLabelText("LDAP URL");
+    await screen.findByText("LDAP providers");
+    await user.click(screen.getByRole("button", { name: "Add LDAP provider" }));
+    await user.type(screen.getByLabelText("LDAP Provider ID"), "anonymous");
+    await user.type(screen.getByLabelText("LDAP Display name"), "Anonymous LDAP");
+    const urlInput = screen.getByLabelText("LDAP URL");
     await user.clear(urlInput);
     await user.type(urlInput, "ldaps://ldap.example.test");
-    await user.type(within(ldapSection).getByLabelText("LDAP User base DN"), "ou=people,dc=example,dc=test");
-    await user.click(within(ldapSection).getByLabelText("Allow legacy LDAP TLS ciphers"));
+    await user.type(screen.getByLabelText("LDAP User base DN"), "ou=people,dc=example,dc=test");
+    await user.click(screen.getByLabelText("Allow legacy LDAP TLS ciphers"));
 
-    expect(within(ldapSection).getByText(/search the directory anonymously/i)).toBeInTheDocument();
-    expect(within(ldapSection).getByText(/Prefer enabling modern ECDHE/i)).toBeInTheDocument();
-    expect(within(ldapSection).getByLabelText("LDAP Bind DN")).not.toBeRequired();
-    expect(within(ldapSection).getByLabelText("LDAP Bind password")).not.toBeRequired();
-    await user.click(within(ldapSection).getByRole("button", { name: "Save LDAP provider" }));
+    expect(screen.getByText(/search the directory anonymously/i)).toBeInTheDocument();
+    expect(screen.getByText(/Prefer enabling modern ECDHE/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("LDAP Bind DN")).not.toBeRequired();
+    expect(screen.getByLabelText("LDAP Bind password")).not.toBeRequired();
+    await user.click(screen.getByRole("button", { name: "Save LDAP provider" }));
 
     await waitFor(() => {
       expect(createLdapAdminProviderMock).toHaveBeenCalledTimes(1);
@@ -645,23 +646,20 @@ describe("AuthenticationSettingsPage", () => {
   it("edits an LDAP provider while preserving a blank bind password", async () => {
     const user = userEvent.setup();
     const provider = buildLdapProvider({ has_bind_password: true });
-    fetchLdapAdminProvidersMock.mockResolvedValueOnce([provider]).mockResolvedValueOnce([
-      buildLdapProvider({ display_name: "Updated LDAP", has_bind_password: true }),
-    ]);
+    fetchLdapAdminProvidersMock.mockResolvedValue([provider]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
-    await screen.findByText("LDAP PROVIDERS");
-    const ldapSection = sectionByText("LDAP PROVIDERS");
-    await user.click(within(ldapSection).getAllByRole("button", { name: "Edit LDAP provider corp" })[0]);
-    const displayName = within(ldapSection).getByLabelText("LDAP Display name");
+    await screen.findByText("LDAP providers");
+    await user.click(screen.getAllByRole("button", { name: "Edit LDAP provider corp" })[0]);
+    const displayName = await screen.findByLabelText("LDAP Display name");
     await user.clear(displayName);
     await user.type(displayName, "Updated LDAP");
-    expect(within(ldapSection).getByLabelText("LDAP Bind password")).toHaveAttribute(
+    expect(screen.getByLabelText("LDAP Bind password")).toHaveAttribute(
       "placeholder",
       "Stored password is not displayed"
     );
-    await user.click(within(ldapSection).getByRole("button", { name: "Save LDAP provider" }));
+    await user.click(screen.getByRole("button", { name: "Save LDAP provider" }));
 
     await waitFor(() => {
       expect(updateLdapAdminProviderMock).toHaveBeenCalledTimes(1);
@@ -678,17 +676,16 @@ describe("AuthenticationSettingsPage", () => {
       buildLdapProvider({ provider_id: "ui-ldap", display_name: "UI LDAP" }),
     ]).mockResolvedValueOnce([]);
 
-    render(<AuthenticationSettingsPage />);
+    renderPage();
 
-    await screen.findByText("LDAP PROVIDERS");
-    const ldapSection = sectionByText("LDAP PROVIDERS");
+    await screen.findByText("LDAP providers");
     expect(
-      within(within(ldapSection).getAllByText("Corporate LDAP")[0].closest("tr") as HTMLElement).queryByRole("button", {
+      within(screen.getAllByText("Corporate LDAP")[0].closest(".settings-item-compact") as HTMLElement).queryByRole("button", {
         name: "Delete LDAP provider corp",
       })
     ).toBeNull();
     await user.click(
-      within(within(ldapSection).getAllByText("UI LDAP")[0].closest("tr") as HTMLElement).getByRole("button", {
+      within(screen.getAllByText("UI LDAP")[0].closest(".settings-item-compact") as HTMLElement).getByRole("button", {
         name: "Delete LDAP provider ui-ldap",
       })
     );
@@ -700,4 +697,31 @@ describe("AuthenticationSettingsPage", () => {
       expect(deleteLdapAdminProviderMock).toHaveBeenCalledWith("ui-ldap");
     });
   });
+  it("validates an OIDC draft beside required fields before saving", async () => {
+    const user = userEvent.setup(); renderPage();
+    await user.click(await screen.findByRole("button", { name: "Add OIDC provider" }));
+    await user.type(screen.getByLabelText("Provider ID"), "draft");
+    await user.click(screen.getByRole("button", { name: "Save OIDC provider" }));
+    expect(screen.getByLabelText("Display name")).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(screen.getByLabelText("Display name")).toHaveFocus());
+    expect(createOidcAdminProviderMock).not.toHaveBeenCalled();
+  });
+  it("keeps provider secrets and draft after cancelled WebAuthn, without saving global policy", async () => {
+    const user = userEvent.setup();
+    fetchOidcAdminProvidersMock.mockResolvedValue([buildOidcProvider({ has_client_secret: true, field_locks: { client_id: { forced: true, source: "ENV_CLIENT_ID" } } })]);
+    updateOidcAdminProviderMock.mockRejectedValueOnce(recentWebAuthnRequiredError());
+    renderPage(); await user.click(await screen.findByRole("button", { name: "Edit OIDC provider ui" }));
+    expect(await screen.findByLabelText("Client ID")).toBeDisabled();
+    await user.clear(screen.getByLabelText("Display name")); await user.type(screen.getByLabelText("Display name"), "Pending provider");
+    await user.click(screen.getByRole("button", { name: "Save OIDC provider" }));
+    const verify = await screen.findByRole("dialog", { name: "Verify with passkey" });
+    await user.click(within(verify).getByRole("button", { name: "Cancel" }));
+    expect(screen.getByLabelText("Display name")).toHaveValue("Pending provider");
+    expect(screen.getByLabelText("Client secret")).toHaveValue("");
+    expect(updateOidcAdminProviderMock).toHaveBeenCalledOnce(); expect(updateAppSettingsMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Back to authentication" }));
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(await screen.findByRole("heading", { name: "Authentication settings" })).toBeInTheDocument();
+  });
+
 });

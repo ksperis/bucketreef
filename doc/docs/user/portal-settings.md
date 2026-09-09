@@ -7,7 +7,7 @@ an administrator has delegated this responsibility.
 ## When to use
 
 Use **Portal > Settings** to confirm the selected project, your access level,
-the storage service, current Storage Space usage, and the effective Portal
+the storage service, and the effective Portal
 capabilities and Storage Space defaults. Personal identity, display preferences,
 alerts, and password settings are managed from **User profile**.
 
@@ -23,11 +23,15 @@ alerts, and password settings are managed from **User profile**.
 1. Open **Portal > Settings**.
 2. Confirm the selected project.
 3. Review your workspace access and the associated storage service.
-4. Check the number of active Storage Spaces and the storage currently used.
-5. Review the effective Portal capabilities and Storage Space defaults.
-6. If the page shows **Save**, choose **Inherit**, **Enable**, or **Disable** for
-   each delegated override, then save. Use **Reset overrides** to return every
-   project value to the administrator-defined defaults.
+4. Review **Currently applied** values and their **Platform** or **Project** origin.
+   Storage usage and space counts remain on the dashboard.
+5. If you can edit, choose **Platform value**, **Enabled**, or **Disabled**.
+   Turn on **Customize** for retention days or CORS origins. **Configure** opens
+   a CORS draft; **Apply** copies it into the page without saving to the server.
+6. **Save changes** applies the complete page draft. **Cancel** discards it
+   after confirmation. **Restore platform values** prepares a reset in the
+   draft; review it and save to apply it. New-space defaults do not change
+   existing Storage Spaces.
 
 ## Expected result
 
@@ -42,8 +46,18 @@ uses their Portal role here, regardless of their Manager rights.
 ## You are done when
 
 The project context and effective settings match the workspace you intended to
-review. If you are delegated, saving or resetting an override updates the page
+review. If you are delegated, saving the draft updates the page
 with the resulting effective values.
+
+Changes remain in the form if saving fails. If another editor changed a value
+you also edited, the page reports a conflict instead of overwriting it. Cancel
+to load the current values. Changing project or leaving a modified form asks
+for confirmation before switching the active project.
+
+The page and its dialogs follow your profile language (English, French or
+German), including automatic language selection. Currently applied inherited
+values are refreshed after saving; an overridden platform default is not
+available for preview through the project API.
 
 ## If you do not see this action
 

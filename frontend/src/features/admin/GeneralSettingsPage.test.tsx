@@ -1,3 +1,4 @@
+import { ThemeProvider } from "../../components/theme";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -130,7 +131,7 @@ describe("GeneralSettingsPage branding", () => {
   });
 
   it("only shows color picker (no hex input)", async () => {
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
     expect(await screen.findByLabelText("Primary color picker")).toBeInTheDocument();
     expect(screen.queryByLabelText("Primary color hex")).not.toBeInTheDocument();
     expect(screen.getByText(/BucketReef branding always remains visible/i)).toBeInTheDocument();
@@ -138,11 +139,12 @@ describe("GeneralSettingsPage branding", () => {
 
   it("saves branding color and applies it immediately", async () => {
     const user = userEvent.setup();
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
 
     const picker = (await screen.findByLabelText("Primary color picker")) as HTMLInputElement;
     fireEvent.change(picker, { target: { value: "#0057b8" } });
 
+    expect(applyBrandingMock).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
@@ -154,7 +156,7 @@ describe("GeneralSettingsPage branding", () => {
   });
 
   it("does not render authentication options", async () => {
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
 
     await screen.findByLabelText("Primary color picker");
     expect(screen.queryByLabelText("Access-key login")).not.toBeInTheDocument();
@@ -164,7 +166,7 @@ describe("GeneralSettingsPage branding", () => {
   });
 
   it("does not render manager extra tools toggles", async () => {
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
 
     await screen.findByLabelText("Primary color picker");
     expect(screen.queryByLabelText("Bucket migration tool")).not.toBeInTheDocument();
@@ -172,7 +174,7 @@ describe("GeneralSettingsPage branding", () => {
   });
 
   it("shows Experimental badge on portal feature toggle", async () => {
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
 
     await screen.findByLabelText("Portal feature");
     expect(screen.getByText("Experimental")).toBeInTheDocument();
@@ -180,9 +182,10 @@ describe("GeneralSettingsPage branding", () => {
 
   it("sends a quota SMTP test email with current quota notification settings", async () => {
     const user = userEvent.setup();
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
 
     await screen.findByLabelText("Primary color picker");
+    await user.click(screen.getByRole("button", { name: "Configure SMTP" }));
     await user.click(screen.getByRole("button", { name: /send test email/i }));
 
     await waitFor(() => {
@@ -195,6 +198,7 @@ describe("GeneralSettingsPage branding", () => {
   it("preserves authentication fields when resetting general settings", async () => {
     const user = userEvent.setup();
     const initialSettings = buildSettings();
+    initialSettings.branding.primary_color = "#0057b8";
     initialSettings.general.allow_login_access_keys = true;
     initialSettings.general.allow_login_endpoint_list = true;
     initialSettings.general.allow_login_custom_endpoint = true;
@@ -202,10 +206,10 @@ describe("GeneralSettingsPage branding", () => {
     defaultSettings.general.allow_login_access_keys = false;
     defaultSettings.general.allow_login_endpoint_list = false;
     defaultSettings.general.allow_login_custom_endpoint = false;
-    fetchAppSettingsMock.mockResolvedValueOnce(initialSettings);
+    fetchAppSettingsMock.mockResolvedValue(initialSettings);
     fetchDefaultAppSettingsMock.mockResolvedValueOnce(defaultSettings);
 
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
 
     await screen.findByLabelText("Primary color picker");
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
@@ -215,6 +219,7 @@ describe("GeneralSettingsPage branding", () => {
     await waitFor(() => {
       expect(fetchDefaultAppSettingsMock).toHaveBeenCalledTimes(1);
     });
+    expect(applyBrandingMock).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
@@ -233,7 +238,7 @@ describe("GeneralSettingsPage branding", () => {
       response: { status: 403, data: { detail: "Forbidden by policy" }, headers: {} },
     }));
 
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
 
     expect(await screen.findByText("Forbidden by policy")).toBeInTheDocument();
   });
@@ -241,9 +246,47 @@ describe("GeneralSettingsPage branding", () => {
   it("shows a public fallback when initial settings load fails without detail", async () => {
     fetchAppSettingsMock.mockRejectedValueOnce(new ApiError("Network Error"));
 
-    render(<GeneralSettingsPage />);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
 
     expect(await screen.findByText("Unable to load settings.")).toBeInTheDocument();
     expect(screen.queryByText("Network Error")).not.toBeInTheDocument();
   });
+  it("keeps forced workspace values when loading defaults", async () => {
+    const current = buildSettings(); current.general.portal_enabled = false;
+    fetchAppSettingsMock.mockResolvedValue(current);
+    const locks = unlockedFeatureLocks(); locks.portal_enabled = { forced: true, value: false, source: "FEATURE_PORTAL_ENABLED" };
+    fetchGeneralFeatureLocksMock.mockResolvedValue(locks);
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    const toggle = await screen.findByRole("switch", { name: "Portal feature" });
+    expect(toggle).toBeDisabled(); expect(toggle).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Reset to defaults" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load defaults" }));
+    await waitFor(() => expect(fetchDefaultAppSettingsMock).toHaveBeenCalledOnce());
+    expect(toggle).not.toBeChecked(); expect(updateAppSettingsMock).not.toHaveBeenCalled();
+  });
+  it("validates SMTP before testing and keeps SMTP edits inside its draft", async () => {
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: "Configure SMTP" }));
+    const port = screen.getByRole("spinbutton", { name: "SMTP port" });
+    fireEvent.change(port, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send test email" }));
+    await waitFor(() => expect(port).toHaveFocus());
+    expect(port).toHaveAttribute("aria-invalid", "true"); expect(sendQuotaNotificationTestEmailMock).not.toHaveBeenCalled();
+    fireEvent.change(port, { target: { value: "2525" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(updateAppSettingsMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledOnce());
+    expect(updateAppSettingsMock.mock.calls[0][0].quota_notifications.smtp_port).toBe(2525);
+  });
+  it("does not apply global branding on a failed save", async () => {
+    updateAppSettingsMock.mockRejectedValueOnce(new ApiError("Network Error"));
+    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    const picker = await screen.findByLabelText("Primary color picker");
+    fireEvent.change(picker, { target: { value: "#0057b8" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await screen.findByText("Unable to save settings.");
+    expect(picker).toHaveValue("#0057b8"); expect(applyBrandingMock).not.toHaveBeenCalled();
+  });
+
 });

@@ -987,7 +987,7 @@ export const scenarios: DocScreenshotScenario[] = [
     docPage: "user/screenshots-gallery.md",
     route: "/portal/settings",
     outputBasename: "portal-settings",
-    waitFor: "h1:has-text('Settings')",
+    waitFor: "h2:has-text('New Storage Space defaults')",
     user: storageUser,
     storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [{ type: "wait", selector: "text=Version history retention" }],

@@ -6,6 +6,8 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { useLanguage, type UiLanguagePreference } from "../../components/language";
 import { useTheme } from "../../components/theme";
 import UserAvatar from "../../components/UserAvatar";
+import { SettingsActions } from "../../components/settings/SettingsControls";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import { SettingsItem, SettingsSection, SettingsSwitch } from "../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
@@ -53,14 +55,13 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
     finally { setWorkspaceLoading(false); }
   }, [isS3Session]);
   useEffect(() => { void loadWorkspaces(); }, [loadWorkspaces]);
-  const [baseline, setBaseline] = useState<Preferences>(() => ({ theme, language: languagePreference, workspace: readStoredWorkspaceId(), tags: readSelectorTagsPreference(), quotaAlerts: true, quotaWatch: false }));
-  const [draft, setDraft] = useState(baseline);
+  const { baseline, setBaseline, draft, setDraft, dirty: preferencesDirty } = useSettingsDraft<Preferences>(() => ({ theme, language: languagePreference, workspace: readStoredWorkspaceId(), tags: readSelectorTagsPreference(), quotaAlerts: true, quotaWatch: false }));
   useEffect(() => {
     const previousTheme = observedTheme.current;
     observedTheme.current = theme;
     setBaseline(previous => previous.theme === theme ? previous : { ...previous, theme });
     setDraft(previous => previous.theme !== previousTheme || previous.theme === theme ? previous : { ...previous, theme });
-  }, [theme]);
+  }, [theme, setBaseline, setDraft]);
   const [fullName, setFullName] = useState(storedUser?.full_name ?? "");
   const [avatar, setAvatar] = useState<UserAvatarDescriptor | null>(storedUser?.avatar ?? null);
   const [loading, setLoading] = useState(!isS3Session);
@@ -74,7 +75,6 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const preferencesDirty = JSON.stringify(draft) !== JSON.stringify(baseline);
   const avatarDirty = Boolean(avatarFile || removeAvatar || avatarPreference !== (avatar?.preference ?? "auto"));
   const dialogDirty = dialog === "name" ? nameDraft !== fullName : dialog === "avatar" && avatarDirty;
   const unavailable = loading || loadError || saving;
@@ -97,7 +97,7 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
     } finally {
       setLoading(false);
     }
-  }, [isS3Session, canWatch, setLanguagePreference]);
+  }, [isS3Session, canWatch, setLanguagePreference, setBaseline, setDraft]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     if (workspaceLoading || workspaceError) return;
@@ -107,7 +107,7 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
     };
     setBaseline(normalize);
     setDraft(normalize);
-  }, [workspaces, workspaceLoading, workspaceError]);
+  }, [workspaces, workspaceLoading, workspaceError, setBaseline, setDraft]);
   useEffect(() => { onUnsavedChangesChange?.(preferencesDirty || Boolean(dialogDirty) || saving); }, [preferencesDirty, dialogDirty, saving, onUnsavedChangesChange]);
   useEffect(() => {
     if (!avatarFile) { setPreviewUrl(null); return; }
@@ -123,7 +123,7 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
     setError(null);
   }, []);
   const dialogGuard = useProfileDraftGuard({ hasUnsavedChanges: Boolean(dialogDirty), onClose: closeDialog, disabled: saving });
-  const cancelPreferences = useCallback(() => { setDraft(baseline); setError(null); }, [baseline]);
+  const cancelPreferences = useCallback(() => { setDraft(baseline); setError(null); }, [baseline, setDraft]);
   const preferencesGuard = useProfileDraftGuard({ hasUnsavedChanges: preferencesDirty, onClose: cancelPreferences, disabled: saving });
   const change = <K extends keyof Preferences>(key: K, value: Preferences[K]) => { setDraft(previous => ({ ...previous, [key]: value })); setSuccess(null); setError(null); };
   const openDialog = (next: "name" | "avatar") => {
@@ -136,8 +136,7 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
     setDialog(next);
   };
 
-  const savePreferences = async (event: FormEvent) => {
-    event.preventDefault();
+  const savePreferences = async () => {
     if (!preferencesDirty || unavailable) return;
     setSaving(true);
     setError(null);
@@ -208,7 +207,7 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
         <SettingsItem compact title={text("image")} icon={<UserAvatar avatar={avatar} name={fullName} email={storedUser?.email} size="md" decorative />} description={avatar?.source === "gravatar" ? "Gravatar" : text(avatar?.source ?? "initials")} action={!isS3Session && <ProfileButton variant="secondary" disabled={unavailable} onClick={() => openDialog("avatar")} aria-label={text("editImage")}>{text("edit")}</ProfileButton>} />
         {success && success !== "preferencesSaved" && <UiInlineMessage tone="success" role="status">{text(success)}</UiInlineMessage>}
       </SettingsSection>
-      <form onSubmit={savePreferences} className="settings-preferences">
+      <form onSubmit={event => { event.preventDefault(); void savePreferences(); }} className="settings-preferences">
         <SettingsSection presentation="compact" title={text("display")} description={text("displayHelp")}>
           <SettingsItem compact title={text("language")} action={<UiSelect aria-label={text("language")} className="settings-control w-full sm:w-56" value={draft.language} disabled={unavailable} onChange={event => change("language", event.target.value as UiLanguagePreference)}><option value="auto">{text("browserAuto")}</option><option value="fr">Français</option><option value="en">English</option><option value="de">Deutsch</option></UiSelect>} />
           <SettingsItem compact title={text("theme")} description={text("localPreference")} action={<UiSelect aria-label={text("theme")} className="settings-control w-full sm:w-56" value={draft.theme} disabled={unavailable} onChange={event => change("theme", event.target.value as "light" | "dark")}><option value="light">{text("light")}</option><option value="dark">{text("dark")}</option></UiSelect>} />
@@ -221,10 +220,7 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
         </SettingsSection>}
         {error && !dialog && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
         {success === "preferencesSaved" && <UiInlineMessage tone="success" role="status">{text(success)}</UiInlineMessage>}
-        {preferencesDirty && <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--ui-border-soft)] py-3">
-          <ProfileButton variant="secondary" disabled={saving} onClick={preferencesGuard.requestClose}>{text("cancel")}</ProfileButton>
-          <ProfileButton type="submit" disabled={unavailable} aria-label={text("savePreferences")}>{text(saving ? "saving" : "save")}</ProfileButton>
-        </div>}
+        <SettingsActions dirty={preferencesDirty} busy={saving} disabled={unavailable} onSave={() => void savePreferences()} onCancel={preferencesGuard.requestClose} saveLabel={text("save")} saveAriaLabel={text("savePreferences")} cancelLabel={text("cancel")} savingLabel={text("saving")} />
       </form>
       {dialog && <ProfileDialog title={text(dialog === "name" ? "editName" : "editImage")} onClose={dialogGuard.requestClose} closeOnEscape={!saving} initialFocusRef={dialog === "name" ? nameInput : sourceInput}>
         <form onSubmit={saveIdentity} className="settings-form space-y-4">

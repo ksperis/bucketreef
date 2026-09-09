@@ -1,9 +1,9 @@
 import type { ManagerToolAccess } from "../../api/users";
 import {
-  PortalSettingsItem,
-  PortalSettingsSection,
-  PortalSettingsToggleAction,
-} from "../../components/PortalSettingsLayout";
+  SettingsItem,
+  SettingsSection,
+  SettingsToggleAction,
+} from "../../components/settings/SettingsLayout";
 import {
   type ManagerToolDefinition,
   type ManagerToolKey,
@@ -42,17 +42,17 @@ export function AdminAccessToggleSection({
 }) {
   return (
     <div className={adminModalSettingsGroupClass}>
-      <PortalSettingsSection title={title} description={description} layout="stack">
+      <SettingsSection title={title} description={description} layout="stack">
         {items.map((item) => {
           const disabled = Boolean(item.disabled);
           return (
-            <PortalSettingsItem
+            <SettingsItem
               key={item.ariaLabel}
               title={item.title}
               description={item.description}
               className={adminSettingsItemSurfaceClass(disabled)}
               action={
-                <PortalSettingsToggleAction
+                <SettingsToggleAction
                   checked={item.checked}
                   disabled={disabled}
                   onChange={item.onChange}
@@ -63,7 +63,7 @@ export function AdminAccessToggleSection({
             />
           );
         })}
-      </PortalSettingsSection>
+      </SettingsSection>
     </div>
   );
 }
@@ -97,20 +97,20 @@ export function BrowserAccessSection({
 }) {
   return (
     <div className={adminModalSettingsGroupClass}>
-      <PortalSettingsSection title="Browser" description={description} layout="stack">
-        <PortalSettingsItem
+      <SettingsSection title="Browser" description={description} layout="stack">
+        <SettingsItem
           title="Technical S3 tools"
           description="Adds versions, metadata, batch operations, and bucket maintenance tools to /browser. Display density (rows and action toolbar) and optional panels remain personal choices for every Browser user."
           className={adminSettingsItemSurfaceClass(false)}
           action={
-            <PortalSettingsToggleAction
+            <SettingsToggleAction
               checked={checked}
               onChange={onChange}
               ariaLabel="Enable technical S3 tools"
             />
           }
         />
-      </PortalSettingsSection>
+      </SettingsSection>
     </div>
   );
 }
@@ -133,17 +133,17 @@ export function ManagerToolAccessSection({
   const normalizedAccess = normalizeManagerToolAccess(access);
   return (
     <div className={adminModalSettingsGroupClass}>
-      <PortalSettingsSection title={title} description={description} layout="stack">
+      <SettingsSection title={title} description={description} layout="stack">
         {tools.map((tool) => {
           const disabled = isToolDisabled ? isToolDisabled(tool) : !tool.enabled;
           return (
-            <PortalSettingsItem
+            <SettingsItem
               key={tool.key}
               title={tool.title}
               description={tool.description}
               className={adminSettingsItemSurfaceClass(disabled)}
               action={
-                <PortalSettingsToggleAction
+                <SettingsToggleAction
                   checked={Boolean(normalizedAccess[tool.key])}
                   disabled={disabled}
                   onChange={(value) => onChange(tool.key, value)}
@@ -154,7 +154,7 @@ export function ManagerToolAccessSection({
             />
           );
         })}
-      </PortalSettingsSection>
+      </SettingsSection>
     </div>
   );
 }

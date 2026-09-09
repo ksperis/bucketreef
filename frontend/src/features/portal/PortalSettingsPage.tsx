@@ -1,395 +1,711 @@
-/*
- * Copyright (c) 2026 Laurent Barbe
- * Licensed under the Apache License, Version 2.0
- */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { PortalSettingsOverride } from "../../api/appSettings";
+/* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { useEffect, useRef, useState } from "react";
 import {
   fetchPortalProjectSettings,
   updatePortalProjectSettings,
   type PortalProjectSettings,
 } from "../../api/portalAccounts";
-import { fetchCurrentUser, type User } from "../../api/users";
-import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
-import { PortalSettingsItem, PortalSettingsSection } from "../../components/PortalSettingsLayout";
+import PageBanner from "../../components/PageBanner";
+import {
+  SettingsItem,
+  SettingsSection,
+  SettingsSwitch,
+} from "../../components/settings/SettingsLayout";
+import {
+  SettingsActions,
+  SettingsButton,
+  SettingsConfirmation,
+  SettingsField,
+  useSettingsCloseGuard,
+} from "../../components/settings/SettingsControls";
+import SettingsDraftDialog from "../../components/settings/SettingsDraftDialog";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import UiBadge from "../../components/ui/UiBadge";
-import UiButton from "../../components/ui/UiButton";
-import UiCard from "../../components/ui/UiCard";
-import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
-import { cx, uiCheckboxClass, uiTitleTextClass } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
-import { extractApiError } from "../../utils/apiError";
-import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
-import { formatBytes } from "../../utils/format";
 import { usePortalAccountContext } from "./PortalAccountContext";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
-import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
+import {
+  emptyForm,
+  formFromSettings,
+  mergeProjectOverrides,
+  type ProjectSettingsForm,
+} from "./portalSettingsForm";
 
-const labelClasses = "ui-caption font-semibold uppercase tracking-wide text-[var(--ui-text-muted)]";
+type FlagField = {
+  [K in keyof ProjectSettingsForm]: ProjectSettingsForm[K] extends
+    | "inherit"
+    | "enabled"
+    | "disabled"
+    ? K
+    : never;
+}[keyof ProjectSettingsForm];
 
-type WorkspaceAccessLabel = "limited" | "manager" | "user";
-type TriState = "inherit" | "enabled" | "disabled";
+function ProjectSettings({
+  accountId,
+  projectName,
+  storageName,
+}: {
+  accountId: string;
+  projectName: string;
+  storageName?: string | null;
+}) {
+  const { t, locale } = useI18n();
+  const { draft, setDraft, baseline, accept, cancel, dirty } =
+    useSettingsDraft(emptyForm);
+  const [settings, setSettings] = useState<PortalProjectSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<
+    "load" | "save" | "conflict" | "access" | null
+  >(null);
+  const [saved, setSaved] = useState(false);
+  const [retentionError, setRetentionError] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [originsOpen, setOriginsOpen] = useState(false);
+  const [dialogDirty, setDialogDirty] = useState(false);
+  const active = useRef(true);
+  const pending = useRef(false);
+  const conflictLatest = useRef<PortalProjectSettings | null>(null);
+  useEffect(() => {
+    active.current = true;
+    fetchPortalProjectSettings(accountId)
+      .then((value) => {
+        if (active.current) {
+          setSettings(value);
+          accept(formFromSettings(value));
+        }
+      })
+      .catch(() => {
+        if (active.current) setError("load");
+      })
+      .finally(() => {
+        if (active.current) setLoading(false);
+      });
+    return () => {
+      active.current = false;
+    };
+  }, [accountId, accept]);
 
-type ProjectSettingsForm = {
-  browserAccess: TriState;
-  bucketCreate: TriState;
-  namedBucketCreate: TriState;
-  accessKeyCreate: TriState;
-  serverAccessLogging: TriState;
-  versionCleanup: TriState;
-  versioning: TriState;
-  lifecycle: TriState;
-  versionHistoryRetentionOverride: boolean;
-  versionHistoryRetentionDays: string;
-  cors: TriState;
-  corsOriginsOverride: boolean;
-  corsOriginsText: string;
-};
-
-const emptyForm: ProjectSettingsForm = {
-  browserAccess: "inherit",
-  bucketCreate: "inherit",
-  namedBucketCreate: "inherit",
-  accessKeyCreate: "inherit",
-  serverAccessLogging: "inherit",
-  versionCleanup: "inherit",
-  versioning: "inherit",
-  lifecycle: "inherit",
-  versionHistoryRetentionOverride: false,
-  versionHistoryRetentionDays: "",
-  cors: "inherit",
-  corsOriginsOverride: false,
-  corsOriginsText: "",
-};
-
-function resolveWorkspaceAccess(user: User | null, selectedAccountId: string | null): WorkspaceAccessLabel {
-  if (!user || !selectedAccountId) return "limited";
-  const numericId = Number(selectedAccountId);
-  const link = user.account_links?.find((item) => Number(item.account_id) === numericId);
-  if (!link?.portal_role) return "limited";
-  if (link.portal_role === "portal_manager") return "manager";
-  if (link.portal_role === "portal_user") return "user";
-  return "limited";
-}
-
-function resolveTriState(value?: boolean | null): TriState {
-  if (value == null) return "inherit";
-  return value ? "enabled" : "disabled";
-}
-
-function toOverrideValue(value: TriState): boolean | undefined {
-  if (value === "inherit") return undefined;
-  return value === "enabled";
-}
-
-function formFromSettings(settings: PortalProjectSettings): ProjectSettingsForm {
-  const override = settings.project_override;
-  const defaults = override.bucket_defaults;
-  const effectiveDefaults = settings.effective.bucket_defaults;
-  const retentionOverride = defaults?.noncurrent_version_expiration_days != null;
-  const originsOverride = defaults?.cors_allowed_origins != null;
-  return {
-    browserAccess: resolveTriState(override.browser_access_enabled),
-    bucketCreate: resolveTriState(override.allow_private_storage_space_create),
-    namedBucketCreate: resolveTriState(override.allow_portal_named_bucket_create),
-    accessKeyCreate: resolveTriState(override.allow_portal_user_access_key_create),
-    serverAccessLogging: resolveTriState(override.server_access_logging_enabled),
-    versionCleanup: resolveTriState(override.storage_space_version_cleanup_enabled),
-    versioning: resolveTriState(defaults?.versioning),
-    lifecycle: resolveTriState(defaults?.enable_lifecycle),
-    versionHistoryRetentionOverride: retentionOverride,
-    versionHistoryRetentionDays: String(
-      defaults?.noncurrent_version_expiration_days ?? effectiveDefaults.noncurrent_version_expiration_days
-    ),
-    cors: resolveTriState(defaults?.enable_cors),
-    corsOriginsOverride: originsOverride,
-    corsOriginsText: (originsOverride
-      ? defaults?.cors_allowed_origins ?? []
-      : effectiveDefaults.cors_allowed_origins ?? []
-    ).join("\n"),
+  const labels = {
+    apply: t({ en: "Apply", fr: "Appliquer", de: "Übernehmen" }),
+    cancel: t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" }),
+    close: t({ en: "Close", fr: "Fermer", de: "Schließen" }),
+    discardTitle: t({
+      en: "Discard changes?",
+      fr: "Abandonner les modifications ?",
+      de: "Änderungen verwerfen?",
+    }),
+    discardDescription: t({
+      en: "Your changes have not been saved.",
+      fr: "Vos modifications n’ont pas été enregistrées.",
+      de: "Ihre Änderungen wurden noch nicht gespeichert.",
+    }),
+    discard: t({
+      en: "Discard changes",
+      fr: "Abandonner",
+      de: "Änderungen verwerfen",
+    }),
+    keepEditing: t({
+      en: "Keep editing",
+      fr: "Continuer la modification",
+      de: "Weiter bearbeiten",
+    }),
   };
-}
-
-function buildOverride(form: ProjectSettingsForm): PortalSettingsOverride {
-  const payload: PortalSettingsOverride = {};
-  const directValues: Array<[keyof PortalSettingsOverride, TriState]> = [
-    ["browser_access_enabled", form.browserAccess],
-    ["allow_private_storage_space_create", form.bucketCreate],
-    ["allow_portal_named_bucket_create", form.namedBucketCreate],
-    ["allow_portal_user_access_key_create", form.accessKeyCreate],
-    ["server_access_logging_enabled", form.serverAccessLogging],
-    ["storage_space_version_cleanup_enabled", form.versionCleanup],
-  ];
-  directValues.forEach(([key, state]) => {
-    const value = toOverrideValue(state);
-    if (value !== undefined) {
-      Object.assign(payload, { [key]: value });
-    }
+  const discard = () => {
+    if (conflictLatest.current) {
+      setSettings(conflictLatest.current);
+      accept(formFromSettings(conflictLatest.current));
+      conflictLatest.current = null;
+    } else cancel();
+    setError(null);
+    setRetentionError(false);
+  };
+  const guard = useSettingsCloseGuard({
+    hasUnsavedChanges: dirty,
+    onClose: discard,
+    title: labels.discardTitle,
+    description: labels.discardDescription,
+    confirmLabel: labels.discard,
+    cancelLabel: labels.keepEditing,
+    closeLabel: labels.close,
   });
-
-  const bucketDefaults: NonNullable<PortalSettingsOverride["bucket_defaults"]> = {};
-  const versioning = toOverrideValue(form.versioning);
-  const lifecycle = toOverrideValue(form.lifecycle);
-  const cors = toOverrideValue(form.cors);
-  if (versioning !== undefined) bucketDefaults.versioning = versioning;
-  if (lifecycle !== undefined) bucketDefaults.enable_lifecycle = lifecycle;
-  if (form.versionHistoryRetentionOverride) {
-    bucketDefaults.noncurrent_version_expiration_days = Number(form.versionHistoryRetentionDays);
-  }
-  if (cors !== undefined) bucketDefaults.enable_cors = cors;
-  if (form.corsOriginsOverride) {
-    bucketDefaults.cors_allowed_origins = form.corsOriginsText
-      .split(/[\n,]+/)
-      .map((value) => value.trim())
-      .filter(Boolean);
-  }
-  if (Object.keys(bucketDefaults).length > 0) payload.bucket_defaults = bucketDefaults;
-  return payload;
+  const editable = Boolean(settings?.can_update);
+  const update = <K extends keyof ProjectSettingsForm>(
+    key: K,
+    value: ProjectSettingsForm[K],
+  ) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+    setSaved(false);
+  };
+  const save = async () => {
+    if (!editable || pending.current) return;
+    const invalid =
+      draft.versionHistoryRetentionOverride &&
+      (!/^\d+$/.test(draft.versionHistoryRetentionDays) ||
+        Number(draft.versionHistoryRetentionDays) < 1 ||
+        !Number.isSafeInteger(Number(draft.versionHistoryRetentionDays)));
+    setRetentionError(invalid);
+    if (invalid) {
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
+      );
+      return;
+    }
+    pending.current = true;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const latest = await fetchPortalProjectSettings(accountId);
+      if (!active.current) return;
+      if (!latest.can_update) {
+        setError("access");
+        return;
+      }
+      conflictLatest.current = latest;
+      const payload = mergeProjectOverrides(
+        baseline,
+        draft,
+        latest.project_override,
+      );
+      const next = await updatePortalProjectSettings(accountId, payload);
+      if (!active.current) return;
+      setSettings(next);
+      accept(formFromSettings(next));
+      conflictLatest.current = null;
+      setSaved(true);
+    } catch (cause) {
+      if (active.current)
+        setError(
+          cause instanceof Error &&
+            cause.message === "project_settings_conflict"
+            ? "conflict"
+            : "save",
+        );
+    } finally {
+      pending.current = false;
+      if (active.current) setSaving(false);
+    }
+  };
+  const enabled = (value: boolean) =>
+    value
+      ? t({ en: "Enabled", fr: "Activé", de: "Aktiviert" })
+      : t({ en: "Disabled", fr: "Désactivé", de: "Deaktiviert" });
+  const source = (custom: boolean) =>
+    custom
+      ? t({ en: "Project", fr: "Projet", de: "Projekt" })
+      : t({ en: "Platform", fr: "Plateforme", de: "Plattform" });
+  const effective = (value: string) =>
+    `${t({ en: "Currently applied", fr: "Actuellement appliqué", de: "Derzeit angewendet" })}: ${value}`;
+  const row = (
+    key: FlagField,
+    title: string,
+    value: boolean,
+    description?: string,
+  ) => (
+    <SettingsItem
+      key={key}
+      compact
+      title={title}
+      description={
+        <>
+          {description && <>{description} </>}
+          {effective(enabled(value))}
+        </>
+      }
+      status={
+        <UiBadge tone="neutral">{source(baseline[key] !== "inherit")}</UiBadge>
+      }
+      action={
+        editable ? (
+          <UiSelect
+            className="settings-control"
+            size="compact"
+            aria-label={title}
+            value={draft[key]}
+            onChange={(event) =>
+              update(key, event.target.value as ProjectSettingsForm[FlagField])
+            }
+          >
+            <option value="inherit">
+              {t({
+                en: "Platform value",
+                fr: "Valeur de la plateforme",
+                de: "Plattformwert",
+              })}
+            </option>
+            <option value="enabled">{enabled(true)}</option>
+            <option value="disabled">{enabled(false)}</option>
+          </UiSelect>
+        ) : (
+          <span className="settings-readonly">{enabled(value)}</span>
+        )
+      }
+    />
+  );
+  const customize = t({ en: "Customize", fr: "Personnaliser", de: "Anpassen" });
+  const originsTitle = t({
+    en: "CORS origins",
+    fr: "Origines CORS",
+    de: "CORS-Ursprünge",
+  });
+  const retentionTitle = t({
+    en: "Version history retention",
+    fr: "Conservation de l’historique",
+    de: "Aufbewahrung des Versionsverlaufs",
+  });
+  const days =
+    settings?.effective.bucket_defaults.noncurrent_version_expiration_days ?? 0;
+  const daysText = new Intl.NumberFormat(locale, {
+    style: "unit",
+    unit: "day",
+    unitDisplay: "long",
+  }).format(days);
+  return (
+    <div className="settings-compact">
+      {loading && (
+        <PageBanner tone="info">
+          {t({
+            en: "Loading project settings...",
+            fr: "Chargement des paramètres du projet...",
+            de: "Projekteinstellungen werden geladen...",
+          })}
+        </PageBanner>
+      )}
+      {error && (
+        <PageBanner tone="error">
+          {error === "load"
+            ? t({
+                en: "Unable to load project settings.",
+                fr: "Impossible de charger les paramètres du projet.",
+                de: "Projekteinstellungen konnten nicht geladen werden.",
+              })
+            : error === "conflict"
+              ? t({
+                  en: "A setting you edited has changed on the server. Your draft is preserved. Cancel to load the current values.",
+                  fr: "Un paramètre modifié a changé sur le serveur. Votre brouillon est conservé. Annulez pour charger les valeurs actuelles.",
+                  de: "Eine bearbeitete Einstellung wurde auf dem Server geändert. Ihr Entwurf bleibt erhalten. Brechen Sie ab, um die aktuellen Werte zu laden.",
+                })
+              : error === "access"
+                ? t({
+                    en: "Your settings access has changed. Your draft is preserved; reload this page to review your permissions.",
+                    fr: "Vos droits de modification ont changé. Votre brouillon est conservé ; rechargez la page pour consulter vos droits.",
+                    de: "Ihre Bearbeitungsrechte haben sich geändert. Ihr Entwurf bleibt erhalten; laden Sie die Seite neu, um Ihre Rechte zu prüfen.",
+                  })
+                : t({
+                    en: "Unable to save project settings. Your changes are preserved.",
+                    fr: "Impossible d’enregistrer les paramètres. Vos modifications sont conservées.",
+                    de: "Projekteinstellungen konnten nicht gespeichert werden. Ihre Änderungen bleiben erhalten.",
+                  })}
+        </PageBanner>
+      )}
+      {saved && (
+        <PageBanner tone="success">
+          {t({
+            en: "Project settings saved.",
+            fr: "Paramètres du projet enregistrés.",
+            de: "Projekteinstellungen gespeichert.",
+          })}
+        </PageBanner>
+      )}
+      <SettingsSection
+        presentation="compact"
+        title={t({ en: "Project", fr: "Projet", de: "Projekt" })}
+      >
+        <SettingsItem
+          compact
+          title={projectName}
+          description={storageName}
+          status={
+            <UiBadge tone={editable ? "primary" : "neutral"}>
+              {editable
+                ? t({
+                    en: "Can edit",
+                    fr: "Modification autorisée",
+                    de: "Bearbeitung erlaubt",
+                  })
+                : t({
+                    en: "Read only",
+                    fr: "Lecture seule",
+                    de: "Schreibgeschützt",
+                  })}
+            </UiBadge>
+          }
+        />
+        {settings && (
+          <p className="py-2 text-[13px] text-[var(--ui-text-muted)]">
+            {editable
+              ? t({
+                  en: "Project settings are shared with administrators. Platform values are resolved when you save.",
+                  fr: "Ces paramètres sont partagés avec les administrateurs. Les valeurs de la plateforme sont résolues à l’enregistrement.",
+                  de: "Diese Einstellungen werden mit Administratoren geteilt. Plattformwerte werden beim Speichern ermittelt.",
+                })
+              : !settings.delegated_to_portal_managers
+                ? t({
+                    en: "Project settings are managed by the platform administrator.",
+                    fr: "Les paramètres du projet sont gérés par l’administrateur de la plateforme.",
+                    de: "Projekteinstellungen werden vom Plattformadministrator verwaltet.",
+                  })
+                : t({
+                    en: "Only delegated project managers can edit these settings.",
+                    fr: "Seuls les gestionnaires délégués du projet peuvent modifier ces paramètres.",
+                    de: "Nur berechtigte Projektmanager können diese Einstellungen bearbeiten.",
+                  })}
+          </p>
+        )}
+      </SettingsSection>
+      {settings && (
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <fieldset disabled={saving} className="min-w-0">
+            <SettingsSection
+              presentation="compact"
+              title={t({
+                en: "Allowed features",
+                fr: "Fonctions autorisées",
+                de: "Erlaubte Funktionen",
+              })}
+            >
+              {row(
+                "browserAccess",
+                t({
+                  en: "Browser workspace access",
+                  fr: "Accès à l’espace Browser",
+                  de: "Browser-Arbeitsbereich",
+                }),
+                settings.effective.browser_access_enabled,
+              )}
+              {row(
+                "bucketCreate",
+                t({
+                  en: "Private Storage Space creation",
+                  fr: "Création d’espaces privés",
+                  de: "Private Speicherbereiche erstellen",
+                }),
+                settings.effective.allow_private_storage_space_create,
+              )}
+              {row(
+                "namedBucketCreate",
+                t({
+                  en: "Named bucket creation",
+                  fr: "Création de buckets nommés",
+                  de: "Benannte Buckets erstellen",
+                }),
+                settings.effective.allow_portal_named_bucket_create,
+              )}
+              {row(
+                "accessKeyCreate",
+                t({
+                  en: "Personal access keys",
+                  fr: "Clés d’accès personnelles",
+                  de: "Persönliche Zugriffsschlüssel",
+                }),
+                settings.effective.allow_portal_user_access_key_create,
+              )}
+              {row(
+                "serverAccessLogging",
+                t({
+                  en: "Server access logging",
+                  fr: "Journalisation des accès serveur",
+                  de: "Server-Zugriffsprotokollierung",
+                }),
+                settings.effective.server_access_logging_enabled,
+                t({
+                  en: "Collects object activity for project history.",
+                  fr: "Collecte l’activité des objets pour l’historique du projet.",
+                  de: "Erfasst Objektaktivitäten für den Projektverlauf.",
+                }),
+              )}
+              {row(
+                "versionCleanup",
+                t({
+                  en: "Storage Space history cleanup",
+                  fr: "Nettoyage de l’historique",
+                  de: "Versionsverlauf bereinigen",
+                }),
+                settings.effective.storage_space_version_cleanup_enabled,
+              )}
+            </SettingsSection>
+            <SettingsSection
+              presentation="compact"
+              title={t({
+                en: "New Storage Space defaults",
+                fr: "Valeurs des nouveaux espaces",
+                de: "Standardwerte neuer Speicherbereiche",
+              })}
+              description={t({
+                en: "Applied to new spaces only. Existing spaces keep their configuration.",
+                fr: "Appliquées aux nouveaux espaces. Les espaces existants conservent leur configuration.",
+                de: "Gelten nur für neue Bereiche. Bestehende Bereiche behalten ihre Konfiguration.",
+              })}
+            >
+              {row(
+                "versioning",
+                t({
+                  en: "Versioning",
+                  fr: "Gestion des versions",
+                  de: "Versionierung",
+                }),
+                settings.effective.bucket_defaults.versioning,
+              )}
+              {row(
+                "lifecycle",
+                t({ en: "Lifecycle", fr: "Cycle de vie", de: "Lebenszyklus" }),
+                settings.effective.bucket_defaults.enable_lifecycle,
+              )}
+              <SettingsItem
+                compact
+                title={retentionTitle}
+                description={effective(daysText)}
+                status={
+                  <UiBadge tone="neutral">
+                    {source(baseline.versionHistoryRetentionOverride)}
+                  </UiBadge>
+                }
+                action={
+                  editable ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {draft.versionHistoryRetentionOverride && (
+                        <SettingsField
+                          label={retentionTitle}
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={draft.versionHistoryRetentionDays}
+                          onChange={(event) =>
+                            update(
+                              "versionHistoryRetentionDays",
+                              event.target.value,
+                            )
+                          }
+                          className="w-24"
+                          error={
+                            retentionError
+                              ? t({
+                                  en: "Enter a positive whole number.",
+                                  fr: "Saisissez un entier positif.",
+                                  de: "Geben Sie eine positive ganze Zahl ein.",
+                                })
+                              : undefined
+                          }
+                        />
+                      )}
+                      <span className="text-sm">{customize}</span>
+                      <SettingsSwitch
+                        ariaLabel={`${customize} — ${retentionTitle}`}
+                        checked={draft.versionHistoryRetentionOverride}
+                        onChange={(value) =>
+                          update("versionHistoryRetentionOverride", value)
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <span className="settings-readonly">{daysText}</span>
+                  )
+                }
+              />
+              {row(
+                "cors",
+                "CORS",
+                settings.effective.bucket_defaults.enable_cors,
+              )}
+              <SettingsItem
+                compact
+                title={originsTitle}
+                description={effective(
+                  new Intl.ListFormat(locale).format(
+                    settings.effective.bucket_defaults.cors_allowed_origins,
+                  ) || t({ en: "None", fr: "Aucune", de: "Keine" }),
+                )}
+                status={
+                  <UiBadge tone="neutral">
+                    {source(baseline.corsOriginsOverride)}
+                  </UiBadge>
+                }
+                action={
+                  editable ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {draft.corsOriginsOverride && (
+                        <SettingsButton
+                          variant="secondary"
+                          onClick={() => setOriginsOpen(true)}
+                        >
+                          {t({
+                            en: "Configure",
+                            fr: "Configurer",
+                            de: "Konfigurieren",
+                          })}
+                        </SettingsButton>
+                      )}
+                      <span className="text-sm">{customize}</span>
+                      <SettingsSwitch
+                        ariaLabel={`${customize} — ${originsTitle}`}
+                        checked={draft.corsOriginsOverride}
+                        onChange={(value) =>
+                          update("corsOriginsOverride", value)
+                        }
+                      />
+                    </div>
+                  ) : undefined
+                }
+              />
+            </SettingsSection>
+            {editable && (
+              <SettingsButton
+                variant="ghost"
+                onClick={() => setResetOpen(true)}
+              >
+                {t({
+                  en: "Restore platform values",
+                  fr: "Rétablir les valeurs de la plateforme",
+                  de: "Plattformwerte wiederherstellen",
+                })}
+              </SettingsButton>
+            )}
+          </fieldset>
+          <SettingsActions
+            dirty={dirty}
+            busy={saving}
+            onSave={() => void save()}
+            onCancel={guard.requestClose}
+            saveLabel={t({
+              en: "Save changes",
+              fr: "Enregistrer",
+              de: "Änderungen speichern",
+            })}
+            cancelLabel={labels.cancel}
+            savingLabel={t({
+              en: "Saving...",
+              fr: "Enregistrement...",
+              de: "Speichern...",
+            })}
+          />
+        </form>
+      )}
+      <SettingsNavigationGuard
+        dirty={dirty || dialogDirty}
+        title={labels.discardTitle}
+        description={labels.discardDescription}
+        confirmLabel={labels.discard}
+        cancelLabel={labels.keepEditing}
+        closeLabel={labels.close}
+      />
+      {guard.confirmationDialog}
+      {resetOpen && (
+        <SettingsConfirmation
+          title={t({
+            en: "Restore platform values?",
+            fr: "Rétablir les valeurs de la plateforme ?",
+            de: "Plattformwerte wiederherstellen?",
+          })}
+          description={t({
+            en: "All project customizations will be removed from your draft. Save to apply this change.",
+            fr: "Toutes les personnalisations seront retirées du brouillon. Enregistrez pour appliquer ce changement.",
+            de: "Alle Projektanpassungen werden aus Ihrem Entwurf entfernt. Speichern Sie, um diese Änderung anzuwenden.",
+          })}
+          confirmLabel={labels.apply}
+          cancelLabel={labels.cancel}
+          closeLabel={labels.close}
+          onCancel={() => setResetOpen(false)}
+          onConfirm={() => {
+            setDraft({
+              ...emptyForm,
+              versionHistoryRetentionDays: String(days),
+              corsOriginsText:
+                settings?.effective.bucket_defaults.cors_allowed_origins.join(
+                  "\n",
+                ) ?? "",
+            });
+            setResetOpen(false);
+            setSaved(false);
+          }}
+        />
+      )}
+      {originsOpen && (
+        <SettingsDraftDialog
+          title={originsTitle}
+          initialValue={draft.corsOriginsText}
+          labels={labels}
+          onDirtyChange={setDialogDirty}
+          onApply={(value) => update("corsOriginsText", value)}
+          onClose={() => setOriginsOpen(false)}
+        >
+          {(value, setValue) => (
+            <label>
+              {t({
+                en: "One origin per line, or * for all origins.",
+                fr: "Une origine par ligne, ou * pour toutes les origines.",
+                de: "Ein Ursprung pro Zeile oder * für alle Ursprünge.",
+              })}
+              <textarea
+                className="w-full rounded border border-[var(--ui-border)] bg-[var(--ui-surface)] p-2"
+                rows={5}
+                aria-label={originsTitle}
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+              />
+            </label>
+          )}
+        </SettingsDraftDialog>
+      )}
+    </div>
+  );
 }
 
 export default function PortalSettingsPage() {
   const { t } = useI18n();
-  const { selectedAccount, selectedAccountId, loading: accountsLoading } = usePortalAccountContext();
-  const { workspace, loading: workspaceLoading } = usePortalWorkspaceData();
-  const [user, setUser] = useState<User | null>(null);
-  const [accessLoading, setAccessLoading] = useState(false);
-  const [settings, setSettings] = useState<PortalProjectSettings | null>(null);
-  const [form, setForm] = useState<ProjectSettingsForm>(emptyForm);
-  const [settingsLoading, setSettingsLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const resetConfirmation = useConfirmActionDialog();
-
-  const selectedWorkspaceAccess = useMemo(
-    () => resolveWorkspaceAccess(user, selectedAccountId),
-    [selectedAccountId, user]
-  );
-  const activeSpaces = workspace.spaces.filter((space) => space.status !== "Archived");
-  const editable = Boolean(settings?.can_update);
-  const controlsDisabled = settingsLoading || saving || !editable;
-
-  const applySettings = useCallback((next: PortalProjectSettings) => {
-    setSettings(next);
-    setForm(formFromSettings(next));
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setAccessLoading(true);
-    fetchCurrentUser()
-      .then((currentUser) => {
-        if (!cancelled) setUser(currentUser);
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) {
-          setError(extractApiError(err, t({ en: "Unable to load your project access.", fr: "Impossible de charger votre accès au projet.", de: "Ihr Projektzugriff konnte nicht geladen werden." })));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setAccessLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedAccountId, t]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setSettings(null);
-    setForm(emptyForm);
-    setMessage(null);
-    setError(null);
-    if (!selectedAccountId) return () => { cancelled = true; };
-    setSettingsLoading(true);
-    fetchPortalProjectSettings(selectedAccountId)
-      .then((next) => {
-        if (!cancelled) applySettings(next);
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) {
-          setError(extractApiError(err, t({ en: "Unable to load project settings.", fr: "Impossible de charger les paramètres du projet.", de: "Projekteinstellungen konnten nicht geladen werden." })));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setSettingsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [applySettings, selectedAccountId, t]);
-
-  const updateField = <K extends keyof ProjectSettingsForm>(key: K, value: ProjectSettingsForm[K]) => {
-    setForm((current) => ({ ...current, [key]: value }));
-  };
-
-  const handleSave = async () => {
-    if (!selectedAccountId || !editable || saving) return;
-    if (form.versionHistoryRetentionOverride) {
-      const days = Number(form.versionHistoryRetentionDays);
-      if (!Number.isInteger(days) || days < 1) {
-        setMessage(null);
-        setError(t({ en: "Version history retention must be a positive integer.", fr: "La conservation de l’historique des versions doit être un entier positif.", de: "Die Aufbewahrung des Versionsverlaufs muss eine positive ganze Zahl sein." }));
-        return;
-      }
-    }
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-    try {
-      applySettings(await updatePortalProjectSettings(selectedAccountId, buildOverride(form)));
-      setMessage(t({ en: "Project settings saved.", fr: "Paramètres du projet enregistrés.", de: "Projekteinstellungen gespeichert." }));
-    } catch (err) {
-      console.error(err);
-      setError(extractApiError(err, t({ en: "Unable to save project settings.", fr: "Impossible d’enregistrer les paramètres du projet.", de: "Projekteinstellungen konnten nicht gespeichert werden." })));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const resetProjectOverrides = async () => {
-    if (!selectedAccountId || !editable || saving) return;
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-    try {
-      applySettings(await updatePortalProjectSettings(selectedAccountId, {}));
-      setMessage(t({ en: "Project overrides reset.", fr: "Overrides du projet réinitialisés.", de: "Projektüberschreibungen zurückgesetzt." }));
-    } catch (err) {
-      console.error(err);
-      setError(extractApiError(err, t({ en: "Unable to reset project settings.", fr: "Impossible de réinitialiser les paramètres du projet.", de: "Projekteinstellungen konnten nicht zurückgesetzt werden." })));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleReset = () => {
-    if (!selectedAccountId || !editable || saving) return;
-    resetConfirmation.requestConfirmation({
-      title: t({ en: "Reset all project overrides?", fr: "Réinitialiser tous les overrides du projet ?", de: "Alle Projektüberschreibungen zurücksetzen?" }),
-      description: t({
-        en: "Return every delegated project setting to the platform value.",
-        fr: "Rétablir chaque paramètre délégué du projet à la valeur de la plateforme.",
-        de: "Alle delegierten Projekteinstellungen auf den Plattformwert zurücksetzen.",
-      }),
-      confirmLabel: t({ en: "Reset overrides", fr: "Réinitialiser", de: "Zurücksetzen" }),
-      details: [{ label: t({ en: "Project", fr: "Projet", de: "Projekt" }), value: selectedAccount?.name ?? selectedAccountId }],
-      impacts: [
-        t({
-          en: "The effective Portal capabilities and defaults may change immediately.",
-          fr: "Les fonctions et valeurs par défaut effectives du Portal peuvent changer immédiatement.",
-          de: "Die wirksamen Portal-Funktionen und Standardwerte können sich sofort ändern.",
-        }),
-      ],
-      onConfirm: resetProjectOverrides,
-    });
-  };
-
-  const triStateControl = (label: string, value: TriState, onChange: (value: TriState) => void) => (
-    <UiSelect
-      size="compact"
-      value={value}
-      onChange={(event) => onChange(event.target.value as TriState)}
-      disabled={controlsDisabled}
-      aria-label={label}
-    >
-      <option value="inherit">{t({ en: "Inherit", fr: "Hériter", de: "Übernehmen" })}</option>
-      <option value="enabled">{t({ en: "Enable", fr: "Activer", de: "Aktivieren" })}</option>
-      <option value="disabled">{t({ en: "Disable", fr: "Désactiver", de: "Deaktivieren" })}</option>
-    </UiSelect>
-  );
-
-  const effectiveLabel = (enabled: boolean) =>
-    enabled
-      ? t({ en: "Enabled", fr: "Activé", de: "Aktiviert" })
-      : t({ en: "Disabled", fr: "Désactivé", de: "Deaktiviert" });
-
+  const { selectedAccount, selectedAccountId, loading, error } =
+    usePortalAccountContext();
+  const title = t({ en: "Settings", fr: "Paramètres", de: "Einstellungen" });
   return (
     <PageShell
-      title={t({ en: "Settings", fr: "Paramètres", de: "Einstellungen" })}
-      description={t({ en: "Review the effective settings for the selected project.", fr: "Consultez les paramètres effectifs du projet sélectionné.", de: "Prüfen Sie die wirksamen Einstellungen für das ausgewählte Projekt." })}
-      breadcrumbs={portalBreadcrumbs({ label: t({ en: "Settings", fr: "Paramètres", de: "Einstellungen" }) })}
+      title={title}
+      description={t({
+        en: "Manage project capabilities and defaults.",
+        fr: "Gérez les fonctions et valeurs par défaut du projet.",
+        de: "Verwalten Sie Projektfunktionen und Standardwerte.",
+      })}
+      breadcrumbs={portalBreadcrumbs({ label: title })}
+      breadcrumbLabel={t({
+        en: "Breadcrumb",
+        fr: "Fil d’Ariane",
+        de: "Brotkrumennavigation",
+      })}
     >
-      {accessLoading || accountsLoading || settingsLoading ? (
-        <PageBanner tone="info">{t({ en: "Loading project settings...", fr: "Chargement des paramètres du projet...", de: "Projekteinstellungen werden geladen..." })}</PageBanner>
-      ) : null}
-      {error ? <PageBanner tone="warning">{error}</PageBanner> : null}
-      {message ? <PageBanner tone="success">{message}</PageBanner> : null}
-
-      <UiCard
-        title={t({ en: "Project", fr: "Projet", de: "Projekt" })}
-        description={t({ en: "Context for the project currently selected in the Portal.", fr: "Contexte du projet actuellement sélectionné dans le Portal.", de: "Kontext für das aktuell im Portal ausgewählte Projekt." })}
-      >
-        <dl className="grid gap-4 text-xs md:grid-cols-2 xl:grid-cols-3">
-          <div>
-            <dt className={labelClasses}>{t({ en: "Selected project", fr: "Projet sélectionné", de: "Ausgewähltes Projekt" })}</dt>
-            <dd className={cx("mt-1 font-bold", uiTitleTextClass)}>{selectedAccount?.name ?? "-"}</dd>
-          </div>
-          <div>
-            <dt className={labelClasses}>{t({ en: "Workspace access", fr: "Accès à l'espace de travail", de: "Arbeitsbereichszugriff" })}</dt>
-            <dd className="mt-1"><UiBadge tone="primary">{selectedWorkspaceAccess === "manager" ? t({ en: "Manager", fr: "Gestionnaire", de: "Manager" }) : selectedWorkspaceAccess === "user" ? t({ en: "User", fr: "Utilisateur", de: "Benutzer" }) : t({ en: "Limited access", fr: "Accès limité", de: "Eingeschränkter Zugriff" })}</UiBadge></dd>
-          </div>
-          <div>
-            <dt className={labelClasses}>{t({ en: "Storage service", fr: "Service de stockage", de: "Speicherdienst" })}</dt>
-            <dd className={cx("mt-1 break-words font-semibold", uiTitleTextClass)}>{selectedAccount?.storage_endpoint_name ?? selectedAccount?.storage_endpoint_url ?? "-"}</dd>
-          </div>
-          <div>
-            <dt className={labelClasses}>{t({ en: "Storage Spaces", fr: "Espaces de stockage", de: "Speicherbereiche" })}</dt>
-            <dd className={cx("mt-1 font-bold", uiTitleTextClass)}>{workspaceLoading ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen..." }) : t({ en: `${activeSpaces.length} active / ${workspace.spaces.length} total`, fr: `${activeSpaces.length} actifs / ${workspace.spaces.length} au total`, de: `${activeSpaces.length} aktiv / ${workspace.spaces.length} gesamt` })}</dd>
-          </div>
-          <div>
-            <dt className={labelClasses}>{t({ en: "Storage used", fr: "Stockage utilisé", de: "Genutzter Speicher" })}</dt>
-            <dd className={cx("mt-1 font-bold", uiTitleTextClass)}>{formatBytes(workspace.usedBytes)}</dd>
-          </div>
-        </dl>
-      </UiCard>
-
-      {settings ? (
-        <UiCard
-          title={t({ en: "Project settings", fr: "Paramètres du projet", de: "Projekteinstellungen" })}
-          description={editable
-            ? t({ en: "Delegated project overrides are shared with administrators.", fr: "Les overrides délégués du projet sont partagés avec les administrateurs.", de: "Delegierte Projektüberschreibungen werden mit Administratoren geteilt." })
-            : t({ en: "Effective values are read-only because settings delegation is not enabled for your role.", fr: "Les valeurs effectives sont en lecture seule car la délégation n’est pas active pour votre rôle.", de: "Die wirksamen Werte sind schreibgeschützt, da die Delegierung für Ihre Rolle nicht aktiv ist." })}
-          actions={editable ? <div className="flex gap-2"><UiButton size="sm" variant="secondary" disabled={saving} onClick={handleReset}>{t({ en: "Reset overrides", fr: "Réinitialiser", de: "Zurücksetzen" })}</UiButton><UiButton size="sm" disabled={saving} onClick={handleSave}>{saving ? t({ en: "Saving...", fr: "Enregistrement...", de: "Speichern..." }) : t({ en: "Save", fr: "Enregistrer", de: "Speichern" })}</UiButton></div> : undefined}
-        >
-          <div className="space-y-4">
-            <PortalSettingsSection title={t({ en: "Portal capabilities", fr: "Fonctions du Portal", de: "Portal-Funktionen" })} layout="grid">
-              <PortalSettingsItem title={t({ en: "Browser workspace access", fr: "Accès à l’espace Browser", de: "Browser-Arbeitsbereich" })} description={`${t({ en: "Effective", fr: "Effectif", de: "Wirksam" })}: ${effectiveLabel(settings.effective.browser_access_enabled)}`} action={triStateControl("Browser workspace access override", form.browserAccess, (value) => updateField("browserAccess", value))} />
-              <PortalSettingsItem title={t({ en: "Private Storage Space creation", fr: "Création d’espaces privés", de: "Private Speicherbereiche erstellen" })} description={`${t({ en: "Effective", fr: "Effectif", de: "Wirksam" })}: ${effectiveLabel(settings.effective.allow_private_storage_space_create)}`} action={triStateControl("Private Storage Space creation override", form.bucketCreate, (value) => updateField("bucketCreate", value))} />
-              <PortalSettingsItem title={t({ en: "Named bucket creation", fr: "Création de buckets nommés", de: "Benannte Buckets erstellen" })} description={`${t({ en: "Effective", fr: "Effectif", de: "Wirksam" })}: ${effectiveLabel(settings.effective.allow_portal_named_bucket_create)}`} action={triStateControl("Named bucket creation override", form.namedBucketCreate, (value) => updateField("namedBucketCreate", value))} />
-              <PortalSettingsItem title={t({ en: "Access key management", fr: "Gestion des clés d’accès", de: "Zugriffsschlüssel verwalten" })} description={`${t({ en: "Effective", fr: "Effectif", de: "Wirksam" })}: ${effectiveLabel(settings.effective.allow_portal_user_access_key_create)}`} action={triStateControl("Access key management override", form.accessKeyCreate, (value) => updateField("accessKeyCreate", value))} />
-              <PortalSettingsItem title={t({ en: "Server access logging", fr: "Journalisation des accès serveur", de: "Server-Zugriffsprotokollierung" })} description={`${t({ en: "Object audit; without it there is no exhaustive object history. Effective", fr: "Audit des objets ; sans lui, aucun historique exhaustif des objets. Effectif", de: "Objekt-Audit; ohne dieses gibt es keinen vollständigen Objektverlauf. Wirksam" })}: ${effectiveLabel(settings.effective.server_access_logging_enabled)}`} action={triStateControl("Server access logging override", form.serverAccessLogging, (value) => updateField("serverAccessLogging", value))} />
-              <PortalSettingsItem title={t({ en: "Storage Space history cleanup", fr: "Nettoyage de l’historique", de: "Versionsverlauf bereinigen" })} description={`${t({ en: "Effective", fr: "Effectif", de: "Wirksam" })}: ${effectiveLabel(settings.effective.storage_space_version_cleanup_enabled)}`} action={triStateControl("Storage Space history cleanup override", form.versionCleanup, (value) => updateField("versionCleanup", value))} />
-            </PortalSettingsSection>
-
-            <PortalSettingsSection title={t({ en: "Storage Space defaults", fr: "Valeurs par défaut des espaces", de: "Standardwerte für Speicherbereiche" })} layout="grid">
-              <PortalSettingsItem title="Versioning" description={`${t({ en: "Effective for new spaces", fr: "Effectif pour les nouveaux espaces", de: "Wirksam für neue Bereiche" })}: ${effectiveLabel(settings.effective.bucket_defaults.versioning)}`} action={triStateControl("Versioning override", form.versioning, (value) => updateField("versioning", value))} />
-              <PortalSettingsItem title="Lifecycle" description={`${t({ en: "Effective for new spaces", fr: "Effectif pour les nouveaux espaces", de: "Wirksam für neue Bereiche" })}: ${effectiveLabel(settings.effective.bucket_defaults.enable_lifecycle)}`} action={triStateControl("Lifecycle override", form.lifecycle, (value) => updateField("lifecycle", value))} />
-              <PortalSettingsItem
-                title={t({ en: "Version history retention", fr: "Conservation de l’historique des versions", de: "Aufbewahrung des Versionsverlaufs" })}
-                description={t({ en: `${settings.effective.bucket_defaults.noncurrent_version_expiration_days} days for new spaces. Existing spaces are unchanged.`, fr: `${settings.effective.bucket_defaults.noncurrent_version_expiration_days} jours pour les nouveaux espaces. Les espaces existants ne changent pas.`, de: `${settings.effective.bucket_defaults.noncurrent_version_expiration_days} Tage für neue Bereiche. Bestehende Bereiche bleiben unverändert.` })}
-                action={<label className="inline-flex items-center gap-2 ui-caption font-semibold"><input type="checkbox" className={uiCheckboxClass} checked={form.versionHistoryRetentionOverride} disabled={controlsDisabled} onChange={(event) => updateField("versionHistoryRetentionOverride", event.target.checked)} aria-label="Override version history retention" />{t({ en: "Override", fr: "Override", de: "Überschreiben" })}</label>}
-              >
-                <UiInput type="number" min={1} step={1} size="compact" className="mt-2 w-28" value={form.versionHistoryRetentionDays} disabled={controlsDisabled || !form.versionHistoryRetentionOverride} onChange={(event) => updateField("versionHistoryRetentionDays", event.target.value)} aria-label="Version history retention days" />
-              </PortalSettingsItem>
-              <PortalSettingsItem title="CORS" description={`${t({ en: "Effective for new spaces", fr: "Effectif pour les nouveaux espaces", de: "Wirksam für neue Bereiche" })}: ${effectiveLabel(settings.effective.bucket_defaults.enable_cors)}`} action={triStateControl("CORS override", form.cors, (value) => updateField("cors", value))} />
-              <PortalSettingsItem
-                title={t({ en: "CORS origins", fr: "Origines CORS", de: "CORS-Ursprünge" })}
-                description={form.corsOriginsOverride ? t({ en: "Override active", fr: "Override actif", de: "Überschreibung aktiv" }) : t({ en: "Inherited", fr: "Hérité", de: "Übernommen" })}
-                className="md:col-span-2"
-                action={<label className="inline-flex items-center gap-2 ui-caption font-semibold"><input type="checkbox" className={uiCheckboxClass} checked={form.corsOriginsOverride} disabled={controlsDisabled} onChange={(event) => updateField("corsOriginsOverride", event.target.checked)} aria-label="Override CORS origins" />{t({ en: "Override", fr: "Override", de: "Überschreiben" })}</label>}
-              >
-                <textarea className="mt-2 w-full rounded-md border border-[color:var(--ui-border)] bg-[color:var(--ui-surface)] px-3 py-2 ui-caption disabled:opacity-60" rows={3} value={form.corsOriginsText} disabled={controlsDisabled || !form.corsOriginsOverride} onChange={(event) => updateField("corsOriginsText", event.target.value)} aria-label="CORS origins" />
-              </PortalSettingsItem>
-            </PortalSettingsSection>
-          </div>
-        </UiCard>
-      ) : null}
-      {resetConfirmation.confirmationDialog}
+      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {selectedAccountId ? (
+        <ProjectSettings
+          key={selectedAccountId}
+          accountId={selectedAccountId}
+          projectName={selectedAccount?.name ?? selectedAccountId}
+          storageName={
+            selectedAccount?.storage_endpoint_name ??
+            selectedAccount?.storage_endpoint_url
+          }
+        />
+      ) : (
+        <PageBanner tone="info">
+          {loading
+            ? t({
+                en: "Loading projects...",
+                fr: "Chargement des projets...",
+                de: "Projekte werden geladen...",
+              })
+            : t({
+                en: "Select a project to view its settings.",
+                fr: "Sélectionnez un projet pour consulter ses paramètres.",
+                de: "Wählen Sie ein Projekt, um seine Einstellungen anzuzeigen.",
+              })}
+        </PageBanner>
+      )}
     </PageShell>
   );
 }
