@@ -6,12 +6,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Modal from "../../components/Modal";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
-import UiBadge from "../../components/ui/UiBadge";
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
-import UiDetails from "../../components/ui/UiDetails";
-import UiProgressBar from "../../components/ui/UiProgressBar";
+import { BucketCompareResult, BucketCompareResultFilters, BucketCompareSection } from "../shared/BucketCompareResults";
+import ModalActions from "../../components/ModalActions";
 import UiSelect from "../../components/ui/UiSelect";
-import { uiInputClass } from "../../components/ui/styles";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import {
   CephAdminBucketCompareResult,
@@ -34,8 +33,6 @@ import {
   getChangedTone,
   getCompareHiddenCount,
   getObjectParentPrefix,
-  getRunStatusLabel,
-  getRunStatusTone,
   getVisibleCompareObjectKeys,
   matchesBucketCompareRunFilters,
   parseOptionalIsoDateTime,
@@ -140,7 +137,6 @@ export default function CephAdminBucketCompareModal({
   } = useBucketCompareRunState<CephAdminBucketCompareResult, CompareRunItem>();
   const requestControllersRef = useRef(new Set<AbortController>());
   const { copyFeedback, copyVisibleKeys } = useCompareVisibleKeysClipboard();
-  const controlClass = uiInputClass;
 
 
   useEffect(() => {
@@ -549,42 +545,12 @@ export default function CephAdminBucketCompareModal({
         )}
         {items.length > 0 && (
           <div className="space-y-2">
-            <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/40 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
-              <input
-                type="text"
-                value={resultSearch}
-                onChange={(event) => setResultSearch(event.target.value)}
-                placeholder="Filter by source/target bucket or error"
-                className={controlClass}
-              />
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as "all" | CompareRunItem["status"])}
-                className={controlClass}
-              >
-                <option value="all">All statuses</option>
-                <option value="pending">Pending</option>
-                <option value="running">Running</option>
-                <option value="success">Done</option>
-                <option value="failed">Failed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <select
-                value={diffFilter}
-                onChange={(event) => setDiffFilter(event.target.value as "all" | "with_diff" | "no_diff")}
-                className={controlClass}
-              >
-                <option value="all">All diff states</option>
-                <option value="with_diff">With differences</option>
-                <option value="no_diff">No differences</option>
-              </select>
-              <UiButton onClick={resetResultFilters} variant="secondary" className="ui-body">
-                Reset filters
-              </UiButton>
-            </div>
-            <p className="ui-caption text-slate-600 dark:text-slate-300">
-              Showing {filteredItems.length} / {items.length} result(s).
-            </p>
+            <BucketCompareResultFilters
+              search={resultSearch} onSearchChange={setResultSearch}
+              status={statusFilter} onStatusChange={setStatusFilter}
+              differences={diffFilter} onDifferencesChange={setDiffFilter}
+              visible={filteredItems.length} total={items.length} onReset={resetResultFilters}
+            />
             {filteredItems.map((item) => {
               const content = item.result?.content_diff;
               const contentHasDifferences = Boolean(
@@ -666,53 +632,27 @@ export default function CephAdminBucketCompareModal({
                 })) ?? [];
               const configHasDifferences = Boolean(item.result?.config_diff?.changed);
               const bucketHasDifferences = Boolean(item.result?.has_differences);
-              const progressValue = item.status === "running" ? 45 : item.status === "pending" ? 0 : 100;
               return (
-                <UiDetails
+                <BucketCompareResult
                   key={`${item.sourceBucket}->${item.targetBucket}:${item.status}:${bucketHasDifferences ? "diff" : "same"}`}
-                  defaultOpen={false}
-                  className="border-t border-[color:var(--ui-border-soft)] first:border-t-0"
+                  item={item}
+                  content={content}
                 >
-                  <summary className="cursor-pointer list-none px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">
-                        {item.sourceBucket} → {item.targetBucket}
-                      </span>
-                      <UiBadge tone={getRunStatusTone(item)} className="px-2 text-[10px]">
-                        {getRunStatusLabel(item)}
-                      </UiBadge>
-                      {content && (
-                        <span className="ui-caption text-slate-500 dark:text-slate-400">
-                          Matched {content.matched_count} · Different {content.different_count} · Source only{" "}
-                          {content.only_source_count} · Target only {content.only_target_count}
-                          {content.ignored_after_cutoff_count ? ` · Ignored after cutoff ${content.ignored_after_cutoff_count}` : ""}
-                        </span>
-                      )}
-                    </div>
-                    <UiProgressBar
-                      value={progressValue}
-                      label={`Comparison progress for ${item.sourceBucket} to ${item.targetBucket}`}
-                      className="mt-2 h-1.5 overflow-hidden bg-slate-200 dark:bg-slate-800"
-                      barClassName="bg-primary-500 transition-[width] duration-200"
-                    />
-                  </summary>
-                  <div className="space-y-3 px-3 pb-3">
+                  <div className="space-y-3">
                     {item.error && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{item.error}</p>}
                     {content && (
-                      <UiDetails
-                        defaultOpen={false}
-                        className="border-t border-[color:var(--ui-border-soft)] pt-3"
-                      >
-                        <summary className="cursor-pointer list-none py-1.5">
+                      <BucketCompareSection
+                        summary={
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
                               Content diff (md5 or size)
                             </span>
-                            <UiBadge tone={getChangedTone(contentHasDifferences)} className="px-2 text-[10px]">
+                            <ListBadge tone={getChangedTone(contentHasDifferences)}>
                               {contentHasDifferences ? "Different" : "Identical"}
-                            </UiBadge>
+                            </ListBadge>
                           </div>
-                        </summary>
+                        }
+                      >
                         <div className="mt-2 space-y-3">
                           {contentSections.map((section) => {
                             const sectionFeedbackId = `${item.sourceBucket}:${item.targetBucket}:content:${section.key}`;
@@ -723,28 +663,24 @@ export default function CephAdminBucketCompareModal({
                               section.hiddenCount
                             );
                             return (
-                              <UiDetails
+                              <BucketCompareSection
                                 key={sectionFeedbackId}
-                                defaultOpen={false}
-                                className="border-t border-[color:var(--ui-border-soft)] pt-2 first:border-t-0 first:pt-0"
-                              >
-                                <summary className="cursor-pointer list-none py-1.5">
+                                summary={
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
-                                      <UiBadge tone={getChangedTone(section.changed)} className="px-2 text-[10px]">
+                                      <ListBadge tone={getChangedTone(section.changed)}>
                                         {section.changed ? "Different" : "Identical"}
-                                      </UiBadge>
+                                      </ListBadge>
                                       {displayLimitMessage && (
-                                        <UiBadge tone="warning" className="px-2 text-[10px]">
+                                        <ListBadge tone="warning">
                                           Showing {section.visibleCount} of {section.objectCount}
-                                        </UiBadge>
+                                        </ListBadge>
                                       )}
                                     </div>
                                     {section.changed && section.copyKeys.length > 0 && (
-                                      <UiButton
+                                      <ListActionButton
                                         variant="secondary"
-                                        className="py-1 ui-caption"
                                         onClick={(event) => {
                                           event.preventDefault();
                                           event.stopPropagation();
@@ -752,10 +688,11 @@ export default function CephAdminBucketCompareModal({
                                         }}
                                       >
                                         Copy keys
-                                      </UiButton>
+                                      </ListActionButton>
                                     )}
                                   </div>
-                                </summary>
+                                }
+                              >
                                 <div className="mt-1 space-y-2 pb-2">
                                   {sectionCopyFeedback && (
                                     <p
@@ -796,40 +733,36 @@ export default function CephAdminBucketCompareModal({
                                     </div>
                                   </div>
                                 </div>
-                              </UiDetails>
+                              </BucketCompareSection>
                             );
                           })}
                         </div>
-                      </UiDetails>
+                      </BucketCompareSection>
                     )}
                     {item.result?.config_diff && (
-                      <UiDetails
-                        defaultOpen={false}
-                        className="border-t border-[color:var(--ui-border-soft)] pt-3"
-                      >
-                        <summary className="cursor-pointer list-none py-1.5">
+                      <BucketCompareSection
+                        summary={
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Config diff</span>
-                            <UiBadge tone={getChangedTone(configHasDifferences)} className="px-2 text-[10px]">
+                            <ListBadge tone={getChangedTone(configHasDifferences)}>
                               {configHasDifferences ? "Different" : "Identical"}
-                            </UiBadge>
+                            </ListBadge>
                           </div>
-                        </summary>
+                        }
+                      >
                         <div className="mt-2 space-y-3">
                           {configSections.map((section) => (
-                            <UiDetails
+                            <BucketCompareSection
                               key={`${item.sourceBucket}:${item.targetBucket}:config:${section.key}`}
-                              defaultOpen={false}
-                              className="border-t border-[color:var(--ui-border-soft)] pt-2 first:border-t-0 first:pt-0"
-                            >
-                              <summary className="cursor-pointer list-none py-1.5">
+                              summary={
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
-                                  <UiBadge tone={getChangedTone(section.changed)} className="px-2 text-[10px]">
+                                  <ListBadge tone={getChangedTone(section.changed)}>
                                     {section.changed ? "Different" : "Identical"}
-                                  </UiBadge>
+                                  </ListBadge>
                                 </div>
-                              </summary>
+                              }
+                            >
                               <div className="mt-1 grid gap-2 pb-2 lg:grid-cols-2">
                                 <div className="space-y-1">
                                   <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -844,13 +777,13 @@ export default function CephAdminBucketCompareModal({
                                   {renderDiffLines(section.after)}
                                 </div>
                               </div>
-                            </UiDetails>
+                            </BucketCompareSection>
                           ))}
                         </div>
-                      </UiDetails>
+                      </BucketCompareSection>
                     )}
                   </div>
-                </UiDetails>
+                </BucketCompareResult>
               );
             })}
             {filteredItems.length === 0 && (
@@ -876,12 +809,12 @@ export default function CephAdminBucketCompareModal({
             <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[11px] font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-100">
               {pendingExplore.objectKey}
             </p>
-            <div className="flex justify-end gap-2">
+            <ModalActions>
               <UiButton variant="secondary" onClick={() => setPendingExplore(null)}>
                 Cancel
               </UiButton>
               <UiButton onClick={confirmExploreNavigation}>Open Browser</UiButton>
-            </div>
+            </ModalActions>
           </div>
         </Modal>
       )}

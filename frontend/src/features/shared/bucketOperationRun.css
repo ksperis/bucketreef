@@ -156,6 +156,34 @@
   min-width: 0;
 }
 
+.bucket-compare-section {
+  min-width: 0;
+  border-top: 1px solid var(--ui-border-soft);
+}
+
+.bucket-compare-section > summary {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.bucket-compare-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.bucket-compare-section > summary:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+.bucket-compare-section[open] > summary > .bucket-operation-result-chevron {
+  transform: rotate(0deg);
+}
+
 .bucket-operation-result-identity {
   flex: 1 1 12rem;
 }
@@ -173,7 +201,8 @@
 }
 
 @media (max-width: 1023px), (pointer: coarse) {
-  .bucket-operation-result > summary {
+  .bucket-operation-result > summary,
+  .bucket-compare-section > summary {
     min-height: 44px;
   }
 }

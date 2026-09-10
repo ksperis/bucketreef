@@ -280,6 +280,33 @@ payloads, frozen options during execution, stop, failure and retry. Check the
 source and target identities in every request and the final progress state.
 These checks do not run real bucket comparisons or Manager remediation.
 
+## Bucket comparison results
+
+`BucketCompareResults` shares the result toolbar, bucket-pair summary and nested
+disclosures between Ceph Admin and Manager. Search/status/difference controls
+use the listing primitives with accessible labels; Reset is disabled at defaults.
+Pair identities wrap, counts use `InlineSummary` and badges/actions use the
+listing presentation. Root and nested disclosures have visible chevrons,
+keyboard focus and touch targets, while retaining their initial collapsed state.
+
+Pair progress is indeterminate while its request runs, rather than displaying a
+fixed 45%. Pending pairs show zero and settled pairs show complete processing;
+the status badge still distinguishes failure, cancellation and differences.
+The aggregate mapping progress remains determinate.
+
+Ceph Browser-navigation and Manager remediation confirmations use `ModalActions`.
+Manager identities wrap and confirmations retain the exact visible-key scope and
+destructive warning. Workspace navigation and remediation authority remain with
+their original handlers.
+
+Validate both workspaces with documentary fixtures in both themes at 1440px and
+390px, plus 320px. Check pending progress, failed/identical/different results,
+combined filters, empty matches and reset. Open nested content/configuration
+sections with keyboard input, check long names and object keys, and verify that
+copy/remediation controls retain the displayed sample when a diff is truncated.
+Open and cancel each workspace's confirmation without triggering navigation or
+remediation. These checks do not execute live storage operations.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
