@@ -2,9 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton, ListBadge } from "./list/ListControls";
 import type { ReactNode } from "react";
 import UiRemoveIcon from "./ui/UiRemoveIcon";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiMutedTextClass } from "./ui/styles";
+import { cx, uiMutedTextClass } from "./ui/styles";
 
 type ActiveFilterBarItem = {
   id: string;
@@ -34,31 +35,31 @@ export default function ActiveFiltersBar({
     <div className={cx("flex flex-wrap items-center gap-2", className)}>
       <span className={cx("shrink-0 ui-caption font-semibold", uiMutedTextClass)}>{label}</span>
       {items.map((item) => (
-        <span
+        <ListBadge tone="primary"
           key={item.id}
-          className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 ui-caption font-semibold text-primary-700 dark:border-primary-400/35 dark:bg-primary-500/15 dark:text-primary-100"
+          className="inline-flex max-w-full items-center gap-1"
         >
           <span className="min-w-0 truncate">{item.label}</span>
           {item.onRemove ? (
-            <button
+            <ListActionButton
               type="button"
               onClick={item.onRemove}
-              className="rounded-full px-1 leading-none opacity-75 transition hover:bg-primary/20 hover:opacity-100 dark:hover:bg-primary-400/20"
+              iconOnly variant="ghost"
               title={item.removeLabel}
               aria-label={item.removeLabel ?? "Remove filter"}
             >
               <UiRemoveIcon className="h-3 w-3" />
-            </button>
+            </ListActionButton>
           ) : null}
-        </span>
+        </ListBadge>
       ))}
-      <button
+      <ListActionButton
         type="button"
         onClick={onClearAll}
-        className={cx(uiButtonBaseClass, uiButtonVariants.danger, "h-7 rounded-md px-2 py-1 ui-caption")}
+        variant="danger"
       >
         {clearLabel}
-      </button>
+      </ListActionButton>
     </div>
   );
 }

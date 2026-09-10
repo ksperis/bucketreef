@@ -69,7 +69,7 @@ export function UiTagBadge({
   return (
     <span
       className={cx(
-        "inline-flex max-w-full items-center overflow-hidden transition",
+        "ui-tag-badge inline-flex max-w-full items-center overflow-hidden transition",
         uiBadgeShapeClass,
         getTagColorOption(colorKey).badgeClassName,
         visibility === "private" && "!border-dashed",

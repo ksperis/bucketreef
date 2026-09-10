@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import React from "react";
+
 import UiBadge from "./ui/UiBadge";
 import type { UiTone } from "./ui/styles";
 

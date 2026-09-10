@@ -93,10 +93,8 @@ describe("ManagerCephKeysPage", () => {
     expect(lockedButtons).toHaveLength(2);
     expect(lockedButtons[0].closest("td")).toHaveAttribute("data-mobile-actions", "true");
     expect(lockedButtons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
-    expect((lockedButtons[0] as HTMLButtonElement).className).toContain("disabled:cursor-not-allowed");
-    expect((lockedButtons[0] as HTMLButtonElement).className).toContain("disabled:text-slate-400");
-    expect((lockedButtons[1] as HTMLButtonElement).className).toContain("disabled:cursor-not-allowed");
-    expect((lockedButtons[1] as HTMLButtonElement).className).toContain("disabled:text-slate-400");
+    expect((lockedButtons[0] as HTMLButtonElement).className).toContain("ui-list-action");
+    expect((lockedButtons[1] as HTMLButtonElement).className).toContain("ui-list-action");
     expect(screen.getByText("Private access")).toHaveAttribute("title", "Managed private access key");
     expect(screen.getAllByTitle("Update the linked private connection instead")).toHaveLength(1);
     expect(screen.getAllByTitle("Delete the linked private connection instead")).toHaveLength(1);

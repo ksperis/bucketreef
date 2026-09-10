@@ -4,7 +4,7 @@
  */
 import { useMemo, useRef, useState } from "react";
 import ColumnVisibilityPicker from "../../components/ColumnVisibilityPicker";
-import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
+import { ListActionButton } from "../../components/list/ListControls";
 import { cx, uiMenuClass } from "../../components/ui/styles";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
@@ -68,14 +68,13 @@ export default function BucketOpsColumnControls({
   return (
     <>
       <div className="relative" ref={rootRef}>
-        <button
+        <ListActionButton
           type="button"
           onClick={() => setOpen((current) => !current)}
           aria-expanded={open}
-          className={toolbarCompactButtonClasses}
         >
           Columns
-        </button>
+        </ListActionButton>
         {open && (
           <div
             className={cx(
@@ -133,18 +132,14 @@ export default function BucketOpsColumnControls({
           </div>
         )}
       </div>
-      <button
+      <ListActionButton
         type="button"
         onClick={onReset}
         disabled={!columnsCustomized}
-        className={`rounded-md border px-2.5 py-1.5 ui-caption font-semibold ${
-          columnsCustomized
-            ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100"
-            : "cursor-not-allowed border-slate-200 text-slate-400 dark:border-slate-700 dark:text-slate-500"
-        }`}
+        variant="danger"
       >
         Reset Columns
-      </button>
+      </ListActionButton>
     </>
   );
 }

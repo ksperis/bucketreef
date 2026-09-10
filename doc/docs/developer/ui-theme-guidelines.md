@@ -30,11 +30,16 @@ The frontend theme is anchored by the shared shell and UI tokens in
   `uiPanelMutedClass`.
 - Tables: use `ui-data-table`, `uiDataTableClass`, and
   `uiTableContainerClass` before adding page-specific table classes.
+  `components/list/listPresentation.css` owns the shared `--list-*` tokens;
+  the former `manager-table` and `compact-table` style layers are retired.
 - Toolbars and filters: use `ListToolbar`, `PageControlStrip`,
   `uiToolbarClass`, `uiToolbarSecondaryClass`, shared compact toolbar classes,
   and `ActiveFiltersBar`.
 - Buttons: use `UiButton`, `uiButtonBaseClass`, `uiButtonVariants`, or
   `uiIconButtonClass`; keep custom button chains for exceptional states only.
+  In listings, use `ListActionButton`/`ListActionLink` and `ListActions` instead.
+  They own geometry, focus, disabled/loading states and semantic variants
+  without changing the default form-button scale.
 - Forms: use `ui-control`, `uiInputClass`, `uiLabelClass`, and
   `uiCheckboxClass`. Use `SettingsSwitch` for binary settings, reserving
   checkboxes for selections and acknowledgements. Switches use theme primary
@@ -129,3 +134,28 @@ ad-hoc tiny text utilities or change the global `UiButton` defaults.
 Dialog and action-bar spacing comes from `--settings-dialog-padding-x/y`,
 `--settings-field-gap` and `--settings-actions-padding`. Heights are minimums,
 so longer translated labels and validation messages can wrap without clipping.
+
+## Listing tokens and exceptions
+
+The `--list-*` scale centralizes 12px/18px text, 400/500/600 weights, 36px
+minimum rows, 12px/4px cell padding, 28px controls with 8px inline padding,
+6px action corners and 4px badge corners. Below 768px or with a coarse pointer,
+controls use 44px targets. Do not use arbitrary `text-[12px]` utilities as a
+substitute for the semantic classes; the global typography layer may normalize
+those utilities differently.
+
+Surfaces, borders, hover, selection and focus derive from `--ui-*`; primary
+variants use the runtime brand scale. Success/warning/danger action colors and
+association category colors are centralized in `listPresentation.css`.
+`ListBadge` reuses `UiBadge` semantic palettes, while custom S3 tag colors remain
+owned by the existing tag contract. Avatars, progress tracks and status dots
+retain their geometric meaning.
+
+A page may set column widths, scrolling, grouped-row geometry or Browser
+density. It must not override action fonts, padding, corner radius or colors
+with local chains. Desktop `ListActions` stays on a single line; mobile groups
+wrap. `PageHeader`/`PageShell` opt in with `actionPresentation="listing"` and
+`PageControlStrip` with `controlPresentation="listing"`, so unrelated form
+headers and controls keep their existing appearance. See the
+[presentation inventory](listing-presentation-inventory.md) for the exceptions
+and validation command.

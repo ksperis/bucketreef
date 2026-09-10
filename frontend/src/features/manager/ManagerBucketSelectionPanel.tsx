@@ -2,13 +2,14 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { ReactNode } from "react";
 
 import type { Bucket } from "../../api/bucketContracts";
 import ListToolbar from "../../components/ListToolbar";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { ListTableStatus } from "../../components/list/listTableStatus";
-import UiButton from "../../components/ui/UiButton";
+
 import UiInput from "../../components/ui/UiInput";
 import { uiCheckboxClass } from "../../components/ui/styles";
 
@@ -58,13 +59,13 @@ export default function ManagerBucketSelectionPanel({
       cellClassName: "w-12",
       mobileLabel: "Select",
       render: (bucket) => (
-        <input
+        <label className="ui-list-selection"><input
           aria-label={`Select ${bucket.name}`}
           type="checkbox"
           checked={selectedBuckets.has(bucket.name)}
           onChange={() => onToggleBucket(bucket.name)}
           className={uiCheckboxClass}
-        />
+        /></label>
       ),
     },
     { id: "bucket", label: "Bucket", primary: true, mobileRole: "primary", render: (bucket) => bucket.name },
@@ -90,24 +91,24 @@ export default function ManagerBucketSelectionPanel({
         }
         filters={
           <>
-            <UiButton
+            <ListActionButton
               type="button"
               onClick={onSelectFiltered}
               disabled={buckets.length === 0}
               variant="secondary"
-              size="sm"
+
             >
               Select filtered
-            </UiButton>
-            <UiButton
+            </ListActionButton>
+            <ListActionButton
               type="button"
               onClick={onClearSelection}
               disabled={selectedBuckets.size === 0}
               variant="secondary"
-              size="sm"
+
             >
               Clear
-            </UiButton>
+            </ListActionButton>
           </>
         }
         actions={action}

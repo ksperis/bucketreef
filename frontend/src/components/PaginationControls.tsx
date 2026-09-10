@@ -2,7 +2,8 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { cx, uiButtonBaseClass, uiButtonVariants, uiDividerClass, uiLabelClass, uiMutedTextClass } from "./ui/styles";
+import { ListActionButton } from "./list/ListControls";
+import { cx, uiDividerClass, uiLabelClass, uiMutedTextClass } from "./ui/styles";
 import { toolbarCompactSelectClasses } from "./toolbarControlClasses";
 
 type PaginationControlsProps = {
@@ -28,27 +29,24 @@ export default function PaginationControls({
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const canPrev = safePage > 1;
   const canNext = safePage < totalPages;
-  const buttonClassName = cx(uiButtonBaseClass, uiButtonVariants.secondary, "rounded-md px-2.5 py-1 ui-caption");
 
   return (
-    <div className={cx("flex flex-col gap-2 border-t px-4 py-2 ui-caption md:flex-row md:items-center md:justify-between", uiDividerClass, uiMutedTextClass)}>
+    <div className={cx("ui-list-pagination flex flex-col gap-2 border-t md:flex-row md:items-center md:justify-between", uiDividerClass, uiMutedTextClass)}>
       <div className="flex items-center gap-2">
-        <button
+        <ListActionButton
           type="button"
           onClick={() => onPageChange(safePage - 1)}
           disabled={!canPrev || disabled}
-          className={buttonClassName}
         >
           Previous
-        </button>
-        <button
+        </ListActionButton>
+        <ListActionButton
           type="button"
           onClick={() => onPageChange(safePage + 1)}
           disabled={!canNext || disabled}
-          className={buttonClassName}
         >
           Next
-        </button>
+        </ListActionButton>
         <span className={cx("ui-caption", uiMutedTextClass)}>
           Page {safePage} of {totalPages} · {total} result{total === 1 ? "" : "s"}
         </span>
@@ -57,7 +55,7 @@ export default function PaginationControls({
         <label className={cx("flex items-center gap-2", uiLabelClass)}>
           Page size
           <select
-            className={cx(toolbarCompactSelectClasses, "px-2 py-1 font-semibold")}
+            className={cx(toolbarCompactSelectClasses, "ui-list-control")}
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             disabled={disabled}

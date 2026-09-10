@@ -1,7 +1,9 @@
+import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
@@ -20,7 +22,7 @@ import DataTableShell, {
 import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
 import { cx, uiButtonBaseClass, uiButtonVariants } from "../../components/ui/styles";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
-import UiButton from "../../components/ui/UiButton";
+
 import {
   CephAdminRgwUser,
   CephAdminRgwUserDetail,
@@ -53,7 +55,6 @@ import {
   formatTextMatchModeSymbol,
   formatTextFilterSummary,
   parseExactListInput,
-  quickFilterMatchModeButtonClass,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
@@ -661,15 +662,15 @@ export default function CephAdminUsersPage() {
       return <span className="ui-body text-slate-500 dark:text-slate-400">{loadingDetails ? "Loading..." : "-"}</span>;
     }
     return (
-      <span
-        className={`rounded-full px-2 py-0.5 ui-caption font-semibold ${
+      <ListBadge
+        disableToneStyles className={`${
           value
             ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-100"
             : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100"
         }`}
       >
         {value ? "Suspended" : "Active"}
-      </span>
+      </ListBadge>
     );
   };
 
@@ -800,7 +801,7 @@ export default function CephAdminUsersPage() {
       align: "right",
       mobileRole: "actions",
       headerClassName: "w-16",
-      cellClassName: "!py-1.5",
+
       render: (user) => (
         <div className="inline-flex items-center">
             <details className="relative">
@@ -814,7 +815,7 @@ export default function CephAdminUsersPage() {
             <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
               <button
                 type="button"
-                className={`${tableActionMenuItemClasses} !px-2 !py-1 !text-[11px]`}
+                className={`${tableActionMenuItemClasses}`}
                 {...dataTableDefaultActionProps}
                 onClick={(event) => {
                   event.preventDefault();
@@ -827,7 +828,7 @@ export default function CephAdminUsersPage() {
               </button>
               <button
                 type="button"
-                className={`${tableActionMenuItemClasses} !px-2 !py-1 !text-[11px]`}
+                className={`${tableActionMenuItemClasses}`}
                 onClick={(event) => {
                   event.preventDefault();
                   const owner = bucketOwnerFilterForUser(user);
@@ -847,7 +848,7 @@ export default function CephAdminUsersPage() {
                     ? "The active Ceph Admin service identity cannot delete itself"
                     : "Delete this RGW User"
                 }
-                className={`${tableActionMenuItemClasses} !px-2 !py-1 !text-[11px] !text-rose-700 dark:!text-rose-300`}
+                className={`${tableActionMenuItemClasses} !text-rose-700 dark:!text-rose-300`}
                 onClick={(event) => {
                   event.preventDefault();
                   if (bucketOwnerFilterForUser(user) === activeRgwUserId) return;
@@ -874,7 +875,7 @@ export default function CephAdminUsersPage() {
 
   return (
     <div className={workflowPageHostClass(showCreateModal || Boolean(editingTarget))}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="RGW Users"
         description="Complete list of RGW users (admin ops)."
         breadcrumbs={cephAdminPageBreadcrumbs("users")}
@@ -912,7 +913,7 @@ export default function CephAdminUsersPage() {
                   onKeyDown={(event) => event.stopPropagation()}
                   placeholder="UID(s)"
                   rows={1}
-                  className={`w-full resize-y rounded-md border bg-white px-2.5 py-1.5 pr-9 ui-caption text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-900 dark:text-slate-100 ${
+                  className={`ui-list-control ui-list-search w-full resize-y border bg-white text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-900 dark:text-slate-100 ${
                     quickFilterFieldState.fieldClass || "border-slate-200 dark:border-slate-700"
                   }`}
                 />
@@ -920,7 +921,7 @@ export default function CephAdminUsersPage() {
                   type="button"
                   onClick={toggleQuickFilterMode}
                   disabled={quickFilterDraftForcesExact}
-                  className={quickFilterMatchModeButtonClass(
+                  className={toolbarMatchModeButtonClasses(
                     quickFilterModeForDisplay,
                     quickFilterPending,
                     quickFilterDraftForcesExact
@@ -1019,9 +1020,9 @@ export default function CephAdminUsersPage() {
                               </span>
                             </div>
                           </div>
-                          <UiButton variant="secondary" size="sm" onClick={advancedFilterCloseGuard.requestClose}>
+                          <ListActionButton variant="secondary"  onClick={advancedFilterCloseGuard.requestClose}>
                             Close
-                          </UiButton>
+                          </ListActionButton>
                         </div>
                       </div>
 
@@ -1214,17 +1215,16 @@ export default function CephAdminUsersPage() {
 
                       <div className={advancedFilterFooterClass}>
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                          <UiButton
+                          <ListActionButton
                             variant="secondary"
-                            size="sm"
                             onClick={resetAdvancedFilter}
                             disabled={!hasAnyAdvancedToClear}
                           >
                             Clear
-                          </UiButton>
-                          <UiButton size="sm" onClick={applyAdvancedFilter}>
+                          </ListActionButton>
+                          <ListActionButton variant="primary"  onClick={applyAdvancedFilter}>
                             Apply filter
-                          </UiButton>
+                          </ListActionButton>
                         </div>
                       </div>
                     </div>

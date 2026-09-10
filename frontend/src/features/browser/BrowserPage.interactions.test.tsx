@@ -1093,7 +1093,7 @@ describe("BrowserPage interactions", () => {
       "More actions for a.txt",
     ]) {
       const action = within(rowA).getByRole("button", { name: actionName });
-      expect(action).toHaveClass("!h-6", "!w-6");
+      expect(action).toHaveClass("ui-list-action-icon");
       expect(action).not.toHaveClass("min-h-11", "min-w-11");
     }
     expect(
@@ -1126,7 +1126,7 @@ describe("BrowserPage interactions", () => {
     ]) {
       expect(
         within(rowA).getByRole("button", { name: actionName }),
-      ).not.toHaveClass("!h-6", "!w-6");
+      ).toHaveClass("ui-list-action-icon");
     }
     expect(
       screen.getByRole("button", { name: "Selected storage space" }),
@@ -1606,7 +1606,7 @@ describe("BrowserPage interactions", () => {
       expect(rowA).toHaveClass("h-9");
       expect(
         within(rowA).getByRole("button", { name: "Download a.txt" }),
-      ).toHaveClass("!h-6", "!w-6");
+      ).toHaveClass("ui-list-action-icon");
       expect(selectA).not.toBeChecked();
       expect(
         within(rowA).queryByRole("button", {
@@ -2315,11 +2315,11 @@ describe("BrowserPage interactions", () => {
     expect(
       within(contextToolbar).queryByRole("button", { name: "Operations" }),
     ).not.toBeInTheDocument();
-    expect(uploadButton).toHaveClass("h-7", "w-7", "ui-button-primary");
+    expect(uploadButton).toHaveClass("ui-list-action-icon", "ui-list-action-primary");
     expect(uploadButton).not.toHaveClass("h-9", "w-9", "rounded-xl");
-    expect(newFolderButton).toHaveClass("h-7", "w-7", "rounded-md");
-    expect(refreshButton).toHaveClass("h-7", "w-7", "rounded-md");
-    expect(moreButton).toHaveClass("h-7", "w-7", "rounded-md");
+    expect(newFolderButton).toHaveClass("ui-list-action-icon");
+    expect(refreshButton).toHaveClass("ui-list-action-icon");
+    expect(moreButton).toHaveClass("ui-list-action-icon");
     expect(
       Boolean(
         uploadButton.compareDocumentPosition(newFolderButton) &
@@ -2518,7 +2518,7 @@ describe("BrowserPage interactions", () => {
     expect(within(menu).getByText("Transfers")).toBeInTheDocument();
     const badge = await within(menu).findByText("Presign");
     expectPassiveStatusBadge(badge);
-    expect(badge).toHaveClass("px-1.5", "py-0.5", "text-[10px]", "leading-4");
+    expect(badge).toHaveClass("ui-list-badge");
     expect(badge).not.toHaveClass("px-2.5", "py-1");
   });
 
@@ -3047,7 +3047,7 @@ describe("BrowserPage interactions", () => {
       ).not.toBeInTheDocument();
       expect(
         within(row).getByRole("button", { name: "More actions for a.txt" }),
-      ).toHaveClass("min-h-11", "min-w-11");
+      ).toHaveClass("ui-list-action-icon");
 
       await user.click(
         within(row).getByRole("checkbox", { name: "Select a.txt" }),

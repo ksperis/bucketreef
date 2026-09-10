@@ -116,8 +116,35 @@ in the editor. An enabled service is configuration, not proof of live health.
 Keep at most two tags and three service badges before a remainder count.
 When row actions stay visible, order them **Set as default**, **Edit/View**,
 **Delete** and retain the shared default-row action behavior. Row geometry and
-28px normal-weight actions are opt-in; touch targets remain at least 44px.
-Do not change other inventory layouts to adopt these dimensions implicitly.
+28px normal-weight actions use the common listing presentation; touch targets
+remain at least 44px. The information limits above apply only to this endpoint
+inventory, not to other tables.
+
+## Common table and listing presentation
+
+Use `DataTableShell` or the `ui-data-table` foundation for every table, including
+secondary tables in dialogs. Keep the content and specialized engines in their
+feature components. Use `ListActionButton`, `ListActionLink`, `ListActions` and
+`ListBadge`; listing headers opt in with `actionPresentation="listing"`, and
+`PageControlStrip` uses `controlPresentation="listing"` for its controls.
+
+- Headers: normal case, 12px/18px, weight 600. Cells: 12px/18px, weight 400;
+  principal identities use weight 500.
+- Cells: 12px horizontal and 4px vertical padding; simple rows start at 36px
+  and expand with content. Do not hide content or add truncation for density.
+- Actions, search, filters and pagination: 28px minimum, 12px normal text,
+  8px horizontal padding and 6px corners. Icon actions use 28px squares.
+- Badges and tags: 4px corners, 12px medium text. Preserve status meaning,
+  custom tag colors, interactive behavior and accessible descriptions.
+- Keep each desktop action group on one line when the table has room. Reserve
+  action-column width and let genuinely wide tables scroll internally. On mobile,
+  allow action groups and labels to wrap; touch targets are at least 44px.
+
+Browser retains Compact/Comfortable row geometry, and enriched endpoint rows
+remain extensible. Mobile table cards must use automatic height. Defaults of
+`UiButton`, settings and other form controls are independent of this contract.
+See the [component inventory and validation map](listing-presentation-inventory.md)
+for every table, secondary surface and documented geometry exception.
 
 ## Selection indicators and binary settings
 

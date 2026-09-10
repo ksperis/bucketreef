@@ -182,7 +182,7 @@ export default function BrowserWorkspaceSidebar({
                 value={bucketFilter}
                 onChange={(event) => onBucketFilterChange(event.target.value)}
                 placeholder={searchPlaceholder}
-                className={cx(toolbarCompactInputClasses, "w-full py-2 pl-9 font-medium")}
+                className={cx(toolbarCompactInputClasses, "w-full py-2 ui-list-control-with-icon font-medium")}
                 spellCheck={false}
               />
             </div>

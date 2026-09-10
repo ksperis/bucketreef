@@ -129,7 +129,7 @@ export default function BrowserBucketSelector({
                 value={filter}
                 onChange={(event) => onFilterChange(event.target.value)}
                 placeholder={`Filter ${workspaceNounPlural}`}
-                className={`${inputClasses} pl-9`}
+                className={`${inputClasses} ui-list-control-with-icon`}
                 spellCheck={false}
               />
             </div>

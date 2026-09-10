@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "./list/ListControls";
 import type { ReactNode } from "react";
 import UiField from "./ui/UiField";
 import { cx, uiInputClass } from "./ui/styles";
@@ -37,15 +38,15 @@ export default function ToolbarSearchInput({
 }: ToolbarSearchInputProps) {
   const matchModeControl =
     matchMode && onToggleMatchMode ? (
-      <button
+      <ListActionButton iconOnly
         type="button"
         onClick={onToggleMatchMode}
-        className="absolute right-1 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-white px-1 py-0 ui-caption font-semibold text-slate-500 hover:border-primary hover:text-primary dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-primary-500 dark:hover:text-primary-100"
+        className="ui-list-search-mode"
         title={`Filter mode: ${matchMode === "contains" ? "contains" : "exact"}`}
         aria-label="Toggle filter match mode"
       >
         {matchMode === "contains" ? "~" : "="}
-      </button>
+      </ListActionButton>
     ) : null;
   const resolvedTrailingControl = trailingControl ?? matchModeControl;
   const renderInput = ({ id, describedBy, invalid }: { id: string; describedBy?: string; invalid: boolean }) => (
@@ -59,8 +60,8 @@ export default function ToolbarSearchInput({
       placeholder={placeholder}
       className={cx(
         uiInputClass,
-        "px-2 py-1 ui-caption",
-        resolvedTrailingControl ? "pr-9" : "",
+        "ui-list-control",
+        resolvedTrailingControl ? "ui-list-search" : "",
         active ? "border-primary/50 bg-primary/5 dark:bg-primary/10" : "",
         inputClassName
       )}

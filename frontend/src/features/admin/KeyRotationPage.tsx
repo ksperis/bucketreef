@@ -312,7 +312,7 @@ export default function KeyRotationPage() {
   };
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="S3 key rotation"
       description="Replace managed RGW keys on selected Ceph endpoints."
       breadcrumbs={adminPageBreadcrumbs("key-rotation")}
@@ -490,7 +490,7 @@ export default function KeyRotationPage() {
               emptyMessage="No details returned by the backend."
               primaryColumnId="endpoint"
               responsiveCards
-              tableClassName="compact-table"
+              tableClassName="ui-data-table"
             />
           </section>
         )}

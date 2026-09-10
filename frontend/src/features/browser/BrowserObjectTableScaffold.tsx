@@ -63,7 +63,7 @@ export function BrowserObjectTableScaffold({
 }: BrowserObjectTableScaffoldProps) {
   return (
     <table
-      className="manager-table min-w-full border-separate border-spacing-0 divide-y divide-slate-200 dark:divide-slate-800"
+      className="ui-data-table ui-data-table-fixed ui-browser-table min-w-full border-separate border-spacing-0 divide-y divide-slate-200 dark:divide-slate-800"
       style={{ minWidth: `${minWidthPx}px` }}
     >
       <colgroup>
@@ -87,20 +87,20 @@ export function BrowserObjectTableScaffold({
         <tr>
           <th
             aria-label="Select all"
-            className={`px-2 ${headerPaddingClasses} !align-middle text-left ui-caption font-semibold text-slate-500 dark:text-slate-400`}
+            className={` ${headerPaddingClasses} !align-middle text-left `}
           >
-            <input
+            <label className="ui-list-selection"><input
               type="checkbox"
               checked={allSelected}
               onChange={onToggleAll}
               aria-label="Select all"
               className={uiCheckboxClass}
               disabled={selectionDisabled}
-            />
+            /></label>
           </th>
           <th
             aria-label="Name"
-            className={`relative px-4 ${headerPaddingClasses} !align-middle text-left ui-caption font-semibold text-slate-500 dark:text-slate-400`}
+            className={`relative  ${headerPaddingClasses} !align-middle text-left `}
           >
             {nameHeader}
             <BrowserColumnResizeHandle
@@ -114,9 +114,9 @@ export function BrowserObjectTableScaffold({
             <th
               key={column.id}
               aria-label={column.label}
-              className={`relative px-2 ${headerPaddingClasses} !align-middle ${
+              className={`relative  ${headerPaddingClasses} !align-middle ${
                 column.align === "right" ? "text-right" : "text-left"
-              } ui-caption font-semibold text-slate-500 dark:text-slate-400`}
+              } `}
             >
               <div
                 className={`pr-3 ${
@@ -140,7 +140,7 @@ export function BrowserObjectTableScaffold({
           ))}
           <th
             aria-label="Actions"
-            className={`px-2 ${headerPaddingClasses} !align-middle text-right ui-caption font-semibold text-slate-500 dark:text-slate-400`}
+            className={` ${headerPaddingClasses} !align-middle text-right `}
           >
             <span className="inline-flex h-6 items-center">Actions</span>
           </th>
@@ -174,9 +174,9 @@ export function BrowserParentFolderRow({
     <tr
       className={`${rowHeightClasses} text-slate-600 transition-colors hover:bg-slate-50/70 dark:text-slate-300 dark:hover:bg-slate-800/40`}
     >
-      <td className={`px-2 ${rowCellClasses} !align-middle`} />
+      <td className={` ${rowCellClasses} !align-middle `} />
       <td
-        className={`manager-table-cell min-w-0 px-4 ${rowCellClasses} !align-middle ui-body`}
+        className={`ui-table-primary min-w-0  ${rowCellClasses} !align-middle `}
         style={{ maxWidth: `${nameColumnWidthPx}px` }}
       >
         <button
@@ -195,15 +195,15 @@ export function BrowserParentFolderRow({
       {columns.map((column) => (
         <td
           key={column.id}
-          className={`px-2 ${rowCellClasses} !align-middle ui-body text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis ${
+          className={` ${rowCellClasses} !align-middle whitespace-nowrap overflow-hidden text-ellipsis ui-table-secondary ${
             column.align === "right" ? "text-right" : ""
-          }`}
+          } `}
         >
           -
         </td>
       ))}
       <td
-        className={`px-2 ${rowCellClasses} !align-middle text-right ui-caption text-slate-400`}
+        className={` ${rowCellClasses} !align-middle text-right ui-table-secondary `}
       />
     </tr>
   );

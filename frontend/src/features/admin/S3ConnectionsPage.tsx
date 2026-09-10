@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { Dispatch, FormEvent, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
@@ -28,7 +29,7 @@ import {
   uiPanelMutedClass,
   uiTitleTextClass,
 } from "../../components/ui/styles";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
 import UserAvatar from "../../components/UserAvatar";
@@ -47,20 +48,7 @@ import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import { extractApiError } from "../../utils/apiError";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
-import {
-  AdminAssociationCheckboxOptions,
-  AdminAssociationPickerPanel,
-  AdminAssociationSectionHeader,
-  adminAssociationTableClass as associationTableClass,
-  adminAssociationTableActionCellClass,
-  adminAssociationTableBodyClass,
-  adminAssociationTableContainerClass as associationTableContainerClass,
-  adminAssociationTableEmptyCellClass,
-  adminAssociationTableHeaderClass,
-  adminAssociationTableHeadClass,
-  adminAssociationTableHeaderRightClass,
-  adminAssociationTableLabelCellClass,
-} from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import S3ConnectionEndpointFields from "../shared/S3ConnectionEndpointFields";
 import S3ConnectionCredentialFields from "../shared/S3ConnectionCredentialFields";
 import S3CredentialsValidationMessage from "../shared/S3CredentialsValidationMessage";
@@ -878,14 +866,14 @@ export default function S3ConnectionsPage() {
         />
       ),
       render: (connection) => (
-        <input
+        <label className="ui-list-selection"><input
           type="checkbox"
           aria-label={`Select connection ${connection.name}`}
           checked={selectedIdSet.has(connection.id)}
           onChange={() => toggleRowSelection(connection.id)}
           disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
           className={selectionCheckboxClass}
-        />
+        /></label>
       ),
     },
     {
@@ -929,17 +917,11 @@ export default function S3ConnectionsPage() {
         const remediationRequired = connection.execution_status === "remediation_required";
         const isActive = connection.is_active !== false && !remediationRequired;
         return (
-          <span
-            className={`rounded-full px-2 py-1 ui-caption font-semibold ${
-              remediationRequired
-                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                : isActive
-                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-                : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-            }`}
+          <ListBadge
+            tone={remediationRequired ? "warning" : isActive ? "success" : "neutral"}
           >
             {remediationRequired ? "Remediation required" : isActive ? "Active" : "Inactive"}
-          </span>
+          </ListBadge>
         );
       },
     },
@@ -972,10 +954,9 @@ export default function S3ConnectionsPage() {
         const remediationRequired = connection.execution_status === "remediation_required";
         const isActive = connection.is_active !== false;
         return (
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
+          <ListActions>
+            <ListActionButton
               type="button"
-              className={tableActionButtonClasses}
               onClick={() => void submitToggleConnectionStatus(connection)}
               disabled={
                 statusBusyId === connection.id ||
@@ -992,23 +973,22 @@ export default function S3ConnectionsPage() {
                   : isActive
                     ? "Deactivate"
                     : "Activate"}
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
-              className={tableActionButtonClasses}
               onClick={() => openEdit(connection)}
               {...dataTableDefaultActionProps}
             >
               Edit
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
-              className={tableDeleteActionClasses}
+               variant="danger"
               onClick={() => setDeleteTarget(connection)}
             >
               Delete
-            </button>
-          </div>
+            </ListActionButton>
+          </ListActions>
         );
       },
     },
@@ -1016,7 +996,7 @@ export default function S3ConnectionsPage() {
 
   return (
     <div className={workflowPageHostClass(showCreateModal || Boolean(editing))}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="Shared S3 Connections"
         description="Admin-managed S3 connections shared with linked UI users."
         breadcrumbs={adminPageBreadcrumbs("shared-connections")}
@@ -1062,32 +1042,30 @@ export default function S3ConnectionsPage() {
               {selectedIds.length} selected
               {hiddenSelectedCount > 0 ? ` (${hiddenSelectedCount} not visible)` : ""}
             </span>
-            <div className="flex items-center gap-2">
-              <button
+            <ListActions>
+              <ListActionButton
                 type="button"
-                className={tableActionButtonClasses}
                 onClick={() => void submitBulkActivate()}
                 disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
               >
                 {bulkActivateBusy ? "Activating..." : "Activate selected"}
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton
                 type="button"
-                className={tableActionButtonClasses}
                 onClick={() => void submitBulkDisable()}
                 disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
               >
                 {bulkDisableBusy ? "Disabling..." : "Disable selected"}
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton
                 type="button"
-                className={tableDeleteActionClasses}
+                 variant="danger"
                 onClick={() => setBulkDeleteOpen(true)}
                 disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
               >
                 Delete selected
-              </button>
-            </div>
+              </ListActionButton>
+            </ListActions>
           </div>
         )}
         <DataTableShell
@@ -1100,7 +1078,7 @@ export default function S3ConnectionsPage() {
           emptyMessage="No connections."
           primaryColumnId="name"
           responsiveCards
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           pagination={{
             page,
             pageSize,
@@ -1359,36 +1337,36 @@ export default function S3ConnectionsPage() {
                   onAction={() => setShowEditUserPanel((prev) => !prev)}
                 />
                 <div className={associationTableContainerClass}>
-                  <table className={associationTableClass}>
-                    <thead className={adminAssociationTableHeadClass}>
+                  <table className="ui-data-table">
+                    <thead>
                       <tr>
-                        <th className={adminAssociationTableHeaderClass}>
+                        <th className="text-left">
                           User
                         </th>
-                        <th className={adminAssociationTableHeaderRightClass}>
+                        <th className="w-px whitespace-nowrap text-right">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className={adminAssociationTableBodyClass}>
+                    <tbody>
                       {linkedEditUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={2} className={adminAssociationTableEmptyCellClass}>
+                          <td colSpan={2} className="ui-table-secondary">
                             No linked users yet.
                           </td>
                         </tr>
                       ) : (
                         linkedEditUsers.map((user) => (
                           <tr key={user.id}>
-                            <td className={adminAssociationTableLabelCellClass}>{user.label}</td>
-                            <td className={adminAssociationTableActionCellClass}>
-                              <button
+                            <td className="ui-table-primary">{user.label}</td>
+                            <td className="ui-table-actions-cell w-px text-right">
+                              <ListActionButton
                                 type="button"
                                 onClick={() => setEditLinkedUserIds((prev) => prev.filter((id) => id !== user.id))}
-                                className={tableDeleteActionClasses}
+                                 variant="danger"
                               >
                                 Remove
-                              </button>
+                              </ListActionButton>
                             </td>
                           </tr>
                         ))
@@ -1444,36 +1422,36 @@ export default function S3ConnectionsPage() {
                   onAction={() => setShowEditGroupPanel((prev) => !prev)}
                 />
                 <div className={associationTableContainerClass}>
-                  <table className={associationTableClass}>
-                    <thead className={adminAssociationTableHeadClass}>
+                  <table className="ui-data-table">
+                    <thead>
                       <tr>
-                        <th className={adminAssociationTableHeaderClass}>
+                        <th className="text-left">
                           Group
                         </th>
-                        <th className={adminAssociationTableHeaderRightClass}>
+                        <th className="w-px whitespace-nowrap text-right">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className={adminAssociationTableBodyClass}>
+                    <tbody>
                       {linkedEditGroups.length === 0 ? (
                         <tr>
-                          <td colSpan={2} className={adminAssociationTableEmptyCellClass}>
+                          <td colSpan={2} className="ui-table-secondary">
                             No linked groups yet.
                           </td>
                         </tr>
                       ) : (
                         linkedEditGroups.map((group) => (
                           <tr key={group.id}>
-                            <td className={adminAssociationTableLabelCellClass}>{group.label}</td>
-                            <td className={adminAssociationTableActionCellClass}>
-                              <button
+                            <td className="ui-table-primary">{group.label}</td>
+                            <td className="ui-table-actions-cell w-px text-right">
+                              <ListActionButton
                                 type="button"
                                 onClick={() => setEditLinkedGroupIds((prev) => prev.filter((id) => id !== group.id))}
-                                className={tableDeleteActionClasses}
+                                 variant="danger"
                               >
                                 Remove
-                              </button>
+                              </ListActionButton>
                             </td>
                           </tr>
                         ))

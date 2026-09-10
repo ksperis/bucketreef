@@ -19,15 +19,7 @@ import { cx, uiCardMutedClass, uiMutedTextClass, uiTitleTextClass } from "../../
 import UiProgressBar from "../../components/ui/UiProgressBar";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
-import {
-  BucketOperationSummaryStat,
-  bucketOperationTableBodyClass,
-  bucketOperationTableClass,
-  bucketOperationTableContainerClass,
-  bucketOperationTableHeadClass,
-  bucketOperationTableHeaderClass,
-  bucketOperationTableHeaderRightClass,
-} from "./bucketOperationRunUi";
+import { BucketOperationSummaryStat, bucketOperationTableContainerClass } from "./bucketOperationRunUi";
 import {
   buildStorageOpsBucketTargets,
   type BucketOperationUiTarget,
@@ -238,24 +230,24 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
               <BucketOperationSummaryStat label="Failed buckets" value={formatCompactNumber(result.failed_buckets)} />
             </div>
             <div className={bucketOperationTableContainerClass}>
-              <table className={bucketOperationTableClass}>
-                <thead className={bucketOperationTableHeadClass}>
+              <table className="ui-data-table">
+                <thead>
                   <tr>
-                    <th className={bucketOperationTableHeaderClass}>Bucket</th>
-                    <th className={bucketOperationTableHeaderClass}>Status</th>
-                    <th className={bucketOperationTableHeaderRightClass}>Bytes</th>
-                    <th className={bucketOperationTableHeaderRightClass}>Versions</th>
-                    <th className={bucketOperationTableHeaderClass}>Notes</th>
+                    <th className="text-left">Bucket</th>
+                    <th className="text-left">Status</th>
+                    <th className="text-right">Bytes</th>
+                    <th className="text-right">Versions</th>
+                    <th className="text-left">Notes</th>
                   </tr>
                 </thead>
-                <tbody className={bucketOperationTableBodyClass}>
+                <tbody>
                   {result.buckets.map((bucket) => (
                     <tr key={`${bucket.context_id ?? ""}:${bucket.bucket_name}`}>
-                      <td className="px-4 py-2 font-semibold text-slate-900 dark:text-slate-100">{bucket.bucket_name}</td>
-                      <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{bucket.status.replace(/_/g, " ")}</td>
-                      <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">{formatBytes(bucket.snapshot?.total_bytes ?? 0)}</td>
-                      <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">{formatCompactNumber(bucket.snapshot?.object_version_count ?? 0)}</td>
-                      <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{bucket.message || bucket.snapshot?.warnings?.[0] || "-"}</td>
+                      <td className="ui-table-primary">{bucket.bucket_name}</td>
+                      <td className="ui-table-secondary">{bucket.status.replace(/_/g, " ")}</td>
+                      <td className="text-right ui-table-secondary">{formatBytes(bucket.snapshot?.total_bytes ?? 0)}</td>
+                      <td className="text-right ui-table-secondary">{formatCompactNumber(bucket.snapshot?.object_version_count ?? 0)}</td>
+                      <td className="ui-table-secondary">{bucket.message || bucket.snapshot?.warnings?.[0] || "-"}</td>
                     </tr>
                   ))}
                 </tbody>

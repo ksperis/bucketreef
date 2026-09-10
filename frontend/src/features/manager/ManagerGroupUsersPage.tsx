@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { S3AccountSelector } from "../../api/accountParams";
@@ -135,7 +136,7 @@ export default function ManagerGroupUsersPage() {
 
   if (isS3User) {
     return (
-      <PageShell
+      <PageShell actionPresentation="listing"
           title="Group members"
           description="Manage IAM group membership."
           breadcrumbs={managerPageBreadcrumbs("groups", { label: "Users" })}
@@ -184,20 +185,19 @@ export default function ManagerGroupUsersPage() {
       align: "right",
       mobileRole: "actions",
       render: (user) => (
-        <button
+        <ListActionButton variant="danger"
           type="button"
           onClick={() => handleRemove(user.name)}
-          className="ui-caption font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-60 dark:text-rose-200 dark:hover:text-rose-100"
           disabled={busy === user.name}
         >
           {busy === user.name ? "Removing..." : "Remove"}
-        </button>
+        </ListActionButton>
       ),
     },
   ];
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="Group members"
       description={
         <>
@@ -265,7 +265,7 @@ export default function ManagerGroupUsersPage() {
           loadingMessage="Loading members..."
           errorMessage="Unable to load users."
           emptyMessage="No members in this group."
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           responsiveCards
         />
       </div>

@@ -83,8 +83,8 @@ function cellClassName(
     column.id === "select"
       ? ""
       : column.id === "name"
-        ? "manager-table-cell ui-body font-semibold text-slate-900 dark:text-slate-100"
-        : "ui-body text-slate-600 dark:text-slate-300";
+        ? "ui-table-primary"
+        : "ui-table-secondary";
   const detailLoadingCellClass =
     loadingDetails && detailLoadingColumnIds.has(column.id)
       ? column.expensive
@@ -113,7 +113,7 @@ export default function BucketOpsTable({
 }: BucketOpsTableProps) {
   return (
     <div className={showAdvancedFilter ? "overflow-x-hidden" : "overflow-x-auto"}>
-      <table className="manager-table !table-auto !w-max min-w-full divide-y divide-slate-200 dark:divide-slate-800">
+      <table className="ui-data-table !table-auto !w-max min-w-full divide-y divide-slate-200 dark:divide-slate-800">
         <thead className="bg-slate-50 dark:bg-slate-900/50">
           <tr>
             {columns.map((column) => {
@@ -126,9 +126,9 @@ export default function BucketOpsTable({
                 return (
                   <th
                     key={column.id}
-                    className={`py-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${
+                    className={`${
                       column.align === "right" ? "text-right" : "text-left"
-                    } ${column.id === "select" ? "w-10 px-3" : "px-6"} ${className}`}
+                    } ${column.id === "select" ? "w-10" : ""} ${className}`}
                   >
                     <div className="flex items-start">
                       {column.header ?? column.label}

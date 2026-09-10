@@ -302,7 +302,7 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(usersTab);
 
     fireEvent.click(await screen.findByRole("button", { name: "Add UI users" }));
-    expect(screen.getByRole("textbox", { name: "Search UI users" })).toHaveClass("ui-caption");
+    expect(screen.getByRole("textbox", { name: "Search UI users" })).toHaveClass("ui-list-control");
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
       name: "Manager role for ui7@example.com",
     });
@@ -351,7 +351,7 @@ describe("AccountsPage modal tabs", () => {
 
     expect(screen.getByText("No linked groups yet.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
-    expect(screen.getByRole("textbox", { name: "Search UI groups" })).toHaveClass("ui-caption");
+    expect(screen.getByRole("textbox", { name: "Search UI groups" })).toHaveClass("ui-list-control");
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
       name: "Manager role for Research Group",
     });

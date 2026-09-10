@@ -62,7 +62,7 @@ export const advancedFilterFieldCardClass = (className: string = "") =>
   `rounded-lg border border-slate-200 p-3 dark:border-slate-700${className ? ` ${className}` : ""}`;
 
 const advancedFilterControlBaseClass =
-  "rounded-md border border-slate-200 ui-caption text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+  "ui-list-control rounded-md border border-slate-200 ui-caption text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
 export const advancedFilterControlClass = (className: string = "", disabled: boolean = false) => {
   const disabledClass = disabled
@@ -71,28 +71,18 @@ export const advancedFilterControlClass = (className: string = "", disabled: boo
   return `${advancedFilterControlBaseClass}${disabledClass}${className ? ` ${className}` : ""}`;
 };
 
-export const advancedFilterMatchModeButtonClass = (active: boolean, locked: boolean = false) => {
-  if (locked) {
-    if (active) {
-      return "cursor-not-allowed rounded-md border border-primary-300 bg-primary-100 px-2 py-1 ui-caption font-semibold text-primary-700 opacity-80 dark:border-primary-500/50 dark:bg-primary-500/20 dark:text-primary-100";
-    }
-    return "cursor-not-allowed rounded-md border border-slate-200 bg-white px-2 py-1 ui-caption font-semibold text-slate-400 opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500";
-  }
-  if (active) {
-    return "rounded-md border border-primary-300 bg-primary-100 px-2 py-1 ui-caption font-semibold text-primary-700 dark:border-primary-500/50 dark:bg-primary-500/20 dark:text-primary-100";
-  }
-  return "rounded-md border border-slate-200 bg-white px-2 py-1 ui-caption font-semibold text-slate-600 hover:border-primary hover:text-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-primary-500 dark:hover:text-primary-100";
-};
+export const advancedFilterMatchModeButtonClass = (active: boolean, locked: boolean = false) =>
+  `ui-list-action${active ? " ui-list-action-active" : ""}${locked ? " cursor-not-allowed opacity-70" : ""}`;
 
 export const advancedFilterToolbarButtonClass = (active: boolean = false) => {
   if (active) {
-    return `${toolbarCompactButtonClasses} border-primary/40 bg-primary-50 text-primary-700 dark:border-primary-400/40 dark:bg-primary-500/10 dark:text-primary-100`;
+    return `${toolbarCompactButtonClasses} ui-list-action-active`;
   }
   return toolbarCompactButtonClasses;
 };
 
 export const advancedFilterSummaryChipClass =
-  "rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 ui-caption font-semibold text-primary-700 dark:border-primary-400/40 dark:bg-primary-500/15 dark:text-primary-100";
+  "ui-list-badge border border-primary/30 bg-primary/10 text-primary-700 dark:border-primary-400/40 dark:bg-primary-500/15 dark:text-primary-100";
 
 type AdvancedFilterSummaryItem = {
   id: string;
@@ -119,13 +109,13 @@ export const renderAdvancedFilterDraftSummary = (items: AdvancedFilterSummaryIte
 );
 
 const advancedFilterHeaderBadgeClass =
-  "rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 ui-caption font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
+  "ui-list-badge border border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
 
 export const advancedFilterSyncBadgeClass = (pending: boolean) => {
   if (pending) {
-    return "rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 ui-caption font-semibold text-amber-800 dark:border-amber-500/50 dark:bg-amber-500/20 dark:text-amber-200";
+    return "ui-list-badge border border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-500/50 dark:bg-amber-500/20 dark:text-amber-200";
   }
-  return "rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 ui-caption font-semibold text-emerald-800 dark:border-emerald-500/50 dark:bg-emerald-500/20 dark:text-emerald-200";
+  return "ui-list-badge border border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-500/50 dark:bg-emerald-500/20 dark:text-emerald-200";
 };
 
 export const renderAdvancedFilterRuleCountBadge = (count: number) => (
@@ -142,26 +132,6 @@ export const renderAdvancedFilterCostBadge = (level: FilterCostLevel, tooltip: s
 );
 
 export const formatAdvancedFilterSyncLabel = (pending: boolean) => (pending ? "Unsaved changes" : "In sync");
-
-const quickFilterMatchModeBaseClass =
-  "absolute right-1 top-1 rounded border px-1 py-0 ui-caption font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-0";
-
-export const quickFilterMatchModeButtonClass = (
-  mode: TextMatchMode,
-  isPending: boolean,
-  locked: boolean = false
-) => {
-  if (locked) {
-    return `${quickFilterMatchModeBaseClass} cursor-not-allowed border-primary-400 bg-primary-100 text-primary-700 opacity-80 dark:border-primary-400/60 dark:bg-primary-500/20 dark:text-primary-100`;
-  }
-  if (isPending) {
-    return `${quickFilterMatchModeBaseClass} border-amber-400 bg-amber-100 text-amber-700 focus:ring-amber-300 dark:border-amber-400/60 dark:bg-amber-500/20 dark:text-amber-200`;
-  }
-  if (mode === "exact") {
-    return `${quickFilterMatchModeBaseClass} border-primary-400 bg-primary-100 text-primary-700 focus:ring-primary/35 dark:border-primary-400/60 dark:bg-primary-500/20 dark:text-primary-100`;
-  }
-  return `${quickFilterMatchModeBaseClass} border-slate-200 bg-white text-slate-500 hover:border-primary hover:text-primary focus:ring-primary/30 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-primary-500 dark:hover:text-primary-100`;
-};
 
 export const formatQuickFilterMatchModeTitle = (mode: TextMatchMode, locked: boolean = false) => {
   if (locked) return "Quick filter mode: exact (locked by list input)";

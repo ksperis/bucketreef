@@ -4,19 +4,10 @@
 .storage-endpoint-list .endpoint-connection-cell { width: 150px; }
 .storage-endpoint-list .endpoint-services-cell { width: 180px; }
 .storage-endpoint-list .endpoint-actions-cell { width: 236px; }
-.storage-endpoint-list .endpoint-table td { padding-top: 4px; padding-bottom: 4px; }
 .endpoint-identity, .endpoint-summary { display: grid; min-width: 0; gap: 1px; }
-.endpoint-identity .endpoint-status-badge { padding-top: 0; padding-bottom: 0; line-height: 16px; }
 .endpoint-name, .endpoint-url { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .endpoint-url { color: var(--ui-text-muted); font-weight: 400; }
 .endpoint-services { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.endpoint-actions { display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
-.storage-endpoint-list button, .storage-endpoint-list .ui-control {
-  min-height: var(--settings-control-height);
-}
-.storage-endpoint-list button { min-width: var(--settings-control-height); }
-.storage-endpoint-list .ui-button-base { font-size: var(--settings-caption-size); font-weight: var(--settings-text-weight); }
-.storage-endpoint-list .endpoint-search input { padding-right: calc(var(--settings-control-height) + 8px); }
 @media (min-width: 768px) {
   .storage-endpoint-list .endpoint-table { min-width: 950px; }
   .storage-endpoint-list .endpoint-table tbody tr { height: 60px; }

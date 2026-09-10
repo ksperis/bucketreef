@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -24,7 +25,7 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { toolbarCompactToggleClasses } from "../../components/toolbarControlClasses";
 import { cx, uiButtonBaseClass, uiButtonVariants, uiCheckboxClass, uiInputClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
@@ -68,16 +69,10 @@ function resolveTokenStatus(token: ApiTokenInfo): TokenStatus {
 }
 
 function StatusBadge({ status }: { status: TokenStatus }) {
-  const classes =
-    status === "active"
-      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100"
-      : status === "expired"
-        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100"
-        : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-100";
   return (
-    <span className={`inline-flex rounded-full px-2 py-1 ui-caption font-semibold uppercase tracking-wide ${classes}`}>
+    <ListBadge tone={status === "active" ? "success" : status === "expired" ? "warning" : "neutral"} className="uppercase tracking-wide">
       {status}
-    </span>
+    </ListBadge>
   );
 }
 
@@ -334,14 +329,14 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
         const status = resolveTokenStatus(token);
         const isBusy = busyTokenId === token.id;
         return status === "active" ? (
-          <button
+          <ListActionButton
             type="button"
             onClick={() => handleRevoke(token)}
             disabled={isBusy}
-            className={tableDeleteActionClasses}
+             variant="danger"
           >
             {isBusy ? "Revoking..." : "Revoke"}
-          </button>
+          </ListActionButton>
         ) : (
           <span className="ui-caption text-slate-400 dark:text-slate-500">-</span>
         );
@@ -352,7 +347,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
   return (
     <div className="space-y-4">
       {showPageHeader ? (
-        <PageHeader
+        <PageHeader actionPresentation="listing"
           title="API tokens"
           description="Manage long-lived admin tokens for automation and integrations."
           breadcrumbs={adminPageBreadcrumbs("api-tokens")}
@@ -445,7 +440,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
           loadingMessage="Loading API tokens..."
           errorMessage={loadError ?? "Unable to load API tokens."}
           emptyMessage="No API tokens."
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           responsiveCards
         />
       </ListPageSection>

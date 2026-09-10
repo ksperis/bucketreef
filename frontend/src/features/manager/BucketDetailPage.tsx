@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -190,14 +191,10 @@ const bucketFeatureLabelClass =
   "flex flex-col gap-1 ui-caption font-medium text-slate-700 dark:text-slate-200";
 const bucketDetailHintClass = "ui-caption text-slate-500 dark:text-slate-400";
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
-const bucketDetailTableHeaderClass =
-  "px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
-const bucketDetailWideTableHeaderClass =
-  "px-4 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
-const bucketDetailTableCellClass =
-  "px-4 py-2 text-slate-600 dark:text-slate-300";
-const bucketDetailCompactCellClass =
-  "px-3 py-1.5 text-slate-700 dark:text-slate-200";
+
+
+
+
 const bucketDetailCompactStackClass = "space-y-2";
 const bucketDetailDividerClass =
   "divide-y divide-slate-200 dark:divide-slate-800";
@@ -210,7 +207,7 @@ const bucketDetailMutedTitleClass =
   "ui-caption font-semibold text-slate-700 dark:text-slate-100";
 const bucketDetailSectionStackClass = "space-y-4";
 const bucketDetailStackClass = "space-y-3";
-const bucketDetailTableButtonCellClass = "px-3 py-2 text-left";
+
 const bucketDetailTextActionClass =
   "ui-caption font-semibold text-primary hover:text-primary-600 disabled:opacity-60";
 const bucketDetailTightStackClass = "space-y-1";
@@ -1517,19 +1514,19 @@ function BucketDetailPageContent({
                     )}
 
                     <div className={uiTableContainerClass}>
-                      <table className={cx(uiDataTableClass, "min-w-full ui-body")}>
+                      <table className={uiDataTableClass}>
                         <thead>
                           <tr>
-                            <th className={bucketDetailWideTableHeaderClass}>
+                            <th className="text-left">
                               Name
                             </th>
-                            <th className={bucketDetailWideTableHeaderClass}>
+                            <th className="text-left">
                               Size
                             </th>
-                            <th className={bucketDetailWideTableHeaderClass}>
+                            <th className="text-left">
                               Last modified
                             </th>
-                            <th className={bucketDetailWideTableHeaderClass}>
+                            <th className="text-left">
                               Storage class
                             </th>
                           </tr>
@@ -1537,14 +1534,14 @@ function BucketDetailPageContent({
                         <tbody className={bucketDetailDividerClass}>
                           {objectsLoading && (
                             <tr>
-                              <td colSpan={4} className="px-4 py-3 ui-body text-slate-500 dark:text-slate-400">
+                              <td colSpan={4} className="ui-table-secondary">
                                 Loading objects...
                               </td>
                             </tr>
                           )}
                           {!objectsLoading && objectRows.length === 0 && (
                             <tr>
-                              <td colSpan={4} className="px-4 py-3 ui-body text-slate-500 dark:text-slate-400">
+                              <td colSpan={4} className="ui-table-secondary">
                                 No objects in this prefix.
                               </td>
                             </tr>
@@ -1558,23 +1555,23 @@ function BucketDetailPageContent({
                                     className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
                                     onClick={() => openObjectsPrefix(row.key)}
                                   >
-                                    <td className="px-4 py-2 font-semibold text-slate-900 dark:text-slate-100">
+                                    <td className="ui-table-primary">
                                       📁 {row.name}
                                     </td>
-                                    <td className={bucketDetailTableCellClass}>—</td>
-                                    <td className={bucketDetailTableCellClass}>—</td>
-                                    <td className={bucketDetailTableCellClass}>—</td>
+                                    <td className="ui-table-secondary">—</td>
+                                    <td className="ui-table-secondary">—</td>
+                                    <td className="ui-table-secondary">—</td>
                                   </tr>
                                 );
                               }
                               return (
                                 <tr key={row.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                  <td className="px-4 py-2 font-semibold text-slate-900 dark:text-slate-100">{row.name}</td>
-                                  <td className={bucketDetailTableCellClass}>{formatBytes(row.object.size)}</td>
-                                  <td className={bucketDetailTableCellClass}>
+                                  <td className="ui-table-primary">{row.name}</td>
+                                  <td className="ui-table-secondary">{formatBytes(row.object.size)}</td>
+                                  <td className="ui-table-secondary">
                                     {row.object.last_modified ? new Date(row.object.last_modified).toLocaleString() : "-"}
                                   </td>
-                                  <td className={bucketDetailTableCellClass}>{row.object.storage_class ?? "-"}</td>
+                                  <td className="ui-table-secondary">{row.object.storage_class ?? "-"}</td>
                                 </tr>
                               );
                             })}
@@ -1907,22 +1904,22 @@ function BucketDetailPageContent({
                           <p className={bucketDetailMutedBodyClass}>No rules configured on this bucket.</p>
                         ) : (
                           <div className="overflow-x-auto">
-                            <table className={cx(uiDataTableClass, "min-w-full ui-caption")}>
+                            <table className={uiDataTableClass}>
                               <thead>
                                 <tr>
-                                  <th className={bucketDetailTableHeaderClass}>
+                                  <th className="text-left">
                                     ID
                                   </th>
-                                  <th className={bucketDetailTableHeaderClass}>
+                                  <th className="text-left">
                                     Status
                                   </th>
-                                  <th className={bucketDetailTableHeaderClass}>
+                                  <th className="text-left">
                                     Filter
                                   </th>
-                                  <th className={bucketDetailTableHeaderClass}>
+                                  <th className="text-left">
                                     Actions
                                   </th>
-                                  <th className={bucketDetailTableHeaderClass}>
+                                  <th className="text-left">
                                     Manage
                                   </th>
                                 </tr>
@@ -1938,35 +1935,30 @@ function BucketDetailPageContent({
                                       key={`${ruleId ?? lifecycleRulePrefix(rule) ?? "rule"}-${idx}`}
                                       className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
                                     >
-                                      <td className="px-3 py-1.5 font-semibold text-slate-900 dark:text-slate-100">
+                                      <td className="ui-table-primary">
                                         {ruleId ?? "(no ID)"}
                                       </td>
-                                      <td className={bucketDetailCompactCellClass}>
-                                        <button
+                                      <td >
+                                        <ListActionButton
                                           type="button"
                                           onClick={() => toggleLifecycleRuleStatus(idx)}
-                                          className={`flex items-center gap-2 rounded-full px-3 py-1 ui-caption font-semibold ${
-                                            status === "Disabled"
-                                              ? "border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-200"
-                                              : "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100"
-                                          }`}
+                                          variant={status === "Disabled" ? "secondary" : "success"}
                                           disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
                                         >
                                           {status}
-                                        </button>
+                                        </ListActionButton>
                                       </td>
-                                      <td className={bucketDetailCompactCellClass}>{filterLabel}</td>
-                                      <td className={bucketDetailCompactCellClass}>{describeLifecycleActions(rule)}</td>
-                                      <td className={bucketDetailCompactCellClass}>
+                                      <td >{filterLabel}</td>
+                                      <td >{describeLifecycleActions(rule)}</td>
+                                      <td >
                                         <div className={bucketDetailWrapActionsClass}>
-                                          <button
+                                          <ListActionButton variant="danger"
                                             type="button"
                                             onClick={() => deleteLifecycleRule(idx)}
-                                            className="rounded border border-rose-200 px-2 py-1 ui-caption font-semibold text-rose-700 hover:border-rose-300 hover:text-rose-800 dark:border-rose-900/40 dark:text-rose-100"
                                             disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
                                           >
                                             Delete
-                                          </button>
+                                          </ListActionButton>
                                         </div>
                                       </td>
                                     </tr>
@@ -2393,12 +2385,12 @@ function BucketDetailPageContent({
                       </p>
                       {(bucketAcl?.grants?.length ?? 0) > 0 ? (
                         <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800">
+                          <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800">
                             <thead className="bg-slate-50 ui-caption uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
                               <tr>
-                                <th className={bucketDetailTableButtonCellClass}>Grantee</th>
-                                <th className={bucketDetailTableButtonCellClass}>Type</th>
-                                <th className={bucketDetailTableButtonCellClass}>Permission</th>
+                                <th className="text-left">Grantee</th>
+                                <th className="text-left">Type</th>
+                                <th className="text-left">Permission</th>
                               </tr>
                             </thead>
                             <tbody className={bucketDetailDividerClass}>
@@ -2411,9 +2403,9 @@ function BucketDetailPageContent({
                                   grantee.type;
                                 return (
                                   <tr key={`${grantee.type}-${grantee.id ?? grantee.uri ?? index}`}>
-                                    <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{label}</td>
-                                    <td className="px-3 py-2 ui-caption text-slate-500 dark:text-slate-400">{grantee.type}</td>
-                                    <td className="px-3 py-2 ui-body font-semibold text-slate-800 dark:text-slate-100">{grant.permission}</td>
+                                    <td>{label}</td>
+                                    <td className="ui-table-secondary">{grantee.type}</td>
+                                    <td className="ui-table-primary">{grant.permission}</td>
                                   </tr>
                                 );
                               })}
@@ -3094,9 +3086,9 @@ function BucketDetailPageContent({
                         testId="bucket-feature-quota"
                         actions={
                           quotaSectionRestricted ? (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 ui-caption font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            <ListBadge tone="neutral">
                               Restricted
-                            </span>
+                            </ListBadge>
                           ) : canEditQuota ? (
                             <button
                               type="submit"

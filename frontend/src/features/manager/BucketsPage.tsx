@@ -2,9 +2,10 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { isApiError } from "../../api/client";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
@@ -42,7 +43,7 @@ import DataTableShell, {
 } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import UiMeterBar from "../../components/ui/UiMeterBar";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
@@ -471,17 +472,17 @@ export default function BucketsPage() {
       >
         <div className="flex flex-wrap gap-1.5">
           {shown.map((t) => (
-            <span
+            <ListBadge
               key={`${t.key}:${t.value}`}
-              className="rounded-full bg-slate-100 px-2 py-0.5 ui-caption font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              tone="neutral"
             >
               {t.key}={t.value}
-            </span>
+            </ListBadge>
           ))}
           {remaining > 0 && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 ui-caption font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            <ListBadge tone="neutral">
               +{remaining}
-            </span>
+            </ListBadge>
           )}
         </div>
       </BucketSummaryTooltip>
@@ -860,25 +861,25 @@ export default function BucketsPage() {
             : null;
         const deleteLabel = containsObjects && canDeleteBucketWithPurge ? "Purge and Delete" : "Delete";
         const deleteButton = (
-          <button
+          <ListActionButton
             onClick={() => requestDelete(bucket.name)}
-            className={`${tableDeleteActionClasses} whitespace-nowrap`}
+             variant="danger" className={`whitespace-nowrap`}
             disabled={deletingBucket === bucket.name || Boolean(deleteDisabledReason)}
           >
             {deletingBucket === bucket.name ? "Deleting..." : deleteLabel}
-          </button>
+          </ListActionButton>
         );
         return (
-          <div className="flex flex-nowrap justify-end gap-2">
-            <Link
+          <ListActions className="flex-nowrap">
+            <ListActionLink
               to={`/manager/buckets/${encodeURIComponent(bucket.name)}`}
-              className={`${tableActionButtonClasses} whitespace-nowrap`}
+               className={`whitespace-nowrap`}
               {...dataTableDefaultActionProps}
             >
               Configure
-            </Link>
+            </ListActionLink>
             {deleteDisabledReason ? <span title={deleteDisabledReason}>{deleteButton}</span> : deleteButton}
-          </div>
+          </ListActions>
         );
       },
     });
@@ -920,7 +921,7 @@ export default function BucketsPage() {
 
   return (
     <div className={workflowPageHostClass(Boolean(showWizard || pendingDeleteWithPurgeBucketName))}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="Buckets"
         description="Bucket inventory and configuration for the active manager context."
         breadcrumbs={managerPageBreadcrumbs("buckets")}

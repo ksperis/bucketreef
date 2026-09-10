@@ -131,7 +131,7 @@ export default function PoliciesPage() {
 
   return (
     <div className={workflowPageHostClass(showAdvancedModal)}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="IAM Policies"
         description="List and create Ceph IAM policies for the selected account."
         breadcrumbs={managerPageBreadcrumbs("policies")}

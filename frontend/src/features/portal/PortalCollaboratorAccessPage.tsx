@@ -2,8 +2,9 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { revokePortalStorageSpaceShare } from "../../api/portalSharing";
 import {
@@ -20,10 +21,7 @@ import DataTableShell, {
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
-import {
-  tableActionButtonClasses,
-  tableDeleteActionClasses,
-} from "../../components/tableActionClasses";
+
 import UiBadge from "../../components/ui/UiBadge";
 import UiCard from "../../components/ui/UiCard";
 import UserAvatar from "../../components/UserAvatar";
@@ -182,25 +180,25 @@ export default function PortalCollaboratorAccessPage() {
         align: "right",
         mobileRole: "actions",
         render: (access) => (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Link
+          <ListActions>
+            <ListActionLink
               to={`/portal/storage-spaces/${encodeURIComponent(access.storage_space_id)}`}
-              className={tableActionButtonClasses}
+
               {...dataTableDefaultActionProps}
             >
               {t({ en: "Open", fr: "Ouvrir", de: "Öffnen" })}
-            </Link>
+            </ListActionLink>
             {access.can_revoke ? (
-              <button
+              <ListActionButton
                 type="button"
-                className={tableDeleteActionClasses}
+                 variant="danger"
                 disabled={busy}
                 onClick={() => setPendingAction({ type: "revoke-access", access })}
               >
                 {t({ en: "Remove access", fr: "Retirer l'accès", de: "Zugriff entfernen" })}
-              </button>
+              </ListActionButton>
             ) : null}
-          </div>
+          </ListActions>
         ),
       },
     ],
@@ -322,7 +320,7 @@ export default function PortalCollaboratorAccessPage() {
   });
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title={title}
       description={t({
         en: "Review effective access across active Storage Spaces and remove eligible direct grants.",

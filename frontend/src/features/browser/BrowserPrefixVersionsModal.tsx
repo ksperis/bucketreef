@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import Modal from "../../components/Modal";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import {
@@ -10,7 +11,7 @@ import {
   triggerJsonDownload,
 } from "../../utils/download";
 import { formatBytes } from "../../utils/format";
-import { bulkActionClasses, bulkDangerClasses, toolbarButtonClasses } from "./browserConstants";
+
 import { formatDateTime } from "./browserUtils";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 
@@ -110,30 +111,27 @@ export default function BrowserPrefixVersionsModal({
           </span>
           <div className="flex items-center gap-2 ui-caption text-slate-500 dark:text-slate-400">
             {prefixVersionsLoading && <span>Loading...</span>}
-            <button
+            <ListActionButton
               type="button"
-              className={toolbarButtonClasses}
               onClick={handleExportCsv}
               disabled={prefixVersionsLoading || prefixVersionRows.length === 0}
             >
               Export CSV
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
-              className={toolbarButtonClasses}
               onClick={handleExportJson}
               disabled={prefixVersionsLoading || prefixVersionRows.length === 0}
             >
               Export JSON
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
-              className={toolbarButtonClasses}
               onClick={onRefresh}
               disabled={!bucketName || prefixVersionsLoading}
             >
               Refresh
-            </button>
+            </ListActionButton>
           </div>
         </div>
         {prefixVersionsError && <UiInlineMessage tone="error">{prefixVersionsError}</UiInlineMessage>}
@@ -151,14 +149,10 @@ export default function BrowserPrefixVersionsModal({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="truncate font-semibold text-slate-800 dark:text-slate-100">{ver.key}</span>
                     {ver.is_delete_marker && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 ui-caption font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-100">
-                        delete marker
-                      </span>
+                      <ListBadge tone="warning">delete marker</ListBadge>
                     )}
                     {ver.is_latest && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 ui-caption font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100">
-                        latest
-                      </span>
+                      <ListBadge tone="success">latest</ListBadge>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-3 ui-caption text-slate-500 dark:text-slate-300">
@@ -171,21 +165,19 @@ export default function BrowserPrefixVersionsModal({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {!ver.is_delete_marker && !ver.is_latest && (
-                    <button
+                    <ListActionButton
                       type="button"
-                      className={bulkActionClasses}
                       onClick={() => onRestoreVersion(ver)}
                     >
                       Restore
-                    </button>
+                    </ListActionButton>
                   )}
-                  <button
+                  <ListActionButton variant="danger"
                     type="button"
-                    className={bulkDangerClasses}
                     onClick={() => onDeleteVersion(ver)}
                   >
                     {ver.is_delete_marker ? "Delete marker" : "Delete version"}
-                  </button>
+                  </ListActionButton>
                 </div>
               </div>
             ))}
@@ -193,14 +185,13 @@ export default function BrowserPrefixVersionsModal({
         </div>
         {canLoadMore && (
           <div className="text-right">
-            <button
+            <ListActionButton
               type="button"
-              className={toolbarButtonClasses}
               onClick={onLoadMore}
               disabled={prefixVersionsLoading}
             >
               Load more versions
-            </button>
+            </ListActionButton>
           </div>
         )}
       </div>

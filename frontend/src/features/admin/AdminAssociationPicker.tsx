@@ -2,35 +2,18 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import type { ReactNode } from "react";
 
 import UiButton from "../../components/ui/UiButton";
-import {
-  cx,
-  uiCardMutedClass,
-  uiDataTableClass,
-  uiMutedTextClass,
-  uiTableContainerClass,
-  uiTitleTextClass,
-} from "../../components/ui/styles";
+import { cx, uiCardMutedClass, uiMutedTextClass, uiTableContainerClass, uiTitleTextClass } from "../../components/ui/styles";
 import { toolbarCompactInputClasses } from "../../components/toolbarControlClasses";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
 
 const adminAssociationAddPanelClass = cx(uiCardMutedClass, "space-y-2 px-3 py-2");
 const adminAssociationCompactInputClass = cx(toolbarCompactInputClasses, "w-44");
 export const adminAssociationCheckboxClass = "h-3 w-3 rounded border-slate-300 text-primary focus:ring-primary";
 export const adminAssociationTableContainerClass = uiTableContainerClass;
-export const adminAssociationTableClass = cx(uiDataTableClass, "compact-table min-w-full");
-export const adminAssociationTableHeadClass = "bg-slate-50 dark:bg-slate-900/50";
-export const adminAssociationTableBodyClass = "divide-y divide-slate-200 dark:divide-slate-800";
-export const adminAssociationTableHeaderClass =
-  "px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
-export const adminAssociationTableHeaderRightClass =
-  "w-px whitespace-nowrap px-3 py-2 text-right ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
-export const adminAssociationTableEmptyCellClass = "px-3 py-3 ui-body text-slate-500 dark:text-slate-400";
-export const adminAssociationTableLabelCellClass = "px-3 py-2 ui-body text-slate-700 dark:text-slate-200";
-export const adminAssociationTableControlCellClass = "px-3 py-2";
-export const adminAssociationTableActionCellClass = "w-px whitespace-nowrap px-3 py-2 text-right";
+
 export const adminAssociationOptionLabelClass = "flex items-center gap-2 ui-body text-slate-700 dark:text-slate-200";
 export const adminAssociationAccountOptionLabelClass =
   "flex min-w-48 items-center gap-2 ui-body text-slate-700 dark:text-slate-200";
@@ -58,15 +41,15 @@ export function AdminAssociationSectionHeader({
   onAction,
 }: AdminAssociationSectionHeaderProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
+    <ListActions className="justify-between">
       <div className="flex items-center gap-2">
         <span className={cx("ui-body font-medium", uiTitleTextClass)}>{title}</span>
         <span className={cx("ui-caption", uiMutedTextClass)}>{countLabel}</span>
       </div>
-      <button type="button" onClick={onAction} className={tableActionButtonClasses}>
+      <ListActionButton type="button" onClick={onAction}>
         {actionLabel}
-      </button>
-    </div>
+      </ListActionButton>
+    </ListActions>
   );
 }
 
@@ -102,16 +85,16 @@ export function AdminAssociationLinkedTable({
         onAction={onAction}
       />
       <div className={adminAssociationTableContainerClass}>
-        <table className={adminAssociationTableClass}>
-          <thead className={adminAssociationTableHeadClass}>
+        <table className="ui-data-table">
+          <thead>
             <tr>
               {headers.map((header, index) => (
                 <th
                   key={index}
                   className={
                     header.align === "right"
-                      ? adminAssociationTableHeaderRightClass
-                      : adminAssociationTableHeaderClass
+                      ? "w-px whitespace-nowrap text-right"
+                      : "text-left"
                   }
                 >
                   {header.label}
@@ -119,12 +102,12 @@ export function AdminAssociationLinkedTable({
               ))}
             </tr>
           </thead>
-          <tbody className={adminAssociationTableBodyClass}>
+          <tbody>
             {hasItems ? (
               rows
             ) : (
               <tr>
-                <td colSpan={headers.length} className={adminAssociationTableEmptyCellClass}>
+                <td colSpan={headers.length} className="ui-table-secondary">
                   {emptyLabel}
                 </td>
               </tr>

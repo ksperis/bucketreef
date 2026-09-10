@@ -2,25 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import type { Dispatch, SetStateAction } from "react";
 import type { S3UserMembership } from "../../api/users";
 import PageTabs from "../../components/PageTabs";
-import { tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
-import {
-  AdminAssociationCheckboxOptions,
-  AdminAssociationPickerPanel,
-  AdminAssociationSectionHeader,
-  adminAssociationTableActionCellClass,
-  adminAssociationTableBodyClass,
-  adminAssociationTableClass,
-  adminAssociationTableContainerClass,
-  adminAssociationTableEmptyCellClass,
-  adminAssociationTableHeaderClass,
-  adminAssociationTableHeadClass,
-  adminAssociationTableHeaderRightClass,
-  adminAssociationTableLabelCellClass,
-} from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
 import UserAccountAssociationsPanel, {
   type UserAccountAssociationsState,
 } from "./UserAccountAssociationsPanel";
@@ -121,17 +109,17 @@ export default function UserAssociationsTabs({
                   onAction={() => s3Users.setShowPanel((current) => !current)}
                 />
                 <div className={adminAssociationTableContainerClass}>
-                  <table className={adminAssociationTableClass}>
-                    <thead className={adminAssociationTableHeadClass}>
+                  <table className="ui-data-table">
+                    <thead>
                       <tr>
-                        <th className={adminAssociationTableHeaderClass}>User</th>
-                        <th className={adminAssociationTableHeaderRightClass}>Actions</th>
+                        <th className="text-left">User</th>
+                        <th className="w-px whitespace-nowrap text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className={adminAssociationTableBodyClass}>
+                    <tbody>
                       {s3Users.selected.length === 0 ? (
                         <tr>
-                          <td colSpan={2} className={adminAssociationTableEmptyCellClass}>
+                          <td colSpan={2} className="ui-table-secondary">
                             No user linked yet.
                           </td>
                         </tr>
@@ -142,8 +130,8 @@ export default function UserAssociationsTabs({
                             `User #${entry.s3_user_id}`;
                           return (
                             <tr key={entry.s3_user_id}>
-                              <td className={adminAssociationTableLabelCellClass}>{label}</td>
-                              <td className={adminAssociationTableActionCellClass}>
+                              <td className="ui-table-primary">{label}</td>
+                              <td className="ui-table-actions-cell w-px text-right">
                                 <AdminAssociationAdvancedSettings
                                   targetLabel={label}
                                   associationKind="rgw_user"
@@ -163,7 +151,7 @@ export default function UserAssociationsTabs({
                                     )
                                   }
                                 />
-                                <button
+                                <ListActionButton
                                   type="button"
                                   onClick={() =>
                                     s3Users.setSelected((current) =>
@@ -172,10 +160,10 @@ export default function UserAssociationsTabs({
                                       ),
                                     )
                                   }
-                                  className={tableDeleteActionClasses}
+                                   variant="danger"
                                 >
                                   Remove
-                                </button>
+                                </ListActionButton>
                               </td>
                             </tr>
                           );
@@ -243,38 +231,38 @@ export default function UserAssociationsTabs({
                   onAction={() => connections.setShowPanel((current) => !current)}
                 />
                 <div className={adminAssociationTableContainerClass}>
-                  <table className={adminAssociationTableClass}>
-                    <thead className={adminAssociationTableHeadClass}>
+                  <table className="ui-data-table">
+                    <thead>
                       <tr>
-                        <th className={adminAssociationTableHeaderClass}>Connection</th>
-                        <th className={adminAssociationTableHeaderRightClass}>Actions</th>
+                        <th className="text-left">Connection</th>
+                        <th className="w-px whitespace-nowrap text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className={adminAssociationTableBodyClass}>
+                    <tbody>
                       {connections.selected.length === 0 ? (
                         <tr>
-                          <td colSpan={2} className={adminAssociationTableEmptyCellClass}>
+                          <td colSpan={2} className="ui-table-secondary">
                             No connection linked yet.
                           </td>
                         </tr>
                       ) : (
                         connections.selected.map((id) => (
                           <tr key={id}>
-                            <td className={adminAssociationTableLabelCellClass}>
+                            <td className="ui-table-primary">
                               {connections.labelById.get(id) ?? `Connection #${id}`}
                             </td>
-                            <td className={adminAssociationTableActionCellClass}>
-                              <button
+                            <td className="ui-table-actions-cell w-px text-right">
+                              <ListActionButton
                                 type="button"
                                 onClick={() =>
                                   connections.setSelected((current) =>
                                     current.filter((connectionId) => connectionId !== id),
                                   )
                                 }
-                                className={tableDeleteActionClasses}
+                                 variant="danger"
                               >
                                 Remove
-                              </button>
+                              </ListActionButton>
                             </td>
                           </tr>
                         ))

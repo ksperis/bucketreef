@@ -158,7 +158,6 @@ describe("buildBucketOpsTableColumns", () => {
     expect(columns.at(-1)).toEqual(
       expect.objectContaining({
         align: "right",
-        cellClassName: "!py-1.5",
         headerClassName: "w-16",
       }),
     );

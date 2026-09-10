@@ -365,7 +365,7 @@ export default function UsageHistoryPage() {
   }
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="Usage history"
       description="Review quota usage trends for RGW accounts and users."
       breadcrumbs={adminPageBreadcrumbs("usage-history")}
@@ -382,7 +382,7 @@ export default function UsageHistoryPage() {
       }
     >
 
-      <PageControlStrip
+      <PageControlStrip controlPresentation="listing"
         label="History scope"
         title={selectedEndpoint?.name ?? "All endpoints"}
         description="Filter the stored usage snapshots. Daily rows keep the latest usage for each day; hourly rows keep the exact collected quotas."
@@ -505,7 +505,7 @@ export default function UsageHistoryPage() {
             onSort: handleTableSort,
           }}
           responsiveCards
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           rowClassName="bg-white/80 hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/50"
         />
       </ListPageSection>

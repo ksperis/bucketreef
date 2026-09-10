@@ -2,14 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import type { ReactNode } from "react";
 
 import { formatBytes } from "../../utils/format";
-import {
-  DEFAULT_QUEUED_VISIBLE_COUNT,
-  operationSecondaryClasses,
-  operationStopClasses,
-} from "./browserConstants";
+import { DEFAULT_QUEUED_VISIBLE_COUNT } from "./browserConstants";
 import { buildOperationStatusPill } from "./browserOperationStatus";
 import type {
   OperationDetailsKind,
@@ -57,11 +54,11 @@ export function BrowserOperationCard({
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-2 sm:shrink-0 sm:flex-nowrap sm:justify-end">
           {statusPill && (
-            <span
-              className={`ui-caption shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-semibold ${statusPill.classes}`}
+            <ListBadge disableToneStyles
+              className={`shrink-0 whitespace-nowrap ${statusPill.classes}`}
             >
               {statusPill.label}
-            </span>
+            </ListBadge>
           )}
           {actions}
         </div>
@@ -240,20 +237,18 @@ export function BrowserTransferOperationGroupCard({
   const downloadDetails = () => onDownloadDetails(kind, group.op.id);
   const renderShowMore = (section: BrowserOperationSection) => (
     <div className="flex flex-wrap items-center gap-2">
-      <button
+      <ListActionButton
         type="button"
-        className={operationSecondaryClasses}
         onClick={() => onShowMore(group.op.id, section)}
       >
         Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
-      </button>
-      <button
+      </ListActionButton>
+      <ListActionButton
         type="button"
-        className={operationSecondaryClasses}
         onClick={downloadDetails}
       >
         Download details (JSON)
-      </button>
+      </ListActionButton>
     </div>
   );
   const hasVisiblePagination =
@@ -270,21 +265,19 @@ export function BrowserTransferOperationGroupCard({
       statusPill={statusPill}
       actions={
         <>
-          <button
+          <ListActionButton
             type="button"
-            className={operationSecondaryClasses}
             onClick={() => onToggleExpanded(group.op.id)}
           >
             {expanded ? "Hide files" : "Show files"}
-          </button>
+          </ListActionButton>
           {group.op.cancelable && !group.op.completedAt && (
-            <button
+            <ListActionButton variant="danger"
               type="button"
-              className={operationStopClasses}
               onClick={() => onCancel(group.op.id)}
             >
               {config.stopLabel}
-            </button>
+            </ListActionButton>
           )}
         </>
       }
@@ -304,13 +297,12 @@ export function BrowserTransferOperationGroupCard({
                 </p>
               )}
             <div className="pt-1">
-              <button
+              <ListActionButton
                 type="button"
-                className={operationSecondaryClasses}
                 onClick={downloadDetails}
               >
                 Download details (JSON)
-              </button>
+              </ListActionButton>
             </div>
           </div>
         ) : (
@@ -363,13 +355,12 @@ export function BrowserTransferOperationGroupCard({
               renderShowMore("failed")}
             {!hasVisiblePagination && (
               <div className="pt-1">
-                <button
+                <ListActionButton
                   type="button"
-                  className={operationSecondaryClasses}
                   onClick={downloadDetails}
                 >
                   Download details (JSON)
-                </button>
+                </ListActionButton>
               </div>
             )}
           </>

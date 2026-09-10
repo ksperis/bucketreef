@@ -143,7 +143,7 @@ export default function UiActionMenu({
                   type="button"
                   role="menuitem"
                   className={cx(
-                    uiMenuItemClass,
+                    triggerClassName.includes("ui-list-action") ? "ui-list-menu-item" : uiMenuItemClass,
                     "flex w-full items-center px-2 py-1.5 text-left ui-caption font-semibold",
                     item.disabled && "cursor-not-allowed opacity-60",
                     item.danger && "text-rose-700 dark:text-rose-300"

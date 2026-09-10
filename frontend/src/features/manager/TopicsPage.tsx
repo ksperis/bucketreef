@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { uiCheckboxClass } from "../../components/ui/styles";
 import {
@@ -25,7 +26,7 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import { createUiDraftId } from "../../utils/uiDraftId";
@@ -522,7 +523,7 @@ export default function TopicsPage() {
       id: "topic",
       label: "Topic",
       primary: true,
-      cellClassName: "manager-table-cell-wide",
+      cellClassName: "ui-table-wide",
       render: (topic) => (
         <div className="flex min-w-0 flex-col">
           <span className="ui-body font-semibold text-slate-900 dark:text-slate-100">{topic.name}</span>
@@ -536,36 +537,34 @@ export default function TopicsPage() {
       align: "right",
       mobileRole: "actions",
       render: (topic) => (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button
+        <ListActions>
+          <ListActionButton
             type="button"
-            className={tableActionButtonClasses}
             onClick={() => openAttributesModal(topic)}
           >
             Attributes
-          </button>
-          <button
+          </ListActionButton>
+          <ListActionButton
             type="button"
-            className={tableActionButtonClasses}
             onClick={() => openPolicyModal(topic.arn, topic.name)}
           >
             Policy
-          </button>
-          <button
+          </ListActionButton>
+          <ListActionButton
             type="button"
-            className={tableDeleteActionClasses}
+             variant="danger"
             onClick={() => handleDeleteTopic(topic.arn, topic.name)}
           >
             Delete
-          </button>
-        </div>
+          </ListActionButton>
+        </ListActions>
       ),
     },
   ];
 
   return (
     <div className={workflowPageHostClass(attributesModalOpen || policyModalOpen)}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="SNS Topics"
         description="List, create, and secure account-owned SNS topics."
         breadcrumbs={managerPageBreadcrumbs("topics")}
@@ -633,7 +632,7 @@ export default function TopicsPage() {
             loadingMessage="Loading topics..."
             errorMessage="Unable to load topics."
             emptyMessage="No topics."
-            tableClassName="compact-table"
+            tableClassName="ui-data-table"
             responsiveCards
           />
         </ListPageSection>

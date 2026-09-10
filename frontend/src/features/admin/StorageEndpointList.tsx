@@ -8,7 +8,7 @@ import UiTagBadgeList from "../../components/UiTagBadgeList";
 import DataTableShell, { dataTableDefaultActionProps, type DataTableColumn } from "../../components/list/DataTableShell";
 import ListPageSection from "../../components/list/ListPageSection";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { SettingsButton } from "../../components/settings/SettingsControls";
+import { ListActionButton, ListActions } from "../../components/list/ListControls";
 import UiBadge from "../../components/ui/UiBadge";
 import UiSelect from "../../components/ui/UiSelect";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
@@ -110,24 +110,24 @@ export default function StorageEndpointList({
     {
       id: "actions", label: "Actions", align: "right", mobileRole: "actions",
       headerClassName: "endpoint-actions-cell", cellClassName: "endpoint-actions-cell",
-      render: (endpoint) => <div className="endpoint-actions">
-        {!endpoint.is_default && <SettingsButton variant="secondary" disabled={!mutable || pending} onClick={() => onSetDefault(endpoint)}>
+      render: (endpoint) => <ListActions className="endpoint-actions">
+        {!endpoint.is_default && <ListActionButton variant="secondary" disabled={!mutable || pending} onClick={() => onSetDefault(endpoint)}>
           {defaultBusyId === endpoint.id ? "Setting..." : "Set as default"}
-        </SettingsButton>}
-        <SettingsButton variant="secondary" onClick={() => onOpen(endpoint)} {...dataTableDefaultActionProps}>
+        </ListActionButton>}
+        <ListActionButton variant="secondary" onClick={() => onOpen(endpoint)} {...dataTableDefaultActionProps}>
           {mutable && endpoint.is_editable ? "Edit" : "View"}
-        </SettingsButton>
-        {mutable && endpoint.is_editable && <SettingsButton variant="secondary" className="border-rose-200 text-rose-700 hover:border-rose-400 hover:bg-rose-50 dark:border-rose-500/50 dark:text-rose-200 dark:hover:bg-rose-900/30" disabled={pending} onClick={() => onDelete(endpoint)}>Delete</SettingsButton>}
-      </div>,
+        </ListActionButton>
+        {mutable && endpoint.is_editable && <ListActionButton variant="danger" disabled={pending} onClick={() => onDelete(endpoint)}>Delete</ListActionButton>}
+      </ListActions>,
     },
   ];
   const count = new Intl.NumberFormat("en");
   const status = resolveListTableStatus({ loading, error, rowCount: endpoints.length });
 
   return <div className="storage-endpoint-list">
-    {error && <PageBanner tone="error"><div className="flex flex-wrap items-center justify-between gap-2" role="alert">
-      <span>{error}</span><SettingsButton variant="secondary" disabled={loading} onClick={onRetry}>Retry</SettingsButton>
-    </div></PageBanner>}
+    {error && <PageBanner tone="error"><ListActions className="justify-between" role="alert">
+      <span>{error}</span><ListActionButton variant="secondary" disabled={loading} onClick={onRetry}>Retry</ListActionButton>
+    </ListActions></PageBanner>}
     <ListPageSection title="S3 Endpoints"
       countLabel={loading && !endpoints.length ? "Loading endpoints..." : error && !endpoints.length ? "Endpoints unavailable" : `${count.format(rows.length)}${activeFilters.length ? ` of ${count.format(endpoints.length)}` : ""} endpoint${(activeFilters.length ? endpoints.length : rows.length) === 1 ? "" : "s"}`}
       search={<ToolbarSearchInput value={filters.query} onChange={(value) => onFiltersChange({ ...filters, query: value })}
@@ -144,7 +144,7 @@ export default function StorageEndpointList({
         loadingMessage="Loading endpoints..." errorMessage="Unable to load endpoints. Use Retry to try again."
         emptyMessage={endpoints.length ? "No endpoints match these filters." : "No endpoints configured yet."}
         primaryColumnId="endpoint" responsiveCards stickyActions={false} tableLayout="fixed"
-        tableClassName="compact-table endpoint-table" containerClassName="rounded-t-none border-x-0 border-b-0" />
+        tableClassName="ui-data-table endpoint-table" containerClassName="rounded-t-none border-x-0 border-b-0" />
     </ListPageSection>
   </div>;
 }

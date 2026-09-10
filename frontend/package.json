@@ -25,8 +25,9 @@
     "docs:screenshots:check": "node ./scripts/docs-screenshots/check.mjs",
     "budget:check": "node ./scripts/check-bundle-budget.mjs",
     "chunks:check": "node ./scripts/check-chunk-cycles.mjs",
-    "check": "npm run lint && npm run typecheck && npm run deadcode:check && npm run test && npm run build && npm run chunks:check && npm run budget:check",
-    "check:ci": "npm run lint && npm run typecheck && npm run deadcode:check && npm run build && npm run chunks:check && npm run budget:check"
+    "check": "npm run lint && npm run typecheck && npm run deadcode:check && npm run listings:check && npm run test && npm run build && npm run chunks:check && npm run budget:check",
+    "check:ci": "npm run lint && npm run typecheck && npm run deadcode:check && npm run listings:check && npm run build && npm run chunks:check && npm run budget:check",
+    "listings:check": "node ./scripts/check-listing-presentation.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1098.0",

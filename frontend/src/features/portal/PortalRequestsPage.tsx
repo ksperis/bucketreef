@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -540,7 +541,7 @@ export default function PortalRequestsPage() {
   };
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
         title={t({
           en: "Help requests",
           fr: "Demandes d'aide",
@@ -612,14 +613,13 @@ export default function PortalRequestsPage() {
         idPrefix="portal-help-requests"
         headerActions={
           !showRequestHelpTab || activeTab === "history" ? (
-            <UiButton
-              size="sm"
+            <ListActionButton
               variant="secondary"
               onClick={handleRefresh}
               loading={busy === "refresh"}
             >
               {t({ en: "Refresh", fr: "Actualiser", de: "Aktualisieren" })}
-            </UiButton>
+            </ListActionButton>
           ) : null
         }
       />

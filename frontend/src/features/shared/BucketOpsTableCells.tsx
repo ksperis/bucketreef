@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListBadge } from "../../components/list/ListControls";
 import { useRef } from "react";
 import type { Ref, RefObject } from "react";
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
@@ -147,9 +148,9 @@ export function BucketOpsS3TagsCell({
           const label = `${tag.key}=${tag.value}`;
           const colors = getTagColors(label);
           return (
-            <span
+            <ListBadge
               key={`${tag.key}:${tag.value}`}
-              className="rounded-full border px-2 py-0.5 ui-caption font-semibold"
+              tone="neutral"
               style={{
                 backgroundColor: colors.background,
                 color: colors.text,
@@ -157,13 +158,13 @@ export function BucketOpsS3TagsCell({
               }}
             >
               {label}
-            </span>
+            </ListBadge>
           );
         })}
         {remaining > 0 && (
-          <span className="rounded-full border border-slate-200 px-2 py-0.5 ui-caption font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
+          <ListBadge tone="neutral">
             +{remaining}
-          </span>
+          </ListBadge>
         )}
       </div>
     </BucketSummaryTooltip>

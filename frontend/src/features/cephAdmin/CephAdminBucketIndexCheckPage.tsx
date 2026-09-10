@@ -141,7 +141,7 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
         )}
 
         <div className="overflow-x-auto rounded-md border border-[color:var(--ui-border-soft)]">
-          <table className="manager-table min-w-full">
+          <table className="ui-data-table ui-data-table-fixed min-w-full">
             <thead>
               <tr>
                 <th className="text-left">Bucket</th>
@@ -153,7 +153,7 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
             <tbody>
               {(result?.buckets ?? targets.map((target) => ({ ...target, status: "pending" as const, message: "Not run yet" }))).map((item) => (
                 <tr key={`${item.tenant ?? ""}:${item.name}`}>
-                  <td className="font-mono ui-caption">{item.name}</td>
+                  <td className="font-mono">{item.name}</td>
                   <td>{item.tenant || "—"}</td>
                   <td>
                     <span className={item.status === "completed" ? "text-emerald-700 dark:text-emerald-300" : item.status === "failed" ? "text-rose-700 dark:text-rose-300" : uiMutedTextClass}>

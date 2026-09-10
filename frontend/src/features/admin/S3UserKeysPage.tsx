@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -22,7 +23,7 @@ import PageBanner from "../../components/PageBanner";
 import ListSectionCard from "../../components/list/ListSectionCard";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
@@ -210,9 +211,9 @@ export default function S3UserKeysPage() {
       label: "Usage",
       render: (key) =>
         key.is_ui_managed ? (
-          <span className="rounded-full bg-slate-100 px-2 py-1 ui-caption font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          <ListBadge tone="neutral">
             Interface key
-          </span>
+          </ListBadge>
         ) : (
           <span className="ui-caption text-slate-500 dark:text-slate-400">Custom</span>
         ),
@@ -224,40 +225,38 @@ export default function S3UserKeysPage() {
       mobileRole: "actions",
       render: (key) =>
         key.is_ui_managed ? (
-          <button
+          <ListActionButton
             type="button"
             onClick={handleRotateUiKey}
-            className={tableActionButtonClasses}
             disabled={busy === "rotate"}
           >
             {busy === "rotate" ? "Rotating..." : "Rotate"}
-          </button>
+          </ListActionButton>
         ) : (
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
+          <ListActions>
+            <ListActionButton
               type="button"
               onClick={() => handleToggleKey(key.access_key_id, !key.is_active)}
-              className={tableActionButtonClasses}
               disabled={Boolean(busy)}
             >
               {busy === `toggle:${key.access_key_id}` ? "Saving..." : key.is_active ? "Disable" : "Enable"}
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
               onClick={() => handleDeleteKey(key.access_key_id)}
-              className={tableDeleteActionClasses}
+               variant="danger"
               disabled={Boolean(busy)}
             >
               {busy === `delete:${key.access_key_id}` ? "Deleting..." : "Delete"}
-            </button>
-          </div>
+            </ListActionButton>
+          </ListActions>
         ),
     },
   ];
 
   if (!userId || Number.isNaN(numericUserId)) {
     return (
-      <PageShell
+      <PageShell actionPresentation="listing"
         title="User access keys"
         description="Manage RGW keys for the selected user."
         breadcrumbs={adminPageBreadcrumbs("rgw-users", { label: "Access keys" })}
@@ -268,7 +267,7 @@ export default function S3UserKeysPage() {
   }
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="User access keys"
       description={
         <>

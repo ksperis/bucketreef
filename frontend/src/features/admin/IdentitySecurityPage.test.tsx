@@ -85,7 +85,7 @@ describe("IdentitySecurityPage", () => {
     expect(within(requestsPanel).getAllByText("candidate@example.com")).toHaveLength(2);
     expect(within(requestsPanel).getByText("OIDC")).toBeInTheDocument();
     expect(within(requestsPanel).getByText("User")).toBeInTheDocument();
-    expect(within(requestsPanel).getByRole("table")).toHaveClass("responsive-data-table", "compact-table");
+    expect(within(requestsPanel).getByRole("table")).toHaveClass("responsive-data-table", "ui-data-table");
     expect(screen.queryByText("ui_user")).not.toBeInTheDocument();
     expect(screen.queryByText("Candidate User")).not.toBeInTheDocument();
 
@@ -95,7 +95,7 @@ describe("IdentitySecurityPage", () => {
     expect(within(sessionsPanel).getByText("Candidate User")).toBeInTheDocument();
     expect(within(sessionsPanel).getByText("Password")).toBeInTheDocument();
     expect(within(sessionsPanel).getAllByText("User")).toHaveLength(2);
-    expect(within(sessionsPanel).getByRole("table")).toHaveClass("responsive-data-table", "compact-table");
+    expect(within(sessionsPanel).getByRole("table")).toHaveClass("responsive-data-table", "ui-data-table");
   });
 
   it("confirms link decisions and session revocation", async () => {

@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
+
 import PortalActivityPanel from "./PortalActivityPanel";
 import type { PortalWorkspaceActivityItem, PortalWorkspaceSpace } from "./portalWorkspaceModel";
 
@@ -76,11 +76,11 @@ describe("PortalActivityPanel", () => {
       "/portal/storage-spaces/research-data"
     );
     openSpaceLinks.forEach((link) => {
-      expect(link).toHaveAttribute("class", tableActionButtonClasses);
+      expect(link).toHaveClass("ui-list-action");
     });
     const showDetailsButtons = screen.getAllByRole("button", { name: "Show details" });
     showDetailsButtons.forEach((button) => {
-      expect(button).toHaveAttribute("class", tableActionButtonClasses);
+      expect(button).toHaveClass("ui-list-action");
     });
     expect(screen.getByText("alice@example.com").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     const researchDataCell = screen.getAllByText("Research Data").find((element) => element.closest("td"));
@@ -94,10 +94,7 @@ describe("PortalActivityPanel", () => {
     expect(screen.getAllByText("Action").length).toBeGreaterThan(1);
     expect(screen.getByText("IP address")).toBeInTheDocument();
     expect(screen.getByText("192.0.2.10")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hide details" })).toHaveAttribute(
-      "class",
-      tableActionButtonClasses,
-    );
+    expect(screen.getByRole("button", { name: "Hide details" })).toHaveClass("ui-list-action");
   });
 
   it("opens activity details when a neutral row cell is clicked", async () => {

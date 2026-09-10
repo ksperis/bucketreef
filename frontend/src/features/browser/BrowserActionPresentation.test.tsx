@@ -79,7 +79,7 @@ describe("BrowserActionPresentation", () => {
       name: "Delete report.txt. Unavailable: Read-only access",
     });
     expect(directButton).toBeDisabled();
-    expect(directButton).toHaveClass("text-rose-600");
+    expect(directButton).toHaveClass("ui-list-action-danger");
     expect(directButton).toHaveAttribute("title", "Read-only access");
     fireEvent.click(directButton);
     expect(onDirectSelect).not.toHaveBeenCalled();

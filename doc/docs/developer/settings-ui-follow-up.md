@@ -89,3 +89,20 @@ their existing table/editor behavior and translation scope.
 The current full-configuration API has no atomic concurrency lock. The client
 refuses conflicts present at its pre-save read; eliminating the residual race
 would require a separate server concurrency contract.
+
+## Table and listing convergence — completed
+
+The six workspaces now share table typography, action/button geometry, badges,
+search/filter controls and pagination through the listing foundation. This
+supersedes the endpoint-only presentation described above; endpoint information
+limits remain specific to that inventory. Native and dialog tables adopt the
+same foundation, while Browser densities, bucket operation engines and grouped
+rules retain their documented geometry.
+
+`npm run listings:check` prevents renewed local action/badge geometry and legacy
+table classes. The [complete presentation inventory](listing-presentation-inventory.md)
+records routes, secondary tables, dedicated tests and the nine fixture families.
+The measured desktop rows stay equally dense or become shorter; actions remain
+on one line when space permits. API, permissions, translations, data and draft
+protections are unchanged. The remaining page/form refactors are still separate
+passes.

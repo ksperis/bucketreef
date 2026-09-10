@@ -753,7 +753,7 @@ export default function PortalHistoryPage() {
   if (pageState) return pageState;
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
         title={t({ en: "History", fr: "Historique", de: "Verlauf" })}
         description={t({
           en: "Review governance activity and, for project managers, provider S3 access logs.",

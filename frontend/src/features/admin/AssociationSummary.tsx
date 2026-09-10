@@ -1,3 +1,4 @@
+import { ListBadge } from "../../components/list/ListControls";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FocusEvent, ReactNode } from "react";
 import type { UiGroupAvatarDescriptor } from "../../api/groups";
@@ -46,12 +47,6 @@ export type CompactAssociationCategory = {
 };
 
 const DEFAULT_TOOLTIP_LIMIT = 20;
-const associationCategoryClasses: Record<CompactAssociationCategory["id"], string> = {
-  accounts: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-100",
-  s3_users: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-100",
-  connections: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100",
-};
-
 type AssociationRoleTooltipEntry = {
   key: string;
   identity: string;
@@ -60,18 +55,12 @@ type AssociationRoleTooltipEntry = {
   roles: string[];
 };
 
-function roleBadgeClasses(role: string): string {
+function roleBadgeTone(role: string): "warning" | "info" | "success" | "neutral" {
   const normalized = role.toLowerCase();
-  if (normalized.includes("admin") || normalized.includes("manager")) {
-    return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/60 dark:text-amber-200";
-  }
-  if (normalized.includes("portal")) {
-    return "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-800/70 dark:bg-sky-950/60 dark:text-sky-200";
-  }
-  if (normalized.includes("browser")) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/70 dark:bg-emerald-950/60 dark:text-emerald-200";
-  }
-  return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
+  if (normalized.includes("admin") || normalized.includes("manager")) return "warning";
+  if (normalized.includes("portal")) return "info";
+  if (normalized.includes("browser")) return "success";
+  return "neutral";
 }
 
 function isAccessProvenanceLabel(role: string): boolean {
@@ -145,7 +134,7 @@ export function AssociationRoleTooltip({
   return (
     <span
       ref={anchorRef}
-      className="relative inline-flex max-w-full"
+      className="ui-list-association-trigger relative inline-flex max-w-full"
       aria-label={ariaLabel}
       aria-describedby={descriptionId}
       tabIndex={focusable ? 0 : undefined}
@@ -195,12 +184,12 @@ export function AssociationRoleTooltip({
                 {entry.roles.length > 0 ? (
                   <div className="flex shrink-0 flex-wrap justify-end gap-0.5">
                     {entry.roles.map((role) => (
-                      <span
+                      <ListBadge
                         key={`${entry.key}:${role}`}
-                        className={`rounded-full border px-1 py-0.5 text-[9px] font-semibold leading-none ${roleBadgeClasses(role)}`}
+                        tone={roleBadgeTone(role)}
                       >
                         {role}
-                      </span>
+                      </ListBadge>
                     ))}
                   </div>
                 ) : null}
@@ -269,13 +258,13 @@ export function CompactAssociationSummary({
     >
       <span className="inline-flex max-w-full flex-wrap items-center gap-1.5">
         {visibleCategories.map((category) => (
-          <span
+          <ListBadge
             key={category.id}
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ui-caption font-semibold ${associationCategoryClasses[category.id]}`}
+            disableToneStyles className={`gap-1 ui-list-association-${category.id}`}
           >
             <span>{category.label}</span>
             <span aria-label={`${category.items.length} ${category.label.toLowerCase()}`}>{category.items.length}</span>
-          </span>
+          </ListBadge>
         ))}
       </span>
     </AssociationRoleTooltip>

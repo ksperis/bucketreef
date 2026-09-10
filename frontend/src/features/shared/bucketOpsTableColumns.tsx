@@ -312,7 +312,7 @@ export function buildBucketOpsTableColumns(
       field: null,
       align: "right",
       headerClassName: "w-16",
-      cellClassName: "!py-1.5",
+
       render: input.renderActions,
     },
   ];
