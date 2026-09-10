@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { UiTagBadge } from "../UiTagSettings";
@@ -30,10 +30,10 @@ describe("UiTagBadge filter states", () => {
       "dark:hover:!bg-slate-800/70",
       "!border-dashed"
     );
-    expect(within(badge).getByText("+")).toHaveAttribute("aria-hidden", "true");
+    expect(action).toHaveTextContent(/^Review$/);
   });
 
-  it("renders selected tags with their palette, check, ring, and remove action", () => {
+  it("renders selected tags with their palette, ring, and remove action", () => {
     render(
       <UiTagBadge
         label="Review"
@@ -57,7 +57,7 @@ describe("UiTagBadge filter states", () => {
       "ring-primary/50",
       "!border-solid"
     );
-    expect(within(badge).getByText("✓")).toHaveAttribute("aria-hidden", "true");
+    expect(selectedLabel).toHaveTextContent(/^Review$/);
     expect(
       screen.getByRole("button", {
         name: "Remove UI tag filter Review, Shared",

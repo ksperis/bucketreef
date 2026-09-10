@@ -476,7 +476,7 @@ describe("BucketOpsWorkbench atomic quota columns", () => {
     const availableUrgent = addUrgent.parentElement as HTMLElement;
     expect(availableUrgent).toHaveAttribute("data-tag-selection-state", "available");
     expect(availableUrgent).toHaveClass("!bg-transparent", "!border-dashed");
-    expect(within(availableUrgent).getByText("+")).toBeInTheDocument();
+    expect(addUrgent).toHaveTextContent(/^urgent$/);
 
     const addArchive = screen.getByRole("button", {
       name: "Add UI tag filter archive, Shared",
@@ -491,7 +491,7 @@ describe("BucketOpsWorkbench atomic quota columns", () => {
     const selectedBadge = selectedUrgent.parentElement as HTMLElement;
     expect(selectedBadge).toHaveAttribute("data-tag-selection-state", "selected");
     expect(selectedBadge).toHaveClass("bg-red-50", "ring-2", "!border-dashed");
-    expect(within(selectedBadge).getByText("✓")).toBeInTheDocument();
+    expect(selectedUrgent).toHaveTextContent(/^urgent$/);
     expect(
       screen.queryByRole("button", { name: "Add UI tag filter urgent, Private" })
     ).not.toBeInTheDocument();

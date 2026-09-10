@@ -120,7 +120,7 @@ export function BucketOpsTagAndAdvancedFilters({
     <>
       {showTagFilterBar ? (
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <div className="bucket-ops-ui-tags flex min-w-0 flex-wrap items-center gap-1">
             {tagFilters.map((tagId) => {
               const tag = availableUiTags.find((item) => item.id === tagId);
               if (!tag) return null;

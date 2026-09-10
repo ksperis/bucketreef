@@ -58,7 +58,7 @@ export default function BucketOpsUiTagsCell({
     tags,
   } = controller.getRowTagProjection(target, assignedTags);
   return (
-    <div className="group relative flex flex-wrap items-center gap-2">
+    <div className="bucket-ops-ui-tags group relative flex flex-wrap items-center gap-1">
       {tags.map((tag) => (
         <BucketUiTagSettingsBadge
           key={`${target.key}:${tag.id}`}

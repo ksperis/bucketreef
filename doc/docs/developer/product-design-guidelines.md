@@ -256,6 +256,11 @@ or permissions validation.
 - Interactive tags keep their edit/remove actions, visible keyboard focus,
   private/shared border styles and selected/available indicators. Selection
   may use an outline or ring, without adding a drop shadow.
+- Bucket tag filters show the label without a leading plus or check mark;
+  the selected ring and accessible labels identify their state. In Ceph Admin
+  and Storage Ops filters and list cells, use the shared `bucket-ops-ui-tags` treatment:
+  10px text, 20px badges on desktop and 4px gaps. Keep 44px controls on touch
+  devices and below 1024px. Do not shrink unrelated workspace tags.
 
 ## Compact settings with section titles at the side
 
