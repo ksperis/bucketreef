@@ -57,6 +57,12 @@ The frontend theme is anchored by the shared shell and UI tokens in
   outline so it remains visible on both themes and with custom branding.
 - Modals and menus: use `Modal`, `uiMenuClass`, `uiMenuItemClass`, shell menu
   classes in the topbar, and `AnchoredPortalMenu` for positioned menus.
+  `components/modal.css` bounds the entire dialog to the dynamic viewport,
+  removes inherited list/form spacing from its overlay and lets the body scroll
+  within the remaining height. Long titles wrap; exceptionally tall headers
+  scroll within half the available height. The close action keeps a 44px target
+  below 1024px or with a coarse pointer. Settings dialogs retain their own compact
+  spacing. Do not compensate for viewport issues with page-specific modal sizes.
 - Badges and tags: use `UiBadge` / `UiTagBadge` and their shared
   `uiBadgeShapeClass` (4px radius, 1px border), pale tone fill and medium text,
   without shadows. Preserve semantic tones and custom tag palettes in both

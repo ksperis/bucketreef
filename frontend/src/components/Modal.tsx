@@ -6,6 +6,7 @@ import { ReactNode, RefObject, useEffect, useId, useRef, useState } from "react"
 import UiButton from "./ui/UiButton";
 import { getFocusableElements, trapFocusWithin } from "./ui/focusTrap";
 import { cx, uiCardClass, uiDividerClass, uiTitleTextClass } from "./ui/styles";
+import "./modal.css";
 
 const modalStack: string[] = [];
 const modalStackListeners = new Set<() => void>();
@@ -144,7 +145,7 @@ export default function Modal({
         aria-describedby={ariaDescribedby}
         tabIndex={-1}
         className={cx(
-          "w-full whitespace-normal text-left shadow-[var(--shell-menu-shadow)]",
+          "modal-dialog w-full whitespace-normal text-left shadow-[var(--shell-menu-shadow)]",
           uiCardClass,
           maxWidthClass,
         )}
@@ -153,7 +154,7 @@ export default function Modal({
           <h3 id={fallbackTitleId} className={cx("modal-title ui-subtitle", uiTitleTextClass)}>
             {title}
           </h3>
-          <UiButton variant="ghost" onClick={onClose} className="py-1" aria-label={closeAriaLabel}>
+          <UiButton variant="ghost" onClick={onClose} className="modal-close py-1" aria-label={closeAriaLabel}>
             {closeLabel}
           </UiButton>
         </div>
