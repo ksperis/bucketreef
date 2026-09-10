@@ -4,8 +4,13 @@
  */
 import UiInput from "../../components/ui/UiInput";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { uiCheckboxClass } from "../../components/ui/styles";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
+import UiButton from "../../components/ui/UiButton";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiTextarea from "../../components/ui/UiTextarea";
+import ModalActions from "../../components/ModalActions";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
 import {
   createTopic,
   deleteTopic,
@@ -21,7 +26,7 @@ import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
 import Modal from "../../components/Modal";
-import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
+import WorkflowPage, { WorkflowActions, workflowPageHostClass } from "../../components/WorkflowPage";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
@@ -124,6 +129,8 @@ function extractError(err: unknown): string {
 
 export default function TopicsPage() {
   const deleteConfirmation = useConfirmActionDialog();
+  const sslHintId = useId();
+  const policyExampleId = useId();
   const {
     accounts,
     selectedS3AccountId,
@@ -148,6 +155,7 @@ export default function TopicsPage() {
   const [newTopicName, setNewTopicName] = useState("");
   const [createInitialSignature, setCreateInitialSignature] = useState(() => stableSignature({ newTopicName: "" }));
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createNameError, setCreateNameError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
   const [policyTopicArn, setPolicyTopicArn] = useState<string | null>(null);
@@ -159,6 +167,7 @@ export default function TopicsPage() {
   const [policyLoading, setPolicyLoading] = useState(false);
   const [policySaving, setPolicySaving] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
+  const [policyValidationError, setPolicyValidationError] = useState<string | null>(null);
   const [policyStatus, setPolicyStatus] = useState<string | null>(null);
   const [showPolicyExample, setShowPolicyExample] = useState(false);
   const [attributesModalOpen, setAttributesModalOpen] = useState(false);
@@ -209,6 +218,7 @@ export default function TopicsPage() {
   }, [accountIdForApi, needsS3AccountSelection, accessMode, fetchTopics]);
 
   const openCreateModal = () => {
+    setCreateNameError(null);
     setNewTopicName("");
     setCreateInitialSignature(stableSignature({ newTopicName: "" }));
     setShowCreateModal(true);
@@ -227,9 +237,10 @@ export default function TopicsPage() {
     if (needsS3AccountSelection) return;
     const trimmedName = newTopicName.trim();
     if (!trimmedName) {
-      setCreateError("Topic name is required.");
+      setCreateNameError("Topic name is required.");
       return;
     }
+    setCreateNameError(null);
     setCreateError(null);
     setCreating(true);
     try {
@@ -279,6 +290,7 @@ export default function TopicsPage() {
     setPolicyTopicArn(topicArn);
     setPolicyTopicName(name);
     setPolicyText(defaultPolicyTemplate);
+    setPolicyValidationError(null);
     setPolicyError(null);
     setPolicyStatus(null);
     setShowPolicyExample(false);
@@ -304,9 +316,10 @@ export default function TopicsPage() {
     try {
       parsed = policyText.trim() ? JSON.parse(policyText) : {};
     } catch {
-      setPolicyError("Policy must be valid JSON.");
+      setPolicyValidationError("Policy must be valid JSON.");
       return;
     }
+    setPolicyValidationError(null);
     setPolicySaving(true);
     try {
       await updateTopicPolicy(accountIdForApi, policyTopicArn, parsed);
@@ -446,14 +459,6 @@ export default function TopicsPage() {
     setAttributesInitialSignature(buildAttributesSignature("", true, []));
   };
 
-  const handlePushEndpointChange = (value: string) => {
-    setPushEndpointValue(value);
-  };
-
-  const handleVerifySslChange = (checked: boolean) => {
-    setVerifySslValue(checked);
-  };
-
   const handleAttributeKeyChange = (uiId: string, value: string) => {
     setAttributesStatus(null);
     setAttributesError(null);
@@ -481,6 +486,20 @@ export default function TopicsPage() {
     setAttributesError(null);
     setAttributeItems((prev) => prev.filter((item) => item.uiId !== uiId));
   };
+
+  const policyExample = JSON.stringify({
+    Version: "2012-10-17",
+    Statement: [{
+      Sid: "AllowBucketNotifications",
+      Effect: "Allow",
+      Principal: "*",
+      Action: "sns:Publish",
+      Resource: policyTopicArn ?? "arn:aws:sns:default:::topic",
+      Condition: { ArnLike: { "aws:SourceArn": "arn:aws:s3:::example-bucket" } },
+    }],
+  }, null, 2);
+  const attributesBusy = attributesLoading || attributesSaving;
+  const policyBusy = policyLoading || policySaving;
 
   const filteredTopics = useMemo(() => {
     const needle = topicFilter.trim().toLowerCase();
@@ -636,37 +655,28 @@ export default function TopicsPage() {
       )}
 
       {showCreateModal && (
-        <Modal title="Create SNS topic" onClose={createCloseGuard.requestClose}>
+        <Modal title="Create SNS topic" onClose={createCloseGuard.requestClose} closeDisabled={creating} maxWidthClass="max-w-lg">
           <form className="space-y-4" onSubmit={handleCreateTopic}>
-            <div className="space-y-1">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-100">Topic name</label>
-              <input
-                type="text"
-                value={newTopicName}
-                onChange={(e) => setNewTopicName(e.target.value)}
-                className="w-full rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                placeholder="events-topic"
-              />
-            </div>
-            {createError && (
-              <UiInlineMessage tone="error">{createError}</UiInlineMessage>
-            )}
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={createCloseGuard.requestClose}
-                className="rounded-md border border-slate-200 px-4 py-2 ui-body font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
+            <UiInput
+              label="Topic name"
+              value={newTopicName}
+              onChange={(event) => {
+                setNewTopicName(event.target.value);
+                setCreateNameError(null);
+              }}
+              error={createNameError}
+              placeholder="events-topic"
+              disabled={creating}
+            />
+            {createError && <UiInlineMessage tone="error">{createError}</UiInlineMessage>}
+            <ModalActions>
+              <UiButton variant="secondary" onClick={createCloseGuard.requestClose} disabled={creating}>
                 Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={creating}
-                className="rounded-md bg-primary px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-              >
+              </UiButton>
+              <UiButton type="submit" disabled={creating}>
                 {creating ? "Creating..." : "Create topic"}
-              </button>
-            </div>
+              </UiButton>
+            </ModalActions>
           </form>
           {createCloseGuard.confirmationDialog}
         </Modal>
@@ -675,127 +685,104 @@ export default function TopicsPage() {
       {attributesModalOpen && (
         <WorkflowPage
           title={`Topic attributes · ${attributesTopicName ?? ""}`}
-          description="Configure the push endpoint, TLS verification and provider-specific attributes on a dedicated page."
+          description="Configure notification delivery and provider-specific SNS attributes."
           breadcrumbs={managerPageBreadcrumbs("topics", { label: "Attributes" })}
           backLabel="Back to topics"
           onBack={attributesCloseGuard.requestClose}
           width="standard"
+          contentClassName="settings-compact settings-form"
         >
-          <div className="space-y-4">
-            {attributesError && (
-              <UiInlineMessage tone="error">{attributesError}</UiInlineMessage>
-            )}
-            {attributesStatus && (
-              <UiInlineMessage tone="success">{attributesStatus}</UiInlineMessage>
-            )}
-            <div className="space-y-1">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-100">Push endpoint URL</label>
-              <input
-                type="text"
-                value={pushEndpointValue}
-                onChange={(e) => {
-                  setAttributesStatus(null);
-                  setAttributesError(null);
-                  handlePushEndpointChange(e.target.value);
-                }}
-                className="w-full rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                placeholder="https://example.com/webhook"
-                disabled={attributesLoading}
-              />
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Provide the HTTPS endpoint that should receive SNS push notifications.
-              </p>
-            </div>
-            <div className="space-y-1">
-              <label className="inline-flex items-center gap-2 ui-body font-semibold text-slate-700 dark:text-slate-100">
-                <input
-                  type="checkbox"
-                  className={uiCheckboxClass}
-                  checked={verifySslValue}
-                  onChange={(e) => {
+          <div className="settings-stack">
+            {attributesError && <UiInlineMessage tone="error">{attributesError}</UiInlineMessage>}
+            {attributesStatus && <UiInlineMessage tone="success">{attributesStatus}</UiInlineMessage>}
+            <SettingsSection title="Notification delivery" presentation="compact">
+              <div className="settings-fields">
+                <UiInput
+                  label="Push endpoint URL"
+                  value={pushEndpointValue}
+                  onChange={(event) => {
                     setAttributesStatus(null);
                     setAttributesError(null);
-                    handleVerifySslChange(e.target.checked);
+                    setPushEndpointValue(event.target.value);
                   }}
-                  disabled={attributesLoading}
+                  placeholder="https://example.com/webhook"
+                  hint="Provide the HTTPS endpoint that should receive SNS push notifications."
+                  disabled={attributesBusy}
                 />
-                Verify SSL certificates
-              </label>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Disable verification only when testing against endpoints that use self-signed certificates.
-              </p>
-            </div>
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 ui-caption text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
-              <div className="flex items-center justify-between">
-                <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Additional attributes
-                </p>
-                <button
-                  type="button"
-                  onClick={handleAddAttribute}
-                  disabled={attributesLoading}
-                  className="rounded-md border border-slate-200 px-2 py-1 ui-caption font-semibold text-slate-600 hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-100"
-                >
-                  Add attribute
-                </button>
+                <div>
+                  <UiCheckboxField
+                    className="settings-choice"
+                    checked={verifySslValue}
+                    aria-describedby={sslHintId}
+                    onChange={(event) => {
+                      setAttributesStatus(null);
+                      setAttributesError(null);
+                      setVerifySslValue(event.target.checked);
+                    }}
+                    disabled={attributesBusy}
+                  >
+                    Verify SSL certificates
+                  </UiCheckboxField>
+                  <p id={sslHintId} className="settings-description">
+                    Disable verification only when testing against endpoints that use self-signed certificates.
+                  </p>
+                </div>
               </div>
-              {attributeItems.length === 0 ? (
-                <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
-                  No additional attributes defined.
-                </p>
-              ) : (
-                <div className="mt-2 space-y-2">
-                  {attributeItems.map((item) => (
-                    <div key={item.uiId} className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-                      <input
-                        type="text"
+            </SettingsSection>
+            <SettingsSection
+              title="Additional attributes"
+              description="Paste JSON for object/array values; remove a row to clear an attribute."
+              presentation="compact"
+            >
+              <div className="settings-stack">
+                <div>
+                  <SettingsButton variant="secondary" onClick={handleAddAttribute} disabled={attributesBusy}>
+                    Add attribute
+                  </SettingsButton>
+                </div>
+                {attributeItems.length === 0 ? (
+                  <p className="settings-description">No additional attributes defined.</p>
+                ) : (
+                  attributeItems.map((item, index) => (
+                    <div key={item.uiId} className="settings-fields items-end md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                      <UiInput
+                        label="Attribute name"
+                        aria-label={`Attribute name ${index + 1}`}
                         value={item.key}
-                        onChange={(e) => handleAttributeKeyChange(item.uiId, e.target.value)}
-                        className="w-full rounded-md border border-slate-200 px-3 py-2 ui-caption focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        onChange={(event) => handleAttributeKeyChange(item.uiId, event.target.value)}
                         placeholder="attribute-key"
-                        disabled={attributesLoading}
+                        disabled={attributesBusy}
                       />
-                      <input
-                        type="text"
+                      <UiInput
+                        label="Value"
+                        aria-label={`Attribute value ${index + 1}`}
                         value={item.value}
-                        onChange={(e) => handleAttributeValueChange(item.uiId, e.target.value)}
-                        className="w-full rounded-md border border-slate-200 px-3 py-2 font-mono ui-caption focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        onChange={(event) => handleAttributeValueChange(item.uiId, event.target.value)}
+                        className="font-mono"
                         placeholder='value or JSON ({"key":"value"})'
-                        disabled={attributesLoading}
+                        disabled={attributesBusy}
                       />
-                      <button
-                        type="button"
+                      <SettingsButton
+                        variant="secondary"
+                        aria-label={`Remove attribute ${index + 1}`}
                         onClick={() => handleRemoveAttribute(item.uiId)}
-                        disabled={attributesLoading}
-                        className="rounded-md border border-slate-200 px-2 py-1 ui-caption font-semibold text-slate-600 hover:border-rose-400 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-100"
+                        disabled={attributesBusy}
                       >
                         Remove
-                      </button>
+                      </SettingsButton>
                     </div>
-                  ))}
-                </div>
-              )}
-              <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
-                Paste JSON for object/array values; remove a row to clear an attribute.
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={attributesCloseGuard.requestClose}
-                className="rounded-md border border-slate-200 px-4 py-2 ui-body font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
+                  ))
+                )}
+              </div>
+            </SettingsSection>
+            <WorkflowActions>
+              <SettingsButton variant="secondary" onClick={attributesCloseGuard.requestClose} disabled={attributesSaving}>
                 Close
-              </button>
-              <button
-                type="button"
-                onClick={saveAttributes}
-                disabled={attributesSaving || attributesLoading}
-                className="rounded-md bg-primary px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-              >
+              </SettingsButton>
+              <SettingsButton onClick={saveAttributes} disabled={attributesBusy}>
                 {attributesSaving ? "Saving..." : "Save attributes"}
-              </button>
-            </div>
+              </SettingsButton>
+            </WorkflowActions>
           </div>
           {attributesCloseGuard.confirmationDialog}
         </WorkflowPage>
@@ -804,108 +791,72 @@ export default function TopicsPage() {
       {policyModalOpen && (
         <WorkflowPage
           title={`Topic policy · ${policyTopicName ?? ""}`}
-          description="Edit and validate the complete SNS topic policy without a constrained dialog viewport."
+          description="Edit the SNS policy that controls access to this topic."
           breadcrumbs={managerPageBreadcrumbs("topics", { label: "Policy" })}
           backLabel="Back to topics"
           onBack={policyCloseGuard.requestClose}
           width="standard"
+          contentClassName="settings-compact settings-form"
         >
-          <div className="space-y-3">
-            {policyError && (
-              <UiInlineMessage tone="error">{policyError}</UiInlineMessage>
-            )}
-            {policyStatus && (
-              <UiInlineMessage tone="success">{policyStatus}</UiInlineMessage>
-            )}
-            <textarea
+          <div className="settings-stack">
+            {policyError && <UiInlineMessage tone="error">{policyError}</UiInlineMessage>}
+            {policyStatus && <UiInlineMessage tone="success">{policyStatus}</UiInlineMessage>}
+            <UiTextarea
+              label="Policy JSON"
               value={policyText}
-              onChange={(e) => {
-                setPolicyText(e.target.value);
+              onChange={(event) => {
+                setPolicyText(event.target.value);
                 setPolicyStatus(null);
+                setPolicyValidationError(null);
               }}
-              className="h-72 w-full rounded-md border border-slate-200 px-3 py-2 font-mono ui-caption text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              error={policyValidationError}
+              className="font-mono"
+              rows={16}
               placeholder={defaultPolicyTemplate}
               spellCheck={false}
-              disabled={policyLoading}
+              disabled={policyBusy}
             />
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 ui-caption text-slate-600 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPolicyExample((prev) => !prev)}
-                  className="ui-caption font-semibold text-primary hover:text-primary-700 dark:text-primary-200 dark:hover:text-primary-100"
+            <SettingsSection title="Policy example" presentation="compact">
+              <div className="settings-stack">
+                <div className="flex flex-wrap items-center gap-2">
+                  <SettingsButton
+                    variant="secondary"
+                    aria-expanded={showPolicyExample}
+                    aria-controls={policyExampleId}
+                    onClick={() => setShowPolicyExample((previous) => !previous)}
+                  >
+                    {showPolicyExample ? "Hide example" : "Show example"}
+                  </SettingsButton>
+                  <SettingsButton
+                    variant="secondary"
+                    disabled={policyBusy}
+                    onClick={() => {
+                      setPolicyText(policyExample);
+                      setShowPolicyExample(true);
+                      setPolicyStatus(null);
+                      setPolicyValidationError(null);
+                    }}
+                  >
+                    Use example
+                  </SettingsButton>
+                </div>
+                <pre
+                  id={policyExampleId}
+                  hidden={!showPolicyExample}
+                  className="min-w-0 whitespace-pre-wrap break-all rounded-md border border-[var(--ui-border-soft)] bg-[var(--ui-surface-muted)] p-3 font-mono ui-caption text-[var(--ui-text)]"
                 >
-                  {showPolicyExample ? "Hide example" : "Show example"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const topicArn = policyTopicArn ?? "arn:aws:sns:default:::topic";
-                    const sample = {
-                      Version: "2012-10-17",
-                      Statement: [
-                        {
-                          Sid: "AllowBucketNotifications",
-                          Effect: "Allow",
-                          Principal: "*",
-                          Action: "sns:Publish",
-                          Resource: topicArn,
-                          Condition: {
-                            ArnLike: {
-                              "aws:SourceArn": "arn:aws:s3:::example-bucket",
-                            },
-                          },
-                        },
-                      ],
-                    };
-                    setPolicyText(JSON.stringify(sample, null, 2));
-                    setShowPolicyExample(true);
-                    setPolicyStatus(null);
-                  }}
-                  className="rounded-full border border-slate-200 px-2 py-0.5 ui-caption font-semibold text-slate-700 hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-100"
-                >
-                  Use example
-                </button>
-              </div>
-              {showPolicyExample && (
-                <pre className="mt-2 whitespace-pre-wrap rounded bg-slate-900 px-3 py-2 ui-caption text-slate-100">
-{`{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "AllowBucketNotifications",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "sns:Publish",
-      "Resource": "${policyTopicArn ?? "arn:aws:sns:default:::topic"}",
-      "Condition": {
-        "ArnLike": {
-          "aws:SourceArn": "arn:aws:s3:::example-bucket"
-        }
-      }
-    }
-  ]
-}`}
+                  {policyExample}
                 </pre>
-              )}
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={policyCloseGuard.requestClose}
-                className="rounded-md border border-slate-200 px-4 py-2 ui-body font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
+              </div>
+            </SettingsSection>
+            <WorkflowActions>
+              <SettingsButton variant="secondary" onClick={policyCloseGuard.requestClose} disabled={policySaving}>
                 Close
-              </button>
-              <button
-                type="button"
-                onClick={savePolicy}
-                disabled={policySaving || policyLoading}
-                className="rounded-md bg-primary px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-              >
+              </SettingsButton>
+              <SettingsButton onClick={savePolicy} disabled={policyBusy}>
                 {policySaving ? "Saving..." : "Save policy"}
-              </button>
-            </div>
+              </SettingsButton>
+            </WorkflowActions>
           </div>
           {policyCloseGuard.confirmationDialog}
         </WorkflowPage>

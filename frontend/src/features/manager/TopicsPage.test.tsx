@@ -10,6 +10,9 @@ const listTopicsMock = vi.fn();
 const getTopicConfigurationMock = vi.fn();
 const updateTopicConfigurationMock = vi.fn();
 const deleteTopicMock = vi.fn();
+const createTopicMock = vi.fn();
+const getTopicPolicyMock = vi.fn();
+const updateTopicPolicyMock = vi.fn();
 
 vi.mock("./S3AccountContext", () => ({
   useS3AccountContext: () => useS3AccountContextMock(),
@@ -20,12 +23,12 @@ vi.mock("../../api/topics", async () => {
   return {
     ...actual,
     listTopics: (...args: unknown[]) => listTopicsMock(...args),
-    createTopic: vi.fn(),
+    createTopic: (...args: unknown[]) => createTopicMock(...args),
     deleteTopic: (...args: unknown[]) => deleteTopicMock(...args),
     getTopicConfiguration: (...args: unknown[]) => getTopicConfigurationMock(...args),
-    getTopicPolicy: vi.fn(),
+    getTopicPolicy: (...args: unknown[]) => getTopicPolicyMock(...args),
     updateTopicConfiguration: (...args: unknown[]) => updateTopicConfigurationMock(...args),
-    updateTopicPolicy: vi.fn(),
+    updateTopicPolicy: (...args: unknown[]) => updateTopicPolicyMock(...args),
   };
 });
 
@@ -36,6 +39,9 @@ describe("TopicsPage", () => {
     getTopicConfigurationMock.mockReset();
     updateTopicConfigurationMock.mockReset();
     deleteTopicMock.mockReset();
+    createTopicMock.mockReset();
+    getTopicPolicyMock.mockReset();
+    updateTopicPolicyMock.mockReset();
     useS3AccountContextMock.mockReturnValue({
       accounts: [],
       selectedS3AccountId: null,
@@ -139,12 +145,12 @@ describe("TopicsPage", () => {
       ".workflow-page"
     );
     if (!dialog) throw new Error("Topic attributes workflow page not found");
-    const endpointInput = within(dialog).getByPlaceholderText("https://example.com/webhook");
+    const endpointInput = within(dialog).getByRole("textbox", { name: "Push endpoint URL" });
     await waitFor(() => expect(endpointInput).toHaveValue("https://notify.example.test/hooks/current"));
     expect(within(dialog).getByRole("checkbox", { name: "Verify SSL certificates" })).not.toBeChecked();
 
-    const attributeKeys = within(dialog).getAllByPlaceholderText("attribute-key");
-    const attributeValues = within(dialog).getAllByPlaceholderText('value or JSON ({"key":"value"})');
+    const attributeKeys = within(dialog).getAllByRole("textbox", { name: /Attribute name \d+/ });
+    const attributeValues = within(dialog).getAllByRole("textbox", { name: /Attribute value \d+/ });
     expect(attributeKeys.map((input) => (input as HTMLInputElement).value)).toEqual(["OpaqueData", "persistent"]);
     expect(attributeValues.map((input) => (input as HTMLInputElement).value)).toEqual(["trace=lab", "true"]);
 
@@ -165,6 +171,75 @@ describe("TopicsPage", () => {
       "OpaqueData-updated": "trace=lab",
       persistent: "true",
     });
+  });
+
+  it("retains the create draft while pending and restores dismissal after a failure", async () => {
+    const user = userEvent.setup();
+    useS3AccountContextMock.mockReturnValue({ accountIdForApi: "conn-7", accounts: [], requiresS3AccountSelection: false });
+    let rejectCreate!: (error: Error) => void;
+    createTopicMock.mockReturnValue(new Promise((_resolve, reject) => { rejectCreate = reject; }));
+    render(<MemoryRouter><TopicsPage /></MemoryRouter>);
+    await user.click(screen.getByRole("button", { name: "Create topic" }));
+    const dialog = screen.getByRole("dialog", { name: "Create SNS topic" });
+    const name = within(dialog).getByRole("textbox", { name: "Topic name" });
+    await user.click(within(dialog).getByRole("button", { name: "Create topic" }));
+    expect(name).toHaveAccessibleDescription("Topic name is required.");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(createTopicMock).not.toHaveBeenCalled();
+    await user.type(name, "  topic-events  ");
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.queryByText("Topic name is required.")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Create topic" }));
+    expect(createTopicMock).toHaveBeenCalledWith("conn-7", { name: "topic-events" });
+    expect(name).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Close modal" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(dialog).toBeInTheDocument();
+    rejectCreate(new Error("Creation failed"));
+    expect(await within(dialog).findByText("Creation failed")).toBeInTheDocument();
+    expect(name).toBeEnabled();
+    expect(name).toHaveValue("  topic-events  ");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Discard changes?" })).getByRole("button", { name: "Keep editing" }));
+    expect(name).toHaveValue("  topic-events  ");
+  });
+
+  it("associates JSON validation and saves exactly the displayed policy example in the current context", async () => {
+    const user = userEvent.setup();
+    const topicArn = "arn:aws:sns:default:tenant:topic-events";
+    useS3AccountContextMock.mockReturnValue({ accountIdForApi: "s3u-7", accounts: [], requiresS3AccountSelection: false });
+    listTopicsMock.mockResolvedValue([{ name: "topic-events", arn: topicArn }]);
+    getTopicPolicyMock.mockResolvedValue({ policy: { Version: "2012-10-17", Statement: [] } });
+    let rejectSave!: (error: Error) => void;
+    updateTopicPolicyMock.mockReturnValue(new Promise((_resolve, reject) => { rejectSave = reject; }));
+    render(<MemoryRouter><TopicsPage /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Policy" }));
+    const editor = screen.getByRole("textbox", { name: "Policy JSON" });
+    await waitFor(() => expect(editor).toBeEnabled());
+    await user.clear(editor);
+    await user.type(editor, "invalid");
+    await user.click(screen.getByRole("button", { name: "Save policy" }));
+    expect(editor).toHaveAttribute("aria-invalid", "true");
+    expect(editor).toHaveAccessibleDescription("Policy must be valid JSON.");
+    expect(updateTopicPolicyMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Use example" }));
+    expect(editor).not.toHaveAttribute("aria-invalid", "true");
+    const toggle = screen.getByRole("button", { name: "Hide example" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const example = document.getElementById(toggle.getAttribute("aria-controls")!);
+    expect(example).toHaveTextContent((editor as HTMLTextAreaElement).value.replace(/\s+/g, " "));
+    const policy = JSON.parse((editor as HTMLTextAreaElement).value);
+    expect(policy.Statement[0].Resource).toBe(topicArn);
+    await user.click(screen.getByRole("button", { name: "Save policy" }));
+    expect(updateTopicPolicyMock).toHaveBeenCalledWith("s3u-7", topicArn, policy);
+    expect(editor).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Use example" })).toBeDisabled();
+    rejectSave(new Error("Policy save failed"));
+    expect(await screen.findByText("Policy save failed")).toBeInTheDocument();
+    expect(editor).toBeEnabled();
+    expect(editor).not.toHaveAttribute("aria-invalid", "true");
+    expect(JSON.parse((editor as HTMLTextAreaElement).value)).toEqual(policy);
   });
 
   it("renders canonical Ceph topics without raw notification details", async () => {

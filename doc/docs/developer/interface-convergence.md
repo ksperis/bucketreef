@@ -231,6 +231,29 @@ focus, nested table scrolling, long identities/object keys/versions, partial and
 missing samples, error-free results, object search, status/error filters, empty
 results and reset. Use documentary fixtures; retain the existing execution tests.
 
+## Manager SNS forms
+
+Topic creation uses `UiInput` and `ModalActions`. The attributes and policy
+workflow pages reuse compact `SettingsSection`, canonical fields,
+`SettingsButton` and `WorkflowActions`. Attribute rows retain stable draft IDs;
+their visible labels and numbered accessible names identify each name/value
+pair and removal action. TLS help is associated with its checkbox.
+
+The policy editor has sixteen visible rows independently of compact control
+height. Missing-name and JSON syntax errors describe their field and clear when
+it is edited; storage/API failures remain operation errors. One serialized
+example supplies both the displayed JSON and
+the inserted draft, retaining the current topic ARN. Loading/saving disables
+draft changes, including example insertion. Creation blocks modal dismissal
+while pending; workflow draft guards retain their existing return behavior.
+
+Validate creation, attributes and policy in both themes at 1440px and 390px,
+plus 320px. Use documentary fixtures with long names/ARNs. Check empty-name,
+duplicate-attribute and JSON validation, draft retention, row removal, structured
+attribute values, the TLS flag, pending requests, failure/retry and clean close
+after save. Verify the selected execution context and exact topic ARN in the
+requests. These checks do not exercise real SNS mutations.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
