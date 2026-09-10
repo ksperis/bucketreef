@@ -123,10 +123,10 @@ export default function StorageSpaceIconPickerModal({
       closeOnBackdropClick={!busy}
       closeOnEscape={!busy}
     >
-      <div className="space-y-5" ref={(node) => { initialFocus.current = node?.querySelector('input:checked') ?? null; }}>
+      <div className="settings-stack" ref={(node) => { initialFocus.current = node?.querySelector('input:checked') ?? null; }}>
         {source === "uploaded" && !preview && initialSource === "uploaded" && <StorageSpaceIcon icon={space.icon} name={space.name} size="md" decorative />}
         {source === "uploaded" && preview && <img src={preview} alt={t({ en: "Icon preview", fr: "Aperçu de l’icône", de: "Symbolvorschau" })} className="h-16 w-16 rounded object-contain" />}
-        <p className={cx("text-sm", uiMutedTextClass)}>
+        <p className={cx("settings-body", uiMutedTextClass)}>
           {t({
             en: "Choose a pictogram or upload a custom PNG/JPEG image (1 MiB maximum).",
             fr: "Choisissez un pictogramme ou importez une image PNG/JPEG personnalisée (1 Mio maximum).",
@@ -135,7 +135,7 @@ export default function StorageSpaceIconPickerModal({
         </p>
 
         <fieldset>
-          <legend className="mb-2 text-sm font-semibold">
+          <legend className="mb-2 settings-label">
             {t({ en: "Pictograms", fr: "Pictogrammes", de: "Piktogramme" })}
           </legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -185,7 +185,7 @@ export default function StorageSpaceIconPickerModal({
               : "border-[color:var(--ui-border-soft)]",
           )}
         >
-          <span className="flex items-center gap-2 text-sm font-semibold">
+          <span className="flex items-center gap-2 settings-label">
             <input
               disabled={busy}
               type="radio"
@@ -206,7 +206,7 @@ export default function StorageSpaceIconPickerModal({
             disabled={busy}
             accept="image/png,image/jpeg"
             aria-label={t({ en: "Custom image file", fr: "Fichier image personnalisé", de: "Eigene Bilddatei" })}
-            className="mt-3 block w-full text-sm"
+            className="mt-3 block w-full settings-body"
             onChange={(event) => {
               const nextFile = event.target.files?.[0] ?? null;
               setSource("uploaded");

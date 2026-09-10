@@ -149,15 +149,15 @@ export default function Modal({
           maxWidthClass,
         )}
       >
-        <div className={cx("flex items-center justify-between border-b px-6 py-4", uiDividerClass)}>
-          <h3 id={fallbackTitleId} className={cx("ui-subtitle", uiTitleTextClass)}>
+        <div className={cx("modal-header flex items-center justify-between border-b px-6 py-4", uiDividerClass)}>
+          <h3 id={fallbackTitleId} className={cx("modal-title ui-subtitle", uiTitleTextClass)}>
             {title}
           </h3>
           <UiButton variant="ghost" onClick={onClose} className="py-1" aria-label={closeAriaLabel}>
             {closeLabel}
           </UiButton>
         </div>
-        <div className={`${maxBodyHeightClass} overflow-y-auto px-6 py-4`}>{children}</div>
+        <div className={`modal-body ${maxBodyHeightClass} overflow-y-auto px-6 py-4`}>{children}</div>
       </div>
     </div>
   );

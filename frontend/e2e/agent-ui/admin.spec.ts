@@ -121,7 +121,7 @@ for (const theme of ["light", "dark"] as const) {
         const controlHeight = await providerId.evaluate(
           (element) => element.getBoundingClientRect().height,
         );
-        if (width === 1440) expect(controlHeight).toBe(32);
+        if (width === 1440) expect(controlHeight).toBe(28);
         else expect(controlHeight).toBeGreaterThanOrEqual(44);
         const sidebar = page.locator(
           `aside[data-sidebar-variant="${width === 390 ? "mobile" : "desktop"}"]`,

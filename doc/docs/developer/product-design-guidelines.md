@@ -151,11 +151,16 @@ The default rendering remains unchanged for existing settings consumers.
 
 - Keep the content left-aligned, at most 1120px wide. At desktop widths of
   1024px and above, reserve 190px for the section title and a short description,
-  with a 24px gutter. Below 1024px, place the title above the settings.
-- Use flat rows separated by soft token borders. Rows normally measure 56–64px,
-  with 14px primary text, 13px descriptions and 20px section padding. Allow
-  rows to grow for translated text; never truncate instructions to force height.
-- Use 32px minimum controls on desktop and 44px touch targets below 1024px.
+  with a 16px gutter. Below 1024px, place the title above the settings.
+- Use flat rows separated by soft token borders: 40px minimum, 6px vertical
+  padding, and about 48–52px for a short label and description. Sections have
+  12px top/bottom padding. Section titles use 14px/20px semibold; setting labels
+  use 13px/18px medium; descriptions use 12px/16px normal. Allow rows to grow
+  for translated text; never truncate instructions to force height.
+- Use 28px minimum controls on desktop. Setting buttons use 12px/16px normal
+  text and 8px horizontal padding; inputs and selects use 13px/18px text.
+  Keep 44px touch targets below 1024px and whenever a coarse pointer is present,
+  including hybrid laptops. Switch tracks remain 36 × 20px.
   An icon, a real status and an action are optional. Avoid nested cards and
   repeated section titles. Both themes use the existing `ui-*` tokens.
 - Show identity information as text. Short name/avatar/password edits belong
@@ -192,6 +197,17 @@ Use `SettingsButton`, `SettingsDialog`, `SettingsConfirmation`, `SettingsField`
 and `SettingsActions` from `components/settings/SettingsControls`. Profile
 wrappers only inject translated labels. `useSettingsDraft` holds the baseline
 and editable values; page adapters own conversions, validation and persistence.
+
+Use the shared settings typography classes instead of arbitrary `text-[13px]`
+utilities, which are normalized elsewhere. `SettingsField` accepts a translated
+`unit` string alongside the input; its accessible description includes the unit
+and any field help or error. Short units such as days should not add a separate
+line. Explanations and validation stay below the input.
+
+Settings dialogs use 16px horizontal and 12px vertical padding, with 12px gaps
+between fields. The dirty-only action bar uses 8px vertical padding. These
+changes are opt-in: global buttons, nonmigrated forms, tables and other dialogs
+retain their existing geometry. There is no density selector.
 This is not a schema-driven form engine. `SettingsNavigationGuard` protects
 router navigation and browser unload, while `useSettingsCloseGuard` protects
 explicit cancellation. Register one route guard for the whole page, including

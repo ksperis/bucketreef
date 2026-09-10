@@ -199,7 +199,7 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
 
   return (
     <div className="settings-compact settings-form">
-      {loading && <p role="status" className="mb-3 text-sm text-[var(--ui-text-muted)]">{text("loading")}</p>}
+      {loading && <p role="status" className="mb-3 settings-body text-[var(--ui-text-muted)]">{text("loading")}</p>}
       {loadError && <div className="mb-3"><UiInlineMessage tone="error" role="alert">{text("profileLoadError")}</UiInlineMessage><ProfileButton onClick={() => void load()}>{text("retry")}</ProfileButton></div>}
       <SettingsSection presentation="compact" title={text("identity")} description={text("identityHelp")}>
         <SettingsItem compact title={text("name")} description={<><span className="text-[var(--ui-text)]">{fullName || text("unknown")}</span>{!canEditName && <span className="block">{text("managedName")}</span>}</>} action={canEditName && <ProfileButton variant="secondary" disabled={unavailable} onClick={() => openDialog("name")} aria-label={text("editName")}>{text("edit")}</ProfileButton>} />
@@ -223,17 +223,17 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
         <SettingsActions dirty={preferencesDirty} busy={saving} disabled={unavailable} onSave={() => void savePreferences()} onCancel={preferencesGuard.requestClose} saveLabel={text("save")} saveAriaLabel={text("savePreferences")} cancelLabel={text("cancel")} savingLabel={text("saving")} />
       </form>
       {dialog && <ProfileDialog title={text(dialog === "name" ? "editName" : "editImage")} onClose={dialogGuard.requestClose} closeOnEscape={!saving} initialFocusRef={dialog === "name" ? nameInput : sourceInput}>
-        <form onSubmit={saveIdentity} className="settings-form space-y-4">
+        <form onSubmit={saveIdentity} className="settings-form settings-stack">
           {dialog === "name" ? <UiInput ref={nameInput} label={text("name")} value={nameDraft} disabled={saving} maxLength={255} onChange={event => setNameDraft(event.target.value)} /> : <>
-            <div className="flex items-center gap-4"><UserAvatar avatar={previewAvatar} name={fullName} email={storedUser?.email} size="xl" title={text("image")} /><p className="text-sm text-[var(--ui-text-muted)]">{text("imageHelp")}</p></div>
+            <div className="flex items-center gap-4"><UserAvatar avatar={previewAvatar} name={fullName} email={storedUser?.email} size="xl" title={text("image")} /><p className="settings-body text-[var(--ui-text-muted)]">{text("imageHelp")}</p></div>
             <UiSelect ref={sourceInput} label={text("imageSource")} value={avatarPreference} disabled={saving} onChange={event => { setAvatarPreference(event.target.value as UserAvatarPreference); setRemoveAvatar(false); setError(null); }}>
               <option value="auto">{text("auto")}</option><option value="gravatar">Gravatar</option><option value="initials">{text("initials")}</option>{(avatar?.source === "uploaded" || avatarFile) && <option value="uploaded">{text("uploaded")}</option>}
             </UiSelect>
-            <p className="text-sm text-[var(--ui-text-muted)]">{text("autoImageHelp")}</p>
+            <p className="settings-body text-[var(--ui-text-muted)]">{text("autoImageHelp")}</p>
             <UiInput label={text("chooseImage")} type="file" accept="image/png,image/jpeg" disabled={saving} onChange={chooseFile} />
-            {avatarFile && <p className="break-all text-sm">{avatarFile.name}</p>}
+            {avatarFile && <p className="break-all settings-body">{avatarFile.name}</p>}
             {avatar?.source === "uploaded" && <ProfileButton variant="ghost" disabled={saving || removeAvatar} onClick={() => { setRemoveAvatar(true); setAvatarFile(null); setAvatarPreference("auto"); }}>{text("removeImage")}</ProfileButton>}
-            {removeAvatar && <p role="status" className="text-sm">{text("imageRemovedDraft")}</p>}
+            {removeAvatar && <p role="status" className="settings-body">{text("imageRemovedDraft")}</p>}
           </>}
           {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
           <div className="flex flex-wrap justify-end gap-2"><ProfileButton variant="secondary" disabled={saving} onClick={dialogGuard.requestClose}>{text("cancel")}</ProfileButton><ProfileButton type="submit" disabled={unavailable || !dialogDirty}>{text(saving ? "saving" : "save")}</ProfileButton></div>

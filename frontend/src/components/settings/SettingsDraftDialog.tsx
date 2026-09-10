@@ -108,7 +108,7 @@ export default function SettingsDraftDialog<T>({
           <div className="settings-fields">
             {children(draft, setDraft, errors, validateDraft)}
           </div>
-          <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
             <SettingsButton variant="secondary" onClick={guard.requestClose}>
               {labels?.cancel ?? "Cancel"}
             </SettingsButton>

@@ -354,7 +354,7 @@ export default function ProjectSettingsEditor({
           }
         />
         {settings && (
-          <p className="py-2 text-[13px] text-[var(--ui-text-muted)]">
+          <p className="py-1 settings-description">
             {editable
               ? t({
                   en: "Project settings are shared with administrators. Platform values are resolved when you save.",
@@ -502,6 +502,7 @@ export default function ProjectSettingsEditor({
                       {draft.versionHistoryRetentionOverride && (
                         <SettingsField
                           label={retentionTitle}
+                          unit={t({ en: "Days", fr: "Jours", de: "Tage" })}
                           type="number"
                           min={1}
                           step={1}
@@ -524,7 +525,7 @@ export default function ProjectSettingsEditor({
                           }
                         />
                       )}
-                      <span className="text-sm">{customize}</span>
+                      <span className="settings-body">{customize}</span>
                       <SettingsSwitch
                         ariaLabel={`${customize} — ${retentionTitle}`}
                         checked={draft.versionHistoryRetentionOverride}
@@ -571,7 +572,7 @@ export default function ProjectSettingsEditor({
                           })}
                         </SettingsButton>
                       )}
-                      <span className="text-sm">{customize}</span>
+                      <span className="settings-body">{customize}</span>
                       <SettingsSwitch
                         ariaLabel={`${customize} — ${originsTitle}`}
                         checked={draft.corsOriginsOverride}

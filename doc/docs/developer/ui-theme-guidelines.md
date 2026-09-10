@@ -100,9 +100,10 @@ surfaces, not like a separate marketing site.
 
 `components/settings/compactSettings.css` owns the opt-in settings geometry:
 `--settings-content-width` (1120px), `--settings-title-width` (190px),
-`--settings-section-gap` (20px), `--settings-row-height` (56px minimum) and
-`--settings-control-height` (32px desktop / 44px below 1024px). Change these
-shared tokens instead of copying dimensions into page-specific styles. Rows
+`--settings-section-gap` (12px top/bottom), `--settings-column-gap` (16px),
+`--settings-row-height` (40px minimum), `--settings-row-padding` (6px) and
+`--settings-control-height` (28px desktop / 44px below 1024px or with a coarse
+pointer). Change these shared tokens instead of copying dimensions into page-specific styles. Rows
 may grow for translated labels; do not clip text or reduce mobile targets.
 
 Compact sections, inline status badges and the sticky action area use the
@@ -119,3 +120,12 @@ The compact presentation is explicit. Nonmigrated consumers keep the default
 overrides and Storage Space settings now use the compact presentation. The former
 Portal alias facade and unused card/form helpers have been removed; import the
 canonical components directly.
+
+Settings typography is also tokenized: titles 14px/20px at weight 600, labels
+13px/18px at weight 500, body/inputs 13px/18px at weight 400, descriptions and
+buttons 12px/16px at weight 400. Use `settings-section-title`, `settings-label`,
+`settings-body`, `settings-description` and `SettingsButton`; do not depend on
+ad-hoc tiny text utilities or change the global `UiButton` defaults.
+Dialog and action-bar spacing comes from `--settings-dialog-padding-x/y`,
+`--settings-field-gap` and `--settings-actions-padding`. Heights are minimums,
+so longer translated labels and validation messages can wrap without clipping.

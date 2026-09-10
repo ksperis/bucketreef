@@ -53,6 +53,16 @@ The fixture scenarios exercise both editors and their dialog/viewport behavior.
 They do not constitute a successful real-Ceph validation. Temporary screenshots
 and authentication state remain excluded from commits.
 
+## Density refinement
+
+The compact settings foundation now uses the denser desktop geometry: 28px
+controls, 12px normal-weight button text, 13px setting labels, 6px row padding
+and 12px section padding. Dialogs share the same scale, and short field units
+stay inline. Geometry is recorded in the visual scenarios alongside screenshots;
+touch targets remain 44px, including large screens with a coarse pointer.
+This density correction leaves the existing save boundaries, access rules,
+translations and nonmigrated forms unchanged.
+
 ## Deferred scope
 
 Other account tabs, bucket and workspace forms keep their existing default
