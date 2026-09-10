@@ -379,6 +379,19 @@ body {
     opacity: 0.72;
   }
 
+  .ui-control.ui-control-compact {
+    min-height: 28px;
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  @media (max-width: 1023px), (any-pointer: coarse) {
+    .ui-control.ui-control-compact {
+      min-height: 44px;
+    }
+  }
+
   .ui-control:hover:not(:disabled) {
     border-color: rgb(var(--ui-primary-300-rgb));
   }

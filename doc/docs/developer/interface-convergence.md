@@ -331,9 +331,43 @@ click outside, and open/cancel the workspace confirmation. Check full object
 keys/ETags, viewport bounds, scrolling, action targets and restored focus. These
 checks exercise presentation and mocked requests, not live storage operations.
 
+## RGW Admin Ops dialogs
+
+Account/user/bucket deletion, bucket link/unlink and index checks reuse
+`ModalActions`, `ModalOptions`, canonical fields, `InlineSummary` and semantic
+messages/badges. The shared `modal-disclosure` keeps native keyboard behavior
+and visible focus for advanced options. Long target identities and confirmation
+instructions wrap; the raw RGW response has a named, focusable scrolling region.
+
+Destructive operations retain their exact confirmation phrase and purge/fix
+dependencies. Phrase errors describe the field; API failures remain operation
+errors. All execution options and dismissal paths are disabled during a request,
+then become available after failure. Settled options remain editable so a
+read-only index check can be followed by an explicitly confirmed repair.
+Link target changes immediately hide the previous catalogue during debounce and
+loading; unavailable account support remains visible with its capability reason.
+
+The shared `UiInput`, `UiSelect` and `UiTextarea` compact size now owns its
+typography explicitly, preventing the standard control class from overriding
+it. Compact controls use 12px text and a 28px minimum height, with 44px targets
+on mobile or coarse pointers. Textareas retain their requested rows; standard
+field sizing is unchanged.
+
+Validate all eight operation/target variants with documentary API fixtures in
+both themes at 1440px and 390px, plus deletion and account linking at 320px and
+667×280px. Check exact phrases, pending controls and dismissal, structured
+failure/retry/success, and unchanged target/tenant/options across retries.
+Check shared compact input/select/textarea consumers in Ceph user creation and
+the Manager topic list, including the standard topic-creation field. These
+checks do not execute live RGW or SNS mutations. At 320px the bucket list's
+sticky name cell currently obscures the row action trigger; keyboard opening
+can validate the modal independently while that listing defect awaits its pass.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
+- Keep bucket row actions reachable by pointer when sticky columns fill a
+  narrow viewport, including 320px.
 - Adopt canonical field labels/help in remaining legacy forms.
 - Review remaining operational form sections.
 - Review remaining account and bucket form sections against the compact
