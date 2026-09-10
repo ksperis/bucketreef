@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "jest-axe";
@@ -185,4 +185,133 @@ describe("CreateManagedPrivateAccessModal", () => {
 
     expect(await axe(container)).toHaveNoViolations();
   });
+  it("protects an unadded inline draft on every dismissal path and can discard it", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" onClose={onClose} onCreated={vi.fn()} />);
+    const dialog = screen.getByRole("dialog", { name: "Create my private access" });
+    await user.click(screen.getByText("Advanced configuration"));
+    await user.type(screen.getByLabelText("Inline policy name"), "unadded-draft");
+    for (const dismiss of [
+      () => user.click(within(dialog).getByRole("button", { name: "Cancel", exact: true })),
+      () => user.click(within(dialog).getByRole("button", { name: "Close modal" })),
+      () => user.keyboard("{Escape}"),
+      () => fireEvent.mouseDown(dialog.parentElement!),
+    ]) {
+      await dismiss();
+      expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+      await user.click(screen.getByRole("button", { name: "Keep editing" }));
+      expect(screen.getByLabelText("Inline policy name")).toHaveValue("unadded-draft");
+    }
+    await user.click(within(dialog).getByRole("button", { name: "Cancel", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(createIamMock).not.toHaveBeenCalled();
+  });
+
+  it("does not treat opening advanced configuration or restoring defaults as a dirty draft", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" onClose={onClose} onCreated={vi.fn()} />);
+    await user.click(screen.getByText("Advanced configuration"));
+    await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
+    await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
+    await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog", { name: "Discard changes?" })).not.toBeInTheDocument();
+  });
+
+  it.each(["iam", "rgw_user"] as const)("freezes the %s draft and dismissal until failure, then retries the same context and payload", async (variant) => {
+    const user = userEvent.setup();
+    const api = variant === "iam" ? createIamMock : createRgwUserMock;
+    const accountId = variant === "iam" ? "acc-7" : "s3u-9";
+    let reject!: (reason: Error) => void;
+    api.mockImplementationOnce(() => new Promise((_, rejectRequest) => { reject = rejectRequest; }));
+    const onClose = vi.fn();
+    const onCreated = vi.fn();
+    render(<CreateManagedPrivateAccessModal variant={variant} accountId={accountId} onClose={onClose} onCreated={onCreated} />);
+    const dialog = screen.getByRole("dialog");
+    await user.click(screen.getByText("Advanced configuration"));
+    await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
+    const form = screen.getByLabelText("Connection name").closest("form")!;
+    fireEvent.submit(form);
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+    const originalCall = api.mock.calls[0];
+    for (const control of dialog.querySelectorAll("input, textarea, button")) expect(control).toBeDisabled();
+    fireEvent.submit(form);
+    await user.keyboard("{Escape}");
+    fireEvent.mouseDown(dialog.parentElement!);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close modal" }));
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    reject(new Error("Fixture provisioning failed"));
+    await screen.findByText("Fixture provisioning failed");
+    expect(screen.getByLabelText("Connection name")).toBeEnabled();
+    expect(screen.getByRole("checkbox", { name: "Access manager" })).toBeChecked();
+    fireEvent.submit(form);
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(api.mock.calls[1]).toEqual(originalCall);
+    expect(originalCall[0]).toBe(accountId);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates a blank connection name beside the field and clears the error when corrected", async () => {
+    const user = userEvent.setup();
+    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" onClose={vi.fn()} onCreated={vi.fn()} />);
+    const name = screen.getByLabelText("Connection name");
+    await user.clear(name);
+    await user.type(name, "   ");
+    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    expect(name).toHaveAccessibleDescription("Connection name is required.");
+    await waitFor(() => expect(name).toHaveFocus());
+    expect(createIamMock).not.toHaveBeenCalled();
+    await user.type(name, "Fixed");
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("keeps inline object validation and unique names local to the draft fields", async () => {
+    const user = userEvent.setup();
+    render(<CreateManagedPrivateAccessModal variant="iam" accountId="acc-7" onClose={vi.fn()} onCreated={vi.fn()} />);
+    await user.click(screen.getByText("Advanced configuration"));
+    const name = screen.getByLabelText("Inline policy name");
+    const document = screen.getByLabelText("Inline policy document");
+    const add = screen.getByRole("button", { name: "Add inline policy" });
+    await user.click(add);
+    expect(name).toHaveAccessibleDescription("Inline policy name is required.");
+    await waitFor(() => expect(name).toHaveFocus());
+    await user.type(name, "audit");
+    for (const invalid of ["{", "[]", "null", "true"]) {
+      fireEvent.change(document, { target: { value: invalid } });
+      await user.click(add);
+      expect(document).toHaveAccessibleDescription(expect.stringContaining("must be a JSON object"));
+      await waitFor(() => expect(document).toHaveFocus());
+    }
+    fireEvent.change(document, { target: { value: '{}' } });
+    await user.click(add);
+    await user.type(name, "audit");
+    await user.click(add);
+    expect(name).toHaveAccessibleDescription("Inline policy names must be unique.");
+    await user.click(screen.getByRole("button", { name: "Remove inline policy audit" }));
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+    expect(createIamMock).not.toHaveBeenCalled();
+  });
+
+  it("reveals and focuses workspace validation when advanced configuration is closed", async () => {
+    const user = userEvent.setup();
+    render(<CreateManagedPrivateAccessModal variant="rgw_user" accountId="s3u-9" onClose={vi.fn()} onCreated={vi.fn()} />);
+    const advanced = screen.getByText("Advanced configuration");
+    await user.click(advanced);
+    await user.click(screen.getByRole("checkbox", { name: "Access browser" }));
+    await user.click(advanced);
+    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    expect(advanced.closest("details")).toHaveAttribute("open");
+    const manager = screen.getByRole("checkbox", { name: "Access manager" });
+    expect(manager).toHaveAccessibleDescription(expect.stringContaining("Enable Browser, Manager, or both."));
+    await waitFor(() => expect(manager).toHaveFocus());
+    await user.click(manager);
+    expect(manager).not.toHaveAttribute("aria-invalid", "true");
+    expect(await axe(screen.getByRole("dialog"))).toHaveNoViolations();
+  });
+
 });

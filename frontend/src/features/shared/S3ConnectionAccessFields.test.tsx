@@ -56,4 +56,19 @@ describe("S3ConnectionAccessFields", () => {
     expect(screen.getByText("Access").closest("section")).toHaveClass("rounded-lg");
     expect(screen.getByText("Owner metadata: IAM user: researcher")).toBeInTheDocument();
   });
+  it("associates a workspace error with both choices and removes it after correction", () => {
+    const props = { accessManager: false, accessBrowser: false, onAccessManagerChange: vi.fn(), onAccessBrowserChange: vi.fn() };
+    const { rerender } = render(<S3ConnectionAccessFields {...props} error="Choose a workspace." />);
+    for (const choice of screen.getAllByRole("checkbox")) {
+      expect(choice).toHaveAttribute("aria-invalid", "true");
+      expect(choice).toHaveAccessibleDescription("At least one access must be enabled. Choose a workspace.");
+    }
+    rerender(<S3ConnectionAccessFields {...props} accessBrowser />);
+    for (const choice of screen.getAllByRole("checkbox")) {
+      expect(choice).not.toHaveAttribute("aria-invalid", "true");
+      expect(choice).toHaveAccessibleDescription("At least one access must be enabled.");
+    }
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
 });

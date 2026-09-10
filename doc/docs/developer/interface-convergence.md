@@ -96,6 +96,46 @@ Portal session revocation. They check cancellation without mutation, pending
 closure, exact targets and failure/retry behavior. Fixture requests do not prove
 live storage or identity-provider operations.
 
+## Managed private access dialogs
+
+The IAM and RGW-user private-access variants use `SettingsDialog`, compact
+`SettingsSection` rows, canonical labelled fields and `ModalActions`. Advanced
+configuration remains collapsed by default. Long group/policy names wrap;
+saved inline policies retain their explicit Add/Remove workflow and unique-name,
+JSON-object validation. Browser access and the IAM AmazonS3FullAccess default
+remain unchanged, as do backend availability gates and secret handling.
+
+Connection-name, inline-policy and workspace-choice errors are associated with
+their fields and receive focus. Hidden workspace errors reopen advanced
+configuration. The shared access-choice component associates help and errors
+with both checkboxes; one grid spacing contract avoids stacked margins in
+compact forms. API failures remain operation errors and preserve the draft.
+
+All dismissal paths protect changes, including an inline policy not yet added
+to the request. Reverting to defaults permits clean cancellation. A pending
+request freezes the form and dismissal; Enter submits once, and failure permits
+an identical retry. IAM and RGW-user requests retain their distinct payloads and
+explicit account/user execution contexts.
+
+A short private-access dialog keeps the IAM list underneath it, allowing focus
+to return to its trigger. Only the full user-creation workflow replaces that
+list. Compact settings and confirmation styling now sits directly on the
+`Modal` surface through its root class, without an extra wrapper that an active
+workflow host could hide. Existing widths, focus trapping and nested layers
+remain owned by `Modal`.
+
+Validation uses the two routed documentary fixtures in both themes, desktop,
+390px, 320px and short landscape viewports. Exercise clean/dirty cancellation,
+all dismissal paths, local validation, exact default/custom payloads, pending
+controls and failure/retry. A component matrix places simple, detailed,
+translated and nested dialogs inside active workflow hosts to check visibility,
+viewport bounds and focus. These checks simulate provisioning; they do not
+create live IAM identities, RGW keys or private connections.
+
+Delivery checks: 2,499 tests passed in the full frontend check; the final
+45 targeted tests and `npm run check:ci` also passed. All 12 routed scenarios
+and 30 workflow-host composition scenarios passed.
+
 ## Shared short-form fields
 
 API token name/expiry and Browser bucket/folder creation now use `UiInput`;

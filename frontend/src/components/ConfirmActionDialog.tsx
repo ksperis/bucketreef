@@ -56,52 +56,51 @@ export default function ConfirmActionDialog({
 }: ConfirmActionDialogProps) {
   const descriptionId = useId();
   return (
-    <div className="settings-dialog">
-      <Modal
-        title={title}
-        onClose={onCancel}
-        maxWidthClass={maxWidthClass}
-        zIndexClass={zIndexClass}
-        closeDisabled={loading}
-        closeOnBackdropClick={!loading}
-        closeOnEscape={!loading}
-        closeLabel={closeLabel}
-        closeAriaLabel={closeLabel}
-        ariaDescribedby={descriptionId}
-      >
-        <div className="settings-stack">
-          <p id={descriptionId} className="settings-body text-[var(--ui-text-muted)] [overflow-wrap:anywhere]">{description}</p>
+    <Modal
+      className="settings-dialog"
+      title={title}
+      onClose={onCancel}
+      maxWidthClass={maxWidthClass}
+      zIndexClass={zIndexClass}
+      closeDisabled={loading}
+      closeOnBackdropClick={!loading}
+      closeOnEscape={!loading}
+      closeLabel={closeLabel}
+      closeAriaLabel={closeLabel}
+      ariaDescribedby={descriptionId}
+    >
+      <div className="settings-stack">
+        <p id={descriptionId} className="settings-body text-[var(--ui-text-muted)] [overflow-wrap:anywhere]">{description}</p>
 
-          {details.length > 0 && (
-            <dl className="grid gap-2">
-              {details.map((detail) => (
-                <div key={detail.label} className="grid min-w-0 gap-1 border-b border-[var(--ui-border-soft)] pb-2 last:border-0 last:pb-0 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
-                  <dt className="settings-label min-w-0 [overflow-wrap:anywhere]">{detail.label}</dt>
-                  <dd className={`settings-body min-w-0 [overflow-wrap:anywhere] ${detail.mono ? "font-mono" : ""}`}>{detail.value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
+        {details.length > 0 && (
+          <dl className="grid gap-2">
+            {details.map((detail) => (
+              <div key={detail.label} className="grid min-w-0 gap-1 border-b border-[var(--ui-border-soft)] pb-2 last:border-0 last:pb-0 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                <dt className="settings-label min-w-0 [overflow-wrap:anywhere]">{detail.label}</dt>
+                <dd className={`settings-body min-w-0 [overflow-wrap:anywhere] ${detail.mono ? "font-mono" : ""}`}>{detail.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
 
-          {impacts.length > 0 && (
-            <UiInlineMessage tone="warning">
-              <p className="settings-label">{impactLabel}</p>
-              <ul className="settings-body mt-1 list-disc space-y-1 pl-4 [overflow-wrap:anywhere]">
-                {impacts.map((impact, index) => <li key={index}>{impact}</li>)}
-              </ul>
-            </UiInlineMessage>
-          )}
+        {impacts.length > 0 && (
+          <UiInlineMessage tone="warning">
+            <p className="settings-label">{impactLabel}</p>
+            <ul className="settings-body mt-1 list-disc space-y-1 pl-4 [overflow-wrap:anywhere]">
+              {impacts.map((impact, index) => <li key={index}>{impact}</li>)}
+            </ul>
+          </UiInlineMessage>
+        )}
 
-          {warning && <UiInlineMessage tone="neutral" className="[overflow-wrap:anywhere]">{warning}</UiInlineMessage>}
+        {warning && <UiInlineMessage tone="neutral" className="[overflow-wrap:anywhere]">{warning}</UiInlineMessage>}
 
-          <ModalActions>
-            <UiButton variant="secondary" onClick={onCancel} disabled={loading}>{cancelLabel}</UiButton>
-            <UiButton variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm} disabled={loading || confirmDisabled}>
-              {loading ? processingLabel : confirmLabel}
-            </UiButton>
-          </ModalActions>
-        </div>
-      </Modal>
-    </div>
+        <ModalActions>
+          <UiButton variant="secondary" onClick={onCancel} disabled={loading}>{cancelLabel}</UiButton>
+          <UiButton variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm} disabled={loading || confirmDisabled}>
+            {loading ? processingLabel : confirmLabel}
+          </UiButton>
+        </ModalActions>
+      </div>
+    </Modal>
   );
 }

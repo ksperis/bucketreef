@@ -21,6 +21,7 @@ function isTopModal(modalId: string) {
 
 type ModalProps = {
   title: string;
+  className?: string;
   titleAs?: "h2" | "h3";
   onClose: () => void;
   children: ReactNode;
@@ -41,6 +42,7 @@ type ModalProps = {
 
 export default function Modal({
   title,
+  className,
   titleAs: Title = "h3",
   onClose,
   children,
@@ -131,7 +133,7 @@ export default function Modal({
 
   return (
     <div
-      className={`modal-surface fixed inset-0 ${zIndexClass} flex items-center justify-center bg-black/50 px-4 py-6`}
+      className={cx(`modal-surface fixed inset-0 ${zIndexClass} flex items-center justify-center bg-black/50 px-4 py-6`, className)}
       role="presentation"
       onMouseDown={(event) => {
         if (!isTopModal(modalId)) return;
