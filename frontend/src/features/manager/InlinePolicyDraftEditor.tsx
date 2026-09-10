@@ -2,8 +2,15 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useId } from "react";
 import type { InlinePolicy } from "../../api/managerIamPolicies";
 import { summarizeInlinePolicyDocument } from "./inlinePolicySummary";
+import UiBadge from "../../components/ui/UiBadge";
+import UiInput from "../../components/ui/UiInput";
+import UiTextarea from "../../components/ui/UiTextarea";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
 
 export type InlinePolicyDraftEditorMode = "idle" | "create" | "edit";
 
@@ -44,6 +51,8 @@ export default function InlinePolicyDraftEditor({
   onInsertTemplate,
   onToggleExpanded,
 }: InlinePolicyDraftEditorProps) {
+  const contentId = useId();
+  const replacementMessageId = `${contentId}-replacement`;
   const hasDrafts = drafts.length > 0;
   const selectedDraft = selectedDraftName ? drafts.find((draft) => draft.name === selectedDraftName) ?? null : null;
   const trimmedName = draftName.trim();
@@ -55,196 +64,125 @@ export default function InlinePolicyDraftEditor({
   const showEditor = mode !== "idle" || !hasDrafts;
 
   return (
-    <div className="space-y-3 rounded-lg border border-dashed border-[color:var(--ui-border)] p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="ui-body font-semibold text-slate-800 dark:text-slate-100">Inline policies (optional)</div>
-          <p className="ui-caption text-slate-500 dark:text-slate-400">
-            Save inline JSON policies that embed directly on this {entityLabel}.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {hasDrafts ? (
-            <span className="ui-caption uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              {drafts.length} saved
-            </span>
-          ) : null}
-          {onToggleExpanded ? (
-            <button
-              type="button"
-              onClick={onToggleExpanded}
-              aria-label={expanded ? "Hide inline policies" : "Show inline policies"}
-              className="rounded-full border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-100 dark:hover:border-primary-500 dark:hover:text-primary-100"
-            >
-              {expanded ? "Hide" : "Show"}
-            </button>
-          ) : null}
-          {hasDrafts ? (
-            <>
-              <button
-                type="button"
-                onClick={onClearDrafts}
-                className="rounded-full border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-100 dark:hover:border-primary-500 dark:hover:text-primary-100"
+    <SettingsSection
+      title="Inline policies (optional)"
+      description={`Save inline JSON policies that embed directly on this ${entityLabel}.`}
+      presentation="compact"
+    >
+      <div className="settings-stack">
+        {(hasDrafts || onToggleExpanded) && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {hasDrafts && <span className="settings-description">{drafts.length} saved</span>}
+            {onToggleExpanded && (
+              <SettingsButton
+                variant="secondary"
+                onClick={onToggleExpanded}
+                aria-label={expanded ? "Hide inline policies" : "Show inline policies"}
+                aria-expanded={expanded}
+                aria-controls={contentId}
               >
-                Clear all
-              </button>
-              <button
-                type="button"
-                onClick={onCreateDraft}
-                className="rounded-full border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-100 dark:hover:border-primary-500 dark:hover:text-primary-100"
-              >
-                Create new inline policy
-              </button>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      {expanded && hasDrafts ? (
-        <div className="space-y-2 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-3 shadow-[var(--ui-shadow-soft)]">
-          <div className="flex items-center justify-between gap-2">
-            <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Saved inline policies
-            </p>
-            {showIdleState ? (
-              <span className="ui-caption text-slate-500 dark:text-slate-400">Select one to edit or create a new one.</span>
-            ) : null}
+                {expanded ? "Hide" : "Show"}
+              </SettingsButton>
+            )}
+            {hasDrafts && (
+              <>
+                <SettingsButton variant="secondary" onClick={onClearDrafts}>Clear all</SettingsButton>
+                <SettingsButton variant="secondary" onClick={onCreateDraft}>Create new inline policy</SettingsButton>
+              </>
+            )}
           </div>
-          <div className="space-y-2">
-            {drafts.map((draft) => {
-              const isSelected = draft.name === selectedDraft?.name;
-
-              return (
-                <div
-                  key={draft.name}
-                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition ${
-                    isSelected
-                      ? "border-primary/50 bg-primary/10 dark:border-primary-400/50 dark:bg-primary-500/10"
-                      : "border-slate-200/80 bg-white/80 dark:border-slate-700 dark:bg-slate-950/20"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onSelectDraft(draft.name)}
-                    className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate ui-body font-semibold text-slate-900 dark:text-slate-100">{draft.name}</p>
-                      <p className="ui-caption text-slate-500 dark:text-slate-400">
-                        {summarizeInlinePolicyDocument(draft.document)}
-                      </p>
+        )}
+        <div id={contentId} hidden={!expanded} className={expanded ? "settings-stack" : undefined}>
+          {hasDrafts && (
+            <div className="settings-stack">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="settings-label">Saved inline policies</h3>
+                {showIdleState && <span className="settings-description">Select one to edit or create a new one.</span>}
+              </div>
+              <div className="grid gap-2">
+                {drafts.map((draft) => {
+                  const isSelected = draft.name === selectedDraft?.name;
+                  return (
+                    <div key={draft.name} className="flex min-w-0 flex-wrap items-center gap-2">
+                      <SettingsButton
+                        variant={isSelected ? "secondary" : "ghost"}
+                        onClick={() => onSelectDraft(draft.name)}
+                        aria-pressed={isSelected}
+                        className="min-w-0 flex-1 flex-wrap text-left sm:flex-nowrap"
+                      >
+                        <span className="min-w-0 basis-full sm:basis-0 sm:flex-1">
+                          <span className="settings-label block break-words [overflow-wrap:anywhere]">{draft.name}</span>
+                          <span className="settings-description block">{summarizeInlinePolicyDocument(draft.document)}</span>
+                        </span>
+                        <UiBadge tone={isSelected ? "primary" : "neutral"}>{isSelected ? "Selected" : "Edit"}</UiBadge>
+                      </SettingsButton>
+                      <SettingsButton
+                        variant="ghost"
+                        onClick={() => onRemoveDraft(draft.name)}
+                        aria-label={`Remove inline policy ${draft.name}`}
+                      >
+                        Remove
+                      </SettingsButton>
                     </div>
-                    <span
-                      className={`rounded-full px-2.5 py-1 ui-caption font-semibold ${
-                        isSelected
-                          ? "bg-primary/15 text-primary dark:bg-primary-500/20 dark:text-primary-100"
-                          : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                      }`}
-                    >
-                      {isSelected ? "Selected" : "Edit"}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveDraft(draft.name)}
-                    className="rounded-md px-2 py-1 ui-caption font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/30 dark:hover:text-rose-100"
-                    aria-label={`Remove inline policy ${draft.name}`}
-                  >
-                    Remove
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-
-      {expanded && showIdleState ? (
-        <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3">
-          <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">
-            Select a saved inline policy to edit, or create a new one.
-          </p>
-          <p className="ui-caption text-slate-500 dark:text-slate-400">
-            Existing inline policies stay listed above so you can review them before adding another draft.
-          </p>
-        </div>
-      ) : null}
-
-      {expanded && showEditor ? (
-        <div className="space-y-4 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3">
-          <div className="space-y-1">
-            <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">
-              {mode === "edit" ? `Editing "${selectedDraftName}"` : "Create a new inline policy"}
-            </p>
-            <p className="ui-caption text-slate-500 dark:text-slate-400">
-              {mode === "edit"
-                ? "Update the selected draft before creating the user, group, or role."
-                : "Provide a name and valid JSON to keep this inline policy draft visible in the form."}
-            </p>
-          </div>
-
-          {replacementTarget ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 ui-caption text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
-              Saving this draft will replace the existing draft "{replacementTarget.name}".
+                  );
+                })}
+              </div>
             </div>
-          ) : null}
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2">
-              <label htmlFor="inline-draft-name-input" className="ui-body font-semibold text-slate-700 dark:text-slate-200">
-                Inline policy name
-              </label>
-              <input
-                id="inline-draft-name-input"
-                type="text"
+          )}
+          {showIdleState && (
+            <div className="settings-body">
+              <p>Select a saved inline policy to edit, or create a new one.</p>
+              <p className="settings-description mt-1">
+                Existing inline policies stay listed above so you can review them before adding another draft.
+              </p>
+            </div>
+          )}
+          {showEditor && (
+            <div className="settings-fields">
+              <div>
+                <h3 className="settings-label break-words [overflow-wrap:anywhere]">
+                  {mode === "edit" ? `Editing "${selectedDraftName}"` : "Create a new inline policy"}
+                </h3>
+                <p className="settings-description mt-1">
+                  {mode === "edit"
+                    ? `Update the selected draft before creating the ${entityLabel}.`
+                    : "Provide a name and valid JSON to keep this inline policy draft visible in the form."}
+                </p>
+              </div>
+              {replacementTarget && (
+                <div id={replacementMessageId}>
+                  <UiInlineMessage tone="warning" className="[overflow-wrap:anywhere]">
+                    Saving this draft will replace the existing draft "{replacementTarget.name}".
+                  </UiInlineMessage>
+                </div>
+              )}
+              <UiInput
+                label="Inline policy name"
+                aria-describedby={replacementTarget ? replacementMessageId : undefined}
                 value={draftName}
                 onChange={(event) => onDraftNameChange(event.target.value)}
-                className="w-full rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 placeholder="inline-policy"
               />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="inline-draft-document-input" className="ui-body font-semibold text-slate-700 dark:text-slate-200">
-                Inline policy document
-              </label>
-              <textarea
-                id="inline-draft-document-input"
+              <UiTextarea
+                label="Inline policy document"
                 value={draftText}
                 onChange={(event) => onDraftTextChange(event.target.value)}
-                className="min-h-[160px] w-full rounded-md border border-slate-200 px-3 py-2 ui-body font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="font-mono"
+                rows={8}
                 spellCheck={false}
+                hint="Provide valid JSON. Blank defaults to an empty document."
               />
-              <p className="ui-caption text-slate-500 dark:text-slate-400">Provide valid JSON. Blank defaults to an empty document.</p>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <SettingsButton variant="secondary" onClick={onInsertTemplate}>Insert template</SettingsButton>
+                {hasDrafts && (
+                  <SettingsButton variant="secondary" onClick={() => onSelectDraft(null)}>Cancel</SettingsButton>
+                )}
+                <SettingsButton onClick={onSaveDraft}>{actionLabel}</SettingsButton>
+              </div>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onInsertTemplate}
-              className="rounded-full border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-100 dark:hover:border-primary-500 dark:hover:text-primary-100"
-            >
-              Insert template
-            </button>
-            {hasDrafts ? (
-              <button
-                type="button"
-                onClick={() => onSelectDraft(null)}
-                className="rounded-full border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:text-slate-100 dark:hover:border-slate-500"
-              >
-                Cancel
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={onSaveDraft}
-              className="rounded-full bg-primary px-4 py-2 ui-caption font-semibold text-white shadow-sm transition hover:bg-primary-600"
-            >
-              {actionLabel}
-            </button>
-          </div>
+          )}
         </div>
-      ) : null}
-    </div>
+      </div>
+    </SettingsSection>
   );
 }
