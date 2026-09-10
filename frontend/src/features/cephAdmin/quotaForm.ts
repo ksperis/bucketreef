@@ -6,6 +6,23 @@
 export const CEPH_ADMIN_QUOTA_UNITS = ["B", "MiB", "GiB", "TiB"] as const;
 export type CephAdminQuotaUnit = (typeof CEPH_ADMIN_QUOTA_UNITS)[number];
 
+export type CephAdminQuotaFormValues = {
+  enabled: boolean;
+  size: string;
+  unit: CephAdminQuotaUnit;
+  objects: string;
+};
+
+export function validateCephAdminQuotaForm(values: CephAdminQuotaFormValues): { size?: string; objects?: string } {
+  if (!values.enabled) return {};
+  return {
+    ...(values.size.trim() && parseQuotaBytes(values.size, values.unit) == null
+      ? { size: "Storage quota value is invalid." } : {}),
+    ...(values.objects.trim() && parseOptionalNonNegativeInteger(values.objects) == null
+      ? { objects: "Object quota must be a non-negative integer." } : {}),
+  };
+}
+
 const UNIT_FACTORS: Record<CephAdminQuotaUnit, number> = {
   B: 1,
   MiB: 1024 ** 2,
