@@ -977,8 +977,7 @@ export const scenarios: DocScreenshotScenario[] = [
     user: storageUser,
     storage: { ...baseStorage(), selectedWorkspace: "portal" },
     actions: [
-      { type: "wait", selector: "text=Tool access (1)" },
-      { type: "click", selector: "button:has-text('Connect tool')" },
+      { type: "wait", selector: "button:has-text('Configure a tool'):enabled" },
       { type: "click", selector: "button:has-text('Configure a tool')" },
       { type: "wait", selector: "text=Cyberduck / Mountain Duck" },
       { type: "wait", selector: "text=WinSCP" },

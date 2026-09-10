@@ -21,6 +21,7 @@ function isTopModal(modalId: string) {
 
 type ModalProps = {
   title: string;
+  titleAs?: "h2" | "h3";
   onClose: () => void;
   children: ReactNode;
   maxWidthClass?: string;
@@ -39,6 +40,7 @@ type ModalProps = {
 
 export default function Modal({
   title,
+  titleAs: Title = "h3",
   onClose,
   children,
   maxWidthClass = "max-w-2xl",
@@ -151,9 +153,9 @@ export default function Modal({
         )}
       >
         <div className={cx("modal-header flex items-center justify-between border-b px-6 py-4", uiDividerClass)}>
-          <h3 id={fallbackTitleId} className={cx("modal-title ui-subtitle", uiTitleTextClass)}>
+          <Title id={fallbackTitleId} className={cx("modal-title ui-subtitle", uiTitleTextClass)}>
             {title}
-          </h3>
+          </Title>
           <UiButton variant="ghost" onClick={onClose} className="modal-close py-1" aria-label={closeAriaLabel}>
             {closeLabel}
           </UiButton>

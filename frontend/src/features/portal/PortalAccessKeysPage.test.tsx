@@ -21,6 +21,12 @@ function readDownloadedBlobText(blob: Blob | undefined): Promise<string> {
 }
 
 const mocks = vi.hoisted(() => ({
+  account: {
+    accountIdForApi: "101" as string | null,
+    hasAccountContext: true,
+    loading: false,
+    error: null as string | null,
+  },
   state: {
     iam_user: { iam_username: "portal-101-7" },
     s3_endpoint: "https://s3.example.test",
@@ -39,12 +45,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./PortalAccountContext", () => ({
-  usePortalAccountContext: () => ({
-    accountIdForApi: "101",
-    hasAccountContext: true,
-    loading: false,
-    error: null,
-  }),
+  usePortalAccountContext: () => mocks.account,
 }));
 
 vi.mock("../../api/portal", () => ({
@@ -69,10 +70,9 @@ function renderPage(initialEntry = "/portal/access-keys") {
 }
 
 async function openSetupDialog(user: ReturnType<typeof userEvent.setup>) {
-  if (!screen.queryByRole("button", { name: "Configure a tool" })) {
-    await user.click(screen.getByRole("tab", { name: "Connect tool" }));
-  }
-  await user.click(await screen.findByRole("button", { name: "Configure a tool" }));
+  const configureButton = await screen.findByRole("button", { name: "Configure a tool" });
+  await waitFor(() => expect(configureButton).toBeEnabled());
+  await user.click(configureButton);
   return screen.getByRole("dialog", { name: "Connect a tool" });
 }
 
@@ -106,6 +106,7 @@ describe("PortalAccessKeysPage", () => {
     });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     vi.clearAllMocks();
+    mocks.account = { accountIdForApi: "101", hasAccountContext: true, loading: false, error: null };
     mocks.state = {
       iam_user: { iam_username: "portal-101-7" },
       s3_endpoint: "https://s3.example.test",
@@ -136,21 +137,17 @@ describe("PortalAccessKeysPage", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "External S3 tools" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Connect tool" })).toBeInTheDocument();
-    expect(await screen.findByRole("tab", { name: "Tool access (1)" })).toBeInTheDocument();
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "Tool access (1)",
-      "Connect tool",
-    ]);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Connect a tool" })).not.toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(await screen.findByText("AK-USER")).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Connect tool" }));
-    expect(screen.getByRole("heading", { name: "Connect a tool" })).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Portal sharing/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("1. Select access")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Configure a tool" })).toBeInTheDocument();
+    expect(screen.getAllByText("1 access")).toHaveLength(1);
+    const header = screen.getByRole("heading", { name: "External S3 tools" }).closest("header")!;
+    expect(within(header).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Configure a tool", "New tool access",
+    ]);
     const setupDialog = await openSetupDialog(user);
+    expect(within(setupDialog).getByRole("heading", { name: "Connect a tool", level: 2 })).toBeInTheDocument();
     expect(within(setupDialog).getByRole("heading", { name: "Connection" })).toBeInTheDocument();
     expect(within(setupDialog).getByRole("combobox", { name: "Access used" })).toHaveDisplayValue(
       "Myself · created June 10 · …USER"
@@ -160,7 +157,7 @@ describe("PortalAccessKeysPage", () => {
     expect(await axe(setupDialog)).toHaveNoViolations();
     await user.click(within(setupDialog).getByRole("button", { name: "Close modal" }));
 
-    await user.click(screen.getByRole("tab", { name: "Tool access (1)" }));
+    expect(screen.getByRole("button", { name: "Configure a tool" })).toHaveFocus();
     expect(await screen.findByText("AK-USER")).toBeInTheDocument();
     expect(screen.queryByText("AK-PORTAL")).not.toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
@@ -184,10 +181,10 @@ describe("PortalAccessKeysPage", () => {
     act(() => setSessionUserCache({ ui_language: language as "fr" | "de" }));
     renderPage();
 
-    const connectTabName = language === "fr" ? "Connecter un outil" : "Werkzeug verbinden";
     const configureName = language === "fr" ? "Configurer un outil" : "Werkzeug konfigurieren";
-    await userEvent.click(await screen.findByRole("tab", { name: connectTabName }));
-    await userEvent.click(screen.getByRole("button", { name: configureName }));
+    const configureButton = await screen.findByRole("button", { name: configureName });
+    await waitFor(() => expect(configureButton).toBeEnabled());
+    await userEvent.click(configureButton);
 
     const closeButton = screen.getByRole("button", { name });
     expect(closeButton).toHaveTextContent(text);
@@ -208,18 +205,72 @@ describe("PortalAccessKeysPage", () => {
     expect(screen.getByRole("button", { name: "Enable" })).toBeInTheDocument();
   });
 
+  it("enables configuration only after the access list has loaded", async () => {
+    let resolveKeys!: (state: PortalAccessKeysState) => void;
+    mocks.fetchPortalAccessKeysState.mockImplementation(() => new Promise((resolve) => { resolveKeys = resolve; }));
+    renderPage();
+
+    const configureButton = screen.getByRole("button", { name: "Configure a tool" });
+    expect(configureButton).toBeDisabled();
+    expect(screen.getByText("Loading tool access...")).toBeInTheDocument();
+    await act(async () => resolveKeys(mocks.state));
+    expect(configureButton).toBeEnabled();
+  });
+
+  it("keeps configuration unavailable when access loading fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.fetchPortalAccessKeysState.mockRejectedValue(new Error("Access service unavailable"));
+    renderPage();
+
+    await screen.findByText("Access service unavailable");
+    expect(screen.getByRole("button", { name: "Configure a tool" })).toBeDisabled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])("keeps configuration unavailable without a project (loading: %s)", async (loading) => {
+    mocks.account = { accountIdForApi: null, hasAccountContext: false, loading, error: null };
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Configure a tool" })).toBeDisabled();
+    expect(screen.getByText(loading ? "Loading project..." : "Select a project before connecting external tools")).toBeInTheDocument();
+    expect(mocks.fetchPortalAccessKeysState).not.toHaveBeenCalled();
+  });
+
+  it("disables the global configurator while an access mutation is pending", async () => {
+    let resolveUpdate!: () => void;
+    mocks.updatePortalAccessKeyStatus.mockImplementation(() => new Promise<void>((resolve) => { resolveUpdate = resolve; }));
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("AK-USER");
+    const configureButton = screen.getByRole("button", { name: "Configure a tool" });
+    await user.click(screen.getByRole("button", { name: "Disable" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Disable tool access" })).getByRole("button", { name: "Disable access" }));
+
+    expect(configureButton).toBeDisabled();
+    await act(async () => resolveUpdate());
+    expect(configureButton).toBeEnabled();
+  });
+
   it("shows an actionable empty state when no active tool access exists", async () => {
     mocks.state = { ...mocks.state, access_keys: [] };
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("tab", { name: "Connect tool" }));
     const setupDialog = await openSetupDialog(user);
     expect(within(setupDialog).getByRole("heading", { name: "Create an active tool access first" })).toBeInTheDocument();
     await user.click(within(setupDialog).getByRole("button", { name: "Create tool access" }));
 
     const workflow = getCreateWorkflowPage();
     expect(within(workflow).getByText(/prefer sharing the Space there/i)).toBeInTheDocument();
+  });
+
+  it("does not offer access creation from the configurator in read-only mode", async () => {
+    mocks.state = { ...mocks.state, access_keys: [], can_manage_access_keys: false };
+    renderPage();
+    const setupDialog = await openSetupDialog(userEvent.setup());
+
+    expect(within(setupDialog).getByRole("heading", { name: "Create an active tool access first" })).toBeInTheDocument();
+    expect(within(setupDialog).queryByRole("button", { name: "Create tool access" })).not.toBeInTheDocument();
   });
 
   it("shows an actionable empty state when a personal access has no Space", async () => {
@@ -338,9 +389,13 @@ describe("PortalAccessKeysPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Create access" }));
 
     expect(mocks.createPortalAccessKey).toHaveBeenCalledWith("101", { target_type: "self" });
-    expect(await screen.findByText("The secret is shown only once.")).toBeInTheDocument();
+    expect(await screen.findByText(/The secret is shown only once\./)).toBeInTheDocument();
+    expect(screen.getAllByText("Personal tool access created")).toHaveLength(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Personal tool access created");
     expect(screen.getAllByText("AK-NEW").length).toBeGreaterThan(0);
     expect(screen.getByText("SK-NEW")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Connect a tool" })).not.toBeInTheDocument();
+    expect(screen.getByText("SK-NEW").compareDocumentPosition(screen.getByRole("table")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("button", { name: "Copy Access ID" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy secret key" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Download details/i })).not.toBeInTheDocument();
@@ -350,6 +405,10 @@ describe("PortalAccessKeysPage", () => {
     await user.click(screen.getByRole("button", { name: "Configure a tool" }));
     const setupDialog = screen.getByRole("dialog", { name: "Connect a tool" });
     expect(within(setupDialog).getByRole("combobox", { name: "Access used" })).toHaveValue("AK-NEW");
+    expect(within(setupDialog).queryByText("SK-NEW")).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.getByText("SK-NEW")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Configure a tool" })).toHaveFocus();
   });
 
   it("limits only the personal IAM user when the create workflow opens", async () => {
@@ -424,9 +483,15 @@ describe("PortalAccessKeysPage", () => {
         permission: "read_write",
       })
     );
-    expect(await screen.findByText("The secret is shown only once and is limited to the selected space.")).toBeInTheDocument();
+    expect(await screen.findByText(/The secret is shown only once and is limited to the selected space\./)).toBeInTheDocument();
+    expect(screen.getAllByText("External tool access created")).toHaveLength(1);
     expect(screen.getAllByText("AK-EXT").length).toBeGreaterThan(0);
     expect(screen.getByText("SK-EXT")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Connect a tool" })).not.toBeInTheDocument();
+    const setupDialog = await openSetupDialog(user);
+    expect(within(setupDialog).getByRole("combobox", { name: "Access used" })).toHaveValue("AK-EXT");
+    expect(within(setupDialog).getByText("Research Data — fixed when this access was created")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(screen.queryByRole("button", { name: /Download details/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Download with secret/i })).not.toBeInTheDocument();
     expect(screen.queryByText("Advanced: prepare credentials for secure transfer")).not.toBeInTheDocument();
@@ -474,7 +539,6 @@ describe("PortalAccessKeysPage", () => {
     expect(within(setupDialog).getAllByRole("combobox")).toHaveLength(1);
     expect(within(setupDialog).queryByRole("button", { name: /secret/i })).not.toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
-    await userEvent.click(screen.getByRole("tab", { name: "Tool access (1)" }));
     expect(await screen.findByText("AK-EXT-OLD")).toBeInTheDocument();
   });
 
@@ -482,7 +546,6 @@ describe("PortalAccessKeysPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("tab", { name: "Tool access (1)" }));
     await screen.findByText("AK-USER");
     await user.click(screen.getByRole("button", { name: "Disable" }));
     const disableDialog = screen.getByRole("dialog", { name: "Disable tool access" });
@@ -504,11 +567,12 @@ describe("PortalAccessKeysPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("tab", { name: "Tool access (1)" }));
     expect(await screen.findByText("AK-USER")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New tool access" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Disable" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
     expect(screen.getByText("External-tool access is disabled for this project.")).toBeInTheDocument();
+    const setupDialog = await openSetupDialog(user);
+    expect(within(setupDialog).getByRole("combobox", { name: "Access used" })).toHaveValue("AK-USER");
   });
 });

@@ -4,6 +4,7 @@ import { buildBaseRules } from "./fixtures/base";
 import { registerApiMocks } from "./mockApi";
 import { portalUser } from "./fixtures/users";
 import { seedUiPreferences } from "./uiPreferences";
+import type { PortalAccessKey, PortalAccessKeysState } from "../../src/api/portalAccessKeys";
 
 type PortalVisualLocale = "en" | "fr" | "de";
 
@@ -102,7 +103,6 @@ const locales: PortalVisualLocale[] = ["en", "fr", "de"];
 
 const connectToolLabels = {
   en: {
-    tab: "Connect tool",
     configure: "Configure a tool",
     dialog: "Connect a tool",
     advanced: "Advanced tools and manual setup",
@@ -111,7 +111,6 @@ const connectToolLabels = {
     directConnect: "Connect Myself",
   },
   fr: {
-    tab: "Connecter un outil",
     configure: "Configurer un outil",
     dialog: "Connecter un outil",
     advanced: "Outils avancés et configuration manuelle",
@@ -120,7 +119,6 @@ const connectToolLabels = {
     directConnect: "Connecter Moi-même",
   },
   de: {
-    tab: "Werkzeug verbinden",
     configure: "Werkzeug konfigurieren",
     dialog: "Werkzeug verbinden",
     advanced: "Erweiterte Werkzeuge und manuelle Einrichtung",
@@ -130,7 +128,7 @@ const connectToolLabels = {
   },
 } satisfies Record<
   PortalVisualLocale,
-  { tab: string; configure: string; dialog: string; advanced: string; close: string; manual: string; directConnect: string }
+  { configure: string; dialog: string; advanced: string; close: string; manual: string; directConnect: string }
 >;
 
 function buildPortalUser(language: PortalVisualLocale) {
@@ -168,10 +166,10 @@ test.describe("Portal visual QA", () => {
         for (const route of portalRoutes) {
           test(`${viewport.name} ${theme} ${language} ${route.path}`, async ({
             page,
-          }) => {
+          }, testInfo) => {
             await page.setViewportSize({
-              width: viewport.width,
-              height: viewport.height,
+              width: route.path === "/portal/access-keys" && viewport.name === "desktop" ? 1440 : viewport.width,
+              height: route.path === "/portal/access-keys" && viewport.name === "desktop" ? 900 : viewport.height,
             });
             const mockRegistry = await openPortalRoute(
               page,
@@ -205,6 +203,7 @@ test.describe("Portal visual QA", () => {
             }
             if (route.path === "/portal/access-keys") {
               const labels = connectToolLabels[language];
+              await page.screenshot({ path: testInfo.outputPath("01-access-list.png"), fullPage: true });
               const directConnectButton = main.getByRole("button", {
                 name: new RegExp(`^${labels.directConnect}`),
               });
@@ -214,7 +213,7 @@ test.describe("Portal visual QA", () => {
               await page.keyboard.press("Escape");
               await expect(directDialog).toBeHidden();
               await expect(directConnectButton).toBeFocused();
-              await main.getByRole("tab", { name: labels.tab }).click();
+              await expect(main.getByRole("tablist")).toHaveCount(0);
               await main.getByRole("button", { name: labels.configure }).click();
               const dialog = page.getByRole("dialog", { name: labels.dialog });
               await expect(dialog).toBeVisible();
@@ -223,6 +222,7 @@ test.describe("Portal visual QA", () => {
               await expect(dialog.locator("details")).not.toHaveAttribute("open", "");
               await expect(dialog.getByText(labels.advanced, { exact: true })).toBeVisible();
               await expect(dialog.getByRole("button", { name: labels.close })).toBeVisible();
+              await page.screenshot({ path: testInfo.outputPath("02-configurator.png"), fullPage: true });
               await dialog.getByText(labels.advanced, { exact: true }).click();
               await expect(dialog.locator("details")).toHaveAttribute("open", "");
               await expect(dialog.getByText("rclone", { exact: true })).toBeVisible();
@@ -269,3 +269,74 @@ test.describe("Portal visual QA", () => {
     }
   }
 });
+
+for (const target of ["self", "external"] as const) {
+  for (const mobile of [false, true]) {
+    test(`tool creation handoff ${target} ${mobile ? "mobile" : "desktop"}`, async ({ page }, testInfo) => {
+      test.setTimeout(30_000);
+      const rules = buildBaseRules();
+      const initialState = rules.find((rule) => rule.id === "portal-access-keys")!.body as PortalAccessKeysState;
+      const key: PortalAccessKey = {
+        access_key_id: "FIXTURE-TOOL-ACCESS", is_active: true, status: "Active", target_type: target,
+        created_at: "2026-09-10T10:00:00Z",
+        ...(target === "external" ? {
+          external_email: "partner@example.test", permission: "read_only",
+          storage_space_name: "genomics-2026", bucket_name: "rgw-portal-genomics-2026",
+        } as const : {}),
+      };
+      // Synthetic value only: this test never creates real credentials.
+      const fakeSecret = "EXAMPLE-ONLY-NOT-A-REAL-SECRET";
+      let created = false;
+      const registry = await registerApiMocks(page, [
+        { id: "create-tool-access", method: "POST", path: /^\/portal\/access-keys$/, body: ({ requestBodyText }) => {
+          expect(JSON.parse(requestBodyText).target_type).toBe(target);
+          created = true;
+          return { ...key, secret_access_key: fakeSecret };
+        } },
+        { id: "tool-access-list", method: "GET", path: /^\/portal\/access-keys$/, body: () => ({
+          ...initialState, max_access_keys: 3,
+          access_keys: created ? [...initialState.access_keys, key] : initialState.access_keys,
+        }) },
+        ...rules,
+      ], "direct-tool-handoff", buildPortalUser("fr"));
+      await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 });
+      await seedUiPreferences(page, { selectedWorkspace: "portal", selectedPortalAccountId: "101", theme: mobile ? "dark" : "light" });
+      await page.goto("/portal/access-keys");
+      const main = page.locator("main");
+      await expect(main.getByRole("button", { name: "Nouvel accès outil" })).toBeEnabled();
+      await page.screenshot({ path: testInfo.outputPath("01-access-list.png"), fullPage: true });
+      await main.getByRole("button", { name: "Nouvel accès outil" }).click();
+      const workflow = page.locator(".workflow-page");
+      await expect(workflow.getByRole("heading", { name: "Créer un accès outil S3" })).toBeVisible();
+      if (target === "external") {
+        await workflow.getByRole("radio", { name: "Pour un utilisateur externe" }).check();
+        await workflow.getByPlaceholder("nom@example.org").fill("partner@example.test");
+        await workflow.getByRole("combobox", { name: "Espace", exact: true }).selectOption("genomics-2026");
+      }
+      await page.screenshot({ path: testInfo.outputPath("02-create-access.png"), fullPage: true });
+      await workflow.getByRole("button", { name: "Créer l'accès", exact: true }).click();
+      const secret = main.getByText(fakeSecret, { exact: true });
+      await expect(secret).toBeVisible();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(main.getByRole("table")).toBeVisible();
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+      await main.getByRole("button", { name: "Copier la clé secrète" }).click();
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fakeSecret);
+      await page.screenshot({ path: testInfo.outputPath("03-copy-secret.png"), fullPage: true });
+      const configure = main.getByRole("button", { name: "Configurer un outil" });
+      await configure.click();
+      const dialog = page.getByRole("dialog", { name: "Connecter un outil" });
+      await expect(dialog.getByRole("combobox", { name: "Accès utilisé" })).toHaveValue(key.access_key_id);
+      await expect(dialog.getByText(fakeSecret)).toHaveCount(0);
+      await expect(dialog.getByRole("heading", { name: "Cyberduck / Mountain Duck" })).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath("04-configurator.png"), fullPage: true });
+      await dialog.getByRole("button", { name: "Fermer la fenêtre" }).click();
+      await expect(configure).toBeFocused();
+      await expect(secret).toBeVisible();
+      await expect(main.getByRole("table")).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath("05-return-to-list.png"), fullPage: true });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+      registry.assertNoUnmatched();
+    });
+  }
+}

@@ -23,13 +23,16 @@ workflow.
 2. Start **New tool access**. The creation page explains when Portal sharing is
    a better fit.
 3. Choose **For myself** or **For an external user**.
-4. Choose the space the tool should reach.
-5. Select **Read only** unless the tool must upload, replace, or delete files.
-   Use **Read/write** only for tools that need those changes.
-6. Copy the secret immediately. It is shown only once.
-7. Select **Configure a tool** to continue with the identity that was just
-   created. For an existing access, select **Connect** on its row or use the
-   same action from **Connect tool**.
+4. For an external user, choose the space the tool should reach. Personal access
+   uses your existing Portal grants.
+5. For external access, select **Read only** unless the tool must upload, replace,
+   or delete files. Use **Read/write** only for tools that need those changes.
+6. Copy the secret immediately from the panel above the access list. It is
+   shown only once; opening and closing the configurator keeps that panel available.
+7. Select **Configure a tool** in the page header to open the configurator
+   directly with the identity that was just created. For an existing access,
+   select **Connect** on its row to preselect it. The list is shown immediately,
+   without an intermediate tab.
 8. Choose the target space when the access is personal. An external access is
    already fixed to the space selected when it was created.
 9. Choose the application and import its downloaded configuration:
