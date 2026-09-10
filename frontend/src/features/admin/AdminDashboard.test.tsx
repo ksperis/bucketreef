@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { axe } from "jest-axe";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeneralSettings } from "../../api/appSettings";
@@ -327,7 +328,7 @@ describe("AdminDashboard feature summary", () => {
     expect(screen.queryByText("Configure storage access")).not.toBeInTheDocument();
   });
 
-  it("renders exactly two compact feature summary cards with enabled features only", async () => {
+  it("renders two grouped feature summaries with enabled features only", async () => {
     mocks.generalSettings = buildGeneralSettings({
       portal_enabled: true,
       ceph_admin_enabled: true,
@@ -457,7 +458,7 @@ describe("AdminDashboard feature summary", () => {
     expect(screen.getByRole("heading", { name: "Ongoing / Recent Incidents" })).toBeInTheDocument();
     expect(await screen.findByText("Ongoing incidents and incidents ended in the last 7 days.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View all incidents" })).toHaveAttribute("href", "/admin/endpoint-status");
-    const platformSummary = screen.getByRole("heading", { name: "Platform summary" }).closest("section");
+    const platformSummary = screen.getByRole("heading", { name: "Storage & traffic" }).closest("section");
     expect(platformSummary).not.toBeNull();
     expect(screen.getByRole("heading", { name: "Recent activity" })).toBeInTheDocument();
     expect(screen.getByText("INRAE-eprod-debug")).toBeInTheDocument();
@@ -465,7 +466,7 @@ describe("AdminDashboard feature summary", () => {
     const infrastructureMap = await screen.findByRole("img", { name: "Infrastructure endpoint map" });
     expect(infrastructureMap).toBeInTheDocument();
     expect(infrastructureMap).toHaveAttribute("preserveAspectRatio", "xMidYMid meet");
-    expect(infrastructureMap.closest("div")).toHaveClass("h-[220px]");
+    expect(infrastructureMap.closest("div")).toHaveClass("ui-dashboard-map");
     const geography = screen.getByTestId("admin-dashboard-map-geography");
     expect(geography).toHaveAttribute("data-basemap", "france");
     expect(geography).toHaveAttribute("data-x-scale", "0.69");
@@ -559,7 +560,7 @@ describe("AdminDashboard feature summary", () => {
 
     expect(screen.getByText("Endpoint Health")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ongoing / Recent Incidents" })).toBeInTheDocument();
-    expect(screen.queryByText("Endpoint Status feature is disabled.")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Endpoint Status feature is disabled.")).toHaveLength(3);
     expect(screen.queryByText("INRAE-eprod-geo-tls")).not.toBeInTheDocument();
     expect(screen.queryByText("LAB 81")).not.toBeInTheDocument();
     expect(screen.queryByText("98%")).not.toBeInTheDocument();
@@ -604,15 +605,17 @@ describe("AdminDashboard feature summary", () => {
     expect(mocks.listStorageEndpoints).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps platform cards present without unavailable text or fallback values when metrics are unavailable", async () => {
+  it("explains partial metric failures locally without inventing values", async () => {
+    const summary = await mocks.fetchAdminSummary();
+    mocks.fetchAdminSummary.mockResolvedValue({ ...summary, total_endpoints: 1 });
     mocks.fetchAdminStorage.mockRejectedValue(new Error("metrics disabled"));
     mocks.fetchAdminTraffic.mockRejectedValue(new Error("usage disabled"));
 
     await renderDashboard();
 
-    expect(screen.getByRole("heading", { name: "Platform summary" })).toBeInTheDocument();
-    expect(screen.queryByText("metrics disabled")).not.toBeInTheDocument();
-    expect(screen.queryByText("usage disabled")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Storage & traffic" })).toBeInTheDocument();
+    expect(await screen.findByText("Storage: metrics disabled")).toBeInTheDocument();
+    expect(await screen.findByText("Traffic: usage disabled")).toBeInTheDocument();
     expect(screen.queryByText("1,850")).not.toBeInTheDocument();
     expect(screen.queryByText("12.4M")).not.toBeInTheDocument();
   });
@@ -628,8 +631,106 @@ describe("AdminDashboard feature summary", () => {
       },
       { timeout: 5000 },
     );
-    expect(screen.queryByText("audit unavailable")).not.toBeInTheDocument();
+    expect(await screen.findByText("audit unavailable")).toBeInTheDocument();
     expect(screen.queryByText("User admin@example.com logged in")).not.toBeInTheDocument();
     expect(screen.queryByText(/Endpoint INRAE-eprod-idf/)).not.toBeInTheDocument();
   });
+
+  it("keeps operational information ahead of administration and the visible map", async () => {
+    mocks.fetchHealthSummary.mockResolvedValue({ endpoints: [{ checked_at: "2000-01-01T00:00:00Z" }] });
+    mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
+    await renderDashboard();
+    const dashboard = screen.getByTestId("admin-dashboard");
+    expect(within(dashboard).getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
+      "Endpoint Health", "Ongoing / Recent Incidents", "Storage & traffic", "Administration", "Recent activity", "Infrastructure map", "Enabled features",
+    ]);
+    const endpointRegion = screen.getByRole("region", { name: "Endpoint Health", exact: true });
+    expect(await within(endpointRegion).findByText(/Dashboard statuses may not reflect current availability/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Dashboard statuses may not reflect current availability/)).toHaveLength(1);
+    expect(within(endpointRegion).queryByRole("img", { name: "Infrastructure endpoint map" })).not.toBeInTheDocument();
+  });
+
+  it("keeps health and activity usable while storage is still loading", async () => {
+    mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
+    mocks.fetchAdminSummary.mockResolvedValue({ ...await mocks.fetchAdminSummary(), total_endpoints: 1 });
+    let resolveStorage!: (value: unknown) => void;
+    const result = await mocks.fetchAdminStorage();
+    mocks.fetchAdminStorage.mockReturnValue(new Promise((resolve) => { resolveStorage = resolve; }));
+    await renderDashboard();
+    expect(await screen.findByText("INRAE-eprod-debug")).toBeInTheDocument();
+    expect(await screen.findByText("User admin@example.com logged in")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Endpoint Status" })).toHaveAttribute("href", "/admin/endpoint-status");
+    expect(screen.getByRole("button", { name: "Refresh admin dashboard" })).toBeDisabled();
+    await act(async () => resolveStorage(result));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Refresh admin dashboard" })).toBeEnabled());
+  });
+
+  it("distinguishes failed counters from zero and retries through the manual refresh", async () => {
+    const summary = await mocks.fetchAdminSummary();
+    mocks.fetchAdminSummary.mockRejectedValueOnce(new Error("Counters could not be loaded"));
+    await renderDashboard();
+    const admin = screen.getByRole("region", { name: "Administration", exact: true });
+    expect(await within(admin).findByText("Counters could not be loaded")).toBeInTheDocument();
+    expect(within(admin).getAllByText("—")).toHaveLength(6);
+    expect(within(admin).queryByText("UI: 0 · S3: 0")).not.toBeInTheDocument();
+    const refresh = screen.getByRole("button", { name: "Refresh admin dashboard" });
+    await waitFor(() => expect(refresh).toBeEnabled());
+    mocks.fetchAdminSummary.mockResolvedValue(summary);
+    fireEvent.click(refresh);
+    expect(await within(admin).findByText("UI: 0 · S3: 0")).toBeInTheDocument();
+    expect(within(admin).getAllByText("0")).toHaveLength(6);
+  });
+
+  it("keeps real zero storage measurements when traffic fails", async () => {
+    mocks.fetchAdminSummary.mockResolvedValue({ ...await mocks.fetchAdminSummary(), total_endpoints: 1 });
+    mocks.fetchAdminStorage.mockResolvedValue({ total_buckets: 0, storage_totals: { bucket_count: 0, object_count: 0, used_bytes: 0 } });
+    mocks.fetchAdminTraffic.mockRejectedValue(new Error("Traffic unavailable"));
+    await renderDashboard();
+    const summary = screen.getByRole("region", { name: "Storage & traffic" });
+    expect(await within(summary).findByText("Traffic: Traffic unavailable")).toBeInTheDocument();
+    expect(within(summary).getAllByText("0")).toHaveLength(2);
+    expect(within(summary).getByText("0 B")).toBeInTheDocument();
+    expect(within(summary).queryByRole("img", { name: "Trend line" })).not.toBeInTheDocument();
+  });
+
+  it("retains a failed onboarding dismissal and allows retry", async () => {
+    mocks.fetchOnboardingStatus.mockResolvedValue({ dismissed: false, complete: true, endpoint_configured: true, storage_access_configured: true });
+    mocks.dismissOnboarding.mockRejectedValueOnce(new Error("Unable to dismiss setup"));
+    await renderDashboard();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss", exact: true }));
+    expect(await screen.findByText("Unable to dismiss setup")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss", exact: true })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Review" })).toBeInTheDocument();
+  });
+
+  it("has accessible dashboard regions and links (a11y)", async () => {
+    mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
+    await renderDashboard();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Refresh admin dashboard" })).toBeEnabled());
+    const results = await axe(screen.getByTestId("admin-dashboard"));
+    expect(results.violations).toEqual([]);
+  });
+
+
+  it("retains historical availability when only the current endpoint overview fails", async () => {
+    mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
+    mocks.fetchHealthWorkspaceOverview.mockRejectedValue(new Error("Current samples unavailable"));
+    await renderDashboard();
+    const summary = screen.getByRole("region", { name: "Storage & traffic" });
+    expect(await within(summary).findByText("98%")).toBeInTheDocument();
+    expect(within(summary).queryByText("Current samples unavailable")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Endpoint Health", exact: true })).toHaveTextContent("Current samples unavailable");
+  });
+
+
+  it("does not turn absent request samples into a zero-valued trend", async () => {
+    mocks.fetchAdminSummary.mockResolvedValue({ ...await mocks.fetchAdminSummary(), total_endpoints: 1 });
+    mocks.fetchAdminTraffic.mockResolvedValue({ totals: { ops: null }, series: [{ ops: null }, {}] });
+    await renderDashboard();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Refresh admin dashboard" })).toBeEnabled());
+    const summary = screen.getByRole("region", { name: "Storage & traffic" });
+    expect(within(summary).queryByRole("img", { name: "Trend line" })).not.toBeInTheDocument();
+    expect(within(summary).getAllByText("—").length).toBeGreaterThan(0);
+  });
+
 });

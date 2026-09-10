@@ -442,7 +442,30 @@ requests in light/dark desktop and narrow layouts. These checks prove form
 behavior and request payloads, not live RGW enforcement. Conversion precision
 is bounded by the existing JavaScript numeric API representation.
 
+## Admin dashboard — completed
+
+The Admin overview now starts with endpoint health and incidents, followed by
+full-width storage/traffic and one administrative counter band. The map stays
+visible in the secondary activity/geography row. Enabled feature groups use a
+single restrained panel. Monitoring names, timestamps and audit descriptions
+wrap, while empty chart placeholders and competing mini-cards are removed.
+The onboarding checklist and all existing navigation destinations remain.
+
+The shared dashboard kit provides explicitly adopted compact panels and
+actions, summary links, grouped features and compact incidents/statuses.
+Admin data requests, role-scoped counts, health windows and refresh boundaries
+are unchanged. Missing/error values are explained locally without fake zeroes.
+
+Validation combines component tests, the Admin dashboard visual fixtures
+(light/dark, custom primary color, mobile, 200% reflow and touch), and the
+isolated authenticated Admin/Browser harness. Fixtures and Moto are not proof
+of successful Ceph monitoring or live cluster metrics.
+
 ## Remaining passes
+
+- Audit Manager, Portal and Ceph Admin dashboards independently before adopting
+  compact dashboard components. Preserve their workspace-specific priorities,
+  metric semantics and authorized actions rather than copying Admin's layout.
 
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.

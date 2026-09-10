@@ -2,14 +2,16 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useId, useMemo, type HTMLAttributes, type ReactNode } from "react";
+import { useId, useMemo, type ComponentProps, type HTMLAttributes, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { HealthCheckStatus } from "../api/healthchecks";
 import type { ManagerUsageTrendBaseline } from "../api/stats";
 import { formatBytes } from "../utils/format";
 import UiBadge from "./ui/UiBadge";
+import UiButton from "./ui/UiButton";
+import "./compactDashboard.css";
 import UiMeterBar from "./ui/UiMeterBar";
-import { cx, uiCardClass, uiMutedTextClass } from "./ui/styles";
+import { cx, uiButtonBaseClass, uiButtonVariants, uiCardClass, uiMutedTextClass } from "./ui/styles";
 
 export type WorkspaceDashboardFeature = {
   id: string;
@@ -25,14 +27,12 @@ export type WorkspaceDashboardFeatureGroup = {
 
 export type WorkspaceDashboardTone = "amber" | "blue" | "indigo" | "emerald" | "violet";
 
-export type WorkspaceDashboardStatCardItem = {
+export type WorkspaceDashboardSummaryItem = {
   id: string;
   label: string;
   value: string | number;
   hint: string;
   to: string;
-  tone: WorkspaceDashboardTone;
-  icon: ReactNode;
 };
 
 export type WorkspacePlatformMetric = {
@@ -42,6 +42,7 @@ export type WorkspacePlatformMetric = {
   series?: number[];
   tone: "blue" | "violet" | "emerald";
   unavailableReason?: string;
+  description?: string;
 };
 
 export type WorkspaceDashboardMetricTrend = {
@@ -139,14 +140,6 @@ export function WorkspaceStatusPill({ status, className }: { status: HealthCheck
       {workspaceStatusLabel(status)}
     </span>
   );
-}
-
-function statToneClass(tone: WorkspaceDashboardTone): string {
-  if (tone === "amber") return "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-200";
-  if (tone === "blue") return "bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-200";
-  if (tone === "indigo") return "bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-200";
-  if (tone === "emerald") return "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-200";
-  return "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-200";
 }
 
 function workspaceDashboardToneClasses(tone: WorkspaceDashboardTone) {
@@ -540,6 +533,7 @@ export function WorkspaceDashboardCard({
   children,
   className,
   bodyClassName,
+  presentation,
   ...props
 }: {
   title?: ReactNode;
@@ -547,16 +541,18 @@ export function WorkspaceDashboardCard({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  presentation?: "compact";
 } & HTMLAttributes<HTMLElement>) {
+  const titleId = useId();
   return (
-    <section className={cx(uiCardClass, "h-full p-4", className)} {...props}>
+    <section aria-labelledby={title ? titleId : undefined} className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-panel" : "h-full p-4", className)} {...props}>
       {title || action ? (
         <div className="flex items-center justify-between gap-3">
-          {title ? <h2 className="ui-subtitle font-semibold text-[var(--ui-text)]">{title}</h2> : <span />}
+          {title ? <h2 id={titleId} className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{title}</h2> : <span />}
           {action}
         </div>
       ) : null}
-      <div className={cx(title || action ? "mt-3" : "", bodyClassName)}>{children}</div>
+      <div className={cx(title || action ? (presentation === "compact" ? "ui-dashboard-panel-body" : "mt-3") : "", bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -578,10 +574,7 @@ function WorkspaceDashboardSparkline({
 }: {
   values: number[];
   tone: WorkspacePlatformMetric["tone"];
-  unavailableReason?: string;
 }) {
-  if (values.length === 0) return <div className="h-[30px] w-full" aria-hidden="true" />;
-
   const points = normalizeSeries(values);
   const chart = (
     <svg viewBox="0 0 96 34" className="h-[30px] w-full" role="img" aria-label="Trend line">
@@ -592,71 +585,54 @@ function WorkspaceDashboardSparkline({
   return chart;
 }
 
-export function WorkspaceDashboardStatCard({
-  card,
-  loading,
-}: {
-  card: WorkspaceDashboardStatCardItem;
+/** Compact dashboard actions opt in without changing forms or other workspaces. */
+export function WorkspaceDashboardAction({ className, ...props }: ComponentProps<typeof UiButton>) {
+  return <UiButton size="xs" {...props} className={cx("ui-dashboard-action", className)} />;
+}
+
+export function WorkspaceDashboardActionLink({ className, ...props }: ComponentProps<typeof Link>) {
+  return <Link {...props} className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "ui-dashboard-action", className)} />;
+}
+
+export function WorkspaceDashboardSummary({ items, loading, unavailableReason, title = "Administration" }: {
+  title?: string;
+  items: WorkspaceDashboardSummaryItem[];
   loading: boolean;
+  unavailableReason?: string | null;
 }) {
   return (
-    <Link
-      to={card.to}
-      className={cx(
-        uiCardClass,
-        "group flex min-h-[86px] items-center gap-3 px-4 py-3 transition hover:-translate-y-[1px] hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      )}
-    >
-      <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-md", statToneClass(card.tone))}>
-        {card.icon}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-[11px] font-semibold uppercase leading-4 text-[var(--ui-text-muted)]">{card.label}</span>
-        <span className="mt-0.5 block text-[20px] font-semibold leading-6 text-[var(--ui-text)]">
-          {loading ? "..." : card.value}
-        </span>
-        <span className="mt-0.5 block truncate ui-caption text-[var(--ui-text-muted)]">{card.hint}</span>
-      </span>
-    </Link>
+    <WorkspaceDashboardCard title={title} presentation="compact">
+      {unavailableReason && <p role="status" className="ui-dashboard-note">{unavailableReason}</p>}
+      <div className="ui-dashboard-summary">
+        {items.map((item) => (
+          <Link key={item.id} to={item.to} className="ui-dashboard-summary-link">
+            <span className="ui-dashboard-label">{item.label}</span>
+            <span className="ui-dashboard-value">{loading ? "…" : unavailableReason ? "—" : item.value}</span>
+            <span className="ui-dashboard-note">{loading || unavailableReason ? "" : item.hint}</span>
+          </Link>
+        ))}
+      </div>
+    </WorkspaceDashboardCard>
   );
 }
 
-export function WorkspaceFeatureSummaryCard({ group }: { group: WorkspaceDashboardFeatureGroup }) {
+/** A compact feature group, placed inside an owning dashboard panel. */
+export function WorkspaceFeatureSummary({ group }: { group: WorkspaceDashboardFeatureGroup }) {
   const enabledFeatures = group.features.filter((feature) => feature.enabled);
   return (
-    <section
-      aria-label={`${group.title} summary`}
-      className={cx(uiCardClass, "flex min-h-[66px] flex-col justify-between gap-2 px-4 py-3")}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="ui-body font-semibold text-[var(--ui-text)]">{group.title}</h2>
-        <UiBadge
-          tone={enabledFeatures.length > 0 ? "success" : "neutral"}
-          className="px-2 py-0 text-[11px] leading-5"
-        >
-          {enabledFeatures.length} enabled
-        </UiBadge>
+    <section aria-label={`${group.title} summary`} className="ui-dashboard-feature-group">
+      <div className="ui-dashboard-feature-heading">
+        <h3 className="ui-dashboard-label">{group.title}</h3>
+        <span className="ui-dashboard-note">{enabledFeatures.length} enabled</span>
       </div>
-      {enabledFeatures.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {enabledFeatures.map((feature) => (
-            <UiBadge key={feature.id} tone="success" className="gap-1.5 px-2 py-0 text-[11px] leading-5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>{feature.label}</span>
-              {feature.massManagement && (
-                <span
-                  title="Mass management"
-                  className="rounded-md border border-emerald-300 bg-emerald-50 px-1 text-[9px] font-bold leading-3 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-200"
-                >
-                  MM
-                </span>
-              )}
-            </UiBadge>
-          ))}
-        </div>
-      ) : (
-        <p className={cx("ui-caption", uiMutedTextClass)}>None enabled</p>
-      )}
+      <div className="ui-dashboard-badges">
+        {enabledFeatures.length === 0 ? <span className="ui-dashboard-note">None enabled</span> : enabledFeatures.map((feature) => (
+          <UiBadge key={feature.id} tone="primary" className="ui-dashboard-badge">
+            {feature.label}
+            {feature.massManagement && <span title="Mass management" className="ui-dashboard-note">MM</span>}
+          </UiBadge>
+        ))}
+      </div>
     </section>
   );
 }
@@ -665,11 +641,16 @@ export function WorkspaceStatusCounter({
   label,
   value,
   status,
+  presentation,
 }: {
   label: string;
   value?: number | null;
   status: HealthCheckStatus;
+  presentation?: "compact";
 }) {
+  if (presentation === "compact") {
+    return <UiBadge className="ui-dashboard-badge" tone={!value ? "neutral" : status === "up" ? "success" : status === "degraded" ? "warning" : status === "down" ? "danger" : "neutral"}>{label} <strong>{value ?? "—"}</strong></UiBadge>;
+  }
   return (
     <div
       className={cx(
@@ -684,56 +665,29 @@ export function WorkspaceStatusCounter({
 }
 
 export function WorkspacePlatformMetricCard({ metric }: { metric: WorkspacePlatformMetric }) {
-  const valueContent = (
-    <>
-      <p className="ui-caption font-medium text-[var(--ui-text-muted)]">{metric.label}</p>
-      <div className="mt-1 flex min-h-6 items-baseline gap-2">
-        <p className="text-[19px] font-semibold leading-6 text-[var(--ui-text)]">{metric.value}</p>
-        {metric.delta && <p className="text-[11px] font-semibold leading-4 text-emerald-600 dark:text-emerald-300">{metric.delta}</p>}
-      </div>
-    </>
-  );
   return (
-    <div className="min-w-0 border-l border-[color:var(--ui-border-soft)] px-3 first:border-l-0 first:pl-0 last:pr-0">
-      {valueContent}
-      <div className="mt-2 max-w-[150px]">
-        <WorkspaceDashboardSparkline
-          values={metric.series ?? []}
-          tone={metric.tone}
-        />
+    <div className="ui-dashboard-metric">
+      <p className="ui-dashboard-label">{metric.label}</p>
+      <div className="ui-dashboard-metric-value">
+        <p className="ui-dashboard-value">{metric.value || "—"}</p>
+        {metric.delta && <p className="ui-dashboard-note">{metric.delta}</p>}
       </div>
+      {metric.series && metric.series.length > 0 && <WorkspaceDashboardSparkline values={metric.series} tone={metric.tone} />}
+      {(metric.description || metric.unavailableReason) && <p className="ui-dashboard-note">{metric.unavailableReason || metric.description}</p>}
     </div>
   );
 }
 
-export function WorkspaceHealthScorePanel({
-  score,
-  loading,
-}: {
+export function WorkspaceAvailabilityMetric({ score, loading, unavailableReason }: {
   score: number | null;
   loading: boolean;
   unavailableReason?: string | null;
 }) {
-  const displayScore = score ?? 0;
-  const scoreLabel = loading ? "..." : score == null ? "" : `${displayScore}%`;
-  const scoreCaption = loading ? "Loading" : score == null ? "" : displayScore >= 90 ? "Excellent" : displayScore >= 70 ? "Good" : "Check";
-  const content = (
-    <div className="flex h-full min-h-[96px] flex-col items-center justify-center text-center">
-      <p className={cx("text-[11px] font-semibold leading-4", uiMutedTextClass)}>Health score</p>
-      <div
-        className="mt-2 flex h-20 w-20 items-center justify-center rounded-full p-1"
-        style={{
-          background: `conic-gradient(#16a34a ${loading ? 0 : displayScore}%, var(--ui-border-soft) 0)`,
-        }}
-      >
-        <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-[var(--ui-surface)]">
-          <p className="text-[22px] font-semibold leading-6 text-[var(--ui-text)]">{scoreLabel}</p>
-          <p className="text-[11px] font-semibold leading-4 text-emerald-600 dark:text-emerald-300">
-            {scoreCaption}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-  return content;
+  return <WorkspacePlatformMetricCard metric={{
+    label: "Availability (7 days)",
+    value: loading ? "…" : score == null || unavailableReason ? "—" : `${score}%`,
+    tone: "emerald",
+    description: "Mean availability across endpoints with measurements.",
+    unavailableReason: unavailableReason || undefined,
+  }} />;
 }

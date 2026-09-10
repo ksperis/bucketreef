@@ -201,3 +201,20 @@ inside these toolbar zones; ordinary forms retain their existing defaults.
 Mobile sort controls use `ui-list-mobile-sort`; they are hidden while table
 column headers are visible. Table cell and row-action geometry is independent
 of these header variants. Browser does not opt into the new header zones.
+
+
+## Compact dashboard geometry
+
+`components/compactDashboard.css` owns the explicitly adopted dashboard scale:
+12px gaps, 12px vertical / 16px horizontal panel padding, 14px/20px semibold
+panel titles, 12px/18px text, and 22px/28px metric values. Dashboard actions
+wrap when necessary and use 28px minimum height, 12px normal-weight text and
+6px corners; targets are at least 44px on mobile or any coarse pointer.
+Badges retain shared semantic/theme colors and 4px corners.
+
+At 1280px and above, the operational grid is 2:1; the secondary activity/map
+grid is 1:1. Both stack below that breakpoint. Summary links use six columns,
+three from 768px, and two below. Endpoint rows are at least 36px on desktop
+and expand with long text. The map retains its explicit 220px height. This
+geometry is distinct from settings and listing geometry; changes must not
+implicitly restyle nonadopting consumers or global UiButton defaults.
