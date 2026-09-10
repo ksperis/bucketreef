@@ -9,6 +9,10 @@ import type { S3AccountSelector } from "../../api/accountParams";
 import Modal from "../../components/Modal";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiButton from "../../components/ui/UiButton";
+import UiInput from "../../components/ui/UiInput";
+import UiField from "../../components/ui/UiField";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import { uiInputClass } from "../../components/ui/styles";
 import {
   S3_BUCKET_NAME_MAX_LENGTH,
   normalizeS3BucketNameInput,
@@ -157,32 +161,20 @@ export function BrowserCreateBucketModal({
           onSubmit();
         }}
       >
-        <label className="block ui-caption font-semibold text-slate-600 dark:text-slate-300">
-          Bucket name
-          <input
-            type="text"
-            value={name}
-            onChange={(event) =>
-              onNameChange(normalizeS3BucketNameInput(event.target.value))
-            }
-            placeholder="my-bucket"
-            maxLength={S3_BUCKET_NAME_MAX_LENGTH}
-            title={!name || isNameValid ? undefined : invalidNameMessage}
-            className={`mt-1 w-full rounded-md border bg-white px-3 py-2 ui-body font-semibold shadow-sm focus:outline-none focus:ring-2 ${
-              !name || isNameValid
-                ? "border-slate-300 text-slate-700 focus:border-primary focus:ring-primary/30 dark:border-slate-700 dark:text-slate-100"
-                : "border-rose-400 text-rose-700 focus:border-rose-500 focus:ring-rose-200 dark:border-rose-500 dark:text-rose-200 dark:focus:ring-rose-900/50"
-            } dark:bg-slate-800`}
-            disabled={loading}
-            spellCheck={false}
-            autoFocus
-          />
-        </label>
-        {name && !isNameValid && (
-          <p className="ui-caption font-semibold text-rose-600 dark:text-rose-300">
-            {invalidNameMessage}
-          </p>
-        )}
+        <UiInput
+          label="Bucket name"
+          type="text"
+          value={name}
+          onChange={(event) =>
+            onNameChange(normalizeS3BucketNameInput(event.target.value))
+          }
+          placeholder="my-bucket"
+          maxLength={S3_BUCKET_NAME_MAX_LENGTH}
+          error={name && !isNameValid ? invalidNameMessage : undefined}
+          disabled={loading}
+          spellCheck={false}
+          autoFocus
+        />
         <label className="flex items-center gap-2 ui-caption font-semibold text-slate-600 dark:text-slate-300">
           <input
             type="checkbox"
@@ -194,9 +186,7 @@ export function BrowserCreateBucketModal({
           Enable versioning
         </label>
         {error && (
-          <p className="ui-caption font-semibold text-rose-600 dark:text-rose-300">
-            {error}
-          </p>
+          <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>
         )}
         <ModalActions>
           <UiButton
@@ -252,15 +242,17 @@ export function BrowserSseCustomerKeyModal({
           Enter a base64 key that decodes to exactly 32 bytes. The key is stored
           in memory only for this browser session and this bucket.
         </p>
-        <label className="space-y-1 ui-caption font-semibold text-slate-600 dark:text-slate-300">
-          <span>Customer key (base64, 32 bytes)</span>
-          <div className="flex items-center gap-2">
+        <UiField label="Customer key (base64, 32 bytes)" error={error}>
+          {({ id, describedBy, invalid }) => <div className="flex min-w-0 items-center gap-2">
             <input
+              id={id}
+              aria-describedby={describedBy}
+              aria-invalid={invalid || undefined}
               type={resolveSseCustomerKeyInputType(visible)}
               value={value}
               onChange={(event) => onValueChange(event.target.value)}
               placeholder="Base64 key"
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 ui-body font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className={`${uiInputClass} min-w-0 flex-1`}
               spellCheck={false}
               autoFocus
             />
@@ -268,18 +260,13 @@ export function BrowserSseCustomerKeyModal({
               type="button"
               variant="secondary"
               size="md"
-              className="px-3 py-2 ui-caption"
+              className="shrink-0"
               onClick={onToggleVisibility}
             >
               {visible ? "Hide" : "Show"}
             </UiButton>
-          </div>
-        </label>
-        {error && (
-          <p className="ui-caption font-semibold text-rose-600 dark:text-rose-300">
-            {error}
-          </p>
-        )}
+          </div>}
+        </UiField>
         {notice && (
           <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
             {notice}
@@ -356,23 +343,18 @@ export function BrowserCreateFolderModal({
             {currentPath || `${bucketName}/`}
           </span>
         </p>
-        <label className="block ui-caption font-semibold text-slate-600 dark:text-slate-300">
-          Folder name
-          <input
-            ref={inputRef}
-            type="text"
-            value={name}
-            onChange={(event) => onNameChange(event.target.value)}
-            placeholder="my-folder"
-            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 ui-body font-semibold text-slate-700 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            disabled={loading}
-            spellCheck={false}
-          />
-        </label>
+        <UiInput
+          label="Folder name"
+          ref={inputRef}
+          type="text"
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          placeholder="my-folder"
+          disabled={loading}
+          spellCheck={false}
+        />
         {error && (
-          <p className="ui-caption font-semibold text-rose-600 dark:text-rose-300">
-            {error}
-          </p>
+          <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>
         )}
         <ModalActions>
           <UiButton

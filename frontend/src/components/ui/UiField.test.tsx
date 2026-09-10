@@ -35,4 +35,24 @@ describe("UiField", () => {
     expect(screen.getByLabelText("Provider")).toHaveClass("ui-control");
     expect(screen.getByLabelText("Policy")).toHaveClass("ui-control");
   });
+
+  it.each([
+    { name: "input", Control: UiInput },
+    { name: "select", Control: UiSelect },
+    { name: "textarea", Control: UiTextarea },
+  ])("preserves all descriptions and validation for $name with explicit ARIA attributes", ({ Control }) => {
+    const renderField = (error?: string) => <>
+      <p id="scope-help">Only this bucket.</p>
+      <Control label="Configuration" hint="Review before saving." error={error}
+        aria-describedby="scope-help" aria-invalid={false} />
+    </>;
+    const { rerender } = render(renderField("A value is required."));
+    const input = screen.getByLabelText("Configuration");
+    expect(input).toHaveAccessibleDescription("Review before saving. A value is required. Only this bucket.");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+
+    rerender(renderField());
+    expect(input).toHaveAccessibleDescription("Review before saving. Only this bucket.");
+    expect(input).toHaveAttribute("aria-invalid", "false");
+  });
 });

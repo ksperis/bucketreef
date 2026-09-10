@@ -48,6 +48,26 @@ verify **Apply** updates only the draft and **Cancel** retains the existing clos
 confirmation. Long translated action labels must wrap within the dialog, with
 44px touch targets. No action may run when merely opening a confirmation.
 
+## Shared short-form fields
+
+API token name/expiry and Browser bucket/folder creation now use `UiInput`;
+the SSE-C input composes `UiField` with its visibility button. Labels, help and
+validation descriptions use the same association contract. API token fields no
+longer depend on placeholders for accessible names. Bucket name validation
+retains its rules and disabled action, with the error attached to the field.
+Operational failures remain separate alerts rather than falsely marking a name
+invalid. Browser folder keys and SSE-C handling retain their existing semantics.
+
+`UiField` merges descriptions supplied by callers with its help/error IDs.
+`UiInput`, `UiSelect` and `UiTextarea` preserve that merged result; a real field
+error cannot be hidden by a caller's `aria-invalid={false}`. Invalid controls
+share the semantic danger border, and modal controls keep 44px touch targets.
+
+Validate bucket input with an invalid two-character name, correct it, and verify
+the error association clears and Create becomes available. Check native token
+required/minimum validation and SSE-C visibility without storing a key. Exercise
+the same rendered forms in light/dark and desktop/mobile layouts.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.

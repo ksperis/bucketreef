@@ -2469,6 +2469,15 @@ describe("BrowserPage interactions", () => {
     expect(
       within(dialog).getByRole("button", { name: "Create bucket" }),
     ).toHaveClass("ui-button-base");
+
+    const name = within(dialog).getByRole("textbox", { name: "Bucket name" });
+    await user.type(name, "ab");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription();
+    expect(within(dialog).getByRole("button", { name: "Create bucket" })).toBeDisabled();
+    await user.type(name, "c");
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+    expect(within(dialog).getByRole("button", { name: "Create bucket" })).toBeEnabled();
   });
 
   it("creates a bucket and applies browser CORS from the create modal", async () => {

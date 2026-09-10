@@ -46,6 +46,11 @@ The frontend theme is anchored by the shared shell and UI tokens in
   checkboxes for selections and acknowledgements. Switches use theme primary
   for on and `--ui-text-muted` for the neutral off track; green remains a
   semantic success color, not a fixed switch color.
+  `UiField` owns label/help/error associations and merges additional description
+  IDs from its caller. Standard inputs, selects and textareas retain all those
+  descriptions and never suppress a field error with an explicit false ARIA
+  state. `ui-control[aria-invalid="true"]` uses the semantic danger border;
+  errors must also have visible text. Modal controls keep 44px touch targets.
 - Selection: line tabs use a 3px primary underline and primary `700` text in
   light mode / `200` in dark mode. Sidebar links, including Profile, reuse the
   shared active styling and vertical primary marker. Keep shell backgrounds
