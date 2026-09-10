@@ -112,6 +112,27 @@
   line-height: 16px;
 }
 
+.modal-disclosure {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--ui-border-soft);
+  border-radius: 6px;
+}
+
+.modal-disclosure > summary {
+  min-height: 28px;
+  padding: 4px 0;
+  color: var(--ui-text);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.modal-disclosure > summary:focus-visible {
+  outline: 2px solid var(--ui-focus-ring);
+  outline-offset: 2px;
+}
+
 @media (max-width: 1023px), (any-pointer: coarse) {
   .modal-body .ui-control {
     min-height: 44px;
@@ -119,6 +140,7 @@
 
   .modal-actions > .ui-button-base,
   .modal-options > :is(.ui-button-base, label),
+  .modal-disclosure > summary,
   .modal-close {
     min-width: 44px;
     min-height: 44px;

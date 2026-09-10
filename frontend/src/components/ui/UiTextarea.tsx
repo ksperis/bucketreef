@@ -9,7 +9,7 @@ import { cx, uiInputClass } from "./styles";
 type UiTextareaSize = "compact" | "md";
 
 const uiTextareaSizeClasses: Record<UiTextareaSize, string> = {
-  compact: "px-2 py-1.5 ui-caption",
+  compact: "ui-control-compact",
   md: "px-3 py-2 ui-body",
 };
 

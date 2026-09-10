@@ -25,11 +25,17 @@ import {
   unlinkCephAdminBucket,
 } from "../../api/cephAdminAdminOps";
 import Modal from "../../components/Modal";
+import ModalActions from "../../components/ModalActions";
+import ModalOptions from "../../components/ModalOptions";
+import InlineSummary from "../../components/InlineSummary";
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiDetails from "../../components/ui/UiDetails";
-import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
-import { uiInputClass } from "../../components/ui/styles";
+import UiSelect from "../../components/ui/UiSelect";
+import UiInput from "../../components/ui/UiInput";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import { cx, uiMutedTextClass, uiPanelMutedClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 
 type AccountAction = {
@@ -194,9 +200,9 @@ export default function CephAdminAdminOpsModal({
       return;
     }
     let active = true;
+    setTargetsLoading(true);
+    setTargetsError(null);
     const timer = window.setTimeout(() => {
-      setTargetsLoading(true);
-      setTargetsError(null);
       const load = async () => {
         try {
           if (linkTargetType === "account") {
@@ -254,7 +260,12 @@ export default function CephAdminAdminOpsModal({
     setConfirmation("");
   };
 
+  const linkTargetRequired = action.kind === "link-bucket" && !selectedLinkTarget;
+  const confirmationMatches = !requiresPhrase || confirmation === expectedPhrase;
+  const submitDisabled = submitting || Boolean(result?.success) || linkTargetRequired || !confirmationMatches;
+
   const run = async () => {
+    if (submitDisabled) return;
     setSubmitting(true);
     setRequestError(null);
     setResult(null);
@@ -319,253 +330,230 @@ export default function CephAdminAdminOpsModal({
     }
   };
 
-  const linkTargetRequired = action.kind === "link-bucket" && !selectedLinkTarget;
-  const confirmationMatches = !requiresPhrase || confirmation === expectedPhrase;
-  const submitDisabled = submitting || Boolean(result?.success) || linkTargetRequired || !confirmationMatches;
-
   return (
     <Modal
       title={title}
       onClose={onClose}
       maxWidthClass="max-w-3xl"
       maxBodyHeightClass="max-h-[82vh]"
-      closeOnBackdropClick={!submitting}
-      closeOnEscape={!submitting}
+      closeDisabled={submitting}
     >
-      <div className="space-y-5">
-        <dl className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-900/60 sm:grid-cols-2">
-          <div>
-            <dt className="ui-caption font-semibold uppercase text-slate-500 dark:text-slate-400">Target</dt>
-            <dd className="mt-1 break-all font-mono text-slate-900 dark:text-slate-100">{target}</dd>
-          </div>
-          <div>
-            <dt className="ui-caption font-semibold uppercase text-slate-500 dark:text-slate-400">Endpoint</dt>
-            <dd className="mt-1 text-slate-900 dark:text-slate-100">{endpointName || `#${endpointId}`}</dd>
-          </div>
-        </dl>
+      <div className="space-y-3" aria-busy={submitting}>
+        <InlineSummary items={[
+          { label: "Target", value: <span className="break-all font-mono">{target}</span> },
+          { label: "Endpoint", value: <span className="break-all">{endpointName || `#${endpointId}`}</span> },
+        ]} />
 
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+        <UiInlineMessage tone="warning">
           <p className="font-semibold">Impact</p>
           <p className="mt-1">{impact}</p>
-        </div>
+        </UiInlineMessage>
 
         {action.kind === "delete-user" && (
-          <UiCheckboxField
-            checked={purgeData}
-            onChange={(event) => {
-              setPurgeData(event.target.checked);
-              resetOutcome();
-            }}
-            className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200"
-          >
-            <span>
-              <span className="block font-semibold">Purge owned data</span>
-              <span className="block text-slate-500 dark:text-slate-400">Passes purge-data to RGW. Disabled by default.</span>
-            </span>
-          </UiCheckboxField>
+          <ModalOptions>
+            <UiCheckboxField
+              checked={purgeData}
+              disabled={submitting}
+              onChange={(event) => {
+                setPurgeData(event.target.checked);
+                resetOutcome();
+              }}
+            >
+              <span className="modal-option-copy">
+                <span className="block font-semibold">Purge owned data</span>
+                <span className="modal-option-description">Passes purge-data to RGW. Disabled by default.</span>
+              </span>
+            </UiCheckboxField>
+          </ModalOptions>
         )}
 
         {action.kind === "delete-bucket" && (
           <div className="space-y-3">
-            <UiCheckboxField
-              checked={purgeObjects}
-              onChange={(event) => {
-                const checked = event.target.checked;
-                setPurgeObjects(checked);
-                if (!checked) setBypassGc(false);
-                resetOutcome();
-              }}
-              className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200"
-            >
-              <span>
-                <span className="block font-semibold">Purge objects and versions</span>
-                <span className="block text-slate-500 dark:text-slate-400">Passes purge-objects to RGW. Disabled by default.</span>
-              </span>
-            </UiCheckboxField>
-            <UiDetails className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <ModalOptions>
+              <UiCheckboxField
+                checked={purgeObjects}
+                disabled={submitting}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setPurgeObjects(checked);
+                  if (!checked) setBypassGc(false);
+                  resetOutcome();
+                }}
+              >
+                <span className="modal-option-copy">
+                  <span className="block font-semibold">Purge objects and versions</span>
+                  <span className="modal-option-description">Passes purge-objects to RGW. Disabled by default.</span>
+                </span>
+              </UiCheckboxField>
+            </ModalOptions>
+            <UiDetails className="modal-disclosure">
+              <summary>
                 Advanced options
               </summary>
-              <div className="pt-3">
+              <ModalOptions className="mt-2">
                 <UiCheckboxField
                   checked={bypassGc}
-                  disabled={!purgeObjects}
+                  disabled={!purgeObjects || submitting}
                   onChange={(event) => {
                     setBypassGc(event.target.checked);
                     resetOutcome();
                   }}
-                  className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200"
                 >
-                  <span>
+                  <span className="modal-option-copy">
                     <span className="block font-semibold">Bypass garbage collection</span>
-                    <span className="block text-rose-700 dark:text-rose-300">
+                    <span className="modal-option-description">
                       Exceptional recovery option. Ceph strongly recommends normal garbage collection.
                     </span>
                   </span>
                 </UiCheckboxField>
-              </div>
+              </ModalOptions>
             </UiDetails>
           </div>
         )}
 
         {action.kind === "index-check" && (
-          <div className="space-y-3">
+          <ModalOptions>
             <UiCheckboxField
               checked={fixIndex}
+              disabled={submitting}
               onChange={(event) => {
                 const checked = event.target.checked;
                 setFixIndex(checked);
                 if (!checked) setCheckObjects(false);
                 resetOutcome();
               }}
-              className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200"
             >
-              <span>
+              <span className="modal-option-copy">
                 <span className="block font-semibold">Fix detected index issues</span>
-                <span className="block text-slate-500 dark:text-slate-400">Turns this check into a modifying operation.</span>
+                <span className="modal-option-description">Turns this check into a modifying operation.</span>
               </span>
             </UiCheckboxField>
             <UiCheckboxField
               checked={checkObjects}
-              disabled={!fixIndex}
+              disabled={!fixIndex || submitting}
               onChange={(event) => {
                 setCheckObjects(event.target.checked);
                 resetOutcome();
               }}
-              className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200"
             >
-              <span>
+              <span className="modal-option-copy">
                 <span className="block font-semibold">Check object state</span>
-                <span className="block text-slate-500 dark:text-slate-400">Ceph requires fix to be enabled first.</span>
+                <span className="modal-option-description">Ceph requires fix to be enabled first.</span>
               </span>
             </UiCheckboxField>
-          </div>
+          </ModalOptions>
         )}
 
         {action.kind === "link-bucket" && (
           <div className="space-y-3">
-            <UiSegmentedControl
-              ariaLabel="RGW link target type"
+            <UiSelect
+              label="Target type"
+              size="compact"
+              disabled={submitting}
               value={linkTargetType}
-              options={[
-                { label: "RGW Users", value: "user" },
-                {
-                  label: "RGW Accounts",
-                  value: "account",
-                  disabled: !canAccounts,
-                  title: canAccounts ? undefined : "RGW Accounts require Ceph Squid or later.",
-                },
-              ]}
-              onChange={(value) => {
-                setLinkTargetType(value);
+              hint={canAccounts ? undefined : "RGW Accounts require Ceph Squid or later."}
+              onChange={(event) => {
+                setLinkTargetType(event.target.value as "user" | "account");
                 setSelectedLinkTarget(null);
                 setLinkSearch("");
                 resetOutcome();
               }}
+            >
+              <option value="user">RGW Users</option>
+              <option value="account" disabled={!canAccounts}>RGW Accounts</option>
+            </UiSelect>
+            <UiInput
+              label="Search targets"
+              type="search"
+              size="compact"
+              disabled={submitting}
+              value={linkSearch}
+              onChange={(event) => {
+                setLinkSearch(event.target.value);
+                setSelectedLinkTarget(null);
+                resetOutcome();
+              }}
+              placeholder={linkTargetType === "user" ? "Search RGW Users" : "Search RGW Accounts"}
             />
-            <label className="block space-y-1">
-              <span className="ui-caption font-semibold uppercase text-slate-500 dark:text-slate-400">Search targets</span>
-              <input
-                value={linkSearch}
-                onChange={(event) => {
-                  setLinkSearch(event.target.value);
-                  setSelectedLinkTarget(null);
-                  resetOutcome();
-                }}
-                className={uiInputClass}
-                placeholder={linkTargetType === "user" ? "Search RGW Users" : "Search RGW Accounts"}
-              />
-            </label>
-            <div className="max-h-44 overflow-y-auto rounded-md border border-slate-200 p-1 dark:border-slate-700">
+            <div role="group" aria-label="RGW link targets" className={cx(uiPanelMutedClass, "max-h-44 space-y-1 overflow-y-auto p-2")}>
               {targetsLoading ? (
-                <p className="p-3 text-sm text-slate-500 dark:text-slate-400">Loading targets...</p>
+                <p role="status" className={cx("p-2 ui-caption", uiMutedTextClass)}>Loading targets...</p>
               ) : targetsError ? (
-                <p className="p-3 text-sm text-rose-700 dark:text-rose-300">{targetsError}</p>
+                <UiInlineMessage tone="error" role="alert">{targetsError}</UiInlineMessage>
               ) : linkTargets.length === 0 ? (
-                <p className="p-3 text-sm text-slate-500 dark:text-slate-400">No matching target.</p>
+                <p className={cx("p-2 ui-caption", uiMutedTextClass)}>No matching target.</p>
               ) : (
                 linkTargets.map((candidate) => (
-                  <button
+                  <ListActionButton
                     key={`${candidate.type}:${candidate.id}`}
                     type="button"
+                    disabled={submitting}
                     aria-pressed={selectedLinkTarget?.id === candidate.id}
-                    className={`block w-full rounded-md px-3 py-2 text-left text-sm transition ${
-                      selectedLinkTarget?.id === candidate.id
-                        ? "bg-primary text-white"
-                        : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                    }`}
+                    className={cx("w-full text-left", selectedLinkTarget?.id === candidate.id && "ui-list-action-active")}
                     onClick={() => {
                       setSelectedLinkTarget(candidate);
                       resetOutcome();
                     }}
                   >
-                    {candidate.label}
-                  </button>
+                    <span className="min-w-0 flex-1 break-all">{candidate.label}</span>
+                  </ListActionButton>
                 ))
               )}
             </div>
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
-              Link is not a chown operation and does not rewrite object ACLs.
-            </p>
           </div>
         )}
 
         {requiresPhrase ? (
-          <label className="block space-y-2">
-            <span className="text-sm text-slate-700 dark:text-slate-200">
-              Type <code className="break-all rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">{expectedPhrase || "Select a target"}</code>
-            </span>
-            <input
-              value={confirmation}
-              onChange={(event) => setConfirmation(event.target.value)}
-              className={uiInputClass}
-              disabled={!expectedPhrase || submitting || Boolean(result?.success)}
-              autoComplete="off"
-              spellCheck={false}
-              aria-label="Confirmation phrase"
-            />
-          </label>
+          <UiInput
+            label="Confirmation phrase"
+            size="compact"
+            hint={expectedPhrase ? <>Type <code className="whitespace-pre-wrap break-all font-semibold">{expectedPhrase}</code></> : "Select a target before confirming."}
+            error={confirmation && expectedPhrase && !confirmationMatches ? "Enter the exact confirmation phrase." : undefined}
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+            disabled={!expectedPhrase || submitting || Boolean(result?.success)}
+            autoComplete="off"
+            spellCheck={false}
+          />
         ) : (
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className={cx("ui-caption", uiMutedTextClass)}>
             This read-only check requires a simple confirmation with the button below.
           </p>
         )}
 
         {requestError && (
-          <div role="alert" className="rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-200">
+          <UiInlineMessage tone="error" role="alert">
             {requestError}
-          </div>
+          </UiInlineMessage>
         )}
 
         {result && (
           <section
             aria-label="RGW Admin Ops result"
-            className={`space-y-3 rounded-md border p-4 ${
-              result.success
-                ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/30"
-                : "border-rose-300 bg-rose-50 dark:border-rose-700 dark:bg-rose-950/30"
-            }`}
+            className="space-y-2"
           >
-            <div className="flex flex-wrap gap-2 text-sm font-semibold">
-              <span>{result.success ? "Completed" : "Failed"}</span>
-              <span>RGW HTTP {result.rgw_status_code ?? "unavailable"}</span>
-              {result.rgw_error_code && <span>Ceph code {result.rgw_error_code}</span>}
+            <div className="flex flex-wrap items-center gap-2">
+              <ListBadge tone={result.success ? "success" : "danger"}>{result.success ? "Completed" : "Failed"}</ListBadge>
+              <InlineSummary items={[
+                { label: "RGW HTTP", value: result.rgw_status_code ?? "unavailable" },
+                ...(result.rgw_error_code ? [{ label: "Ceph code", value: <span className="break-all">{result.rgw_error_code}</span> }] : []),
+              ]} />
             </div>
-            <p className="text-sm">{result.message}</p>
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md bg-slate-950 p-3 text-xs text-slate-100">
+            <UiInlineMessage tone={result.success ? "success" : "error"} role={result.success ? "status" : "alert"}>{result.message}</UiInlineMessage>
+            <pre tabIndex={0} role="region" aria-label="RGW response body" className={cx(uiPanelMutedClass, "max-h-56 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-xs")}>
               {formattedResult(result.result)}
             </pre>
           </section>
         )}
 
-        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+        <ModalActions>
           <UiButton variant="secondary" onClick={onClose} disabled={submitting}>
             Close
           </UiButton>
           <UiButton variant={action.kind === "index-check" && !fixIndex ? "primary" : "danger"} onClick={() => void run()} disabled={submitDisabled}>
             {submitting ? "Running..." : result?.success ? "Completed" : result ? "Retry" : action.kind === "index-check" && !fixIndex ? "Run check" : "Run operation"}
           </UiButton>
-        </div>
+        </ModalActions>
       </div>
     </Modal>
   );

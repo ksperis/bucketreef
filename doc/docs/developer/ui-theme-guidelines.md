@@ -53,6 +53,11 @@ The frontend theme is anchored by the shared shell and UI tokens in
   descriptions and never suppress a field error with an explicit false ARIA
   state. `ui-control[aria-invalid="true"]` uses the semantic danger border;
   errors must also have visible text. Modal controls keep 44px touch targets.
+  `size="compact"` on `UiInput`, `UiSelect` and `UiTextarea` uses the shared
+  `ui-control-compact` class: 12px text, an 18px line height and a 28px minimum
+  height, increasing to 44px on mobile or coarse pointers. This explicit size
+  class takes precedence over the standard `ui-control` typography; do not
+  recreate compact field sizing at individual call sites.
 - Selection: line tabs use a 3px primary underline and primary `700` text in
   light mode / `200` in dark mode. Sidebar links, including Profile, reuse the
   shared active styling and vertical primary marker. Keep shell backgrounds
