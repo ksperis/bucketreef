@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { isApiError } from "../../api/client";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -965,8 +966,9 @@ export default function BucketsPage() {
         />
       ) : (
         <ListPageSection
+          variant="page"
+          mobileSort={<TableSortControls columns={bucketTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
             title="Buckets"
-            description="Paginated list of buckets for the active context."
             countLabel={
               buckets.length === 0 && (loading || baseLoadFailed)
                 ? "— buckets"

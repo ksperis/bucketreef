@@ -1,8 +1,9 @@
-import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import TableSortControls from "../../components/list/TableSortControls";
+import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -165,6 +166,12 @@ const USER_COLUMN_GROUPS: Array<{ id: string; label: string; options: Array<{ id
       { id: "quota_max_objects", label: "Quota (objects)" },
     ],
   },
+];
+
+// Sort choices remain stable when optional table columns are hidden.
+const SORT_COLUMNS: Array<{ field: SortField; label: string }> = [
+  { field: "uid", label: "UID" },
+  ...USER_COLUMN_GROUPS.flatMap(group => group.options.map(option => ({ field: option.id, label: option.label }))),
 ];
 
 const defaultAdvancedFilter: AdvancedFilterState = {
@@ -901,8 +908,9 @@ export default function CephAdminUsersPage() {
         />
       ) : (
         <ListPageSection
+          variant="page"
+          mobileSort={<TableSortControls columns={SORT_COLUMNS} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
             title="Users"
-            description="Complete RGW user inventory with tenant, account, and quota details."
             countLabel={`${total} result(s)`}
             search={
               <div className="relative w-full sm:w-72">

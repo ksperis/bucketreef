@@ -275,11 +275,7 @@ export default function IdentitySecurityPage() {
       title="Identity Security"
       description="Review external identity link requests and manage active platform sessions within your administrative scope."
       breadcrumbs={adminPageBreadcrumbs("identity-security")}
-      rightContent={(
-        <UiButton size="xs" variant="secondary" loading={loading} onClick={() => void load()}>
-          Refresh
-        </UiButton>
-      )}
+
     >
       {error ? (
         <PageBanner tone="error">
@@ -307,8 +303,9 @@ export default function IdentitySecurityPage() {
                 content: (
                   <ListPageSection
                     title="External identity link requests"
-                    description="Decide only when the external identity and local account have been verified through a trusted channel."
-                    showHeading
+                    secondaryContent={<p>Decide only when the external identity and local account have been verified through a trusted channel.</p>}
+                    variant="page"
+                    actions={<ListActionButton loading={loading} onClick={() => void load()}>Refresh</ListActionButton>}
                   >
                     <DataTableShell
                       columns={requestColumns}
@@ -332,8 +329,9 @@ export default function IdentitySecurityPage() {
                 content: (
                   <ListPageSection
                     title="Platform sessions"
-                    description="Revoke a session to remove its access immediately. Only sessions inside your administrative scope are shown."
-                    showHeading
+                    secondaryContent={<p>Revoke a session to remove its access immediately. Only sessions inside your administrative scope are shown.</p>}
+                    variant="page"
+                    actions={<ListActionButton loading={loading} onClick={() => void load()}>Refresh</ListActionButton>}
                   >
                     <DataTableShell
                       columns={sessionColumns}

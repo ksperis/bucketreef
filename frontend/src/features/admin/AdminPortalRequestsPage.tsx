@@ -284,7 +284,7 @@ export default function AdminPortalRequestsPage() {
 
       <ListPageSection
           title="Request queue"
-          showHeading
+          variant="page"
           countLabel={`${requests.length} request(s)`}
           search={
             <UiInput
@@ -300,6 +300,7 @@ export default function AdminPortalRequestsPage() {
           filters={
             <>
               <UiSelect
+                label="Status"
                 aria-label="Filter by status"
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
@@ -313,6 +314,7 @@ export default function AdminPortalRequestsPage() {
                 <option value="all">All statuses</option>
               </UiSelect>
               <UiSelect
+                label="Type"
                 aria-label="Filter by type"
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
@@ -324,6 +326,7 @@ export default function AdminPortalRequestsPage() {
                 <option value="account_quota_change">Storage quota</option>
               </UiSelect>
               <UiSelect
+                label="Account"
                 aria-label="Filter by account"
                 value={accountFilter}
                 onChange={(event) => setAccountFilter(event.target.value)}

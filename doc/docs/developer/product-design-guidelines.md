@@ -152,8 +152,30 @@ for every table, secondary surface and documented geometry exception.
 Keep the page title, description and primary actions in `PageHeader`. Put list
 search and filters in `ListPageSection` / `ListToolbar`. Do not repeat selected
 filters, endpoint metadata or result counts in cards above the list.
-For toolbars with several filters, use `stackControlsOnMobile` to give controls
-the full width below the count on narrow screens.
+Choose an explicit `variant="page"` when the page or selected tab already names
+the list: its title is an accessible region name, without a visible heading.
+Use `variant="section"` for distinct blocks sharing a page. Its heading is above
+the controls, with section creation/execution actions in `headingActions`.
+There is no separate mobile-layout option.
+
+Both variants use the same row: **search → filters → table tools → count**.
+The count is aligned right. Put columns in `columns` and refresh/export in
+`actions`; main creation actions stay in `PageHeader`. A search has an icon and
+a visually hidden accessible label. Use `ToolbarSearchInput` or a labeled
+`UiInput` in the search slot. Advanced multiline/exact-match searches keep their
+behavior in the same slot. Filters use `UiSelect` / `UiInput` with visible,
+normal-case labels beside the value (for example, `Provider: All`). Do not add
+local grid wrappers or field widths to recreate toolbar layout.
+
+`listPresentation.css` owns widths, gaps and alignment. Search grows up to
+18rem and gives space back to other controls. Fields retain shared 28px targets
+(44px on mobile or coarse pointers). Below 768px search fills a row; filters,
+tools and the final count wrap in the same reading order. On intermediate
+widths controls wrap within their groups when necessary. Meaningful guidance
+and advanced summaries belong in `secondaryContent`, not in a redundant title.
+Purely informational tables keep their enclosing section without invented
+search or result-count controls. Browser and its embedded components are
+excluded; shared profile presentation opts in only outside Browser.
 
 Controls that affect multiple sections remain at page level: Billing month and
 endpoint affect monthly totals and subjects; Endpoint Status filters latency,
@@ -165,7 +187,9 @@ quota usage, billing totals and coverage), without individual cards. Keep a
 single result count in the list toolbar, or in the tabs when they already count
 requests and sessions. Portal activity does not need a second overview.
 
-Sort through the table headers on desktop. `MobileTableSort` retains sorting
+Sort through the table headers on desktop. `TableSortControls` adapts existing
+column sort transitions; `MobileTableSort` supports independent server sort
+parameters. Both retain sorting
 below 768px, where responsive cards hide those headers. Audit action and status
 filters apply only to loaded entries; label that boundary explicitly and retain
 cursor-based loading. Do not turn an existing local filter into an implied

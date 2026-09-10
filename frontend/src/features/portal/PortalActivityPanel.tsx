@@ -127,11 +127,10 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
     [expandedActivityId, t]
   );
   const activityFilters = (
-    <div className="flex min-w-0 flex-wrap items-end gap-2">
+    <>
       <UiSelect
         label={t({ en: "Action", fr: "Action", de: "Aktion" })}
         size="compact"
-        fieldClassName="w-44 max-w-full"
         value={actionFilter}
         onChange={(event) => setActionFilter(event.target.value)}
       >
@@ -143,7 +142,6 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
       <UiSelect
         label={t({ en: "Space", fr: "Espace", de: "Bereich" })}
         size="compact"
-        fieldClassName="w-52 max-w-full"
         value={spaceFilter}
         onChange={(event) => setSpaceFilter(event.target.value)}
       >
@@ -152,7 +150,7 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
           <option key={space.id} value={space.name}>{space.name}</option>
         ))}
       </UiSelect>
-    </div>
+    </>
   );
   const activityTable = (columns: DataTableColumn<PortalWorkspaceActivityItem>[]) => (
     <>
@@ -195,8 +193,7 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
           primaryAction={{ label: t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen" }), to: "/portal/storage-spaces" }}
         />
       ) : (
-        <ListPageSection
-          stackControlsOnMobile
+        <ListPageSection variant="page"
           title={t({ en: "Recent activity", fr: "Activité récente", de: "Letzte Aktivität" })}
           countLabel={t({
             en: `${rows.length} of ${workspace.activity.length} changes`,

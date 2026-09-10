@@ -38,9 +38,9 @@ export default function UiField({
   const invalid = Boolean(error);
 
   return (
-    <div className={cx("flex flex-col gap-1", className)}>
+    <div className={cx("ui-field flex flex-col gap-1", className)}>
       {label ? (
-        <label htmlFor={id} className={cx(uiLabelClass, labelClassName)}>
+        <label htmlFor={id} className={cx("ui-field-label", uiLabelClass, labelClassName)}>
           {label}
         </label>
       ) : null}

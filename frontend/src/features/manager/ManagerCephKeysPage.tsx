@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import UiInput from "../../components/ui/UiInput";
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useState } from "react";
 
@@ -305,17 +306,16 @@ export default function ManagerCephKeysPage() {
           tone="warning"
         />
       ) : (
-        <ListPageSection
+        <ListPageSection variant="page"
           title="Keys"
-          description="BucketReef interface keys and managed private-access keys are locked; delete a managed key through its private connection."
+          secondaryContent={<p>BucketReef interface keys and managed private-access keys are locked; delete a managed key through its private connection.</p>}
           countLabel={`${filteredKeys.length} result(s)`}
           search={
-            <input
-              type="text"
+            <UiInput aria-label="Search" size="compact"
+              type="search"
               value={keyFilter}
               onChange={(event) => setKeyFilter(event.target.value)}
               placeholder="Search by access key or status"
-              className="w-full rounded-md border border-slate-200 px-3 py-1.5 ui-caption text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-72 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           }
         >

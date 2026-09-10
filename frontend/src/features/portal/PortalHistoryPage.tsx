@@ -11,7 +11,10 @@ import PageShell from "../../components/PageShell";
 import PageBanner from "../../components/PageBanner";
 import UiButton from "../../components/ui/UiButton";
 import UiBadge from "../../components/ui/UiBadge";
-import UiCard from "../../components/ui/UiCard";
+import ListPageSection from "../../components/list/ListPageSection";
+import UiInput from "../../components/ui/UiInput";
+import UiSelect from "../../components/ui/UiSelect";
+import { ListActionButton } from "../../components/list/ListControls";
 import { cx, type UiTone, uiDividerClass, uiLabelClass, uiMutedTextClass } from "../../components/ui/styles";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useI18n } from "../../i18n";
@@ -778,67 +781,53 @@ export default function PortalHistoryPage() {
       {activeHistoryTab === "activity" ? (
         <PortalActivityPanel workspace={workspace} />
       ) : activeHistoryTab === "access" && serverAccessLoggingEnabled && canViewServerAccessLogs ? (
-        <UiCard
+        <ListPageSection variant="page"
           title={t({ en: "Technical access logs", fr: "Journaux d'accès techniques", de: "Technische Zugriffsprotokolle" })}
-          description={t({
-            en: "Use these manager-only provider logs to investigate S3 requests. Delivery may be delayed and depends on logging activation and retention.",
-            fr: "Utilisez ces journaux fournisseur réservés aux managers pour examiner les requêtes S3. Leur livraison peut être différée et dépend de l'activation et de la rétention.",
-            de: "Untersuchen Sie mit diesen nur für Manager sichtbaren Anbieterprotokollen S3-Anfragen. Die Bereitstellung kann verzögert sein und hängt von Aktivierung und Aufbewahrung ab.",
-          })}
-        >
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,14rem)_minmax(0,18rem)]">
-              <label className="block">
-                <span className={uiLabelClass}>{t({ en: "Go to date", fr: "Aller à la date", de: "Zum Datum" })}</span>
-                <input
-                  type="date"
-                  value={serverLogDate}
-                  onChange={(event) => setServerDateAndReset(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 ui-body text-slate-800 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                />
-              </label>
-              <label className="block">
-                <span className={uiLabelClass}>{t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich" })}</span>
-                <select
-                  value={serverLogSpaceId}
-                  onChange={(event) => {
-                    setServerLogSpaceId(event.target.value);
-                    resetServerLogResults();
-                  }}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 ui-body text-slate-800 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                >
-                  <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche" })}</option>
-                  {storageSpaces.map((space) => (
-                    <option key={space.id} value={space.id}>{space.name}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <UiButton variant="secondary" size="sm" onClick={() => setServerDateAndReset(shiftDateInputValue(serverLogDate, -1))}>
+          countLabel={serverLogsLoaded
+                ? t({
+                    en: `${serverLogRows.length} of ${serverLogsTotal} access events shown`,
+                    fr: `${serverLogRows.length} sur ${serverLogsTotal} événements d'accès affichés`,
+                    de: `${serverLogRows.length} von ${serverLogsTotal} Zugriffsereignissen angezeigt`,
+                  })
+                : serverLogsError
+                  ? t({ en: "Logs unavailable", fr: "Journaux indisponibles", de: "Protokolle nicht verfügbar" })
+                  : t({ en: "Loading…", fr: "Chargement…", de: "Wird geladen…" })}
+          filters={<>
+            <UiInput label={t({ en: "Go to date", fr: "Aller à la date", de: "Zum Datum" })}
+              type="date" size="compact" value={serverLogDate} onChange={(event) => setServerDateAndReset(event.target.value)} />
+            <UiSelect label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich" })}
+              size="compact" value={serverLogSpaceId} onChange={(event) => { setServerLogSpaceId(event.target.value); resetServerLogResults(); }}>
+              <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche" })}</option>
+              {storageSpaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
+            </UiSelect>
+          </>}
+          actions={<>
+              <ListActionButton variant="secondary" onClick={() => setServerDateAndReset(shiftDateInputValue(serverLogDate, -1))}>
                 {t({ en: "Previous day", fr: "Jour précédent", de: "Vortag" })}
-              </UiButton>
-              <UiButton variant="secondary" size="sm" onClick={() => setServerDateAndReset(todayDateInputValue())}>
+              </ListActionButton>
+              <ListActionButton variant="secondary" onClick={() => setServerDateAndReset(todayDateInputValue())}>
                 {t({ en: "Today", fr: "Aujourd'hui", de: "Heute" })}
-              </UiButton>
-              <UiButton variant="secondary" size="sm" onClick={() => setServerDateAndReset(shiftDateInputValue(serverLogDate, 1))}>
+              </ListActionButton>
+              <ListActionButton variant="secondary" onClick={() => setServerDateAndReset(shiftDateInputValue(serverLogDate, 1))}>
                 {t({ en: "Next day", fr: "Jour suivant", de: "Nächster Tag" })}
-              </UiButton>
-              <UiButton variant="secondary" onClick={openRawLogsModal} disabled={!accountIdForApi}>
+              </ListActionButton>
+              <ListActionButton variant="secondary" onClick={openRawLogsModal} disabled={!accountIdForApi}>
                 {t({ en: "Export logs", fr: "Exporter les logs", de: "Logs exportieren" })}
-              </UiButton>
-              <UiButton
+              </ListActionButton>
+              <ListActionButton
                 variant="secondary"
-                size="sm"
                 onClick={() => setShowServerLogAdvancedFilter(true)}
                 className={advancedFilterToolbarButtonClass(showServerLogAdvancedFilter || serverLogAdvancedFilterActive)}
               >
                 {t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter" })}
                 {serverLogAdvancedFilterActive ? " · Active" : ""}
-              </UiButton>
-            </div>
-          </div>
-          {activeServerLogFilterSummaryItems.length > 0 ? (
+              </ListActionButton>
+          </>}
+          secondaryContent={<><p>{t({
+            en: "Use these manager-only provider logs to investigate S3 requests. Delivery may be delayed and depends on logging activation and retention.",
+            fr: "Utilisez ces journaux fournisseur réservés aux managers pour examiner les requêtes S3. Leur livraison peut être différée et dépend de l'activation et de la rétention.",
+            de: "Untersuchen Sie mit diesen nur für Manager sichtbaren Anbieterprotokollen S3-Anfragen. Die Bereitstellung kann verzögert sein und hängt von Aktivierung und Aufbewahrung ab.",
+          })}</p>{activeServerLogFilterSummaryItems.length > 0 ? (
             <ActiveFiltersBar
               className="mt-3"
               label={t({ en: "Active filters:", fr: "Filtres actifs :", de: "Aktive Filter:" })}
@@ -851,7 +840,8 @@ export default function PortalHistoryPage() {
               }))}
               onClearAll={resetServerLogAdvancedFilter}
             />
-          ) : null}
+          ) : null}</>}
+        >
           {showServerLogAdvancedFilter ? (
             <div className={advancedFilterRootClass}>
               <button
@@ -1001,7 +991,7 @@ export default function PortalHistoryPage() {
             </div>
           ) : null}
           {serverLogsError && <PageBanner tone="error" className="mt-3">{serverLogsError}</PageBanner>}
-          <div className={cx("mt-4 border-t pt-4", uiDividerClass)}>
+          <div>
             <DataTableShell
               columns={serverLogColumns}
               rows={serverLogRows}
@@ -1028,21 +1018,9 @@ export default function PortalHistoryPage() {
               }}
               responsiveCards
             />
-            <div className={cx("mt-3 text-[11px]", uiMutedTextClass)}>
-              {serverLogsLoaded
-                ? t({
-                    en: `${serverLogRows.length} of ${serverLogsTotal} access events shown`,
-                    fr: `${serverLogRows.length} sur ${serverLogsTotal} événements d'accès affichés`,
-                    de: `${serverLogRows.length} von ${serverLogsTotal} Zugriffsereignissen angezeigt`,
-                  })
-                : t({
-                    en: "Detailed access history may arrive a few minutes after the event.",
-                    fr: "L'historique d'accès détaillé peut arriver quelques minutes après l'événement.",
-                    de: "Der detaillierte Zugriffsverlauf kann einige Minuten nach dem Ereignis eintreffen.",
-                  })}
-            </div>
+
           </div>
-        </UiCard>
+        </ListPageSection>
       ) : (
         <PortalActivityPanel workspace={workspace} />
       )}

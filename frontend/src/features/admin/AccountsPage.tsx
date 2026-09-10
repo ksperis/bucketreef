@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UiButton from "../../components/ui/UiButton";
@@ -1866,8 +1867,9 @@ export default function S3AccountsPage() {
       )}
 
       <ListPageSection
+        variant="page"
+        mobileSort={<TableSortControls columns={accountTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
           title="RGW Accounts"
-          description="Search matches all records."
           countLabel={`${totalAccounts} entr${totalAccounts === 1 ? "y" : "ies"}`}
           search={
             <ToolbarSearchInput

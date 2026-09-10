@@ -292,9 +292,8 @@ export default function ManagerUserKeysPage() {
         />
       )}
 
-      <ListPageSection
+      <ListPageSection variant="page"
           title="Keys"
-          description="IAM access keys for this user."
           countLabel={`${keys.length} key${keys.length === 1 ? "" : "s"}`}
       >
         <DataTableShell

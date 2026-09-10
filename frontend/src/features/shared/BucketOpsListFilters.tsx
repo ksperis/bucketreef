@@ -2,13 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import UiSelect from "../../components/ui/UiSelect";
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import { UiTagBadge } from "../../components/UiTagSettings";
 import {
   toolbarCompactButtonClasses,
   toolbarMatchModeButtonClasses,
   toolbarCompactInputClasses,
-  toolbarCompactSelectClasses,
 } from "../../components/toolbarControlClasses";
 import { cx } from "../../components/ui/styles";
 import type { useBucketOpsFilterController } from "./useBucketOpsFilterController";
@@ -156,20 +156,16 @@ export function BucketOpsTagAndAdvancedFilters({
               );
             })}
           </div>
-          <select
+          <UiSelect label="Tags" size="compact"
             aria-label="UI tag filter match mode"
             value={tagFilterMode}
             onChange={(event) =>
               updateTagFilterMode(event.target.value as "any" | "all")
             }
-            className={cx(
-              toolbarCompactSelectClasses,
-              "w-auto",
-            )}
           >
             <option value="any">OR</option>
             <option value="all">AND</option>
-          </select>
+          </UiSelect>
         </div>
       ) : null}
       <button

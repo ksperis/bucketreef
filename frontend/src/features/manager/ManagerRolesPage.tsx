@@ -471,9 +471,8 @@ export default function ManagerRolesPage() {
           tone="warning"
         />
       ) : (
-        <ListPageSection
+        <ListPageSection variant="page"
             title="Roles"
-            description="Role inventory, trust policy editing, and attached policy shortcuts."
             countLabel={`${filteredRoles.length} result(s)`}
             search={
               <ManagerToolbarSearch

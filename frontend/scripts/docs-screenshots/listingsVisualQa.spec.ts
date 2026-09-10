@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { assertListHeaders } from "./listHeaderAssertions";
 import fs from "node:fs/promises";
 import { registerApiMocks } from "./mockApi";
 import { scenarios } from "./scenarios";
@@ -7,7 +8,7 @@ import { seedUiPreferences } from "./uiPreferences";
 const listingCases = [
   "gallery-admin-storage-endpoints", "gallery-admin-ui-users", "feature-iam", "feature-buckets",
   "gallery-portal-storage-spaces", "gallery-portal-access-keys", "workspace-ceph-admin",
-  "workspace-storage-ops", "workspace-browser",
+  "workspace-storage-ops", "workspace-browser", "feature-bucket-compare",
 ];
 const modes = [
   { name: "desktop-light", width: 1440, height: 900, theme: "light" as const },
@@ -39,6 +40,7 @@ for (const id of listingCases) for (const mode of modes) {
         await page.locator(action.selector).first().waitFor();
       }
       await expect(page.locator(mode.width < 768 && id === "workspace-browser" ? "[data-browser-item]" : "table tbody tr").first()).toBeVisible();
+      await assertListHeaders(page, { singleLine: mode.width === 1440 && !["workspace-ceph-admin", "workspace-storage-ops", "workspace-browser"].includes(id) });
       const metrics = await page.evaluate(() => {
         const visible = (element: Element) => element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0;
         return {
@@ -65,7 +67,7 @@ for (const id of listingCases) for (const mode of modes) {
       });
       await testInfo.attach("geometry", { body: JSON.stringify(metrics, null, 2), contentType: "application/json" });
       await fs.writeFile(testInfo.outputPath("geometry.json"), JSON.stringify(metrics, null, 2));
-      await page.screenshot({ path: testInfo.outputPath(`${id}-${mode.name}.png`), fullPage: true });
+      await page.screenshot({ path: testInfo.outputPath(`${id}-${mode.name}.png`), fullPage: true, animations: "disabled" });
       expect(metrics.overflow).toBeLessThanOrEqual(2);
       expect(metrics.overlappingRows).toBe(false);
       for (const table of metrics.tables) {
@@ -86,6 +88,15 @@ for (const id of listingCases) for (const mode of modes) {
         await action.focus();
         await expect(action).toBeFocused();
         expect(await action.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
+      }
+      if (id === "feature-bucket-compare") {
+        const run = page.getByRole("button", { name: "Compare selected" });
+        await expect(run).toBeDisabled();
+        await expect(page.locator(".ui-list-toolbar-heading")).toContainText("Compare selected");
+        await page.getByRole("button", { name: "Select filtered" }).click();
+        await expect(run).toBeEnabled();
+        await page.getByRole("button", { name: "Clear", exact: true }).click();
+        await expect(run).toBeDisabled();
       }
       registry.assertNoUnmatched();
       expect(errors).toEqual([]);

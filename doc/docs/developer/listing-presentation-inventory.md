@@ -78,11 +78,48 @@ menus, association popovers, expansion and Browser column resizing.
 | `features/shared/ProfilePage.tsx` | /{admin,manager,portal,browser,ceph-admin,storage-ops}/profile; private S3 connections | ui-data-table × 1 | `ProfilePage.validation.test.tsx` |
 | `features/shared/bucketCompareShared.tsx` | /manager/bucket-compare and compare dialogs in Ceph Admin/Storage Ops; manual mappings | ui-data-table × 1 | `bucketCompareShared.test.ts` |
 
+## Header variant inventory (outside Browser)
+
+All control-bearing lists below use the same search/filter/tools/count row.
+`page` means no extra visible title; `section` means a heading above that row.
+This classification supplements the table-site inventory above, including
+secondary and dialog uses.
+
+| Uses | Header convention |
+| --- | --- |
+| Admin accounts, users, groups, RGW users, shared connections, endpoints, RGW user keys, API tokens route, audit, usage history and Portal request queue | `page`; main creation in the page header |
+| Admin identity-link requests and sessions | `page`; tab counts and security guidance remain visible |
+| Billing subjects, Endpoint Status incidents, key-rotation execution results | `section`; page context continues to affect its original sections |
+| Admin association lists and add-association pickers | `section`; Add in `headingActions`, search in the common row; editable row fields and dialog confirmation remain unchanged |
+| Manager users, groups, roles, policies, buckets, topics, user/RGW keys, feature rules and migration runs | `page`; table/tab identifies the list |
+| Manager group members and attached managed policies | `section`; distinct from membership/attachment forms and inline policy blocks |
+| Manager bucket selection for compare, integrity, purge and migration | `section`; execution action in `headingActions`, selection tools in the control row |
+| Portal Storage Spaces, activity, access logs, collaborators, help requests and tool-access tab | `page`; existing Portal translations and key/logging explanations retained |
+| Portal collaborator detail: effective Storage Space access | `section`; inherited access guidance retained |
+| Ceph Admin accounts/users and Ceph Admin/Storage Ops bucket workbench | `page`; multiline exact search, advanced filters, column controls and selection remain supported |
+| Embedded API tokens (when used beside other profile sections) | `section`; creation in the section heading |
+| Shared private S3 connections profile | `page` outside Browser; creation is rendered into the owning page header; Browser keeps its original markup |
+| Endpoint detail timeline/recent checks, Ceph usage/quota/key detail tables, Manager bucket ACL/lifecycle tables, public links, operation samples/breakdowns and comparison mappings | Informational tables retain their existing enclosing section/form; no artificial controls added |
+| Browser object tables, multipart dialog, embedded explorers and their object/detail panels | Excluded from the header convergence, including shared public-link components used inside them |
+
+Desktop Storage Space sort now uses the Name/Files/Size/Created column headers.
+Existing column sorts share their transitions with mobile controls, without
+changing initial sorting or pagination. Bucket workbench headers remain visible
+in their scrollable table on mobile, so no second sort control is added there.
+Audit Action/Status are explicitly limited to loaded entries. Server search,
+advanced filter semantics, endpoint context and Billing global totals retain
+their existing scope. Billing CSV exports the whole selected month/endpoint,
+so it stays beside that page context. Endpoint Status refreshes all metrics and
+incidents; Manager member/policy refresh reloads both form choices and listed
+bindings. These page-wide refresh actions stay in the page header. API-token
+and Identity Security refresh tools live in their list bars.
+
 ## Visual coverage
 
 `listingsVisualQa.spec.ts` exercises V1 endpoints, V2 Admin users, V3 Manager
 users, V4 Manager buckets, V5 Portal spaces, V6 Portal tool keys, V7 Ceph Admin
-buckets, V8 Storage Ops buckets and V9 Browser objects. Every case runs at
+buckets, V8 Storage Ops buckets, V9 Browser objects and the Manager bucket
+selection section. Every case runs at
 1440 × 900 in light/blue and dark/custom purple, at 390 × 900, at a 720 × 450
 reflow viewport, and at 1440 × 900 with a coarse pointer. Existing Portal
 translations are exercised in English, French and German. Reflow emulates the
@@ -90,6 +127,12 @@ CSS viewport of 200% zoom; it is not a claim of native browser-zoom testing.
 
 The assertions cover typography, button weights and target heights, focus
 visibility, document overflow, action alignment and mobile card overlap.
+The shared header assertions also check both variants, accessible search names,
+search-icon spacing, normal-case filter labels, control order and one-line
+ordinary desktop bars. `consultationVisualQa.spec.ts` covers the seven compact
+consultation pages plus the Portal access-log tab and its advanced drawer.
+Component tests cover keyboard order, section action
+placement, column/mobile sort synchronization, filtering and profile opt-in.
 Screenshots are reviewed in addition to these geometric checks. The nine
 user-documentation pairs are generated separately in English with the usual
 light/dark theme. Temporary QA screenshots and measurements are not committed.

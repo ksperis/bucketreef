@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { assertListHeaders } from "./listHeaderAssertions";
 import fs from "node:fs/promises";
 import { registerApiMocks } from "./mockApi";
 import { buildBaseRules } from "./fixtures/base";
@@ -14,9 +15,17 @@ const cases = [
   { route: "/admin/endpoint-status", source: "feature-endpoint-status-admin" },
   { route: "/admin/identity-security", source: "workspace-admin" },
   { route: "/portal/history", source: "workspace-portal" },
+  { route: "/portal/history?view=access", source: "workspace-portal" },
 ];
 
 const extraRules: MockRule[] = [
+  { id: "header-access-logs", path: /^\/portal\/access-logs\/page$/, body: {
+    entries: [{ id: "log-1", source: "server_access_logging", timestamp: "2026-03-08T09:00:00Z",
+      storage_space_id: "genomics-2026", storage_space_name: "genomics-2026", bucket_name: "genomics-2026",
+      operation: "REST.GET.OBJECT", operation_category: "download", object_key: "sample.csv", object_name: "sample.csv",
+      status_code: 200, requester: "storage.user@example.com", bytes_sent: 512, log_object_key: "2026-03-08.log" }],
+    total: 1, limit: 25, offset: 0,
+  } },
   { ...buildBaseRules().find((rule) => rule.id === "manager-usage-stats-aggregate")!,
     id: "consultation-usage-composition", path: /^\/admin\/usage-stats\/latest$/ },
   {
@@ -47,6 +56,7 @@ for (const entry of cases) for (const mode of [
   { name: "tablet-light", width: 1024, height: 768, theme: "light" as const, locale: "en" as const },
 ]) {
   test(`${entry.route} ${mode.name}`, async ({ browser }, testInfo) => {
+    test.setTimeout(30_000);
     const scenario = scenarios.find((item) => item.id === entry.source)!;
     const context = await browser.newContext({ viewport: mode, colorScheme: mode.theme });
     const page = await context.newPage();
@@ -56,7 +66,9 @@ for (const entry of cases) for (const mode of [
       if (message.type() === "error") errors.push(message.text());
     });
     try {
-      const rules = scenario.mockRules.map((rule) => rule.path.test("/settings/general") && typeof rule.body === "object"
+      const rules = scenario.mockRules.map((rule) => entry.route.includes("view=access") && rule.id === "portal-state" && typeof rule.body === "object"
+        ? { ...rule, body: { ...rule.body, portal_role: "portal_manager", server_access_logging_enabled: true } }
+        : rule.path.test("/settings/general") && typeof rule.body === "object"
         ? { ...rule, body: { ...rule.body, usage_history_enabled: entry.route === "/admin/usage-history" } } : rule);
       const registry = await registerApiMocks(page, [...extraRules, ...rules], testInfo.title,
         { ...scenario.user, ui_language: mode.locale });
@@ -64,6 +76,14 @@ for (const entry of cases) for (const mode of [
       await page.clock.setFixedTime(new Date("2026-03-08T12:00:00Z"));
       await page.goto(entry.route);
       await expect(page.locator("h1")).toBeVisible();
+      if (entry.route.includes("view=access")) {
+        // Exercise tab switching after the separately fetched project settings arrive.
+        await expect(page.getByRole("tab")).toHaveCount(2);
+        await page.getByRole("tab").last().click();
+        await expect(page.getByRole("tab").last()).toHaveAttribute("aria-selected", "true");
+        await expect(page.getByRole("region", { name: /Technical access logs|Journaux d'accès techniques|Technische Zugriffsprotokolle/ })).toBeVisible();
+        await expect(page.getByText("sample.csv", { exact: true }).first()).toBeVisible();
+      }
       const content = entry.route === "/admin/metrics"
         ? page.getByText("Storage snapshot", { exact: true })
         : entry.route === "/admin/endpoint-status"
@@ -71,7 +91,8 @@ for (const entry of cases) for (const mode of [
           : page.locator('table tbody td[data-mobile-primary="true"]').first();
       await expect(content).toBeVisible();
       if (entry.route === "/admin/metrics") await expect(page.getByText("Instant count", { exact: true })).toBeVisible();
-      await page.screenshot({ path: testInfo.outputPath("page.png"), fullPage: true });
+      await page.screenshot({ path: testInfo.outputPath("page.png"), fullPage: true, animations: "disabled" });
+      await assertListHeaders(page, { singleLine: mode.width === 1440 && !entry.route.includes("view=access") });
       const geometry = await content.boundingBox();
       await fs.writeFile(testInfo.outputPath("geometry.json"), JSON.stringify(geometry));
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
@@ -116,6 +137,17 @@ for (const entry of cases) for (const mode of [
         await expect(page.getByRole("button", { name: "Collect daily", exact: true })).toBeVisible();
         await page.getByText("Manual daily collection", { exact: true }).click();
         await expect(page.getByRole("button", { name: "Collect daily", exact: true })).toBeHidden();
+      }
+      if (entry.route.includes("view=access")) {
+        const tools = page.locator(".ui-list-toolbar-tools");
+        const advanced = tools.getByRole("button").last();
+        await advanced.click();
+        await expect(page.locator(".ui-list-toolbar-secondary")).toBeVisible();
+        const close = page.getByRole("button", { name: /Close advanced filter drawer|Fermer le panneau|Erweiterten Filter schließen/ });
+        await expect(close).toBeAttached();
+        // Close the drawer by its own button without changing the applied filters.
+        await page.getByRole("button", { name: /^(Close|Fermer|Schließen)$/ }).last().click();
+        await expect(close).toHaveCount(0);
       }
       registry.assertNoUnmatched();
       expect(errors).toEqual([]);

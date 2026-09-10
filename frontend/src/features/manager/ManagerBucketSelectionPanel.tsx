@@ -76,11 +76,11 @@ export default function ManagerBucketSelectionPanel({
       <ListToolbar
         title="Buckets"
         description={description}
-        showHeading={false}
+        variant="section"
         countLabel={countLabel ?? `${buckets.length} result(s)`}
         search={
           <UiInput
-            type="text"
+            type="search"
             value={filter}
             onChange={(event) => onFilterChange(event.target.value)}
             placeholder={filterPlaceholder}
@@ -89,7 +89,7 @@ export default function ManagerBucketSelectionPanel({
             size="compact"
           />
         }
-        filters={
+        actions={
           <>
             <ListActionButton
               type="button"
@@ -111,7 +111,7 @@ export default function ManagerBucketSelectionPanel({
             </ListActionButton>
           </>
         }
-        actions={action}
+        headingActions={action}
       />
       <DataTableShell
         responsiveCards

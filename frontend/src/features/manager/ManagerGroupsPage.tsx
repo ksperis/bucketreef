@@ -307,9 +307,8 @@ export default function ManagerGroupsPage() {
           tone="warning"
         />
       ) : (
-        <ListPageSection
+        <ListPageSection variant="page"
             title="Groups"
-            description="Group inventory, membership shortcuts, and attached policies."
             countLabel={`${filteredGroups.length} result(s)`}
             search={
               <ManagerToolbarSearch

@@ -358,12 +358,12 @@ export default function UsageHistoryPage() {
       {collectError ? <PageBanner tone="error">{collectError}</PageBanner> : null}
       {historyError ? <PageBanner tone="error">{historyError}</PageBanner> : null}
 
-      <ListPageSection
-        stackControlsOnMobile
+      <ListPageSection variant="page"
         title="Snapshots"
+        mobileSort={<MobileTableSort options={SORT_OPTIONS} field={sortBy} direction={sortDir} onFieldChange={setSortBy} onDirectionChange={setSortDir} />}
         countLabel={`${history?.total ?? 0} record${history?.total === 1 ? "" : "s"}`}
         filters={
-          <div className="flex min-w-0 flex-wrap items-end gap-2">
+          <>
             <UiSelect
               label="Granularity"
               title="Daily keeps the latest usage per day; hourly keeps each collected quota snapshot."
@@ -414,8 +414,8 @@ export default function UsageHistoryPage() {
               onChange={(event) => setEndDate(event.target.value)}
               size="compact"
             />
-            <MobileTableSort options={SORT_OPTIONS} field={sortBy} direction={sortDir} onFieldChange={setSortBy} onDirectionChange={setSortDir} />
-          </div>
+
+          </>
         }
         actions={<ListActionButton variant="secondary" onClick={() => setReloadToken((current) => current + 1)} disabled={historyLoading}>Refresh</ListActionButton>}
         secondaryContent={

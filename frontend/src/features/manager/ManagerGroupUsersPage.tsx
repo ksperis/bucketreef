@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ListPageSection from "../../components/list/ListPageSection";
 import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -252,11 +253,7 @@ export default function ManagerGroupUsersPage() {
         </p>
       </form>
 
-      <div className="ui-surface-card">
-        <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-          <p className="ui-body font-semibold text-slate-900 dark:text-slate-50">Users</p>
-          <p className="ui-caption text-slate-500 dark:text-slate-400">Members of this group.</p>
-        </div>
+      <ListPageSection variant="section" title="Users" description="Members of this group.">
         <DataTableShell
           columns={userColumns}
           rows={users}
@@ -268,7 +265,7 @@ export default function ManagerGroupUsersPage() {
           tableClassName="ui-data-table"
           responsiveCards
         />
-      </div>
+      </ListPageSection>
       {memberConfirmation.confirmationDialog}
     </PageShell>
   );

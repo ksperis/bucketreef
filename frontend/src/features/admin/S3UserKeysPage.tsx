@@ -20,7 +20,7 @@ import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageShell from "../../components/PageShell";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
-import ListSectionCard from "../../components/list/ListSectionCard";
+import ListPageSection from "../../components/list/ListPageSection";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
@@ -306,9 +306,9 @@ export default function S3UserKeysPage() {
         />
       )}
 
-      <ListSectionCard
+      <ListPageSection variant="page"
         title="Keys"
-        subtitle={`${keys.length} key${keys.length === 1 ? "" : "s"}`}
+        countLabel={`${keys.length} key${keys.length === 1 ? "" : "s"}`}
       >
         <DataTableShell
           responsiveCards
@@ -324,7 +324,7 @@ export default function S3UserKeysPage() {
           emptyMessage="No keys for this user."
           tableLayout="fixed"
         />
-      </ListSectionCard>
+      </ListPageSection>
       {keyConfirmation.confirmationDialog}
     </PageShell>
   );

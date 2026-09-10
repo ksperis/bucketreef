@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -510,8 +511,9 @@ export default function ManagerUsersPage() {
         />
       ) : (
         <ListPageSection
+          variant="page"
+          mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
             title="Users"
-            description="User inventory with group, key, and policy shortcuts."
             countLabel={`${filteredUsers.length} result(s)`}
             search={
               <ManagerToolbarSearch

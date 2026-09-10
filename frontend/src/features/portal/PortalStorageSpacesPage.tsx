@@ -2,6 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ListPageSection from "../../components/list/ListPageSection";
+import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListActionLink } from "../../components/list/ListControls";
 import {
   useCallback,
@@ -37,7 +39,6 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 
 import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
-import UiCard from "../../components/ui/UiCard";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
@@ -229,14 +230,20 @@ export default function PortalStorageSpacesPage() {
         return (a.objectCount ?? -1) - (b.objectCount ?? -1);
       if (sort === "-object_count")
         return (b.objectCount ?? -1) - (a.objectCount ?? -1);
-      return a.name.localeCompare(b.name);
+      return sort === "-name" ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name);
     });
   }, [normalizedQuery, roleFilter, sort, statusFilter, t, visibleSpaces]);
+  const tableSort = {
+    field: sort.replace(/^-/, ""),
+    direction: sort.startsWith("-") ? "desc" as const : "asc" as const,
+    onSort: (field: string) => setSort((current) => current === field ? `-${field}` : field),
+  };
   const tableStatus = filteredSpaces.length === 0 ? "empty" : "ready";
   const storageSpaceColumns = useMemo<DataTableColumn<PortalWorkspaceSpace>[]>(
     () => [
       {
         id: "name",
+        field: "name",
         label: t({ en: "Space", fr: "Espace", de: "Bereich" }),
         mobileLabel: t({ en: "Space", fr: "Espace", de: "Bereich" }),
         primary: true,
@@ -306,16 +313,19 @@ export default function PortalStorageSpacesPage() {
       },
       {
         id: "files",
+        field: "object_count",
         label: t({ en: "Files", fr: "Fichiers", de: "Dateien" }),
         render: (space) => formatCompactNumber(space.objectCount),
       },
       {
         id: "size",
+        field: "used_bytes",
         label: t({ en: "Size", fr: "Taille", de: "Größe" }),
         render: (space) => formatBytes(space.usedBytes),
       },
       {
         id: "created",
+        field: "created_at",
         label: t({ en: "Created", fr: "Créé", de: "Erstellt" }),
         render: (space) => space.createdLabel,
       },
@@ -1349,16 +1359,14 @@ export default function PortalStorageSpacesPage() {
       />
 
       <PortalTabPanel idPrefix="portal-storage-spaces" tabId={activeTab}>
-        <UiCard>
-          <div
-            className={cx(
-              "ui-list-toolbar mb-3 grid gap-3",
-              activeTab === "archived"
-                ? "lg:grid-cols-[minmax(220px,1fr)_160px_180px]"
-                : "lg:grid-cols-[minmax(220px,1fr)_160px_160px_180px]",
-            )}
-          >
-          <UiInput
+        <ListPageSection variant="page"
+          title={t({ en: "Storage spaces", fr: "Espaces de stockage", de: "Speicherbereiche" })}
+          countLabel={t({
+            en: `${filteredSpaces.length} of ${visibleSpaces.length} spaces`,
+            fr: `${filteredSpaces.length} sur ${visibleSpaces.length} espaces`,
+            de: `${filteredSpaces.length} von ${visibleSpaces.length} Bereichen`,
+          })}
+          search={<UiInput
             label={t({ en: "Search", fr: "Recherche", de: "Suche" })}
             type="search"
             size="compact"
@@ -1370,8 +1378,8 @@ export default function PortalStorageSpacesPage() {
               fr: "Rechercher des espaces...",
               de: "Bereiche suchen...",
             })}
-          />
-          <UiSelect
+          />}
+          filters={<><UiSelect
             label={t({ en: "My role", fr: "Mon rôle", de: "Meine Rolle" })}
             size="compact"
             className="ui-list-control"
@@ -1407,30 +1415,17 @@ export default function PortalStorageSpacesPage() {
                 </option>
               ))}
             </UiSelect>
-          ) : null}
-          <UiSelect
-            label={t({ en: "Sort by", fr: "Trier par", de: "Sortieren nach" })}
-            size="compact"
-            className="ui-list-control"
-            value={sort}
-            onChange={(event) => setSort(event.target.value)}
-          >
-            <option value="name">
-              {t({ en: "Name", fr: "Nom", de: "Name" })}
-            </option>
-            <option value="-created_at">
-              {t({ en: "Newest", fr: "Plus récents", de: "Neueste" })}
-            </option>
-            <option value="-used_bytes">
-              {t({ en: "Usage", fr: "Utilisation", de: "Nutzung" })}
-            </option>
-            <option value="-object_count">
-              {t({ en: "Files", fr: "Fichiers", de: "Dateien" })}
-            </option>
-          </UiSelect>
-          </div>
+          ) : null}</>}
+          mobileSort={<TableSortControls columns={storageSpaceColumns} sort={tableSort} labels={{
+            sortBy: t({ en: "Sort by", fr: "Trier par", de: "Sortieren nach" }),
+            direction: t({ en: "Direction", fr: "Ordre", de: "Reihenfolge" }),
+            ascending: t({ en: "Ascending", fr: "Croissant", de: "Aufsteigend" }),
+            descending: t({ en: "Descending", fr: "Décroissant", de: "Absteigend" }),
+          }} />}
+        >
           <DataTableShell
             columns={storageSpaceColumns}
+            sort={tableSort}
             rows={filteredSpaces}
             rowKey={(space) => space.id}
             status={tableStatus}
@@ -1465,21 +1460,7 @@ export default function PortalStorageSpacesPage() {
             }
             responsiveCards
           />
-          <div
-            className={cx(
-              "mt-4 flex items-center justify-between text-[11px] font-semibold",
-              uiMutedTextClass,
-            )}
-          >
-            <span>
-              {t({
-                en: `${filteredSpaces.length} of ${visibleSpaces.length}`,
-                fr: `${filteredSpaces.length} sur ${visibleSpaces.length}`,
-                de: `${filteredSpaces.length} von ${visibleSpaces.length}`,
-              })}
-            </span>
-          </div>
-        </UiCard>
+        </ListPageSection>
       </PortalTabPanel>
     </PageShell>
   );

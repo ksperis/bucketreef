@@ -208,8 +208,9 @@ export default function AuditLogsPage() {
 
   const filters = useMemo(
     () => (
-      <div className="flex flex-wrap items-center gap-3">
+      <>
         <UiSelect
+          label="Action"
           aria-label="Filter by action"
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
@@ -223,6 +224,7 @@ export default function AuditLogsPage() {
           ))}
         </UiSelect>
         <UiSelect
+          label="Status"
           aria-label="Filter by status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -236,6 +238,7 @@ export default function AuditLogsPage() {
           ))}
         </UiSelect>
         <UiSelect
+          label="Role"
           aria-label="Filter by actor role"
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
@@ -248,6 +251,7 @@ export default function AuditLogsPage() {
           ))}
         </UiSelect>
         <UiSelect
+          label="Workspace"
           aria-label="Filter by workspace scope"
           value={scopeFilter}
           onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
@@ -259,7 +263,7 @@ export default function AuditLogsPage() {
             </option>
           ))}
         </UiSelect>
-      </div>
+      </>
     ),
     [actionFilter, actionOptions, roleFilter, scopeFilter, statusFilter, statusOptions]
   );
@@ -341,11 +345,9 @@ export default function AuditLogsPage() {
     >
       {error && <PageBanner tone="error">{error}</PageBanner>}
 
-      <ListPageSection
-        stackControlsOnMobile
+      <ListPageSection variant="page"
         className="bg-white/95 dark:bg-slate-900/60"
         title="Audit trail"
-        description="Application control-plane and security actions. Object data operations are intentionally excluded."
         countLabel={`${filteredLogs.length} of ${logs.length} loaded entries`}
         search={
           <UiInput

@@ -85,7 +85,7 @@ describe("IdentitySecurityPage", () => {
     expect(screen.getByRole("tab", { name: "Link requests (1)" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Active sessions (1)" })).toBeInTheDocument();
     expect(screen.queryByText("1 pending request")).not.toBeInTheDocument();
-    expect(within(requestsPanel).getByText("External identity link requests")).toBeInTheDocument();
+    expect(within(requestsPanel).getByRole("region", { name: "External identity link requests" })).toBeInTheDocument();
     expect(within(requestsPanel).getAllByText("candidate@example.com")).toHaveLength(2);
     expect(within(requestsPanel).getByText("OIDC")).toBeInTheDocument();
     expect(within(requestsPanel).getByText("User")).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe("IdentitySecurityPage", () => {
 
     await user.click(screen.getByRole("tab", { name: /Active sessions/ }));
     const sessionsPanel = screen.getByRole("tabpanel", { name: /Active sessions/ });
-    expect(within(sessionsPanel).getByText("Platform sessions")).toBeInTheDocument();
+    expect(within(sessionsPanel).getByRole("region", { name: "Platform sessions" })).toBeInTheDocument();
     expect(within(sessionsPanel).getByText("Candidate User")).toBeInTheDocument();
     expect(within(sessionsPanel).getByText("Password")).toBeInTheDocument();
     expect(within(sessionsPanel).getAllByText("User")).toHaveLength(2);

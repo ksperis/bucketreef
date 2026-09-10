@@ -10,7 +10,7 @@ import ListPageSection from "../list/ListPageSection";
 describe("ListPageSection", () => {
   it("groups a compact list toolbar and its inventory content", () => {
     render(
-      <ListPageSection
+      <ListPageSection variant="page"
         title="Users"
         countLabel="3 entries"
         search={<input aria-label="Search users" />}
@@ -27,7 +27,7 @@ describe("ListPageSection", () => {
 
   it("can retain a distinct visible section heading", () => {
     render(
-      <ListPageSection title="My help requests" showHeading>
+      <ListPageSection title="My help requests" variant="section">
         <div>Request list</div>
       </ListPageSection>,
     );

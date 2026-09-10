@@ -78,7 +78,7 @@ describe("AdminAssociationPicker", () => {
       </AdminAssociationPickerPanel>
     );
 
-    await user.type(screen.getByRole("textbox", { name: "Search accounts" }), "hel");
+    await user.type(screen.getByRole("searchbox", { name: "Search accounts" }), "hel");
     expect(onSearchChange).toHaveBeenLastCalledWith("l");
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
