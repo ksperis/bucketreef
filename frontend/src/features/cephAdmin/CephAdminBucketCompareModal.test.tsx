@@ -141,7 +141,14 @@ describe("CephAdminBucketCompareModal", () => {
     expect(within(sourceOnlyDetails).getByText("source-only-1")).toBeInTheDocument();
     expect(within(sourceOnlyDetails).queryByText("1.0 KB")).not.toBeInTheDocument();
 
-    await user.click(within(sourceOnlyDetails).getByRole("button", { name: /source-only-1/ }));
-    expect(within(sourceOnlyDetails).getByText("1.0 KB")).toBeInTheDocument();
+    const objectTrigger = within(sourceOnlyDetails).getByRole("button", { name: /source-only-1/ });
+    await user.click(objectTrigger);
+    const metadata = screen.getByRole("dialog", { name: "Object metadata for source-only-1" });
+    expect(within(metadata).getByText("1.0 KB")).toBeInTheDocument();
+    await user.click(within(metadata).getByRole("button", { name: "Explore" }));
+    const confirmation = screen.getByRole("dialog", { name: "Leave comparison page?" });
+    expect(screen.queryByRole("dialog", { name: "Object metadata for source-only-1" })).not.toBeInTheDocument();
+    await user.click(within(confirmation).getByRole("button", { name: "Cancel" }));
+    expect(objectTrigger).toHaveFocus();
   });
 });

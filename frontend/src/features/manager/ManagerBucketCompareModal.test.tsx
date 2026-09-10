@@ -467,11 +467,12 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     expect(within(sourceOnlyDetails).queryByText("1.0 KB")).not.toBeInTheDocument();
 
     const objectButton = await openObjectMetadata(user, sourceOnlyDetails, "source-only-1");
+    const metadata = screen.getByRole("dialog", { name: "Object metadata for source-only-1" });
     expect(objectButton).toHaveAttribute("aria-expanded", "true");
-    expect(within(sourceOnlyDetails).getByText("1.0 KB")).toBeInTheDocument();
-    expect(within(sourceOnlyDetails).getByText("Storage")).toBeInTheDocument();
-    expect(within(sourceOnlyDetails).getByText("STANDARD")).toBeInTheDocument();
-    const exploreLinks = within(sourceOnlyDetails).getAllByRole("link", { name: "Explore" });
+    expect(within(metadata).getByText("1.0 KB")).toBeInTheDocument();
+    expect(within(metadata).getByText("Storage")).toBeInTheDocument();
+    expect(within(metadata).getByText("STANDARD")).toBeInTheDocument();
+    const exploreLinks = within(metadata).getAllByRole("link", { name: "Explore" });
     expect(exploreLinks.length).toBeGreaterThan(0);
     expect(exploreLinks[0]).toHaveAttribute("target", "_blank");
     expect(exploreLinks[0]).toHaveAttribute("rel", "noreferrer");
@@ -487,7 +488,7 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     const sourceOnlyDetails = await openSourceOnlyDetails(user);
 
     await openObjectMetadata(user, sourceOnlyDetails, "source-only-1");
-    await user.click(within(sourceOnlyDetails).getAllByRole("button", { name: "Download" })[0]);
+    await user.click(within(screen.getByRole("dialog", { name: "Object metadata for source-only-1" })).getByRole("button", { name: "Download" }));
 
     await waitFor(() => {
       expect(proxyDownloadMock).toHaveBeenCalledWith("ctx-source", "bucket-a", "source-only-1");
@@ -585,11 +586,13 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     expect(await within(sourceOnlyDetails).findByText("source-only-1")).toBeInTheDocument();
     await openObjectMetadata(user, sourceOnlyDetails, "source-only-1");
     expect(screen.queryByRole("link", { name: "Explore" })).not.toBeInTheDocument();
-    const exploreButtons = within(sourceOnlyDetails).getAllByRole("button", { name: "Explore" });
+    const metadata = screen.getByRole("dialog", { name: "Object metadata for source-only-1" });
+    const exploreButtons = within(metadata).getAllByRole("button", { name: "Explore" });
     expect(exploreButtons.length).toBeGreaterThan(0);
     expect(exploreButtons.every((button) => button.hasAttribute("disabled"))).toBe(true);
     expect(exploreButtons[0]).toHaveAttribute("title", "Manager Browser is disabled for this surface.");
-    const downloadButtons = within(sourceOnlyDetails).getAllByRole("button", { name: "Download" });
+    expect(within(metadata).getByText("Manager Browser is disabled for this surface.")).toBeInTheDocument();
+    const downloadButtons = within(metadata).getAllByRole("button", { name: "Download" });
     expect(downloadButtons.length).toBeGreaterThan(0);
     expect(downloadButtons.every((button) => button.hasAttribute("disabled"))).toBe(true);
     expect(downloadButtons[0]).toHaveAttribute("title", "Manager Browser is disabled for this surface.");
