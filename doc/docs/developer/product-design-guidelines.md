@@ -174,6 +174,15 @@ loading and persistence stay with the inventory. Keep one neutral Reset action
 inside the picker, disabled when the defaults are already selected. Do not add
 local popover state, palettes or a second reset button in the toolbar.
 
+Use `UiActionMenu` for secondary inventory actions. Keep common configuration
+actions visible when they are the row's default action, and attach
+`dataTableDefaultActionProps` to that visible control. Do not hide the default
+action in a conditional portal or add an invisible proxy button. Menu items use
+the shared listing geometry regardless of their trigger's presentation. The
+shared menu owns viewport scrolling, Close, keyboard navigation and focus return;
+feature code supplies labels, availability reasons and callbacks. Destructive
+items still open the existing confirmation flow rather than executing directly.
+
 `listPresentation.css` owns widths, gaps and alignment. Search grows up to
 18rem and gives space back to other controls. Fields retain shared 28px targets
 (44px on mobile or coarse pointers). Below 768px search fills a row; filters,

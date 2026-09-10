@@ -88,14 +88,18 @@ describe("CephAdminUsersPage list states", () => {
     renderPage();
 
     expect(await screen.findByText("alice")).toBeInTheDocument();
-    const menus = screen.getAllByLabelText("More actions");
+    const menus = screen.getAllByRole("button", { name: /More actions for RGW user/ });
     fireEvent.click(menus[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: "Delete user" })[0]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete user" }));
     expect(screen.getByRole("heading", { name: "Delete RGW User" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
     fireEvent.click(menus[1]);
-    expect(screen.getAllByRole("button", { name: "Delete user" }).at(-1)).toBeDisabled();
+    const deleteActiveIdentity = screen.getByRole("menuitem", { name: /Delete user/ });
+    expect(deleteActiveIdentity).toHaveAttribute("aria-disabled", "true");
+    expect(deleteActiveIdentity).toHaveTextContent("The active Ceph Admin service identity cannot delete itself");
+    fireEvent.click(deleteActiveIdentity);
+    expect(screen.queryByRole("heading", { name: "Delete RGW User" })).not.toBeInTheDocument();
   });
 
   it("shows loading state before displaying empty results", async () => {

@@ -6,5 +6,3 @@
 export const tableActionColumnClasses = "ui-table-actions-cell";
 
 export const tableCompactIconActionButtonClasses = "ui-list-action ui-list-action-icon";
-
-export const tableActionMenuItemClasses = "ui-list-menu-item";

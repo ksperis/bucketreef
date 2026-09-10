@@ -93,10 +93,33 @@ checkbox by scrolling, reset and dismiss. Verify geometry again after expansion
 and resizing while open. These fixture checks cover presentation and interaction,
 not authenticated Ceph/Manager storage operations.
 
+## Inventory action menus
+
+Ceph accounts/users now keep Configure visible as their declared default row
+action. Owner navigation and deletion use `UiActionMenu` with resource-specific
+accessible names. Their two native `details` popovers and manual DOM-closing
+handlers are removed, along with the unused menu-class alias. The active RGW
+identity still cannot delete itself; its reason is visible in the menu.
+
+The shared action menu also serves Ceph/Storage Ops bucket rows and selections.
+All menu items now share listing typography, spacing, semantic danger color and
+touch targets, independently of the trigger class. Tall menus scroll inside the
+viewport with Close kept visible. Focus moves through enabled items with arrows,
+Home and End; Escape/Close returns to the trigger. Tab leaves from the trigger's
+position in the page. Selecting an action restores that focus before opening a
+dialog, so closing the dialog returns to an existing control.
+
+Validate row menus and selected-bucket menus with documentary fixtures in both
+themes, mobile/narrow/shallow viewports and desktop touch input. Check the final
+item and Close after scrolling, keyboard dismissal and menu-to-dialog focus.
+For Ceph owners, retain the account ID or exact tenant-qualified user identity
+in bucket navigation. Opening and cancelling confirmations must issue no storage
+mutation. These checks cover UI behavior, not live RGW execution.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
-- Consolidate remaining row-action and export popovers in operational inventories.
+- Review remaining export dialogs and operational form sections.
 - Review remaining account and bucket form sections against the compact
   settings contract, preserving each independent save boundary.
