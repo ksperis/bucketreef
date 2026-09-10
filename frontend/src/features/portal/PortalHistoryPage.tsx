@@ -7,6 +7,7 @@ import { useSearchParams } from "react-router-dom";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import Modal from "../../components/Modal";
+import ModalActions from "../../components/ModalActions";
 import PageShell from "../../components/PageShell";
 import PageBanner from "../../components/PageBanner";
 import UiButton from "../../components/ui/UiButton";
@@ -15,7 +16,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { ListActionButton } from "../../components/list/ListControls";
-import { cx, type UiTone, uiDividerClass, uiLabelClass, uiMutedTextClass } from "../../components/ui/styles";
+import { cx, type UiTone, uiLabelClass, uiMutedTextClass } from "../../components/ui/styles";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useI18n } from "../../i18n";
 import {
@@ -1029,6 +1030,8 @@ export default function PortalHistoryPage() {
       {rawLogsModalOpen ? (
         <Modal
           title={t({ en: "Export raw access logs", fr: "Exporter les logs d'accès bruts", de: "Rohe Zugriffslogs exportieren" })}
+          closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen" })}
+          closeAriaLabel={t({ en: "Close export", fr: "Fermer l'export", de: "Export schließen" })}
           onClose={() => {
             if (!rawLogsLoading) setRawLogsModalOpen(false);
           }}
@@ -1042,40 +1045,34 @@ export default function PortalHistoryPage() {
             }}
           >
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className={uiLabelClass}>{t({ en: "From", fr: "Du", de: "Von" })}</span>
-                <input
-                  type="date"
-                  value={rawLogsDateFrom}
-                  onChange={(event) => setRawLogsDateFrom(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 ui-body text-slate-800 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                />
-              </label>
-              <label className="block">
-                <span className={uiLabelClass}>{t({ en: "To", fr: "Au", de: "Bis" })}</span>
-                <input
-                  type="date"
-                  value={rawLogsDateTo}
-                  onChange={(event) => setRawLogsDateTo(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 ui-body text-slate-800 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                />
-              </label>
+              <UiInput
+                label={t({ en: "From", fr: "Du", de: "Von" })}
+                size="compact"
+                type="date"
+                value={rawLogsDateFrom}
+                onChange={(event) => setRawLogsDateFrom(event.target.value)}
+              />
+              <UiInput
+                label={t({ en: "To", fr: "Au", de: "Bis" })}
+                size="compact"
+                type="date"
+                value={rawLogsDateTo}
+                onChange={(event) => setRawLogsDateTo(event.target.value)}
+              />
             </div>
-            <label className="block">
-              <span className={uiLabelClass}>{t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich" })}</span>
-              <select
-                value={rawLogsSpaceId}
-                onChange={(event) => setRawLogsSpaceId(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 ui-body text-slate-800 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              >
-                <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche" })}</option>
-                {storageSpaces.map((space) => (
-                  <option key={space.id} value={space.id}>{space.name}</option>
-                ))}
-              </select>
-            </label>
+            <UiSelect
+              label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich" })}
+              size="compact"
+              value={rawLogsSpaceId}
+              onChange={(event) => setRawLogsSpaceId(event.target.value)}
+            >
+              <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche" })}</option>
+              {storageSpaces.map((space) => (
+                <option key={space.id} value={space.id}>{space.name}</option>
+              ))}
+            </UiSelect>
             {rawLogsError ? <PageBanner tone="error">{rawLogsError}</PageBanner> : null}
-            <div className={cx("flex flex-wrap justify-end gap-2 border-t pt-4", uiDividerClass)}>
+            <ModalActions>
               <UiButton type="button" variant="secondary" onClick={() => setRawLogsModalOpen(false)} disabled={rawLogsLoading}>
                 {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
               </UiButton>
@@ -1084,7 +1081,7 @@ export default function PortalHistoryPage() {
                   ? t({ en: "Retrieving...", fr: "Récupération...", de: "Wird abgerufen..." })
                   : t({ en: "Download export", fr: "Télécharger l'export", de: "Export herunterladen" })}
               </UiButton>
-            </div>
+            </ModalActions>
           </form>
         </Modal>
       ) : null}

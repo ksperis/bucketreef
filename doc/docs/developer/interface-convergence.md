@@ -116,10 +116,35 @@ For Ceph owners, retain the account ID or exact tenant-qualified user identity
 in bucket navigation. Opening and cancelling confirmations must issue no storage
 mutation. These checks cover UI behavior, not live RGW execution.
 
+## Export dialogs
+
+Ceph/Storage Ops selection exports and Ceph configuration backups share
+`ModalOptions` for their native format actions and checkbox choices. Options
+use theme tokens, compact typography and wrapping labels, with 44px touch
+targets. Backup choices have a named fieldset; unavailable reasons stay visible.
+The selection export includes a final Cancel action using `ModalActions`.
+Choosing Text, CSV or JSON still exports immediately and retains selected bucket
+identities and visible columns.
+
+Portal raw access-log exports reuse `UiInput`, `UiSelect` and `ModalActions`.
+The date and storage-space labels remain associated with their fields, and
+Close joins the existing English/French/German translations. Date validation,
+account/space scope, timezone, progress and download behavior stay with the page.
+
+Validate selection exports in both bucket workspaces, configuration backup in
+Ceph Admin, and Portal exports in all three languages. Check both themes at
+1440 × 900 and 390 × 844, a shallow 667 × 280 viewport and desktop touch input.
+Verify wrapping, final action reachability, Cancel/Escape focus restoration,
+empty backup selection, invalid date ranges and downloaded fixture contents.
+Documentary API fixtures prove UI behavior and request shape, not live storage
+access or the contents of real exports.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
-- Review remaining export dialogs and operational form sections.
+- Review remaining operational form sections.
+- Verify Portal History access-log deep links during initial account loading;
+  the documentary fixture currently falls back to Activity before manual selection.
 - Review remaining account and bucket form sections against the compact
   settings contract, preserving each independent save boundary.

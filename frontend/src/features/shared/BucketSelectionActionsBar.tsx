@@ -5,6 +5,8 @@
 import { useRef, useState } from "react";
 
 import Modal from "../../components/Modal";
+import ModalActions from "../../components/ModalActions";
+import ModalOptions from "../../components/ModalOptions";
 import UiActionMenu, { type UiActionMenuSection } from "../../components/ui/UiActionMenu";
 import UiButton from "../../components/ui/UiButton";
 import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
@@ -324,22 +326,29 @@ export default function BucketSelectionActionsBar({
             <p className={cx("ui-caption", uiMutedTextClass)}>
               Choose the output for {selectedCount} selected bucket{selectedCount > 1 ? "s" : ""}.
             </p>
-            {([
-              ["text", "Text", "Bucket names only"],
-              ["csv", "CSV", "Currently selected columns"],
-              ["json", "JSON", "Currently selected columns"],
-            ] as const).map(([format, label, helper]) => (
-              <button
-                key={format}
-                type="button"
-                className={dialogActionClass}
-                disabled={selectionExportLoading !== null}
-                onClick={() => runAndClose(() => void exportSelectedBuckets(format))}
-              >
-                <span>{label}</span>
-                <span className={cx("font-normal", uiMutedTextClass)}>{helper}</span>
-              </button>
-            ))}
+            <ModalOptions>
+              {([
+                ["text", "Text", "Bucket names only"],
+                ["csv", "CSV", "Currently selected columns"],
+                ["json", "JSON", "Currently selected columns"],
+              ] as const).map(([format, label, helper]) => (
+                <UiButton
+                  key={format}
+                  type="button"
+                  variant="secondary"
+                  disabled={selectionExportLoading !== null}
+                  onClick={() => runAndClose(() => void exportSelectedBuckets(format))}
+                >
+                  <span className="modal-option-copy">
+                    <span>{label}</span>
+                    <span className="modal-option-description">{helper}</span>
+                  </span>
+                </UiButton>
+              ))}
+            </ModalOptions>
+            <ModalActions>
+              <UiButton variant="secondary" onClick={() => setDialog(null)}>Cancel</UiButton>
+            </ModalActions>
           </div>
         </Modal>
       )}
