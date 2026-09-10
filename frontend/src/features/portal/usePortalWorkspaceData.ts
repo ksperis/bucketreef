@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { normalizeS3AccountSelectorId } from "../../api/accountParams";
 import type { ManagerTrafficStats, ManagerUsageTrendsResponse, TrafficWindow } from "../../api/stats";
 import { fetchPortalWorkspaceHealthOverview, type WorkspaceEndpointHealthOverviewResponse } from "../../api/healthchecks";
 import { listPortalStorageSpaces, type PortalStorageSpaceSummary } from "../../api/portal";
@@ -96,7 +97,12 @@ export function usePortalWorkspaceData({
   const { locale, t } = useI18n();
   const accountContext = usePortalAccountContext();
   const { accountIdForApi, selectedAccount, hasAccountContext, loading: accountLoading, error: accountError } = accountContext;
-  const [state, setState] = useState<PortalState | null>(null);
+  const accountKey = normalizeS3AccountSelectorId(accountIdForApi);
+  const [stateResult, setStateResult] = useState<{
+    accountKey: string;
+    data: PortalState | null;
+    error: string | null;
+  } | null>(null);
   const [storageSpaces, setStorageSpaces] = useState<PortalStorageSpaceSummary[] | null>(null);
   const [usage, setUsage] = useState<PortalUsage | null>(null);
   const [traffic, setTraffic] = useState<ManagerTrafficStats | null>(null);
@@ -106,7 +112,7 @@ export function usePortalWorkspaceData({
   const [activity, setActivity] = useState<PortalActivityItem[] | null>(null);
   const [collaborators, setCollaborators] = useState<PortalCollaboratorsResponse | null>(null);
   const [alerts, setAlerts] = useState<PortalAlert[] | null>(null);
-  const [stateLoading, setStateLoading] = useState(false);
+  const [stateRefreshing, setStateRefreshing] = useState(false);
   const [storageSpacesLoading, setStorageSpacesLoading] = useState(false);
   const [usageLoading, setUsageLoading] = useState(false);
   const [trafficLoading, setTrafficLoading] = useState(false);
@@ -115,7 +121,6 @@ export function usePortalWorkspaceData({
   const [activityLoading, setActivityLoading] = useState(false);
   const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
   const [alertsLoading, setAlertsLoading] = useState(false);
-  const [stateError, setStateError] = useState<string | null>(null);
   const [storageSpacesError, setStorageSpacesError] = useState<string | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
   const [usageTrendsError, setUsageTrendsError] = useState<string | null>(null);
@@ -125,45 +130,50 @@ export function usePortalWorkspaceData({
   const refreshWorkspaceData = useCallback(() => {
     setRefreshToken((token) => token + 1);
   }, []);
+  // Never expose another project's permissions while the next request starts.
+  const currentStateResult = hasAccountContext && stateResult?.accountKey === accountKey ? stateResult : null;
+  const state = currentStateResult?.data ?? null;
+  const stateError = currentStateResult?.error ?? null;
+  const stateLoading = hasAccountContext && accountKey !== null && (stateRefreshing || currentStateResult === null);
 
   useEffect(() => {
     let cancelled = false;
-    if (!hasAccountContext || !accountIdForApi) {
-      setState(null);
-      setStateLoading(false);
-      setStateError(null);
+    if (!hasAccountContext || !accountIdForApi || accountKey === null) {
+      setStateResult(null);
+      setStateRefreshing(false);
       return () => {
         cancelled = true;
       };
     }
-    setStateLoading(true);
-    setStateError(null);
+    setStateRefreshing(true);
+    setStateResult((previous) => previous?.accountKey === accountKey ? { ...previous, error: null } : previous);
     fetchPortalState(accountIdForApi)
       .then((data) => {
-        if (!cancelled) setState(data);
+        if (!cancelled) setStateResult({ accountKey, data, error: null });
       })
       .catch((err) => {
         if (!cancelled) {
-          setState(null);
-          setStateError(
-            extractApiError(
+          setStateResult({
+            accountKey,
+            data: null,
+            error: extractApiError(
               err,
               t({
                 en: "Unable to load portal workspace.",
                 fr: "Impossible de charger l'espace de travail portail.",
                 de: "Portal-Arbeitsbereich kann nicht geladen werden.",
               })
-            )
-          );
+            ),
+          });
         }
       })
       .finally(() => {
-        if (!cancelled) setStateLoading(false);
+        if (!cancelled) setStateRefreshing(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, hasAccountContext, refreshToken, t]);
+  }, [accountIdForApi, accountKey, hasAccountContext, refreshToken, t]);
 
   useEffect(() => {
     let cancelled = false;

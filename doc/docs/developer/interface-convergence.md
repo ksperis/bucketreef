@@ -139,12 +139,34 @@ empty backup selection, invalid date ranges and downloaded fixture contents.
 Documentary API fixtures prove UI behavior and request shape, not live storage
 access or the contents of real exports.
 
+## Portal project loading and history links
+
+The shared Portal account context stays loading until the account catalogue is
+loaded and the selected project agrees with the URL accepted by the router.
+Pages no longer treat this intermediate state as a missing project or missing
+permissions. Existing URL priority, per-tab selection and unsaved-change guards
+remain authoritative; failed or empty catalogues still reach their error/empty
+state.
+
+`usePortalWorkspaceData` associates project state and errors with the account
+that requested them. Switching projects hides the previous state's permissions
+immediately and ignores late responses. History waits for the current project's
+state before selecting or discarding `view=access` and fetching access logs.
+Pending or failed state loads retain the requested URL. A confirmed member role
+or disabled logging still returns to Activity without fetching access logs.
+
+Validate fresh History links with and without `project`, an invalid project
+fallback, delayed catalogue/state responses, member and logging-disabled
+projects, empty/failed catalogues, and a failed state request followed by reload.
+Switch between two manager projects and then a member project using the topbar.
+Verify that the URL, selected tab and log request account agree. Unit tests cover
+router acceptance, settled empty/error states and late asynchronous failures;
+documentary browser fixtures check the rendered transitions and request scopes.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
 - Review remaining operational form sections.
-- Verify Portal History access-log deep links during initial account loading;
-  the documentary fixture currently falls back to Activity before manual selection.
 - Review remaining account and bucket form sections against the compact
   settings contract, preserving each independent save boundary.
