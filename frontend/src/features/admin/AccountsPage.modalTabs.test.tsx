@@ -860,11 +860,14 @@ describe("AccountsPage modal tabs", () => {
     expect(nameInput).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Email contact")).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Storage endpoint (Ceph) *")).toHaveClass("ui-control");
-    expect(within(dialog).getByLabelText("Capacity quota")).toHaveClass("ui-control");
-    expect(within(dialog).getByLabelText("Capacity quota unit")).toHaveClass("ui-control");
-    expect(within(dialog).getByLabelText("Object quota (count)")).toHaveClass("ui-control");
+    expect(within(dialog).getByLabelText("Storage quota")).toHaveClass("ui-control");
+    expect(within(dialog).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
+    expect(within(dialog).getByLabelText("Object quota")).toHaveClass("ui-control");
 
     fireEvent.change(nameInput, { target: { value: "account-with-tags" } });
+    fireEvent.change(within(dialog).getByLabelText("Storage quota"), { target: { value: "2" } });
+    fireEvent.change(within(dialog).getByLabelText("Storage quota unit"), { target: { value: "TiB" } });
+    fireEvent.change(within(dialog).getByLabelText("Object quota"), { target: { value: "1000" } });
     const tagInput = within(dialog).getByRole("textbox", { name: "Add a tag for this account" });
     fireEvent.change(tagInput, {
       target: { value: "finance" },
@@ -881,6 +884,9 @@ describe("AccountsPage modal tabs", () => {
     expect(createS3AccountMock).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "account-with-tags",
+        quota_max_size_gb: 2,
+        quota_max_size_unit: "TiB",
+        quota_max_objects: 1000,
         tags: [expect.objectContaining({ label: "finance", color_key: "neutral" })],
       })
     );

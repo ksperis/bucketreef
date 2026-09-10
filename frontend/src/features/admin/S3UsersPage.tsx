@@ -28,6 +28,9 @@ import PageHeader from "../../components/PageHeader";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import Modal from "../../components/Modal";
+import ModalActions from "../../components/ModalActions";
+import ModalOptions from "../../components/ModalOptions";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import WorkflowPage, {
   WorkflowActions,
   WorkflowMetadata,
@@ -907,7 +910,7 @@ export default function S3UsersPage() {
       </ListPageSection>
 
       {showCreateModal && (
-        <Modal title="Create user" onClose={createCloseGuard.requestClose}>
+        <Modal title="Create user" onClose={createCloseGuard.requestClose} closeDisabled={creating}>
           {createError && (
             <UiInlineMessage tone="error" className="mb-3">
               {createError}
@@ -990,7 +993,7 @@ export default function S3UsersPage() {
               storageValue={createForm.quota_max_size_gb}
               storageUnit={createForm.quota_max_size_unit}
               objectValue={createForm.quota_max_objects}
-              disabled={false}
+              disabled={creating}
               onStorageValueChange={(value) =>
                 setCreateForm((prev) => ({ ...prev, quota_max_size_gb: value }))
               }
@@ -1001,8 +1004,8 @@ export default function S3UsersPage() {
                 setCreateForm((prev) => ({ ...prev, quota_max_objects: value }))
               }
             />
-            <WorkflowActions>
-              <UiButton variant="secondary" onClick={createCloseGuard.requestClose}>
+            <ModalActions>
+              <UiButton variant="secondary" onClick={createCloseGuard.requestClose} disabled={creating}>
                 Cancel
               </UiButton>
               <UiButton
@@ -1011,7 +1014,7 @@ export default function S3UsersPage() {
               >
                 {creating ? "Creating..." : "Create user"}
               </UiButton>
-            </WorkflowActions>
+            </ModalActions>
             {createCloseGuard.confirmationDialog}
           </form>
         </Modal>
@@ -1510,7 +1513,7 @@ export default function S3UsersPage() {
       )}
 
       {userToDelete && (
-        <Modal title={`Delete ${userToDelete.name}`} onClose={closeDeleteModal}>
+        <Modal title={`Delete ${userToDelete.name}`} onClose={closeDeleteModal} closeDisabled={deleteModalBusy}>
           <div className="space-y-3 ui-body text-slate-600 dark:text-slate-300">
             <p>
               This removes the standalone RGW user from the UI and deletes the access key used by this interface. You can also delete the underlying RGW user once it no longer owns buckets.
@@ -1521,49 +1524,41 @@ export default function S3UsersPage() {
                 <div className="mt-1 ui-caption font-semibold">Buckets: {userToDelete.bucket_count ?? "unknown"}</div>
               </div>
             )}
-            <label
-              className={`flex items-start gap-3 rounded-lg border px-3 py-2 ui-body ${
-                deleteModalHasResources
-                  ? "border-slate-200 text-slate-400 dark:border-slate-700 dark:text-slate-500"
-                  : "border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-100"
-              }`}
-            >
-              <input
-                type="checkbox"
-                className="mt-1"
+            <ModalOptions>
+              <UiCheckboxField
                 checked={deleteFromRgw}
-                onChange={(e) => setDeleteFromRgw(e.target.checked)}
                 disabled={deleteModalBusy || deleteModalHasResources}
-              />
-              <span>
-                Also delete RGW user{" "}
-                <code className="rounded bg-slate-100 px-1 py-0.5 ui-caption dark:bg-slate-800">{userToDelete.rgw_user_uid}</code>
-              </span>
-            </label>
+                onChange={(event) => setDeleteFromRgw(event.target.checked)}
+              >
+                <span className="modal-option-copy">
+                  Also delete RGW user <code className="break-all font-mono">{userToDelete.rgw_user_uid}</code>
+                </span>
+              </UiCheckboxField>
+            </ModalOptions>
             {deleteModalError && (
               <UiInlineMessage tone="error">
                 {deleteModalError}
               </UiInlineMessage>
             )}
           </div>
-          <div className="mt-5 flex items-center justify-end gap-3">
-            <button
+          <ModalActions>
+            <UiButton
               type="button"
               onClick={closeDeleteModal}
               disabled={deleteModalBusy}
-              className="rounded-md border border-slate-200 px-4 py-2 ui-body font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
+              variant="secondary"
             >
               Cancel
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               type="button"
               onClick={confirmDeleteUser}
               disabled={deleteModalBusy}
-              className="rounded-md bg-rose-600 px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-60"
+              variant="danger"
             >
               {deleteModalBusy ? "Deleting..." : "Delete user"}
-            </button>
-          </div>
+            </UiButton>
+          </ModalActions>
         </Modal>
       )}
 
