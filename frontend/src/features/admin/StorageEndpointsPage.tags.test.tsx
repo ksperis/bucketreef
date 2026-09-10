@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import StorageEndpointsPage from "./StorageEndpointsPage";
@@ -9,6 +9,8 @@ const fetchStorageEndpointsMetaMock = vi.fn();
 const createStorageEndpointMock = vi.fn();
 const updateStorageEndpointMock = vi.fn();
 const updateStorageEndpointTagsMock = vi.fn();
+const setDefaultStorageEndpointMock = vi.fn();
+const deleteStorageEndpointMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
 
 const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
@@ -47,9 +49,9 @@ vi.mock("../../api/storageEndpoints", () => ({
   updateStorageEndpointTags: (id: number, payload: unknown) => updateStorageEndpointTagsMock(id, payload),
   detectStorageEndpointFeatures: vi.fn(),
   createStorageEndpoint: (payload: unknown) => createStorageEndpointMock(payload),
-  deleteStorageEndpoint: vi.fn(),
+  deleteStorageEndpoint: (id: number) => deleteStorageEndpointMock(id),
   getStorageEndpoint: vi.fn(),
-  setDefaultStorageEndpoint: vi.fn(),
+  setDefaultStorageEndpoint: (id: number) => setDefaultStorageEndpointMock(id),
   updateStorageEndpoint: (id: number, payload: unknown) => updateStorageEndpointMock(id, payload),
 }));
 
@@ -115,6 +117,8 @@ describe("StorageEndpointsPage tags", () => {
     listAdminTagDefinitionsMock.mockResolvedValue([makeTag(801, "prod"), makeTag(802, "rgw-a")]);
     updateStorageEndpointTagsMock.mockResolvedValue(makeEndpoint({ tags: [makeTag(801, "prod"), makeTag(802, "rgw-a")] }));
     updateStorageEndpointMock.mockResolvedValue(makeEndpoint());
+    setDefaultStorageEndpointMock.mockResolvedValue(makeEndpoint());
+    deleteStorageEndpointMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -156,7 +160,7 @@ describe("StorageEndpointsPage tags", () => {
 
     const table = screen.getByRole("table");
     expect(table).toHaveClass("responsive-data-table");
-    ["Endpoint", "Provider", "Connectivity", "Features", "Credentials", "Actions"].forEach((name) => {
+    ["Endpoint", "Provider", "Connection", "Enabled services", "Actions"].forEach((name) => {
       expect(within(table).getByRole("columnheader", { name })).toBeInTheDocument();
     });
 
@@ -166,24 +170,18 @@ describe("StorageEndpointsPage tags", () => {
 
     expect(endpointRow.getByText("Ceph Endpoint").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(endpointRow.getByText("https://ceph.example.test")).toBeInTheDocument();
-    expect(endpointRow.getByText("https://admin.ceph.example.test")).toBeInTheDocument();
-    expect(endpointRow.getAllByText("Default")).toHaveLength(2);
+    expect(endpointRow.queryByText("https://admin.ceph.example.test")).not.toBeInTheDocument();
+    expect(endpointRow.getAllByText("Default")).toHaveLength(1);
+    expect(endpointRow.getByText("Not specified")).toBeInTheDocument();
     expect(endpointRow.getByText("prod")).toBeInTheDocument();
-    expect(endpointRow.getByText("Ceph")).toBeInTheDocument();
     expect(endpointRow.getByText("Ceph").closest("td")).toHaveAttribute("data-label", "Provider");
-    expect(endpointRow.getByText("Forced")).toBeInTheDocument();
-    expect(endpointRow.getByText("Forced").closest("td")).toHaveAttribute("data-label", "Connectivity");
-    expect(endpointRow.getByText("43.6047, 1.4442")).toBeInTheDocument();
-    expect(endpointRow.getByText("S3")).toBeInTheDocument();
-    expect(endpointRow.getByText("https://health.ceph.example.test")).toBeInTheDocument();
-    expect(endpointRow.getByText("Admin on")).toBeInTheDocument();
-    expect(endpointRow.getByText("SNS off")).toBeInTheDocument();
-    expect(endpointRow.getByText("SNS off").closest("td")).toHaveAttribute("data-label", "Features");
-    expect(endpointRow.getByText("admin-key")).toBeInTheDocument();
-    expect(endpointRow.getByText("admin-key").closest("td")).toHaveAttribute("data-label", "Credentials");
-    expect(endpointRow.getByText("supervision-key")).toBeInTheDocument();
-    expect(endpointRow.getByText("ceph-admin-key")).toBeInTheDocument();
-    expect(endpointRow.getAllByText("(secret stored)")).toHaveLength(3);
+    expect(endpointRow.getByText("Path style").closest("td")).toHaveAttribute("data-label", "Connection");
+    expect(endpointRow.getByText("TLS verification on")).toBeInTheDocument();
+    expect(endpointRow.getByText("Admin")).toBeInTheDocument();
+    expect(endpointRow.getByText("+3")).toBeInTheDocument();
+    for (const hidden of ["43.6047, 1.4442", "https://health.ceph.example.test", "SNS off", "admin-key", "supervision-key", "ceph-admin-key", "(secret stored)"]) {
+      expect(endpointRow.queryByText(hidden)).not.toBeInTheDocument();
+    }
     expect(endpointRow.queryByRole("button", { name: "Open endpoint Ceph Endpoint" })).not.toBeInTheDocument();
     expect(endpointRow.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     const actionCell = endpointRow.getByRole("button", { name: "Edit" }).closest("td");
@@ -542,7 +540,7 @@ describe("StorageEndpointsPage tags", () => {
 
     renderPage();
     await screen.findByText("Ceph Endpoint");
-    expect(screen.getByText("Forced")).toBeInTheDocument();
+    expect(screen.getByText("Path style")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByLabelText("Force path style")).toBeChecked();
@@ -567,7 +565,7 @@ describe("StorageEndpointsPage tags", () => {
 
     renderPage();
     await screen.findByText("Ceph Endpoint");
-    expect(screen.getByText("43.6047, 1.4442")).toBeInTheDocument();
+    expect(screen.queryByText("43.6047, 1.4442")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByLabelText("Latitude (optional)")).toHaveValue(43.6047);
@@ -586,4 +584,173 @@ describe("StorageEndpointsPage tags", () => {
       );
     });
   });
+
+  it("filters the complete inventory without searching technical access keys", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([
+      makeEndpoint({ name: "Primary Ceph", admin_access_key: "private-search-marker", region: "paris" }),
+      makeEndpoint({ id: 8, name: "Archive", provider: "aws", endpoint_url: "https://archive.example.test", region: "eu-west-3", tags: [makeTag(2, "backup")], is_default: false }),
+    ]);
+    renderPage();
+    await screen.findByText("Primary Ceph");
+    const search = screen.getByRole("searchbox", { name: "Search" });
+    for (const query of ["Archive", "archive.example", "aws", "eu-west-3", "backup"]) {
+      fireEvent.change(search, { target: { value: query } });
+      expect(screen.getByText("1 of 2 endpoints")).toBeInTheDocument();
+      expect(screen.queryByText("Primary Ceph")).not.toBeInTheDocument();
+    }
+    fireEvent.change(search, { target: { value: "private-search-marker" } });
+    expect(screen.getByText("No endpoints match these filters.")).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "arch" } });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle filter match mode" }));
+    expect(screen.getByText("No endpoints match these filters.")).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: " ARCHIVE " } });
+    expect(screen.getByText("1 of 2 endpoints")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "ceph" } });
+    expect(screen.getByText("No endpoints match these filters.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(search).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("all");
+    expectBefore(screen.getByText("Primary Ceph"), screen.getByText("Archive"));
+  });
+
+  it("keeps filters when returning from an endpoint and after setting its default", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ is_default: false })]);
+    renderPage();
+    await screen.findByText("Ceph Endpoint");
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "prod" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "ceph" } });
+    fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.change(screen.getByLabelText("Endpoint name"), { target: { value: "Unsaved name" } });
+    fireEvent.click(screen.getByRole("button", { name: "Back to endpoints" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(await screen.findByRole("searchbox")).toHaveValue("prod");
+    expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("ceph");
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint()]);
+    fireEvent.click(screen.getByRole("button", { name: "Set as default" }));
+    await screen.findByText("Default endpoint updated.");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Set as default" })).not.toBeInTheDocument());
+    expect(screen.getByRole("searchbox")).toHaveValue("prod");
+    expect(screen.getByRole("combobox", { name: "Provider" })).toHaveValue("ceph");
+  });
+
+  it("distinguishes a failed list from an empty inventory and supports Retry", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockRejectedValueOnce(new Error("Inventory unavailable"));
+    renderPage();
+    expect(screen.getAllByText("Loading endpoints...").length).toBeGreaterThan(0);
+    expect(screen.queryByText("No endpoints configured yet.")).not.toBeInTheDocument();
+    await screen.findByText("Inventory unavailable");
+    expect(screen.getByText("Endpoints unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("No endpoints configured yet.")).not.toBeInTheDocument();
+    listStorageEndpointsMock.mockResolvedValue([]);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByText("No endpoints configured yet.");
+    expect(screen.getByText("0 endpoints")).toBeInTheDocument();
+  });
+
+  it("keeps configuration mutations unavailable when management metadata fails", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ is_default: false })]);
+    fetchStorageEndpointsMetaMock.mockRejectedValueOnce(new Error("Metadata unavailable"));
+    renderPage();
+    await screen.findByText(/Unable to load endpoint management mode/);
+    expect(screen.getByText("Ceph Endpoint")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New endpoint" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete", exact: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set as default" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "View" }));
+    await screen.findByRole("heading", { name: "Storage endpoint · Ceph Endpoint" });
+    expect(screen.getByRole("button", { name: "Save tags" })).toBeDisabled();
+    expect(screen.getByText(/Management mode is unavailable. Return to endpoints/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Back to endpoints" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("button", { name: "Edit", exact: true })).toBeEnabled();
+    expect(setDefaultStorageEndpointMock).not.toHaveBeenCalled();
+  });
+
+  it.each([["ui_admin", false], ["ui_superadmin", true]] as const)("keeps listing read-only for %s with environment management %s", async (role, managed) => {
+    setSessionUserCache({ id: 1, role });
+    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: managed });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ is_default: false })]);
+    renderPage();
+    await screen.findByRole("button", { name: "View" });
+    expect(screen.queryByRole("button", { name: "New endpoint" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set as default" })).toBeDisabled();
+  });
+
+  it("allows a protected endpoint as default without duplicate requests or automatic retries", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ is_default: false, is_editable: false })]);
+    let reject!: (reason: Error) => void;
+    setDefaultStorageEndpointMock.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    renderPage();
+    const button = await screen.findByRole("button", { name: "Set as default" });
+    expectBefore(button, screen.getByRole("button", { name: "View" }));
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(setDefaultStorageEndpointMock).toHaveBeenCalledTimes(1);
+    await act(async () => reject(new Error("Default update failed")));
+    expect(screen.getByText("Default update failed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set as default" })).toBeEnabled();
+    expect(setDefaultStorageEndpointMock).toHaveBeenCalledTimes(1);
+    expect(listStorageEndpointsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps deletion errors in the confirmation and protects an in-flight deletion", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    deleteStorageEndpointMock.mockRejectedValueOnce(new Error("Endpoint is in use"));
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    let dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(dialog.getByRole("button", { name: "Delete", exact: true }));
+    expect(await dialog.findByText("Endpoint is in use")).toBeInTheDocument();
+    expect(deleteStorageEndpointMock).toHaveBeenCalledTimes(1);
+    let resolve!: () => void;
+    deleteStorageEndpointMock.mockReturnValueOnce(new Promise<void>((done) => { resolve = done; }));
+    const button = dialog.getByRole("button", { name: "Delete", exact: true });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(dialog.getByRole("button", { name: "Close modal" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(deleteStorageEndpointMock).toHaveBeenCalledTimes(2);
+    listStorageEndpointsMock.mockResolvedValue([]);
+    await act(async () => resolve());
+    await screen.findByText("Endpoint deleted.");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await screen.findByText("No endpoints configured yet.");
+  });
+
+  it("shows at most two tags and never opens the editor from tag interaction", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ tags: [makeTag(1, "prod"), makeTag(2, "west"), makeTag(3, "internal")] })]);
+    renderPage();
+    await screen.findByText("prod");
+    expect(screen.getByText("west")).toBeInTheDocument();
+    expect(screen.queryByText("internal")).not.toBeInTheDocument();
+    expect(screen.getByText("+1")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("prod"));
+    expect(screen.getByRole("heading", { name: "S3 Endpoints" })).toBeInTheDocument();
+  });
+
+  it("keeps disabled TLS verification explicit without inventing service or health state", async () => {
+    const endpoint = makeEndpoint({ verify_tls: false, tags: [] });
+    listStorageEndpointsMock.mockResolvedValue([{ ...endpoint,
+      features: Object.fromEntries(Object.keys(endpoint.features).map((key) => [key, { enabled: false }])),
+    }]);
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    renderPage();
+    expect(await screen.findByText("TLS verification off")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Enabled services: None" })).toHaveTextContent("None enabled");
+    expect(screen.queryByText("No tags")).not.toBeInTheDocument();
+  });
+
 });

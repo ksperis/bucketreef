@@ -63,6 +63,20 @@ touch targets remain 44px, including large screens with a coarse pointer.
 This density correction leaves the existing save boundaries, access rules,
 translations and nonmigrated forms unchanged.
 
+## Admin S3 endpoint inventory
+
+The Admin S3 endpoint inventory is now a compact five-column table with
+contains/exact search and a provider filter over the complete returned list.
+Details use the existing three-tab endpoint page; no additional detail overlay
+or expandable row is introduced. Actions stay visible in the order **Set as
+default**, **Edit/View**, **Delete**, subject to their separate access rules.
+Filters survive editor round trips and refreshes. A metadata failure keeps
+configuration changes unavailable until a successful retry.
+
+Its scoped presentation reuses shared table, badge, tag and compact button
+components. It does not redesign the endpoint form or change general table defaults.
+The remaining endpoint creation/edit UX is a separate pass.
+
 ## Deferred scope
 
 Other account tabs, bucket and workspace forms keep their existing default

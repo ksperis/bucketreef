@@ -867,8 +867,8 @@ export const scenarios: DocScreenshotScenario[] = [
     waitFor: "h1:has-text('S3 Endpoints')",
     user: superAdminUser,
     storage: { ...baseStorage(), selectedWorkspace: "admin" },
-    actions: [{ type: "wait", selector: "text=KLOADMINDEFAULT" }],
-    mockRules: withBaseRules(),
+    actions: [{ type: "wait", selector: "text=https://s3-default.docs.example.com" }],
+    mockRules: withBaseRules({ id: "endpoint-pending", path: /^\/admin\/navigation\/pending-requests$/, body: { identity_link_requests: 0, portal_requests: 0 } }),
   },
   {
     id: "workspace-manager",
