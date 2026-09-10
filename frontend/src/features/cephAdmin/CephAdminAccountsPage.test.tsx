@@ -85,8 +85,9 @@ describe("CephAdminAccountsPage", () => {
     );
 
     expect(await screen.findByText("RGW12345678901234567")).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("More actions"));
-    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    expect(screen.getByRole("button", { name: "Configure" })).toBeVisible();
+    fireEvent.click(screen.getByLabelText("More actions for RGW account RGW12345678901234567"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete account" }));
     expect(screen.getByRole("heading", { name: "Delete RGW Account" })).toBeInTheDocument();
   });
 

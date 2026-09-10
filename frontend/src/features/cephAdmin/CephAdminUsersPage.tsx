@@ -4,7 +4,7 @@
  */
 import TableSortControls from "../../components/list/TableSortControls";
 import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
-import { ListActionButton, ListBadge } from "../../components/list/ListControls";
+import { ListActionButton, ListActions, ListBadge } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
@@ -16,6 +16,7 @@ import { workflowPageHostClass } from "../../components/WorkflowPage";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
+import UiActionMenu from "../../components/ui/UiActionMenu";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
@@ -27,7 +28,7 @@ import {
   listCephAdminUsers,
   streamCephAdminUsers,
 } from "../../api/cephAdminUsers";
-import { tableActionMenuItemClasses, tableCompactIconActionButtonClasses } from "../../components/tableActionClasses";
+import { tableCompactIconActionButtonClasses } from "../../components/tableActionClasses";
 import CephAdminAdminOpsModal from "./CephAdminAdminOpsModal";
 import CephAdminUserCreateModal from "./CephAdminUserCreateModal";
 import CephAdminUserEditModal from "./CephAdminUserEditModal";
@@ -797,67 +798,39 @@ export default function CephAdminUsersPage() {
       mobileRole: "actions",
       headerClassName: "w-16",
 
-      render: (user) => (
-        <div className="inline-flex items-center">
-            <details className="relative">
-              <summary
-                className={`${tableCompactIconActionButtonClasses} list-none [&::-webkit-details-marker]:hidden`}
-                aria-label="More actions"
-                title="More actions"
-            >
-              ⋮
-            </summary>
-            <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-              <button
-                type="button"
-                className={`${tableActionMenuItemClasses}`}
-                {...dataTableDefaultActionProps}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setEditingTarget(user);
-                  const parent = event.currentTarget.closest("details");
-                  if (parent) parent.removeAttribute("open");
-                }}
-              >
-                Configure
-              </button>
-              <button
-                type="button"
-                className={`${tableActionMenuItemClasses}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  const owner = bucketOwnerFilterForUser(user);
-                  if (!owner) return;
-                  navigate(`/ceph-admin/buckets?owner=${encodeURIComponent(owner)}`);
-                  const parent = event.currentTarget.closest("details");
-                  if (parent) parent.removeAttribute("open");
-                }}
-              >
-                Owner buckets
-              </button>
-              <button
-                type="button"
-                disabled={bucketOwnerFilterForUser(user) === activeRgwUserId}
-                title={
-                  bucketOwnerFilterForUser(user) === activeRgwUserId
-                    ? "The active Ceph Admin service identity cannot delete itself"
-                    : "Delete this RGW User"
-                }
-                className={`${tableActionMenuItemClasses} !text-rose-700 dark:!text-rose-300`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  if (bucketOwnerFilterForUser(user) === activeRgwUserId) return;
-                  setDeletingTarget(user);
-                  const parent = event.currentTarget.closest("details");
-                  if (parent) parent.removeAttribute("open");
-                }}
-              >
-                Delete user
-              </button>
-            </div>
-          </details>
-        </div>
-      ),
+      render: (user) => {
+        const owner = bucketOwnerFilterForUser(user);
+        const isActiveIdentity = owner === activeRgwUserId;
+        return (
+          <ListActions>
+            <ListActionButton {...dataTableDefaultActionProps} onClick={() => setEditingTarget(user)}>
+              Configure
+            </ListActionButton>
+            <UiActionMenu
+              ariaLabel={`More actions for RGW user ${owner ?? user.uid}`}
+              trigger={<span aria-hidden="true">⋮</span>}
+              triggerClassName={tableCompactIconActionButtonClasses}
+              sections={[
+                { id: "navigation", items: [{
+                  id: "owner-buckets",
+                  label: "Owner buckets",
+                  disabled: !owner,
+                  disabledReason: "No RGW owner identity is available for this user.",
+                  onSelect: () => { if (owner) navigate(`/ceph-admin/buckets?owner=${encodeURIComponent(owner)}`); },
+                }] },
+                { id: "destructive", items: [{
+                  id: "delete",
+                  label: "Delete user",
+                  danger: true,
+                  disabled: isActiveIdentity,
+                  disabledReason: "The active Ceph Admin service identity cannot delete itself",
+                  onSelect: () => { if (!isActiveIdentity) setDeletingTarget(user); },
+                }] },
+              ]}
+            />
+          </ListActions>
+        );
+      },
     });
 
     return cols;

@@ -2,10 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useId, useLayoutEffect, useRef, useState } from "react";
 
+import { ListActionButton } from "../list/ListControls";
 import AnchoredPortalMenu, { type AnchoredMenuPlacement } from "./AnchoredPortalMenu";
-import { cx, uiMenuClass, uiMenuItemClass, uiMutedTextClass } from "./styles";
+import { cx, uiMenuClass, uiMutedTextClass } from "./styles";
+import { useDismissibleLayer } from "./useDismissibleLayer";
+import "./uiActionMenu.css";
 
 export type UiActionMenuItem = {
   id: string;
@@ -18,7 +21,7 @@ export type UiActionMenuItem = {
 
 export type UiActionMenuSection = {
   id: string;
-  label: string;
+  label?: string;
   items: UiActionMenuItem[];
 };
 
@@ -45,44 +48,38 @@ export default function UiActionMenu({
 }: UiActionMenuProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuId = useId();
 
-  useEffect(() => {
+  const closeAndReturnFocus = () => {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+  };
+
+  useDismissibleLayer({
+    open,
+    insideRefs: [triggerRef, panelRef],
+    dismissOnFocusOutside: true,
+    preventEscapeDefault: true,
+    onDismiss: (reason) => {
+      if (reason === "escape") closeAndReturnFocus();
+      else setOpen(false);
+    },
+  });
+
+  useLayoutEffect(() => {
     if (!open) return;
     const firstItem = menuRef.current?.querySelector<HTMLButtonElement>(enabledMenuItemSelector);
-    firstItem?.focus();
-
-    const closeAndReturnFocus = () => {
-      setOpen(false);
-      triggerRef.current?.focus();
-    };
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target || triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const handleFocusIn = (event: FocusEvent) => {
-      const target = event.target as Node | null;
-      if (!target || triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      closeAndReturnFocus();
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("focusin", handleFocusIn);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("focusin", handleFocusIn);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
+    (firstItem ?? panelRef.current?.querySelector<HTMLButtonElement>("button"))?.focus({ preventScroll: true });
   }, [open]);
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Tab") {
+      // Let the native Tab action continue from the trigger's position in the page.
+      closeAndReturnFocus();
+      return;
+    }
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
     const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>(enabledMenuItemSelector) ?? []);
     if (items.length === 0) return;
@@ -113,6 +110,7 @@ export default function UiActionMenu({
         title={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((current) => !current)}
       >
         {trigger}
@@ -123,49 +121,56 @@ export default function UiActionMenu({
         placement={placement}
         offset={4}
         minWidth={minWidth}
-        className={cx(uiMenuClass, "p-1.5", menuClassName)}
+        className={cx(uiMenuClass, "ui-action-menu", menuClassName)}
       >
-        <div ref={menuRef} role="menu" aria-label={ariaLabel} onKeyDown={handleMenuKeyDown}>
-          {visibleSections.map((section, sectionIndex) => (
-            <div
-              key={section.id}
-              className={cx(sectionIndex > 0 && "mt-1 border-t border-[color:var(--ui-border-soft)] pt-1")}
-            >
-              <p
-                role="presentation"
-                className={cx("px-2 py-1 ui-caption font-semibold uppercase tracking-wide", uiMutedTextClass)}
+        <div ref={panelRef}>
+          <div className="ui-action-menu-header">
+            <ListActionButton onClick={closeAndReturnFocus} aria-label={`Close ${ariaLabel}`}>
+              Close
+            </ListActionButton>
+          </div>
+          <div ref={menuRef} id={menuId} role="menu" aria-label={ariaLabel} onKeyDown={handleMenuKeyDown}>
+            {visibleSections.map((section, sectionIndex) => (
+              <div
+                key={section.id}
+                className={cx(sectionIndex > 0 && "mt-1 border-t border-[color:var(--ui-border-soft)] pt-1")}
               >
-                {section.label}
-              </p>
-              {section.items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="menuitem"
-                  className={cx(
-                    triggerClassName.includes("ui-list-action") ? "ui-list-menu-item" : uiMenuItemClass,
-                    "flex w-full items-center px-2 py-1.5 text-left ui-caption font-semibold",
-                    item.disabled && "cursor-not-allowed opacity-60",
-                    item.danger && "text-rose-700 dark:text-rose-300"
-                  )}
-                  aria-disabled={item.disabled || undefined}
-                  title={item.disabled ? item.disabledReason : undefined}
-                  onClick={() => {
-                    if (item.disabled) return;
-                    setOpen(false);
-                    item.onSelect();
-                  }}
+                {section.label ? <p
+                  role="presentation"
+                  className={cx("px-2 py-1 ui-caption font-semibold uppercase tracking-wide", uiMutedTextClass)}
                 >
-                  <span className="flex min-w-0 flex-col">
-                    <span>{item.label}</span>
-                    {item.disabled && item.disabledReason ? (
-                      <span className={cx("mt-0.5 font-normal leading-4", uiMutedTextClass)}>{item.disabledReason}</span>
-                    ) : null}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ))}
+                  {section.label}
+                </p> : null}
+                {section.items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    className={cx(
+                      "ui-list-menu-item",
+                      item.disabled && "cursor-not-allowed opacity-60",
+                      item.danger && "text-[var(--list-danger-text)]"
+                    )}
+                    aria-disabled={item.disabled || undefined}
+                    title={item.disabled ? item.disabledReason : undefined}
+                    onClick={() => {
+                      if (item.disabled) return;
+                      closeAndReturnFocus();
+                      item.onSelect();
+                    }}
+                  >
+                    <span className="flex min-w-0 flex-col break-words">
+                      <span>{item.label}</span>
+                      {item.disabled && item.disabledReason ? (
+                        <span className={cx("mt-0.5 font-normal leading-4", uiMutedTextClass)}>{item.disabledReason}</span>
+                      ) : null}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </AnchoredPortalMenu>
     </span>

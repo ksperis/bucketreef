@@ -4,7 +4,7 @@
  */
 import TableSortControls from "../../components/list/TableSortControls";
 import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
-import { ListActionButton } from "../../components/list/ListControls";
+import { ListActionButton, ListActions } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
@@ -16,6 +16,7 @@ import { workflowPageHostClass } from "../../components/WorkflowPage";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
+import UiActionMenu from "../../components/ui/UiActionMenu";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
@@ -27,7 +28,7 @@ import {
   listCephAdminAccounts,
   streamCephAdminAccounts,
 } from "../../api/cephAdminAccounts";
-import { tableActionMenuItemClasses } from "../../components/tableActionClasses";
+import { tableCompactIconActionButtonClasses } from "../../components/tableActionClasses";
 import CephAdminAccountCreateModal from "./CephAdminAccountCreateModal";
 import CephAdminAccountEditModal from "./CephAdminAccountEditModal";
 import CephAdminAdminOpsModal from "./CephAdminAdminOpsModal";
@@ -703,56 +704,29 @@ export default function CephAdminAccountsPage() {
       headerClassName: "w-16",
       cellClassName: "!py-1.5",
       render: (account) => (
-        <div className="inline-flex items-center">
-          <details className="relative">
-            <summary
-              className="ui-list-action ui-list-action-icon list-none [&::-webkit-details-marker]:hidden"
-              aria-label="More actions"
-              title="More actions"
-            >
-              ⋮
-            </summary>
-            <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-              <button
-                type="button"
-                className={`${tableActionMenuItemClasses}`}
-                {...dataTableDefaultActionProps}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setEditingAccountId(account.account_id);
-                  const parent = event.currentTarget.closest("details");
-                  if (parent) parent.removeAttribute("open");
-                }}
-              >
-                Configure
-              </button>
-              <button
-                type="button"
-                className={`${tableActionMenuItemClasses}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigate(`/ceph-admin/buckets?owner=${encodeURIComponent(account.account_id)}`);
-                  const parent = event.currentTarget.closest("details");
-                  if (parent) parent.removeAttribute("open");
-                }}
-              >
-                Owner buckets
-              </button>
-              <button
-                type="button"
-                className={`${tableActionMenuItemClasses} !text-rose-700 dark:!text-rose-300`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setDeletingAccount(account);
-                  const parent = event.currentTarget.closest("details");
-                  if (parent) parent.removeAttribute("open");
-                }}
-              >
-                Delete account
-              </button>
-            </div>
-          </details>
-        </div>
+        <ListActions>
+          <ListActionButton {...dataTableDefaultActionProps} onClick={() => setEditingAccountId(account.account_id)}>
+            Configure
+          </ListActionButton>
+          <UiActionMenu
+            ariaLabel={`More actions for RGW account ${account.account_id}`}
+            trigger={<span aria-hidden="true">⋮</span>}
+            triggerClassName={tableCompactIconActionButtonClasses}
+            sections={[
+              { id: "navigation", items: [{
+                id: "owner-buckets",
+                label: "Owner buckets",
+                onSelect: () => navigate(`/ceph-admin/buckets?owner=${encodeURIComponent(account.account_id)}`),
+              }] },
+              { id: "destructive", items: [{
+                id: "delete",
+                label: "Delete account",
+                danger: true,
+                onSelect: () => setDeletingAccount(account),
+              }] },
+            ]}
+          />
+        </ListActions>
       ),
     });
 
