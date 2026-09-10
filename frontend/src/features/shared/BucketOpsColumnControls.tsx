@@ -2,11 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo, useRef, useState } from "react";
-import ColumnVisibilityPicker from "../../components/ColumnVisibilityPicker";
-import { ListActionButton } from "../../components/list/ListControls";
-import { cx, uiMenuClass } from "../../components/ui/styles";
-import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
+import { useMemo } from "react";
+import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
 import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import {
   BUCKET_CORE_COLUMN_OPTIONS,
@@ -38,16 +35,6 @@ export default function BucketOpsColumnControls({
   onToggle,
   visibleColumns,
 }: BucketOpsColumnControlsProps) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-
-  useDismissibleLayer({
-    open,
-    insideRefs: [rootRef],
-    onDismiss: () => setOpen(false),
-    dismissOnEscape: false,
-  });
-
   const columnsCustomized = useMemo(() => {
     if (visibleColumns.length !== defaultVisibleColumns.length) return true;
     const visible = new Set(visibleColumns);
@@ -66,80 +53,53 @@ export default function BucketOpsColumnControls({
   }, [featureColumnOptions]);
 
   return (
-    <>
-      <div className="relative" ref={rootRef}>
-        <ListActionButton
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          aria-expanded={open}
-        >
-          Columns
-        </ListActionButton>
-        {open && (
-          <div
-            className={cx(
-              uiMenuClass,
-              "absolute right-0 z-30 mt-2 w-96 max-w-[calc(100vw-2rem)] p-3",
-            )}
-          >
-            <ColumnVisibilityPicker
-              selectedCount={visibleColumns.length}
-              onReset={onReset}
-              coreGroups={[
-                {
-                  id: "core",
-                  label: "Core",
-                  options: BUCKET_CORE_COLUMN_OPTIONS.filter((option) =>
-                    isStorageOps
-                      ? true
-                      : option.id !== "context_name" &&
-                        option.id !== "context_kind" &&
-                        option.id !== "endpoint_name",
-                  ).map((option) => ({
-                    id: option.id,
-                    label: option.label,
-                    checked: visibleColumns.includes(option.id),
-                    onToggle: () => onToggle(option.id),
-                  })),
-                },
-              ]}
-              detailGroups={BUCKET_QUOTA_COLUMN_GROUPS.map((group) => ({
-                id: group.id,
-                label: group.label,
-                details: group.options.map((option) => ({
-                  id: option.id,
-                  label: option.label,
-                  checked: visibleColumns.includes(option.id),
-                  onToggle: () => onToggle(option.id),
-                })),
-              }))}
-              featureGroups={featureColumnOptions.map((option) => ({
-                id: option.id,
-                label: option.label,
-                checked: visibleColumns.includes(option.id),
-                onToggle: () => onToggle(option.id),
-                details: (featureDetailColumnsByFeature[option.id] ?? []).map(
-                  (detail) => ({
-                    id: detail.id,
-                    label: detail.label,
-                    checked: visibleColumns.includes(detail.id),
-                    onToggle: () => onToggle(detail.id),
-                  }),
-                ),
-              }))}
-              footerNote="Feature checks and detail values are loaded only for enabled columns."
-            />
-          </div>
-        )}
-      </div>
-      <ListActionButton
-        type="button"
-        onClick={onReset}
-        disabled={!columnsCustomized}
-        variant="danger"
-      >
-        Reset Columns
-      </ListActionButton>
-    </>
+    <ColumnVisibilityMenu
+      selectedCount={visibleColumns.length}
+      onReset={onReset}
+      resetDisabled={!columnsCustomized}
+      coreGroups={[
+        {
+          id: "core",
+          label: "Core",
+          options: BUCKET_CORE_COLUMN_OPTIONS.filter((option) =>
+            isStorageOps
+              ? true
+              : option.id !== "context_name" &&
+                option.id !== "context_kind" &&
+                option.id !== "endpoint_name",
+          ).map((option) => ({
+            id: option.id,
+            label: option.label,
+            checked: visibleColumns.includes(option.id),
+            onToggle: () => onToggle(option.id),
+          })),
+        },
+      ]}
+      detailGroups={BUCKET_QUOTA_COLUMN_GROUPS.map((group) => ({
+        id: group.id,
+        label: group.label,
+        details: group.options.map((option) => ({
+          id: option.id,
+          label: option.label,
+          checked: visibleColumns.includes(option.id),
+          onToggle: () => onToggle(option.id),
+        })),
+      }))}
+      featureGroups={featureColumnOptions.map((option) => ({
+        id: option.id,
+        label: option.label,
+        checked: visibleColumns.includes(option.id),
+        onToggle: () => onToggle(option.id),
+        details: (featureDetailColumnsByFeature[option.id] ?? []).map(
+          (detail) => ({
+            id: detail.id,
+            label: detail.label,
+            checked: visibleColumns.includes(detail.id),
+            onToggle: () => onToggle(detail.id),
+          }),
+        ),
+      }))}
+      footerNote="Feature checks and detail values are loaded only for enabled columns."
+    />
   );
 }

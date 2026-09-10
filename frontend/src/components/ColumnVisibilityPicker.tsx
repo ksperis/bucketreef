@@ -39,10 +39,12 @@ export type ColumnPickerDetailGroup<Id extends string> = {
   defaultExpanded?: boolean;
 };
 
-type ColumnVisibilityPickerProps<Id extends string> = {
+export type ColumnVisibilityPickerProps<Id extends string> = {
   title?: string;
   selectedCount: number;
   onReset: () => void;
+  resetDisabled?: boolean;
+  onClose?: () => void;
   coreGroups: Array<ColumnPickerGroup<Id>>;
   detailGroups?: Array<ColumnPickerDetailGroup<Id>>;
   featureGroups?: Array<ColumnPickerExpandableGroup<Id>>;
@@ -63,6 +65,8 @@ export default function ColumnVisibilityPicker<Id extends string>({
   title = "Visible columns",
   selectedCount,
   onReset,
+  resetDisabled = false,
+  onClose,
   coreGroups,
   detailGroups: detailGroupsProp,
   featureGroups: featureGroupsProp,
@@ -96,21 +100,20 @@ export default function ColumnVisibilityPicker<Id extends string>({
 
   return (
     <div className="ui-list-toolbar space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="ui-column-picker-header flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className={cx("ui-body", uiTitleTextClass)}>{title}</p>
           <p className={cx("ui-caption", uiMutedTextClass)}>{selectedCount} selected</p>
         </div>
-        <ListActionButton
-          type="button"
-          onClick={onReset}
-          className="shrink-0"
-        >
-          Reset
-        </ListActionButton>
+        <div className="flex shrink-0 items-center gap-2">
+          <ListActionButton onClick={onReset} disabled={resetDisabled}>
+            Reset
+          </ListActionButton>
+          {onClose ? <ListActionButton onClick={onClose}>Close</ListActionButton> : null}
+        </div>
       </div>
 
-      <div className="max-h-[min(70vh,32rem)] space-y-3 overflow-y-auto pr-1">
+      <div className="space-y-3">
         {coreGroups.map((group) => (
           <section key={group.id} className={cx(uiCardMutedClass, "p-2.5")}>
             <p className={cx("mb-2", uiLabelClass)}>{group.label}</p>
@@ -123,7 +126,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
                   disabled={option.disabled}
                   className="w-full rounded-md px-1 py-1 ui-body text-[var(--ui-text)] hover:bg-[var(--ui-hover)]"
                 >
-                  <span className="min-w-0 truncate">{option.label}</span>
+                  <span className="min-w-0 break-words">{option.label}</span>
                 </UiCheckboxField>
               ))}
             </div>
@@ -140,7 +143,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
                 return (
                   <div key={group.id} className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-2">
                     <div className="flex items-center gap-2">
-                      <span className={cx("min-w-0 flex-1 truncate ui-body", uiTitleTextClass)}>{group.label}</span>
+                      <span className={cx("min-w-0 flex-1 break-words ui-body", uiTitleTextClass)}>{group.label}</span>
                       <ListActionButton
                         type="button"
                         onClick={() => toggleGroup(group.id)}
@@ -159,7 +162,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
                             disabled={detail.disabled}
                             className="w-full rounded-md px-1 py-1 ui-caption text-[var(--ui-text-muted)] hover:bg-[var(--ui-hover)]"
                         >
-                            <span className="min-w-0 truncate">{detail.label}</span>
+                            <span className="min-w-0 break-words">{detail.label}</span>
                           </UiCheckboxField>
                         ))}
                       </div>
@@ -187,7 +190,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
                         disabled={group.disabled}
                         className="min-w-0 flex-1 ui-body text-[var(--ui-text)]"
                       >
-                        <span className="min-w-0 truncate">{group.label}</span>
+                        <span className="min-w-0 break-words">{group.label}</span>
                       </UiCheckboxField>
                       {details.length > 0 ? (
                         <ListActionButton
@@ -209,7 +212,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
                             disabled={detail.disabled}
                             className="w-full rounded-md px-1 py-1 ui-caption text-[var(--ui-text-muted)] hover:bg-[var(--ui-hover)]"
                           >
-                            <span className="min-w-0 truncate">{detail.label}</span>
+                            <span className="min-w-0 break-words">{detail.label}</span>
                           </UiCheckboxField>
                         ))}
                       </div>
@@ -218,10 +221,10 @@ export default function ColumnVisibilityPicker<Id extends string>({
                 );
               })}
             </div>
-            {footerNote ? <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>{footerNote}</p> : null}
           </section>
         ) : null}
       </div>
+      {footerNote ? <p className={cx("ui-caption", uiMutedTextClass)}>{footerNote}</p> : null}
     </div>
   );
 }

@@ -11,6 +11,7 @@ type UseDismissibleLayerOptions = {
   insideRefs: readonly RefObject<Element | null>[];
   onDismiss: (reason: DismissibleLayerReason) => void;
   dismissOnEscape?: boolean;
+  dismissOnFocusOutside?: boolean;
   preventEscapeDefault?: boolean;
 };
 
@@ -19,6 +20,7 @@ export function useDismissibleLayer({
   insideRefs,
   onDismiss,
   dismissOnEscape = true,
+  dismissOnFocusOutside = false,
   preventEscapeDefault = false,
 }: UseDismissibleLayerOptions) {
   const insideRefsRef = useRef(insideRefs);
@@ -29,7 +31,7 @@ export function useDismissibleLayer({
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
 
-    const handleMouseDown = (event: MouseEvent) => {
+    const handleOutside = (event: MouseEvent | FocusEvent) => {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (insideRefsRef.current.some((ref) => ref.current?.contains(target))) {
@@ -43,15 +45,17 @@ export function useDismissibleLayer({
       onDismissRef.current("escape");
     };
 
-    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("mousedown", handleOutside);
+    if (dismissOnFocusOutside) document.addEventListener("focusin", handleOutside);
     if (dismissOnEscape) {
       document.addEventListener("keydown", handleKeyDown);
     }
     return () => {
-      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("mousedown", handleOutside);
+      if (dismissOnFocusOutside) document.removeEventListener("focusin", handleOutside);
       if (dismissOnEscape) {
         document.removeEventListener("keydown", handleKeyDown);
       }
     };
-  }, [dismissOnEscape, open, preventEscapeDefault]);
+  }, [dismissOnEscape, dismissOnFocusOutside, open, preventEscapeDefault]);
 }

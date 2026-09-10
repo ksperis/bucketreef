@@ -68,7 +68,7 @@ describe("BucketOpsColumnControls", () => {
     expect(screen.getByLabelText("Context")).toBeInTheDocument();
   });
 
-  it("enables the external reset only for customized columns", async () => {
+  it("enables the shared reset only for customized columns", async () => {
     const user = userEvent.setup();
     const onReset = vi.fn();
     const { rerender } = render(
@@ -82,7 +82,8 @@ describe("BucketOpsColumnControls", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Reset Columns" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Columns" }));
+    expect(screen.getByRole("button", { name: "Reset" })).toBeDisabled();
     rerender(
       <BucketOpsColumnControls
         defaultVisibleColumns={["tenant"]}
@@ -93,7 +94,7 @@ describe("BucketOpsColumnControls", () => {
         visibleColumns={["owner"]}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "Reset Columns" }));
+    await user.click(screen.getByRole("button", { name: "Reset" }));
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 });
