@@ -18,6 +18,7 @@ import {
   type BucketPurgeResult,
 } from "../../api/bucketPurge";
 import PageBanner from "../../components/PageBanner";
+import BucketOperationResult, { BucketOperationFailures } from "./BucketOperationResult";
 import WorkflowPage from "../../components/WorkflowPage";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
@@ -370,85 +371,34 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
 
             <div className="space-y-2">
               {result.buckets.map((bucket) => (
-                <details
+                <BucketOperationResult
                   key={`${bucket.context_id ?? ""}:${bucket.bucket_name}`}
-                  className="rounded-lg border border-slate-200 dark:border-slate-800"
+                  bucketName={bucket.bucket_name}
+                  contextLabel={bucket.context_name || bucket.context_id}
+                  status={<ListBadge tone={bucketStatusTone(bucket.status)}>{statusLabel(bucket.status)}</ListBadge>}
+                  durationSeconds={bucket.duration_seconds}
+                  metrics={[
+                    { label: "Objects", value: formatNumber(bucket.deleted_objects) },
+                    { label: "Versions", value: formatNumber(bucket.deleted_versions) },
+                    { label: "Errors", value: formatNumber(bucket.failed_count) },
+                  ]}
                 >
-                  <summary className="cursor-pointer list-none px-3 py-2">
-                    <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_170px_repeat(4,minmax(95px,auto))] lg:items-center">
-                      <div className="min-w-0">
-                        <p className="break-all ui-body font-semibold text-slate-900 dark:text-slate-100">{bucket.bucket_name}</p>
-                        {(bucket.context_name || bucket.context_id) && (
-                          <p className="ui-caption text-slate-500 dark:text-slate-400">{bucket.context_name || bucket.context_id}</p>
-                        )}
-                      </div>
-                      <div>
-                        <ListBadge tone={bucketStatusTone(bucket.status)}>
-                          {statusLabel(bucket.status)}
-                        </ListBadge>
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Objects </span>
-                        {formatNumber(bucket.deleted_objects)}
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Versions </span>
-                        {formatNumber(bucket.deleted_versions)}
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Errors </span>
-                        {formatNumber(bucket.failed_count)}
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Duration </span>
-                        {bucket.duration_seconds < 1
-                          ? `${Math.round(bucket.duration_seconds * 1000)} ms`
-                          : `${bucket.duration_seconds.toFixed(bucket.duration_seconds >= 10 ? 0 : 1)} s`}
-                      </div>
-                    </div>
-                  </summary>
-                  <div className="space-y-2 border-t border-slate-200 px-3 py-3 dark:border-slate-800">
-                    {bucket.failed_count > bucket.failures_sample.length && (
-                      <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 ui-caption font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
-                        Only {formatNumber(bucket.failures_sample.length)} of {formatNumber(bucket.failed_count)} error(s) are visible.
-                      </p>
-                    )}
-                    {bucket.failures_sample.length > 0 ? (
-                      <div className="max-h-72 overflow-auto rounded-md border border-slate-200 dark:border-slate-800">
-                        <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-caption dark:divide-slate-800">
-                          <thead className="bg-slate-50 dark:bg-slate-900/70">
-                            <tr>
-                              <th className="text-left">Stage</th>
-                              <th className="text-left">Target</th>
-                              <th className="text-left">Version</th>
-                              <th className="text-left">Count</th>
-                              <th className="text-left">Message</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                            {bucket.failures_sample.map((failure, index) => (
-                              <tr key={`${failure.key ?? "bucket"}:${failure.version_id ?? ""}:${failure.stage}:${index}`}>
-                                <td className="whitespace-nowrap ui-table-primary">{failure.stage}</td>
-                                <td className="break-all font-mono text-[11px]">
-                                  {failureTarget(failure)}
-                                </td>
-                                <td className="break-all font-mono text-[11px] ui-table-secondary">
-                                  {failure.version_id || "-"}
-                                </td>
-                                <td>{formatNumber(failure.count)}</td>
-                                <td className="min-w-[18rem]">{failure.message}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="rounded-md border border-slate-200 bg-slate-50 px-2 py-2 ui-caption text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-200">
-                        No purge error reported for this bucket.
-                      </p>
-                    )}
-                  </div>
-                </details>
+                  <BucketOperationFailures
+                    bucketName={bucket.bucket_name}
+                    title="Purge errors"
+                    targetLabel="Target"
+                    total={bucket.failed_count}
+                    showCount
+                    failures={bucket.failures_sample.map((failure) => ({
+                      stage: failure.stage,
+                      target: failureTarget(failure),
+                      version: failure.version_id,
+                      count: failure.count,
+                      message: failure.message,
+                    }))}
+                    emptyMessage="No purge error reported for this bucket."
+                  />
+                </BucketOperationResult>
               ))}
             </div>
           </div>

@@ -186,6 +186,32 @@ running, cancellation, rerun, final progress and explicit target payloads using
 documentary fixtures. Unit tests cover determinate/indeterminate progress and
 existing execution contracts. These checks do not execute real storage work.
 
+## Bucket maintenance results
+
+Integrity and purge results share `BucketOperationResult` and
+`BucketOperationFailures`. Native disclosures keep their keyboard behavior,
+visible focus and open-state chevron. Bucket/context identities wrap, status
+badges keep their meaning, and `InlineSummary` groups metrics without fixed
+column widths. This contract applies to their existing Manager, Ceph Admin and
+Storage Ops consumers.
+
+Error samples use one intrinsically sized `ui-data-table` inside a named,
+keyboard-focusable scroll area. Headers stay on one line; target, version and
+message columns keep minimum readable widths. Stage, target, version, message
+and purge counts remain complete. Partial samples keep their warning; an empty sample with a
+positive error count explicitly says details are unavailable, while a bucket
+with no errors retains its error-free message.
+
+Integrity result search, status/error filters, reset and count use `ListToolbar`,
+`ToolbarSearchInput`, labeled `UiSelect` and `ListActionButton`. Reset is disabled
+without an active filter. The filter predicate and data scope remain unchanged.
+
+Validate all six workspace/operation combinations in both themes at desktop and
+mobile sizes, plus 1024px and 320px. Exercise Enter/Space disclosure, visible
+focus, nested table scrolling, long identities/object keys/versions, partial and
+missing samples, error-free results, object search, status/error filters, empty
+results and reset. Use documentary fixtures; retain the existing execution tests.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.

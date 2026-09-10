@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListBadge } from "../../components/list/ListControls";
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { useMemo, useRef, useState } from "react";
 
 import {
@@ -17,7 +17,11 @@ import {
   type BucketIntegrityResult,
 } from "../../api/bucketIntegrity";
 import PageBanner from "../../components/PageBanner";
+import BucketOperationResult, { BucketOperationFailures } from "./BucketOperationResult";
 import WorkflowPage from "../../components/WorkflowPage";
+import ListToolbar from "../../components/ListToolbar";
+import ToolbarSearchInput from "../../components/ToolbarSearchInput";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
@@ -56,12 +60,6 @@ type BucketIntegrityCheckModalProps =
   | (CommonProps & {
       mode: "storage-ops";
     });
-
-function formatSeconds(value?: number | null): string {
-  if (value === undefined || value === null) return "-";
-  if (value < 1) return `${Math.round(value * 1000)} ms`;
-  return `${value.toFixed(value >= 10 ? 0 : 1)} s`;
-}
 
 function statusLabel(status: BucketIntegrityResult["status"]): string {
   if (status === "passed") return "Passed";
@@ -341,142 +339,91 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
               <BucketOperationSummaryStat label="Errors" value={formatNumber(result.failed_count)} />
               <BucketOperationSummaryStat label="Bytes read" value={formatBytes(result.bytes_read)} />
             </div>
-            <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/40 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
-              <UiInput
-                aria-label="Filter integrity results"
-                type="text"
-                value={resultSearch}
-                onChange={(event) => setResultSearch(event.target.value)}
-                placeholder="Filter by bucket, context, object, or error"
-              />
-              <UiSelect
-                aria-label="Filter integrity status"
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as "all" | BucketIntegrityResult["status"])}
-              >
-                <option value="all">All statuses</option>
-                <option value="passed">Passed</option>
-                <option value="completed_with_errors">Completed with errors</option>
-                <option value="failed">Failed</option>
-                <option value="canceled">Canceled</option>
-              </UiSelect>
-              <UiSelect
-                aria-label="Filter integrity errors"
-                value={errorFilter}
-                onChange={(event) => setErrorFilter(event.target.value as "all" | "with_errors" | "without_errors")}
-              >
-                <option value="all">All error states</option>
-                <option value="with_errors">With errors</option>
-                <option value="without_errors">Without errors</option>
-              </UiSelect>
-              <UiButton
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setResultSearch("");
-                  setStatusFilter("all");
-                  setErrorFilter("all");
-                }}
-                className="justify-center"
-              >
-                Reset filters
-              </UiButton>
-            </div>
-            <p className="ui-caption text-slate-600 dark:text-slate-300">
-              Showing {formatNumber(filteredBucketResults.length)} / {formatNumber(result.buckets.length)} bucket result(s).
-            </p>
+            <ListToolbar
+              variant="section"
+              title="Bucket results"
+              countLabel={`Showing ${formatNumber(filteredBucketResults.length)} / ${formatNumber(result.buckets.length)} bucket result(s).`}
+              search={
+                <ToolbarSearchInput
+                  label="Filter integrity results"
+                  value={resultSearch}
+                  onChange={setResultSearch}
+                  placeholder="Filter by bucket, context, object, or error"
+                />
+              }
+              filters={
+                <>
+                  <UiSelect
+                    label="Status"
+                    aria-label="Filter integrity status"
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value as "all" | BucketIntegrityResult["status"])}
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="passed">Passed</option>
+                    <option value="completed_with_errors">Completed with errors</option>
+                    <option value="failed">Failed</option>
+                    <option value="canceled">Canceled</option>
+                  </UiSelect>
+                  <UiSelect
+                    label="Errors"
+                    aria-label="Filter integrity errors"
+                    value={errorFilter}
+                    onChange={(event) => setErrorFilter(event.target.value as "all" | "with_errors" | "without_errors")}
+                  >
+                    <option value="all">All error states</option>
+                    <option value="with_errors">With errors</option>
+                    <option value="without_errors">Without errors</option>
+                  </UiSelect>
+                </>
+              }
+              actions={
+                <ListActionButton
+                  type="button"
+                  variant="secondary"
+                  disabled={!resultSearch && statusFilter === "all" && errorFilter === "all"}
+                  onClick={() => {
+                    setResultSearch("");
+                    setStatusFilter("all");
+                    setErrorFilter("all");
+                  }}
+                >
+                  Reset filters
+                </ListActionButton>
+              }
+            />
             <div className="space-y-2">
               {filteredBucketResults.map((bucket) => (
-                <details
+                <BucketOperationResult
                   key={`${bucket.context_id ?? ""}:${bucket.bucket_name}`}
-                  className="rounded-lg border border-slate-200 dark:border-slate-800"
+                  bucketName={bucket.bucket_name}
+                  contextLabel={bucket.context_name || bucket.context_id}
+                  status={<ListBadge tone={bucketStatusTone(bucket.status)}>{statusLabel(bucket.status)}</ListBadge>}
+                  durationSeconds={bucket.duration_seconds}
+                  metrics={[
+                    { label: "Listed", value: formatNumber(bucket.listed_count) },
+                    { label: "Checked", value: formatNumber(bucket.checked_count) },
+                    { label: "Errors", value: formatNumber(bucket.failed_count) },
+                    { label: "Read", value: formatBytes(bucket.bytes_read) },
+                  ]}
                 >
-                  <summary className="cursor-pointer list-none px-3 py-2">
-                    <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_170px_repeat(5,minmax(86px,auto))] lg:items-center">
-                      <div className="min-w-0">
-                        <p className="break-all ui-body font-semibold text-slate-900 dark:text-slate-100">{bucket.bucket_name}</p>
-                        {(bucket.context_name || bucket.context_id) && (
-                          <p className="ui-caption text-slate-500 dark:text-slate-400">{bucket.context_name || bucket.context_id}</p>
-                        )}
-                      </div>
-                      <div>
-                        <ListBadge tone={bucketStatusTone(bucket.status)}>
-                          {statusLabel(bucket.status)}
-                        </ListBadge>
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Listed </span>
-                        {formatNumber(bucket.listed_count)}
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Checked </span>
-                        {formatNumber(bucket.checked_count)}
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Errors </span>
-                        {formatNumber(bucket.failed_count)}
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Read </span>
-                        {formatBytes(bucket.bytes_read)}
-                      </div>
-                      <div className="ui-caption text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400">Duration </span>
-                        {formatSeconds(bucket.duration_seconds)}
-                      </div>
-                    </div>
-                  </summary>
-                  <div className="space-y-2 border-t border-slate-200 px-3 py-3 dark:border-slate-800">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="ui-caption font-semibold uppercase text-slate-500 dark:text-slate-400">Affected objects</p>
-                      <p className="ui-caption text-slate-500 dark:text-slate-400">
-                        {formatNumber(bucket.failures_sample.length)} visible / {formatNumber(bucket.failed_count)} total error(s)
-                      </p>
-                    </div>
-                    {bucket.failed_count > bucket.failures_sample.length && (
-                      <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 ui-caption font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
-                        Only {formatNumber(bucket.failures_sample.length)} of {formatNumber(bucket.failed_count)} affected object(s) are visible.
-                      </p>
-                    )}
-                    {bucket.failures_sample.length > 0 ? (
-                      <div className="max-h-72 overflow-auto rounded-md border border-slate-200 dark:border-slate-800">
-                        <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-caption dark:divide-slate-800">
-                          <thead className="bg-slate-50 dark:bg-slate-900/70">
-                            <tr>
-                              <th className="text-left">Stage</th>
-                              <th className="text-left">Object</th>
-                              <th className="text-left">Version</th>
-                              <th className="text-left">Message</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                            {bucket.failures_sample.map((failure, index) => (
-                              <tr key={`${failure.key ?? "bucket"}:${failure.version_id ?? ""}:${index}`}>
-                                <td className="whitespace-nowrap ui-table-primary">{failure.stage}</td>
-                                <td className="break-all font-mono text-[11px]">
-                                  {formatFailureTarget(failure)}
-                                </td>
-                                <td className="break-all font-mono text-[11px] ui-table-secondary">
-                                  {failure.version_id || "-"}
-                                </td>
-                                <td className="min-w-[18rem]">{failure.message}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="rounded-md border border-slate-200 bg-slate-50 px-2 py-2 ui-caption text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-200">
-                        No affected objects reported for this bucket.
-                      </p>
-                    )}
-                  </div>
-                </details>
+                  <BucketOperationFailures
+                    bucketName={bucket.bucket_name}
+                    title="Affected objects"
+                    targetLabel="Object"
+                    total={bucket.failed_count}
+                    failures={bucket.failures_sample.map((failure) => ({
+                      stage: failure.stage,
+                      target: formatFailureTarget(failure),
+                      version: failure.version_id,
+                      message: failure.message,
+                    }))}
+                    emptyMessage="No affected objects reported for this bucket."
+                  />
+                </BucketOperationResult>
               ))}
               {filteredBucketResults.length === 0 && (
-                <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 ui-body text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                  No bucket result matches the current filters.
-                </div>
+                <UiInlineMessage>No bucket result matches the current filters.</UiInlineMessage>
               )}
             </div>
           </div>
