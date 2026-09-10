@@ -6,7 +6,6 @@ import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuditLogEntry, listAuditLogs } from "../../api/audit";
 import ListPageSection from "../../components/list/ListPageSection";
-import PageControlStrip from "../../components/PageControlStrip";
 import PageShell from "../../components/PageShell";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
@@ -200,7 +199,6 @@ export default function AuditLogsPage() {
     error,
     rowCount: filteredLogs.length,
   });
-  const isFiltered = filteredLogs.length !== logs.length;
   const hasActiveFilters =
     roleFilter !== "all" ||
     scopeFilter !== "all" ||
@@ -211,15 +209,6 @@ export default function AuditLogsPage() {
   const filters = useMemo(
     () => (
       <div className="flex flex-wrap items-center gap-3">
-        <UiInput
-          aria-label="Search audit logs"
-          type="search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by actor, action, target, or message"
-          fieldClassName="min-w-[220px] flex-1"
-          size="compact"
-        />
         <UiSelect
           aria-label="Filter by action"
           value={actionFilter}
@@ -272,7 +261,7 @@ export default function AuditLogsPage() {
         </UiSelect>
       </div>
     ),
-    [actionFilter, actionOptions, roleFilter, scopeFilter, searchTerm, statusFilter, statusOptions]
+    [actionFilter, actionOptions, roleFilter, scopeFilter, statusFilter, statusOptions]
   );
   const auditTableColumns = useMemo<Array<DataTableColumn<AuditLogEntry>>>(
     () => [
@@ -347,36 +336,31 @@ export default function AuditLogsPage() {
   return (
     <PageShell actionPresentation="listing"
       title="Audit trail"
-      description="Control-plane, security, configuration, and workflow-control events."
+      description="Control-plane and security events. Object operations belong in provider S3 access logs."
       breadcrumbs={adminPageBreadcrumbs("audit")}
-      actions={[
-        {
-          label: loading ? "Refreshing…" : "Refresh",
-          variant: "ghost",
-          onClick: handleRefresh,
-        },
-      ]}
     >
-      <PageControlStrip controlPresentation="listing"
-        label="Audit scope"
-        title={hasActiveFilters ? "Filtered audit trail" : "Full audit trail"}
-        description="Refine the application control-plane audit by actor, workspace, status, action, and free-text search. Object operations belong in provider S3 access logs."
-        controls={filters}
-        items={[
-          { label: "Loaded entries", value: logs.length.toLocaleString() },
-          { label: "Visible entries", value: filteredLogs.length.toLocaleString() },
-          { label: "Actor scope", value: roleLabels[roleFilter] },
-          { label: "Workspace scope", value: scopeLabels[scopeFilter] },
-        ]}
-      />
-
       {error && <PageBanner tone="error">{error}</PageBanner>}
 
       <ListPageSection
-          className="bg-white/95 dark:bg-slate-900/60"
-          title="Audit trail"
-          description="Application control-plane and security actions. Object data operations are intentionally excluded."
-          countLabel={`${filteredLogs.length} entr${filteredLogs.length === 1 ? "y" : "ies"}${isFiltered ? ` of ${logs.length}` : ""}`}
+        stackControlsOnMobile
+        className="bg-white/95 dark:bg-slate-900/60"
+        title="Audit trail"
+        description="Application control-plane and security actions. Object data operations are intentionally excluded."
+        countLabel={`${filteredLogs.length} of ${logs.length} loaded entries`}
+        search={
+          <UiInput
+            aria-label="Search audit logs"
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by actor, action, target, or message"
+            fieldClassName="min-w-[220px] flex-1"
+            size="compact"
+          />
+        }
+        filters={filters}
+        actions={<ListActionButton onClick={handleRefresh} disabled={loading}>{loading ? "Refreshing…" : "Refresh"}</ListActionButton>}
+        secondaryContent={<p className="text-[var(--ui-text-muted)]">Action and status filters apply to loaded entries. Load older entries to extend the results.</p>}
       >
 
         <DataTableShell
@@ -395,27 +379,14 @@ export default function AuditLogsPage() {
           rowClassName="bg-white/80 hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/50"
         />
 
-        <div className="ui-list-pagination flex flex-wrap items-center justify-between gap-2 border-t border-[var(--ui-border-soft)]">
-          <span className="text-slate-500 dark:text-slate-400">
-            Showing {filteredLogs.length} entr{filteredLogs.length === 1 ? "y" : "ies"}
-            {isFiltered && ` of ${logs.length}`}
-          </span>
-          <div className="flex gap-2">
-            <ListActionButton
-              type="button"
-              onClick={handleRefresh}
-              disabled={loading}
-            >
-              Refresh
-            </ListActionButton>
-            <ListActionButton
-              type="button"
-              onClick={handleLoadMore}
-              disabled={!hasMore || loadingMore}
-            >
-              {loadingMore ? "Loading…" : hasMore ? "Load older" : "No more"}
-            </ListActionButton>
-          </div>
+        <div className="ui-list-pagination flex flex-wrap items-center justify-end gap-2 border-t border-[var(--ui-border-soft)]">
+          <ListActionButton
+            type="button"
+            onClick={handleLoadMore}
+            disabled={!hasMore || loadingMore}
+          >
+            {loadingMore ? "Loading…" : hasMore ? "Load older" : "No more"}
+          </ListActionButton>
         </div>
       </ListPageSection>
     </PageShell>

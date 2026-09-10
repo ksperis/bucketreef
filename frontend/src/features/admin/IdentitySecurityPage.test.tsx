@@ -81,6 +81,10 @@ describe("IdentitySecurityPage", () => {
     render(<IdentitySecurityPage />);
 
     const requestsPanel = await screen.findByRole("tabpanel", { name: /Link requests/ });
+    expect(screen.queryByText("Identity and session overview")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Link requests (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Active sessions (1)" })).toBeInTheDocument();
+    expect(screen.queryByText("1 pending request")).not.toBeInTheDocument();
     expect(within(requestsPanel).getByText("External identity link requests")).toBeInTheDocument();
     expect(within(requestsPanel).getAllByText("candidate@example.com")).toHaveLength(2);
     expect(within(requestsPanel).getByText("OIDC")).toBeInTheDocument();

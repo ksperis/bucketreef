@@ -756,17 +756,12 @@ export default function PortalHistoryPage() {
     <PageShell actionPresentation="listing"
         title={t({ en: "History", fr: "Historique", de: "Verlauf" })}
         description={t({
-          en: "Review governance activity and, for project managers, provider S3 access logs.",
-          fr: "Consultez l'activité de gouvernance et, pour les gestionnaires de projet, les journaux d'accès S3 du fournisseur.",
-          de: "Prüfen Sie Governance-Aktivitäten und als Projektmanager die S3-Zugriffsprotokolle des Anbieters.",
+          en: "Review governance activity in your visible spaces and, for project managers, provider S3 access logs.",
+          fr: "Consultez l'activité de gouvernance de vos espaces visibles et, pour les gestionnaires de projet, les journaux d'accès S3 du fournisseur.",
+          de: "Prüfen Sie Governance-Aktivitäten in Ihren sichtbaren Bereichen und als Projektmanager die S3-Zugriffsprotokolle des Anbieters.",
         })}
         breadcrumbs={portalBreadcrumbs({ label: t({ en: "History", fr: "Historique", de: "Verlauf" }) })}
         actions={[{ label: t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen" }), to: "/portal/storage-spaces", variant: "secondary" }]}
-        rightContent={
-          <div className={cx("rounded-md border border-[var(--ui-border-soft)] px-3 py-2 text-xs font-semibold", uiMutedTextClass)}>
-            {t({ en: "Visible spaces only", fr: "Espaces visibles uniquement", de: "Nur sichtbare Bereiche" })}
-          </div>
-        }
     >
 
       {historyTabs.length > 1 ? (

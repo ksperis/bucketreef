@@ -150,7 +150,7 @@ describe("PortalHistoryPage", () => {
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Access logs" })).not.toBeInTheDocument();
     expect(screen.queryByText("Technical access logs")).not.toBeInTheDocument();
-    expect(screen.getByText("Review governance activity and, for project managers, provider S3 access logs.")).toBeInTheDocument();
+    expect(screen.getByText("Review governance activity in your visible spaces and, for project managers, provider S3 access logs.")).toBeInTheDocument();
     expect(mocks.fetchPortalServerAccessLogPage).not.toHaveBeenCalled();
   });
 

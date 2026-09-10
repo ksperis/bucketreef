@@ -123,7 +123,7 @@ describe("UsageHistoryPage", () => {
 
     expect(screen.getByRole("heading", { name: "Usage history" })).toBeInTheDocument();
     expect(screen.getByText("Review quota usage trends for RGW accounts and users.")).toBeInTheDocument();
-    expect(screen.getByText("History scope")).toBeInTheDocument();
+    expect(screen.queryByText("History scope")).not.toBeInTheDocument();
     expect(await screen.findByText("Tenant A")).toBeInTheDocument();
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();
     expect(screen.getAllByText("50%").length).toBeGreaterThan(0);
@@ -135,6 +135,9 @@ describe("UsageHistoryPage", () => {
     expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveValue("period");
     expect(screen.getByRole("combobox", { name: "Direction" })).toHaveValue("desc");
     expect(screen.getByRole("button", { name: "Refresh" })).toBeEnabled();
+    expect(within(screen.getByRole("region", { name: "Snapshots" })).getByLabelText("Endpoint")).toBeInTheDocument();
+    expect(screen.getByText("1 record")).toBeInTheDocument();
+    expect(screen.queryByText("Subjects")).not.toBeInTheDocument();
 
     const table = screen.getByRole("table");
     expect(table).toHaveClass("responsive-data-table");
@@ -142,6 +145,21 @@ describe("UsageHistoryPage", () => {
     expect(within(table).getByText("Ceph main").closest("td")).toHaveAttribute("data-label", "Endpoint");
     expect(within(table).getByText("Tenant A").closest("td")).toHaveAttribute("data-label", "Subject");
     expect(within(table).getByText("2.0 KB").closest("td")).toHaveAttribute("data-label", "Storage");
+  });
+
+  it("preserves server filters and mobile sorting in the compact toolbar", async () => {
+    renderPage();
+    await screen.findByText("Tenant A");
+    fireEvent.change(screen.getByLabelText("Endpoint"), { target: { value: "7" } });
+    fireEvent.change(screen.getByLabelText("Granularity"), { target: { value: "hourly" } });
+    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "s3_user" } });
+    fireEvent.change(screen.getByLabelText("Start"), { target: { value: "2026-06-01" } });
+    fireEvent.change(screen.getByLabelText("End"), { target: { value: "2026-06-08" } });
+    fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "ratio" } });
+    fireEvent.change(screen.getByLabelText("Direction"), { target: { value: "asc" } });
+    await waitFor(() => expect(mocks.listUsageHistory).toHaveBeenLastCalledWith(expect.objectContaining({
+      endpointId: 7, granularity: "hourly", subjectType: "s3_user", start: "2026-06-01", end: "2026-06-08", sortBy: "ratio", sortDir: "asc",
+    })));
   });
 
   it("sorts usage history from the shared table headers", async () => {

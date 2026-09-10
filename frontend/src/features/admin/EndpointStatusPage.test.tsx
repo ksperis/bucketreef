@@ -150,6 +150,12 @@ describe("EndpointStatusPage incidents table", () => {
 
     await user.click(screen.getByRole("button", { name: /Down\s+1/ }));
 
+    const globalFilter = screen.getByRole("group", { name: "Global endpoint status filter" });
+    expect(within(globalFilter).getByRole("button", { name: /Down\s+1/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(globalFilter).getByRole("button", { name: /All\s+2/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByText("Global filter")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ceph Lyon")).not.toBeInTheDocument();
+
     expect(within(table).getByText("Ceph Paris")).toBeInTheDocument();
     expect(within(table).queryByText("Ceph Lyon")).not.toBeInTheDocument();
     expect(screen.getByText("1 of 2 loaded incidents matching down")).toBeInTheDocument();

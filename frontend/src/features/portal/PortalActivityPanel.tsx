@@ -11,12 +11,11 @@ import DataTableShell, {
 } from "../../components/list/DataTableShell";
 import PageEmptyState from "../../components/PageEmptyState";
 
-import UiCard from "../../components/ui/UiCard";
+import ListPageSection from "../../components/list/ListPageSection";
 import UiSelect from "../../components/ui/UiSelect";
 import {
   cx,
   uiCardMutedClass,
-  uiLabelClass,
   uiMutedTextClass,
   uiTitleTextClass,
 } from "../../components/ui/styles";
@@ -43,15 +42,6 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
     () => Array.from(new Set(workspace.activity.map((item) => item.action))).sort(),
     [workspace.activity]
   );
-  const activitySummary = useMemo(() => {
-    const people = new Set(workspace.activity.map((item) => item.actor).filter(Boolean));
-    const spaces = new Set(workspace.activity.map((item) => item.spaceName).filter(Boolean));
-    return {
-      events: workspace.activity.length,
-      people: people.size,
-      spaces: spaces.size,
-    };
-  }, [workspace.activity]);
   const rows = useMemo(
     () =>
       workspace.activity.filter((item) => {
@@ -137,12 +127,11 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
     [expandedActivityId, t]
   );
   const activityFilters = (
-    <div className="mb-4 flex flex-wrap gap-3">
+    <div className="flex min-w-0 flex-wrap items-end gap-2">
       <UiSelect
         label={t({ en: "Action", fr: "Action", de: "Aktion" })}
         size="compact"
-        fieldClassName="w-44"
-        className="h-8"
+        fieldClassName="w-44 max-w-full"
         value={actionFilter}
         onChange={(event) => setActionFilter(event.target.value)}
       >
@@ -154,8 +143,7 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
       <UiSelect
         label={t({ en: "Space", fr: "Espace", de: "Bereich" })}
         size="compact"
-        fieldClassName="w-52"
-        className="h-8"
+        fieldClassName="w-52 max-w-full"
         value={spaceFilter}
         onChange={(event) => setSpaceFilter(event.target.value)}
       >
@@ -190,15 +178,6 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
         }
         responsiveCards
       />
-      <div className={cx("mt-4 flex items-center justify-between text-[11px] font-semibold", uiMutedTextClass)}>
-        <span>
-          {t({
-            en: `${rows.length} of ${workspace.activity.length}`,
-            fr: `${rows.length} sur ${workspace.activity.length}`,
-            de: `${rows.length} von ${workspace.activity.length}`,
-          })}
-        </span>
-      </div>
     </>
   );
 
@@ -216,52 +195,18 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
           primaryAction={{ label: t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen" }), to: "/portal/storage-spaces" }}
         />
       ) : (
-        <>
-          <UiCard
-            muted
-            title={t({ en: "Activity overview", fr: "Vue d'ensemble de l'activité", de: "Aktivitätsübersicht" })}
-            description={t({
-              en: "A quick view of recent governance changes across the spaces you can access.",
-              fr: "Une vue rapide des changements de gouvernance récents dans les espaces auxquels vous avez accès.",
-              de: "Ein schneller Überblick über aktuelle Governance-Änderungen in Ihren zugänglichen Bereichen.",
-            })}
-          >
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="min-w-0">
-                <div className={uiLabelClass}>{t({ en: "Recent changes", fr: "Changements récents", de: "Letzte Änderungen" })}</div>
-                <div className={cx("mt-1 text-2xl leading-7", uiTitleTextClass)}>{activitySummary.events}</div>
-                <p className={cx("mt-1 text-xs", uiMutedTextClass)}>
-                  {t({ en: "Visible access and configuration events", fr: "Événements visibles d'accès et de configuration", de: "Sichtbare Zugriffs- und Konfigurationsereignisse" })}
-                </p>
-              </div>
-              <div className="min-w-0">
-                <div className={uiLabelClass}>{t({ en: "People active", fr: "Personnes actives", de: "Aktive Personen" })}</div>
-                <div className={cx("mt-1 text-2xl leading-7", uiTitleTextClass)}>{activitySummary.people}</div>
-                <p className={cx("mt-1 text-xs", uiMutedTextClass)}>
-                  {t({ en: "Collaborators who changed something", fr: "Collaborateurs ayant effectué un changement", de: "Mitwirkende, die etwas geändert haben" })}
-                </p>
-              </div>
-              <div className="min-w-0">
-                <div className={uiLabelClass}>{t({ en: "Spaces touched", fr: "Espaces concernés", de: "Betroffene Bereiche" })}</div>
-                <div className={cx("mt-1 text-2xl leading-7", uiTitleTextClass)}>{activitySummary.spaces}</div>
-                <p className={cx("mt-1 text-xs", uiMutedTextClass)}>
-                  {t({ en: "Spaces with recent changes", fr: "Espaces avec des changements récents", de: "Bereiche mit letzten Änderungen" })}
-                </p>
-              </div>
-            </div>
-          </UiCard>
-          <UiCard
-            title={t({ en: "Recent activity", fr: "Activité récente", de: "Letzte Aktivität" })}
-            description={t({
-              en: "Filter changes by action or space, then open a row for its technical details.",
-              fr: "Filtrez les changements par action ou par espace, puis ouvrez une ligne pour ses détails techniques.",
-              de: "Filtern Sie Änderungen nach Aktion oder Bereich und öffnen Sie eine Zeile für technische Details.",
-            })}
-          >
-            {activityFilters}
-            {activityTable(activityColumns)}
-          </UiCard>
-        </>
+        <ListPageSection
+          stackControlsOnMobile
+          title={t({ en: "Recent activity", fr: "Activité récente", de: "Letzte Aktivität" })}
+          countLabel={t({
+            en: `${rows.length} of ${workspace.activity.length} changes`,
+            fr: `${rows.length} sur ${workspace.activity.length} changements`,
+            de: `${rows.length} von ${workspace.activity.length} Änderungen`,
+          })}
+          filters={activityFilters}
+        >
+          {activityTable(activityColumns)}
+        </ListPageSection>
       )}
     </div>
   );

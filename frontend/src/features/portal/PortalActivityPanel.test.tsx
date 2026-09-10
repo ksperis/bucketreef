@@ -53,11 +53,11 @@ describe("PortalActivityPanel", () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(screen.getByText("Activity overview")).toBeInTheDocument();
-    expect(screen.getByText("Recent activity")).toBeInTheDocument();
-    expect(screen.getByText("Recent changes")).toBeInTheDocument();
-    expect(screen.getByText("People active")).toBeInTheDocument();
-    expect(screen.getByText("Spaces touched")).toBeInTheDocument();
+    expect(screen.queryByText("Activity overview")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Recent activity" })).toBeInTheDocument();
+    expect(screen.getByText("2 of 2 changes")).toBeInTheDocument();
+    expect(screen.queryByText("People active")).not.toBeInTheDocument();
+    expect(screen.queryByText("Spaces touched")).not.toBeInTheDocument();
     expect(screen.queryByRole("tablist", { name: "Activity views" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Audit details" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "File or item" })).not.toBeInTheDocument();
@@ -95,6 +95,18 @@ describe("PortalActivityPanel", () => {
     expect(screen.getByText("IP address")).toBeInTheDocument();
     expect(screen.getByText("192.0.2.10")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hide details" })).toHaveClass("ui-list-action");
+  });
+
+  it("filters activity from the listing toolbar and reports empty matches", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const toolbar = screen.getByRole("region", { name: "Recent activity" });
+    await user.selectOptions(within(toolbar).getByLabelText("Action"), "Shared");
+    expect(screen.getByText("1 of 2 changes")).toBeInTheDocument();
+    expect(screen.queryByText("alice@example.com")).not.toBeInTheDocument();
+    await user.selectOptions(within(toolbar).getByLabelText("Space"), "Research Data");
+    expect(screen.getByText("0 of 2 changes")).toBeInTheDocument();
+    expect(screen.getByText("No matching activity. Adjust the filters to see more changes.")).toBeInTheDocument();
   });
 
   it("opens activity details when a neutral row cell is clicked", async () => {

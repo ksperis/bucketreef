@@ -19,7 +19,6 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
-import PageControlStrip from "../../components/PageControlStrip";
 import PageShell from "../../components/PageShell";
 import PageTabs from "../../components/PageTabs";
 import UiBadge from "../../components/ui/UiBadge";
@@ -75,10 +74,6 @@ function sessionPrincipalLabel(session: AdminSecuritySession): string {
   if (session.user_email) return session.user_email;
   if (session.user_id) return `User #${session.user_id}`;
   return "S3 session";
-}
-
-function countLabel(count: number, singular: string, plural = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 export default function IdentitySecurityPage() {
@@ -299,26 +294,6 @@ export default function IdentitySecurityPage() {
 
       {showData ? (
         <>
-          <PageControlStrip controlPresentation="listing"
-            className="max-sm:hidden"
-            label="Administrative scope"
-            title="Identity and session overview"
-            description="Counts include only the users and sessions your administrator role is allowed to manage."
-            items={[
-              { label: "Pending link requests", value: requests.length, tone: requests.length > 0 ? "warning" : "success" },
-              { label: "Active sessions", value: sessions.length },
-              {
-                label: "Privileged sessions",
-                value: sessions.filter((session) => session.user_role === "ui_admin" || session.user_role === "ui_superadmin").length,
-                tone: "primary",
-              },
-              {
-                label: "S3 sessions",
-                value: sessions.filter((session) => session.principal_type === "s3" || session.s3_session_id).length,
-              },
-            ]}
-          />
-
           <PageTabs
             activeTab={activeView}
             onChange={(view) => setActiveView(view as IdentitySecurityView)}
@@ -333,7 +308,6 @@ export default function IdentitySecurityPage() {
                   <ListPageSection
                     title="External identity link requests"
                     description="Decide only when the external identity and local account have been verified through a trusted channel."
-                    countLabel={countLabel(requests.length, "pending request")}
                     showHeading
                   >
                     <DataTableShell
@@ -359,7 +333,6 @@ export default function IdentitySecurityPage() {
                   <ListPageSection
                     title="Platform sessions"
                     description="Revoke a session to remove its access immediately. Only sessions inside your administrative scope are shown."
-                    countLabel={countLabel(sessions.length, "active session")}
                     showHeading
                   >
                     <DataTableShell

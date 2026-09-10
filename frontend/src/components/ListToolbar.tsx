@@ -21,6 +21,7 @@ export type ListToolbarProps = {
   columns?: ReactNode;
   actions?: ReactNode;
   secondaryContent?: ReactNode;
+  stackControlsOnMobile?: boolean;
   className?: string;
 };
 
@@ -41,6 +42,7 @@ export default function ListToolbar({
   columns,
   actions,
   secondaryContent,
+  stackControlsOnMobile = false,
   className,
 }: ListToolbarProps) {
   const accessibleLabel = typeof title === "string" ? title : undefined;
@@ -71,7 +73,10 @@ export default function ListToolbar({
             )}
           >
             {countLabel ? <span className={cx("shrink-0 ui-caption", uiMutedTextClass)}>{countLabel}</span> : null}
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 max-sm:w-full lg:justify-end">
+            <div className={cx(
+              "flex min-w-0 flex-1 flex-wrap items-center gap-2 max-sm:w-full lg:justify-end",
+              stackControlsOnMobile && "max-sm:basis-full"
+            )}>
               <ToolbarControlGroup>{search}</ToolbarControlGroup>
               <ToolbarControlGroup>{filters}</ToolbarControlGroup>
               <ToolbarControlGroup>{columns}</ToolbarControlGroup>
