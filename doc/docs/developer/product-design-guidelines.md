@@ -491,3 +491,25 @@ For broad redesign, new workspace concepts, or visual exploration:
 Product Design references that are useful for future work include committed
 screenshots under `doc/docs/assets/screenshots/`, the docs screenshot Playwright
 scenarios, and the shared component files under `frontend/src/components/`.
+
+
+## Compact operational dashboards
+
+Admin opts into the compact dashboard foundation. Prioritize endpoint health
+and incidents, then storage/traffic, administrative counters, activity/map,
+and enabled feature summaries. Do not use the settings side-title layout for
+dashboards. Panels keep their natural height; a map must not squeeze a
+monitoring list into unreadable columns. Keep operational names, dates and
+audit descriptions wrapping instead of truncating them.
+
+Use `WorkspaceDashboardCard presentation="compact"`, dashboard action/link
+primitives, `WorkspaceDashboardSummary`, and the compact incident/status
+presentations. Summary links keep all six counts and their details; status
+counters use semantic colors only when nonzero. Feature badges describe
+configuration and do not imply measured availability. Suppress graph space
+when there is no series. Never turn missing or failed measurements into zero;
+explain unavailable data near its owning metrics and preserve independent
+loading. The seven-day availability mean is not a current health score.
+
+Admin remains English-only. Other dashboards retain their existing layouts
+until a separate, workspace-specific audit selects these compact components.

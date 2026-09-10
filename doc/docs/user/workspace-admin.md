@@ -11,7 +11,7 @@ Use **Admin** for platform governance and global configuration.
 ## Steps
 
 1. Open `/admin`.
-2. Use **Platform** to manage UI users.
+2. Use **Identity & Access** to manage UI users.
 3. Use **Managed Tenants** to manage RGW accounts and users.
 4. Use **Connections** for S3 connections.
 5. Use **Storage Backends** for endpoints and endpoint status.
@@ -28,6 +28,33 @@ URL. Backend account endpoints under `/api/admin/accounts` are unchanged.
 ## Expected result
 
 Platform and tenant-entry resources are configured and auditable.
+
+## Reading the overview
+
+Start with **Endpoint Health** and **Ongoing / Recent Incidents**. Endpoint rows
+show the name, latency, check mode, time of the last check and stored status.
+The first eight endpoints are shown; **Open Endpoint Status** and **View all
+incidents** lead to the detailed monitoring page. Warnings describe missing or
+old healthcheck samples: refreshing the dashboard retrieves stored data and
+does not run a new healthcheck.
+
+**Storage & traffic** groups bucket and object counts, stored data, requests
+for the last 24 hours and average endpoint availability over seven days.
+Availability is the mean across endpoints with measurements; it is not a live
+health score. Only requests have a trend line, and only when samples exist.
+Storage, traffic and health load independently. A dash means no measurement is
+available, while a real zero remains zero. Failures are explained in the
+relevant section; use the header refresh button to retry after loading ends.
+
+The **Administration** band keeps six shortcuts and their aggregate counts,
+including the UI/S3 session split. **Recent activity** and the infrastructure
+map follow, with enabled core and extra features at the bottom. The map stays
+visible when Endpoint Status is enabled; endpoints without coordinates do not
+produce invented locations. Long names and event descriptions wrap.
+
+When setup has not been dismissed, its checklist remains above the overview.
+A completed checklist starts collapsed; **Review**, **Collapse checklist** and
+**Dismiss** retain control over its display.
 
 ## S3 endpoint inventory
 

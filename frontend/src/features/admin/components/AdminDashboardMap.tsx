@@ -661,7 +661,7 @@ function MapFrame({
 }) {
   return (
     <div
-      className={`relative h-[220px] w-full overflow-hidden rounded-xl border border-slate-200 bg-sky-50 shadow-sm dark:border-slate-800 dark:bg-slate-950 ${className}`.trim()}
+      className={`relative w-full overflow-hidden ui-dashboard-map ${className}`.trim()}
     >
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,250,252,0.74),rgba(226,232,240,0.52))] dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(2,6,23,0.62))]" />
       {children}
@@ -731,8 +731,8 @@ export default function AdminDashboardMap({ markers, loading = false, error = nu
         </div>
       )}
       <div className="absolute left-3 top-3">
-        <p className="ui-caption font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Infrastructure map</p>
-        <p className="ui-caption text-slate-500 dark:text-slate-500">{projectedMarkers.length} geolocated endpoint(s)</p>
+        <h2 className="ui-dashboard-title">Infrastructure map</h2>
+        <p className="ui-dashboard-note">{projectedMarkers.length} geolocated endpoint(s)</p>
       </div>
     </MapFrame>
   );

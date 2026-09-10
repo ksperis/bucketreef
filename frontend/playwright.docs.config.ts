@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./scripts/docs-screenshots",
-  testMatch: ["generate.spec.ts", "portalVisualQa.spec.ts", "workspaceVisualQa.spec.ts", "settingsVisualQa.spec.ts", "storageEndpointsVisualQa.spec.ts", "listingsVisualQa.spec.ts", "consultationVisualQa.spec.ts"],
+  testMatch: ["generate.spec.ts", "portalVisualQa.spec.ts", "workspaceVisualQa.spec.ts", "adminDashboardVisualQa.spec.ts", "settingsVisualQa.spec.ts", "storageEndpointsVisualQa.spec.ts", "listingsVisualQa.spec.ts", "consultationVisualQa.spec.ts"],
   fullyParallel: false,
   workers: 1,
   timeout: 240_000,

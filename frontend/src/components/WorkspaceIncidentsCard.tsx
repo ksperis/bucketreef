@@ -3,6 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { Link } from "react-router-dom";
+import { WorkspaceDashboardActionLink, WorkspaceDashboardCard } from "./WorkspaceDashboardKit";
+import UiBadge from "./ui/UiBadge";
 import type { WorkspaceEndpointIncidentEntry } from "../api/healthchecks";
 import { formatLocalDateTime } from "../utils/dateTime";
 import { OpenIcon } from "../features/browser/browserIcons";
@@ -17,6 +19,8 @@ type WorkspaceIncidentsCardProps = {
   action?: { to: string; label: string };
   showEmptyState?: boolean;
   className?: string;
+  presentation?: "compact";
+  unavailableReason?: string | null;
 };
 
 function formatIncidentWindow(minutes?: number | null) {
@@ -64,12 +68,39 @@ export default function WorkspaceIncidentsCard({
   action,
   showEmptyState = false,
   className,
+  presentation,
+  unavailableReason,
 }: WorkspaceIncidentsCardProps) {
   const orderedIncidents = sortIncidents(incidents);
   const visibleIncidents = orderedIncidents.slice(0, MAX_INCIDENT_ROWS);
   const hiddenIncidentCount = Math.max(0, orderedIncidents.length - MAX_INCIDENT_ROWS);
 
-  if (!loading && orderedIncidents.length === 0 && !showEmptyState) return null;
+  if (!loading && orderedIncidents.length === 0 && !showEmptyState && !unavailableReason) return null;
+
+  if (presentation === "compact") {
+    return (
+      <WorkspaceDashboardCard title="Ongoing / Recent Incidents" presentation="compact" className={className}>
+        <p className="ui-dashboard-note">Ongoing incidents and incidents ended in the last {formatIncidentWindow(incidentHighlightMinutes)}.</p>
+        {loading ? <p className="ui-dashboard-note" role="status">Loading incidents…</p> : unavailableReason ? <p className="ui-dashboard-note" role="status">{unavailableReason}</p> : orderedIncidents.length === 0 ? <p className="ui-dashboard-note">No ongoing or recent incidents.</p> : (
+          <div className="ui-dashboard-incidents">
+            {visibleIncidents.map((incident, index) => (
+              <div key={`${incident.endpoint_id}-${incident.start}-${index}`} data-incident-state={incident.ongoing ? "ongoing" : "resolved"} className="ui-dashboard-incident">
+                <div className="ui-dashboard-incident-description">
+                  <p className="ui-dashboard-label">{incident.endpoint_name}</p>
+                  <p className="ui-dashboard-note">{incident.ongoing ? "Ongoing since" : "From"} {formatLocalDateTime(incident.start)}{incident.end ? ` to ${formatLocalDateTime(incident.end)}` : ""}</p>
+                </div>
+                <UiBadge tone={incident.ongoing ? "warning" : "neutral"} className="ui-dashboard-badge">{incident.ongoing ? "In progress" : "Resolved"}</UiBadge>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="ui-dashboard-panel-footer">
+          {hiddenIncidentCount > 0 && <p className="ui-dashboard-note">+ {hiddenIncidentCount} more incident(s)</p>}
+          {action && <WorkspaceDashboardActionLink to={action.to}>{action.label}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
+        </div>
+      </WorkspaceDashboardCard>
+    );
+  }
 
   return (
     <section className={cx(uiCardClass, "p-4", className)}>

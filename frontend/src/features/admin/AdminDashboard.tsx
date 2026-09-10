@@ -32,37 +32,29 @@ import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import {
   type WorkspaceDashboardFeature,
   type WorkspaceDashboardFeatureGroup,
-  type WorkspaceDashboardStatCardItem,
-  WorkspaceDashboardStatCard,
-  WorkspaceDashboardUnavailableFrame,
-  WorkspaceFeatureSummaryCard,
-  WorkspaceHealthScorePanel,
+  type WorkspaceDashboardSummaryItem,
+  WorkspaceDashboardSummary,
+  WorkspaceDashboardCard,
+  WorkspaceDashboardAction,
+  WorkspaceDashboardActionLink,
+  WorkspaceFeatureSummary,
+  WorkspaceAvailabilityMetric,
   type WorkspacePlatformMetric,
   WorkspacePlatformMetricCard,
   WorkspaceStatusDot,
-  WorkspaceStatusPill,
   WorkspaceStatusCounter,
 } from "../../components/WorkspaceDashboardKit";
 import WorkspaceIncidentsCard from "../../components/WorkspaceIncidentsCard";
 import UiBadge from "../../components/ui/UiBadge";
-import UiButton from "../../components/ui/UiButton";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiCardClass,
   uiCardMutedClass,
   uiMutedTextClass,
 } from "../../components/ui/styles";
 import {
-  BucketIcon,
-  FolderIcon,
-  InfoIcon,
-  LinkIcon,
   OpenIcon,
   RefreshIcon,
-  SettingsIcon,
-  ShieldIcon,
 } from "../browser/browserIcons";
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime } from "../../utils/dateTime";
@@ -85,7 +77,7 @@ function parseBackendIsoDate(value?: string | null): Date | null {
 
 function formatRelativeTime(value?: string | null, now = Date.now()): string {
   const parsed = parseBackendIsoDate(value);
-  if (!parsed) return "just now";
+  if (!parsed) return "Date unavailable";
   const diffMs = Math.max(0, now - parsed.getTime());
   const minutes = Math.floor(diffMs / 60000);
   if (minutes < 1) return "just now";
@@ -121,7 +113,7 @@ function formatCheckMode(mode?: string | null): string {
   return (mode || "http").toUpperCase();
 }
 
-function computeHealthScore(data?: EndpointHealthOverviewResponse | null): number | null {
+function computeMeanAvailability(data?: EndpointHealthOverviewResponse | null): number | null {
   const availabilityValues =
     data?.endpoints
       .map((endpoint) => endpoint.availability_pct)
@@ -141,7 +133,7 @@ function formatAuditAction(log: AuditLogEntry): string {
 }
 
 function trafficOpsSeries(traffic: AdminTrafficStats | null): number[] {
-  return (traffic?.series ?? []).map((point) => point.ops ?? 0).filter((value) => Number.isFinite(value));
+  return (traffic?.series ?? []).map((point) => point.ops).filter((value): value is number => value != null && Number.isFinite(value));
 }
 
 function formatOptionalBytes(value?: number | null): string {
@@ -180,19 +172,19 @@ function OnboardingPanel({
           {error ? <p className="mt-2 ui-caption font-semibold text-rose-600 dark:text-rose-300">{error}</p> : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <UiButton variant="secondary" size="sm" onClick={() => setReviewOpen(true)}>
+          <WorkspaceDashboardAction variant="secondary" size="sm" onClick={() => setReviewOpen(true)}>
             Review
-          </UiButton>
-          <UiButton variant="ghost" size="sm" onClick={onDismiss} disabled={dismissBusy} loading={dismissBusy}>
+          </WorkspaceDashboardAction>
+          <WorkspaceDashboardAction variant="ghost" size="sm" onClick={onDismiss} disabled={dismissBusy} loading={dismissBusy}>
             Dismiss
-          </UiButton>
+          </WorkspaceDashboardAction>
         </div>
       </section>
     );
   }
 
   return (
-    <section className={cx(uiCardClass, "p-4 sm:p-5")}>
+    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 w-full flex-1 flex-col gap-4 2xl:flex-row 2xl:items-center">
           <img
@@ -203,7 +195,7 @@ function OnboardingPanel({
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
-                <h2 className="ui-subtitle font-semibold text-[var(--ui-text)]">
+                <h2 className="ui-dashboard-title">
                   Connect your storage when you&apos;re ready.
                 </h2>
                 <p className={cx("mt-1 ui-body", uiMutedTextClass)}>
@@ -246,21 +238,21 @@ function OnboardingPanel({
         </div>
         <div className="shrink-0 self-start lg:self-auto">
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <WorkspaceDashboardAction
               type="button"
               onClick={() => setReviewOpen(false)}
-              className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2 py-1")}
+              variant="secondary"
             >
               Collapse checklist
-            </button>
-            <button
+            </WorkspaceDashboardAction>
+            <WorkspaceDashboardAction
               type="button"
               onClick={onDismiss}
               disabled={dismissBusy}
-              className={cx(uiButtonBaseClass, uiButtonVariants.ghost, "px-2 py-1")}
+              variant="ghost"
             >
               {dismissBusy ? "Dismissing..." : "Dismiss checklist"}
-            </button>
+            </WorkspaceDashboardAction>
           </div>
         </div>
       </div>
@@ -302,132 +294,55 @@ function SetupStep({
         </div>
         <UiBadge tone={done ? "success" : "warning"} className="shrink-0">{done ? "Done" : "Pending"}</UiBadge>
       </div>
-      <Link to={action.to} className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "w-fit px-3 py-1.5")}>
+      <WorkspaceDashboardActionLink to={action.to} className="w-fit">
         {action.label}
         <OpenIcon className="h-3.5 w-3.5" />
-      </Link>
+      </WorkspaceDashboardActionLink>
     </div>
   );
 }
 
-function EndpointHealthSection({
-  data,
-  loading,
-  unavailableReason,
-  mapMarkers,
-  mapLoading,
-  mapError,
-}: {
+function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarning }: {
   data: WorkspaceEndpointHealthOverviewResponse | null;
   loading: boolean;
   unavailableReason?: string | null;
-  mapMarkers: AdminDashboardMapMarker[];
-  mapLoading: boolean;
-  mapError?: string | null;
+  freshnessWarning: string | null;
 }) {
-  const content = (
-    <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-      <EndpointHealthCard
-        data={data}
+  const endpoints = unavailableReason ? [] : data?.endpoints.slice(0, MAX_ENDPOINT_ROWS) ?? [];
+  return (
+    <div className="ui-dashboard-operational-grid">
+      <WorkspaceDashboardCard
+        title="Endpoint Health"
+        presentation="compact"
+        action={<WorkspaceDashboardActionLink to="/admin/endpoint-status">Open Endpoint Status</WorkspaceDashboardActionLink>}
+      >
+        <p className="ui-dashboard-note">Stored healthcheck samples and latency.{data && <> Data refreshed {formatLocalDateTime(data.generated_at)}.</>}</p>
+        {freshnessWarning && !unavailableReason && <div className="mt-2"><PageBanner tone="warning">{freshnessWarning}</PageBanner></div>}
+        {loading ? <p role="status" className="ui-dashboard-note mt-2">Loading endpoint health…</p> : unavailableReason ? <p role="status" className="ui-dashboard-note mt-2">{unavailableReason}</p> : (
+          <>
+            <div className="ui-dashboard-badges mt-2">
+              <WorkspaceStatusCounter presentation="compact" label="Up" value={data?.up_count} status="up" />
+              <WorkspaceStatusCounter presentation="compact" label="Degraded" value={data?.degraded_count} status="degraded" />
+              <WorkspaceStatusCounter presentation="compact" label="Down" value={data?.down_count} status="down" />
+              <WorkspaceStatusCounter presentation="compact" label="Unknown" value={data?.unknown_count} status="unknown" />
+            </div>
+            <ul className="ui-dashboard-endpoint-list" aria-label="Endpoint health samples">
+              {endpoints.map((endpoint) => <EndpointRow key={endpoint.endpoint_id} endpoint={endpoint} />)}
+            </ul>
+            {(data?.endpoints.length ?? 0) > MAX_ENDPOINT_ROWS && <p className="ui-dashboard-note">+ {(data?.endpoints.length ?? 0) - MAX_ENDPOINT_ROWS} more endpoint(s)</p>}
+          </>
+        )}
+      </WorkspaceDashboardCard>
+      <WorkspaceIncidentsCard
+        presentation="compact"
+        incidents={unavailableReason ? [] : data?.incidents ?? []}
         loading={loading}
         unavailableReason={unavailableReason}
-        mapMarkers={mapMarkers}
-        mapLoading={mapLoading}
-        mapError={mapError}
+        incidentHighlightMinutes={data?.incident_highlight_minutes}
+        action={{ to: "/admin/endpoint-status", label: "View all incidents" }}
+        showEmptyState
       />
-      {unavailableReason && !data ? (
-        <BlankIncidentsCard />
-      ) : (
-        <WorkspaceIncidentsCard
-          incidents={data?.incidents ?? []}
-          loading={loading}
-          incidentHighlightMinutes={data?.incident_highlight_minutes}
-          action={{ to: "/admin/endpoint-status", label: "View all incidents" }}
-          showEmptyState
-        />
-      )}
     </div>
-  );
-
-  if (!unavailableReason) return content;
-  return <WorkspaceDashboardUnavailableFrame reason={unavailableReason}>{content}</WorkspaceDashboardUnavailableFrame>;
-}
-
-function BlankIncidentsCard() {
-  return (
-    <section className={cx(uiCardClass, "min-h-[180px] p-4")}>
-      <h2 className="ui-body font-semibold text-[var(--ui-text)]">Ongoing / Recent Incidents</h2>
-    </section>
-  );
-}
-
-function EndpointHealthCard({
-  data,
-  loading,
-  unavailableReason,
-  mapMarkers,
-  mapLoading,
-  mapError,
-}: {
-  data: WorkspaceEndpointHealthOverviewResponse | null;
-  loading: boolean;
-  unavailableReason?: string | null;
-  mapMarkers: AdminDashboardMapMarker[];
-  mapLoading: boolean;
-  mapError?: string | null;
-}) {
-  const endpoints = data?.endpoints.slice(0, MAX_ENDPOINT_ROWS) ?? [];
-  const staleEndpointCount = data?.endpoints.filter((endpoint) => isEndpointCheckStale(endpoint.checked_at)).length ?? 0;
-  return (
-    <section className={cx(uiCardClass, "min-w-0 p-4")}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="ui-body font-semibold text-[var(--ui-text)]">Endpoint Health</h2>
-          <p className={cx("ui-caption", uiMutedTextClass)}>Stored healthcheck samples and latency.</p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <span className={cx("ui-caption", uiMutedTextClass)}>Data refreshed {data ? formatLocalDateTime(data.generated_at) : "-"}</span>
-          {staleEndpointCount > 0 && (
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 ui-caption font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-100">
-              {staleEndpointCount} stale check{staleEndpointCount === 1 ? "" : "s"}
-            </span>
-          )}
-          <Link to="/admin/endpoint-status" className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5")}>
-            Open Endpoint Status
-          </Link>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className={cx(uiCardMutedClass, "mt-4 h-48 animate-pulse")} />
-      ) : (
-        <>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <WorkspaceStatusCounter label="Up" value={unavailableReason ? null : data?.up_count} status="up" />
-            <WorkspaceStatusCounter label="Degraded" value={unavailableReason ? null : data?.degraded_count} status="degraded" />
-            <WorkspaceStatusCounter label="Down" value={unavailableReason ? null : data?.down_count} status="down" />
-            <WorkspaceStatusCounter label="Unknown" value={unavailableReason ? null : data?.unknown_count} status="unknown" />
-          </div>
-          <div className="mt-4 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="space-y-1.5">
-              {endpoints.length === 0 && !unavailableReason ? (
-                <p className={cx("ui-caption", uiMutedTextClass)}>No endpoint linked to this workspace context.</p>
-              ) : (
-                endpoints.map((endpoint) => (
-                  <EndpointRow key={endpoint.endpoint_id} endpoint={endpoint} />
-                ))
-              )}
-              {(data?.endpoints.length ?? 0) > MAX_ENDPOINT_ROWS && (
-                <p className="ui-caption font-medium text-primary">+ {(data?.endpoints.length ?? 0) - MAX_ENDPOINT_ROWS} more endpoint(s)</p>
-              )}
-            </div>
-            {!unavailableReason && (
-              <AdminDashboardMap markers={mapMarkers} loading={mapLoading} error={mapError} />
-            )}
-          </div>
-        </>
-      )}
-    </section>
   );
 }
 
@@ -435,28 +350,24 @@ function EndpointRow({ endpoint }: { endpoint: WorkspaceEndpointHealthEntry }) {
   const stale = isEndpointCheckStale(endpoint.checked_at);
   const checkedAtLabel = endpoint.checked_at ? `Checked ${formatRelativeTime(endpoint.checked_at)}` : "No healthcheck yet";
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-[color:var(--ui-border-soft)] px-2 py-2 ui-caption sm:grid sm:grid-cols-[minmax(0,1fr)_64px_60px_minmax(108px,1fr)_72px] sm:border-0 sm:px-0 sm:py-0">
-      <span className="flex min-w-0 items-center gap-2 font-semibold text-[var(--ui-text)]">
+    <li className="ui-dashboard-endpoint-row">
+      <span className="ui-dashboard-endpoint-name">
         <WorkspaceStatusDot status={endpoint.status} className="shrink-0" />
-        <span className="truncate" title={endpoint.name}>{endpoint.name}</span>
+        <span title={endpoint.name}>{endpoint.name}</span>
       </span>
-      <span className={uiMutedTextClass}>{formatLatency(endpoint.latency_ms)}</span>
-      <span className={uiMutedTextClass}>{formatCheckMode(endpoint.check_mode)}</span>
-      <span
-        className={cx(
-          "min-w-0 truncate",
-          stale ? "font-semibold text-amber-700 dark:text-amber-100" : uiMutedTextClass
-        )}
-        title={formatLocalDateTime(endpoint.checked_at)}
-      >
-        {checkedAtLabel}
+      <span className="ui-dashboard-endpoint-measurements">
+        <span className="ui-dashboard-note">{formatLatency(endpoint.latency_ms)}</span>
+        <span className="ui-dashboard-note">{formatCheckMode(endpoint.check_mode)}</span>
       </span>
-      <WorkspaceStatusPill status={endpoint.status} className="justify-self-end text-center sm:min-w-[64px]" />
-    </div>
+      <span className="ui-dashboard-endpoint-check" data-stale={stale} title={formatLocalDateTime(endpoint.checked_at)}>{checkedAtLabel}</span>
+      <UiBadge tone={endpoint.status === "up" ? "success" : endpoint.status === "degraded" ? "warning" : endpoint.status === "down" ? "danger" : "neutral"} className="ui-dashboard-badge ui-dashboard-endpoint-state">
+        {endpoint.status === "up" ? "Up" : endpoint.status === "degraded" ? "Degraded" : endpoint.status === "down" ? "Down" : "Unknown"}
+      </UiBadge>
+    </li>
   );
 }
 
-function PlatformSummary({
+function StorageTrafficSummary({
   storage,
   storageLoading,
   storageError,
@@ -486,91 +397,64 @@ function PlatformSummary({
       label: "Buckets",
       value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.bucket_count ?? storage?.total_buckets ?? null),
       tone: "blue",
-      unavailableReason: storageReason || "Trend unavailable",
+
     },
     {
       label: "Objects",
       value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.object_count ?? null),
       tone: "violet",
-      unavailableReason: storageReason || "Trend unavailable",
+
     },
     {
       label: "Stored data",
       value: storageLoading ? "..." : formatOptionalBytes(storageReason ? null : storageTotals?.used_bytes ?? null),
       tone: "emerald",
-      unavailableReason: storageReason || "Trend unavailable",
+
     },
     {
       label: "Requests (24h)",
       value: trafficLoading ? "..." : formatOptionalCompactNumber(trafficReason ? null : traffic?.totals.ops ?? null),
       delta: trafficReason ? undefined : traffic?.totals.success_rate != null ? `${formatPercentage(traffic.totals.success_rate * 100)} success` : undefined,
-      series: requestsSeries.length > 0 ? requestsSeries : undefined,
+      series: !trafficReason && requestsSeries.length > 0 ? requestsSeries : undefined,
       tone: "blue",
-      unavailableReason: trafficReason || (requestsSeries.length === 0 && !trafficLoading ? "Trend unavailable" : undefined),
+
     },
   ];
 
   return (
-    <section className={cx(uiCardClass, "px-4 py-3")}>
-      <h2 className="ui-section text-[var(--ui-text)]">Platform summary</h2>
-      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_116px]">
-        <div className="grid gap-y-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-y-0">
-          {metrics.map((metric) => (
-            <WorkspacePlatformMetricCard key={metric.label} metric={metric} />
-          ))}
-        </div>
-        <div className="border-t border-[color:var(--ui-border-soft)] pt-3 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
-          <WorkspaceHealthScorePanel score={healthScore} loading={healthScoreLoading} unavailableReason={healthScoreUnavailableReason} />
-        </div>
+    <WorkspaceDashboardCard title="Storage & traffic" presentation="compact">
+      <div className="ui-dashboard-metrics">
+        {metrics.map((metric) => <WorkspacePlatformMetricCard key={metric.label} metric={metric} />)}
+        <WorkspaceAvailabilityMetric score={healthScore} loading={healthScoreLoading} unavailableReason={healthScoreUnavailableReason} />
       </div>
-    </section>
+      {storageReason && <p role="status" className="ui-dashboard-note mt-2">Storage: {storageReason}</p>}
+      {trafficReason && <p role="status" className="ui-dashboard-note mt-2">Traffic: {trafficReason}</p>}
+    </WorkspaceDashboardCard>
   );
 }
 
-function RecentActivityCard({
-  logs,
-  loading,
-  unavailableReason,
-}: {
+function RecentActivityCard({ logs, loading, unavailableReason }: {
   logs: AuditLogEntry[];
   loading: boolean;
   unavailableReason?: string | null;
 }) {
-  const displayLogs = unavailableReason ? [] : logs;
-  const content = (
-    <section className={cx(uiCardClass, "h-full p-4")}>
-      <h2 className="ui-body font-semibold text-[var(--ui-text)]">Recent activity</h2>
-      {loading ? (
-        <div className="mt-4 space-y-3">
-          {[1, 2, 3].map((key) => (
-            <div key={key} className={cx(uiCardMutedClass, "h-8 animate-pulse")} />
-          ))}
-        </div>
-      ) : displayLogs.length === 0 && !unavailableReason ? (
-        <div className={cx(uiCardMutedClass, "mt-4 border-dashed px-3 py-6 text-center ui-caption", uiMutedTextClass)}>
-          No recent audit activity.
-        </div>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {displayLogs.slice(0, 3).map((log) => (
-            <li key={log.id} className="flex items-start justify-between gap-4 ui-caption">
-              <span className="flex min-w-0 items-start gap-2">
-                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-                <span className="min-w-0 truncate text-[var(--ui-text)]">{formatAuditAction(log)}</span>
-              </span>
-              <span className={cx("shrink-0", uiMutedTextClass)}>{formatRelativeTime(log.created_at)}</span>
+  return (
+    <WorkspaceDashboardCard title="Recent activity" presentation="compact">
+      {loading ? <p role="status" className="ui-dashboard-note">Loading activity…</p> : unavailableReason ? <p role="status" className="ui-dashboard-note">{unavailableReason}</p> : logs.length === 0 ? <p className="ui-dashboard-note">No recent audit activity.</p> : (
+        <ul className="ui-dashboard-activity">
+          {logs.slice(0, 3).map((log) => (
+            <li key={log.id}>
+              <span className="ui-dashboard-note ui-dashboard-activity-text">{formatAuditAction(log)}</span>
+              <span className="ui-dashboard-note" title={formatLocalDateTime(log.created_at)}>{formatRelativeTime(log.created_at)}</span>
             </li>
           ))}
         </ul>
       )}
-      <Link to="/admin/audit" className="mt-5 inline-flex items-center gap-2 ui-caption font-semibold text-primary">
-        View audit logs
-        <OpenIcon className="h-3.5 w-3.5" />
-      </Link>
-    </section>
+      <div className="ui-dashboard-panel-footer">
+        <WorkspaceDashboardActionLink to="/admin/audit">View audit logs<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>
+      </div>
+    </WorkspaceDashboardCard>
   );
-  if (!unavailableReason) return content;
-  return <WorkspaceDashboardUnavailableFrame reason={unavailableReason} className="h-full">{content}</WorkspaceDashboardUnavailableFrame>;
 }
 
 export default function AdminDashboard() {
@@ -912,7 +796,7 @@ export default function AdminDashboard() {
     [coreFeatures, extraFeatures]
   );
 
-  const statCards = useMemo<WorkspaceDashboardStatCardItem[]>(() => {
+  const administrationItems = useMemo<WorkspaceDashboardSummaryItem[]>(() => {
     const totalUiUsers = (summary?.total_users ?? 0) + (summary?.total_admins ?? 0) + (summary?.total_none_users ?? 0);
     return [
       {
@@ -921,8 +805,6 @@ export default function AdminDashboard() {
         value: totalUiUsers,
         hint: `Admins: ${summary?.total_admins ?? 0}  Users: ${summary?.total_users ?? 0}`,
         to: "/admin/users",
-        tone: "indigo",
-        icon: <InfoIcon className="h-5 w-5" />,
       },
       {
         id: "active-sessions",
@@ -930,8 +812,6 @@ export default function AdminDashboard() {
         value: summary?.total_active_sessions ?? 0,
         hint: `UI: ${summary?.active_sessions_by_type?.ui ?? 0} · S3: ${summary?.active_sessions_by_type?.s3 ?? 0}`,
         to: "/admin/identity-security",
-        tone: "blue",
-        icon: <ShieldIcon className="h-5 w-5" />,
       },
       {
         id: "accounts-primary",
@@ -939,8 +819,6 @@ export default function AdminDashboard() {
         value: summary?.total_accounts ?? 0,
         hint: `Assigned: ${summary?.assigned_accounts ?? 0}`,
         to: "/admin/s3-accounts",
-        tone: "amber",
-        icon: <FolderIcon className="h-5 w-5" />,
       },
       {
         id: "s3-users",
@@ -948,8 +826,6 @@ export default function AdminDashboard() {
         value: summary?.total_s3_users ?? 0,
         hint: `Assigned: ${summary?.assigned_s3_users ?? 0}`,
         to: "/admin/s3-users",
-        tone: "emerald",
-        icon: <SettingsIcon className="h-5 w-5" />,
       },
       {
         id: "shared-s3-connections",
@@ -957,8 +833,6 @@ export default function AdminDashboard() {
         value: summary?.total_shared_connections ?? 0,
         hint: "Admin-managed",
         to: "/admin/s3-connections",
-        tone: "violet",
-        icon: <LinkIcon className="h-5 w-5" />,
       },
       {
         id: "endpoints",
@@ -966,8 +840,6 @@ export default function AdminDashboard() {
         value: summary?.total_endpoints ?? 0,
         hint: `Ceph: ${summary?.total_ceph_endpoints ?? 0}  Other: ${summary?.total_other_endpoints ?? 0}`,
         to: "/admin/storage-endpoints",
-        tone: "blue",
-        icon: <BucketIcon className="h-5 w-5" />,
       },
     ];
   }, [summary]);
@@ -993,9 +865,9 @@ export default function AdminDashboard() {
       : !workspaceHealthLoading && workspaceHealth && workspaceHealth.endpoint_count === 0
         ? "Endpoint Status has no endpoint data yet."
         : null;
-  const healthScore = computeHealthScore(healthOverview);
+  const healthScore = computeMeanAvailability(healthOverview);
   const healthScoreUnavailableReason =
-    endpointUnavailableReason ||
+    (!generalSettings.endpoint_status_enabled ? "Endpoint Status feature is disabled." : null) ||
     healthOverviewError ||
     (healthScore == null && !healthOverviewLoading ? "7-day endpoint health history is not available." : null);
   const refreshing =
@@ -1008,26 +880,27 @@ export default function AdminDashboard() {
     mapEndpointsLoading;
 
   return (
-    <div className="min-w-0 space-y-4 overflow-x-hidden" data-testid="admin-dashboard">
+    <div className="ui-dashboard-compact" data-testid="admin-dashboard">
       <PageHeader
         title="Admin overview"
         description="Monitor the health and status of your S3 infrastructure."
         breadcrumbs={adminPageBreadcrumbs("dashboard")}
         rightContent={
           <div className="flex items-center gap-3">
-            <span className={cx("hidden ui-caption sm:inline", uiMutedTextClass)}>
+            <span title="Last data update; healthcheck samples retain their own timestamps." className={cx("hidden ui-caption sm:inline", uiMutedTextClass)}>
               Updated {lastUpdated ? formatLocalDateTime(lastUpdated) : "-"}
             </span>
-            <button
+            <WorkspaceDashboardAction
               type="button"
               onClick={() => setRefreshNonce((current) => current + 1)}
               aria-label="Refresh admin dashboard"
               title="Refresh"
-              className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "h-8 w-8 px-0 py-0")}
+              variant="secondary"
+              className="ui-dashboard-action-icon"
               disabled={refreshing}
             >
               <RefreshIcon className={cx("h-4 w-4", refreshing && "animate-spin")} />
-            </button>
+            </WorkspaceDashboardAction>
           </div>
         }
       />
@@ -1041,48 +914,33 @@ export default function AdminDashboard() {
         />
       )}
 
-      {endpointFreshnessWarning && <PageBanner tone="warning">{endpointFreshnessWarning}</PageBanner>}
-      {summaryError && <PageBanner tone="error">{summaryError}</PageBanner>}
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-        {statCards.map((card) => (
-          <WorkspaceDashboardStatCard key={card.id} card={card} loading={summaryLoading} />
-        ))}
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {featureGroups.map((group) => (
-          <WorkspaceFeatureSummaryCard key={group.title} group={group} />
-        ))}
-      </div>
-
       <EndpointHealthSection
         data={workspaceHealth}
         loading={workspaceHealthLoading}
         unavailableReason={endpointUnavailableReason}
-        mapMarkers={mapMarkers}
-        mapLoading={mapEndpointsLoading}
-        mapError={mapEndpointsError}
+        freshnessWarning={endpointFreshnessWarning}
       />
-
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,0.9fr)]">
-        <PlatformSummary
-          storage={storage}
-          storageLoading={storageLoading}
-          storageError={storageError}
-          traffic={traffic}
-          trafficLoading={trafficLoading}
-          trafficError={trafficError}
-          healthScore={healthScore}
-          healthScoreLoading={healthOverviewLoading}
-          healthScoreUnavailableReason={healthScoreUnavailableReason}
-        />
-        <RecentActivityCard
-          logs={auditLogs}
-          loading={auditLoading}
-          unavailableReason={auditError}
-        />
+      <StorageTrafficSummary
+        storage={storage}
+        storageLoading={storageLoading}
+        storageError={storageError}
+        traffic={traffic}
+        trafficLoading={trafficLoading}
+        trafficError={trafficError}
+        healthScore={healthScore}
+        healthScoreLoading={healthOverviewLoading}
+        healthScoreUnavailableReason={healthScoreUnavailableReason}
+      />
+      <WorkspaceDashboardSummary items={administrationItems} loading={summaryLoading} unavailableReason={summaryError} />
+      <div className="ui-dashboard-secondary-grid">
+        <RecentActivityCard logs={auditLogs} loading={auditLoading} unavailableReason={auditError} />
+        {generalSettings.endpoint_status_enabled && <AdminDashboardMap markers={mapMarkers} loading={mapEndpointsLoading} error={mapEndpointsError} />}
       </div>
+      <WorkspaceDashboardCard title="Enabled features" presentation="compact">
+        <div className="ui-dashboard-features">
+          {featureGroups.map((group) => <WorkspaceFeatureSummary key={group.title} group={group} />)}
+        </div>
+      </WorkspaceDashboardCard>
     </div>
   );
 }
