@@ -494,6 +494,28 @@ and the isolated Admin/Browser harness passed 11 authenticated checks. Eight
 documentation images were generated; the screenshot reference check passed.
 The final lint, typecheck, dead-code, build, chunk and bundle checks also passed.
 
+## IAM policy draft panels
+
+User, group and role creation share compact managed-policy selection and inline
+policy draft sections through `ManagedPolicySelectionPanel` and
+`InlinePolicyDraftEditor`. Both use `SettingsSection`, `SettingsButton` and
+canonical labelled controls. The JSON editor spans the content width; saved
+drafts remain visible above it, with wrapping names and a pressed selection
+state. Replacement warnings are associated with the draft-name field.
+
+Disclosure controls expose their expanded state and controlled content. Closing
+a section preserves its selection, search and draft. Searches by name or ARN
+retain selected policies outside the current results. Draft save, replacement,
+rename, removal and clearing retain their existing local behavior and must not
+submit the entity form. API ownership and IAM permission semantics remain with
+the three parent pages.
+
+Validate all three routed creation forms in both themes at desktop and mobile
+widths, including long policy names, collapsed states, keyboard toggles,
+replacement, cancellation and exact creation/attachment payloads. Use fixture
+responses to exercise failure and retry without creating live IAM identities.
+The surrounding entity identity fields remain a separate convergence pass.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.

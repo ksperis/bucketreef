@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { axe } from "jest-axe";
 
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 
@@ -30,6 +31,21 @@ const renderPanel = (
 };
 
 describe("ManagedPolicySelectionPanel", () => {
+  it("names the search and disclosure while retaining selections when collapsed", async () => {
+    const { container, rerender, props } = renderPanel({ selectedPolicyArns: [policies[0].arn] });
+    expect(screen.getByRole("textbox", { name: "Search policies" })).toBeInTheDocument();
+    const hide = screen.getByRole("button", { name: "Hide" });
+    expect(hide).toHaveAttribute("aria-expanded", "true");
+    const contentId = hide.getAttribute("aria-controls")!;
+    rerender(<ManagedPolicySelectionPanel {...props} expanded={false} />);
+    expect(screen.getByRole("button", { name: "Show" })).toHaveAttribute("aria-expanded", "false");
+    expect(document.getElementById(contentId)).not.toBeVisible();
+    expect(screen.getByText("1 selected")).toBeVisible();
+    rerender(<ManagedPolicySelectionPanel {...props} />);
+    expect(screen.getByRole("checkbox", { name: "ReadOnlyAccess" })).toBeChecked();
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
   it("filters policies by name or ARN", async () => {
     const user = userEvent.setup();
     const onSearchChange = vi.fn();
