@@ -74,7 +74,7 @@ export function SettingsActions({
 }) {
   if (!dirty) return null;
   return (
-    <div className="settings-actions">
+    <div className="settings-actions ui-page-sticky-actions">
       <SettingsButton variant="secondary" disabled={busy} onClick={onCancel}>
         {cancelLabel}
       </SettingsButton>
