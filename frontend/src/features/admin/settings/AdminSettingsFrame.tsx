@@ -1,11 +1,11 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ConfirmActionDialog from "../../../components/ConfirmActionDialog";
 import { type ReactNode, useState } from "react";
 import PageShell from "../../../components/PageShell";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import {
   SettingsActions,
   SettingsButton,
-  SettingsConfirmation,
   useSettingsCloseGuard,
 } from "../../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../../components/settings/SettingsNavigationGuard";
@@ -98,7 +98,7 @@ export default function AdminSettingsFrame({
       {form.verificationDialog}
       {dialogs}
       {reset && (
-        <SettingsConfirmation
+        <ConfirmActionDialog
           title={resetTitle}
           description="Replace this page's draft with application defaults."
           confirmLabel="Load defaults"

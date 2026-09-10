@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { type ComponentProps, type ReactNode, useId } from "react";
 import Modal from "../Modal";
-import ConfirmActionDialog from "../ConfirmActionDialog";
 import UiButton from "../ui/UiButton";
 import UiInput from "../ui/UiInput";
 import { useUnsavedChangesGuard } from "../useUnsavedChangesGuard";
@@ -29,26 +28,10 @@ export function SettingsDialog(props: ComponentProps<typeof Modal>) {
   );
 }
 
-export function SettingsConfirmation(
-  props: ComponentProps<typeof ConfirmActionDialog>,
-) {
-  return (
-    <div className="settings-dialog">
-      <ConfirmActionDialog {...props} />
-    </div>
-  );
-}
-
 export function useSettingsCloseGuard(
   options: Parameters<typeof useUnsavedChangesGuard>[0],
 ) {
-  const guard = useUnsavedChangesGuard({ zIndexClass: "z-[110]", ...options });
-  return {
-    ...guard,
-    confirmationDialog: guard.confirmationDialog && (
-      <div className="settings-dialog">{guard.confirmationDialog}</div>
-    ),
-  };
+  return useUnsavedChangesGuard({ zIndexClass: "z-[110]", ...options });
 }
 
 export function SettingsActions({

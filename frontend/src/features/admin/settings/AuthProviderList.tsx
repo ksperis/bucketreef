@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ConfirmActionDialog from "../../../components/ConfirmActionDialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,7 +20,6 @@ import {
 } from "../../../components/settings/SettingsLayout";
 import {
   SettingsButton,
-  SettingsConfirmation,
 } from "../../../components/settings/SettingsControls";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
@@ -158,7 +158,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
         />
       ))}
       {selected && (
-        <SettingsConfirmation
+        <ConfirmActionDialog
           title={`Delete ${name} provider?`}
           description={`Remove ${selected.display_name} (${selected.provider_id}) from sign-in options.`}
           confirmLabel="Delete provider"

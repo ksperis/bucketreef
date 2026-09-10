@@ -3,16 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import ModalActions from "./ModalActions";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import Modal from "./Modal";
 import UiButton from "./ui/UiButton";
-import {
-  cx,
-  uiMutedTextClass,
-  uiPanelMutedClass,
-  uiTitleTextClass,
-  uiToneBannerClasses,
-} from "./ui/styles";
+import UiInlineMessage from "./ui/UiInlineMessage";
+import "./settings/compactSettings.css";
 
 type ConfirmActionDialogDetail = {
   label: string;
@@ -59,71 +54,54 @@ export default function ConfirmActionDialog({
   onCancel,
   onConfirm,
 }: ConfirmActionDialogProps) {
+  const descriptionId = useId();
   return (
-    <Modal
-      title={title}
-      onClose={onCancel}
-      maxWidthClass={maxWidthClass}
-      zIndexClass={zIndexClass}
-      closeOnBackdropClick={!loading}
-      closeOnEscape={!loading}
-      closeLabel={closeLabel}
-      closeAriaLabel={closeLabel}
-    >
-      <div className="space-y-4">
-        <p className={cx("ui-body", uiMutedTextClass)}>{description}</p>
+    <div className="settings-dialog">
+      <Modal
+        title={title}
+        onClose={onCancel}
+        maxWidthClass={maxWidthClass}
+        zIndexClass={zIndexClass}
+        closeDisabled={loading}
+        closeOnBackdropClick={!loading}
+        closeOnEscape={!loading}
+        closeLabel={closeLabel}
+        closeAriaLabel={closeLabel}
+        ariaDescribedby={descriptionId}
+      >
+        <div className="settings-stack">
+          <p id={descriptionId} className="settings-body text-[var(--ui-text-muted)] [overflow-wrap:anywhere]">{description}</p>
 
-        {details.length > 0 ? (
-          <dl className={cx("grid gap-3 px-4 py-4", uiPanelMutedClass)}>
-            {details.map((detail) => (
-              <div key={detail.label} className="grid gap-1 sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-start">
-                <dt className={cx("ui-caption font-semibold uppercase", uiMutedTextClass)}>{detail.label}</dt>
-                <dd
-                  className={
-                    detail.mono
-                      ? "break-all font-mono text-[13px] text-[var(--ui-text)]"
-                      : cx("ui-body", uiTitleTextClass)
-                  }
-                >
-                  {detail.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
-
-        {impacts.length > 0 ? (
-          <div className={cx("rounded-md px-4 py-4", uiToneBannerClasses.warning)}>
-            <p className="ui-caption font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-100">
-              {impactLabel}
-            </p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 ui-body text-amber-900 dark:text-amber-100">
-              {impacts.map((impact, index) => (
-                <li key={index}>{impact}</li>
+          {details.length > 0 && (
+            <dl className="grid gap-2">
+              {details.map((detail) => (
+                <div key={detail.label} className="grid min-w-0 gap-1 border-b border-[var(--ui-border-soft)] pb-2 last:border-0 last:pb-0 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                  <dt className="settings-label min-w-0 [overflow-wrap:anywhere]">{detail.label}</dt>
+                  <dd className={`settings-body min-w-0 [overflow-wrap:anywhere] ${detail.mono ? "font-mono" : ""}`}>{detail.value}</dd>
+                </div>
               ))}
-            </ul>
-          </div>
-        ) : null}
+            </dl>
+          )}
 
-        {warning ? (
-          <div className={cx("px-4 py-3 ui-caption", uiPanelMutedClass, uiMutedTextClass)}>
-            {warning}
-          </div>
-        ) : null}
+          {impacts.length > 0 && (
+            <UiInlineMessage tone="warning">
+              <p className="settings-label">{impactLabel}</p>
+              <ul className="settings-body mt-1 list-disc space-y-1 pl-4 [overflow-wrap:anywhere]">
+                {impacts.map((impact, index) => <li key={index}>{impact}</li>)}
+              </ul>
+            </UiInlineMessage>
+          )}
 
-        <ModalActions>
-          <UiButton variant="secondary" onClick={onCancel} disabled={loading}>
-            {cancelLabel}
-          </UiButton>
-          <UiButton
-            variant={tone === "danger" ? "danger" : "primary"}
-            onClick={onConfirm}
-            disabled={loading || confirmDisabled}
-          >
-            {loading ? processingLabel : confirmLabel}
-          </UiButton>
-        </ModalActions>
-      </div>
-    </Modal>
+          {warning && <UiInlineMessage tone="neutral" className="[overflow-wrap:anywhere]">{warning}</UiInlineMessage>}
+
+          <ModalActions>
+            <UiButton variant="secondary" onClick={onCancel} disabled={loading}>{cancelLabel}</UiButton>
+            <UiButton variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm} disabled={loading || confirmDisabled}>
+              {loading ? processingLabel : confirmLabel}
+            </UiButton>
+          </ModalActions>
+        </div>
+      </Modal>
+    </div>
   );
 }

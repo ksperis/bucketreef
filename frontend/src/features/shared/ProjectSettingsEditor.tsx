@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { useEffect, useRef, useState } from "react";
 import type { PortalProjectSettings } from "../../api/portalAccounts";
 import type { PortalSettingsAdminUpdate } from "../../api/appSettings";
@@ -11,7 +12,6 @@ import {
 import {
   SettingsActions,
   SettingsButton,
-  SettingsConfirmation,
   SettingsField,
   useSettingsCloseGuard,
 } from "../../components/settings/SettingsControls";
@@ -628,7 +628,7 @@ export default function ProjectSettingsEditor({
       />}
       {guard.confirmationDialog}
       {resetOpen && (
-        <SettingsConfirmation
+        <ConfirmActionDialog
           title={t({
             en: "Restore platform values?",
             fr: "Rétablir les valeurs de la plateforme ?",

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -60,4 +60,27 @@ describe("useConfirmActionDialog", () => {
     expect(await screen.findByText("confirmed")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Delete item?" })).not.toBeInTheDocument();
   });
+});
+
+
+it("runs once and keeps the dialog open until the requested operation completes", async () => {
+  const user = userEvent.setup();
+  let resolve!: () => void;
+  const onConfirm = vi.fn(() => new Promise<void>((done) => { resolve = done; }));
+  render(<Harness onConfirm={onConfirm} />);
+  const trigger = screen.getByRole("button", { name: "Open confirmation" });
+  await user.click(trigger);
+  await user.click(screen.getByRole("button", { name: "Delete item" }));
+  const dialog = screen.getByRole("dialog", { name: "Delete item?" });
+  expect(onConfirm).toHaveBeenCalledOnce();
+  expect(screen.getByRole("button", { name: "Close modal" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Processing..." }));
+  fireEvent.keyDown(document, { key: "Escape" });
+  fireEvent.mouseDown(screen.getByRole("presentation"));
+  expect(dialog).toBeInTheDocument();
+  expect(onConfirm).toHaveBeenCalledOnce();
+  await act(async () => resolve());
+  expect(await screen.findByText("confirmed")).toBeInTheDocument();
+  expect(dialog).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
 });

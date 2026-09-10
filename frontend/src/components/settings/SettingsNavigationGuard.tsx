@@ -1,8 +1,8 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ConfirmActionDialog from "../ConfirmActionDialog";
 import { useContext, useEffect } from "react";
 import { UNSAFE_DataRouterContext, useBlocker } from "react-router-dom";
 import { readStoredUser } from "../../utils/workspaces";
-import { SettingsConfirmation } from "./SettingsControls";
 
 type Props = {
   dirty: boolean;
@@ -32,7 +32,7 @@ function RouteGuard({
   );
   if (blocker.state !== "blocked") return null;
   return (
-    <SettingsConfirmation
+    <ConfirmActionDialog
       title={title}
       description={description}
       confirmLabel={confirmLabel}

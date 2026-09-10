@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyRotationResponse,
@@ -23,7 +24,6 @@ import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import UiBadge from "../../components/ui/UiBadge";
 import {
   SettingsButton,
-  SettingsConfirmation,
 } from "../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import {
@@ -496,7 +496,7 @@ export default function KeyRotationPage() {
         )}
       </div>
       {confirmOpen && (
-        <SettingsConfirmation
+        <ConfirmActionDialog
           title="Run key rotation?"
           description="New keys will replace the selected managed credentials. Applications using old keys may lose access."
           confirmLabel="Confirm rotation"
