@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -6,7 +7,6 @@ import {
   SettingsSection,
   SettingsSwitch,
 } from "../../components/settings/SettingsLayout";
-import { SettingsConfirmation } from "../../components/settings/SettingsControls";
 import AdminSettingsFrame from "./settings/AdminSettingsFrame";
 import AuthProviderList from "./settings/AuthProviderList";
 import { AppSettingsToggle } from "./settings/AppSettingsFields";
@@ -40,7 +40,7 @@ export default function AuthenticationSettingsPage() {
       dialogs={
         <>
           {disableProtection && (
-            <SettingsConfirmation
+            <ConfirmActionDialog
               title="Disable required admin passkeys?"
               description="Administrator sessions will no longer require a recent passkey verification for sensitive actions."
               confirmLabel="Disable protection"

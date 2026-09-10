@@ -312,9 +312,10 @@ touch targets, both themes and actual authenticated routes.
 
 ### Settings composition and persistence
 
-Use `SettingsButton`, `SettingsDialog`, `SettingsConfirmation`, `SettingsField`
-and `SettingsActions` from `components/settings/SettingsControls`. Profile
-wrappers only inject translated labels. `useSettingsDraft` holds the baseline
+Use `SettingsButton`, `SettingsDialog`, `SettingsField` and `SettingsActions`
+from `components/settings/SettingsControls`. Confirmations use the shared
+`ConfirmActionDialog` directly; it owns the compact presentation in every
+workspace. Profile wrappers only inject translated labels. `useSettingsDraft` holds the baseline
 and editable values; page adapters own conversions, validation and persistence.
 
 Use the shared settings typography classes instead of arbitrary `text-[13px]`
@@ -323,10 +324,10 @@ utilities, which are normalized elsewhere. `SettingsField` accepts a translated
 and any field help or error. Short units such as days should not add a separate
 line. Explanations and validation stay below the input.
 
-Settings dialogs use 16px horizontal and 12px vertical padding, with 12px gaps
-between fields. The dirty-only action bar uses 8px vertical padding. These
-changes are opt-in: global buttons, nonmigrated forms, tables and other dialogs
-retain their existing geometry. There is no density selector.
+Settings dialogs and shared confirmations use 16px horizontal and 12px vertical
+padding, with 12px content gaps. The dirty-only action bar uses 8px vertical
+padding. Global buttons, nonmigrated forms, tables and other dialogs retain
+their existing geometry. There is no density selector.
 This is not a schema-driven form engine. `SettingsNavigationGuard` protects
 router navigation and browser unload, while `useSettingsCloseGuard` protects
 explicit cancellation. Register one route guard for the whole page, including

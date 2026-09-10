@@ -67,6 +67,35 @@ verify **Apply** updates only the draft and **Cancel** retains the existing clos
 confirmation. Long translated action labels must wrap within the dialog, with
 44px touch targets. No action may run when merely opening a confirmation.
 
+## Shared confirmation content
+
+`ConfirmActionDialog` owns compact presentation for direct callers, action hooks
+and draft guards in every workspace. Titles use 14px, body text and resource
+values 13px, and buttons 12px with 28px desktop / 44px touch targets. Settings
+body typography excludes buttons so it cannot override their shared scale.
+Resource details use aligned label/value rows; impacts and optional warnings
+retain their distinct content and meaning. Names, ARNs and rich warning text
+wrap without horizontal body scrolling, including inside nested dialogs.
+
+The shared description is associated with the dialog. Loading disables Close,
+Cancel, Escape and backdrop dismissal, as well as the confirmation action.
+Callers still own the request, error recovery and programmatic completion;
+`confirmDisabled` alone keeps cancellation available. Labels, translations,
+details, impacts, widths and execution contexts remain caller-owned.
+
+The settings-only confirmation wrapper is removed. Settings callers now import
+`ConfirmActionDialog`; profile adapters retain translation injection and
+`useSettingsCloseGuard` retains its layer ordering without a duplicate wrapper.
+
+Validation: `npm run check` passed with 2,491 tests across 450 files. Thirty
+component browser scenarios exercise simple, detailed, translated, nested and
+primary-tone confirmations in both themes, at desktop/mobile widths, 320px and
+667 x 280 landscape. Sixteen routed fixture cases cover Admin authentication
+settings, Manager IAM group deletion, the Ceph Admin Browser warning and French
+Portal session revocation. They check cancellation without mutation, pending
+closure, exact targets and failure/retry behavior. Fixture requests do not prove
+live storage or identity-provider operations.
+
 ## Shared short-form fields
 
 API token name/expiry and Browser bucket/folder creation now use `UiInput`;

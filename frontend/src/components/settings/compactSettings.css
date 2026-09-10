@@ -201,7 +201,7 @@
 .settings-dialog .modal-body {
   padding: var(--settings-dialog-padding-y) var(--settings-dialog-padding-x);
 }
-.settings-dialog .ui-body {
+.settings-dialog .ui-body:not(.ui-button-base) {
   font-size: var(--settings-text-size);
   line-height: var(--settings-text-line);
 }
