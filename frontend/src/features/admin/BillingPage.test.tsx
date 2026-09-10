@@ -211,14 +211,40 @@ describe("BillingPage", () => {
   });
 
   it("shows manual collection details with partial errors", async () => {
+    const user = userEvent.setup();
     renderPage();
 
     await screen.findByText("Tenant A");
-    fireEvent.click(screen.getByRole("button", { name: "Collect daily" }));
+    const disclosure = screen.getByText("Manual daily collection");
+    expect(disclosure.closest("details")).not.toHaveAttribute("open");
+    await user.click(disclosure);
+    await user.click(screen.getByRole("button", { name: "Collect daily" }));
 
     expect(await screen.findByText(/Collection finished with issues for/)).toBeInTheDocument();
     expect(screen.getByText("account #42: RGW usage denied")).toBeInTheDocument();
     await waitFor(() => expect(mocks.getBillingSummary).toHaveBeenCalledTimes(2));
+    await user.click(disclosure);
+    expect(disclosure.closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("account #42: RGW usage denied")).toBeVisible();
+    expect(screen.getByText(/Collection finished with issues for/)).toBeVisible();
+  });
+
+  it("keeps monthly totals global when filtering subjects and reloads them for a new month", async () => {
+    renderPage();
+    await screen.findByText("Tenant A");
+    expect(screen.getByLabelText("Month").closest("header")).not.toBeNull();
+    expect(within(screen.getByRole("region", { name: "Subjects" })).getByLabelText("Subject")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "s3_user" } });
+    await waitFor(() => expect(mocks.getBillingSubjects).toHaveBeenLastCalledWith("2026-07", 7, "s3_user", 1, 25, "name", "asc"));
+    expect(mocks.getBillingSummary).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("12.50 EUR")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Month"), { target: { value: "2026-06" } });
+    await waitFor(() => expect(mocks.getBillingSummary).toHaveBeenLastCalledWith("2026-06", 7));
+    expect(screen.getByText(/Monthly totals.*2026-06/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "cost" } });
+    fireEvent.change(screen.getByLabelText("Direction"), { target: { value: "desc" } });
+    await waitFor(() => expect(mocks.getBillingSubjects).toHaveBeenLastCalledWith("2026-06", 7, "s3_user", 1, 25, "cost", "desc"));
+    expect(mocks.getBillingSummary).toHaveBeenCalledTimes(2);
   });
 
   it("disables export and explains empty billing data", async () => {

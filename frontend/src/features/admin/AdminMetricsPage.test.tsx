@@ -194,20 +194,29 @@ describe("AdminMetricsPage", () => {
     streamAdminUsageStatsAggregateMock.mockResolvedValue({ status: "completed" });
   });
 
-  it("renders the admin control strip and empty state when no ceph endpoint is available", async () => {
+  it("keeps the endpoint in the page header and explains when no Ceph endpoint is available", async () => {
     render(
       <MemoryRouter>
         <AdminMetricsPage />
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Metrics scope")).toBeInTheDocument();
+    expect(screen.queryByText("Metrics scope")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText("No Ceph endpoint available for metrics")).toBeInTheDocument();
     });
     expect(screen.getByRole("combobox", { name: "Ceph endpoint" })).toHaveValue("");
     expect(screen.getByRole("combobox", { name: "Ceph endpoint" })).toBeDisabled();
-    expect(screen.getByText("Only Ceph endpoints are eligible for this page.")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Ceph endpoint" }).closest("header")).not.toBeNull();
+  });
+
+  it("reloads metrics when the compact page context changes", async () => {
+    listStorageEndpointsMock.mockResolvedValue([makeCephEndpoint(), { ...makeCephEndpoint(), id: 8, name: "Ceph backup", is_default: false }]);
+    render(<MemoryRouter><AdminMetricsPage /></MemoryRouter>);
+    await waitFor(() => expect(fetchAdminStorageMock).toHaveBeenCalledWith(7));
+    fireEvent.change(screen.getByLabelText("Ceph endpoint"), { target: { value: "8" } });
+    await waitFor(() => expect(fetchAdminStorageMock).toHaveBeenLastCalledWith(8));
+    expect(screen.queryByText("Coverage")).not.toBeInTheDocument();
   });
 
   it("keeps disabled storage metrics inside the storage snapshot card", async () => {

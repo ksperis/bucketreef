@@ -23,12 +23,12 @@ import ListPageSection from "../../components/list/ListPageSection";
 import PageShell from "../../components/PageShell";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
-import PageControlStrip from "../../components/PageControlStrip";
+import InlineSummary from "../../components/InlineSummary";
+import MobileTableSort from "../../components/list/MobileTableSort";
+import UiDetails from "../../components/ui/UiDetails";
 import PageEmptyState from "../../components/PageEmptyState";
-import StatCards from "../../components/StatCards";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
-import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import {
@@ -321,22 +321,18 @@ export default function BillingPage() {
       {
         label: "Avg storage",
         value: storageAvg !== null ? formatBytes(storageAvg) : "-",
-        hint: "Average daily storage",
       },
       {
         label: "Egress",
         value: egress !== null ? formatBytes(egress) : "-",
-        hint: "Outgoing bytes",
       },
       {
         label: "Ingress",
         value: ingress !== null ? formatBytes(ingress) : "-",
-        hint: "Incoming bytes",
       },
       {
         label: "Requests",
         value: requests != null ? formatCompactNumber(requests) : "-",
-        hint: "Total API calls",
       },
       {
         label: "Coverage",
@@ -496,87 +492,41 @@ export default function BillingPage() {
       description="Monthly usage and cost overview."
       breadcrumbs={adminPageBreadcrumbs("billing")}
       rightContent={
-        <UiButton
-          variant="secondary"
-          size="sm"
-          onClick={() => void handleExport()}
-          disabled={!canExport}
-          title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with billing data before exporting"}
-          leftIcon={<DownloadIcon className="h-3.5 w-3.5" />}
-        >
-          Export CSV
-        </UiButton>
+        <div className="flex min-w-0 flex-wrap items-end gap-2">
+          <UiInput
+            label="Month"
+            type="month"
+            value={month}
+            onChange={(event) => setMonth(event.target.value)}
+            size="compact"
+            className="ui-list-control"
+          />
+          <UiSelect
+            label="Endpoint"
+            value={selectedEndpointId ?? ""}
+            onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
+            size="compact"
+            className="ui-list-control"
+          >
+            {endpoints.length === 0 ? <option value="">No Ceph endpoint</option> : null}
+            {endpoints.map((endpoint) => (
+              <option key={endpoint.id} value={endpoint.id}>
+                {endpoint.name}
+              </option>
+            ))}
+          </UiSelect>
+          <ListActionButton
+            variant="secondary"
+            onClick={() => void handleExport()}
+            disabled={!canExport}
+            title={canExport ? "Export the selected month as CSV" : "Select a Ceph endpoint with billing data before exporting"}
+          >
+            <DownloadIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            Export CSV
+          </ListActionButton>
+        </div>
       }
     >
-      <PageControlStrip controlPresentation="listing"
-        label="Billing scope"
-        title={selectedEndpoint?.name ?? "No Ceph endpoint selected"}
-        description="Choose the month, Ceph endpoint, subject view, and ordering used to aggregate costs and traffic."
-        controls={
-          <div className="flex flex-wrap items-end gap-3">
-            <UiInput
-              label="Month"
-              type="month"
-              value={month}
-              onChange={(event) => setMonth(event.target.value)}
-              size="compact"
-            />
-            <UiSelect
-              label="Endpoint"
-              value={selectedEndpointId ?? ""}
-              onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
-              size="compact"
-            >
-              {endpoints.length === 0 ? <option value="">No Ceph endpoint</option> : null}
-              {endpoints.map((endpoint) => (
-                <option key={endpoint.id} value={endpoint.id}>
-                  {endpoint.name}
-                </option>
-              ))}
-            </UiSelect>
-            <UiSelect
-              label="Subject"
-              value={subjectType}
-              onChange={(event) => setSubjectType(event.target.value as "account" | "s3_user")}
-              size="compact"
-            >
-              {SUBJECT_TYPES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </UiSelect>
-            <UiSelect
-              label="Sort by"
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as BillingSortBy)}
-              size="compact"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </UiSelect>
-            <UiSelect
-              label="Direction"
-              value={sortDir}
-              onChange={(event) => setSortDir(event.target.value as "asc" | "desc")}
-              size="compact"
-            >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </UiSelect>
-          </div>
-        }
-        items={[
-          { label: "Endpoint URL", value: selectedEndpoint?.endpoint_url ?? "Unavailable", mono: Boolean(selectedEndpoint?.endpoint_url) },
-          { label: "Month", value: month || "Unavailable" },
-          { label: "Subject type", value: SUBJECT_TYPES.find((option) => option.value === subjectType)?.label ?? subjectType },
-          { label: "Sort", value: `${SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? sortBy} (${sortDir})` },
-        ]}
-        alerts={!selectedEndpointId && pageError ? [{ tone: "warning", message: pageError }] : []}
-      />
       {pageError && selectedEndpointId != null ? <PageBanner tone="error">{pageError}</PageBanner> : null}
       {billingDisabled ? (
         <PageBanner tone="warning">
@@ -592,50 +542,35 @@ export default function BillingPage() {
         />
       ) : (
         <>
-          <section className="ui-surface-card">
-            <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h2 className={cx("ui-body font-semibold", uiTitleTextClass)}>Manual daily collection</h2>
-                <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>
-                  Run the billing collector for one UTC day when scheduler data is missing or stale.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-end gap-3">
-                <UiInput
-                  label="Collect day"
-                  type="date"
-                  value={collectDay}
-                  onChange={(event) => setCollectDay(event.target.value)}
-                  size="compact"
-                />
-                <UiButton
-                  variant="primary"
-                  size="sm"
-                  onClick={() => void handleCollectDaily()}
-                  loading={collectLoading}
-                  disabled={!canCollect}
-                  leftIcon={<RefreshIcon className={cx("h-3.5 w-3.5", collectLoading && "animate-spin")} />}
-                >
-                  {collectLoading ? "Collecting..." : "Collect daily"}
-                </UiButton>
-              </div>
+          <UiDetails className="text-xs">
+            <summary className="ui-list-control w-fit cursor-pointer rounded-md py-2 font-medium text-[var(--ui-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-focus-ring)]">
+              Manual daily collection
+            </summary>
+            <p className="mb-2 text-[var(--ui-text-muted)]">Run the billing collector for one UTC day when scheduler data is missing or stale.</p>
+            <div className="ui-list-toolbar flex flex-wrap items-end gap-2 pb-2">
+              <UiInput label="Collect day" type="date" value={collectDay} onChange={(event) => setCollectDay(event.target.value)} size="compact" />
+              <ListActionButton variant="primary" onClick={() => void handleCollectDaily()} loading={collectLoading} disabled={!canCollect}>
+                <RefreshIcon aria-hidden="true" className={cx("h-3.5 w-3.5", collectLoading && "animate-spin")} />
+                {collectLoading ? "Collecting..." : "Collect daily"}
+              </ListActionButton>
             </div>
-            {collectMessage ? <PageBanner tone={collectionErrors.length > 0 ? "warning" : "success"} className="mx-4 mb-4">{collectMessage}</PageBanner> : null}
-            {collectError ? <PageBanner tone="error" className="mx-4 mb-4">{collectError}</PageBanner> : null}
-            {collectionErrors.length > 0 ? (
-              <div className={cx(uiCardMutedClass, "mx-4 mb-4 px-4 py-3")}>
-                <p className={cx("ui-caption font-semibold", uiTitleTextClass)}>Collection issues</p>
-                <ul className={cx("mt-2 space-y-1 ui-caption", uiMutedTextClass)}>
-                  {collectionErrors.slice(0, 5).map((entry, index) => (
-                    <li key={index}>
-                      {String(entry.subject ?? `endpoint ${entry.endpoint_id ?? "-"}`)}
-                      {entry.subject_id != null ? ` #${String(entry.subject_id)}` : ""}: {String(entry.error ?? "Unknown error")}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </section>
+          </UiDetails>
+          {collectLoading ? <PageBanner tone="info">Collecting daily billing usage...</PageBanner> : null}
+          {collectMessage ? <PageBanner tone={collectionErrors.length > 0 ? "warning" : "success"}>{collectMessage}</PageBanner> : null}
+          {collectError ? <PageBanner tone="error">{collectError}</PageBanner> : null}
+          {collectionErrors.length > 0 ? (
+            <div className={cx(uiCardMutedClass, "px-3 py-2")}>
+              <p className={cx("ui-caption font-semibold", uiTitleTextClass)}>Collection issues</p>
+              <ul className={cx("mt-2 space-y-1 ui-caption", uiMutedTextClass)}>
+                {collectionErrors.slice(0, 5).map((entry, index) => (
+                  <li key={index}>
+                    {String(entry.subject ?? `endpoint ${entry.endpoint_id ?? "-"}`)}
+                    {entry.subject_id != null ? ` #${String(entry.subject_id)}` : ""}: {String(entry.error ?? "Unknown error")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {summaryError ? <PageBanner tone={billingDisabled ? "warning" : "error"}>{summaryError}</PageBanner> : null}
           {lowCoverage ? (
@@ -653,15 +588,31 @@ export default function BillingPage() {
               No matching rate card is attached for this scope. Usage totals are available, but estimated cost stays unavailable.
             </PageBanner>
           ) : null}
-          {summaryLoading ? <PageBanner tone="info">Loading summary...</PageBanner> : <StatCards stats={stats} columns={3} />}
+          {summaryLoading ? <PageBanner tone="info">Loading summary...</PageBanner> : <InlineSummary label={`Monthly totals · ${selectedEndpoint?.name ?? ""} · ${month}`} items={stats} />}
 
           <ListPageSection
-              title="Subjects"
-              description={selectedEndpoint ? `Monthly totals for ${selectedEndpoint.name}.` : "Monthly subject totals."}
-              showHeading
-              countLabel={`${subjectsTotal} subject${subjectsTotal === 1 ? "" : "s"}`}
+            stackControlsOnMobile
+            title="Subjects"
+            countLabel={`${subjectsTotal} subject${subjectsTotal === 1 ? "" : "s"}`}
+            filters={
+              <div className="flex min-w-0 flex-wrap items-end gap-2">
+                <UiSelect
+                  label="Subject"
+                  value={subjectType}
+                  onChange={(event) => setSubjectType(event.target.value as "account" | "s3_user")}
+                  size="compact"
+                >
+                  {SUBJECT_TYPES.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </UiSelect>
+                <MobileTableSort options={SORT_OPTIONS} field={sortBy} direction={sortDir} onFieldChange={setSortBy} onDirectionChange={setSortDir} />
+              </div>
+            }
           >
-            {subjectsError ? <PageBanner tone="error" className="mx-4 mb-4">{subjectsError}</PageBanner> : null}
+            {subjectsError ? <PageBanner tone="error">{subjectsError}</PageBanner> : null}
             <DataTableShell
               columns={subjectTableColumns}
               rows={subjects}

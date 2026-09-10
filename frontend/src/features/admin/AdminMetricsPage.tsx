@@ -25,7 +25,6 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { MetricsCard } from "../../components/MetricsCard";
 import MetricsTrafficOverview, { MetricsSnapshotCard, MetricsSummaryCard } from "../../components/MetricsTrafficOverview";
 import MetricsUnavailableCard from "../../components/MetricsUnavailableCard";
-import PageControlStrip from "../../components/PageControlStrip";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
@@ -260,11 +259,6 @@ export default function AdminMetricsPage() {
   }, [loadUsageStatsAggregate, selectedEndpointId]);
 
   const storageTotals = storage?.storage_totals;
-  const selectedEndpoint = useMemo(
-    () => endpoints.find((endpoint) => endpoint.id === selectedEndpointId) ?? null,
-    [endpoints, selectedEndpointId]
-  );
-
   const accountUsageItems = useMemo(
     () =>
       (storage?.account_usage ?? []).map((account) => ({
@@ -325,20 +319,13 @@ export default function AdminMetricsPage() {
         title="Usage & Metrics"
         description="Managed account usage composition, platform storage, and traffic analytics."
         breadcrumbs={adminPageBreadcrumbs("metrics")}
-      />
-      <PageControlStrip
-        label="Metrics scope"
-        title={selectedEndpoint?.name ?? (endpointLoading ? "Loading Ceph endpoints..." : "No Ceph endpoint selected")}
-        description="Choose the Ceph endpoint used for storage and traffic analytics."
-        controls={
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <UiSelect
+        rightContent={            <UiSelect
               label="Ceph endpoint"
-              hint="Only Ceph endpoints are eligible for this page."
               value={selectedEndpointId ?? ""}
               onChange={(event) => setSelectedEndpointId(event.target.value ? Number(event.target.value) : null)}
               disabled={endpointLoading || endpoints.length === 0}
-              fieldClassName="md:min-w-72"
+              fieldClassName="max-w-full sm:w-64"
+              className="ui-list-control"
               size="compact"
             >
               {endpointLoading && <option value="">Loading...</option>}
@@ -349,16 +336,7 @@ export default function AdminMetricsPage() {
                     {endpoint.is_default ? `${endpoint.name} (default)` : endpoint.name}
                   </option>
                 ))}
-            </UiSelect>
-          </div>
-        }
-        items={[
-          { label: "Endpoint URL", value: selectedEndpoint?.endpoint_url ?? "Unavailable", mono: Boolean(selectedEndpoint?.endpoint_url) },
-          { label: "Provider", value: selectedEndpoint?.provider?.toUpperCase() ?? "Unavailable" },
-          { label: "Selection", value: selectedEndpoint?.is_default ? "Default endpoint" : "Manual selection" },
-          { label: "Coverage", value: "Storage totals + RGW traffic" },
-        ]}
-        alerts={endpointError ? [{ tone: "warning", message: endpointError }] : []}
+            </UiSelect>}
       />
 
       {!endpointLoading && selectedEndpointId == null ? (

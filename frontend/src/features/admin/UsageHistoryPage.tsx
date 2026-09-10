@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   collectUsageHistory,
   listUsageHistory,
@@ -18,12 +18,12 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
-import PageControlStrip from "../../components/PageControlStrip";
+import InlineSummary from "../../components/InlineSummary";
+import MobileTableSort from "../../components/list/MobileTableSort";
 import PageShell from "../../components/PageShell";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
-import StatCards from "../../components/StatCards";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import UiButton from "../../components/ui/UiButton";
+import { ListActionButton } from "../../components/list/ListControls";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import {
@@ -290,37 +290,6 @@ export default function UsageHistoryPage() {
     subjectType,
   ]);
 
-  const selectedEndpoint = useMemo(
-    () => endpoints.find((endpoint) => endpoint.id === selectedEndpointId) ?? null,
-    [endpoints, selectedEndpointId]
-  );
-
-  const stats = useMemo(
-    () => [
-      {
-        label: "Snapshots",
-        value: formatCompactNumber(history?.summary.total_records ?? 0),
-        hint: `${granularity === "daily" ? "Daily" : "Hourly"} records in range`,
-      },
-      {
-        label: "Subjects",
-        value: formatCompactNumber(history?.summary.subjects_count ?? 0),
-        hint: "Distinct accounts and users",
-      },
-      {
-        label: "Latest collection",
-        value: formatDateTime(history?.summary.latest_collected_at),
-        hint: "Most recent stored snapshot",
-      },
-      {
-        label: "Max quota ratio",
-        value: formatPercentage(history?.summary.max_usage_ratio_pct),
-        hint: "Highest recorded usage ratio",
-      },
-    ],
-    [granularity, history]
-  );
-
   const tableStatus = resolveListTableStatus({
     loading: historyLoading,
     error: historyError,
@@ -370,26 +339,34 @@ export default function UsageHistoryPage() {
       description="Review quota usage trends for RGW accounts and users."
       breadcrumbs={adminPageBreadcrumbs("usage-history")}
       rightContent={
-        <UiButton
+        <ListActionButton
+          variant="primary"
           onClick={() => void handleCollect()}
           disabled={collectLoading}
           loading={collectLoading}
-          size="sm"
-          leftIcon={<RefreshIcon className={cx("h-3.5 w-3.5", collectLoading && "animate-spin")} />}
         >
+          <RefreshIcon aria-hidden="true" className={cx("h-3.5 w-3.5", collectLoading && "animate-spin")} />
           {collectLoading ? "Collecting..." : "Collect usage"}
-        </UiButton>
+        </ListActionButton>
       }
     >
 
-      <PageControlStrip controlPresentation="listing"
-        label="History scope"
-        title={selectedEndpoint?.name ?? "All endpoints"}
-        description="Filter the stored usage snapshots. Daily rows keep the latest usage for each day; hourly rows keep the exact collected quotas."
-        controls={
-          <div className="flex flex-wrap items-end gap-3">
+      {endpointsError ? <PageBanner tone="warning">{endpointsError}</PageBanner> : null}
+
+      {collectSuccess ? <PageBanner tone="success">{collectSuccess}</PageBanner> : null}
+      {collectWarning ? <PageBanner tone="warning">{collectWarning}</PageBanner> : null}
+      {collectError ? <PageBanner tone="error">{collectError}</PageBanner> : null}
+      {historyError ? <PageBanner tone="error">{historyError}</PageBanner> : null}
+
+      <ListPageSection
+        stackControlsOnMobile
+        title="Snapshots"
+        countLabel={`${history?.total ?? 0} record${history?.total === 1 ? "" : "s"}`}
+        filters={
+          <div className="flex min-w-0 flex-wrap items-end gap-2">
             <UiSelect
               label="Granularity"
+              title="Daily keeps the latest usage per day; hourly keeps each collected quota snapshot."
               value={granularity}
               onChange={(event) => setGranularity(event.target.value as UsageHistoryGranularity)}
               size="compact"
@@ -437,58 +414,16 @@ export default function UsageHistoryPage() {
               onChange={(event) => setEndDate(event.target.value)}
               size="compact"
             />
-            <UiSelect
-              label="Sort by"
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as UsageHistorySortBy)}
-              size="compact"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </UiSelect>
-            <UiSelect
-              label="Direction"
-              value={sortDir}
-              onChange={(event) => setSortDir(event.target.value as UsageHistorySortDir)}
-              size="compact"
-            >
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
-            </UiSelect>
-            <UiButton
-              variant="secondary"
-              size="sm"
-              onClick={() => setReloadToken((current) => current + 1)}
-              disabled={historyLoading}
-            >
-              Refresh
-            </UiButton>
+            <MobileTableSort options={SORT_OPTIONS} field={sortBy} direction={sortDir} onFieldChange={setSortBy} onDirectionChange={setSortDir} />
           </div>
         }
-        items={[
-          { label: "Endpoint URL", value: selectedEndpoint?.endpoint_url ?? "All endpoint data", mono: Boolean(selectedEndpoint?.endpoint_url) },
-          { label: "Granularity", value: granularity === "daily" ? "Daily snapshots" : "Hourly snapshots" },
-          { label: "Subject type", value: SUBJECT_TYPES.find((option) => option.value === subjectType)?.label ?? subjectType },
-          { label: "Range", value: `${startDate || "-"} to ${endDate || "-"}` },
-        ]}
-        alerts={endpointsError ? [{ tone: "warning", message: endpointsError }] : []}
-      />
-
-      {collectSuccess ? <PageBanner tone="success">{collectSuccess}</PageBanner> : null}
-      {collectWarning ? <PageBanner tone="warning">{collectWarning}</PageBanner> : null}
-      {collectError ? <PageBanner tone="error">{collectError}</PageBanner> : null}
-      {historyError ? <PageBanner tone="error">{historyError}</PageBanner> : null}
-
-      <StatCards stats={stats} columns={4} />
-
-      <ListPageSection
-          title="Snapshots"
-          description="Usage history rows stored by the quota monitor."
-          showHeading
-          countLabel={`${history?.total ?? 0} record${history?.total === 1 ? "" : "s"}`}
+        actions={<ListActionButton variant="secondary" onClick={() => setReloadToken((current) => current + 1)} disabled={historyLoading}>Refresh</ListActionButton>}
+        secondaryContent={
+          <InlineSummary items={[
+            { label: "Latest collection", value: historyLoading ? "Loading..." : formatDateTime(history?.summary.latest_collected_at) },
+            { label: "Max quota ratio", value: historyLoading ? "Loading..." : formatPercentage(history?.summary.max_usage_ratio_pct) },
+          ]} />
+        }
       >
         <DataTableShell
           columns={historyTableColumns}

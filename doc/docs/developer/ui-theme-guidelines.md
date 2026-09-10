@@ -32,9 +32,10 @@ The frontend theme is anchored by the shared shell and UI tokens in
   `uiTableContainerClass` before adding page-specific table classes.
   `components/list/listPresentation.css` owns the shared `--list-*` tokens;
   the former `manager-table` and `compact-table` style layers are retired.
-- Toolbars and filters: use `ListToolbar`, `PageControlStrip`,
+- Toolbars and filters: use `ListToolbar`,
   `uiToolbarClass`, `uiToolbarSecondaryClass`, shared compact toolbar classes,
   and `ActiveFiltersBar`.
+- Compact operational summaries: use `InlineSummary` for label/value pairs.
 - Buttons: use `UiButton`, `uiButtonBaseClass`, `uiButtonVariants`, or
   `uiIconButtonClass`; keep custom button chains for exceptional states only.
   In listings, use `ListActionButton`/`ListActionLink` and `ListActions` instead.
@@ -155,7 +156,7 @@ A page may set column widths, scrolling, grouped-row geometry or Browser
 density. It must not override action fonts, padding, corner radius or colors
 with local chains. Desktop `ListActions` stays on a single line; mobile groups
 wrap. `PageHeader`/`PageShell` opt in with `actionPresentation="listing"` and
-`PageControlStrip` with `controlPresentation="listing"`, so unrelated form
-headers and controls keep their existing appearance. See the
+page context inputs reuse `ui-list-control`, so unrelated form headers and
+controls keep their existing appearance. See the
 [presentation inventory](listing-presentation-inventory.md) for the exceptions
 and validation command.

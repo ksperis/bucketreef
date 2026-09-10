@@ -48,7 +48,7 @@ workspace-specific visual themes when a shared product pattern fits.
    Admin.
 
 4. Reuse shared primitives before styling locally.
-   Start from `PageHeader`, `PageTabs`, `ListToolbar`, `PageControlStrip`,
+   Start from `PageHeader`, `PageTabs`, `ListToolbar`, `InlineSummary`,
    `ActiveFiltersBar`, `DataTableShell`, `WorkflowPage`, `Modal`, `UiButton`, and
    the shared `ui-*` classes before adding page-specific class chains.
 
@@ -84,7 +84,8 @@ workspace-specific visual themes when a shared product pattern fits.
 | Page title, description, breadcrumbs, and primary actions | `PageHeader` | Keep primary actions top-level only when they start the main workflow for the page. |
 | Sibling page modes or metric sections | `PageTabs variant="line"` | Use the shared line baseline for top-level page navigation. Keep `bar` for compact embedded controls and `card` when the tab content is a contained tool. |
 | Lists and inventory pages | `DataTableShell`, `ui-data-table`, `uiTableContainerClass` | Keep tables compact. Use explicit empty and unavailable states. |
-| Search, filters, and column controls | `ListToolbar`, `PageControlStrip`, `ActiveFiltersBar`, shared compact toolbar classes | Advanced filters should not introduce frontend-only behavior unless the backend data is already present and bounded. |
+| Search, filters, and column controls | `ListToolbar`, `ActiveFiltersBar`, shared compact toolbar classes | Advanced filters should not introduce frontend-only behavior unless the backend data is already present and bounded. |
+| Useful operational summaries | `InlineSummary` | Keep label/value pairs compact, attach totals to their scope, and avoid repeating controls or result counts. |
 | Cards, panels, and page sections | `uiCardClass`, `uiPanelClass`, `uiCardMutedClass`, `uiPanelMutedClass` | Standard cards use 8px radius and soft/no shadows. Avoid decorative nesting. |
 | Forms and settings | `ui-control`, `uiLabelClass`, `SettingsSwitch`, `UiCheckboxField`, `UiDetails`, settings panels | Switches for on/off settings; checkboxes for multiple selections and acknowledgements. Compute dirty state from saveable fields only. |
 | Long operations and large forms | `WorkflowPage`, `WorkflowTabs`, `WorkflowSection`, `WorkflowActions`, `workflowPageHostClass` | Replace the current list content with a focused in-page workflow. Keep the page header full-width so its actions stay aligned with listing pages; apply `width` only to the left-aligned content wrapper and never center the form body. |
@@ -125,8 +126,8 @@ inventory, not to other tables.
 Use `DataTableShell` or the `ui-data-table` foundation for every table, including
 secondary tables in dialogs. Keep the content and specialized engines in their
 feature components. Use `ListActionButton`, `ListActionLink`, `ListActions` and
-`ListBadge`; listing headers opt in with `actionPresentation="listing"`, and
-`PageControlStrip` uses `controlPresentation="listing"` for its controls.
+`ListBadge`; listing headers opt in with `actionPresentation="listing"`.
+Page context inputs reuse `ui-list-control`.
 
 - Headers: normal case, 12px/18px, weight 600. Cells: 12px/18px, weight 400;
   principal identities use weight 500.
@@ -145,6 +146,40 @@ remain extensible. Mobile table cards must use automatic height. Defaults of
 `UiButton`, settings and other form controls are independent of this contract.
 See the [component inventory and validation map](listing-presentation-inventory.md)
 for every table, secondary surface and documented geometry exception.
+
+## Consultation headers and summaries
+
+Keep the page title, description and primary actions in `PageHeader`. Put list
+search and filters in `ListPageSection` / `ListToolbar`. Do not repeat selected
+filters, endpoint metadata or result counts in cards above the list.
+For toolbars with several filters, use `stackControlsOnMobile` to give controls
+the full width below the count on narrow screens.
+
+Controls that affect multiple sections remain at page level: Billing month and
+endpoint affect monthly totals and subjects; Endpoint Status filters latency,
+timelines and incidents together. Billing's subject type only filters the table.
+Admin metrics keeps its Ceph endpoint selector beside the page heading.
+
+Use `InlineSummary` for useful operational values (collection freshness, maximum
+quota usage, billing totals and coverage), without individual cards. Keep a
+single result count in the list toolbar, or in the tabs when they already count
+requests and sessions. Portal activity does not need a second overview.
+
+Sort through the table headers on desktop. `MobileTableSort` retains sorting
+below 768px, where responsive cards hide those headers. Audit action and status
+filters apply only to loaded entries; label that boundary explicitly and retain
+cursor-based loading. Do not turn an existing local filter into an implied
+server-wide search.
+
+Manual billing collection uses a closed `UiDetails` by default. Its progress,
+results, partial errors and coverage warnings stay outside the disclosure so
+closing it never hides operational feedback. Preserve feature-disabled, empty,
+permission and unavailable states, without presenting missing data as zero.
+
+`consultationVisualQa.spec.ts` exercises these seven routes with deterministic
+fixtures, desktop and mobile viewports, both themes, and Portal translations.
+Its screenshots are visual evidence with mocked APIs, not authenticated storage
+or permissions validation.
 
 ## Selection indicators and binary settings
 

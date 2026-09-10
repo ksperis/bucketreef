@@ -17,7 +17,6 @@ import {
 } from "../../api/healthchecks";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
-import PageControlStrip from "../../components/PageControlStrip";
 import PageShell from "../../components/PageShell";
 import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
@@ -34,7 +33,6 @@ import {
   formatLatency,
   formatPercent,
   formatTimestamp,
-  statusStatCardClasses,
   StatusPill,
 } from "./endpointStatusShared";
 
@@ -233,11 +231,6 @@ export default function EndpointStatusPage() {
     error: incidentsError,
     rowCount: incidentRows.length,
   });
-  const statusFilterTitle =
-    statusFilter === "all" ? "All endpoints" : `${statusFilter.charAt(0).toUpperCase()}${statusFilter.slice(1)} endpoints`;
-  const timelineWindowHelper = TIMELINE_WINDOW_OPTIONS.find((option) => option.value === timelineWindow)?.helper ?? "Last 7 days";
-  const incidentsWindowHelper =
-    INCIDENT_WINDOW_OPTIONS.find((option) => option.value === incidentWindow)?.helper ?? "Last 6 months";
   const incidentsCountLabel =
     statusFilter === "all"
       ? `${globalIncidentsTotal} incident${globalIncidentsTotal === 1 ? "" : "s"}${
@@ -321,44 +314,24 @@ export default function EndpointStatusPage() {
         { label: "Refresh", onClick: loadAll, variant: "ghost" },
       ]}
     >
-      <PageControlStrip controlPresentation="listing"
-        label="Global filter"
-        title={statusFilterTitle}
-        description="Filter the latency overview, timelines, and incidents by endpoint status."
-        controls={
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { key: "up" as const, label: "Up", value: stats.up },
-              { key: "degraded" as const, label: "Degraded", value: stats.degraded },
-              { key: "down" as const, label: "Down", value: stats.down },
-              { key: "unknown" as const, label: "Unknown", value: stats.unknown },
-            ].map((item) => {
-              const isActive = statusFilter === item.key;
-              const isDimmed = statusFilter !== "all" && !isActive;
-
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setStatusFilter((current) => (current === item.key ? "all" : item.key))}
-                  className={`rounded-lg border px-3 py-3 text-left shadow-[var(--ui-shadow-soft)] transition ${
-                    isActive ? "ring-2 ring-primary/40" : ""
-                  } ${isDimmed ? "opacity-65" : ""} ${statusStatCardClasses(item.key, item.value)}`}
-                >
-                  <p className="ui-caption font-medium opacity-80">{item.label}</p>
-                  <p className="mt-1.5 ui-title font-semibold">{item.value}</p>
-                </button>
-              );
-            })}
-          </div>
-        }
-        items={[
-          { label: "Updated", value: latencyUpdatedAt ? formatTimestamp(latencyUpdatedAt) : "Unavailable" },
-          { label: "Latency coverage", value: "Last 24 hours" },
-          { label: "Timeline window", value: timelineWindowHelper },
-          { label: "Incidents window", value: incidentsWindowHelper },
-        ]}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Global endpoint status filter">
+          {[
+            { key: "all" as const, label: "All", value: stats.total },
+            { key: "up" as const, label: "Up", value: stats.up },
+            { key: "degraded" as const, label: "Degraded", value: stats.degraded },
+            { key: "down" as const, label: "Down", value: stats.down },
+            { key: "unknown" as const, label: "Unknown", value: stats.unknown },
+          ].map((item) => (
+            <ListActionButton key={item.key} aria-pressed={statusFilter === item.key}
+              variant={item.value === 0 || latencyLoading || latencyError ? "secondary" : item.key === "down" ? "danger" : item.key === "degraded" ? "warning" : item.key === "up" ? "success" : "secondary"}
+              onClick={() => setStatusFilter((current) => current === item.key ? "all" : item.key)}>
+              {item.label} <span>{latencyLoading ? "…" : latencyError ? "—" : item.value}</span>
+            </ListActionButton>
+          ))}
+        </div>
+        <span className="text-xs text-[var(--ui-text-muted)]">Updated: {latencyLoading ? "Loading..." : latencyError ? "Unavailable" : latencyUpdatedAt ? formatTimestamp(latencyUpdatedAt) : "Unavailable"}</span>
+      </div>
 
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {actionError && <PageBanner tone="error">{actionError}</PageBanner>}
