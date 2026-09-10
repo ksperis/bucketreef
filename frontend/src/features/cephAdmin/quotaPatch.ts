@@ -54,6 +54,11 @@ export function buildCephAdminQuotaPatch<
   if (current.enabled !== initialEnabled) {
     patch[fields.enabled] = current.enabled;
   }
+  // Disabled fields do not express a request to clear RGW's stored limits.
+  // RGW accepts an enabled-only update and retains omitted limits.
+  if (!current.enabled) {
+    return patch as QuotaPatchResult<TEnabled, TMaxSize, TMaxObjects>;
+  }
   if (current.maxSizeBytes !== initialMaxSizeBytes) {
     patch[fields.maxSizeBytes] = current.maxSizeBytes;
   }

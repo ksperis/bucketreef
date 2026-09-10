@@ -7,6 +7,31 @@ import { describe, expect, it } from "vitest";
 import { buildCephAdminQuotaPatch } from "./quotaPatch";
 
 describe("buildCephAdminQuotaPatch", () => {
+  const userFields = {
+    enabled: "quota_enabled", maxSizeBytes: "quota_max_size_bytes", maxObjects: "quota_max_objects",
+  } as const;
+
+  it("disables a quota without clearing its stored limits", () => {
+    expect(buildCephAdminQuotaPatch(userFields,
+      { enabled: true, max_size_bytes: 1537, max_objects: 25 },
+      { enabled: false, maxSizeBytes: null, maxObjects: null },
+    )).toEqual({ quota_enabled: false });
+  });
+
+  it("omits unchanged disabled quotas even if the API includes stored limits", () => {
+    expect(buildCephAdminQuotaPatch(userFields,
+      { enabled: false, max_size_bytes: 1537, max_objects: 25 },
+      { enabled: false, maxSizeBytes: null, maxObjects: null },
+    )).toEqual({});
+  });
+
+  it("reenables a quota without resending unchanged limits", () => {
+    expect(buildCephAdminQuotaPatch(userFields,
+      { enabled: false, max_size_bytes: 1537, max_objects: 25 },
+      { enabled: true, maxSizeBytes: 1537, maxObjects: 25 },
+    )).toEqual({ quota_enabled: true });
+  });
+
   it("omits an untouched empty object quota when only the size changes", () => {
     const patch = buildCephAdminQuotaPatch(
       {
