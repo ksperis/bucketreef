@@ -21,11 +21,10 @@ import PageBanner from "../../components/PageBanner";
 import WorkflowPage from "../../components/WorkflowPage";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
-import { cx, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
-import UiProgressBar from "../../components/ui/UiProgressBar";
+import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { formatCompactNumber, formatNumber } from "../../utils/format";
-import { BucketOperationSummaryStat } from "./bucketOperationRunUi";
+import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat } from "./bucketOperationRunUi";
 import {
   buildStorageOpsBucketTargets,
   type BucketOperationUiTarget,
@@ -268,38 +267,25 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
           </PageBanner>
         )}
 
-        <div className="space-y-3 border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{targetLabel}</p>
-              <p className={cx("ui-caption", uiMutedTextClass)}>
-                {surfaceLabel(props)} - {contextLabel(props)}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {running ? (
-                <UiButton
-                  type="button"
-                  onClick={cancelPurge}
-                  variant="danger"
-                  size="sm"
-                >
-                  Cancel
-                </UiButton>
-              ) : (
-                <UiButton
-                  type="button"
-                  onClick={runPurge}
-                  disabled={targetCount === 0 || !confirmationValid}
-                  variant="danger"
-                  size="sm"
-                >
-                  {isDeleteMode ? "Delete bucket" : "Start purge"}
-                </UiButton>
-              )}
-            </div>
-          </div>
-
+        <BucketOperationSetup
+          targetLabel={targetLabel}
+          contextLabel={`${surfaceLabel(props)} - ${contextLabel(props)}`}
+          actions={running ? (
+            <UiButton type="button" onClick={cancelPurge} variant="danger" size="sm">
+              Cancel
+            </UiButton>
+          ) : (
+            <UiButton
+              type="button"
+              onClick={runPurge}
+              disabled={targetCount === 0 || !confirmationValid}
+              variant="danger"
+              size="sm"
+            >
+              {isDeleteMode ? "Delete bucket" : "Start purge"}
+            </UiButton>
+          )}
+        >
           {isDeleteMode ? (
             <PageBanner tone="warning">
               This deletes current objects, historical versions, and delete markers, then removes the bucket and its S3 configuration.
@@ -309,80 +295,62 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
               This empties the selected buckets by deleting current objects, historical versions, and delete markers. Buckets and bucket configuration are kept.
             </PageBanner>
           )}
-        </div>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_minmax(260px,360px)]">
-          <div className="rounded-lg border border-slate-200 dark:border-slate-800">
-            <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-800">
-              <p className="ui-caption font-semibold uppercase text-slate-500 dark:text-slate-400">Targets</p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_120px_minmax(0,360px)]">
+            <div className="min-w-0 rounded-md border border-[color:var(--ui-border-soft)] md:col-span-2 xl:col-span-1">
+              <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-800">
+                <p className="ui-caption font-semibold uppercase text-slate-500 dark:text-slate-400">Targets</p>
+              </div>
+              <div className="max-h-48 overflow-auto divide-y divide-slate-200 dark:divide-slate-800">
+                {props.targets.map((target) => (
+                  <div key={`${target.contextId ?? ""}:${target.bucketName}`} className="px-3 py-2">
+                    <p className="break-all ui-body font-semibold text-slate-900 dark:text-slate-100">{target.bucketName}</p>
+                    {(target.contextName || target.contextId) && (
+                      <p className={cx("ui-caption", uiMutedTextClass)}>{target.contextName || target.contextId}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="max-h-48 overflow-auto divide-y divide-slate-200 dark:divide-slate-800">
-              {props.targets.map((target) => (
-                <div key={`${target.contextId ?? ""}:${target.bucketName}`} className="px-3 py-2">
-                  <p className="break-all ui-body font-semibold text-slate-900 dark:text-slate-100">{target.bucketName}</p>
-                  {(target.contextName || target.contextId) && (
-                    <p className={cx("ui-caption", uiMutedTextClass)}>{target.contextName || target.contextId}</p>
-                  )}
-                </div>
-              ))}
-            </div>
+
+            <UiInput
+              size="compact"
+              label="Parallelism"
+              type="number"
+              min={1}
+              max={64}
+              value={parallelism}
+              disabled={running}
+              onChange={(event) => setParallelism(Number(event.target.value))}
+            />
+
+            <UiInput
+              size="compact"
+              label={`Type ${expectedConfirmation}`}
+              type="text"
+              value={confirmation}
+              disabled={running}
+              onChange={(event) => setConfirmation(event.target.value)}
+              className="font-mono"
+            />
           </div>
-
-          <UiInput
-            label="Parallelism"
-            type="number"
-            min={1}
-            max={64}
-            value={parallelism}
-            disabled={running}
-            onChange={(event) => setParallelism(Number(event.target.value))}
-          />
-
-          <UiInput
-            label={`Type ${expectedConfirmation}`}
-            type="text"
-            value={confirmation}
-            disabled={running}
-            onChange={(event) => setConfirmation(event.target.value)}
-            className="font-mono"
-          />
-        </div>
+        </BucketOperationSetup>
 
         {progress && (
-          <div className="border-y border-slate-200 py-3 dark:border-slate-800">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                {progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
-              </p>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                {progressEntriesLabel(progress)}
-              </p>
-            </div>
-            {progressPercent === null ? (
-              <div
-                className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
-                role="progressbar"
-                aria-label="Bucket purge progress"
-              >
-                <div className="h-full w-full animate-pulse rounded-full bg-rose-500/70" />
-              </div>
-            ) : (
-              <UiProgressBar
-                value={progressPercent}
-                label="Bucket purge progress"
-                className="mt-2 h-2 bg-slate-200 dark:bg-slate-800"
-                barClassName="bg-rose-600 transition-[width] duration-150 ease-out"
-              />
-            )}
-            <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-              {formatCompactNumber(progress.completed_buckets)} / {formatCompactNumber(progress.total_buckets)} buckets completed
-              {" - "}
-              {formatCompactNumber(progress.deleted_objects)} current object(s),{" "}
-              {formatCompactNumber(progress.deleted_versions)} version/delete marker entries
-              {!progress.total_entries_final ? " - Total still being discovered" : ""}
-              {progress.failed_count > 0 ? ` - ${formatCompactNumber(progress.failed_count)} error(s)` : ""}
-            </p>
-          </div>
+          <BucketOperationProgress
+            label="Bucket purge progress"
+            value={progressPercent}
+            stage={progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
+            metrics={<>{progressEntriesLabel(progress)}</>}
+            destructive
+          >
+            {formatCompactNumber(progress.completed_buckets)} / {formatCompactNumber(progress.total_buckets)} buckets completed
+            {" - "}
+            {formatCompactNumber(progress.deleted_objects)} current object(s),{" "}
+            {formatCompactNumber(progress.deleted_versions)} version/delete marker entries
+            {!progress.total_entries_final ? " - Total still being discovered" : ""}
+            {progress.failed_count > 0 ? ` - ${formatCompactNumber(progress.failed_count)} error(s)` : ""}
+          </BucketOperationProgress>
         )}
 
         {result && (

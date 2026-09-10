@@ -5,7 +5,7 @@
 import { cx } from "./styles";
 
 type UiProgressBarProps = {
-  value: number;
+  value: number | null;
   label?: string;
   showLabel?: boolean;
   className?: string;
@@ -19,7 +19,7 @@ export default function UiProgressBar({
   className,
   barClassName = "bg-primary",
 }: UiProgressBarProps) {
-  const width = Math.max(0, Math.min(100, value));
+  const width = value === null ? null : Math.max(0, Math.min(100, value));
   return (
     <>
       {showLabel ? <span className="sr-only">{label}</span> : null}
@@ -29,9 +29,12 @@ export default function UiProgressBar({
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={Math.round(width)}
+        aria-valuenow={width === null ? undefined : Math.round(width)}
       >
-        <div className={cx("h-full rounded-full", barClassName)} style={{ width: `${width}%` }} />
+        <div
+          className={cx("h-full rounded-full", width === null && "animate-pulse motion-reduce:animate-none", barClassName)}
+          style={{ width: `${width ?? 100}%` }}
+        />
       </div>
     </>
   );
