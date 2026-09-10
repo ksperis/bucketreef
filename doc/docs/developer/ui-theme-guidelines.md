@@ -131,7 +131,16 @@ pointer). Change these shared tokens instead of copying dimensions into page-spe
 may grow for translated labels; do not clip text or reduce mobile targets.
 
 Compact sections, inline status badges and the sticky action area use the
-existing surface, border, text and primary palette tokens. Branding previews
+existing surface, border, text and primary palette tokens. Page-level sticky
+action bars use `ui-page-sticky-actions`. While a bar is present outside a
+`hidden` tab, the main scrollport drops its bottom padding so `bottom: 0`
+reaches the visible edge without revealing scrolling content below the bar.
+Workflow panels also remove their bottom padding so the bar stays flush with
+the panel border at the end of the form, without negative bottom margins.
+Pages without a visible bar retain their normal bottom gutter; sidebar and
+dialog footers keep their own scroll containers. Validate at the top, middle
+and end of a long form, after switching tabs, and after cancelling a draft.
+Branding previews
 scope generated primary variables to their demonstration container; they must
 not call the global branding runtime until a server save succeeds. Check both
 light and dark themes and a custom accent. Switches represent binary settings;

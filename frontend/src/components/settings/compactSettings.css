@@ -154,9 +154,6 @@
   padding-top: var(--settings-section-gap);
 }
 .settings-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;

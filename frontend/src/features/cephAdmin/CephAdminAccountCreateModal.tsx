@@ -294,7 +294,7 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
           onObjectChange={setBucketQuotaObjects}
         />
 
-        <div className="sticky bottom-0 z-10 -mx-6 -mb-4 flex items-center justify-end gap-2 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] px-6 py-3">
+        <div className="ui-page-sticky-actions -mx-6 flex items-center justify-end gap-2 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] px-6 py-3">
           <UiButton variant="secondary" size="sm" onClick={closeGuard.requestClose}>
             Cancel
           </UiButton>

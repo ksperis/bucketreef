@@ -14,6 +14,17 @@
   display: none !important;
 }
 
+/* Scrollport padding offsets sticky footers; panel padding leaves them raised
+ * at the end of the form. A visible page action bar owns that bottom space. */
+:is(main.shell-page, .workflow-page-content):has(.ui-page-sticky-actions:not([hidden], [hidden] *)) {
+  padding-bottom: 0;
+}
+.ui-page-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
 :root {
   color-scheme: light;
   color: #0f172a;

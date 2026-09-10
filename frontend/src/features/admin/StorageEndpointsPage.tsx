@@ -1435,7 +1435,7 @@ export default function StorageEndpointsPage() {
             )}
 
             {(!configurationReadOnly || canEditEndpoints) && (
-              <WorkflowActions className="sticky bottom-0 z-10 bg-[var(--ui-surface)] py-3 shadow-[0_-8px_18px_-16px_rgba(15,23,42,0.45)]">
+              <WorkflowActions className="ui-page-sticky-actions bg-[var(--ui-surface)] py-3 shadow-[0_-8px_18px_-16px_rgba(15,23,42,0.45)]">
                 <UiButton variant="secondary" size="sm" onClick={formCloseGuard.requestClose}>
                   {configurationReadOnly ? "Back to endpoints" : "Cancel"}
                 </UiButton>
