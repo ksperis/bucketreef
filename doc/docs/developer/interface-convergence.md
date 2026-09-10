@@ -136,6 +136,42 @@ Delivery checks: 2,499 tests passed in the full frontend check; the final
 45 targeted tests and `npm run check:ci` also passed. All 12 routed scenarios
 and 30 workflow-host composition scenarios passed.
 
+## Connection endpoint forms
+
+Adding an existing key as a private S3 connection uses `SettingsDialog`, compact
+`SettingsSection` rows, canonical fields and `ModalActions`. The shared endpoint
+section applies the same labelled controls, source choices and responsive layout
+to Admin shared connections and profile private connections. Owner metadata wraps
+within the available width. Desktop controls stay compact; touch layouts retain
+44px targets.
+
+The key-import form initializes its draft synchronously on opening or changing
+the source, so an initialization effect cannot overwrite the first edit. Dirty
+tracking includes only active, saveable fields. A locked endpoint does not load
+the catalogue or create a false discard warning; returning to the original
+preset ignores inactive custom-field edits.
+
+A requested preset remains selected while the catalogue loads or fails. If it
+is unavailable, the form explains the problem and requires an explicit endpoint
+choice; a catalogue refresh never silently redirects the connection to another
+endpoint. Name, endpoint and workspace-access errors are associated with their
+fields and focus the first invalid control. Submission freezes the draft and
+all dismissal paths; a failed request preserves values for an identical retry.
+
+Existing endpoint-ID precedence, custom endpoint fields, workspace flags, owner
+metadata and supplied-key payloads are preserved. The UI uses the existing
+private-connection permission checks and does not create a parallel grant.
+
+Validation: 81 targeted tests and `npm run check:ci` passed. Twenty-eight
+component scenarios cover fixed ID/URL, custom, delayed, unavailable and failed
+catalogues, validation, immediate editing, pending requests and retries. Thirty
+routed scenarios exercise Ceph Admin user creation/key management, Admin shared
+connection creation/editing and profile private connection creation/editing.
+Both matrices cover desktop/mobile and light/dark, including 320px and short
+landscape component layouts. These fixtures validate rendering and request
+payloads with synthetic keys; they do not create live RGW users, keys or S3
+connections.
+
 ## Shared short-form fields
 
 API token name/expiry and Browser bucket/folder creation now use `UiInput`;

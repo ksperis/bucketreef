@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import ModalActions from "./ModalActions";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createConnection,
   listPrivateConnectionStorageEndpoints,
@@ -16,12 +16,11 @@ import { stableSignature } from "../utils/stableSignature";
 import S3ConnectionAccessFields from "../features/shared/S3ConnectionAccessFields";
 import S3ConnectionEndpointFields from "../features/shared/S3ConnectionEndpointFields";
 import type { S3ConnectionEndpointMode } from "../features/shared/s3ConnectionFormModel";
-import Modal from "./Modal";
-import UiButton from "./ui/UiButton";
+import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "./settings/SettingsControls";
+import { SettingsSection } from "./settings/SettingsLayout";
 import UiInlineMessage from "./ui/UiInlineMessage";
 import UiInput from "./ui/UiInput";
-import { cx, uiMutedTextClass, uiPanelMutedClass, uiTitleTextClass } from "./ui/styles";
-import { useUnsavedChangesGuard } from "./useUnsavedChangesGuard";
+import { focusFirstInvalidField } from "../utils/focusFirstInvalidField";
 
 type Props = {
   isOpen: boolean;
@@ -55,8 +54,39 @@ const normalizeEndpointUrl = (value?: string | null): string => (value || "").tr
 
 const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
 
-export default function AddS3ConnectionFromKeyModal({
-  isOpen,
+const INITIAL_CONNECTION_FORM = {
+  name: "",
+  endpoint_url: "",
+  region: "",
+  provider_hint: "",
+  force_path_style: false,
+  verify_tls: true,
+  access_manager: false,
+  access_browser: true,
+};
+
+function draftSignature(form: typeof INITIAL_CONNECTION_FORM, mode: S3ConnectionEndpointMode, endpointId: string, locked: boolean) {
+  return stableSignature({
+    name: form.name,
+    access_manager: form.access_manager,
+    access_browser: form.access_browser,
+    ...(!locked && (mode === "preset" ? { mode, endpointId } : {
+      mode, endpoint_url: form.endpoint_url, region: form.region, provider_hint: form.provider_hint,
+      force_path_style: form.force_path_style, verify_tls: form.verify_tls,
+    })),
+  });
+}
+
+export default function AddS3ConnectionFromKeyModal({ isOpen, ...props }: Props) {
+  if (!isOpen) return null;
+  const source = stableSignature([
+    props.defaultEndpointId, props.defaultEndpointUrl, props.defaultName, props.defaultRegion,
+    props.defaultProviderHint, props.defaultAccessManager, props.defaultAccessBrowser, props.lockEndpoint, props.accessKeyId,
+  ]);
+  return <ConnectionFromKeyForm key={source} {...props} />;
+}
+
+function ConnectionFromKeyForm({
   title = "Add as S3 Connection",
   zIndexClass,
   lockEndpoint = false,
@@ -73,7 +103,7 @@ export default function AddS3ConnectionFromKeyModal({
   defaultOwnerIdentifier,
   onClose,
   onCreated,
-}: Props) {
+}: Omit<Props, "isOpen">) {
   const normalizedDefaultEndpointUrl = normalizeEndpointUrl(defaultEndpointUrl);
   const hasFixedEndpoint = defaultEndpointId != null || Boolean(normalizedDefaultEndpointUrl);
   const endpointLocked = Boolean(lockEndpoint && hasFixedEndpoint);
@@ -81,59 +111,27 @@ export default function AddS3ConnectionFromKeyModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [endpointMode, setEndpointMode] = useState<S3ConnectionEndpointMode>("custom");
-  const [selectedEndpointId, setSelectedEndpointId] = useState("");
+  const [endpointMode, setEndpointMode] = useState<S3ConnectionEndpointMode>(defaultEndpointId != null ? "preset" : "custom");
+  const [selectedEndpointId, setSelectedEndpointId] = useState(defaultEndpointId != null ? String(defaultEndpointId) : "");
 
   const [endpoints, setEndpoints] = useState<PrivateConnectionStorageEndpoint[]>([]);
-  const [loadingEndpoints, setLoadingEndpoints] = useState(false);
+  const [loadingEndpoints, setLoadingEndpoints] = useState(!endpointLocked);
   const [endpointLoadError, setEndpointLoadError] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    name: "",
-    endpoint_url: "",
-    region: "",
-    provider_hint: "",
-    force_path_style: false,
-    verify_tls: true,
-    access_manager: false,
-    access_browser: true,
-  });
-  const [initialSignature, setInitialSignature] = useState("");
+  const [form, setForm] = useState(() => ({
+    ...INITIAL_CONNECTION_FORM,
+    name: defaultName,
+    endpoint_url: defaultEndpointUrl || "",
+    region: defaultRegion || "",
+    provider_hint: normalizeProviderHint(defaultProviderHint),
+    access_manager: Boolean(defaultAccessManager),
+    access_browser: defaultAccessBrowser !== false,
+  }));
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "endpointId" | "endpointUrl" | "access", string>>>({});
+  const nameRef = useRef<HTMLInputElement>(null);
+  const [initialSignature] = useState(() => draftSignature(form, endpointMode, selectedEndpointId, endpointLocked));
 
   useEffect(() => {
-    if (!isOpen) return;
-    setError(null);
-    setEndpointLoadError(null);
-    setSaving(false);
-    const nextEndpointMode: S3ConnectionEndpointMode = defaultEndpointId != null ? "preset" : "custom";
-    const nextSelectedEndpointId = defaultEndpointId != null ? String(defaultEndpointId) : "";
-    const nextForm = {
-      name: defaultName,
-      endpoint_url: defaultEndpointUrl || "",
-      region: defaultRegion || "",
-      provider_hint: normalizeProviderHint(defaultProviderHint),
-      force_path_style: false,
-      verify_tls: true,
-      access_manager: Boolean(defaultAccessManager),
-      access_browser: defaultAccessBrowser !== false,
-    };
-    setEndpointMode(nextEndpointMode);
-    setSelectedEndpointId(nextSelectedEndpointId);
-    setForm(nextForm);
-    setInitialSignature(stableSignature({ endpointMode: nextEndpointMode, selectedEndpointId: nextSelectedEndpointId, form: nextForm }));
-  }, [
-    defaultEndpointId,
-    defaultEndpointUrl,
-    defaultAccessBrowser,
-    defaultAccessManager,
-    defaultName,
-    defaultProviderHint,
-    defaultRegion,
-    isOpen,
-  ]);
-
-  useEffect(() => {
-    if (!isOpen) return;
     if (endpointLocked) {
       setEndpoints([]);
       setLoadingEndpoints(false);
@@ -162,35 +160,25 @@ export default function AddS3ConnectionFromKeyModal({
     return () => {
       cancelled = true;
     };
-  }, [endpointLocked, isOpen]);
+  }, [endpointLocked]);
 
-  useEffect(() => {
-    if (!isOpen || endpointMode !== "preset") return;
-    if (endpoints.length === 0) {
-      setEndpointMode("custom");
-      return;
-    }
-    if (selectedEndpointId && endpoints.some((ep) => String(ep.id) === selectedEndpointId)) {
-      return;
-    }
-    if (defaultEndpointId != null) {
-      const match = endpoints.find((ep) => ep.id === defaultEndpointId);
-      if (match) {
-        setSelectedEndpointId(String(match.id));
-        return;
-      }
-    }
-    const normalizedDefaultUrl = normalizeEndpointUrl(defaultEndpointUrl);
-    if (normalizedDefaultUrl) {
-      const match = endpoints.find((ep) => normalizeEndpointUrl(ep.endpoint_url) === normalizedDefaultUrl);
-      if (match) {
-        setSelectedEndpointId(String(match.id));
-        return;
-      }
-    }
-    const fallback = endpoints.find((ep) => ep.is_default) || endpoints[0];
-    setSelectedEndpointId(String(fallback.id));
-  }, [defaultEndpointId, defaultEndpointUrl, endpointMode, endpoints, isOpen, selectedEndpointId]);
+  const changeEndpointMode = (mode: S3ConnectionEndpointMode) => {
+    setEndpointMode(mode);
+    setFieldErrors((current) => ({ ...current, endpointId: undefined, endpointUrl: undefined }));
+    if (mode !== "preset" || endpoints.some((endpoint) => String(endpoint.id) === selectedEndpointId)) return;
+    const preferred = endpoints.find((endpoint) => endpoint.id === defaultEndpointId)
+      ?? endpoints.find((endpoint) => normalizeEndpointUrl(endpoint.endpoint_url) === normalizedDefaultEndpointUrl)
+      ?? endpoints.find((endpoint) => endpoint.is_default)
+      ?? endpoints[0];
+    setSelectedEndpointId(preferred ? String(preferred.id) : "");
+  };
+
+  const changeForm = <K extends keyof typeof INITIAL_CONNECTION_FORM>(field: K, value: typeof INITIAL_CONNECTION_FORM[K]) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    const errorField = field === "name" ? "name" : field === "endpoint_url" ? "endpointUrl"
+      : field === "access_manager" || field === "access_browser" ? "access" : undefined;
+    if (errorField) setFieldErrors((current) => ({ ...current, [errorField]: undefined }));
+  };
 
   const ownerSummary = useMemo(() => {
     if (!defaultOwnerType && !defaultOwnerIdentifier) return null;
@@ -199,38 +187,41 @@ export default function AddS3ConnectionFromKeyModal({
   }, [defaultOwnerIdentifier, defaultOwnerType]);
   const showEndpointSection = !endpointLocked;
   const currentSignature = useMemo(
-    () => stableSignature({ endpointMode, selectedEndpointId, form }),
-    [endpointMode, form, selectedEndpointId]
+    () => draftSignature(form, endpointMode, selectedEndpointId, endpointLocked),
+    [endpointMode, form, selectedEndpointId, endpointLocked]
   );
   const hasUnsavedChanges = Boolean(initialSignature) && currentSignature !== initialSignature;
-  const closeGuard = useUnsavedChangesGuard({
+  const closeGuard = useSettingsCloseGuard({
     hasUnsavedChanges,
     disabled: saving,
     onClose,
     zIndexClass: "z-[80]",
   });
 
-  const submit = async (e: FormEvent) => {
+  const waitingForPreset = !endpointLocked && endpointMode === "preset" && loadingEndpoints;
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (saving || waitingForPreset) return;
     const name = form.name.trim();
-    if (!name) {
-      setError("Name is required.");
+    const errors: typeof fieldErrors = {};
+    if (!name) errors.name = "Name is required.";
+    if (!endpointLocked && endpointMode === "preset" && !endpoints.some((endpoint) => String(endpoint.id) === selectedEndpointId)) {
+      errors.endpointId = "Select an available configured endpoint.";
+    }
+    if (!endpointLocked && endpointMode === "custom") {
+      if (!form.endpoint_url.trim()) errors.endpointUrl = "Endpoint URL is required for a custom endpoint.";
+      else if (e.currentTarget.querySelector<HTMLInputElement>('input[type="url"]')?.validity.typeMismatch) {
+        errors.endpointUrl = "Enter a valid endpoint URL.";
+      }
+    }
+    if (!form.access_manager && !form.access_browser) errors.access = "Enable access to manager and/or browser.";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      focusFirstInvalidField(e.currentTarget);
       return;
     }
     if (!accessKeyId.trim() || !secretAccessKey.trim()) {
       setError("Access key and secret key are required.");
-      return;
-    }
-    if (!endpointLocked && endpointMode === "preset" && !selectedEndpointId) {
-      setError("Select an existing endpoint.");
-      return;
-    }
-    if (!endpointLocked && endpointMode === "custom" && !form.endpoint_url.trim()) {
-      setError("Endpoint URL is required for a custom endpoint.");
-      return;
-    }
-    if (endpointLocked && !hasFixedEndpoint) {
-      setError("Endpoint is fixed by context but not available.");
       return;
     }
 
@@ -243,10 +234,6 @@ export default function AddS3ConnectionFromKeyModal({
 
     if (!resolvedStorageEndpointId && !resolvedEndpointUrl) {
       setError("Endpoint URL is required.");
-      return;
-    }
-    if (!form.access_manager && !form.access_browser) {
-      setError("Enable access to manager and/or browser.");
       return;
     }
 
@@ -278,84 +265,57 @@ export default function AddS3ConnectionFromKeyModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <Modal title={title} onClose={closeGuard.requestClose} maxWidthClass="max-w-3xl" zIndexClass={zIndexClass}>
-      <form className="space-y-4" onSubmit={submit}>
-        {error && (
-          <UiInlineMessage tone="error">
-            {error}
-          </UiInlineMessage>
-        )}
-        <section className={cx("space-y-3 px-3 py-3", uiPanelMutedClass)}>
+    <SettingsDialog title={title} onClose={closeGuard.requestClose} closeDisabled={saving}
+      initialFocusRef={nameRef} maxWidthClass="max-w-3xl" zIndexClass={zIndexClass}>
+      <form className="settings-form" onSubmit={submit} noValidate>
+        <fieldset disabled={saving} className="settings-stack min-w-0">
+          {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
           <div>
-            <div className={cx("ui-body font-semibold", uiTitleTextClass)}>Connection</div>
-            <div className={cx("ui-caption", uiMutedTextClass)}>This creates a private S3 connection (owner only).</div>
+            <SettingsSection title="Connection" description="This creates a private S3 connection (owner only)." presentation="compact">
+              <UiInput ref={nameRef} label="Name" value={form.name} error={fieldErrors.name}
+                onChange={(event) => changeForm("name", event.target.value)} required />
+            </SettingsSection>
+            {showEndpointSection && (
+              <S3ConnectionEndpointFields
+                mode={endpointMode}
+                onModeChange={changeEndpointMode}
+                modeInputName="add-s3-connection-endpoint-mode"
+                endpointId={selectedEndpointId}
+                onEndpointIdChange={(id) => { setSelectedEndpointId(id); setFieldErrors((current) => ({ ...current, endpointId: undefined })); }}
+                endpoints={endpoints}
+                loadingEndpoints={loadingEndpoints}
+                form={form}
+                onFormChange={(field, value) => {
+                  setForm((current) => ({ ...current, [field]: value }));
+                  if (field === "endpoint_url") setFieldErrors((current) => ({ ...current, endpointUrl: undefined }));
+                }}
+                endpointIdError={fieldErrors.endpointId}
+                endpointUrlError={fieldErrors.endpointUrl}
+                errorMessage={endpointLoadError ? `Endpoint list unavailable (${endpointLoadError}). Use custom endpoint mode.` : null}
+              />
+            )}
+            <SettingsSection title="Access" presentation="compact">
+              <S3ConnectionAccessFields
+                accessManager={form.access_manager}
+                accessBrowser={form.access_browser}
+                onAccessManagerChange={(checked) => changeForm("access_manager", checked)}
+                onAccessBrowserChange={(checked) => changeForm("access_browser", checked)}
+                ownerSummary={ownerSummary}
+                error={fieldErrors.access}
+                className="settings-fields"
+              />
+            </SettingsSection>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <UiInput
-              label="Name *"
-              fieldClassName="sm:col-span-2"
-              value={form.name}
-              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-              required
-            />
-          </div>
-        </section>
-
-        {showEndpointSection && (
-          <S3ConnectionEndpointFields
-            mode={endpointMode}
-            onModeChange={setEndpointMode}
-            modeInputName="add-s3-connection-endpoint-mode"
-            endpointId={selectedEndpointId}
-            onEndpointIdChange={setSelectedEndpointId}
-            endpoints={endpoints}
-            loadingEndpoints={loadingEndpoints}
-            form={form}
-            onFormChange={(field, value) =>
-              setForm((prev) => ({
-                ...prev,
-                [field]: value,
-              }))
-            }
-            errorMessage={
-              endpointLoadError
-                ? `Endpoint list unavailable (${endpointLoadError}). Use custom endpoint mode.`
-                : null
-            }
-          />
-        )}
-
-        <S3ConnectionAccessFields
-          accessManager={form.access_manager}
-          accessBrowser={form.access_browser}
-          onAccessManagerChange={(checked) => setForm((prev) => ({ ...prev, access_manager: checked }))}
-          onAccessBrowserChange={(checked) => setForm((prev) => ({ ...prev, access_browser: checked }))}
-          title="Access"
-          ownerSummary={ownerSummary}
-          variant="panel"
-        />
-
-        <ModalActions>
-          <UiButton
-            type="button"
-            onClick={closeGuard.requestClose}
-            disabled={saving}
-            variant="secondary"
-          >
-            Cancel
-          </UiButton>
-          <UiButton
-            type="submit"
-            disabled={saving}
-          >
-            {saving ? "Creating..." : "Create private connection"}
-          </UiButton>
-        </ModalActions>
+          <ModalActions>
+            <SettingsButton onClick={closeGuard.requestClose} variant="secondary">Cancel</SettingsButton>
+            <SettingsButton type="submit" disabled={waitingForPreset}>
+              {saving ? "Creating..." : "Create private connection"}
+            </SettingsButton>
+          </ModalActions>
+        </fieldset>
       </form>
       {closeGuard.confirmationDialog}
-    </Modal>
+    </SettingsDialog>
   );
 }
