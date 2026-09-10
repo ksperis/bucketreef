@@ -64,6 +64,10 @@
 }
 
 @media (max-width: 1023px), (any-pointer: coarse) {
+  .modal-body .ui-control {
+    min-height: 44px;
+  }
+
   .modal-actions > .ui-button-base,
   .modal-close {
     min-width: 44px;

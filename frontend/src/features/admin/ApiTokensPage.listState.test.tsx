@@ -125,6 +125,17 @@ describe("ApiTokensPage list states", () => {
     expect(screen.getByRole("button", { name: "Copy auth header" })).toBeInTheDocument();
   });
 
+  it("associates creation fields with their labels and expiration guidance", async () => {
+    render(<ApiTokensPage />);
+    await screen.findByText("No API tokens.");
+    fireEvent.click(screen.getByRole("button", { name: "Create token" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Create API token" }));
+    expect(dialog.getByRole("textbox", { name: "Token name" })).toBeRequired();
+    expect(dialog.getByRole("spinbutton", { name: "Expiry (days)" })).toHaveAccessibleDescription(
+      "Leave the default value unless you need a shorter or longer validity.",
+    );
+  });
+
   it("confirms token revocation with its scopes before calling the API", async () => {
     listApiTokensMock.mockResolvedValue([
       {

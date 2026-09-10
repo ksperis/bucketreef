@@ -16,6 +16,7 @@ type UiFieldProps = {
   hint?: ReactNode;
   error?: ReactNode;
   htmlFor?: string;
+  describedBy?: string;
   className?: string;
   labelClassName?: string;
   children: ReactNode | ((props: UiFieldRenderProps) => ReactNode);
@@ -26,6 +27,7 @@ export default function UiField({
   hint,
   error,
   htmlFor,
+  describedBy: externalDescription,
   className,
   labelClassName,
   children,
@@ -34,7 +36,7 @@ export default function UiField({
   const id = htmlFor ?? generatedId;
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
-  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
+  const describedBy = [hintId, errorId, externalDescription].filter(Boolean).join(" ") || undefined;
   const invalid = Boolean(error);
 
   return (

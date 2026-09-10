@@ -22,17 +22,18 @@ type UiTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
 };
 
 const UiTextarea = forwardRef<HTMLTextAreaElement, UiTextareaProps>(function UiTextarea(
-  { label, hint, error, fieldClassName, className, id, size = "md", ...props },
+  { label, hint, error, fieldClassName, className, id, size = "md",
+    "aria-describedby": describedBy, "aria-invalid": ariaInvalid, ...props },
   ref
 ) {
   return (
-    <UiField label={label} hint={hint} error={error} htmlFor={id} className={fieldClassName}>
+    <UiField label={label} hint={hint} error={error} htmlFor={id} describedBy={describedBy} className={fieldClassName}>
       {({ id: resolvedId, describedBy, invalid }) => (
         <textarea
           id={resolvedId}
           ref={ref}
           aria-describedby={describedBy}
-          aria-invalid={invalid || undefined}
+          aria-invalid={invalid || ariaInvalid}
           className={cx(uiInputClass, uiTextareaSizeClasses[size], className)}
           {...props}
         />

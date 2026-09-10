@@ -389,6 +389,10 @@ body {
     outline: none;
   }
 
+  .ui-control[aria-invalid="true"] {
+    border-color: var(--ui-danger);
+  }
+
   .ui-button-base {
     @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 ui-caption font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
   }

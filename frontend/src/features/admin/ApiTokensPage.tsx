@@ -19,6 +19,7 @@ import {
 import ListPageSection from "../../components/list/ListPageSection";
 import Modal from "../../components/Modal";
 import UiButton from "../../components/ui/UiButton";
+import UiInput from "../../components/ui/UiInput";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
@@ -29,7 +30,7 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { toolbarCompactToggleClasses } from "../../components/toolbarControlClasses";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiCheckboxClass, uiInputClass } from "../../components/ui/styles";
+import { cx, uiButtonBaseClass, uiButtonVariants, uiCheckboxClass, uiLabelClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import { stableSignature } from "../../utils/stableSignature";
@@ -435,20 +436,17 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
             <p className="ui-caption text-slate-500 dark:text-slate-400">
               Create a long-lived JWT token for automation (Ansible, CI, scripts). The token secret will be shown once.
             </p>
-            <div className="space-y-1">
-              <label className="ui-body font-medium text-slate-700 dark:text-slate-200">Token name</label>
-              <input
-                type="text"
-                value={tokenName}
-                onChange={(event) => setTokenName(event.target.value)}
-                placeholder="ansible-production"
-                maxLength={128}
-                className={uiInputClass}
-                required
-              />
-            </div>
+            <UiInput
+              label="Token name"
+              type="text"
+              value={tokenName}
+              onChange={(event) => setTokenName(event.target.value)}
+              placeholder="ansible-production"
+              maxLength={128}
+              required
+            />
             <fieldset className="space-y-2">
-              <legend className="ui-body font-medium text-slate-700 dark:text-slate-200">Scopes</legend>
+              <legend className={uiLabelClass}>Scopes</legend>
               <div className="grid grid-cols-2 gap-2">
                 {API_SCOPES.map((scope) => (
                   <label key={scope} className="flex items-center gap-2 ui-caption text-slate-700 dark:text-slate-200">
@@ -465,20 +463,15 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
                 ))}
               </div>
             </fieldset>
-            <div className="space-y-1">
-              <label className="ui-body font-medium text-slate-700 dark:text-slate-200">Expiry (days)</label>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={expiresInDays}
-                onChange={(event) => setExpiresInDays(event.target.value)}
-                className={uiInputClass}
-              />
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Leave the default value unless you need a shorter or longer validity.
-              </p>
-            </div>
+            <UiInput
+              label="Expiry (days)"
+              type="number"
+              min={1}
+              step={1}
+              value={expiresInDays}
+              onChange={(event) => setExpiresInDays(event.target.value)}
+              hint="Leave the default value unless you need a shorter or longer validity."
+            />
             {formError && <PageBanner tone="error">{formError}</PageBanner>}
             <ModalActions>
               <UiButton
