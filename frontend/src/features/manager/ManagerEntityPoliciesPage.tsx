@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import ListPageSection from "../../components/list/ListPageSection";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -15,6 +15,8 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import InlinePolicyEditor from "./InlinePolicyEditor";
+import UiSelect from "../../components/ui/UiSelect";
+import { SettingsButton } from "../../components/settings/SettingsControls";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 
@@ -163,7 +165,7 @@ export default function ManagerEntityPoliciesPage({
 
   const handleAttach = async (event: FormEvent) => {
     event.preventDefault();
-    if (needsS3AccountSelection || !rawEntityName || !selectedArn) return;
+    if (needsS3AccountSelection || !rawEntityName || !selectedArn || busy !== null || loading) return;
     const policy = available.find((candidate) => candidate.arn === selectedArn);
     if (!policy) return;
     setBusy("attach");
@@ -210,10 +212,10 @@ export default function ManagerEntityPoliciesPage({
     });
   };
 
-  const loadInlinePolicies = async () => {
+  const loadInlinePolicies = useCallback(async () => {
     if (!rawEntityName || needsS3AccountSelection) return [];
     return listInlinePoliciesForEntity(accountIdForApi, rawEntityName);
-  };
+  }, [accountIdForApi, listInlinePoliciesForEntity, needsS3AccountSelection, rawEntityName]);
 
   const saveInlinePolicy = async (name: string, document: Record<string, unknown>) => {
     if (!rawEntityName) return;
@@ -283,12 +285,12 @@ export default function ManagerEntityPoliciesPage({
     entityType === "role"
       ? (
         <>
-          Attach/detach policies for role <span className="font-semibold text-slate-700 dark:text-slate-100">{decodedEntity}</span>.
+          Attach/detach policies for role <span className="font-semibold text-slate-700 dark:text-slate-100 [overflow-wrap:anywhere]">{decodedEntity}</span>.
         </>
       )
       : (
         <>
-          Attach/detach policies for <span className="font-semibold text-slate-700 dark:text-slate-100">{decodedEntity}</span>.
+          Attach/detach policies for <span className="font-semibold text-slate-700 dark:text-slate-100 [overflow-wrap:anywhere]">{decodedEntity}</span>.
         </>
       );
 
@@ -314,7 +316,7 @@ export default function ManagerEntityPoliciesPage({
         <PageBanner tone="warning">No IAM policies available. Create one before attaching to this {config.singularLabel}.</PageBanner>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="settings-compact settings-stack">
         <InlinePolicyEditor
           entityLabel={config.singularLabel}
           entityName={decodedEntity}
@@ -326,43 +328,36 @@ export default function ManagerEntityPoliciesPage({
           key={`${config.singularLabel}-inline-${accountIdForApi ?? "none"}-${rawEntityName ?? ""}`}
         />
 
-        <ListPageSection variant="section" title="Attached Policies" description={`Attach/detach managed policies for this ${config.singularLabel}.`}>
-          <div className="space-y-3 px-4 py-3">
-            <form onSubmit={handleAttach} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <select
-                value={selectedArn}
-                onChange={(event) => setSelectedArn(event.target.value)}
-                className="flex-1 rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              >
-                <option value="">Select a policy to attach</option>
-                {options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                disabled={busy !== null || !selectedArn}
-                className="rounded-md bg-primary px-3 py-1.5 ui-caption font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-              >
-                {busy === "attach" ? "Attaching..." : "Attach"}
-              </button>
+        <SettingsSection presentation="compact" title="Attached policies" description={`Attach/detach managed policies for this ${config.singularLabel}.`}>
+          <div className="settings-stack">
+            <form aria-label="Attach managed policy" onSubmit={handleAttach} className="settings-fields">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1">
+                  <UiSelect label="Managed policy" value={selectedArn} onChange={(event) => setSelectedArn(event.target.value)}
+                    disabled={busy !== null || loading}>
+                    <option value="">Select a policy to attach</option>
+                    {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </UiSelect>
+                </div>
+                <SettingsButton type="submit" disabled={busy !== null || loading || !selectedArn}>
+                  {busy === "attach" ? "Attaching..." : "Attach"}
+                </SettingsButton>
+              </div>
+              <p className="settings-description">Policies must be created first in the Policies tab.</p>
             </form>
-            <p className="ui-caption text-slate-500 dark:text-slate-400">Policies must be created first in the Policies tab.</p>
+            <DataTableShell
+              columns={attachedPolicyColumns}
+              rows={attached}
+              rowKey={(policy) => policy.arn}
+              status={tableStatus}
+              loadingMessage="Loading policies..."
+              errorMessage="Unable to load policies."
+              emptyMessage="No attached policies."
+              tableClassName="ui-data-table"
+              responsiveCards
+            />
           </div>
-          <DataTableShell
-            columns={attachedPolicyColumns}
-            rows={attached}
-            rowKey={(policy) => policy.arn}
-            status={tableStatus}
-            loadingMessage="Loading policies..."
-            errorMessage="Unable to load policies."
-            emptyMessage="No attached policies."
-            tableClassName="ui-data-table"
-            responsiveCards
-          />
-        </ListPageSection>
+        </SettingsSection>
       </div>
       {policyConfirmation.confirmationDialog}
     </PageShell>

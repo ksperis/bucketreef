@@ -105,7 +105,7 @@ export default function PageHeader({
             className={cx("mb-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold leading-4", uiMutedTextClass)}
           >
             {breadcrumbs.map((bc, idx) => (
-              <span key={`${bc.label}-${idx}`} className="flex items-center gap-1.5">
+              <span key={`${bc.label}-${idx}`} className="flex min-w-0 max-w-full items-center gap-1.5 [overflow-wrap:anywhere]">
                 {bc.to && inRouterContext ? (
                   <Link
                     to={bc.to}
@@ -125,7 +125,7 @@ export default function PageHeader({
                 ) : (
                   <span aria-current={idx === breadcrumbs.length - 1 ? "page" : undefined}>{bc.label}</span>
                 )}
-                {idx < breadcrumbs.length - 1 && <span className="opacity-55">/</span>}
+                {idx < breadcrumbs.length - 1 && <span className="shrink-0 opacity-55">/</span>}
               </span>
             ))}
           </nav>
