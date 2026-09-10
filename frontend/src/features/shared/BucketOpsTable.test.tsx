@@ -33,7 +33,7 @@ const columns: BucketOpsTableColumn[] = [
 const bucket = { name: "archive", tenant: "tenant-a", used_bytes: 42 };
 
 describe("BucketOpsTable", () => {
-  it("renders sticky columns, detail loading state, and available sorting", () => {
+  it("marks identity columns for responsive pinning and preserves loading and sorting", () => {
     const onSort = vi.fn();
     const { container } = render(
       <BucketOpsTable
@@ -53,12 +53,10 @@ describe("BucketOpsTable", () => {
 
     expect(onSort).toHaveBeenCalledWith("name");
     expect(screen.getByRole("columnheader", { name: "Select all" })).toHaveClass(
-      "sticky",
-      "left-0",
+      "bucket-ops-table-select",
     );
     expect(screen.getByText("archive").closest("td")).toHaveClass(
-      "sticky",
-      "left-10",
+      "bucket-ops-table-name",
     );
     expect(screen.getByRole("columnheader", { name: "Used" })).toHaveClass(
       "animate-pulse",
@@ -68,6 +66,7 @@ describe("BucketOpsTable", () => {
       "bg-amber-100/70",
     );
     expect(container.firstElementChild).toHaveClass("overflow-x-hidden");
+    expect(screen.getByRole("region", { name: "Bucket list" })).toHaveAttribute("tabindex", "-1");
   });
 
   it("disables statistics sorting when usage data is unavailable", () => {
@@ -90,6 +89,7 @@ describe("BucketOpsTable", () => {
         "button",
       ),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Bucket list" })).toHaveAttribute("tabindex", "0");
   });
 
   it.each([

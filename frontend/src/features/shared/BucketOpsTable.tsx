@@ -9,6 +9,7 @@ import SortableHeader from "../../components/SortableHeader";
 import TableEmptyState from "../../components/TableEmptyState";
 import type { SortField } from "./bucketOpsListState";
 import { isStatsSortField } from "./bucketOpsPresentation";
+import "./bucketOpsTable.css";
 
 export type BucketOpsTableColumn = {
   id: string;
@@ -36,14 +37,11 @@ type BucketOpsTableProps = {
 
 const expensiveColumnClass = "bg-amber-50/60 dark:bg-amber-900/20";
 const defaultColumnMinWidthClass = "min-w-[9rem]";
-const stickySelectHeaderClass =
-  "sticky left-0 z-40 bg-slate-100 dark:bg-slate-900 shadow-[inset_-1px_0_0_rgba(100,116,139,0.45),10px_0_14px_-12px_rgba(15,23,42,0.4)] dark:shadow-[inset_-1px_0_0_rgba(51,65,85,0.9),10px_0_14px_-12px_rgba(2,6,23,0.85)]";
-const stickyNameHeaderClass =
-  "sticky left-10 z-30 bg-slate-100 dark:bg-slate-900 shadow-[inset_-1px_0_0_rgba(100,116,139,0.45),12px_0_16px_-12px_rgba(15,23,42,0.45)] dark:shadow-[inset_-1px_0_0_rgba(51,65,85,0.9),12px_0_16px_-12px_rgba(2,6,23,0.85)]";
-const stickySelectCellClass =
-  "sticky left-0 z-20 bg-white dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-900 shadow-[inset_-1px_0_0_rgba(100,116,139,0.45),10px_0_14px_-12px_rgba(15,23,42,0.4)] dark:shadow-[inset_-1px_0_0_rgba(51,65,85,0.9),10px_0_14px_-12px_rgba(2,6,23,0.85)]";
-const stickyNameCellClass =
-  "sticky left-10 z-10 bg-white dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-900 shadow-[inset_-1px_0_0_rgba(100,116,139,0.45),12px_0_16px_-12px_rgba(15,23,42,0.45)] dark:shadow-[inset_-1px_0_0_rgba(51,65,85,0.9),12px_0_16px_-12px_rgba(2,6,23,0.85)]";
+function pinnedColumnClass(columnId: string) {
+  if (columnId === "select") return "bucket-ops-table-select";
+  if (columnId === "name") return "bucket-ops-table-name";
+  return "";
+}
 
 function headerClassName(
   column: BucketOpsTableColumn,
@@ -58,13 +56,7 @@ function headerClassName(
     loadingDetails && detailLoadingColumnIds.has(column.id)
       ? "animate-pulse"
       : "";
-  const stickyClass =
-    column.id === "select"
-      ? stickySelectHeaderClass
-      : column.id === "name"
-        ? stickyNameHeaderClass
-        : "";
-  return `${minWidthClass} ${column.headerClassName ?? ""} ${column.expensive ? expensiveColumnClass : ""} ${detailLoadingClass} ${stickyClass}`;
+  return `${minWidthClass} ${column.headerClassName ?? ""} ${column.expensive ? expensiveColumnClass : ""} ${detailLoadingClass} ${pinnedColumnClass(column.id)}`;
 }
 
 function cellClassName(
@@ -91,13 +83,7 @@ function cellClassName(
         ? "animate-pulse bg-amber-100/70 dark:bg-amber-900/30"
         : "animate-pulse bg-slate-100/70 dark:bg-slate-800/60"
       : "";
-  const stickyClass =
-    column.id === "select"
-      ? stickySelectCellClass
-      : column.id === "name"
-        ? stickyNameCellClass
-        : "";
-  return `${cellBase} ${textClass} ${column.cellClassName ?? ""} ${column.expensive ? expensiveColumnClass : ""} ${detailLoadingCellClass} ${stickyClass}`;
+  return `${cellBase} ${textClass} ${column.cellClassName ?? ""} ${column.expensive ? expensiveColumnClass : ""} ${detailLoadingCellClass} ${pinnedColumnClass(column.id)}`;
 }
 
 export default function BucketOpsTable({
@@ -112,7 +98,12 @@ export default function BucketOpsTable({
   usageFeatureEnabled,
 }: BucketOpsTableProps) {
   return (
-    <div className={showAdvancedFilter ? "overflow-x-hidden" : "overflow-x-auto"}>
+    <div
+      role="region"
+      aria-label="Bucket list"
+      tabIndex={showAdvancedFilter ? -1 : 0}
+      className={`bucket-ops-table-scroll ${showAdvancedFilter ? "overflow-x-hidden" : "overflow-x-auto"}`}
+    >
       <table className="ui-data-table !table-auto !w-max min-w-full divide-y divide-slate-200 dark:divide-slate-800">
         <thead className="bg-slate-50 dark:bg-slate-900/50">
           <tr>

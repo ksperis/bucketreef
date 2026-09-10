@@ -1,0 +1,31 @@
+.bucket-ops-table-scroll {
+  container: bucket-ops-table / inline-size;
+  min-width: 0;
+}
+
+.bucket-ops-table-scroll:focus-visible {
+  outline: 2px solid var(--ui-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Pin identity only when it leaves room to read the scrolling columns. */
+@container bucket-ops-table (min-width: 640px) {
+  .bucket-ops-table-select,
+  .bucket-ops-table-name {
+    position: sticky;
+    box-shadow: 1px 0 0 var(--ui-border-soft);
+  }
+
+  .bucket-ops-table-select { left: 0; z-index: 2; }
+  .bucket-ops-table-name { left: 40px; z-index: 1; }
+  th.bucket-ops-table-select { z-index: 4; }
+  th.bucket-ops-table-name { z-index: 3; }
+
+  td:is(.bucket-ops-table-select, .bucket-ops-table-name) {
+    background: var(--ui-surface);
+  }
+
+  tr:hover > td:is(.bucket-ops-table-select, .bucket-ops-table-name) {
+    background: var(--ui-hover);
+  }
+}
