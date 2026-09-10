@@ -107,6 +107,18 @@ full-screen surface below 1024px. Keep the header limited to the resource name,
 path, actions, tabs, and actual warnings/status; do not repeat object metadata
 under the tabs.
 
+## Compact configuration inventories
+
+For configuration inventories such as Admin S3 endpoints, keep the compact
+shared table and its existing detail page. Summarize identity, connection
+configuration and enabled services; leave technical addresses and credentials
+in the editor. An enabled service is configuration, not proof of live health.
+Keep at most two tags and three service badges before a remainder count.
+When row actions stay visible, order them **Set as default**, **Edit/View**,
+**Delete** and retain the shared default-row action behavior. Row geometry and
+28px normal-weight actions are opt-in; touch targets remain at least 44px.
+Do not change other inventory layouts to adopt these dimensions implicitly.
+
 ## Selection indicators and binary settings
 
 - `PageTabs variant="line"` uses a 3px primary-color underline, accented text,

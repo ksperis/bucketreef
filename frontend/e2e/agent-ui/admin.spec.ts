@@ -2,6 +2,27 @@ import { expect, test } from "@playwright/test";
 
 import { collectApplicationErrors } from "../helpers/application-errors";
 
+test("keeps the compact endpoint inventory authenticated and preserves filters through its editor", async ({ page }, testInfo) => {
+  const errors = collectApplicationErrors(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/admin/storage-endpoints");
+  await expect(page.getByRole("heading", { name: "S3 Endpoints" })).toBeVisible();
+  await expect(page.locator("tbody tr").first().locator(".endpoint-name")).toBeVisible();
+  const name = await page.locator(".endpoint-name").first().innerText();
+  await page.getByRole("searchbox", { name: "Search" }).fill(name);
+  await page.locator(".endpoint-actions [data-table-default-action]").first().click();
+  await expect(page.getByRole("tab")).toHaveCount(3);
+  await page.getByRole("tab", { name: "Credentials", exact: true }).click();
+  await page.getByRole("tab", { name: "Capabilities & health", exact: true }).click();
+  await page.getByRole("button", { name: "Back to endpoints", exact: true }).first().click();
+  await expect(page.getByRole("searchbox", { name: "Search" })).toHaveValue(name);
+  await page.screenshot({ path: testInfo.outputPath("endpoints-authenticated.png") });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "S3 Endpoints" })).toBeVisible();
+  expect((await page.request.get("/api/auth/session")).ok()).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test("keeps an authenticated administrator session across reloads", async ({
   page,
 }) => {

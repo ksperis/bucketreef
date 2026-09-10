@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cx, uiCheckboxClass } from "../../components/ui/styles";
 import {
@@ -24,16 +24,10 @@ import PageHeader from "../../components/PageHeader";
 import PageTabs from "../../components/PageTabs";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
-import ListPageSection from "../../components/list/ListPageSection";
-import DataTableShell, {
-  dataTableDefaultActionProps,
-  type DataTableColumn,
-} from "../../components/list/DataTableShell";
-import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiTagEditor from "../../components/UiTagEditor";
 import UiButton from "../../components/ui/UiButton";
+import { SettingsButton } from "../../components/settings/SettingsControls";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
@@ -57,29 +51,13 @@ import {
   EMPTY_STORAGE_ENDPOINT_FORM,
   normalizeAwsRegion,
   parseCoordinateInput,
-  resolveFeatureState,
-  type FeatureKey,
   type FeaturesState,
   type FormState,
 } from "./storageEndpointFormModel";
 
-type EndpointEditorTab = "general" | "credentials" | "capabilities";
-const ENDPOINT_LIST_FEATURES: Array<{ key: FeatureKey; label: string }> = [
-  { key: "admin", label: "Admin" },
-  { key: "account", label: "Account API" },
-  { key: "usage", label: "Usage Log" },
-  { key: "metrics", label: "Metrics" },
-  { key: "sns", label: "SNS" },
-  { key: "sts", label: "STS" },
-  { key: "static_website", label: "Static website" },
-  { key: "iam", label: "IAM" },
-  { key: "sse", label: "SSE" },
-  { key: "replication", label: "Replication" },
-  { key: "healthcheck", label: "Healthcheck" },
-];
+import StorageEndpointList, { type EndpointListFilters } from "./StorageEndpointList";
 
-const endpointInlineCodeClass =
-  "rounded bg-[var(--ui-surface-muted)] px-2 py-1 ui-caption text-[var(--ui-text)]";
+type EndpointEditorTab = "general" | "credentials" | "capabilities";
 const endpointToggleCardClass =
   "flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 ui-caption font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 const endpointToggleCardDisabledClass = cx(endpointToggleCardClass, "opacity-70");
@@ -116,74 +94,6 @@ function isMethodNotAllowedError(message?: string | null): boolean {
   return normalized.includes("405") || normalized.includes("methodnotallowed") || normalized.includes("method not allowed");
 }
 
-function ProviderBadge({ provider }: { provider: StorageProvider }) {
-  const classes =
-    provider === "ceph"
-      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100"
-      : provider === "aws"
-        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100"
-        : "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-100";
-  const label = provider === "ceph" ? "Ceph" : provider === "aws" ? "AWS" : "Other";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ui-caption font-semibold ${classes}`}
-    >
-      {label}
-    </span>
-  );
-}
-
-function LockBadge({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 ui-caption font-semibold text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
-      🔒 {label}
-    </span>
-  );
-}
-
-function StatusBadge({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 ui-caption font-semibold text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
-      {label}
-    </span>
-  );
-}
-
-function FeatureBadge({ label, enabled }: { label: string; enabled: boolean }) {
-  return (
-    <span
-      className={cx(
-        "rounded-full px-2 py-0.5 ui-caption font-semibold",
-        enabled
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100"
-          : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-      )}
-    >
-      {label} {enabled ? "on" : "off"}
-    </span>
-  );
-}
-
-function CredentialSummary({
-  accessKey,
-  hasSecret,
-  emptyLabel = "Not set",
-}: {
-  accessKey?: string | null;
-  hasSecret?: boolean;
-  emptyLabel?: string;
-}) {
-  if (!accessKey && !hasSecret) {
-    return <span className="font-semibold text-slate-500 dark:text-slate-400">{emptyLabel}</span>;
-  }
-  return (
-    <span className="font-semibold text-[var(--ui-text)]">
-      {accessKey || "-"}
-      {hasSecret && <span className="ml-1 text-emerald-600 dark:text-emerald-300">(secret stored)</span>}
-    </span>
-  );
-}
-
 function StoredSecretStatus({ label, stored }: { label: string; stored: boolean }) {
   return (
     <div className="space-y-1">
@@ -195,21 +105,6 @@ function StoredSecretStatus({ label, stored }: { label: string; stored: boolean 
   );
 }
 
-function DetailLine({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-      <span className="font-semibold text-slate-600 dark:text-slate-300">{label}:</span>
-      {children}
-    </p>
-  );
-}
-
 export default function StorageEndpointsPage() {
   const navigate = useNavigate();
   const { endpointId: endpointIdParam } = useParams();
@@ -218,6 +113,10 @@ export default function StorageEndpointsPage() {
   const canEditEndpoints = isSuperAdminRole(currentUser?.role);
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [envManaged, setEnvManaged] = useState(false);
+  const [metadataReady, setMetadataReady] = useState(false);
+  const mutationPending = useRef(false);
+  const closingForm = useRef(false);
+  const [listFilters, setListFilters] = useState<EndpointListFilters>({ query: "", mode: "contains", provider: "all" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -258,16 +157,16 @@ export default function StorageEndpointsPage() {
   const loadEndpoints = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const [data, meta] = await Promise.all([listStorageEndpoints(), fetchStorageEndpointsMeta()]);
-      setEndpoints(data);
-      setEnvManaged(Boolean(meta.managed_by_env));
-    } catch (err) {
-      setError(extractError(err));
-      setEnvManaged(false);
-    } finally {
-      setLoading(false);
+    setMetadataReady(false);
+    const [data, meta] = await Promise.allSettled([listStorageEndpoints(), fetchStorageEndpointsMeta()]);
+    if (data.status === "fulfilled") setEndpoints(data.value);
+    if (meta.status === "fulfilled") {
+      setEnvManaged(Boolean(meta.value.managed_by_env));
+      setMetadataReady(true);
     }
+    if (data.status === "rejected") setError(extractError(data.reason));
+    else if (meta.status === "rejected") setError(`Unable to load endpoint management mode. Changes are disabled. ${extractError(meta.reason)}`);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -276,7 +175,6 @@ export default function StorageEndpointsPage() {
 
   const cephMode = useMemo(() => form.provider === "ceph", [form.provider]);
   const cephAdminConfigEnabled = Boolean(generalSettings.ceph_admin_enabled);
-  const defaultEndpoint = useMemo(() => endpoints.find((ep) => ep.is_default), [endpoints]);
   const editingEndpoint = useMemo(
     () => (editingId == null ? null : endpoints.find((endpoint) => endpoint.id === editingId) ?? null),
     [editingId, endpoints]
@@ -289,7 +187,7 @@ export default function StorageEndpointsPage() {
   );
   const routeEndpointLoading = hasEndpointRoute && !routeEndpointMissing && !showForm;
   const configurationReadOnly = Boolean(
-    editingId != null && (envManaged || editingEndpoint?.is_editable === false || !canEditEndpoints)
+    editingId != null && (!metadataReady || envManaged || editingEndpoint?.is_editable === false || !canEditEndpoints)
   );
   useEffect(() => {
     if (!showForm || !cephMode || !canEditEndpoints || configurationReadOnly) {
@@ -508,7 +406,7 @@ export default function StorageEndpointsPage() {
   };
 
   const startCreate = () => {
-    if (envManaged || !canEditEndpoints) return;
+    if (!metadataReady || envManaged || !canEditEndpoints) return;
     const nextForm = createEmptyForm();
     setForm(nextForm);
     setActiveTab("general");
@@ -533,12 +431,18 @@ export default function StorageEndpointsPage() {
   }, []);
 
   const startEdit = (endpoint: StorageEndpoint) => {
+    closingForm.current = false;
     openEndpointPage(endpoint);
     navigate(`/admin/storage-endpoints/${endpoint.id}`);
   };
 
   useEffect(() => {
-    if (!hasEndpointRoute || loading || !hasValidEndpointRoute) return;
+    if (!hasEndpointRoute) {
+      closingForm.current = false;
+      return;
+    }
+    // Router transitions may commit after local state; do not reopen the closing form.
+    if (closingForm.current || loading || !hasValidEndpointRoute) return;
     if (editingId === routeEndpointId && showForm) return;
     const endpoint = endpoints.find((candidate) => candidate.id === routeEndpointId);
     if (endpoint) {
@@ -556,6 +460,7 @@ export default function StorageEndpointsPage() {
   ]);
 
   const onCloseForm = () => {
+    closingForm.current = true;
     setShowForm(false);
     resetForm();
     if (hasEndpointRoute) {
@@ -574,34 +479,38 @@ export default function StorageEndpointsPage() {
   });
 
   const handleDelete = async () => {
-    if (envManaged || !canEditEndpoints) return;
-    if (!deleteTarget) return;
+    if (!metadataReady || envManaged || !canEditEndpoints || mutationPending.current) return;
+    if (!deleteTarget?.is_editable) return;
+    mutationPending.current = true;
     setDeleteBusy(true);
     setDeleteError(null);
     try {
       await deleteStorageEndpoint(deleteTarget.id);
       setDeleteTarget(null);
       setActionMessage("Endpoint deleted.");
-      loadEndpoints();
+      await loadEndpoints();
     } catch (err) {
       setDeleteError(extractError(err));
     } finally {
+      mutationPending.current = false;
       setDeleteBusy(false);
     }
   };
 
   const handleSetDefault = async (endpoint: StorageEndpoint) => {
-    if (envManaged || !canEditEndpoints) return;
+    if (!metadataReady || envManaged || !canEditEndpoints || mutationPending.current) return;
     if (endpoint.is_default) return;
+    mutationPending.current = true;
     setDefaultError(null);
     setDefaultBusyId(endpoint.id);
     try {
       await setDefaultStorageEndpoint(endpoint.id);
       setActionMessage("Default endpoint updated.");
-      loadEndpoints();
+      await loadEndpoints();
     } catch (err) {
       setDefaultError(extractError(err));
     } finally {
+      mutationPending.current = false;
       setDefaultBusyId(null);
     }
   };
@@ -714,7 +623,7 @@ export default function StorageEndpointsPage() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!canEditEndpoints) return;
+    if (!metadataReady || !canEditEndpoints) return;
     setFormError(null);
     setSaving(true);
     try {
@@ -755,241 +664,6 @@ export default function StorageEndpointsPage() {
       setSaving(false);
     }
   };
-
-  const renderEndpointIdentity = (endpoint: StorageEndpoint) => {
-    const tagItems = buildUiTagItems(endpoint.tags);
-    const features = resolveFeatureState(endpoint, endpoint.provider);
-    const adminEndpointOverride = features.admin.endpoint.trim();
-    const stsEndpointOverride = features.sts.endpoint.trim();
-    const iamEndpointOverride = features.iam.endpoint.trim();
-    const showAdminEndpoint =
-      features.admin.enabled &&
-      Boolean(adminEndpointOverride) &&
-      adminEndpointOverride !== endpoint.endpoint_url;
-    const showStsEndpoint =
-      features.sts.enabled &&
-      Boolean(stsEndpointOverride) &&
-      stsEndpointOverride !== endpoint.endpoint_url;
-    const showIamEndpoint =
-      features.iam.enabled &&
-      Boolean(iamEndpointOverride) &&
-      iamEndpointOverride !== endpoint.endpoint_url;
-
-    return (
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span>{endpoint.name}</span>
-          {endpoint.is_default && <StatusBadge label="Default" />}
-          {envManaged && <LockBadge label="Env managed" />}
-          {!envManaged && !endpoint.is_editable && <LockBadge label="Protected" />}
-        </div>
-        <code className={cx(endpointInlineCodeClass, "block max-w-[340px] truncate")} title={endpoint.endpoint_url}>
-          {endpoint.endpoint_url}
-        </code>
-        {showAdminEndpoint && (
-          <DetailLine label="Admin endpoint">
-            <code className={cx(endpointInlineCodeClass, "max-w-[260px] truncate")} title={adminEndpointOverride}>
-              {adminEndpointOverride}
-            </code>
-          </DetailLine>
-        )}
-        {showStsEndpoint && (
-          <DetailLine label="STS endpoint">
-            <code className={cx(endpointInlineCodeClass, "max-w-[260px] truncate")} title={stsEndpointOverride}>
-              {stsEndpointOverride}
-            </code>
-          </DetailLine>
-        )}
-        {showIamEndpoint && (
-          <DetailLine label="IAM endpoint">
-            <code className={cx(endpointInlineCodeClass, "max-w-[260px] truncate")} title={iamEndpointOverride}>
-              {iamEndpointOverride}
-            </code>
-          </DetailLine>
-        )}
-        <UiTagBadgeList
-          items={tagItems}
-          variant="listing-compact"
-          layout="inline-compact"
-          maxVisible={5}
-          emptyLabel="No tags"
-        />
-      </div>
-    );
-  };
-
-  const renderEndpointProvider = (endpoint: StorageEndpoint) => (
-    <div className="space-y-2">
-      <ProviderBadge provider={endpoint.provider} />
-      <DetailLine label="Region">
-        <span className="font-semibold text-[var(--ui-text)]">{endpoint.region || "Default"}</span>
-      </DetailLine>
-    </div>
-  );
-
-  const renderEndpointConnectivity = (endpoint: StorageEndpoint) => {
-    const features = resolveFeatureState(endpoint, endpoint.provider);
-    const verifyTls = endpoint.verify_tls !== false;
-    const forcePathStyle = Boolean(endpoint.force_path_style);
-    const healthcheckMode = features.healthcheck.mode === "s3" ? "s3" : "http";
-    const healthcheckUrl = features.healthcheck.endpoint.trim();
-    const hasCoordinates = endpoint.latitude != null && endpoint.longitude != null;
-
-    return (
-      <div className="space-y-1.5">
-        <DetailLine label="TLS">
-          <span className={`font-semibold ${verifyTls ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>
-            {verifyTls ? "Enabled" : "Disabled (insecure)"}
-          </span>
-        </DetailLine>
-        <DetailLine label="Path style">
-          <span className="font-semibold text-[var(--ui-text)]">{forcePathStyle ? "Forced" : "Virtual-host style"}</span>
-        </DetailLine>
-        <DetailLine label="GPS">
-          <span className="font-semibold text-[var(--ui-text)]">
-            {hasCoordinates ? `${endpoint.latitude}, ${endpoint.longitude}` : "Not set"}
-          </span>
-        </DetailLine>
-        <DetailLine label="Healthcheck">
-          <code className={endpointInlineCodeClass}>{healthcheckMode.toUpperCase()}</code>
-          {healthcheckUrl && (
-            <code className={cx(endpointInlineCodeClass, "max-w-[180px] truncate")} title={healthcheckUrl}>
-              {healthcheckUrl}
-            </code>
-          )}
-        </DetailLine>
-      </div>
-    );
-  };
-
-  const renderEndpointFeatures = (endpoint: StorageEndpoint) => {
-    const features = resolveFeatureState(endpoint, endpoint.provider);
-
-    return (
-      <div className="flex flex-wrap gap-1.5">
-        {ENDPOINT_LIST_FEATURES.map((feature) => (
-          <FeatureBadge
-            key={feature.key}
-            label={feature.label}
-            enabled={features[feature.key].enabled}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  const renderEndpointCredentials = (endpoint: StorageEndpoint) => (
-    <div className="space-y-1.5">
-      <DetailLine label="Admin key">
-        {endpoint.provider === "ceph" ? (
-          <CredentialSummary accessKey={endpoint.admin_access_key} hasSecret={endpoint.has_admin_secret} emptyLabel="Not configured" />
-        ) : (
-          <span className="font-semibold text-slate-500 dark:text-slate-400">Not required</span>
-        )}
-      </DetailLine>
-      <DetailLine label="Supervision">
-        <CredentialSummary accessKey={endpoint.supervision_access_key} hasSecret={endpoint.has_supervision_secret} />
-      </DetailLine>
-      {endpoint.provider === "ceph" && cephAdminConfigEnabled && (
-        <DetailLine label="Ceph Admin">
-          <CredentialSummary accessKey={endpoint.ceph_admin_access_key} hasSecret={endpoint.has_ceph_admin_secret} />
-        </DetailLine>
-      )}
-    </div>
-  );
-
-  const renderEndpointActions = (endpoint: StorageEndpoint) => {
-    const settingDefault = defaultBusyId === endpoint.id;
-    const readOnly = envManaged || !endpoint.is_editable || !canEditEndpoints;
-
-    return (
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {!endpoint.is_default && (
-          <button
-            className={tableActionButtonClasses}
-            onClick={() => handleSetDefault(endpoint)}
-            type="button"
-            disabled={Boolean(defaultBusyId) || envManaged || !canEditEndpoints}
-          >
-            {settingDefault ? "Setting..." : "Set as default"}
-          </button>
-        )}
-        <button
-          className={tableActionButtonClasses}
-          onClick={() => startEdit(endpoint)}
-          type="button"
-          {...dataTableDefaultActionProps}
-        >
-          {readOnly ? "View" : "Edit"}
-        </button>
-        {!readOnly ? (
-          <>
-            <button
-              className={tableDeleteActionClasses}
-              onClick={() => {
-                setDeleteTarget(endpoint);
-                setDeleteError(null);
-              }}
-              type="button"
-            >
-              Delete
-            </button>
-          </>
-        ) : (
-          <span className="ui-caption font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-            {canEditEndpoints ? "Config read-only" : "Read-only"}
-          </span>
-        )}
-      </div>
-    );
-  };
-
-  const endpointTableStatus = resolveListTableStatus({
-    loading,
-    error: null,
-    rowCount: endpoints.length,
-  });
-  const endpointTableColumns: Array<DataTableColumn<StorageEndpoint>> = [
-    {
-      id: "endpoint",
-      label: "Endpoint",
-      primary: true,
-      cellClassName: "min-w-[300px] max-w-[380px]",
-      render: renderEndpointIdentity,
-    },
-    {
-      id: "provider",
-      label: "Provider",
-      cellClassName: "min-w-[150px]",
-      render: renderEndpointProvider,
-    },
-    {
-      id: "connectivity",
-      label: "Connectivity",
-      cellClassName: "min-w-[260px]",
-      render: renderEndpointConnectivity,
-    },
-    {
-      id: "features",
-      label: "Features",
-      cellClassName: "min-w-[360px]",
-      render: renderEndpointFeatures,
-    },
-    {
-      id: "credentials",
-      label: "Credentials",
-      cellClassName: "min-w-[260px]",
-      render: renderEndpointCredentials,
-    },
-    {
-      id: "actions",
-      label: "Actions",
-      align: "right",
-      mobileRole: "actions",
-      cellClassName: "min-w-[220px]",
-      render: renderEndpointActions,
-    },
-  ];
 
   const showUsageLogUnavailableWarning =
     cephMode &&
@@ -1062,14 +736,7 @@ export default function StorageEndpointsPage() {
         title="S3 Endpoints"
         description="Manage the S3/Ceph endpoints used by the console."
         breadcrumbs={adminPageBreadcrumbs("storage-endpoints")}
-        actions={envManaged || !canEditEndpoints ? [] : [{ label: "New endpoint", onClick: startCreate }]}
-        inlineContent={
-          endpoints.length > 0 ? (
-            <span className="ui-body font-semibold text-slate-500 dark:text-slate-300">
-              Default endpoint: {defaultEndpoint ? defaultEndpoint.name : "None"}
-            </span>
-          ) : null
-        }
+        rightContent={metadataReady && !loading && !envManaged && canEditEndpoints ? <SettingsButton onClick={startCreate}>New endpoint</SettingsButton> : undefined}
       />
 
       {envManaged && (
@@ -1082,29 +749,14 @@ export default function StorageEndpointsPage() {
           Endpoint editing is restricted to superadmin users. You currently have read-only access.
         </PageBanner>
       )}
-      {error && <PageBanner tone="error">{error}</PageBanner>}
       {defaultError && <PageBanner tone="error">{defaultError}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
-      <ListPageSection
-          title="S3 Endpoints"
-          description="Configured S3/Ceph endpoints and operational capabilities."
-          countLabel={`${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}`}
-      >
-        <DataTableShell
-          columns={endpointTableColumns}
-          rows={loading ? [] : endpoints}
-          rowKey={(endpoint) => endpoint.id}
-          status={endpointTableStatus}
-          loadingMessage="Loading endpoints..."
-          errorMessage="Unable to load endpoints."
-          emptyMessage="No endpoints configured yet."
-          primaryColumnId="endpoint"
-          responsiveCards
-          stickyActions={false}
-          tableClassName="compact-table"
-          containerClassName="rounded-t-none border-x-0 border-b-0"
-        />
-      </ListPageSection>
+      <StorageEndpointList endpoints={endpoints} loading={loading} error={error}
+        envManaged={envManaged} metadataReady={metadataReady} canEdit={canEditEndpoints}
+        defaultBusyId={defaultBusyId} deleteBusy={deleteBusy} filters={listFilters}
+        onFiltersChange={setListFilters} onOpen={startEdit} onSetDefault={handleSetDefault}
+        onDelete={(endpoint) => { setDeleteTarget(endpoint); setDeleteError(null); }}
+        onRetry={() => void loadEndpoints()} />
         </>
       ) : null}
 
@@ -1124,9 +776,10 @@ export default function StorageEndpointsPage() {
             {formError && <PageBanner tone="error">{formError}</PageBanner>}
             {configurationReadOnly && (
               <PageBanner tone="info">
-                Endpoint configuration is read-only. {canEditEndpoints
-                  ? "You can still update the tags associated with this endpoint."
-                  : "All settings and tags are available for consultation only."}
+                Endpoint configuration is read-only. {!metadataReady
+                  ? "Management mode is unavailable. Return to endpoints and retry before making changes."
+                  : canEditEndpoints ? "You can still update the tags associated with this endpoint."
+                    : "All settings and tags are available for consultation only."}
               </PageBanner>
             )}
             {endpointTagCatalogError && <PageBanner tone="warning">{endpointTagCatalogError}</PageBanner>}
@@ -1788,8 +1441,8 @@ export default function StorageEndpointsPage() {
                 <UiButton
                   type="submit"
                   size="sm"
-                  disabled={saving || !hasFormChanges}
-                  title={saving ? "Save in progress." : !hasFormChanges ? "No changes to save." : undefined}
+                  disabled={!metadataReady || saving || !hasFormChanges}
+                  title={!metadataReady ? "Management mode is unavailable." : saving ? "Save in progress." : !hasFormChanges ? "No changes to save." : undefined}
                 >
                   {saving ? "Saving..." : editingId ? (configurationReadOnly ? "Save tags" : "Update endpoint") : "Create endpoint"}
                 </UiButton>
@@ -1801,7 +1454,7 @@ export default function StorageEndpointsPage() {
       )}
 
       {deleteTarget && (
-        <Modal title="Delete endpoint" onClose={() => setDeleteTarget(null)}>
+        <Modal title="Delete endpoint" onClose={() => { if (!deleteBusy) setDeleteTarget(null); }} closeOnEscape={!deleteBusy} closeOnBackdropClick={!deleteBusy}>
           <div className="space-y-4">
             {deleteError && <PageBanner tone="error">{deleteError}</PageBanner>}
             <p className="ui-body text-slate-700 dark:text-slate-100">
@@ -1810,6 +1463,7 @@ export default function StorageEndpointsPage() {
             <div className="flex items-center justify-end gap-3">
               <UiButton
                 onClick={() => setDeleteTarget(null)}
+                disabled={deleteBusy}
                 variant="secondary"
                 size="sm"
               >

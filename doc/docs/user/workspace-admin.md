@@ -29,6 +29,29 @@ URL. Backend account endpoints under `/api/admin/accounts` are unchanged.
 
 Platform and tenant-entry resources are configured and auditable.
 
+## S3 endpoint inventory
+
+Open **Storage Backends > S3 Endpoints** to compare names and URLs, providers
+and regions, connection settings, and enabled services. Search matches names,
+S3 URLs, providers, regions and tags across the complete inventory. Use `~` for
+contains, `=` for exact matching, or select a provider. **Clear all** resets the
+filters; they remain in place when returning from an endpoint or refreshing its
+listing after an action.
+
+Click a row or **Edit/View** for the existing **Connection**, **Credentials**
+and **Capabilities & health** tabs. The table shows at most two tags and three
+enabled services; `+N` indicates additional values available on that page.
+Service badges describe configuration; use **Endpoint Status** for measured
+health. Disabling TLS verification is explicitly highlighted.
+
+**Set as default**, **Edit/View** and **Delete** stay visible where applicable.
+Protected endpoints allow consultation and may still be selected as default;
+environment-managed configuration and ordinary Admin users remain read-only.
+Superadmins retain the existing ability to edit tags on protected or
+environment-managed endpoints. If the management mode cannot be loaded,
+changes remain unavailable until **Retry** succeeds. Deletion requires
+confirmation and a failed operation is not retried automatically.
+
 ## Compact identity associations
 
 The **Managed Tenants** RGW Accounts and RGW Users lists, together with
