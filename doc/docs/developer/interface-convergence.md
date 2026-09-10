@@ -38,6 +38,25 @@ private access, and Portal public links/space identity/icons. It keeps native
 form submission and save boundaries at the call site. Button geometry and
 mobile wrapping are shared rather than copied into each feature.
 
+Admin RGW account creation/import/deletion, RGW user creation/deletion and
+single/bulk connection deletion also share these final actions. Their optional
+RGW deletion controls use `ModalOptions` with `UiCheckboxField`, retain the
+linked/unknown-resource safeguards and wrap complete resource identifiers.
+Account creation reuses `AdminQuotaFields`, including the explicit size unit;
+tenant import uses a labeled `UiTextarea`.
+
+`Modal.closeDisabled` disables the header Close action, Escape and backdrop
+dismissal while these requests are pending. Their final Cancel action uses the
+same busy state. A failed request restores dismissal and preserves the existing
+error/draft flow; successful handlers can still close programmatically.
+
+Validate the seven Admin dialogs with documentary API fixtures in light/dark at
+1440 × 1000 and 390 × 844. Check draft retention/discard, invalid tenant IDs,
+quota values and units in the creation payload, pending-request dismissal and
+failed-request recovery. Repeat account/user deletion with linked and unknown
+resource counts; RGW deletion must remain disabled and absent from the request.
+These fixture checks cover UI contracts, not live RGW mutations.
+
 Portal public-link dialogs now pass all secondary/close/progress labels in the
 selected language. Other workspace translation boundaries remain unchanged.
 

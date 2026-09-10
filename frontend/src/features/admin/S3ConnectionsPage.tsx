@@ -8,6 +8,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import Modal from "../../components/Modal";
+import ModalActions from "../../components/ModalActions";
 import WorkflowPage, { WorkflowActions, workflowPageHostClass } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
@@ -1514,37 +1515,37 @@ export default function S3ConnectionsPage() {
 
       {/* Bulk delete modal */}
       {bulkDeleteOpen && (
-        <Modal title={`Delete selected (${selectedIds.length})`} onClose={() => (!bulkDeleteBusy ? setBulkDeleteOpen(false) : null)}>
+        <Modal title={`Delete selected (${selectedIds.length})`} onClose={() => (!bulkDeleteBusy ? setBulkDeleteOpen(false) : null)} closeDisabled={bulkDeleteBusy}>
           <div className="space-y-4">
             <p className="ui-body">
               This will permanently delete {selectedIds.length} selected connection{selectedIds.length > 1 ? "s" : ""}.
             </p>
-            <div className="flex justify-end gap-2">
+            <ModalActions>
               <UiButton variant="secondary" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleteBusy}>
                 Cancel
               </UiButton>
               <UiButton variant="danger" onClick={() => void submitBulkDelete()} disabled={bulkDeleteBusy}>
                 {bulkDeleteBusy ? "Deleting..." : "Delete selected connections"}
               </UiButton>
-            </div>
+            </ModalActions>
           </div>
         </Modal>
       )}
 
       {/* Delete modal */}
       {deleteTarget && (
-        <Modal title={`Delete: ${deleteTarget.name}`} onClose={() => (!deleteBusy ? setDeleteTarget(null) : null)}>
+        <Modal title={`Delete: ${deleteTarget.name}`} onClose={() => (!deleteBusy ? setDeleteTarget(null) : null)} closeDisabled={deleteBusy}>
           <div className="space-y-4">
             {deleteError && <PageBanner tone="error">{deleteError}</PageBanner>}
             <p className="ui-body">This will permanently delete the connection and its credentials.</p>
-            <div className="flex justify-end gap-2">
+            <ModalActions>
               <UiButton variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleteBusy}>
                 Cancel
               </UiButton>
               <UiButton variant="danger" onClick={submitDelete} disabled={deleteBusy}>
                 {deleteBusy ? "Deleting..." : "Delete"}
               </UiButton>
-            </div>
+            </ModalActions>
           </div>
         </Modal>
       )}

@@ -36,6 +36,10 @@ import { listMinimalUsers, UserSummary } from "../../api/users";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import Modal from "../../components/Modal";
+import ModalActions from "../../components/ModalActions";
+import ModalOptions from "../../components/ModalOptions";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiTextarea from "../../components/ui/UiTextarea";
 import WorkflowPage, {
   WorkflowActions,
   WorkflowMetadata,
@@ -957,7 +961,7 @@ export default function S3AccountsPage() {
       {error && <PageBanner tone="error">{error}</PageBanner>}
 
       {isSuperAdmin && showCreateModal && (
-        <Modal title="Create an account" onClose={createCloseGuard.requestClose}>
+        <Modal title="Create an account" onClose={createCloseGuard.requestClose} closeDisabled={creating}>
           <p className="mb-3 ui-body text-slate-500">
             Super-admin only. Provision an RGW account (server-side generated <code>account_id</code>) with optional quotas.
           </p>
@@ -1002,39 +1006,6 @@ export default function S3AccountsPage() {
                     </option>
                   ))}
                 </UiSelect>
-                <div className="flex flex-col gap-1">
-                  <label className="ui-body font-medium text-slate-700 dark:text-slate-200">Capacity quota</label>
-                  <div className="flex gap-2">
-                    <UiInput
-                      aria-label="Capacity quota"
-                      type="number"
-                      min="0"
-                      step="any"
-                      fieldClassName="flex-1"
-                      value={form.quota_max_size_gb}
-                      onChange={(e) => setForm((f) => ({ ...f, quota_max_size_gb: e.target.value }))}
-                      placeholder="e.g. 500"
-                    />
-                    <UiSelect
-                      aria-label="Capacity quota unit"
-                      fieldClassName="w-24"
-                      value={form.quota_max_size_unit}
-                      onChange={(e) => setForm((f) => ({ ...f, quota_max_size_unit: e.target.value }))}
-                    >
-                      <option value="MiB">MiB</option>
-                      <option value="GiB">GiB</option>
-                      <option value="TiB">TiB</option>
-                    </UiSelect>
-                  </div>
-                </div>
-                <UiInput
-                  label="Object quota (count)"
-                  type="number"
-                  min="0"
-                  value={form.quota_max_objects}
-                  onChange={(e) => setForm((f) => ({ ...f, quota_max_objects: e.target.value }))}
-                  placeholder="e.g. 1000000"
-                />
                 {form.storage_endpoint_id && (
                   <div className="md:col-span-2">
                     {createPermissionLoading ? (
@@ -1062,8 +1033,17 @@ export default function S3AccountsPage() {
                   />
                 </div>
               </div>
-            <div className="flex items-center justify-end gap-3">
-              <UiButton variant="secondary" onClick={createCloseGuard.requestClose}>
+            <AdminQuotaFields
+              storageValue={form.quota_max_size_gb}
+              storageUnit={form.quota_max_size_unit}
+              objectValue={form.quota_max_objects}
+              disabled={creating}
+              onStorageValueChange={(value) => setForm((current) => ({ ...current, quota_max_size_gb: value }))}
+              onStorageUnitChange={(value) => setForm((current) => ({ ...current, quota_max_size_unit: value }))}
+              onObjectValueChange={(value) => setForm((current) => ({ ...current, quota_max_objects: value }))}
+            />
+            <ModalActions>
+              <UiButton variant="secondary" onClick={createCloseGuard.requestClose} disabled={creating}>
                 Cancel
               </UiButton>
               <UiButton
@@ -1072,14 +1052,14 @@ export default function S3AccountsPage() {
               >
                 {creating ? "Creating..." : "Create account"}
               </UiButton>
-            </div>
+            </ModalActions>
             {createCloseGuard.confirmationDialog}
           </form>
         </Modal>
       )}
 
       {isSuperAdmin && accountToDelete && (
-        <Modal title={`Delete ${accountToDelete.name}`} onClose={closeDeleteModal}>
+        <Modal title={`Delete ${accountToDelete.name}`} onClose={closeDeleteModal} closeDisabled={deleteModalBusy}>
           <p className="mb-3 ui-body text-slate-500 dark:text-slate-400">
             Removing this account deletes the UI entry. Optionally delete the backing RGW tenant if it no longer contains resources.
           </p>
@@ -1103,7 +1083,7 @@ export default function S3AccountsPage() {
                   <p className="font-semibold">RGW users to remove:</p>
                   <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto">
                     {accountToDelete.rgw_user_uids.map((uid) => (
-                      <li key={uid} className="truncate">
+                      <li key={uid} className="break-all">
                         {uid}
                       </li>
                     ))}
@@ -1115,7 +1095,7 @@ export default function S3AccountsPage() {
                   <p className="font-semibold">Notification topics to remove:</p>
                   <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto">
                     {accountToDelete.rgw_topics.map((topic) => (
-                      <li key={topic} className="truncate">
+                      <li key={topic} className="break-all">
                         {topic}
                       </li>
                     ))}
@@ -1124,44 +1104,35 @@ export default function S3AccountsPage() {
               )}
             </div>
           )}
-          <label
-            className={`mb-4 flex items-start gap-3 rounded-lg border px-3 py-2 ui-body ${
-              deleteModalHasResources
-                ? "border-slate-200 text-slate-400 dark:border-slate-700 dark:text-slate-500"
-                : "border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-100"
-            }`}
-          >
-            <input
-              type="checkbox"
-              className="mt-1"
+          <ModalOptions>
+            <UiCheckboxField
               checked={deleteFromRgw}
-              disabled={deleteModalHasResources}
-              onChange={(e) => setDeleteFromRgw(e.target.checked)}
-            />
-            <span>
-              Also delete RGW tenant{" "}
-              <code className="rounded bg-slate-100 px-1 py-0.5 ui-caption dark:bg-slate-800">
-                {accountToDelete.rgw_account_id ?? accountToDelete.id}
-              </code>
-            </span>
-          </label>
-          <div className="flex items-center justify-end gap-3">
-            <button
+              disabled={deleteModalBusy || deleteModalHasResources}
+              onChange={(event) => setDeleteFromRgw(event.target.checked)}
+            >
+              <span className="modal-option-copy">
+                Also delete RGW tenant <code className="break-all font-mono">{accountToDelete.rgw_account_id ?? accountToDelete.id}</code>
+              </span>
+            </UiCheckboxField>
+          </ModalOptions>
+          <ModalActions>
+            <UiButton
               type="button"
               onClick={closeDeleteModal}
-              className="rounded-md border border-slate-200 px-4 py-2 ui-body font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
+              disabled={deleteModalBusy}
+              variant="secondary"
             >
               Cancel
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               type="button"
               onClick={confirmDeleteS3Account}
               disabled={deleteModalBusy}
-              className="rounded-md bg-rose-600 px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-60"
+              variant="danger"
             >
               {deleteModalBusy ? "Deleting..." : "Delete account"}
-            </button>
-          </div>
+            </UiButton>
+          </ModalActions>
         </Modal>
       )}
 
@@ -1169,6 +1140,7 @@ export default function S3AccountsPage() {
         <Modal
           title="Import RGW accounts"
           onClose={importCloseGuard.requestClose}
+          closeDisabled={importBusy}
           maxWidthClass="max-w-xl"
         >
           <p className="mb-3 ui-body text-slate-500">
@@ -1185,8 +1157,10 @@ export default function S3AccountsPage() {
             </PageBanner>
           )}
           <>
-            <textarea
-              className="ui-control min-h-32"
+            <UiTextarea
+              label="RGW tenant IDs"
+              className="min-h-32"
+              disabled={importBusy}
               rows={6}
               placeholder="RGW00000000000000001"
               value={importText}
@@ -1197,7 +1171,7 @@ export default function S3AccountsPage() {
               fieldClassName="mt-3"
               value={importTenantEndpointId}
               onChange={(e) => setImportTenantEndpointId(e.target.value)}
-              disabled={accountCephEndpoints.length === 0}
+              disabled={importBusy || accountCephEndpoints.length === 0}
               required
             >
               <option value="" disabled>
@@ -1227,8 +1201,8 @@ export default function S3AccountsPage() {
               </>
             )}
           </>
-          <div className="mt-4 flex items-center justify-end gap-3">
-            <UiButton variant="secondary" onClick={importCloseGuard.requestClose}>
+          <ModalActions>
+            <UiButton variant="secondary" onClick={importCloseGuard.requestClose} disabled={importBusy}>
               Cancel
             </UiButton>
             <UiButton
@@ -1280,7 +1254,7 @@ export default function S3AccountsPage() {
             >
               {importBusy ? "Importing..." : "Import"}
             </UiButton>
-          </div>
+          </ModalActions>
           {importCloseGuard.confirmationDialog}
         </Modal>
       )}

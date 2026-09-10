@@ -30,6 +30,7 @@ type ModalProps = {
   ariaLabelledby?: string;
   ariaDescribedby?: string;
   closeOnEscape?: boolean;
+  closeDisabled?: boolean;
   closeOnBackdropClick?: boolean;
   closeLabel?: string;
   closeAriaLabel?: string;
@@ -49,6 +50,7 @@ export default function Modal({
   ariaLabelledby,
   ariaDescribedby,
   closeOnEscape = true,
+  closeDisabled = false,
   closeOnBackdropClick = true,
   closeLabel = "Close",
   closeAriaLabel = "Close modal",
@@ -113,7 +115,7 @@ export default function Modal({
       if (!isTopModal(modalId)) return;
       if (event.key === "Escape" && closeOnEscape) {
         event.preventDefault();
-        onClose();
+        if (!closeDisabled) onClose();
         return;
       }
       if (trapFocus) {
@@ -125,7 +127,7 @@ export default function Modal({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeOnEscape, modalId, onClose, trapFocus]);
+  }, [closeDisabled, closeOnEscape, modalId, onClose, trapFocus]);
 
   return (
     <div
@@ -133,7 +135,7 @@ export default function Modal({
       role="presentation"
       onMouseDown={(event) => {
         if (!isTopModal(modalId)) return;
-        if (!closeOnBackdropClick) return;
+        if (!closeOnBackdropClick || closeDisabled) return;
         if (event.target === event.currentTarget) {
           onClose();
         }
@@ -156,7 +158,7 @@ export default function Modal({
           <Title id={fallbackTitleId} className={cx("modal-title ui-subtitle", uiTitleTextClass)}>
             {title}
           </Title>
-          <UiButton variant="ghost" onClick={onClose} className="modal-close py-1" aria-label={closeAriaLabel}>
+          <UiButton variant="ghost" onClick={onClose} disabled={closeDisabled} className="modal-close py-1" aria-label={closeAriaLabel}>
             {closeLabel}
           </UiButton>
         </div>

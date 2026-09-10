@@ -116,6 +116,25 @@ describe("Modal", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it.each(["button", "escape", "backdrop"])("disables and restores %s dismissal while busy", (dismissal) => {
+    const onClose = vi.fn();
+    const content = <p>Operation in progress</p>;
+    const { rerender } = render(<Modal title="Busy modal" onClose={onClose} closeDisabled>{content}</Modal>);
+    const dismiss = () => {
+      if (dismissal === "button") fireEvent.click(screen.getByRole("button", { name: "Close modal" }));
+      else if (dismissal === "escape") fireEvent.keyDown(document, { key: "Escape" });
+      else fireEvent.mouseDown(screen.getByRole("presentation"));
+    };
+    expect(screen.getByRole("button", { name: "Close modal" })).toBeDisabled();
+    dismiss();
+    expect(onClose).not.toHaveBeenCalled();
+
+    rerender(<Modal title="Busy modal" onClose={onClose} closeDisabled={false}>{content}</Modal>);
+    expect(screen.getByRole("button", { name: "Close modal" })).toBeEnabled();
+    dismiss();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("lets only the top modal respond to Escape", async () => {
     const user = userEvent.setup();
     render(<NestedModalHarness />);
