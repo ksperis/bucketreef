@@ -21,12 +21,11 @@ import WorkflowPage from "../../components/WorkflowPage";
 import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
-import UiProgressBar from "../../components/ui/UiProgressBar";
 import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
-import { BucketOperationSummaryStat } from "./bucketOperationRunUi";
+import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat } from "./bucketOperationRunUi";
 import {
   buildStorageOpsBucketTargets,
   type BucketOperationUiTarget,
@@ -254,107 +253,84 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
         {error && <PageBanner tone="error">{error}</PageBanner>}
         {message && <PageBanner tone={result?.status === "passed" ? "success" : result?.status === "failed" ? "error" : "warning"}>{message}</PageBanner>}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div>
-            <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">{targetLabel}</p>
-            <p className="ui-caption text-slate-500 dark:text-slate-400">
-              {props.mode === "manager"
-                ? props.contextName || props.contextId
-                : props.mode === "ceph-admin"
-                  ? props.endpointName || `Endpoint ${props.endpointId}`
-                  : "Storage Ops"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {running ? (
-              <UiButton
-                type="button"
-                onClick={cancelCheck}
-                variant="danger"
-                size="sm"
-              >
-                Cancel
-              </UiButton>
-            ) : (
-              <UiButton
-                type="button"
-                onClick={runCheck}
-                disabled={targetCount === 0}
-                variant="primary"
-                size="sm"
-              >
-                Run check
-              </UiButton>
-            )}
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-          <div className="space-y-1 ui-caption">
-            <span className="font-semibold text-slate-700 dark:text-slate-200">Mode</span>
-            <UiSegmentedControl
-              ariaLabel="Bucket integrity check mode"
-              options={CHECK_MODE_OPTIONS.map((option) => ({ ...option, disabled: running }))}
-              value={checkMode}
-              onChange={setCheckMode}
+        <BucketOperationSetup
+          targetLabel={targetLabel}
+          contextLabel={props.mode === "manager" ? props.contextName || props.contextId : props.mode === "ceph-admin" ? props.endpointName || `Endpoint ${props.endpointId}` : "Storage Ops"}
+          actions={running ? (
+            <UiButton type="button" onClick={cancelCheck} variant="danger" size="sm">
+              Cancel
+            </UiButton>
+          ) : (
+            <UiButton
+              type="button"
+              onClick={runCheck}
+              disabled={targetCount === 0}
+              variant="primary"
+              size="sm"
+            >
+              Run check
+            </UiButton>
+          )}
+        >
+          <div className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[auto_minmax(80px,0.6fr)_minmax(0,1fr)_minmax(120px,0.8fr)_auto]">
+            <fieldset className="bucket-operation-mode min-w-0">
+              <legend>Mode</legend>
+              <UiSegmentedControl
+                ariaLabel="Bucket integrity check mode"
+                options={CHECK_MODE_OPTIONS.map((option) => ({ ...option, disabled: running }))}
+                value={checkMode}
+                onChange={setCheckMode}
+              />
+            </fieldset>
+            <UiInput
+              size="compact"
+              label="Parallelism"
+              type="number"
+              min={1}
+              max={64}
+              value={parallelism}
+              disabled={running}
+              onChange={(event) => setParallelism(Number(event.target.value))}
             />
+            <UiInput
+              size="compact"
+              label="Since"
+              type="datetime-local"
+              value={since}
+              disabled={running}
+              onChange={(event) => setSince(event.target.value)}
+            />
+            <UiInput
+              size="compact"
+              label="Max MB per object"
+              type="number"
+              min={0}
+              step="0.1"
+              value={maxMb}
+              disabled={running || checkMode === "head"}
+              onChange={(event) => setMaxMb(event.target.value)}
+            />
+            <UiCheckboxField
+              checked={allVersions}
+              disabled={running}
+              onChange={(event) => setAllVersions(event.target.checked)}
+              className="bucket-operation-checkbox"
+            >
+              All versions
+            </UiCheckboxField>
           </div>
-          <UiInput
-            label="Parallelism"
-            type="number"
-            min={1}
-            max={64}
-            value={parallelism}
-            disabled={running}
-            onChange={(event) => setParallelism(Number(event.target.value))}
-          />
-          <UiInput
-            label="Since"
-            type="datetime-local"
-            value={since}
-            disabled={running}
-            onChange={(event) => setSince(event.target.value)}
-          />
-          <UiInput
-            label="Max MB per object"
-            type="number"
-            min={0}
-            step="0.1"
-            value={maxMb}
-            disabled={running || checkMode === "head"}
-            onChange={(event) => setMaxMb(event.target.value)}
-          />
-          <UiCheckboxField
-            checked={allVersions}
-            disabled={running}
-            onChange={(event) => setAllVersions(event.target.checked)}
-            className="self-end rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 ui-caption font-semibold text-[var(--ui-text)]"
-          >
-            All versions
-          </UiCheckboxField>
-        </div>
+        </BucketOperationSetup>
 
         {progress && (
-          <div className="border-y border-slate-200 py-3 dark:border-slate-800">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                {progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
-              </p>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                {formatNumber(progress.checked_count)} / {formatNumber(progress.listed_count)} objects - {formatBytes(progress.bytes_read)}
-              </p>
-            </div>
-            <UiProgressBar
-              value={progressPercent ?? 100}
-              label="Bucket integrity progress"
-              className="mt-2 h-2 overflow-hidden bg-slate-200 dark:bg-slate-800"
-              barClassName="bg-primary transition-[width] duration-150 ease-out"
-            />
-            <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-              {formatNumber(progress.completed_buckets)} / {formatNumber(progress.total_buckets)} buckets completed
-              {progress.failed_count > 0 ? ` - ${formatNumber(progress.failed_count)} errors` : ""}
-            </p>
-          </div>
+          <BucketOperationProgress
+            label="Bucket integrity progress"
+            value={progressPercent}
+            stage={progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
+            metrics={<>{formatNumber(progress.checked_count)} / {formatNumber(progress.listed_count)} objects - {formatBytes(progress.bytes_read)}</>}
+          >
+            {formatNumber(progress.completed_buckets)} / {formatNumber(progress.total_buckets)} buckets completed
+            {progress.failed_count > 0 ? ` - ${formatNumber(progress.failed_count)} errors` : ""}
+          </BucketOperationProgress>
         )}
 
         {result && (

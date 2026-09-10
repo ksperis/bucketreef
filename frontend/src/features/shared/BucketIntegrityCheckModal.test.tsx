@@ -170,7 +170,7 @@ describe("BucketIntegrityCheckModal results", () => {
     expect(payload.max_mb_per_object).toBe(1.5);
   });
 
-  it("renders streamed progress with an accessible progressbar", async () => {
+  it.each([true, false])("renders accessible progress with a known total: %s", async (knownTotal) => {
     const progressEvent: BucketIntegrityProgress = {
       request_id: "progress-1",
       stage: "verify",
@@ -179,7 +179,7 @@ describe("BucketIntegrityCheckModal results", () => {
       context_name: "Context 1",
       total_buckets: 2,
       completed_buckets: 1,
-      listed_count: 10,
+      listed_count: knownTotal ? 10 : 0,
       checked_count: 5,
       failed_count: 1,
       bytes_read: 2048,
@@ -204,12 +204,14 @@ describe("BucketIntegrityCheckModal results", () => {
     await user.click(screen.getByRole("button", { name: "Run check" }));
 
     expect(await screen.findByText("bucket-a - verify")).toBeInTheDocument();
-    expect(screen.getByText("5 / 10 objects - 2.0 KB")).toBeInTheDocument();
+    expect(screen.getByText(`5 / ${knownTotal ? 10 : 0} objects - 2.0 KB`)).toBeInTheDocument();
     expect(screen.getByText("1 / 2 buckets completed - 1 errors")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Bucket integrity progress" })).toHaveAttribute(
-      "aria-valuenow",
-      "50"
-    );
+    const bar = screen.getByRole("progressbar", { name: "Bucket integrity progress" });
+    if (knownTotal) {
+      expect(bar).toHaveAttribute("aria-valuenow", "50");
+    } else {
+      expect(bar).not.toHaveAttribute("aria-valuenow");
+    }
   });
 
   it("filters bucket results by object text, status, and error state", async () => {

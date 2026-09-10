@@ -39,14 +39,14 @@ describe("BucketUsageStatsRunModal", () => {
     streamStorageOpsBucketUsageStatsMock.mockResolvedValue(buildUsageStatsResult());
   });
 
-  it("renders streamed progress with an accessible progressbar", async () => {
+  it.each([true, false])("renders accessible progress with a known total: %s", async (knownTotal) => {
     const progressEvent: BucketUsageStatsProgress = {
       request_id: "progress-1",
       stage: "list",
       bucket_name: "bucket-a",
       context_id: "ctx-1",
       context_name: "Context 1",
-      total_buckets: 4,
+      total_buckets: knownTotal ? 4 : 0,
       completed_buckets: 1,
       listed_versions: 12,
       listed_delete_markers: 2,
@@ -73,10 +73,12 @@ describe("BucketUsageStatsRunModal", () => {
 
     expect(await screen.findByText("bucket-a - list")).toBeInTheDocument();
     expect(screen.getByText("12 version(s) - 2.0 KB")).toBeInTheDocument();
-    expect(screen.getByText("1 / 4 buckets completed - 2 delete markers")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Bucket usage stats progress" })).toHaveAttribute(
-      "aria-valuenow",
-      "25"
-    );
+    expect(screen.getByText(`1 / ${knownTotal ? 4 : 0} buckets completed - 2 delete markers`)).toBeInTheDocument();
+    const bar = screen.getByRole("progressbar", { name: "Bucket usage stats progress" });
+    if (knownTotal) {
+      expect(bar).toHaveAttribute("aria-valuenow", "25");
+    } else {
+      expect(bar).not.toHaveAttribute("aria-valuenow");
+    }
   });
 });

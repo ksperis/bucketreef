@@ -16,10 +16,9 @@ import WorkflowPage from "../../components/WorkflowPage";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
-import UiProgressBar from "../../components/ui/UiProgressBar";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
-import { BucketOperationSummaryStat, bucketOperationTableContainerClass } from "./bucketOperationRunUi";
+import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat, bucketOperationTableContainerClass } from "./bucketOperationRunUi";
 import {
   buildStorageOpsBucketTargets,
   type BucketOperationUiTarget,
@@ -156,69 +155,56 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
         {error && <PageBanner tone="error">{error}</PageBanner>}
         {message && <PageBanner tone={result?.status === "completed" ? "success" : result?.status === "failed" ? "error" : "warning"}>{message}</PageBanner>}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div>
-            <p className={cx("ui-body font-semibold", uiTitleTextClass)}>{targetLabel}</p>
-            <p className={cx("ui-caption", uiMutedTextClass)}>
-              {props.mode === "ceph-admin" ? props.endpointName || `Endpoint ${props.endpointId}` : "Storage Ops"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <UiInput
-              label="Parallelism"
-              type="number"
-              min={1}
-              max={32}
-              value={parallelism}
-              disabled={running}
-              onChange={(event) => setParallelism(Number(event.target.value))}
-              fieldClassName="w-24"
-              size="compact"
-            />
-            {running ? (
-              <UiButton
-                type="button"
-                onClick={cancelCalculation}
-                variant="danger"
-                size="sm"
-              >
-                Cancel
-              </UiButton>
-            ) : (
-              <UiButton
-                type="button"
-                onClick={runCalculation}
-                disabled={targetCount === 0}
-                variant="primary"
-                size="sm"
-              >
-                Run calculation
-              </UiButton>
-            )}
-          </div>
-        </div>
+        <BucketOperationSetup
+          targetLabel={targetLabel}
+          contextLabel={props.mode === "ceph-admin" ? props.endpointName || `Endpoint ${props.endpointId}` : "Storage Ops"}
+          actions={
+            <>
+              <UiInput
+                label="Parallelism"
+                type="number"
+                min={1}
+                max={32}
+                value={parallelism}
+                disabled={running}
+                onChange={(event) => setParallelism(Number(event.target.value))}
+                fieldClassName="w-24"
+                size="compact"
+              />
+              {running ? (
+                <UiButton
+                  type="button"
+                  onClick={cancelCalculation}
+                  variant="danger"
+                  size="sm"
+                >
+                  Cancel
+                </UiButton>
+              ) : (
+                <UiButton
+                  type="button"
+                  onClick={runCalculation}
+                  disabled={targetCount === 0}
+                  variant="primary"
+                  size="sm"
+                >
+                  Run calculation
+                </UiButton>
+              )}
+            </>
+          }
+        />
 
         {progress && (
-          <div className="border-y border-slate-200 py-3 dark:border-slate-800">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                {progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
-              </p>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                {formatCompactNumber(progress.listed_versions)} version(s) - {formatBytes(progress.total_bytes)}
-              </p>
-            </div>
-            <UiProgressBar
-              value={progressPercent ?? 100}
-              label="Bucket usage stats progress"
-              className="mt-2 h-2 overflow-hidden bg-slate-200 dark:bg-slate-800"
-              barClassName="bg-primary transition-[width] duration-150 ease-out"
-            />
-            <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-              {formatCompactNumber(progress.completed_buckets)} / {formatCompactNumber(progress.total_buckets)} buckets completed
-              {progress.listed_delete_markers > 0 ? ` - ${formatCompactNumber(progress.listed_delete_markers)} delete markers` : ""}
-            </p>
-          </div>
+          <BucketOperationProgress
+            label="Bucket usage stats progress"
+            value={progressPercent}
+            stage={progress.bucket_name ? `${progress.bucket_name} - ${progress.stage}` : progress.stage}
+            metrics={<>{formatCompactNumber(progress.listed_versions)} version(s) - {formatBytes(progress.total_bytes)}</>}
+          >
+            {formatCompactNumber(progress.completed_buckets)} / {formatCompactNumber(progress.total_buckets)} buckets completed
+            {progress.listed_delete_markers > 0 ? ` - ${formatCompactNumber(progress.listed_delete_markers)} delete markers` : ""}
+          </BucketOperationProgress>
         )}
 
         {result && (

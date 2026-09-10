@@ -1,0 +1,77 @@
+/* Shared setup geometry for bucket maintenance workflows. */
+.bucket-operation-setup {
+  --bucket-operation-control-height: 28px;
+}
+
+.bucket-operation-setup .ui-field {
+  min-width: 0;
+}
+
+.bucket-operation-setup .ui-field-label,
+.bucket-operation-mode > legend {
+  color: var(--ui-text);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.bucket-operation-setup .ui-control,
+.bucket-operation-setup .ui-button-base,
+.bucket-operation-checkbox {
+  min-height: var(--bucket-operation-control-height);
+  height: auto;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+}
+
+.bucket-operation-setup .ui-control,
+.bucket-operation-setup .ui-button-base {
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.bucket-operation-setup .ui-button-base {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.bucket-operation-checkbox {
+  color: var(--ui-text);
+  align-self: end;
+}
+
+.bucket-operation-checkbox:has(input:disabled) {
+  opacity: 0.6;
+}
+
+.bucket-operation-mode > legend {
+  margin-bottom: 4px;
+}
+
+.bucket-operation-mode > [role="group"] {
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.bucket-operation-mode button {
+  min-height: calc(var(--bucket-operation-control-height) - 6px);
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+}
+
+@media (max-width: 1023px), (pointer: coarse) {
+  .bucket-operation-setup {
+    --bucket-operation-control-height: 44px;
+  }
+
+  .bucket-operation-mode button {
+    min-height: var(--bucket-operation-control-height);
+  }
+}

@@ -163,6 +163,29 @@ Verify that the URL, selected tab and log request account agree. Unit tests cove
 router acceptance, settled empty/error states and late asynchronous failures;
 documentary browser fixtures check the rendered transitions and request scopes.
 
+## Bucket maintenance setup and progress
+
+Usage calculation, integrity checks and purge workflows share
+`BucketOperationSetup` and `BucketOperationProgress` in Ceph Admin, Storage Ops,
+and their existing Manager consumers. The setup owns context/action alignment
+and compact fields: 28px controls and 12px text on desktop, with 44px touch
+controls below 1024px or with a coarse pointer. Native field labels use normal
+case; HEAD/GET remains a named choice group. Options wrap into fewer columns on
+narrow screens without squeezing the date or confirmation fields.
+
+Progress tracks, scope labels and summary separators use theme tokens. Long
+bucket names wrap. `UiProgressBar` accepts `null` for an indeterminate total,
+omits `aria-valuenow` in that state and respects reduced motion. Usage and
+integrity no longer substitute 100% when their denominator is unknown; purge
+retains its discovered-total cap and exact destructive confirmation.
+
+Validate the three operations in Ceph Admin and Storage Ops, plus Manager
+integrity and purge, in light/dark themes at 1440px and 390px. Check selection,
+HEAD/GET restrictions, invalid/exact purge confirmation, disabled controls while
+running, cancellation, rerun, final progress and explicit target payloads using
+documentary fixtures. Unit tests cover determinate/indeterminate progress and
+existing execution contracts. These checks do not execute real storage work.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
