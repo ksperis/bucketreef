@@ -45,8 +45,7 @@ import DataTableShell, {
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import UiMeterBar from "../../components/ui/UiMeterBar";
 
-import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
-import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
+import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
 import {
   S3_BUCKET_NAME_MAX_LENGTH,
@@ -254,8 +253,6 @@ export default function BucketsPage() {
   );
   const [filter, setFilter] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(loadVisibleColumns);
-  const [showColumnPicker, setShowColumnPicker] = useState(false);
-  const columnPickerRef = useRef<HTMLDivElement | null>(null);
   const fetchRequestRef = useRef(0);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const lastFetchContextRef = useRef<string | null>(null);
@@ -619,13 +616,6 @@ export default function BucketsPage() {
     });
   }, [quotaFeatureEnabled, snsFeatureEnabled, staticWebsiteFeatureEnabled]);
 
-  useDismissibleLayer({
-    open: showColumnPicker,
-    insideRefs: [columnPickerRef],
-    onDismiss: () => setShowColumnPicker(false),
-    dismissOnEscape: false,
-  });
-
   const filteredBuckets = useMemo(() => {
     const q = filter.trim().toLowerCase();
     const items = q ? buckets.filter((b) => b.name.toLowerCase().includes(q)) : buckets;
@@ -987,64 +977,23 @@ export default function BucketsPage() {
                 {enrichingColumns ? (
                   <span className="ui-caption text-slate-500 dark:text-slate-400">Updating selected columns...</span>
                 ) : null}
-                <div className="relative" ref={columnPickerRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowColumnPicker((prev) => !prev)}
-                    className={toolbarCompactButtonClasses}
-                  >
-                    Columns
-                  </button>
-                  {showColumnPicker && (
-                    <div className="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-800 dark:bg-slate-900">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Visible columns</p>
-                        <button
-                          type="button"
-                          onClick={resetColumns}
-                          className="rounded-md border border-slate-200 px-2 py-1 ui-caption font-semibold text-slate-700 hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-100 dark:hover:border-primary-500 dark:hover:text-primary-100"
-                        >
-                          Reset
-                        </button>
-                      </div>
-
-                      <div className="mt-3 space-y-3">
-                        <div className="space-y-2">
-                          <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Metrics</p>
-                          {metricColumnOptions.map((opt) => (
-                            <label key={opt.id} className="flex items-center justify-between ui-body text-slate-700 dark:text-slate-200">
-                              <span>{opt.label}</span>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns.includes(opt.id)}
-                                onChange={() => toggleColumn(opt.id)}
-                                className={uiCheckboxClass}
-                              />
-                            </label>
-                          ))}
-                        </div>
-
-                        <div className="space-y-2">
-                          <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Features</p>
-                          {featureColumnOptions.map((opt) => (
-                            <label key={opt.id} className="flex items-center justify-between ui-body text-slate-700 dark:text-slate-200">
-                              <span>{opt.label}</span>
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns.includes(opt.id)}
-                                onChange={() => toggleColumn(opt.id)}
-                                className={uiCheckboxClass}
-                              />
-                            </label>
-                          ))}
-                          <p className="ui-caption text-slate-500 dark:text-slate-400">
-                            Feature checks run only when their column is enabled.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <ColumnVisibilityMenu
+                  selectedCount={visibleColumns.length}
+                  onReset={resetColumns}
+                  resetDisabled={visibleColumns.length === defaultVisibleColumns.length && defaultVisibleColumns.every((id) => visibleColumns.includes(id))}
+                  coreGroups={[
+                    { id: "metrics", label: "Metrics", options: metricColumnOptions },
+                    { id: "features", label: "Features", options: featureColumnOptions },
+                  ].map((group) => ({
+                    ...group,
+                    options: group.options.map((option) => ({
+                      ...option,
+                      checked: visibleColumns.includes(option.id),
+                      onToggle: () => toggleColumn(option.id),
+                    })),
+                  }))}
+                  footerNote="Feature checks run only when their column is enabled."
+                />
               </>
             }
         >

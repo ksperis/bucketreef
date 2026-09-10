@@ -92,8 +92,7 @@ function useAnchoredMenuPosition({
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       const maxWidth = Math.max(0, viewportWidth - VIEWPORT_MARGIN * 2);
-      const targetMinWidth =
-        minWidth === "anchor" ? anchorRect.width : Math.max(0, Math.min(minWidth, maxWidth));
+      const targetMinWidth = Math.max(0, Math.min(minWidth === "anchor" ? anchorRect.width : minWidth, maxWidth));
       const menuWidth = Math.min(Math.max(menuRect.width, targetMinWidth), maxWidth);
       const x = clamp(
         resolveX(anchorRect, menuWidth, placement),
@@ -118,12 +117,16 @@ function useAnchoredMenuPosition({
     };
 
     scheduleUpdate();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleUpdate);
+    if (anchorRef.current) observer?.observe(anchorRef.current);
+    if (menuRef.current) observer?.observe(menuRef.current);
     window.addEventListener("resize", scheduleUpdate);
     window.addEventListener("scroll", scheduleUpdate, true);
     window.addEventListener("orientationchange", scheduleUpdate);
 
     return () => {
       cancelAnimationFrame(rafId);
+      observer?.disconnect();
       window.removeEventListener("resize", scheduleUpdate);
       window.removeEventListener("scroll", scheduleUpdate, true);
       window.removeEventListener("orientationchange", scheduleUpdate);

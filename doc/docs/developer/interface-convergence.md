@@ -68,10 +68,35 @@ the error association clears and Create becomes available. Check native token
 required/minimum validation and SSE-C visibility without storing a key. Exercise
 the same rendered forms in light/dark and desktop/mobile layouts.
 
+## Inventory column selection
+
+`ColumnVisibilityMenu` now owns the picker for Ceph accounts/users/buckets,
+Storage Ops buckets and Manager buckets. Four local visibility/dismissal wrappers
+and Manager's duplicate picker markup are removed. The single neutral Reset
+action stays inside the picker and is disabled at defaults. Existing column IDs,
+workspace availability, persistence and lazy feature loading remain with their
+owners. Labels wrap and mobile/coarse-pointer checkbox targets reach 44px.
+
+The non-modal dialog renders outside table clipping, fits the viewport and has
+one scrolling surface. Its Reset/Close header stays visible while scrolling,
+so touch users can close even when the panel fills the screen. Opening focuses
+the first available checkbox; Close/Escape restores the trigger. Moving focus or
+clicking outside dismisses without taking focus from the destination. The shared anchored primitive observes
+content size changes so expanding details can reposition the panel, and clamps
+its minimum width even when the anchor is wider than the viewport.
+
+Validate the five inventories with documentary API fixtures in both themes at
+1440 × 900 and 390 × 844, plus 320 × 568, a shallow 667 × 280 viewport and
+a coarse pointer at desktop width (35 combinations). Open Columns with
+the keyboard, toggle a column, expand details where available, reach the final
+checkbox by scrolling, reset and dismiss. Verify geometry again after expansion
+and resizing while open. These fixture checks cover presentation and interaction,
+not authenticated Ceph/Manager storage operations.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
-- Consolidate repeated column/export popovers in operational inventories.
+- Consolidate remaining row-action and export popovers in operational inventories.
 - Review remaining account and bucket form sections against the compact
   settings contract, preserving each independent save boundary.

@@ -5,7 +5,7 @@
 import TableSortControls from "../../components/list/TableSortControls";
 import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -15,14 +15,11 @@ import PageHeader from "../../components/PageHeader";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import ColumnVisibilityPicker from "../../components/ColumnVisibilityPicker";
+import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
 } from "../../components/list/DataTableShell";
-import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
-import { cx, uiButtonBaseClass, uiButtonVariants } from "../../components/ui/styles";
-import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 
 import {
   CephAdminRgwUser,
@@ -302,10 +299,8 @@ export default function CephAdminUsersPage() {
   const [pageSize, setPageSize] = useState(25);
   const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>(DEFAULT_SORT);
   const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(loadVisibleColumns);
-  const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const columnPickerRef = useRef<HTMLDivElement | null>(null);
   const {
     filter,
     setFilter,
@@ -330,13 +325,6 @@ export default function CephAdminUsersPage() {
   useEffect(() => {
     persistVisibleColumns(visibleColumns);
   }, [visibleColumns]);
-
-  useDismissibleLayer({
-    open: showColumnPicker,
-    insideRefs: [columnPickerRef],
-    onDismiss: () => setShowColumnPicker(false),
-    dismissOnEscape: false,
-  });
 
   useEffect(() => {
     setSort(DEFAULT_SORT);
@@ -951,43 +939,21 @@ export default function CephAdminUsersPage() {
               </button>
             }
             columns={
-              <>
-                <div className="relative" ref={columnPickerRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowColumnPicker((prev) => !prev)}
-                    className={toolbarCompactButtonClasses}
-                  >
-                    Columns
-                  </button>
-                  {showColumnPicker && (
-                    <div className="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-800 dark:bg-slate-900">
-                      <ColumnVisibilityPicker
-                        selectedCount={visibleColumns.length}
-                        onReset={resetColumns}
-                        coreGroups={USER_COLUMN_GROUPS.map((group) => ({
-                          id: group.id,
-                          label: group.label,
-                          options: group.options.map((option) => ({
-                            id: option.id,
-                            label: option.label,
-                            checked: visibleColumns.includes(option.id),
-                            onToggle: () => toggleColumn(option.id),
-                          })),
-                        }))}
-                      />
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={resetColumns}
-                  disabled={!columnsCustomized}
-                  className={cx(uiButtonBaseClass, uiButtonVariants.danger, "px-2.5 py-1.5 ui-caption")}
-                >
-                  Reset Columns
-                </button>
-              </>
+              <ColumnVisibilityMenu
+                selectedCount={visibleColumns.length}
+                onReset={resetColumns}
+                resetDisabled={!columnsCustomized}
+                coreGroups={USER_COLUMN_GROUPS.map((group) => ({
+                  id: group.id,
+                  label: group.label,
+                  options: group.options.map((option) => ({
+                    id: option.id,
+                    label: option.label,
+                    checked: visibleColumns.includes(option.id),
+                    onToggle: () => toggleColumn(option.id),
+                  })),
+                }))}
+              />
             }
             secondaryContent={
               showActiveFiltersCard || showAdvancedFilter ? (

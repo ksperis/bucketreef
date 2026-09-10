@@ -167,6 +167,13 @@ behavior in the same slot. Filters use `UiSelect` / `UiInput` with visible,
 normal-case labels beside the value (for example, `Provider: All`). Do not add
 local grid wrappers or field widths to recreate toolbar layout.
 
+Operational inventories use `ColumnVisibilityMenu` for optional columns. It owns
+the trigger, anchored portal, viewport scrolling, keyboard dismissal and shared
+picker presentation. Pass the existing column definitions and callbacks; feature
+loading and persistence stay with the inventory. Keep one neutral Reset action
+inside the picker, disabled when the defaults are already selected. Do not add
+local popover state, palettes or a second reset button in the toolbar.
+
 `listPresentation.css` owns widths, gaps and alignment. Search grows up to
 18rem and gives space back to other controls. Fields retain shared 28px targets
 (44px on mobile or coarse pointers). Below 768px search fills a row; filters,

@@ -1,0 +1,29 @@
+/* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
+.ui-column-menu {
+  width: 24rem;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+}
+
+.ui-column-menu label {
+  min-height: 28px;
+}
+
+.ui-column-menu .ui-column-picker-header {
+  position: sticky;
+  top: -12px;
+  z-index: 1;
+  margin: -12px -12px 0;
+  padding: 12px;
+  background: var(--ui-surface);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+@media (max-width: 1023px), (any-pointer: coarse) {
+  .ui-column-menu label {
+    min-height: 44px;
+  }
+}
