@@ -514,7 +514,34 @@ Validate all three routed creation forms in both themes at desktop and mobile
 widths, including long policy names, collapsed states, keyboard toggles,
 replacement, cancellation and exact creation/attachment payloads. Use fixture
 responses to exercise failure and retry without creating live IAM identities.
-The surrounding entity identity fields remain a separate convergence pass.
+
+## IAM entity forms
+
+User, group and role creation, plus role editing, use the native `SettingsForm`
+and compact `SettingsSection` layout. Their identity fields, optional group
+selection, policy panels and action footer share the settings control contract.
+`ManagerRoleFormFields` owns the common identity and trust-policy presentation
+for role creation and editing.
+
+Required names and invalid trust-policy JSON produce field-associated errors,
+focus the first invalid field and clear as the input is corrected. JSON parsing
+checks syntax only; IAM policy semantics remain server-owned. While a request
+or a subsequent policy attachment is pending, the draft and dismissal controls
+are disabled. Native Enter submission, failure recovery and retries preserve
+the selected execution context, key-generation default and attachment order.
+
+Role names and paths are read-only during editing because IAM identity is fixed
+at creation. Role updates send only the trust policy; creation retains the
+existing optional path behavior. Long page titles wrap in the shared
+`PageHeader` so they cannot introduce a horizontal scrollbar that raises the
+sticky action footer above the bottom of the main scroll area.
+
+Validation: 36 targeted tests and `npm run check:ci` passed. Twenty routed
+browser fixture cases cover all four forms at 1440 px and 390 px in both themes,
+plus 320 px in dark mode. They check validation, pending drafts, cancellation,
+failure/retry payloads and long identifiers. Footer checks at the start, middle
+and end of scrolling report no bottom gap or horizontal overflow. These fixtures
+validate rendered behavior and requests, not live IAM mutations against RGW.
 
 ## Remaining passes
 
