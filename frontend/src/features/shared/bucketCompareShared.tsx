@@ -108,13 +108,6 @@ export const BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS = [
 
 const bucketCompareMappingTableContainerClass =
   "max-h-[240px] overflow-auto rounded-lg border border-slate-200 dark:border-slate-800";
-const bucketCompareMappingTableClass = "min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800";
-const bucketCompareMappingTableHeadClass = "bg-slate-100 dark:bg-slate-900/60";
-const bucketCompareMappingTableBodyClass = "divide-y divide-slate-200 dark:divide-slate-800";
-const bucketCompareMappingTableHeaderClass =
-  "px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
-const bucketCompareMappingSourceCellClass = "px-3 py-2 font-semibold text-slate-900 dark:text-slate-100";
-const bucketCompareMappingTargetCellClass = "space-y-1 px-3 py-2";
 
 type BucketCompareManualMappingEditorProps = {
   rawMappingText: string;
@@ -174,21 +167,21 @@ export function BucketCompareManualMappingEditor({
         </div>
       </details>
       <div className={bucketCompareMappingTableContainerClass}>
-        <table className={bucketCompareMappingTableClass}>
-          <thead className={bucketCompareMappingTableHeadClass}>
+        <table className="ui-data-table">
+          <thead>
             <tr>
-              <th className={bucketCompareMappingTableHeaderClass}>Source</th>
-              <th className={bucketCompareMappingTableHeaderClass}>Target</th>
+              <th className="text-left">Source</th>
+              <th className="text-left">Target</th>
             </tr>
           </thead>
-          <tbody className={bucketCompareMappingTableBodyClass}>
+          <tbody>
             {sourceBuckets.map((sourceBucket) => {
               const rawTarget = parsedRawMapping.mapping.get(sourceBucket);
               const effectiveTarget = resolvedManualMapping.get(sourceBucket) ?? "";
               return (
                 <tr key={sourceBucket} className="align-top">
-                  <td className={bucketCompareMappingSourceCellClass}>{sourceBucket}</td>
-                  <td className={bucketCompareMappingTargetCellClass}>
+                  <td className="ui-table-primary">{sourceBucket}</td>
+                  <td className="space-y-1">
                     <input
                       type="text"
                       list={targetOptionsId}

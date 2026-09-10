@@ -4,13 +4,18 @@
  */
 
 export const toolbarCompactInputClasses =
-  "rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-1.5 ui-caption text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60";
+  "ui-list-control border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const toolbarCompactSelectClasses =
-  "rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-1.5 ui-caption text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60";
+  "ui-list-control border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60";
 
-export const toolbarCompactButtonClasses =
-  "rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-1.5 ui-caption font-semibold text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)] transition hover:bg-[var(--ui-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60";
+export const toolbarCompactButtonClasses = "ui-list-action";
 
 export const toolbarCompactToggleClasses =
-  "inline-flex items-center gap-2 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-1.5 ui-caption text-[var(--ui-text-muted)] shadow-[var(--ui-shadow-soft)]";
+  "ui-list-control inline-flex items-center gap-2 border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)]";
+
+export const toolbarMatchModeButtonClasses = (
+  mode: "contains" | "exact",
+  pending: boolean,
+  locked: boolean = false,
+) => `ui-list-action ui-list-action-icon ui-list-search-mode${locked ? " cursor-not-allowed ui-list-action-active" : pending ? " ui-list-action-warning" : mode === "exact" ? " ui-list-action-active" : ""}`;

@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
@@ -62,7 +63,7 @@ import DataTableShell, {
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiTagEditor from "../../components/UiTagEditor";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { useAdminAccountStats } from "./useAdminAccountStats";
 import {
@@ -72,23 +73,7 @@ import {
 import { AdminAccessToggleSection } from "./AdminAccessSections";
 import AdminQuotaFields from "./AdminQuotaFields";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
-import {
-  AdminAssociationPickerPanel,
-  AdminAssociationSectionHeader,
-  adminAssociationAccountOptionRowClass,
-  adminAssociationCheckboxClass,
-  adminAssociationOptionLabelClass,
-  adminAssociationTableClass as associationTableClass,
-  adminAssociationTableActionCellClass,
-  adminAssociationTableContainerClass as associationTableContainerClass,
-  adminAssociationTableControlCellClass,
-  adminAssociationTableEmptyCellClass,
-  adminAssociationTableBodyClass,
-  adminAssociationTableHeaderClass,
-  adminAssociationTableHeadClass,
-  adminAssociationTableHeaderRightClass,
-  adminAssociationTableLabelCellClass,
-} from "./AdminAssociationPicker";
+import { AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationAccountOptionRowClass, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { extractApiError } from "../../utils/apiError";
@@ -616,24 +601,24 @@ export default function S3AccountsPage() {
       render: (account) => {
         const deleteBusy = deletingS3AccountId === account.id;
         return isSuperAdmin ? (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
+          <ListActions>
+            <ListActionButton
               type="button"
               onClick={() => startEditS3Account(account)}
-              className={tableActionButtonClasses}
+
               {...dataTableDefaultActionProps}
             >
               Edit
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
               onClick={() => openDeleteS3AccountModal(account)}
-              className={tableDeleteActionClasses}
+               variant="danger"
               disabled={deleteBusy}
             >
               {deleteBusy ? "Deleting..." : "Delete"}
-            </button>
-          </div>
+            </ListActionButton>
+          </ListActions>
         ) : (
           <span className="ui-caption text-slate-500 dark:text-slate-400">-</span>
         );
@@ -936,7 +921,7 @@ export default function S3AccountsPage() {
 
   return (
     <div className={workflowPageHostClass(Boolean(editingS3Account))}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="RGW Accounts"
         description="Provision Ceph RGW accounts (tenants), quotas, and root users."
         breadcrumbs={adminPageBreadcrumbs("accounts")}
@@ -1417,29 +1402,29 @@ export default function S3AccountsPage() {
                     }}
                   />
                   <div className={associationTableContainerClass}>
-                    <table className={associationTableClass}>
-                      <thead className={adminAssociationTableHeadClass}>
+                    <table className="ui-data-table">
+                      <thead>
                         <tr>
-                          <th className={adminAssociationTableHeaderClass}>
+                          <th className="text-left">
                             User
                           </th>
-                          <th className={adminAssociationTableHeaderClass}>Manager role</th>
+                          <th className="text-left">Manager role</th>
                           {showUserPortalRoleColumn ? (
-                            <th className={adminAssociationTableHeaderClass}>
+                            <th className="text-left">
                               Portal role
                             </th>
                           ) : null}
-                          <th className={adminAssociationTableHeaderRightClass}>
+                          <th className="w-px whitespace-nowrap text-right">
                             Actions
                           </th>
                         </tr>
                       </thead>
-                      <tbody className={adminAssociationTableBodyClass}>
+                      <tbody>
                         {assignedUsers.length === 0 ? (
                           <tr>
                             <td
                               colSpan={3 + Number(showUserPortalRoleColumn)}
-                              className={adminAssociationTableEmptyCellClass}
+                              className="ui-table-secondary"
                             >
                               No linked users yet.
                             </td>
@@ -1457,7 +1442,7 @@ export default function S3AccountsPage() {
                               }));
                             return (
                               <tr key={u.id}>
-                                <td className={adminAssociationTableLabelCellClass}>
+                                <td className="ui-table-primary">
                                   {u.label}
                                   <AccountAccessRoleValidationMessage
                                     id={accessErrorId}
@@ -1465,7 +1450,7 @@ export default function S3AccountsPage() {
                                     portalEnabled={portalEnabled}
                                   />
                                 </td>
-                                <td className={adminAssociationTableControlCellClass}>
+                                <td>
                                   <ManagerAccountRoleSelect
                                     label={u.label}
                                     portalEnabled={portalEnabled}
@@ -1477,7 +1462,7 @@ export default function S3AccountsPage() {
                                   />
                                 </td>
                                 {showUserPortalRoleColumn ? (
-                                  <td className={adminAssociationTableControlCellClass}>
+                                  <td>
                                     <PortalAccountRoleSelect
                                       label={u.label}
                                       portalEnabled={portalEnabled}
@@ -1489,7 +1474,7 @@ export default function S3AccountsPage() {
                                     />
                                   </td>
                                 ) : null}
-                                <td className={adminAssociationTableActionCellClass}>
+                                <td className="ui-table-actions-cell w-px text-right">
                                   {u.manager_role ? (
                                     <AdminAssociationAdvancedSettings
                                       targetLabel={u.label}
@@ -1512,7 +1497,7 @@ export default function S3AccountsPage() {
                                       }
                                     />
                                   ) : null}
-                                  <button
+                                  <ListActionButton
                                     type="button"
                                     onClick={() =>
                                       setEditForm((prev) => ({
@@ -1522,10 +1507,10 @@ export default function S3AccountsPage() {
                                         ),
                                       }))
                                     }
-                                    className={tableDeleteActionClasses}
+                                     variant="danger"
                                   >
                                     Remove
-                                  </button>
+                                  </ListActionButton>
                                 </td>
                               </tr>
                             );
@@ -1632,29 +1617,29 @@ export default function S3AccountsPage() {
                     }}
                   />
                   <div className={associationTableContainerClass}>
-                    <table className={associationTableClass}>
-                      <thead className={adminAssociationTableHeadClass}>
+                    <table className="ui-data-table">
+                      <thead>
                         <tr>
-                          <th className={adminAssociationTableHeaderClass}>
+                          <th className="text-left">
                             Group
                           </th>
-                          <th className={adminAssociationTableHeaderClass}>Manager role</th>
+                          <th className="text-left">Manager role</th>
                           {showGroupPortalRoleColumn ? (
-                            <th className={adminAssociationTableHeaderClass}>
+                            <th className="text-left">
                               Portal role
                             </th>
                           ) : null}
-                          <th className={adminAssociationTableHeaderRightClass}>
+                          <th className="w-px whitespace-nowrap text-right">
                             Actions
                           </th>
                         </tr>
                       </thead>
-                      <tbody className={adminAssociationTableBodyClass}>
+                      <tbody>
                         {assignedGroups.length === 0 ? (
                           <tr>
                             <td
                               colSpan={3 + Number(showGroupPortalRoleColumn)}
-                              className={adminAssociationTableEmptyCellClass}
+                              className="ui-table-secondary"
                             >
                               No linked groups yet.
                             </td>
@@ -1672,7 +1657,7 @@ export default function S3AccountsPage() {
                               }));
                             return (
                               <tr key={group.id}>
-                                <td className={adminAssociationTableLabelCellClass}>
+                                <td className="ui-table-primary">
                                   {group.label}
                                   <AccountAccessRoleValidationMessage
                                     id={accessErrorId}
@@ -1680,7 +1665,7 @@ export default function S3AccountsPage() {
                                     portalEnabled={portalEnabled}
                                   />
                                 </td>
-                                <td className={adminAssociationTableControlCellClass}>
+                                <td>
                                   <ManagerAccountRoleSelect
                                     label={group.label}
                                     portalEnabled={portalEnabled}
@@ -1692,7 +1677,7 @@ export default function S3AccountsPage() {
                                   />
                                 </td>
                                 {showGroupPortalRoleColumn ? (
-                                  <td className={adminAssociationTableControlCellClass}>
+                                  <td>
                                     <PortalAccountRoleSelect
                                       label={group.label}
                                       portalEnabled={portalEnabled}
@@ -1704,7 +1689,7 @@ export default function S3AccountsPage() {
                                     />
                                   </td>
                                 ) : null}
-                                <td className={adminAssociationTableActionCellClass}>
+                                <td className="ui-table-actions-cell w-px text-right">
                                   {group.manager_role ? (
                                     <AdminAssociationAdvancedSettings
                                       targetLabel={group.label}
@@ -1727,7 +1712,7 @@ export default function S3AccountsPage() {
                                       }
                                     />
                                   ) : null}
-                                  <button
+                                  <ListActionButton
                                     type="button"
                                     onClick={() =>
                                       setEditForm((prev) => ({
@@ -1737,10 +1722,10 @@ export default function S3AccountsPage() {
                                         ),
                                       }))
                                     }
-                                    className={tableDeleteActionClasses}
+                                     variant="danger"
                                   >
                                     Remove
-                                  </button>
+                                  </ListActionButton>
                                 </td>
                               </tr>
                             );
@@ -1921,7 +1906,7 @@ export default function S3AccountsPage() {
           sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
           primaryColumnId="name"
           responsiveCards
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           pagination={{
             page,
             pageSize,

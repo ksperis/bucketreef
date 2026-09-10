@@ -1,7 +1,9 @@
+import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
@@ -20,7 +22,7 @@ import DataTableShell, {
 import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
 import { cx, uiButtonBaseClass, uiButtonVariants } from "../../components/ui/styles";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
-import UiButton from "../../components/ui/UiButton";
+
 import {
   CephAdminRgwAccount,
   CephAdminRgwAccountDetail,
@@ -53,7 +55,6 @@ import {
   formatTextMatchModeSymbol,
   formatTextFilterSummary,
   parseExactListInput,
-  quickFilterMatchModeButtonClass,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
@@ -710,7 +711,7 @@ export default function CephAdminAccountsPage() {
         <div className="inline-flex items-center">
           <details className="relative">
             <summary
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-300 bg-white text-sm font-semibold text-slate-600 transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-primary-500 dark:hover:text-primary-100 list-none [&::-webkit-details-marker]:hidden"
+              className="ui-list-action ui-list-action-icon list-none [&::-webkit-details-marker]:hidden"
               aria-label="More actions"
               title="More actions"
             >
@@ -719,7 +720,7 @@ export default function CephAdminAccountsPage() {
             <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
               <button
                 type="button"
-                className={`${tableActionMenuItemClasses} !px-2 !py-1 !text-[11px]`}
+                className={`${tableActionMenuItemClasses}`}
                 {...dataTableDefaultActionProps}
                 onClick={(event) => {
                   event.preventDefault();
@@ -732,7 +733,7 @@ export default function CephAdminAccountsPage() {
               </button>
               <button
                 type="button"
-                className={`${tableActionMenuItemClasses} !px-2 !py-1 !text-[11px]`}
+                className={`${tableActionMenuItemClasses}`}
                 onClick={(event) => {
                   event.preventDefault();
                   navigate(`/ceph-admin/buckets?owner=${encodeURIComponent(account.account_id)}`);
@@ -744,7 +745,7 @@ export default function CephAdminAccountsPage() {
               </button>
               <button
                 type="button"
-                className={`${tableActionMenuItemClasses} !px-2 !py-1 !text-[11px] !text-rose-700 dark:!text-rose-300`}
+                className={`${tableActionMenuItemClasses} !text-rose-700 dark:!text-rose-300`}
                 onClick={(event) => {
                   event.preventDefault();
                   setDeletingAccount(account);
@@ -770,7 +771,7 @@ export default function CephAdminAccountsPage() {
 
   return (
     <div className={workflowPageHostClass(showCreateModal || Boolean(editingAccountId))}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="RGW Accounts"
         description="Complete list of RGW accounts (admin ops)."
         breadcrumbs={cephAdminPageBreadcrumbs("accounts")}
@@ -808,7 +809,7 @@ export default function CephAdminAccountsPage() {
                   onKeyDown={(event) => event.stopPropagation()}
                   placeholder="Account ID(s)"
                   rows={1}
-                  className={`w-full resize-y rounded-md border bg-white px-2.5 py-1.5 pr-9 ui-caption text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-900 dark:text-slate-100 ${
+                  className={`ui-list-control ui-list-search w-full resize-y border bg-white text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-900 dark:text-slate-100 ${
                     quickFilterFieldState.fieldClass || "border-slate-200 dark:border-slate-700"
                   }`}
                 />
@@ -816,7 +817,7 @@ export default function CephAdminAccountsPage() {
                   type="button"
                   onClick={toggleQuickFilterMode}
                   disabled={quickFilterDraftForcesExact}
-                  className={quickFilterMatchModeButtonClass(
+                  className={toolbarMatchModeButtonClasses(
                     quickFilterModeForDisplay,
                     quickFilterPending,
                     quickFilterDraftForcesExact
@@ -916,9 +917,9 @@ export default function CephAdminAccountsPage() {
                               </span>
                             </div>
                           </div>
-                          <UiButton variant="secondary" size="sm" onClick={advancedFilterCloseGuard.requestClose}>
+                          <ListActionButton variant="secondary"  onClick={advancedFilterCloseGuard.requestClose}>
                             Close
-                          </UiButton>
+                          </ListActionButton>
                         </div>
                       </div>
 
@@ -1073,17 +1074,16 @@ export default function CephAdminAccountsPage() {
 
                       <div className={advancedFilterFooterClass}>
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                          <UiButton
+                          <ListActionButton
                             variant="secondary"
-                            size="sm"
                             onClick={resetAdvancedFilter}
                             disabled={!hasAnyAdvancedToClear}
                           >
                             Clear
-                          </UiButton>
-                          <UiButton size="sm" onClick={applyAdvancedFilter}>
+                          </ListActionButton>
+                          <ListActionButton variant="primary"  onClick={applyAdvancedFilter}>
                             Apply filter
-                          </UiButton>
+                          </ListActionButton>
                         </div>
                       </div>
                     </div>

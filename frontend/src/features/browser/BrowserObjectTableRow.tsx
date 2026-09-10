@@ -87,7 +87,7 @@ export default function BrowserObjectTableRow({
       }
       onClick={onClick}
       onContextMenu={onContextMenu}
-      className={`${rowHeightClasses} cursor-pointer transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-primary ${
+      className={`ui-browser-row ${rowHeightClasses} cursor-pointer transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-primary ${
         selected
           ? "bg-primary-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] hover:bg-primary-100 dark:bg-primary-500/30 dark:hover:bg-primary-500/40"
           : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
@@ -105,7 +105,7 @@ export default function BrowserObjectTableRow({
         />
       </td>
       <td
-        className={`manager-table-cell min-w-0 px-4 ${rowCellClasses} !align-middle ui-body ${
+        className={`ui-table-primary min-w-0 px-4 ${rowCellClasses} !align-middle ui-body ${
           isHistorical
             ? "text-amber-800 dark:text-amber-200"
             : isDeleted

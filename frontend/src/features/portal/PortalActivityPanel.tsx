@@ -2,14 +2,15 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
 } from "../../components/list/DataTableShell";
 import PageEmptyState from "../../components/PageEmptyState";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
+
 import UiCard from "../../components/ui/UiCard";
 import UiSelect from "../../components/ui/UiSelect";
 import {
@@ -111,24 +112,24 @@ export default function PortalActivityPanel({ workspace }: PortalActivityPanelPr
           const expanded = expandedActivityId === item.id;
           const spacePath = activitySpacePath(item);
           return (
-            <div className="flex flex-wrap items-center justify-end gap-2 max-md:justify-start">
+            <ListActions className="max-md:justify-start">
               {spacePath ? (
-                <Link
+                <ListActionLink
                   to={spacePath}
-                  className={tableActionButtonClasses}
+
                 >
                   {t({ en: "Open space", fr: "Ouvrir l'espace", de: "Bereich öffnen" })}
-                </Link>
+                </ListActionLink>
               ) : null}
-              <button
+              <ListActionButton
                 type="button"
                 onClick={() => setExpandedActivityId(expanded ? null : item.id)}
-                className={tableActionButtonClasses}
+
                 {...dataTableDefaultActionProps}
               >
                 {expanded ? t({ en: "Hide details", fr: "Masquer les détails", de: "Details ausblenden" }) : t({ en: "Show details", fr: "Afficher les détails", de: "Details anzeigen" })}
-              </button>
-            </div>
+              </ListActionButton>
+            </ListActions>
           );
         },
       },

@@ -1,3 +1,4 @@
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
 import { uiCheckboxClass } from "../../components/ui/styles";
@@ -56,7 +57,7 @@ export default function BrowserObjectMobileList({
     <div
       role="list"
       aria-label="Objects"
-      className="divide-y divide-slate-200/80 dark:divide-slate-800"
+      className="ui-browser-mobile-list divide-y divide-[var(--ui-border-soft)]"
     >
       {showParentFolder && (
         <button
@@ -143,7 +144,7 @@ export default function BrowserObjectMobileList({
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold text-slate-900 dark:text-slate-100">
+                <span className="block truncate font-medium text-slate-900 dark:text-slate-100">
                   {item.name}
                 </span>
                 <span className="mt-0.5 flex min-w-0 items-center gap-2 ui-caption text-slate-500 dark:text-slate-400">
@@ -153,27 +154,20 @@ export default function BrowserObjectMobileList({
                   <span aria-hidden="true">·</span>
                   <span className="truncate">{item.modified}</span>
                   {(isDeleted || isHistorical) && (
-                    <span
-                      className={`shrink-0 rounded-full border px-1.5 py-0.5 font-semibold ${
-                        isDeleted
-                          ? "border-rose-200 text-rose-700 dark:border-rose-500/40 dark:text-rose-200"
-                          : "border-amber-200 text-amber-700 dark:border-amber-500/40 dark:text-amber-200"
-                      }`}
-                    >
+                    <ListBadge tone={isDeleted ? "danger" : "warning"} className="shrink-0">
                       {isDeleted ? "Deleted" : "History"}
-                    </span>
+                    </ListBadge>
                   )}
                 </span>
               </span>
             </button>
-            <button
-              type="button"
-              className={`${rowActionButtonClasses} min-h-11 min-w-11`}
+            <ListActionButton iconOnly
+              className={rowActionButtonClasses}
               aria-label={`More actions for ${item.name}`}
               onClick={(event) => onOpenActions(event, item)}
             >
               <MoreIcon />
-            </button>
+            </ListActionButton>
           </div>
         );
       })}

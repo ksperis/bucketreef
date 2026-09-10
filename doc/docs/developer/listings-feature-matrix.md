@@ -2,6 +2,11 @@
 
 This page audits the main UI listing surfaces in the repository and records which capabilities are enabled on each one.
 
+The [presentation inventory](listing-presentation-inventory.md) separately maps
+all table components, including static and dialog tables, to the common visual
+foundation and their validation coverage. The visual convergence does not change
+the functional capabilities recorded below.
+
 ## Legend & Methodology
 
 - Audit basis: the repository routes and API modules cited by each row. Update

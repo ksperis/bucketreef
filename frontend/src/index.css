@@ -1,3 +1,4 @@
+@import './components/list/listPresentation.css';
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -443,29 +444,6 @@ body {
     @apply bg-rose-700;
   }
 
-  .ui-data-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    @apply ui-caption;
-  }
-
-  .ui-data-table th {
-    border-bottom: 1px solid var(--ui-border);
-    background: var(--ui-surface-muted);
-    color: var(--ui-text-muted);
-    @apply px-3 py-2 text-left font-semibold;
-  }
-
-  .ui-data-table td {
-    border-bottom: 1px solid var(--ui-border-soft);
-    color: var(--ui-text);
-    @apply px-3 py-2 align-middle;
-  }
-
-  .ui-data-table tbody tr:hover td {
-    background: var(--ui-hover);
-  }
 
 }
 
@@ -589,64 +567,6 @@ a:hover {
   display: none;
 }
 
-/* Keep manager data tables readable without horizontal scrolling */
-.manager-table {
-  table-layout: fixed;
-  width: 100%;
-}
-
-.manager-table th,
-.manager-table td {
-  word-break: break-word;
-}
-
-.manager-table .manager-table-cell {
-  max-width: 18rem;
-}
-
-.manager-table .manager-table-cell-wide {
-  max-width: 22rem;
-}
-
-.manager-table tbody tr:not([data-expanded-row="true"]):has(
-    [data-table-default-action="true"]:not(:disabled):not([aria-disabled="true"])
-  ) {
-  cursor: pointer;
-}
-
-/* Compact tables across admin/manager/browser */
-.manager-table th,
-.manager-table td,
-.compact-table th,
-.compact-table td {
-  font-size: 0.75rem;
-  line-height: 1.1rem;
-  padding: 0.5rem 0.75rem;
-}
-
-@media (min-width: 768px) {
-  .manager-table th[data-table-actions="true"],
-  .manager-table td[data-table-actions="true"] {
-    position: sticky;
-    right: 0;
-    box-shadow: -1px 0 0 var(--ui-border-soft);
-  }
-
-  .manager-table th[data-table-actions="true"] {
-    z-index: 2;
-    background: var(--ui-surface-muted);
-  }
-
-  .manager-table td[data-table-actions="true"] {
-    z-index: 1;
-    background: var(--ui-surface);
-  }
-
-  .manager-table tbody tr:hover td[data-table-actions="true"] {
-    background: var(--ui-hover);
-  }
-}
-
 @media (max-width: 767px) {
   .responsive-data-table {
     min-width: 0 !important;
@@ -665,6 +585,7 @@ a:hover {
 
   .responsive-data-table tbody tr {
     display: grid;
+    height: auto;
     gap: 0.65rem;
     border: 1px solid var(--ui-border-soft);
     border-radius: 0.5rem;
@@ -698,11 +619,9 @@ a:hover {
   .responsive-data-table tbody td[data-label]::before {
     content: attr(data-label);
     color: var(--ui-text-muted);
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1rem;
-    text-transform: uppercase;
+    font-size: var(--list-font-size);
+    font-weight: var(--list-header-weight);
+    line-height: var(--list-line-height);
   }
 
   .responsive-data-table tbody td[data-mobile-primary="true"] {

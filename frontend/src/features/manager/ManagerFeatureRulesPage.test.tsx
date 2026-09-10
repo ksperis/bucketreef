@@ -77,7 +77,7 @@ describe("ManagerFeatureRulesPage", () => {
     expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", "Bucket, rule, tag");
     expect(screen.getByRole("combobox", { name: "Feature" })).toHaveValue("lifecycle");
     expect(screen.getByText("logs-prod")).toBeInTheDocument();
-    expect(screen.getByRole("table")).toHaveClass("manager-table");
+    expect(screen.getByRole("table")).toHaveClass("ui-data-table");
     expect(screen.getByRole("columnheader", { name: "JSON" })).toHaveClass("text-right");
     expect(screen.getByText("expire-logs")).toBeInTheDocument();
     expect(screen.getByText("Prefix: logs/ · expire current after 30d")).toBeInTheDocument();
@@ -166,7 +166,7 @@ describe("ManagerFeatureRulesPage", () => {
     const table = row.closest("table");
     expect(table).not.toBeNull();
     const jsonButton = within(table as HTMLTableElement).getByRole("button", { name: "JSON" });
-    expect(jsonButton).toHaveClass("rounded-full");
+    expect(jsonButton).toHaveClass("ui-list-action");
     fireEvent.click(jsonButton);
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();

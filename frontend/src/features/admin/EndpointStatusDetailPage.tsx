@@ -476,7 +476,7 @@ export default function EndpointStatusDetailPage() {
 
   if (!hasValidEndpointId) {
     return (
-      <PageShell
+      <PageShell actionPresentation="listing"
         title="Endpoint Details"
         breadcrumbs={adminPageBreadcrumbs("endpoint-status", { label: "Details" })}
         actions={[{ label: "Back", to: "/admin/endpoint-status", variant: "ghost" }]}
@@ -487,7 +487,7 @@ export default function EndpointStatusDetailPage() {
   }
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title={selectedEndpoint ? selectedEndpoint.name : "Endpoint Details"}
       description={selectedEndpoint?.endpoint_url || "Detailed health history and incidents for one endpoint."}
       breadcrumbs={adminPageBreadcrumbs("endpoint-status", { label: "Details" })}

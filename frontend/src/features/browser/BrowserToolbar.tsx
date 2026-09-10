@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import {
   useEffect,
   useRef,
@@ -12,7 +13,7 @@ import {
 } from "react";
 
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
-import UiBadge from "../../components/ui/UiBadge";
+
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import { cx, uiMenuClass } from "../../components/ui/styles";
 import { BrowserToolbarActionMenuItem } from "./BrowserActionPresentation";
@@ -24,17 +25,7 @@ import {
 } from "./BrowserToolbarMenus";
 import BrowserToolbarToggleMenuItem from "./BrowserToolbarToggleMenuItem";
 import type { BrowserActionId, BrowserActionState } from "./browserActions";
-import {
-  bulkDangerClasses,
-  contextMenuItemClasses,
-  contextMenuItemDisabledClasses,
-  contextMenuSeparatorClasses,
-  toolbarButtonClasses,
-  toolbarDangerIconButtonClasses,
-  toolbarIconButtonClasses,
-  toolbarPrimaryClasses,
-  toolbarPrimaryIconButtonClasses,
-} from "./browserConstants";
+import { contextMenuItemClasses, contextMenuItemDisabledClasses, contextMenuSeparatorClasses } from "./browserConstants";
 import {
   ChevronDownIcon,
   CompactIcon,
@@ -276,9 +267,9 @@ export default function BrowserToolbar({
         </div>
         <div className={toolbarActionsClasses}>
           {deletedObjects.showToggle && (
-            <button
+            <ListActionButton iconOnly={compactMode} variant="secondary"
               type="button"
-              className={compactMode ? toolbarIconButtonClasses : toolbarButtonClasses}
+
               aria-pressed={deletedObjects.showDeleted}
               aria-label={
                 deletedObjects.showDeleted
@@ -300,12 +291,12 @@ export default function BrowserToolbar({
                     : "Show deleted files"}
                 </span>
               )}
-            </button>
+            </ListActionButton>
           )}
           {deletedObjects.showRestore && (
-            <button
+            <ListActionButton iconOnly={compactMode} variant="secondary"
               type="button"
-              className={compactMode ? toolbarIconButtonClasses : toolbarButtonClasses}
+
               aria-label="Restore deleted files in this folder"
               title="Restore deleted files in this folder"
               onClick={() => onRunPathAction("restore")}
@@ -313,14 +304,13 @@ export default function BrowserToolbar({
             >
               <HistoryIcon className="h-3.5 w-3.5" />
               {!compactMode && <span>Restore deleted files in this folder</span>}
-            </button>
+            </ListActionButton>
           )}
           {contextActions.visible && (
             <div className={compactMode ? toolbarControlsGroupClasses : "flex shrink-0 flex-wrap items-center gap-2"}>
-              <button
+              <ListActionButton iconOnly={compactMode} variant="primary"
                 ref={uploadButtonRef}
                 type="button"
-                className={compactMode ? toolbarPrimaryIconButtonClasses : toolbarPrimaryClasses}
                 onClick={toggleUploadMenu}
                 disabled={
                   !contextActions.canUploadFiles &&
@@ -341,7 +331,7 @@ export default function BrowserToolbar({
               >
                 <UploadIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>Upload</span>}
-              </button>
+              </ListActionButton>
               <BrowserUploadQuickMenu
                 open={uploadMenuOpen}
                 anchorRef={uploadButtonRef}
@@ -351,9 +341,8 @@ export default function BrowserToolbar({
                 onUploadFiles={() => runUploadAction("uploadFiles")}
                 onUploadFolder={() => runUploadAction("uploadFolder")}
               />
-              <button
+              <ListActionButton iconOnly={compactMode} variant="secondary"
                 type="button"
-                className={compactMode ? toolbarIconButtonClasses : toolbarButtonClasses}
                 onClick={() => onRunPathAction("newFolder")}
                 disabled={!contextActions.canCreateFolder}
                 aria-label="New folder"
@@ -361,10 +350,9 @@ export default function BrowserToolbar({
               >
                 <FolderPlusIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>New folder</span>}
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton iconOnly={compactMode} variant="secondary"
                 type="button"
-                className={compactMode ? toolbarIconButtonClasses : toolbarButtonClasses}
                 onClick={() => onRunPathAction("refresh")}
                 disabled={!contextActions.canRefresh}
                 aria-label="Refresh"
@@ -372,11 +360,10 @@ export default function BrowserToolbar({
               >
                 <RefreshIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>Refresh</span>}
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton iconOnly={compactMode} variant="secondary"
                 ref={moreButtonRef}
                 type="button"
-                className={compactMode ? toolbarIconButtonClasses : toolbarButtonClasses}
                 onClick={toggleMoreMenu}
                 disabled={!hasMoreMenu}
                 aria-haspopup={hasMoreMenu ? "menu" : undefined}
@@ -386,7 +373,7 @@ export default function BrowserToolbar({
               >
                 <MoreIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>More</span>}
-              </button>
+              </ListActionButton>
             </div>
           )}
           {selectionActions.visible && !selectionActions.mobileViewport && (
@@ -398,9 +385,8 @@ export default function BrowserToolbar({
               >
                 {selectionActions.summary}
               </p>
-              <button
+              <ListActionButton iconOnly={compactMode} variant="secondary"
                 type="button"
-                className={compactMode ? toolbarIconButtonClasses : toolbarButtonClasses}
                 onClick={() => onRunSelectionAction("open")}
                 disabled={!selectionActions.canOpen}
                 aria-label="Open"
@@ -408,10 +394,9 @@ export default function BrowserToolbar({
               >
                 <OpenIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>Open</span>}
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton iconOnly={compactMode} variant="secondary"
                 type="button"
-                className={compactMode ? toolbarIconButtonClasses : toolbarButtonClasses}
                 onClick={() => onRunSelectionAction("copy")}
                 disabled={!selectionActions.canCopy}
                 aria-label="Copy"
@@ -419,10 +404,9 @@ export default function BrowserToolbar({
               >
                 <CopyIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>Copy</span>}
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton iconOnly={compactMode} variant="primary"
                 type="button"
-                className={compactMode ? toolbarPrimaryIconButtonClasses : toolbarPrimaryClasses}
                 onClick={() => onRunSelectionAction("download")}
                 disabled={!selectionActions.canDownload}
                 aria-label="Download"
@@ -430,10 +414,9 @@ export default function BrowserToolbar({
               >
                 <DownloadIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>Download</span>}
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton iconOnly={compactMode} variant="danger"
                 type="button"
-                className={compactMode ? toolbarDangerIconButtonClasses : bulkDangerClasses}
                 onClick={() => onRunSelectionAction("delete")}
                 disabled={!selectionActions.canDelete}
                 aria-label="Delete"
@@ -441,11 +424,10 @@ export default function BrowserToolbar({
               >
                 <TrashIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>Delete</span>}
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton iconOnly={compactMode} variant="secondary"
                 ref={moreButtonRef}
                 type="button"
-                className={compactMode ? toolbarIconButtonClasses : toolbarButtonClasses}
                 onClick={toggleMoreMenu}
                 disabled={!hasMoreMenu}
                 aria-haspopup={hasMoreMenu ? "menu" : undefined}
@@ -455,7 +437,7 @@ export default function BrowserToolbar({
               >
                 <MoreIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>More</span>}
-              </button>
+              </ListActionButton>
             </div>
           )}
         </div>
@@ -603,13 +585,13 @@ export default function BrowserToolbar({
                         <p className="font-semibold text-slate-700 dark:text-slate-100">
                           Transfers
                         </p>
-                        <UiBadge
+                        <ListBadge
                           tone={moreMenu.status.accessBadge.tone}
-                          className="shrink-0 whitespace-nowrap px-1.5 py-0.5 text-[10px] leading-4"
+                          className="shrink-0 whitespace-nowrap"
                           title={moreMenu.status.accessBadge.title}
                         >
                           {moreMenu.status.accessBadge.label}
-                        </UiBadge>
+                        </ListBadge>
                       </div>
                       <p className="text-slate-500 dark:text-slate-400">
                         {moreMenu.status.accessBadge.title}

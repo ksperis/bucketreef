@@ -1,3 +1,4 @@
+import { ListActionButton } from "../../components/list/ListControls";
 import type { ComponentType } from "react";
 
 import {
@@ -88,13 +89,8 @@ export function BrowserDirectItemActionButton({
       ? `${accessibleLabel}. Unavailable: ${action.disabledReason}`
       : accessibleLabel;
   return (
-    <button
-      type="button"
-      className={`${className} ${
-        action.id === "delete"
-          ? "text-rose-600 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200"
-          : ""
-      }`}
+    <ListActionButton iconOnly variant={action.id === "delete" ? "danger" : "secondary"}
+      className={className}
       aria-label={disabledLabel}
       title={action.enabled ? action.label : action.disabledReason}
       disabled={!action.enabled}
@@ -104,7 +100,7 @@ export function BrowserDirectItemActionButton({
       }}
     >
       <BrowserActionIcon actionId={action.id} />
-    </button>
+    </ListActionButton>
   );
 }
 

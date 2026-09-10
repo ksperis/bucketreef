@@ -6,6 +6,7 @@ import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import { UiTagBadge } from "../../components/UiTagSettings";
 import {
   toolbarCompactButtonClasses,
+  toolbarMatchModeButtonClasses,
   toolbarCompactInputClasses,
   toolbarCompactSelectClasses,
 } from "../../components/toolbarControlClasses";
@@ -34,26 +35,6 @@ type TagFilterController = Pick<
   | "updateTagFilterMode"
 >;
 
-const modeToggleBaseClass =
-  "absolute right-1 top-1 rounded border px-1 py-0 ui-caption font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-0";
-
-function modeToggleClass(
-  mode: "contains" | "exact",
-  isPending: boolean,
-  locked: boolean,
-) {
-  if (locked) {
-    return `${modeToggleBaseClass} cursor-not-allowed border-primary-400 bg-primary-100 text-primary-700 opacity-80 dark:border-primary-400/60 dark:bg-primary-500/20 dark:text-primary-100`;
-  }
-  if (isPending) {
-    return `${modeToggleBaseClass} border-amber-400 bg-amber-100 text-amber-700 focus:ring-amber-300 dark:border-amber-400/60 dark:bg-amber-500/20 dark:text-amber-200`;
-  }
-  if (mode === "exact") {
-    return `${modeToggleBaseClass} border-primary-400 bg-primary-100 text-primary-700 focus:ring-primary/35 dark:border-primary-400/60 dark:bg-primary-500/20 dark:text-primary-100`;
-  }
-  return `${modeToggleBaseClass} border-slate-200 bg-white text-slate-500 hover:border-primary hover:text-primary focus:ring-primary/30 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-primary-500 dark:hover:text-primary-100`;
-}
-
 export function BucketOpsQuickFilter({
   controller,
   value,
@@ -80,7 +61,7 @@ export function BucketOpsQuickFilter({
         rows={1}
         className={cx(
           toolbarCompactInputClasses,
-          "min-h-[2rem] w-full resize-y pr-9",
+          "ui-list-search w-full resize-y",
           quickFilterFieldState.fieldClass ||
             "border-slate-200 dark:border-slate-700",
         )}
@@ -89,7 +70,7 @@ export function BucketOpsQuickFilter({
         type="button"
         onClick={toggleQuickFilterMode}
         disabled={quickFilterDraftForcesExact}
-        className={modeToggleClass(
+        className={toolbarMatchModeButtonClasses(
           quickFilterModeForDisplay,
           quickFilterPending,
           quickFilterDraftForcesExact,
@@ -183,7 +164,7 @@ export function BucketOpsTagAndAdvancedFilters({
             }
             className={cx(
               toolbarCompactSelectClasses,
-              "w-auto px-2 py-1",
+              "w-auto",
             )}
           >
             <option value="any">OR</option>
@@ -197,7 +178,7 @@ export function BucketOpsTagAndAdvancedFilters({
         className={cx(
           toolbarCompactButtonClasses,
           showAdvancedFilter || advancedFiltersApplied
-            ? "border-primary/40 bg-primary-50 text-primary-700 dark:border-primary-400/40 dark:bg-primary-500/10 dark:text-primary-100"
+            ? "ui-list-action-active"
             : "",
         )}
       >

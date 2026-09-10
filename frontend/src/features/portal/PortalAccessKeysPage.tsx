@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -31,7 +32,7 @@ import DataTableShell, {
 } from "../../components/list/DataTableShell";
 import ListPageSection from "../../components/list/ListPageSection";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import UiButton from "../../components/ui/UiButton";
 import { cx, uiInputClass, uiLabelClass, uiMutedTextClass, uiPanelMutedClass, uiRadioClass, uiTitleTextClass } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
@@ -557,23 +558,21 @@ export default function PortalAccessKeysPage() {
         const active = key.is_active;
         const disabled = Boolean(busy) || !canManageAccessKeys;
         return (
-          <div className="flex flex-wrap justify-end gap-2">
+          <ListActions>
             {active ? (
-              <button
+              <ListActionButton
                 type="button"
                 onClick={() => openConnectionDialog(key)}
-                className={tableActionButtonClasses}
                 disabled={Boolean(busy)}
                 aria-label={`${t({ en: "Connect", fr: "Connecter", de: "Verbinden" })} ${keyConnectionLabel(key, locale, t)}`}
                 {...dataTableDefaultActionProps}
               >
                 {t({ en: "Connect", fr: "Connecter", de: "Verbinden" })}
-              </button>
+              </ListActionButton>
             ) : null}
-            <button
+            <ListActionButton
               type="button"
               onClick={() => handleToggleKey(key)}
-              className={tableActionButtonClasses}
               disabled={disabled}
             >
               {busy === `toggle:${key.access_key_id}`
@@ -581,16 +580,16 @@ export default function PortalAccessKeysPage() {
                 : active
                   ? t({ en: "Disable", fr: "Désactiver", de: "Deaktivieren" })
                   : t({ en: "Enable", fr: "Activer", de: "Aktivieren" })}
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
               onClick={() => handleDeleteKey(key)}
-              className={tableDeleteActionClasses}
+               variant="danger"
               disabled={disabled}
             >
               {busy === `delete:${key.access_key_id}` ? t({ en: "Deleting...", fr: "Suppression...", de: "Wird gelöscht..." }) : t({ en: "Delete", fr: "Supprimer", de: "Löschen" })}
-            </button>
-          </div>
+            </ListActionButton>
+          </ListActions>
         );
       },
     },
@@ -598,7 +597,7 @@ export default function PortalAccessKeysPage() {
 
   return (
     <div className={workflowPageHostClass(createWizardOpen)}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title={t({ en: "External S3 tools", fr: "Outils S3 externes", de: "Externe S3-Werkzeuge" })}
         description={t({
           en: "Create S3 credentials for a desktop app, script, or external partner. Keep each access limited to the right space.",

@@ -2,8 +2,9 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { S3AccountSelector } from "../../api/accountParams";
@@ -26,7 +27,7 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import { DEFAULT_INLINE_POLICY_TEXT } from "./inlinePolicyTemplate";
@@ -388,18 +389,18 @@ export default function ManagerRolesPage() {
     {
       id: "policies",
       label: "Policies",
-      cellClassName: "manager-table-cell-wide",
+      cellClassName: "ui-table-wide",
       render: (role) =>
         role.policies && role.policies.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {role.policies.map((policy) => (
-              <span
+              <ListBadge
                 key={policy}
-                className="rounded-full bg-slate-100 px-2 py-1 ui-caption font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                tone="neutral"
                 title={policy}
               >
                 {policy.split("/").pop()}
-              </span>
+              </ListBadge>
             ))}
           </div>
         ) : (
@@ -412,32 +413,31 @@ export default function ManagerRolesPage() {
       align: "right",
       mobileRole: "actions",
       render: (role) => (
-        <div className="flex flex-wrap justify-end gap-2">
-          <button
+        <ListActions>
+          <ListActionButton
             onClick={() => openEditModal(role.name)}
-            className={tableActionButtonClasses}
             disabled={loadingRoleDetails && editingRole?.name === role.name}
           >
             Edit
-          </button>
-          <Link to={`/manager/roles/${encodeURIComponent(role.name)}/policies`} className={tableActionButtonClasses}>
+          </ListActionButton>
+          <ListActionLink to={`/manager/roles/${encodeURIComponent(role.name)}/policies`}>
             Policies
-          </Link>
-          <button
+          </ListActionLink>
+          <ListActionButton
             onClick={() => handleDelete(role.name)}
-            className={tableDeleteActionClasses}
+             variant="danger"
             disabled={deletingRole === role.name}
           >
             {deletingRole === role.name ? "Deleting..." : "Delete"}
-          </button>
-        </div>
+          </ListActionButton>
+        </ListActions>
       ),
     },
   ];
 
   return (
     <div className={workflowPageHostClass(showAdvancedModal || showEditModal)}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="IAM Roles"
         description="Manage roles using the account root keys."
         breadcrumbs={managerPageBreadcrumbs("roles")}

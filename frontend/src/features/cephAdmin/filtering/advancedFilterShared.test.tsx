@@ -1,3 +1,4 @@
+import { toolbarMatchModeButtonClasses } from "../../../components/toolbarControlClasses";
 import { render, screen } from "@testing-library/react";
 
 import {
@@ -10,7 +11,6 @@ import {
   formatAdvancedFilterSyncLabel,
   formatQuickFilterMatchModeTitle,
   formatTextMatchModeSymbol,
-  quickFilterMatchModeButtonClass,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
@@ -20,13 +20,13 @@ import {
 
 describe("advancedFilterShared", () => {
   it("returns stable classes for active and locked match-mode buttons", () => {
-    expect(advancedFilterMatchModeButtonClass(true)).toContain("bg-primary-100");
+    expect(advancedFilterMatchModeButtonClass(true)).toContain("ui-list-action-active");
     expect(advancedFilterMatchModeButtonClass(false, true)).toContain("cursor-not-allowed");
   });
 
   it("returns stable advanced-filter toolbar button classes", () => {
-    expect(advancedFilterToolbarButtonClass(false)).toContain("ui-caption");
-    expect(advancedFilterToolbarButtonClass(true)).toContain("bg-primary-50");
+    expect(advancedFilterToolbarButtonClass(false)).toContain("ui-list-action");
+    expect(advancedFilterToolbarButtonClass(true)).toContain("ui-list-action-active");
   });
 
   it("returns stable advanced-filter field card classes", () => {
@@ -89,10 +89,10 @@ describe("advancedFilterShared", () => {
     expect(formatTextMatchModeSymbol("exact")).toBe("=");
     expect(formatQuickFilterMatchModeTitle("contains")).toBe("Quick filter mode: contains");
     expect(formatQuickFilterMatchModeTitle("exact", true)).toBe("Quick filter mode: exact (locked by list input)");
-    expect(quickFilterMatchModeButtonClass("contains", false)).toContain("hover:border-primary");
-    expect(quickFilterMatchModeButtonClass("exact", false)).toContain("bg-primary-100");
-    expect(quickFilterMatchModeButtonClass("contains", true)).toContain("bg-amber-100");
-    expect(quickFilterMatchModeButtonClass("contains", false, true)).toContain("cursor-not-allowed");
+    expect(toolbarMatchModeButtonClasses("contains", false)).toContain("ui-list-action-icon");
+    expect(toolbarMatchModeButtonClasses("exact", false)).toContain("ui-list-action-active");
+    expect(toolbarMatchModeButtonClasses("contains", true)).toContain("ui-list-action-warning");
+    expect(toolbarMatchModeButtonClasses("contains", false, true)).toContain("cursor-not-allowed");
   });
 
   it("renders progress through the shared progressbar primitive", () => {

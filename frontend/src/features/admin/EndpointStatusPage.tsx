@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -25,7 +26,7 @@ import DataTableShell, {
   type DataTableColumn,
 } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
+
 import { extractApiError } from "../../utils/apiError";
 import {
   EndpointTimelineBar,
@@ -297,14 +298,13 @@ export default function EndpointStatusPage() {
         align: "right",
         mobileRole: "actions",
         render: (incident) => (
-          <button
+          <ListActionButton
             type="button"
-            className={tableActionButtonClasses}
             onClick={() => navigate(`/admin/endpoint-status/${incident.endpoint_id}`)}
             {...dataTableDefaultActionProps}
           >
             Open
-          </button>
+          </ListActionButton>
         ),
       },
     ],
@@ -312,7 +312,7 @@ export default function EndpointStatusPage() {
   );
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="Endpoint Status"
       description="Global operational view across all storage endpoints."
       breadcrumbs={adminPageBreadcrumbs("endpoint-status")}
@@ -321,7 +321,7 @@ export default function EndpointStatusPage() {
         { label: "Refresh", onClick: loadAll, variant: "ghost" },
       ]}
     >
-      <PageControlStrip
+      <PageControlStrip controlPresentation="listing"
         label="Global filter"
         title={statusFilterTitle}
         description="Filter the latency overview, timelines, and incidents by endpoint status."
@@ -505,7 +505,7 @@ export default function EndpointStatusPage() {
           emptyMessage={incidentsEmptyMessage}
           primaryColumnId="endpoint"
           responsiveCards
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           rowClassName="bg-white/80 hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/50"
         />
       </ListPageSection>

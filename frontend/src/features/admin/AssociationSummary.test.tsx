@@ -46,7 +46,7 @@ describe("AssociationPrincipalStack", () => {
     const visualTooltip = screen.getByRole("tooltip", { name: "Linked principals details" });
     expect(visualTooltip.parentElement).toHaveClass("w-96", "p-2");
     expect(within(visualTooltip).getByText("Portal user")).toBeInTheDocument();
-    expect(within(visualTooltip).getByText("Portal user")).toHaveClass("text-[9px]");
+    expect(within(visualTooltip).getByText("Portal user")).toHaveClass("ui-list-badge");
     expect(within(visualTooltip).getByText("Account administrator")).toBeInTheDocument();
     expect(within(visualTooltip).getAllByText("UI user")).toHaveLength(1);
     expect(within(visualTooltip).getAllByText("UI group")).toHaveLength(1);

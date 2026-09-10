@@ -136,10 +136,10 @@ export default function DataTableShell<Row, SortField extends string = string>({
   tableClassName,
   containerClassName,
   tbodyClassName,
-  rowClassName = "hover:bg-slate-50 dark:hover:bg-slate-800/40",
+  rowClassName = "",
   rowAttributes,
   expandedRow,
-  expandedRowClassName = "bg-slate-50/70 dark:bg-slate-900/40",
+  expandedRowClassName = "ui-table-expanded",
   overflowXHidden = false,
   responsiveCards = false,
   stickyActions = true,
@@ -164,13 +164,13 @@ export default function DataTableShell<Row, SortField extends string = string>({
       <div className={cx(containerOverflowClass, containerClassName)}>
         <table
           className={cx(
-            "manager-table min-w-full divide-y divide-slate-200 dark:divide-slate-800",
+            "ui-data-table ui-data-table-fixed min-w-full",
             tableLayout === "auto" && "!table-auto !w-max",
             responsiveCards && "responsive-data-table",
             tableClassName
           )}
         >
-          <thead className="bg-slate-50 dark:bg-slate-900/50">
+          <thead>
             <tr>
               {columns.map((column) => (
                 column.header || column.mobileRole === "actions" ? (
@@ -178,7 +178,7 @@ export default function DataTableShell<Row, SortField extends string = string>({
                     key={column.id}
                     data-table-actions={stickyActions && column.mobileRole === "actions" ? "true" : undefined}
                     className={cx(
-                      "align-middle px-6 py-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400",
+                      "ui-table-header",
                       column.mobileRole === "actions" && actionColumnClasses,
                       (column.align ?? "left") === "right" ? "text-right" : "text-left",
                       column.headerClassName
@@ -204,7 +204,7 @@ export default function DataTableShell<Row, SortField extends string = string>({
             </tr>
           </thead>
           <tbody
-            className={cx("divide-y divide-slate-200 dark:divide-slate-800", tbodyClassName)}
+            className={tbodyClassName}
             onClick={handleDefaultRowAction}
           >
             {status === "loading" && <TableEmptyState colSpan={columns.length} message={loadingMessage} />}
@@ -219,14 +219,14 @@ export default function DataTableShell<Row, SortField extends string = string>({
                     {columns.map((column) => {
                       const align = column.align ?? "left";
                       const cellBase = align === "right"
-                        ? "align-middle px-6 py-4 text-right"
-                        : "align-middle px-6 py-4";
+                        ? "text-right"
+                        : "";
                       const isPrimary = column.primary || column.id === primaryColumnId;
                       const mobileRole = column.mobileRole ?? (isPrimary ? "primary" : undefined);
                       const mobileLabel = column.mobileLabel ?? column.label;
                       const textClass = isPrimary
-                        ? "manager-table-cell ui-body font-semibold text-slate-900 dark:text-slate-100"
-                        : "ui-body text-slate-600 dark:text-slate-300";
+                        ? "ui-table-primary"
+                        : "ui-table-secondary";
                       return (
                         <td
                           key={`${key}:${column.id}`}
@@ -249,7 +249,7 @@ export default function DataTableShell<Row, SortField extends string = string>({
                   </tr>
                   {expandedContent ? (
                     <tr className={resolveExpandedRowClassName(row)} data-expanded-row="true">
-                      <td colSpan={columns.length} className="align-middle px-6 py-4 ui-body text-slate-600 dark:text-slate-300">
+                      <td colSpan={columns.length} className="ui-table-secondary">
                         {expandedContent}
                       </td>
                     </tr>

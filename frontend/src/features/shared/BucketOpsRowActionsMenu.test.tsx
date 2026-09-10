@@ -19,7 +19,7 @@ describe("BucketOpsRowActionsMenu", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Actions for bucket bucket-a" });
-    expect(trigger).toHaveClass("h-6", "w-6");
+    expect(trigger).toHaveClass("ui-list-action-icon");
     expect(trigger.className).not.toContain("!h-8");
     expect(trigger.className).not.toContain("!w-8");
 

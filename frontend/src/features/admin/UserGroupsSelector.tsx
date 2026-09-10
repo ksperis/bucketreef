@@ -4,16 +4,8 @@
  */
 import type { Dispatch, SetStateAction } from "react";
 import type { UiGroupSummary } from "../../api/groups";
-import { tableDeleteActionClasses } from "../../components/tableActionClasses";
-import {
-  AdminAssociationLinkedTable,
-  AdminAssociationPickerPanel,
-  adminAssociationCheckboxClass,
-  adminAssociationOptionLabelClass,
-  adminAssociationOptionRowClass,
-  adminAssociationTableActionCellClass,
-  adminAssociationTableLabelCellClass,
-} from "./AdminAssociationPicker";
+import { formInlineDeleteClasses } from "../../components/formInlineActionClasses";
+import { AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
 
 type UserGroupsSelectorProps = {
   groups: UiGroupSummary[];
@@ -59,13 +51,13 @@ export default function UserGroupsSelector({
       emptyLabel="No linked groups yet."
       rows={selectedIds.map((groupId) => (
         <tr key={groupId}>
-          <td className={adminAssociationTableLabelCellClass}>
+          <td className="ui-table-primary">
             {groupById.get(groupId)?.name ?? `Group #${groupId}`}
           </td>
-          <td className={adminAssociationTableActionCellClass}>
+          <td className="ui-table-actions-cell w-px text-right">
             <button
               type="button"
-              className={tableDeleteActionClasses}
+              className={formInlineDeleteClasses}
               onClick={() =>
                 setSelectedIds((current) => current.filter((id) => id !== groupId))
               }

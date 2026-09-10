@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuditLogEntry, listAuditLogs } from "../../api/audit";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -344,7 +345,7 @@ export default function AuditLogsPage() {
   );
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="Audit trail"
       description="Control-plane, security, configuration, and workflow-control events."
       breadcrumbs={adminPageBreadcrumbs("audit")}
@@ -356,7 +357,7 @@ export default function AuditLogsPage() {
         },
       ]}
     >
-      <PageControlStrip
+      <PageControlStrip controlPresentation="listing"
         label="Audit scope"
         title={hasActiveFilters ? "Filtered audit trail" : "Full audit trail"}
         description="Refine the application control-plane audit by actor, workspace, status, action, and free-text search. Object operations belong in provider S3 access logs."
@@ -390,32 +391,30 @@ export default function AuditLogsPage() {
           }
           primaryColumnId="action"
           responsiveCards
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           rowClassName="bg-white/80 hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/50"
         />
 
-        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 ui-body dark:border-slate-800">
+        <div className="ui-list-pagination flex flex-wrap items-center justify-between gap-2 border-t border-[var(--ui-border-soft)]">
           <span className="text-slate-500 dark:text-slate-400">
             Showing {filteredLogs.length} entr{filteredLogs.length === 1 ? "y" : "ies"}
             {isFiltered && ` of ${logs.length}`}
           </span>
           <div className="flex gap-2">
-            <button
+            <ListActionButton
               type="button"
               onClick={handleRefresh}
-              className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 ui-caption font-medium text-slate-700 shadow-sm transition hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-200 dark:hover:border-primary-500 dark:hover:text-primary-200"
               disabled={loading}
             >
               Refresh
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
               onClick={handleLoadMore}
               disabled={!hasMore || loadingMore}
-              className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 ui-caption font-semibold text-slate-700 shadow-sm transition hover:border-primary hover:text-primary disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-primary-500 dark:hover:text-primary-200"
             >
               {loadingMore ? "Loading…" : hasMore ? "Load older" : "No more"}
-            </button>
+            </ListActionButton>
           </div>
         </div>
       </ListPageSection>

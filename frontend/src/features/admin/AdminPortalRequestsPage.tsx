@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { listMinimalS3Accounts, type S3AccountSummary } from "../../api/accounts";
@@ -239,31 +240,28 @@ export default function AdminPortalRequestsPage() {
         mobileRole: "actions",
         render: (request) => (
           <div className="flex flex-wrap justify-end gap-2">
-            <UiButton
-              size="xs"
+            <ListActionButton
               variant="secondary"
               onClick={() => setExpandedId((current) => (current === request.id ? null : request.id))}
               {...dataTableDefaultActionProps}
             >
               Details
-            </UiButton>
+            </ListActionButton>
             {request.status === "pending" ? (
               <>
-                <UiButton
-                  size="xs"
+                <ListActionButton variant="primary"
                   onClick={() => void runAction(request, "approve")}
                   loading={busy === `approve:${request.id}`}
                 >
                   Approve
-                </UiButton>
-                <UiButton
-                  size="xs"
+                </ListActionButton>
+                <ListActionButton
                   variant="danger"
                   onClick={() => void runAction(request, "reject")}
                   loading={busy === `reject:${request.id}`}
                 >
                   Reject
-                </UiButton>
+                </ListActionButton>
               </>
             ) : null}
           </div>
@@ -276,7 +274,7 @@ export default function AdminPortalRequestsPage() {
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: requests.length });
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="Portal requests"
       description="Review Portal user and quota requests submitted by storage workspace users."
       breadcrumbs={adminPageBreadcrumbs("portal-requests")}
@@ -341,9 +339,9 @@ export default function AdminPortalRequestsPage() {
             </>
           }
           actions={
-            <UiButton size="sm" variant="secondary" onClick={() => void loadRequests()} loading={loading}>
+            <ListActionButton  variant="secondary" onClick={() => void loadRequests()} loading={loading}>
               Refresh
-            </UiButton>
+            </ListActionButton>
           }
       >
         <DataTableShell

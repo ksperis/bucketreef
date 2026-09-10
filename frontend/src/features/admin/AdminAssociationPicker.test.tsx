@@ -1,13 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import {
-  AdminAssociationCheckboxOptions,
-  AdminAssociationLinkedTable,
-  AdminAssociationPickerPanel,
-  AdminAssociationSectionHeader,
-  adminAssociationTableActionCellClass,
-} from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, AdminAssociationSectionHeader } from "./AdminAssociationPicker";
 
 describe("AdminAssociationPicker", () => {
   it("renders the shared linked table and its picker action", () => {
@@ -24,7 +18,7 @@ describe("AdminAssociationPicker", () => {
         rows={
           <tr>
             <td>Operators</td>
-            <td className={adminAssociationTableActionCellClass}>Remove</td>
+            <td className="ui-table-actions-cell w-px text-right">Remove</td>
           </tr>
         }
       />
@@ -36,7 +30,7 @@ describe("AdminAssociationPicker", () => {
       "w-px",
       "whitespace-nowrap",
     );
-    expect(screen.getByText("Remove").closest("td")).toHaveClass("w-px", "whitespace-nowrap");
+    expect(screen.getByText("Remove").closest("td")).toHaveClass("w-px", "ui-table-actions-cell");
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
     expect(onAction).toHaveBeenCalledTimes(1);
   });

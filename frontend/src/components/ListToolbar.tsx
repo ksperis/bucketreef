@@ -47,11 +47,11 @@ export default function ListToolbar({
 
   return (
     <div
-      className={cx(uiToolbarClass, className)}
+      className={cx("ui-list-toolbar", uiToolbarClass, className)}
       role={!showHeading && accessibleLabel ? "region" : undefined}
       aria-label={!showHeading ? accessibleLabel : undefined}
     >
-      <div className={cx("flex flex-col gap-3 px-4", showHeading ? "py-4" : "py-3")}>
+      <div className="ui-list-toolbar-body flex flex-col gap-3">
         <div
           className={cx(
             "flex flex-col gap-3",
@@ -81,7 +81,7 @@ export default function ListToolbar({
         </div>
       </div>
       {secondaryContent ? (
-        <div className={uiToolbarSecondaryClass}>
+        <div className={cx("ui-list-toolbar-secondary", uiToolbarSecondaryClass)}>
           {secondaryContent}
         </div>
       ) : null}

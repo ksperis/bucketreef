@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import {
   type Dispatch,
   type FormEvent,
@@ -62,17 +63,7 @@ import {
   ManagerToolAccessSection,
   WorkspaceAccessSection,
 } from "./AdminAccessSections";
-import {
-  AdminAssociationLinkedTable,
-  AdminAssociationPickerPanel,
-  adminAssociationAccountOptionRowClass,
-  adminAssociationAccountOptionLabelClass,
-  adminAssociationCheckboxClass,
-  adminAssociationOptionRowClass,
-  adminAssociationTableActionCellClass,
-  adminAssociationTableControlCellClass,
-  adminAssociationTableLabelCellClass,
-} from "./AdminAssociationPicker";
+import { AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationAccountOptionLabelClass, adminAssociationCheckboxClass, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
@@ -87,7 +78,7 @@ import DataTableShell, {
   type DataTableColumn,
 } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+import { formInlineActionClasses, formInlineDeleteClasses } from "../../components/formInlineActionClasses";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { extractApiError } from "../../utils/apiError";
 import { nextSortState } from "../../utils/sortValues";
@@ -522,13 +513,13 @@ export default function GroupsPage() {
       emptyLabel="No linked users yet."
       rows={(form.user_ids ?? []).map((userId) => (
         <tr key={userId}>
-          <td className={adminAssociationTableLabelCellClass}>
+          <td className="ui-table-primary">
             {userLabelById.get(userId) ?? `User #${userId}`}
           </td>
-          <td className={adminAssociationTableActionCellClass}>
-            <button
+          <td className="ui-table-actions-cell w-px text-right">
+            <ListActionButton
               type="button"
-              className={tableDeleteActionClasses}
+               variant="danger"
               onClick={() =>
                 setForm((current) => ({
                   ...current,
@@ -537,7 +528,7 @@ export default function GroupsPage() {
               }
             >
               Remove
-            </button>
+            </ListActionButton>
           </td>
         </tr>
       ))}
@@ -622,7 +613,7 @@ export default function GroupsPage() {
                   updateAccountSelection(accountId, value);
                 return (
                   <tr key={accountId}>
-                    <td className={adminAssociationTableLabelCellClass}>
+                    <td className="ui-table-primary">
                       {label}
                       <AccountAccessRoleValidationMessage
                         id={accessErrorId}
@@ -630,7 +621,7 @@ export default function GroupsPage() {
                         portalEnabled={showPortalRole}
                       />
                     </td>
-                    <td className={adminAssociationTableControlCellClass}>
+                    <td>
                       <ManagerAccountRoleSelect
                         label={label}
                         portalEnabled={showPortalRole}
@@ -642,7 +633,7 @@ export default function GroupsPage() {
                       />
                     </td>
                     {showAccountPortalRoleColumn ? (
-                      <td className={adminAssociationTableControlCellClass}>
+                      <td>
                         <PortalAccountRoleSelect
                           label={label}
                           portalEnabled={showPortalRole}
@@ -654,7 +645,7 @@ export default function GroupsPage() {
                         />
                       </td>
                     ) : null}
-                    <td className={adminAssociationTableActionCellClass}>
+                    <td className="ui-table-actions-cell w-px text-right">
                       {link.manager_role ? (
                         <AdminAssociationAdvancedSettings
                           targetLabel={label}
@@ -667,9 +658,9 @@ export default function GroupsPage() {
                           }
                         />
                       ) : null}
-                      <button
+                      <ListActionButton
                         type="button"
-                        className={tableDeleteActionClasses}
+                         variant="danger"
                         onClick={() =>
                           setForm((current) => ({
                             ...current,
@@ -680,7 +671,7 @@ export default function GroupsPage() {
                         }
                       >
                         Remove
-                      </button>
+                      </ListActionButton>
                     </td>
                   </tr>
                 );
@@ -785,10 +776,10 @@ export default function GroupsPage() {
               emptyLabel="No linked RGW users yet."
               rows={(form.s3_user_links ?? []).map((link) => (
                 <tr key={link.s3_user_id}>
-                  <td className={adminAssociationTableLabelCellClass}>
+                  <td className="ui-table-primary">
                     {s3UserLabelById.get(link.s3_user_id) ?? `RGW User #${link.s3_user_id}`}
                   </td>
-                  <td className={adminAssociationTableActionCellClass}>
+                  <td className="ui-table-actions-cell w-px text-right">
                     <AdminAssociationAdvancedSettings
                       targetLabel={s3UserLabelById.get(link.s3_user_id) ?? `RGW User #${link.s3_user_id}`}
                       associationKind="rgw_user"
@@ -804,9 +795,9 @@ export default function GroupsPage() {
                         }))
                       }
                     />
-                    <button
+                    <ListActionButton
                       type="button"
-                      className={tableDeleteActionClasses}
+                       variant="danger"
                       onClick={() =>
                         setForm((current) => ({
                           ...current,
@@ -817,7 +808,7 @@ export default function GroupsPage() {
                       }
                     >
                       Remove
-                    </button>
+                    </ListActionButton>
                   </td>
                 </tr>
               ))}
@@ -891,13 +882,13 @@ export default function GroupsPage() {
               emptyLabel="No linked S3 connections yet."
               rows={(form.s3_connection_ids ?? []).map((connectionId) => (
                 <tr key={connectionId}>
-                  <td className={adminAssociationTableLabelCellClass}>
+                  <td className="ui-table-primary">
                     {connectionLabelById.get(connectionId) ?? `Connection #${connectionId}`}
                   </td>
-                  <td className={adminAssociationTableActionCellClass}>
-                    <button
+                  <td className="ui-table-actions-cell w-px text-right">
+                    <ListActionButton
                       type="button"
-                      className={tableDeleteActionClasses}
+                       variant="danger"
                       onClick={() =>
                         setForm((current) => ({
                           ...current,
@@ -906,7 +897,7 @@ export default function GroupsPage() {
                       }
                     >
                       Remove
-                    </button>
+                    </ListActionButton>
                   </td>
                 </tr>
               ))}
@@ -1067,24 +1058,24 @@ export default function GroupsPage() {
         return (
           <div className="flex flex-wrap gap-2">
             {group.can_access_ceph_admin && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 ui-caption font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-100">
+              <ListBadge tone="warning">
                 Ceph Admin
-              </span>
+              </ListBadge>
             )}
             {group.can_access_storage_ops && (
-              <span className="rounded-full bg-sky-100 px-2 py-0.5 ui-caption font-semibold text-sky-800 dark:bg-sky-900/40 dark:text-sky-100">
+              <ListBadge tone="info">
                 Storage Ops
-              </span>
+              </ListBadge>
             )}
             {group.can_create_manual_private_connections && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 ui-caption font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100">
+              <ListBadge tone="success">
                 Connections
-              </span>
+              </ListBadge>
             )}
             {toolCount > 0 && (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 ui-caption font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+              <ListBadge tone="neutral">
                 {toolCount} Manager permissions
-              </span>
+              </ListBadge>
             )}
             {!group.can_access_ceph_admin && !group.can_access_storage_ops && !group.can_create_manual_private_connections && toolCount === 0 && (
               <span className="ui-caption text-slate-500 dark:text-slate-400">No workspace/tool rights</span>
@@ -1111,31 +1102,31 @@ export default function GroupsPage() {
       align: "right",
       mobileRole: "actions",
       render: (group) => (
-        <div className="flex justify-end gap-2">
-          <button
+        <ListActions>
+          <ListActionButton
             type="button"
             onClick={() => openEditModal(group)}
-            className={tableActionButtonClasses}
+
             {...dataTableDefaultActionProps}
           >
             Edit
-          </button>
-          <button
+          </ListActionButton>
+          <ListActionButton
             type="button"
             onClick={() => setPendingDeleteGroup(group)}
             disabled={busyId === group.id}
-            className={tableDeleteActionClasses}
+             variant="danger"
           >
             {busyId === group.id ? "Deleting..." : "Delete"}
-          </button>
-        </div>
+          </ListActionButton>
+        </ListActions>
       ),
     },
   ];
 
   return (
     <div className={workflowPageHostClass(showModal)}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="UI Groups"
         description="Create reusable UI access groups for workspace, Manager tool, and execution context access."
         breadcrumbs={adminPageBreadcrumbs("groups")}
@@ -1182,7 +1173,7 @@ export default function GroupsPage() {
           }}
           primaryColumnId="name"
           responsiveCards
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
         />
       </ListPageSection>
 
@@ -1253,7 +1244,7 @@ export default function GroupsPage() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          className={form.avatar_source === "initials" && !avatarFile ? secondaryButtonClass : tableActionButtonClasses}
+                          className={form.avatar_source === "initials" && !avatarFile ? secondaryButtonClass : formInlineActionClasses}
                           onClick={() => {
                             setAvatarFile(null);
                             setForm((current) => ({ ...current, avatar_source: "initials", avatar_icon: null }));
@@ -1300,7 +1291,7 @@ export default function GroupsPage() {
                         {editingGroup?.avatar?.source === "uploaded" && !avatarFile ? (
                           <button
                             type="button"
-                            className={tableDeleteActionClasses}
+                             className={formInlineDeleteClasses}
                             onClick={() => {
                               setRemoveAvatarImage(true);
                               setForm((current) => ({ ...current, avatar_source: "initials", avatar_icon: null }));

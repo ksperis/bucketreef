@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState } from "react";
 import { cx, uiDataTableClass, uiPanelMutedClass, uiTableContainerClass } from "../../components/ui/styles";
 import {
@@ -35,7 +36,7 @@ import UiTextarea from "../../components/ui/UiTextarea";
 import UsageTile from "../../components/UsageTile";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
@@ -681,19 +682,19 @@ export default function CephAdminUserEditModal({
       </div>
 
       <div className={uiTableContainerClass}>
-        <table className={cx(uiDataTableClass, "compact-table min-w-full")}>
+        <table className={uiDataTableClass}>
           <thead className="bg-slate-50 dark:bg-slate-900/50">
             <tr>
-              <th className="px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <th className="text-left">
                 Access key
               </th>
-              <th className="px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <th className="text-left">
                 Status
               </th>
-              <th className="px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <th className="text-left">
                 Created
               </th>
-              <th className="px-3 py-2 text-right ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <th className="text-right">
                 Actions
               </th>
             </tr>
@@ -701,7 +702,7 @@ export default function CephAdminUserEditModal({
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {keys.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-3 ui-body text-slate-500 dark:text-slate-400">
+                <td colSpan={4} className="ui-table-secondary">
                   No access keys for this user.
                 </td>
               </tr>
@@ -713,39 +714,39 @@ export default function CephAdminUserEditModal({
               const deleteBusy = keysBusy === `delete:${key.access_key}`;
               return (
                 <tr key={key.access_key}>
-                  <td className="px-3 py-2 font-mono ui-body font-semibold text-slate-800 dark:text-slate-100">
+                  <td className="font-mono ui-table-primary">
                     <div className="flex flex-wrap items-center gap-2">
                       <span>{key.access_key}</span>
                       {managedPrivate && (
-                        <span className="rounded border px-1.5 py-0.5 text-[10px] font-semibold" title="Managed private access key">
+                        <ListBadge tone="neutral" title="Managed private access key">
                           Private access
-                        </span>
+                        </ListBadge>
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2 ui-body text-slate-600 dark:text-slate-300">{key.status ?? (active ? "enabled" : "disabled")}</td>
-                  <td className="px-3 py-2 ui-body text-slate-600 dark:text-slate-300">{formatDate(key.created_at)}</td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      <button
+                  <td className="ui-table-secondary">{key.status ?? (active ? "enabled" : "disabled")}</td>
+                  <td className="ui-table-secondary">{formatDate(key.created_at)}</td>
+                  <td className="text-right">
+                    <ListActions>
+                      <ListActionButton
                         type="button"
                         onClick={() => handleToggleKey(key, !active)}
                         disabled={toggleBusy || deleteBusy || managedPrivate}
                         title={managedPrivate ? "Update the linked private connection instead" : undefined}
-                        className={tableActionButtonClasses}
+
                       >
                         {toggleBusy ? "Saving..." : active ? "Disable" : "Enable"}
-                      </button>
-                      <button
+                      </ListActionButton>
+                      <ListActionButton
                         type="button"
                         onClick={() => handleDeleteKey(key)}
                         disabled={toggleBusy || deleteBusy || managedPrivate}
                         title={managedPrivate ? "Delete the linked private connection instead" : undefined}
-                        className={tableDeleteActionClasses}
+                         variant="danger"
                       >
                         {deleteBusy ? "Deleting..." : "Delete"}
-                      </button>
-                    </div>
+                      </ListActionButton>
+                    </ListActions>
                   </td>
                 </tr>
               );
@@ -788,16 +789,16 @@ export default function CephAdminUserEditModal({
               <p className="ui-caption text-slate-500 dark:text-slate-400">{metrics.bucket_count} bucket(s)</p>
             </div>
             <div className="mt-3 overflow-x-auto">
-              <table className={cx(uiDataTableClass, "compact-table min-w-full")}>
+              <table className={uiDataTableClass}>
                 <thead className="bg-slate-100/80 dark:bg-slate-900/60">
                   <tr>
-                    <th className="px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <th className="text-left">
                       Bucket
                     </th>
-                    <th className="px-3 py-2 text-right ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <th className="text-right">
                       Used
                     </th>
-                    <th className="px-3 py-2 text-right ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <th className="text-right">
                       Objects
                     </th>
                   </tr>
@@ -805,18 +806,18 @@ export default function CephAdminUserEditModal({
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {metrics.bucket_usage.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-3 py-3 ui-body text-slate-500 dark:text-slate-400">
+                      <td colSpan={3} className="ui-table-secondary">
                         No bucket usage data available.
                       </td>
                     </tr>
                   )}
                   {metrics.bucket_usage.slice(0, 50).map((entry) => (
                     <tr key={entry.name}>
-                      <td className="px-3 py-2 ui-body font-semibold text-slate-800 dark:text-slate-100">{entry.name}</td>
-                      <td className="px-3 py-2 text-right ui-body text-slate-600 dark:text-slate-300">
+                      <td className="ui-table-primary">{entry.name}</td>
+                      <td className="text-right ui-table-secondary">
                         {formatBytes(entry.used_bytes)}
                       </td>
-                      <td className="px-3 py-2 text-right ui-body text-slate-600 dark:text-slate-300">
+                      <td className="text-right ui-table-secondary">
                         {formatNumber(entry.object_count)}
                       </td>
                     </tr>

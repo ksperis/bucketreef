@@ -1,3 +1,4 @@
+import { ListActionButton } from "../../components/list/ListControls";
 import type { RefObject } from "react";
 
 import {
@@ -11,7 +12,7 @@ import {
   uiMenuClass,
   uiMutedTextClass,
 } from "../../components/ui/styles";
-import { filterChipClasses } from "./browserConstants";
+
 import { ChevronDownIcon, SearchIcon, SlidersIcon } from "./browserIcons";
 
 const searchInputClasses = cx(
@@ -119,7 +120,7 @@ export default function BrowserObjectSearchHeader({
           onChange={(event) => onFilterChange(event.target.value)}
           placeholder={`Search ${objectNounPlural}`}
           aria-label={`Search ${objectNounPlural}`}
-          className={`${searchInputClasses} pl-9 ${
+          className={`${searchInputClasses} ui-list-control-with-icon ${
             advancedOptionsEnabled ? "pr-9" : "pr-3"
           } normal-case`}
         />
@@ -234,21 +235,20 @@ export default function BrowserObjectSearchHeader({
               </select>
             </label>
             <div className="flex items-center justify-end gap-1.5 pt-1">
-              <button
+              <ListActionButton
                 type="button"
                 onClick={onClear}
-                className={filterChipClasses}
                 disabled={!canReset}
               >
                 Clear
-              </button>
-              <button
+              </ListActionButton>
+              <ListActionButton
                 type="button"
                 onClick={onClose}
-                className={filterChipClasses}
+
               >
                 Close
-              </button>
+              </ListActionButton>
             </div>
           </div>
         </AnchoredPortalMenu>

@@ -12,7 +12,7 @@ import {
   uiPanelMutedClass,
   uiTitleTextClass,
 } from "../../components/ui/styles";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
+import { formInlineActionClasses } from "../../components/formInlineActionClasses";
 
 type AdminAssociationAdvancedSettingsProps = {
   targetLabel: string;
@@ -36,7 +36,7 @@ export default function AdminAssociationAdvancedSettings({
 
   return (
     <>
-      <button type="button" className={tableActionButtonClasses} onClick={() => setOpen(true)}>
+      <button type="button" className={formInlineActionClasses} onClick={() => setOpen(true)}>
         Advanced
       </button>
       {open ? (

@@ -2,18 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "./list/ListControls";
 import { useEffect, useMemo, useState } from "react";
 import UiCheckboxField from "./ui/UiCheckboxField";
-import {
-  cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
-  uiCardMutedClass,
-  uiDividerClass,
-  uiLabelClass,
-  uiMutedTextClass,
-  uiTitleTextClass,
-} from "./ui/styles";
+import { cx, uiCardMutedClass, uiDividerClass, uiLabelClass, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
 
 export type ColumnPickerOption<Id extends string> = {
   id: Id;
@@ -60,9 +52,6 @@ type ColumnVisibilityPickerProps<Id extends string> = {
 const EMPTY_FEATURE_GROUPS: Array<ColumnPickerExpandableGroup<string>> = [];
 const EMPTY_DETAIL_GROUPS: Array<ColumnPickerDetailGroup<string>> = [];
 
-const detailsButtonClass =
-  "rounded-md border border-[color:var(--ui-border)] px-2 py-0.5 ui-caption font-semibold text-[var(--ui-text-muted)] hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60";
-
 function buildInitialExpandedState(groups: Array<{ id: string; defaultExpanded?: boolean }>) {
   return groups.reduce<Record<string, boolean>>((acc, group) => {
     acc[group.id] = group.defaultExpanded === true;
@@ -106,19 +95,19 @@ export default function ColumnVisibilityPicker<Id extends string>({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="ui-list-toolbar space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className={cx("ui-body", uiTitleTextClass)}>{title}</p>
           <p className={cx("ui-caption", uiMutedTextClass)}>{selectedCount} selected</p>
         </div>
-        <button
+        <ListActionButton
           type="button"
           onClick={onReset}
-          className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "shrink-0 rounded-md px-2 py-1 ui-caption")}
+          className="shrink-0"
         >
           Reset
-        </button>
+        </ListActionButton>
       </div>
 
       <div className="max-h-[min(70vh,32rem)] space-y-3 overflow-y-auto pr-1">
@@ -152,14 +141,13 @@ export default function ColumnVisibilityPicker<Id extends string>({
                   <div key={group.id} className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-2">
                     <div className="flex items-center gap-2">
                       <span className={cx("min-w-0 flex-1 truncate ui-body", uiTitleTextClass)}>{group.label}</span>
-                      <button
+                      <ListActionButton
                         type="button"
                         onClick={() => toggleGroup(group.id)}
                         aria-expanded={expanded}
-                        className={detailsButtonClass}
                       >
                         {expanded ? "Details ▾" : "Details ▸"}
-                      </button>
+                      </ListActionButton>
                     </div>
                     {expanded ? (
                       <div className={cx("mt-2 space-y-1 border-t pt-2", uiDividerClass)}>
@@ -170,7 +158,7 @@ export default function ColumnVisibilityPicker<Id extends string>({
                             onChange={detail.onToggle}
                             disabled={detail.disabled}
                             className="w-full rounded-md px-1 py-1 ui-caption text-[var(--ui-text-muted)] hover:bg-[var(--ui-hover)]"
-                          >
+                        >
                             <span className="min-w-0 truncate">{detail.label}</span>
                           </UiCheckboxField>
                         ))}
@@ -202,14 +190,13 @@ export default function ColumnVisibilityPicker<Id extends string>({
                         <span className="min-w-0 truncate">{group.label}</span>
                       </UiCheckboxField>
                       {details.length > 0 ? (
-                        <button
+                        <ListActionButton
                           type="button"
                           onClick={() => toggleGroup(group.id)}
                           aria-expanded={expanded}
-                          className={detailsButtonClass}
-                        >
+                          >
                           {expanded ? "Details ▾" : "Details ▸"}
-                        </button>
+                        </ListActionButton>
                       ) : null}
                     </div>
                     {details.length > 0 && expanded ? (

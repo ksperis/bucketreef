@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { isApiError } from "../../api/client";
 import { useSearchParams } from "react-router-dom";
@@ -16,9 +17,9 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { toolbarCompactInputClasses } from "../../components/toolbarControlClasses";
-import { cx, uiDataTableClass } from "../../components/ui/styles";
+import { uiDataTableClass } from "../../components/ui/styles";
 import {
   S3Connection,
   createConnection,
@@ -70,7 +71,7 @@ type PendingPrivateConnectionDelete = {
   connections: S3Connection[];
 };
 
-const privateConnectionsTableClass = cx(uiDataTableClass, "compact-table min-w-full");
+const privateConnectionsTableClass = uiDataTableClass;
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (isApiError(error)) {
@@ -822,7 +823,6 @@ export default function ProfilePage({
     setConnectionsPage(1);
   };
 
-
   return (
     <div className={workflowPageHostClass(showConnectionsSection && (showCreateConnectionModal || Boolean(editingConnection)))}>
       {showPageHeader && (
@@ -877,40 +877,38 @@ export default function ProfilePage({
                       {selectedFilteredConnectionIds.length} selected
                       {hiddenSelectedConnectionCount > 0 ? ` (${hiddenSelectedConnectionCount} not visible)` : ""}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <button
+                    <ListActions>
+                      <ListActionButton
                         type="button"
-                        className={tableActionButtonClasses}
                         onClick={() => void handleBulkActivatePrivateConnections()}
                         disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                       >
                         {bulkActivatingConnections ? "Activating..." : "Activate selected"}
-                      </button>
-                      <button
+                      </ListActionButton>
+                      <ListActionButton
                         type="button"
-                        className={tableActionButtonClasses}
                         onClick={() => void handleBulkDisablePrivateConnections()}
                         disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                       >
                         {bulkDisablingConnections ? "Disabling..." : "Disable selected"}
-                      </button>
-                      <button
+                      </ListActionButton>
+                      <ListActionButton
                         type="button"
-                        className={tableDeleteActionClasses}
+                         variant="danger"
                         onClick={handleBulkDeletePrivateConnections}
                         disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                       >
                         {bulkDeletingConnections ? "Deleting..." : "Delete selected"}
-                      </button>
-                    </div>
+                      </ListActionButton>
+                    </ListActions>
                   </div>
                 )}
                 <div className="overflow-x-auto">
-                  <table className={privateConnectionsTableClass}>
+                  <table className={`ui-data-table ${privateConnectionsTableClass}`}>
                     <thead className="bg-slate-50 dark:bg-slate-900/50">
                       <tr>
-                        <th className="px-4 py-3 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          <input
+                        <th className="text-left">
+                          <label className="ui-list-selection"><input
                             type="checkbox"
                             aria-label="Select all filtered private connections"
                             checked={allFilteredConnectionsSelected}
@@ -922,13 +920,13 @@ export default function ProfilePage({
                               bulkDeletingConnections
                             }
                             className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                          />
+                          /></label>
                         </th>
                         {["Connection", "Endpoint", "Provider", "Status", "Last update", "Last used", "Actions"].map(
                           (label) => (
                             <th
                               key={label}
-                              className="px-4 py-3 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                              className="text-left"
                             >
                               {label}
                             </th>
@@ -939,14 +937,14 @@ export default function ProfilePage({
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                       {connectionsLoading && (
                         <tr>
-                          <td colSpan={8} className="px-4 py-4 ui-body text-slate-500 dark:text-slate-400">
+                          <td colSpan={8} className="ui-table-secondary">
                             Loading connections...
                           </td>
                         </tr>
                       )}
                       {!connectionsLoading && pagedConnections.length === 0 && (
                         <tr>
-                          <td colSpan={8} className="px-4 py-4 ui-body text-slate-500 dark:text-slate-400">
+                          <td colSpan={8} className="ui-table-secondary">
                             No private S3 connection configured.
                           </td>
                         </tr>
@@ -961,26 +959,26 @@ export default function ProfilePage({
                             : connection.endpoint_url || "-";
                           return (
                             <tr key={connection.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                              <td className="px-4 py-4">
-                                <input
+                              <td>
+                                <label className="ui-list-selection"><input
                                   type="checkbox"
                                   aria-label={`Select private connection ${connection.name || connection.id}`}
                                   checked={selectedFilteredConnectionIdSet.has(connection.id)}
                                   onChange={() => togglePrivateConnectionSelection(connection.id)}
                                   disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                                   className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                                />
+                                /></label>
                               </td>
-                              <td className="px-4 py-4">
+                              <td>
                                 <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate ui-body font-semibold text-slate-900 dark:text-slate-100">
                                       {connection.name || "-"}
                                     </p>
                                     {connection.server_managed && (
-                                      <span className="mt-1 inline-flex rounded border border-primary-200 bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:border-primary-900/50 dark:bg-primary-950/50 dark:text-primary-100">
+                                      <ListBadge tone="primary" className="mt-1">
                                         Server managed{connection.managed_access_state === "cleanup_pending" ? " - cleanup required" : ""}
-                                      </span>
+                                      </ListBadge>
                                     )}
                                     <p className="ui-caption text-slate-500 dark:text-slate-400">
                                       Access Key: {connection.access_key_id || "-"}
@@ -997,50 +995,44 @@ export default function ProfilePage({
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-4 ui-caption text-slate-600 dark:text-slate-300">
+                              <td className="ui-table-secondary">
                                 {connection.storage_endpoint_id ? (
-                                  <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                  <ListBadge tone="neutral">
                                     {endpointLabel}
-                                  </span>
+                                  </ListBadge>
                                 ) : (
                                   <span className="ui-mono">{endpointLabel}</span>
                                 )}
                               </td>
-                              <td className="px-4 py-4 ui-caption text-slate-600 dark:text-slate-300">
+                              <td className="ui-table-secondary">
                                 {connection.provider_hint || "-"}
                               </td>
-                              <td className="px-4 py-4 ui-caption text-slate-600 dark:text-slate-300">
-                                <span
-                                  className={`inline-flex rounded-full px-2 py-1 font-semibold ${
-                                    isActive
-                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-                                      : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                                  }`}
+                              <td className="ui-table-secondary">
+                                <ListBadge
+                                  tone={isActive ? "success" : "neutral"}
                                 >
                                   {isActive ? "Active" : "Inactive"}
-                                </span>
+                                </ListBadge>
                               </td>
-                              <td className="px-4 py-4 ui-caption text-slate-600 dark:text-slate-300">
+                              <td className="ui-table-secondary">
                                 {formatLocalDateTime(connection.updated_at ?? connection.created_at)}
                               </td>
-                              <td className="px-4 py-4 ui-caption text-slate-600 dark:text-slate-300">
+                              <td className="ui-table-secondary">
                                 {formatLocalDateTime(connection.last_used_at)}
                               </td>
-                              <td className="px-4 py-4 text-right">
-                                <div className="flex justify-end gap-2">
+                              <td className="text-right">
+                                <ListActions>
                                   {connection.managed_access_state === "cleanup_pending" && (
-                                    <button
+                                    <ListActionButton
                                       type="button"
-                                      className={tableActionButtonClasses}
                                       disabled={deletingConnectionBusyId === connection.id}
                                       onClick={() => void handleRetryManagedCleanup(connection.id)}
                                     >
                                       {deletingConnectionBusyId === connection.id ? "Retrying..." : "Retry cleanup"}
-                                    </button>
+                                    </ListActionButton>
                                   )}
-                                  <button
+                                  <ListActionButton
                                     type="button"
-                                    className={tableActionButtonClasses}
                                     disabled={
                                       togglingConnectionBusyId === connection.id ||
                                       bulkActivatingConnections ||
@@ -1050,18 +1042,17 @@ export default function ProfilePage({
                                     onClick={() => void handleTogglePrivateConnectionStatus(connection)}
                                   >
                                     {togglingConnectionBusyId === connection.id ? "Saving..." : isActive ? "Deactivate" : "Activate"}
-                                  </button>
-                                  <button
+                                  </ListActionButton>
+                                  <ListActionButton
                                     type="button"
-                                    className={tableActionButtonClasses}
                                     onClick={() => openEditConnectionModal(connection)}
                                     disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                                   >
                                     Edit
-                                  </button>
-                                  <button
+                                  </ListActionButton>
+                                  <ListActionButton
                                     type="button"
-                                    className={tableDeleteActionClasses}
+                                     variant="danger"
                                     disabled={
                                       deletingConnectionBusyId === connection.id ||
                                       bulkActivatingConnections ||
@@ -1071,8 +1062,8 @@ export default function ProfilePage({
                                     onClick={() => handleDeletePrivateConnection(connection)}
                                   >
                                     {deletingConnectionBusyId === connection.id ? "Deleting..." : "Delete"}
-                                  </button>
-                                </div>
+                                  </ListActionButton>
+                                </ListActions>
                               </td>
                             </tr>
                           );

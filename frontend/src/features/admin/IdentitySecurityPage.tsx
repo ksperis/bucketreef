@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -174,21 +175,19 @@ export default function IdentitySecurityPage() {
         mobileRole: "actions",
         render: (request) => (
           <div className="flex flex-wrap justify-end gap-2">
-            <UiButton
-              size="xs"
+            <ListActionButton variant="primary"
               disabled={busy === request.id}
               onClick={() => setPendingLinkDecision({ request, approve: true })}
             >
               Approve
-            </UiButton>
-            <UiButton
-              size="xs"
+            </ListActionButton>
+            <ListActionButton
               variant="danger"
               disabled={busy === request.id}
               onClick={() => setPendingLinkDecision({ request, approve: false })}
             >
               Reject
-            </UiButton>
+            </ListActionButton>
           </div>
         ),
       },
@@ -254,7 +253,7 @@ export default function IdentitySecurityPage() {
         mobileRole: "actions",
         render: (session) => session.revoked_at
           ? <UiBadge>Revoked</UiBadge>
-          : <UiButton size="xs" variant="danger" onClick={() => setPendingSession(session)}>Revoke</UiButton>,
+          : <ListActionButton  variant="danger" onClick={() => setPendingSession(session)}>Revoke</ListActionButton>,
       },
     ],
     [],
@@ -277,7 +276,7 @@ export default function IdentitySecurityPage() {
   };
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="Identity Security"
       description="Review external identity link requests and manage active platform sessions within your administrative scope."
       breadcrumbs={adminPageBreadcrumbs("identity-security")}
@@ -300,7 +299,7 @@ export default function IdentitySecurityPage() {
 
       {showData ? (
         <>
-          <PageControlStrip
+          <PageControlStrip controlPresentation="listing"
             className="max-sm:hidden"
             label="Administrative scope"
             title="Identity and session overview"
@@ -347,7 +346,7 @@ export default function IdentitySecurityPage() {
                       emptyMessage="No pending identity link requests."
                       primaryColumnId="account"
                       responsiveCards
-                      tableClassName="compact-table"
+                      tableClassName="ui-data-table"
                       rowClassName="bg-white/80 hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/50"
                     />
                   </ListPageSection>
@@ -373,7 +372,7 @@ export default function IdentitySecurityPage() {
                       emptyMessage="No active sessions."
                       primaryColumnId="user"
                       responsiveCards
-                      tableClassName="compact-table"
+                      tableClassName="ui-data-table"
                       rowClassName="bg-white/80 hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/50"
                     />
                   </ListPageSection>

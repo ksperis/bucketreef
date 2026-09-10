@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { S3AccountSelector } from "../../api/accountParams";
@@ -20,7 +21,7 @@ import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
@@ -187,7 +188,7 @@ export default function ManagerUserKeysPage() {
         <div className="flex flex-wrap items-center gap-2">
           <span>{key.access_key_id}</span>
           {key.is_private_access_managed && (
-            <span className="rounded border px-1.5 py-0.5 text-[10px] font-semibold">Private access</span>
+            <ListBadge tone="neutral">Private access</ListBadge>
           )}
         </div>
       ),
@@ -208,26 +209,25 @@ export default function ManagerUserKeysPage() {
         const active = isKeyActive(key);
         const managed = Boolean(key.is_private_access_managed);
         return (
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
+          <ListActions>
+            <ListActionButton
               type="button"
               onClick={() => handleToggleKey(key.access_key_id, !active)}
-              className={tableActionButtonClasses}
               disabled={Boolean(busy) || managed}
               title={managed ? "Update the linked private connection instead" : undefined}
             >
               {busy === `toggle:${key.access_key_id}` ? "Saving..." : active ? "Disable" : "Enable"}
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
               onClick={() => handleDeleteKey(key.access_key_id)}
-              className={tableDeleteActionClasses}
+               variant="danger"
               disabled={Boolean(busy) || managed}
               title={managed ? "Delete the linked private connection instead" : undefined}
             >
               {busy === `delete:${key.access_key_id}` ? "Deleting..." : "Delete"}
-            </button>
-          </div>
+            </ListActionButton>
+          </ListActions>
         );
       },
     },
@@ -235,7 +235,7 @@ export default function ManagerUserKeysPage() {
 
   if (isS3User) {
     return (
-      <PageShell
+      <PageShell actionPresentation="listing"
           title="User access keys"
           description="Rotate IAM access keys for a specific user."
           breadcrumbs={managerPageBreadcrumbs("users", { label: "Access keys" })}
@@ -254,7 +254,7 @@ export default function ManagerUserKeysPage() {
   }
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="IAM access keys"
       description={
         <>

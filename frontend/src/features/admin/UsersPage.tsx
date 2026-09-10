@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateUserPayload,
@@ -65,7 +66,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import UserAvatar from "../../components/UserAvatar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { cx, uiInputClass, uiMutedTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
@@ -136,13 +137,13 @@ function RoleAccessHelp({
         <div id={helpId} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-slate-700 dark:bg-slate-900/50">
           <p className="mb-2 ui-badge font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Role access summary</p>
           <div className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950/70">
-            <table className="w-full table-fixed border-collapse">
+            <table className="ui-data-table w-full table-fixed border-collapse">
               <thead className="bg-slate-100 dark:bg-slate-900">
                 <tr>
-                  <th className="w-1/3 px-2.5 py-1.5 text-left ui-badge font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <th className="w-1/3 text-left">
                     Role
                   </th>
-                  <th className="px-2.5 py-1.5 text-left ui-badge font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <th className="text-left">
                     Workspace access
                   </th>
                 </tr>
@@ -150,8 +151,8 @@ function RoleAccessHelp({
               <tbody>
                 {roleAccessHelpItems.map((item, index) => (
                   <tr key={item.role} className={index % 2 === 0 ? "bg-white dark:bg-slate-950/70" : "bg-slate-50/70 dark:bg-slate-900/60"}>
-                    <td className="px-2.5 py-1.5 ui-caption font-semibold text-slate-800 dark:text-slate-100">{item.role}</td>
-                    <td className="px-2.5 py-1.5 ui-caption text-slate-600 dark:text-slate-300">{item.access}</td>
+                    <td className="ui-table-primary">{item.role}</td>
+                    <td className="ui-table-secondary">{item.access}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1177,9 +1178,9 @@ export default function UsersPage() {
           {cephAdminFeatureEnabled &&
             (user.role === "ui_admin" || user.role === "ui_superadmin") &&
             user.can_access_ceph_admin && (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 ui-badge font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-100">
+              <ListBadge tone="warning" className="uppercase tracking-wide">
                 Ceph Admin
-              </span>
+              </ListBadge>
             )}
         </div>
       ),
@@ -1207,26 +1208,25 @@ export default function UsersPage() {
         const isCurrentUser = currentUserId !== null && user.id === currentUserId;
         const canManage = currentIsSuperAdmin || (user.role !== "ui_admin" && user.role !== "ui_superadmin");
         return (
-          <div className="flex justify-end gap-2">
-            <button
+          <ListActions>
+            <ListActionButton
               type="button"
               onClick={() => startEdit(user)}
-              className={tableActionButtonClasses}
               disabled={!canManage}
               {...dataTableDefaultActionProps}
             >
               Edit
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
               onClick={() => handleDeleteRequest(user)}
-              className={tableDeleteActionClasses}
+               variant="danger"
               disabled={busyId === user.id || isCurrentUser || !canManage}
               title={isCurrentUser ? "You cannot delete your own user." : !canManage ? "Administrators can manage only standard users." : undefined}
             >
               {busyId === user.id ? "Deleting..." : "Delete"}
-            </button>
-          </div>
+            </ListActionButton>
+          </ListActions>
         );
       },
     },
@@ -1234,7 +1234,7 @@ export default function UsersPage() {
 
   return (
     <div className={workflowPageHostClass(showCreateModal || (Boolean(editingUser) && showEditModal))}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="UI Users"
         description={usersDescription}
         breadcrumbs={adminPageBreadcrumbs("users")}
@@ -1590,7 +1590,7 @@ export default function UsersPage() {
           emptyMessage="No users."
           primaryColumnId="user"
           responsiveCards
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
           pagination={{
             page,

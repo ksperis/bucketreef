@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton, ListActionLink } from "./list/ListControls";
 import { ReactNode } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
 import { cx, uiButtonBaseClass, uiButtonVariants, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
@@ -21,6 +22,7 @@ export type PageHeaderProps = {
   breadcrumbs?: PageBreadcrumb[];
   breadcrumbLabel?: string;
   actions?: Action[];
+  actionPresentation?: "default" | "listing";
   inlineContent?: ReactNode;
   metaContent?: ReactNode;
   rightContent?: ReactNode;
@@ -32,6 +34,7 @@ export default function PageHeader({
   breadcrumbs = [],
   breadcrumbLabel = "Breadcrumb",
   actions = [],
+  actionPresentation = "default",
   inlineContent,
   metaContent,
   rightContent,
@@ -39,6 +42,23 @@ export default function PageHeader({
   const inRouterContext = useInRouterContext();
   const renderActions = () =>
     actions.map((action) => {
+      if (actionPresentation === "listing") {
+        const variant = action.variant === "neutral" ? "secondary" : action.variant ?? "primary";
+        return action.to ? (
+          <ListActionLink
+            key={action.label}
+            to={action.to}
+            variant={variant}
+            aria-disabled={action.disabled || undefined}
+          >
+            {action.label}
+          </ListActionLink>
+        ) : (
+          <ListActionButton key={action.label} onClick={action.onClick} variant={variant} disabled={action.disabled}>
+            {action.label}
+          </ListActionButton>
+        );
+      }
       const classes =
         action.variant === "danger"
           ? uiButtonVariants.danger

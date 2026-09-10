@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -225,7 +226,7 @@ export default function ManagerEntityPoliciesPage({
 
   if (isS3User) {
     return (
-      <PageShell
+      <PageShell actionPresentation="listing"
           title={config.title}
           description={`Attach/detach IAM policies for a specific ${config.singularLabel}.`}
           breadcrumbs={managerPageBreadcrumbs(parentPageId[entityType], { label: "Policies" })}
@@ -266,14 +267,13 @@ export default function ManagerEntityPoliciesPage({
       align: "right",
       mobileRole: "actions",
       render: (policy) => (
-        <button
+        <ListActionButton variant="danger"
           type="button"
           onClick={() => handleDetach(policy.arn)}
-          className="ui-caption font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-60 dark:text-rose-200 dark:hover:text-rose-100"
           disabled={busy === policy.arn}
         >
           {busy === policy.arn ? "Detaching..." : "Detach"}
-        </button>
+        </ListActionButton>
       ),
     },
   ];
@@ -292,7 +292,7 @@ export default function ManagerEntityPoliciesPage({
       );
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title={config.title}
       description={detailLine}
       breadcrumbs={managerPageBreadcrumbs(
@@ -362,7 +362,7 @@ export default function ManagerEntityPoliciesPage({
             loadingMessage="Loading policies..."
             errorMessage="Unable to load policies."
             emptyMessage="No attached policies."
-            tableClassName="compact-table"
+            tableClassName="ui-data-table"
             responsiveCards
           />
         </div>

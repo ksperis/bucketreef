@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListActionLink } from "../../components/list/ListControls";
 import {
   useCallback,
   useEffect,
@@ -33,7 +34,7 @@ import PageShell from "../../components/PageShell";
 import StorageSpaceIcon from "../../components/StorageSpaceIcon";
 import { WorkflowActions } from "../../components/WorkflowPage";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
+
 import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
 import UiCard from "../../components/ui/UiCard";
@@ -329,15 +330,15 @@ export default function PortalStorageSpacesPage() {
         align: "right",
         mobileRole: "actions",
         render: (space) => (
-          <div className="flex justify-end gap-2">
-            <Link
+          <ListActions>
+            <ListActionLink
               to={storageSpacePath(space)}
-              className={tableActionButtonClasses}
+
               {...dataTableDefaultActionProps}
             >
               {t({ en: "Open", fr: "Ouvrir", de: "Öffnen" })}
-            </Link>
-          </div>
+            </ListActionLink>
+          </ListActions>
         ),
       },
     ],
@@ -773,7 +774,7 @@ export default function PortalStorageSpacesPage() {
   ];
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title={t({ en: "Spaces", fr: "Espaces", de: "Bereiche" })}
       description={t({
         en: "Create places for project files, upload data, and invite collaborators.",
@@ -1046,7 +1047,7 @@ export default function PortalStorageSpacesPage() {
                     de: "Bereich einrichten",
                   })}
                   size="compact"
-                  className="h-9"
+                  className="ui-list-control"
                   value={newNamingMode}
                   onChange={(event) =>
                     setNewNamingMode(
@@ -1085,7 +1086,7 @@ export default function PortalStorageSpacesPage() {
                       })
                 }
                 size="compact"
-                className="h-9"
+                className="ui-list-control"
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
                 placeholder={
@@ -1109,7 +1110,7 @@ export default function PortalStorageSpacesPage() {
                   de: "Beschreibung",
                 })}
                 size="compact"
-                className="h-9"
+                className="ui-list-control"
                 value={newDescription}
                 onChange={(event) => setNewDescription(event.target.value)}
                 placeholder={t({
@@ -1222,7 +1223,7 @@ export default function PortalStorageSpacesPage() {
                   de: "Vorhandene technische ID",
                 })}
                 size="compact"
-                className="h-9"
+                className="ui-list-control"
                 value={importBucketName}
                 onChange={(event) => setImportBucketName(event.target.value)}
                 placeholder={t({
@@ -1238,7 +1239,7 @@ export default function PortalStorageSpacesPage() {
                   de: "Beschreibung",
                 })}
                 size="compact"
-                className="h-9"
+                className="ui-list-control"
                 value={importDescription}
                 onChange={(event) => setImportDescription(event.target.value)}
                 placeholder={t({
@@ -1351,7 +1352,7 @@ export default function PortalStorageSpacesPage() {
         <UiCard>
           <div
             className={cx(
-              "mb-4 grid gap-3",
+              "ui-list-toolbar mb-3 grid gap-3",
               activeTab === "archived"
                 ? "lg:grid-cols-[minmax(220px,1fr)_160px_180px]"
                 : "lg:grid-cols-[minmax(220px,1fr)_160px_160px_180px]",
@@ -1361,7 +1362,7 @@ export default function PortalStorageSpacesPage() {
             label={t({ en: "Search", fr: "Recherche", de: "Suche" })}
             type="search"
             size="compact"
-            className="h-9"
+            className="ui-list-control"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t({
@@ -1373,7 +1374,7 @@ export default function PortalStorageSpacesPage() {
           <UiSelect
             label={t({ en: "My role", fr: "Mon rôle", de: "Meine Rolle" })}
             size="compact"
-            className="h-9"
+            className="ui-list-control"
             value={roleFilter}
             onChange={(event) =>
               setRoleFilter(
@@ -1393,7 +1394,7 @@ export default function PortalStorageSpacesPage() {
             <UiSelect
               label={t({ en: "Status", fr: "Statut", de: "Status" })}
               size="compact"
-              className="h-9"
+              className="ui-list-control"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
@@ -1410,7 +1411,7 @@ export default function PortalStorageSpacesPage() {
           <UiSelect
             label={t({ en: "Sort by", fr: "Trier par", de: "Sortieren nach" })}
             size="compact"
-            className="h-9"
+            className="ui-list-control"
             value={sort}
             onChange={(event) => setSort(event.target.value)}
           >

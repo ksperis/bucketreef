@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useS3AccountContext } from "./S3AccountContext";
@@ -26,7 +27,7 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
@@ -345,12 +346,12 @@ export default function ManagerUsersPage() {
           <div className="flex items-center gap-2">
             <span>{user.name}</span>
             {user.is_private_access_managed && (
-              <span
-                className="rounded border border-primary-200 bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:border-primary-900/50 dark:bg-primary-950/50 dark:text-primary-100"
+              <ListBadge
+                tone="primary"
                 title="Managed private access identity"
               >
                 Private access
-              </span>
+              </ListBadge>
             )}
             {showWarning && (
               <span
@@ -384,17 +385,17 @@ export default function ManagerUsersPage() {
     {
       id: "groups",
       label: "Groups",
-      cellClassName: "manager-table-cell-wide",
+      cellClassName: "ui-table-wide",
       render: (user) =>
         user.groups && user.groups.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {user.groups.map((group) => (
-              <span
+              <ListBadge
                 key={group}
-                className="rounded-full bg-slate-100 px-2 py-1 ui-caption font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                tone="neutral"
               >
                 {group}
-              </span>
+              </ListBadge>
             ))}
           </div>
         ) : (
@@ -404,18 +405,18 @@ export default function ManagerUsersPage() {
     {
       id: "policies",
       label: "Policies",
-      cellClassName: "manager-table-cell-wide",
+      cellClassName: "ui-table-wide",
       render: (user) =>
         user.policies && user.policies.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {user.policies.map((policy) => (
-              <span
+              <ListBadge
                 key={policy}
-                className="rounded-full bg-slate-100 px-2 py-1 ui-caption font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                tone="neutral"
                 title={policy}
               >
                 {policy.split("/").pop()}
-              </span>
+              </ListBadge>
             ))}
           </div>
         ) : (
@@ -428,29 +429,29 @@ export default function ManagerUsersPage() {
       align: "right",
       mobileRole: "actions",
       render: (user) => (
-        <div className="flex flex-wrap justify-end gap-2">
-          <Link to={`/manager/users/${encodeURIComponent(user.name)}/keys`} className={tableActionButtonClasses}>
+        <ListActions>
+          <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}/keys`}>
             Keys
-          </Link>
-          <Link to={`/manager/users/${encodeURIComponent(user.name)}/policies`} className={tableActionButtonClasses}>
+          </ListActionLink>
+          <ListActionLink to={`/manager/users/${encodeURIComponent(user.name)}/policies`}>
             Policies
-          </Link>
-          <button
+          </ListActionLink>
+          <ListActionButton
             onClick={() => handleDelete(user.name)}
-            className={tableDeleteActionClasses}
+             variant="danger"
             disabled={busy === user.name || user.is_private_access_managed}
             title={user.is_private_access_managed ? "Delete the linked private connection instead" : undefined}
           >
             {busy === user.name ? "Deleting..." : "Delete"}
-          </button>
-        </div>
+          </ListActionButton>
+        </ListActions>
       ),
     },
   ];
 
   return (
     <div className={workflowPageHostClass(showAdvancedModal || showPrivateAccessModal)}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="Users"
         description="Create/delete via the account root credentials. Optionally generate an access key on creation."
         breadcrumbs={managerPageBreadcrumbs("users")}

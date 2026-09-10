@@ -2,12 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import type { MultipartUploadItem } from "../../api/browserMultipart";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import Modal from "../../components/Modal";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
-import { bulkDangerClasses, toolbarButtonClasses } from "./browserConstants";
+
 import { formatDateTime } from "./browserUtils";
 
 type BrowserMultipartUploadsModalProps = {
@@ -86,14 +87,13 @@ export default function BrowserMultipartUploadsModal({
         const rowId = getUploadRowId(upload);
         const aborting = abortingUploadIds.has(rowId);
         return (
-          <button
+          <ListActionButton variant="danger"
             type="button"
-            className={bulkDangerClasses}
             onClick={() => onAbort(upload)}
             disabled={aborting}
           >
             {aborting ? "Aborting..." : "Abort"}
-          </button>
+          </ListActionButton>
         );
       },
     },
@@ -109,14 +109,13 @@ export default function BrowserMultipartUploadsModal({
           </div>
           <div className="flex items-center gap-2">
             {loading && <span className="text-slate-500 dark:text-slate-400">Loading...</span>}
-            <button
+            <ListActionButton
               type="button"
-              className={toolbarButtonClasses}
               onClick={onRefresh}
               disabled={loading}
             >
               Refresh
-            </button>
+            </ListActionButton>
           </div>
         </div>
 
@@ -131,20 +130,19 @@ export default function BrowserMultipartUploadsModal({
           errorMessage="Unable to load multipart uploads."
           emptyMessage="No multipart uploads in progress."
           containerClassName="max-h-[56vh] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800"
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           responsiveCards
         />
 
         {canLoadMore && (
           <div className="text-right">
-            <button
+            <ListActionButton
               type="button"
-              className={toolbarButtonClasses}
               onClick={onLoadMore}
               disabled={loading || loadingMore}
             >
               {loadingMore ? "Loading..." : "Load more"}
-            </button>
+            </ListActionButton>
           </div>
         )}
       </div>

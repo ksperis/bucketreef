@@ -11,8 +11,6 @@ import {
   uiPanelMutedClass,
 } from "../../components/ui/styles";
 
-export const iconButtonClasses =
-  cx(uiIconButtonClass, "h-7 w-7");
 export const bulkActionClasses =
   cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5");
 export const bulkDangerClasses =
@@ -23,10 +21,6 @@ export const toolbarPrimaryClasses =
   cx(uiButtonBaseClass, uiButtonVariants.primary, "px-2.5 py-1.5");
 export const toolbarIconButtonClasses =
   cx(uiIconButtonClass, "h-7 w-7");
-export const toolbarPrimaryIconButtonClasses =
-  cx(uiButtonBaseClass, uiButtonVariants.primary, "h-7 w-7 p-0");
-export const toolbarDangerIconButtonClasses =
-  cx(uiButtonBaseClass, uiButtonVariants.danger, "h-7 w-7 p-0");
 export const filterChipClasses =
   cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5");
 export const filterChipActiveClasses =
@@ -44,7 +38,7 @@ export const browserPanelCardClasses =
 export const breadcrumbIconButtonClasses =
   "inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:border-primary-500 dark:hover:text-primary-200";
 const contextMenuBaseClasses =
-  "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left ui-caption font-semibold transition";
+  "ui-list-menu-item";
 export const contextMenuItemClasses =
   `${contextMenuBaseClasses} text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800`;
 export const contextMenuItemDangerClasses =

@@ -39,13 +39,11 @@ describe("DataTableShell", () => {
       />
     );
 
-    expect(screen.getByRole("table")).toHaveClass("manager-table", "!table-auto", "!w-max");
-    expect(screen.getByText("Archive")).toHaveClass("font-semibold");
+    expect(screen.getByRole("table")).toHaveClass("ui-data-table", "!table-auto", "!w-max");
+    expect(screen.getByText("Archive")).toHaveClass("ui-table-primary");
     expect(screen.getByRole("columnheader", { name: "Name" })).toHaveAttribute("aria-sort", "ascending");
-    expect(screen.getByRole("columnheader", { name: "Name" })).toHaveClass("align-middle");
+    expect(screen.getByRole("columnheader", { name: "Name" })).toHaveClass("ui-table-header");
     expect(screen.getByRole("columnheader", { name: "Count" })).toHaveClass("text-right");
-    expect(screen.getByText("Archive").closest("td")).toHaveClass("align-middle");
-    expect(screen.getByRole("button", { name: /Name/ })).toHaveClass("uppercase");
 
     await user.click(screen.getByRole("button", { name: /Name/ }));
     expect(onSort).toHaveBeenCalledWith("name");
@@ -77,7 +75,7 @@ describe("DataTableShell", () => {
       />
     );
 
-    expect(screen.getByRole("table")).toHaveClass("manager-table", "min-w-full");
+    expect(screen.getByRole("table")).toHaveClass("ui-data-table", "min-w-full");
     expect(screen.getByRole("table")).not.toHaveClass("!table-auto", "!w-max");
     expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass("w-64");
     expect(screen.getByRole("columnheader", { name: "Actions" })).not.toHaveClass("w-px");
@@ -392,10 +390,10 @@ describe("DataTableShell", () => {
     const actionCell = screen.getByRole("button", { name: "Open" }).closest("td");
     expect(actionCell).toHaveAttribute("data-mobile-actions", "true");
     expect(actionCell).toHaveAttribute("data-table-actions", "true");
-    expect(actionCell).toHaveClass("w-px", "whitespace-nowrap", "md:[&>*]:!flex-nowrap");
+    expect(actionCell).toHaveClass("w-px", "ui-table-actions-cell");
     const actionHeader = screen.getByRole("columnheader", { name: "Actions" });
     expect(actionHeader).toHaveAttribute("data-table-actions", "true");
-    expect(actionHeader).toHaveClass("w-px", "whitespace-nowrap", "md:[&>*]:!flex-nowrap");
+    expect(actionHeader).toHaveClass("w-px", "ui-table-actions-cell");
   });
 
   it("can keep responsive actions in the table flow without making them sticky", () => {
@@ -425,10 +423,10 @@ describe("DataTableShell", () => {
     const actionCell = screen.getByRole("button", { name: "Open" }).closest("td");
     expect(actionCell).toHaveAttribute("data-mobile-actions", "true");
     expect(actionCell).not.toHaveAttribute("data-table-actions");
-    expect(actionCell).toHaveClass("w-px", "whitespace-nowrap", "md:[&>*]:!flex-nowrap");
+    expect(actionCell).toHaveClass("w-px", "ui-table-actions-cell");
     const actionHeader = screen.getByRole("columnheader", { name: "Actions" });
     expect(actionHeader).not.toHaveAttribute("data-table-actions");
-    expect(actionHeader).toHaveClass("w-px", "whitespace-nowrap", "md:[&>*]:!flex-nowrap");
+    expect(actionHeader).toHaveClass("w-px", "ui-table-actions-cell");
   });
 
   it("renders custom column headers for selection controls", () => {

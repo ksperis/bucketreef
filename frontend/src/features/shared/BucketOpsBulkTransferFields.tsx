@@ -261,13 +261,13 @@ export default function BucketOpsBulkTransferFields({
                     Proposed mapping (1:1)
                   </p>
                   <div className="overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
-                    <table className="min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800">
+                    <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800">
                       <thead className="bg-slate-100 dark:bg-slate-900/60">
                         <tr>
-                          <th className="px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          <th className="text-left">
                             Source bucket
                           </th>
-                          <th className="px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          <th className="text-left">
                             Destination bucket
                           </th>
                         </tr>
@@ -287,10 +287,10 @@ export default function BucketOpsBulkTransferFields({
                           );
                           return (
                             <tr key={sourceBucket}>
-                              <td className="px-3 py-2 font-semibold text-slate-900 dark:text-slate-100">
+                              <td className="ui-table-primary">
                                 {sourceBucket}
                               </td>
-                              <td className="px-3 py-2">
+                              <td>
                                 <select
                                   aria-label={`Destination bucket for ${sourceBucket}`}
                                   value={bulkPasteMapping[sourceBucket] ?? ""}

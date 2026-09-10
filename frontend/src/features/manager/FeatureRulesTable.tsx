@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { Link } from "react-router-dom";
 
 import type {
@@ -13,7 +14,6 @@ import type {
 import type { ListTableStatus } from "../../components/list/listTableStatus";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
 import TableEmptyState from "../../components/TableEmptyState";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
 
 type FeatureRulesTableProps = {
   emptyMessage: string;
@@ -41,13 +41,13 @@ const statusLabel: Record<FeatureRuleInventoryStatus, string> = {
   unavailable: "Unavailable",
 };
 
-const primaryCellClass = "manager-table-cell px-6 py-4 ui-body font-semibold text-slate-900 dark:text-slate-100";
-const cellClass = "manager-table-cell px-6 py-4 ui-body text-slate-600 dark:text-slate-300";
-const wideCellClass = "manager-table-cell-wide px-6 py-4 ui-body text-slate-600 dark:text-slate-300";
-const actionCellClass = "px-6 py-4 text-right";
-const mutedCellClass = "px-6 py-4 ui-caption text-slate-500 dark:text-slate-400";
-const errorCellClass = "px-6 py-4 ui-caption text-rose-600 dark:text-rose-200";
-const mutedRowClass = "bg-slate-50/70 dark:bg-slate-900/40";
+const primaryCellClass = "ui-table-primary";
+const cellClass = "ui-table-secondary";
+const wideCellClass = "ui-table-wide ui-table-secondary";
+const actionCellClass = "ui-table-actions-cell text-right";
+const mutedCellClass = "ui-table-secondary";
+const errorCellClass = "ui-table-error";
+const mutedRowClass = "ui-table-expanded";
 
 export default function FeatureRulesTable({
   emptyMessage,
@@ -72,15 +72,13 @@ export default function FeatureRulesTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="manager-table min-w-full divide-y divide-slate-200 dark:divide-slate-800">
+      <table className="ui-data-table ui-data-table-fixed min-w-full divide-y divide-slate-200 dark:divide-slate-800">
         <thead className="bg-slate-50 dark:bg-slate-900/50">
           <tr>
             {columns.map((column) => (
               <th
                 key={column.id}
-                className={`px-6 py-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${
-                  column.align === "right" ? "text-right" : "text-left"
-                }`}
+                className={column.align === "right" ? "text-right" : "text-left"}
               >
                 {column.label}
               </th>
@@ -145,35 +143,34 @@ export default function FeatureRulesTable({
                 <tr key={`${item.bucket_name}:${rule.type}:${rule.id}`} className={mutedRowClass}>
                   <td className={mutedCellClass} />
                   <td className={mutedCellClass} />
-                  <td className={`${cellClass} max-w-xs font-semibold text-slate-800 dark:text-slate-100`}>
+                  <td className={`${cellClass} max-w-xs ui-table-primary`}>
                     <div className="truncate" title={rule.title}>
                       {rule.title}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {rule.chips.slice(0, 3).map((chip) => (
-                        <span
+                        <ListBadge
                           key={chip}
-                          className="max-w-[12rem] truncate rounded-full bg-slate-100 px-2 py-0.5 ui-caption font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                          tone="neutral" className="max-w-[12rem] truncate"
                           title={chip}
                         >
                           {chip}
-                        </span>
+                        </ListBadge>
                       ))}
                     </div>
                   </td>
-                  <td className={`${wideCellClass} max-w-2xl text-slate-700 dark:text-slate-200`}>
+                  <td className={`${wideCellClass} max-w-2xl`}>
                     <div className="truncate" title={rule.summary}>
                       {rule.summary}
                     </div>
                   </td>
                   <td className={actionCellClass}>
-                    <button
+                    <ListActionButton
                       type="button"
                       onClick={() => onOpenRule(item.bucket_name, rule)}
-                      className={tableActionButtonClasses}
                     >
                       JSON
-                    </button>
+                    </ListActionButton>
                   </td>
                 </tr>
               )),

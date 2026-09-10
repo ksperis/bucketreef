@@ -29,7 +29,7 @@ export default function ListPageSection({
   ...toolbarProps
 }: ListPageSectionProps) {
   return (
-    <section className={cx(uiCardClass, className)}>
+    <section className={cx("ui-listing", uiCardClass, className)}>
       <ListToolbar
         {...toolbarProps}
         className={toolbarClassName}

@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import type { Dispatch, SetStateAction } from "react";
 import {
   defaultAccountAccessGrant,
@@ -9,30 +10,14 @@ import {
   type AccountAccessGrant,
 } from "../../api/accountAccess";
 import type { S3AccountSummary } from "../../api/accounts";
-import { tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import AccountAccessRoleSelectors, {
   AccountAccessRoleValidationMessage,
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
-import {
-  AdminAssociationPickerPanel,
-  AdminAssociationSectionHeader,
-  adminAssociationAccountOptionRowClass,
-  adminAssociationCheckboxClass,
-  adminAssociationOptionLabelClass,
-  adminAssociationTableActionCellClass,
-  adminAssociationTableBodyClass,
-  adminAssociationTableContainerClass,
-  adminAssociationTableControlCellClass,
-  adminAssociationTableEmptyCellClass,
-  adminAssociationTableHeaderClass,
-  adminAssociationTableHeadClass,
-  adminAssociationTableHeaderRightClass,
-  adminAssociationTableLabelCellClass,
-  adminAssociationTableClass,
-} from "./AdminAssociationPicker";
+import { AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationAccountOptionRowClass, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
 
 export type AccountSelection = AccountAccessGrant & {
   id: number;
@@ -88,23 +73,23 @@ export default function UserAccountAssociationsPanel({
         onAction={() => accounts.setShowPanel((current) => !current)}
       />
       <div className={adminAssociationTableContainerClass}>
-        <table className={adminAssociationTableClass}>
-          <thead className={adminAssociationTableHeadClass}>
+        <table className="ui-data-table">
+          <thead>
             <tr>
-              <th className={adminAssociationTableHeaderClass}>Account</th>
-              <th className={adminAssociationTableHeaderClass}>Manager role</th>
+              <th className="text-left">Account</th>
+              <th className="text-left">Manager role</th>
               {showPortalColumn ? (
-                <th className={adminAssociationTableHeaderClass}>
+                <th className="text-left">
                   Portal role
                 </th>
               ) : null}
-              <th className={adminAssociationTableHeaderRightClass}>Actions</th>
+              <th className="w-px whitespace-nowrap text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className={adminAssociationTableBodyClass}>
+          <tbody>
             {accounts.selected.length === 0 ? (
               <tr>
-                <td colSpan={3 + Number(showPortalColumn)} className={adminAssociationTableEmptyCellClass}>
+                <td colSpan={3 + Number(showPortalColumn)} className="ui-table-secondary">
                   No account linked yet.
                 </td>
               </tr>
@@ -128,7 +113,7 @@ export default function UserAccountAssociationsPanel({
                   );
                 return (
                   <tr key={entry.id}>
-                    <td className={adminAssociationTableLabelCellClass}>
+                    <td className="ui-table-primary">
                       {label}
                       <AccountAccessRoleValidationMessage
                         id={accessErrorId}
@@ -136,7 +121,7 @@ export default function UserAccountAssociationsPanel({
                         portalEnabled={showPortalRole}
                       />
                     </td>
-                    <td className={adminAssociationTableControlCellClass}>
+                    <td>
                       <ManagerAccountRoleSelect
                         label={label}
                         portalEnabled={showPortalRole}
@@ -148,7 +133,7 @@ export default function UserAccountAssociationsPanel({
                       />
                     </td>
                     {showPortalColumn ? (
-                      <td className={adminAssociationTableControlCellClass}>
+                      <td>
                         <PortalAccountRoleSelect
                           label={label}
                           portalEnabled={showPortalRole}
@@ -160,7 +145,7 @@ export default function UserAccountAssociationsPanel({
                         />
                       </td>
                     ) : null}
-                    <td className={adminAssociationTableActionCellClass}>
+                    <td className="ui-table-actions-cell w-px text-right">
                       {entry.manager_role ? (
                         <AdminAssociationAdvancedSettings
                           targetLabel={label}
@@ -182,17 +167,17 @@ export default function UserAccountAssociationsPanel({
                           }
                         />
                       ) : null}
-                      <button
+                      <ListActionButton
                         type="button"
                         onClick={() =>
                           accounts.setSelected((current) =>
                             current.filter((account) => account.id !== entry.id),
                           )
                         }
-                        className={tableDeleteActionClasses}
+                         variant="danger"
                       >
                         Remove
-                      </button>
+                      </ListActionButton>
                     </td>
                   </tr>
                 );

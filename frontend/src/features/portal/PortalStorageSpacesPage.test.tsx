@@ -9,7 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { LanguageProvider } from "../../components/language";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
+
 import PortalStorageSpacesPage from "./PortalStorageSpacesPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
@@ -267,7 +267,7 @@ describe("PortalStorageSpacesPage", () => {
       "href",
       "/portal/storage-spaces/research-data",
     );
-    expect(openLink).toHaveAttribute("class", tableActionButtonClasses);
+    expect(openLink).toHaveClass("ui-list-action");
     expect(
       openLink.closest("td"),
     ).toHaveAttribute("data-mobile-actions", "true");

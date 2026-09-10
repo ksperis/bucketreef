@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { useMemo } from "react";
 
 import type { PortalPublicLink } from "../../api/portalSharing";
@@ -9,10 +10,7 @@ import DataTableShell, {
   type DataTableColumn,
 } from "../../components/list/DataTableShell";
 import type { ListTableStatus } from "../../components/list/listTableStatus";
-import {
-  tableActionButtonClasses,
-  tableDeleteActionClasses,
-} from "../../components/tableActionClasses";
+
 import UiBadge from "../../components/ui/UiBadge";
 import { useI18n } from "../../i18n";
 import {
@@ -121,10 +119,10 @@ export default function PortalPublicLinksTable({
             }
           >
             {showCopyForInactive || link.status === "Active" ? (
-              <button
+              <ListActionButton
                 type="button"
                 onClick={() => onCopy(link)}
-                className={tableActionButtonClasses}
+
               >
                 {copyLabel ??
                   t({
@@ -132,17 +130,17 @@ export default function PortalPublicLinksTable({
                     fr: "Copier le lien",
                     de: "Link kopieren",
                   })}
-              </button>
+              </ListActionButton>
             ) : null}
             {link.status === "Active" ? (
-              <button
+              <ListActionButton
                 type="button"
                 disabled={busyLinkId === link.id}
                 onClick={() => onRevoke(link)}
-                className={tableDeleteActionClasses}
+                 variant="danger"
               >
                 {t({ en: "Revoke", fr: "Révoquer", de: "Widerrufen" })}
-              </button>
+              </ListActionButton>
             ) : null}
           </div>
         ),

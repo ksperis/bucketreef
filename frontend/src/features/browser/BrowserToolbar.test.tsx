@@ -152,7 +152,7 @@ describe("BrowserToolbar", () => {
     render(<BrowserToolbar {...props} />);
 
     expect(screen.getByRole("button", { name: "Upload" })).toHaveClass(
-      "ui-button-primary",
+      "ui-list-action-primary",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Hide deleted files" }));

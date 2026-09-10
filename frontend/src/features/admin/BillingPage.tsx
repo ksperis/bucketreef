@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState } from "react";
 import {
   Area,
@@ -26,7 +27,7 @@ import PageControlStrip from "../../components/PageControlStrip";
 import PageEmptyState from "../../components/PageEmptyState";
 import StatCards from "../../components/StatCards";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
+
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
@@ -478,20 +479,19 @@ export default function BillingPage() {
       align: "right",
       mobileRole: "actions",
       render: (subject) => (
-        <button
+        <ListActionButton
           type="button"
-          className={tableActionButtonClasses}
           onClick={() => void handleRowClick(subject)}
           {...dataTableDefaultActionProps}
         >
           View
-        </button>
+        </ListActionButton>
       ),
     },
   ];
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="Billing"
       description="Monthly usage and cost overview."
       breadcrumbs={adminPageBreadcrumbs("billing")}
@@ -508,7 +508,7 @@ export default function BillingPage() {
         </UiButton>
       }
     >
-      <PageControlStrip
+      <PageControlStrip controlPresentation="listing"
         label="Billing scope"
         title={selectedEndpoint?.name ?? "No Ceph endpoint selected"}
         description="Choose the month, Ceph endpoint, subject view, and ordering used to aggregate costs and traffic."
@@ -685,7 +685,7 @@ export default function BillingPage() {
                 disabled: subjectsLoading,
               }}
               responsiveCards
-              tableClassName="compact-table"
+              tableClassName="ui-data-table"
               rowClassName={(subject) =>
                 cx(
                   "bg-white/80 hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/50",

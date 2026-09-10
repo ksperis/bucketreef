@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListBadge } from "../../components/list/ListControls";
 import { useMemo, useRef, useState } from "react";
 
 import {
@@ -69,14 +70,14 @@ function statusLabel(status: BucketPurgeResult["status"]): string {
   return "Failed";
 }
 
-function bucketStatusClasses(status: BucketPurgeBucketResult["status"]): string {
+function bucketStatusTone(status: BucketPurgeBucketResult["status"]): "success" | "warning" | "danger" {
   if (status === "completed") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100";
+    return "success";
   }
   if (status === "completed_with_errors") {
-    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100";
+    return "warning";
   }
-  return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100";
+  return "danger";
 }
 
 function surfaceLabel(props: BucketPurgeRunModalProps): string {
@@ -414,9 +415,9 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
                         )}
                       </div>
                       <div>
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 ui-caption font-semibold ${bucketStatusClasses(bucket.status)}`}>
+                        <ListBadge tone={bucketStatusTone(bucket.status)}>
                           {statusLabel(bucket.status)}
-                        </span>
+                        </ListBadge>
                       </div>
                       <div className="ui-caption text-slate-600 dark:text-slate-300">
                         <span className="font-semibold text-slate-500 dark:text-slate-400">Objects </span>
@@ -446,28 +447,28 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
                     )}
                     {bucket.failures_sample.length > 0 ? (
                       <div className="max-h-72 overflow-auto rounded-md border border-slate-200 dark:border-slate-800">
-                        <table className="min-w-full divide-y divide-slate-200 ui-caption dark:divide-slate-800">
+                        <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-caption dark:divide-slate-800">
                           <thead className="bg-slate-50 dark:bg-slate-900/70">
                             <tr>
-                              <th className="px-3 py-2 text-left font-semibold uppercase text-slate-500 dark:text-slate-400">Stage</th>
-                              <th className="px-3 py-2 text-left font-semibold uppercase text-slate-500 dark:text-slate-400">Target</th>
-                              <th className="px-3 py-2 text-left font-semibold uppercase text-slate-500 dark:text-slate-400">Version</th>
-                              <th className="px-3 py-2 text-left font-semibold uppercase text-slate-500 dark:text-slate-400">Count</th>
-                              <th className="px-3 py-2 text-left font-semibold uppercase text-slate-500 dark:text-slate-400">Message</th>
+                              <th className="text-left">Stage</th>
+                              <th className="text-left">Target</th>
+                              <th className="text-left">Version</th>
+                              <th className="text-left">Count</th>
+                              <th className="text-left">Message</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                             {bucket.failures_sample.map((failure, index) => (
                               <tr key={`${failure.key ?? "bucket"}:${failure.version_id ?? ""}:${failure.stage}:${index}`}>
-                                <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">{failure.stage}</td>
-                                <td className="break-all px-3 py-2 font-mono text-[11px] text-slate-900 dark:text-slate-100">
+                                <td className="whitespace-nowrap ui-table-primary">{failure.stage}</td>
+                                <td className="break-all font-mono text-[11px]">
                                   {failureTarget(failure)}
                                 </td>
-                                <td className="break-all px-3 py-2 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                                <td className="break-all font-mono text-[11px] ui-table-secondary">
                                   {failure.version_id || "-"}
                                 </td>
-                                <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{formatNumber(failure.count)}</td>
-                                <td className="min-w-[18rem] px-3 py-2 text-slate-700 dark:text-slate-200">{failure.message}</td>
+                                <td>{formatNumber(failure.count)}</td>
+                                <td className="min-w-[18rem]">{failure.message}</td>
                               </tr>
                             ))}
                           </tbody>

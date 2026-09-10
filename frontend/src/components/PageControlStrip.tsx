@@ -32,6 +32,7 @@ type PageControlStripProps = {
   title: ReactNode;
   description?: ReactNode;
   controls?: ReactNode;
+  controlPresentation?: "default" | "listing";
   items?: PageControlStripItem[];
   alerts?: PageControlStripAlert[];
   className?: string;
@@ -42,6 +43,7 @@ export default function PageControlStrip({
   title,
   description,
   controls,
+  controlPresentation = "default",
   items = [],
   alerts = [],
   className,
@@ -61,7 +63,7 @@ export default function PageControlStrip({
       </div>
 
       {controls ? (
-        <div className={cx(uiPanelClass, "px-3 py-3")}>
+        <div className={cx(uiPanelClass, controlPresentation === "listing" ? "ui-list-toolbar ui-list-toolbar-body" : "px-3 py-3")}>
           {controls}
         </div>
       ) : null}

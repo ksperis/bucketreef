@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -19,7 +20,7 @@ import PageEmptyState from "../../components/PageEmptyState";
 import PageShell from "../../components/PageShell";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime } from "../../utils/dateTime";
@@ -183,12 +184,12 @@ export default function ManagerCephKeysPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span>{key.access_key_id}</span>
             {locked && (
-              <span
-                className="shrink-0 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+              <ListBadge
+                tone="neutral" className="shrink-0"
                 title={managedPrivate ? "Managed private access key" : "Portal key (locked)"}
               >
                 {managedPrivate ? "Private access" : "KLO"}
-              </span>
+              </ListBadge>
             )}
           </div>
         );
@@ -211,33 +212,32 @@ export default function ManagerCephKeysPage() {
         const managedPrivate = Boolean(key.is_private_access_managed);
         const locked = Boolean(key.is_ui_managed || managedPrivate);
         return (
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
+          <ListActions>
+            <ListActionButton
               type="button"
               onClick={() => handleToggleKey(key)}
-              className={tableActionButtonClasses}
               disabled={Boolean(busy) || locked}
               title={locked ? (managedPrivate ? "Update the linked private connection instead" : "Portal key is locked") : undefined}
             >
               {busy === `toggle:${key.access_key_id}` ? "Saving..." : active ? "Disable" : "Enable"}
-            </button>
-            <button
+            </ListActionButton>
+            <ListActionButton
               type="button"
               onClick={() => handleDeleteKey(key)}
-              className={tableDeleteActionClasses}
+               variant="danger"
               disabled={Boolean(busy) || locked}
               title={locked ? (managedPrivate ? "Delete the linked private connection instead" : "Portal key is locked") : undefined}
             >
               {busy === `delete:${key.access_key_id}` ? "Deleting..." : "Delete"}
-            </button>
-          </div>
+            </ListActionButton>
+          </ListActions>
         );
       },
     },
   ];
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
       title="Ceph access keys"
       description="Manage Ceph RGW access keys and provision private access for this S3 User context."
       breadcrumbs={managerPageBreadcrumbs("ceph-keys")}

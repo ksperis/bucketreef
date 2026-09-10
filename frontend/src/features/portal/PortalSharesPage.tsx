@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionLink } from "../../components/list/ListControls";
 import {
   type FormEvent,
   useCallback,
@@ -24,7 +25,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
 import Modal from "../../components/Modal";
-import { tableActionButtonClasses } from "../../components/tableActionClasses";
+
 import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
 import UiCard from "../../components/ui/UiCard";
@@ -173,9 +174,9 @@ function CollaboratorsInventory({
         mobileRole: "actions" as const,
         render: (collaborator) =>
           collaborator.can_review_access ? (
-            <Link
+            <ListActionLink
               to={`/portal/shares/${encodeURIComponent(collaborator.user_id)}`}
-              className={tableActionButtonClasses}
+
               {...dataTableDefaultActionProps}
             >
               {t({
@@ -183,7 +184,7 @@ function CollaboratorsInventory({
                 fr: "Revoir les accès",
                 de: "Zugriff prüfen",
               })}
-            </Link>
+            </ListActionLink>
           ) : (
             <span className={uiMutedTextClass}>-</span>
           ),
@@ -473,7 +474,7 @@ export default function PortalSharesPage() {
   if (pageState) return pageState;
 
   return (
-    <PageShell
+    <PageShell actionPresentation="listing"
         title={t({
           en: "Collaborators",
           fr: "Collaborateurs",

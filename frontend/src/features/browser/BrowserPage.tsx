@@ -136,13 +136,7 @@ import {
 } from "./browserRootUiState";
 import { shouldUseStsPresigner } from "./sseBrowserLogic";
 import { InfoIcon } from "./browserIcons";
-import {
-  VERSIONS_LIST_HARD_LIMIT,
-  filterChipClasses,
-  iconButtonClasses,
-  storageClassOptions,
-  toolbarButtonClasses,
-} from "./browserConstants";
+import { VERSIONS_LIST_HARD_LIMIT, filterChipClasses, storageClassOptions, toolbarButtonClasses } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import {
   buildPrefixBreadcrumbs,
@@ -1327,9 +1321,7 @@ export default function BrowserPage({
   const iconBoxClasses = compactMode ? "h-6 w-6" : "h-9 w-9";
   const nameGapClasses = compactMode ? "gap-1.5" : "gap-3";
   const primaryItemButtonHeightClasses = compactMode ? "" : "min-h-11";
-  const rowActionButtonClasses = compactMode
-    ? `${iconButtonClasses} !h-6 !w-6`
-    : iconButtonClasses;
+  const rowActionButtonClasses = "ui-list-action ui-list-action-icon";
   const currentPath = useMemo(() => {
     if (!bucketName) return "";
     if (!prefix) return bucketName;

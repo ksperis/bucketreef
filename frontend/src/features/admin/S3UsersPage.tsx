@@ -2,8 +2,9 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActions, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+
 import {
   S3User,
   createS3User,
@@ -47,7 +48,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { cx, uiPanelMutedClass } from "../../components/ui/styles";
-import { tableActionButtonClasses, tableDeleteActionClasses } from "../../components/tableActionClasses";
+
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { extractApiError } from "../../utils/apiError";
@@ -56,20 +57,7 @@ import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import {
-  AdminAssociationCheckboxOptions,
-  AdminAssociationPickerPanel,
-  AdminAssociationSectionHeader,
-  adminAssociationTableClass as associationTableClass,
-  adminAssociationTableActionCellClass,
-  adminAssociationTableBodyClass,
-  adminAssociationTableContainerClass as associationTableContainerClass,
-  adminAssociationTableEmptyCellClass,
-  adminAssociationTableHeaderClass,
-  adminAssociationTableHeadClass,
-  adminAssociationTableHeaderRightClass,
-  adminAssociationTableLabelCellClass,
-} from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import { AdminAccessToggleSection } from "./AdminAccessSections";
 import AdminQuotaFields from "./AdminQuotaFields";
@@ -789,22 +777,22 @@ export default function S3UsersPage() {
       render: (user) => {
         const deleteBusy = deleteBusyId === user.id;
         return (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
+          <ListActions>
+            <ListActionButton
               type="button"
               onClick={() => openEditModal(user)}
-              className={tableActionButtonClasses}
+
               {...dataTableDefaultActionProps}
             >
               Edit
-            </button>
-            <Link to={`/admin/s3-users/${user.id}/keys`} className={tableActionButtonClasses}>
+            </ListActionButton>
+            <ListActionLink to={`/admin/s3-users/${user.id}/keys`}>
               Keys
-            </Link>
-            <button type="button" onClick={() => startDeleteUser(user)} className={tableDeleteActionClasses} disabled={deleteBusy}>
+            </ListActionLink>
+            <ListActionButton type="button" onClick={() => startDeleteUser(user)}  variant="danger" disabled={deleteBusy}>
               {deleteBusy ? "Deleting..." : "Delete"}
-            </button>
-          </div>
+            </ListActionButton>
+          </ListActions>
         );
       },
     },
@@ -835,7 +823,7 @@ export default function S3UsersPage() {
 
   return (
     <div className={workflowPageHostClass(showImportModal || Boolean(editingUser))}>
-      <PageHeader
+      <PageHeader actionPresentation="listing"
         title="RGW Users"
         description="Manage standalone RGW users for direct access to Manager."
         breadcrumbs={adminPageBreadcrumbs("rgw-users")}
@@ -904,7 +892,7 @@ export default function S3UsersPage() {
           sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
           primaryColumnId="name"
           responsiveCards
-          tableClassName="compact-table"
+          tableClassName="ui-data-table"
           pagination={{
             page,
             pageSize,
@@ -1233,31 +1221,31 @@ export default function S3UsersPage() {
                   onAction={() => setShowEditPortalUserPanel((prev) => !prev)}
                 />
                 <div className={associationTableContainerClass}>
-                  <table className={associationTableClass}>
-                    <thead className={adminAssociationTableHeadClass}>
+                  <table className="ui-data-table">
+                    <thead>
                       <tr>
-                        <th className={adminAssociationTableHeaderClass}>
+                        <th className="text-left">
                           User
                         </th>
-                        <th className={adminAssociationTableHeaderRightClass}>
+                        <th className="w-px whitespace-nowrap text-right">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className={adminAssociationTableBodyClass}>
+                    <tbody>
                       {editForm.user_links.length === 0 ? (
                         <tr>
-                          <td colSpan={2} className={adminAssociationTableEmptyCellClass}>
+                          <td colSpan={2} className="ui-table-secondary">
                             No linked users yet.
                           </td>
                         </tr>
                       ) : (
                         editForm.user_links.map((link) => (
                           <tr key={link.user_id}>
-                            <td className={adminAssociationTableLabelCellClass}>
+                            <td className="ui-table-primary">
                               {portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
                             </td>
-                            <td className={adminAssociationTableActionCellClass}>
+                            <td className="ui-table-actions-cell w-px text-right">
                               <AdminAssociationAdvancedSettings
                                 targetLabel={portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
                                 associationKind="rgw_user"
@@ -1273,7 +1261,7 @@ export default function S3UsersPage() {
                                   }))
                                 }
                               />
-                              <button
+                              <ListActionButton
                                 type="button"
                                 onClick={() =>
                                   setEditForm((prev) => ({
@@ -1281,10 +1269,10 @@ export default function S3UsersPage() {
                                     user_links: prev.user_links.filter((item) => item.user_id !== link.user_id),
                                   }))
                                 }
-                                className={tableDeleteActionClasses}
+                                 variant="danger"
                               >
                                 Remove
-                              </button>
+                              </ListActionButton>
                             </td>
                           </tr>
                         ))
@@ -1352,31 +1340,31 @@ export default function S3UsersPage() {
                   }}
                 />
                 <div className={associationTableContainerClass}>
-                  <table className={associationTableClass}>
-                    <thead className={adminAssociationTableHeadClass}>
+                  <table className="ui-data-table">
+                    <thead>
                       <tr>
-                        <th className={adminAssociationTableHeaderClass}>
+                        <th className="text-left">
                           Group
                         </th>
-                        <th className={adminAssociationTableHeaderRightClass}>
+                        <th className="w-px whitespace-nowrap text-right">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className={adminAssociationTableBodyClass}>
+                    <tbody>
                       {editForm.group_links.length === 0 ? (
                         <tr>
-                          <td colSpan={2} className={adminAssociationTableEmptyCellClass}>
+                          <td colSpan={2} className="ui-table-secondary">
                             No linked groups yet.
                           </td>
                         </tr>
                       ) : (
                         editForm.group_links.map((link) => (
                           <tr key={link.group_id}>
-                            <td className={adminAssociationTableLabelCellClass}>
+                            <td className="ui-table-primary">
                               {groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
                             </td>
-                            <td className={adminAssociationTableActionCellClass}>
+                            <td className="ui-table-actions-cell w-px text-right">
                               <AdminAssociationAdvancedSettings
                                 targetLabel={groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
                                 associationKind="rgw_user"
@@ -1392,7 +1380,7 @@ export default function S3UsersPage() {
                                   }))
                                 }
                               />
-                              <button
+                              <ListActionButton
                                 type="button"
                                 onClick={() =>
                                   setEditForm((prev) => ({
@@ -1400,10 +1388,10 @@ export default function S3UsersPage() {
                                     group_links: prev.group_links.filter((item) => item.group_id !== link.group_id),
                                   }))
                                 }
-                                className={tableDeleteActionClasses}
+                                 variant="danger"
                               >
                                 Remove
-                              </button>
+                              </ListActionButton>
                             </td>
                           </tr>
                         ))

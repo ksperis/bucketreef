@@ -527,16 +527,16 @@ export default function CephAdminAccountEditModal({
               <p className="ui-caption text-slate-500 dark:text-slate-400">{metrics.bucket_count} bucket(s)</p>
             </div>
             <div className="mt-3 overflow-x-auto">
-              <table className={cx(uiDataTableClass, "compact-table min-w-full")}>
+              <table className={uiDataTableClass}>
                 <thead className="bg-slate-100/80 dark:bg-slate-900/60">
                   <tr>
-                    <th className="px-3 py-2 text-left ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <th className="text-left">
                       Bucket
                     </th>
-                    <th className="px-3 py-2 text-right ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <th className="text-right">
                       Used
                     </th>
-                    <th className="px-3 py-2 text-right ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <th className="text-right">
                       Objects
                     </th>
                   </tr>
@@ -544,18 +544,18 @@ export default function CephAdminAccountEditModal({
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {metrics.bucket_usage.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-3 py-3 ui-body text-slate-500 dark:text-slate-400">
+                      <td colSpan={3} className="ui-table-secondary">
                         No bucket usage data available.
                       </td>
                     </tr>
                   )}
                   {metrics.bucket_usage.slice(0, 50).map((entry) => (
                     <tr key={entry.name}>
-                      <td className="px-3 py-2 ui-body font-semibold text-slate-800 dark:text-slate-100">{entry.name}</td>
-                      <td className="px-3 py-2 text-right ui-body text-slate-600 dark:text-slate-300">
+                      <td className="ui-table-primary">{entry.name}</td>
+                      <td className="text-right ui-table-secondary">
                         {formatBytes(entry.used_bytes)}
                       </td>
-                      <td className="px-3 py-2 text-right ui-body text-slate-600 dark:text-slate-300">
+                      <td className="text-right ui-table-secondary">
                         {formatNumber(entry.object_count)}
                       </td>
                     </tr>

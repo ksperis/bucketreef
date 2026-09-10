@@ -27,7 +27,7 @@ import PageBanner from "../../components/PageBanner";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiTagEditor from "../../components/UiTagEditor";
 import UiButton from "../../components/ui/UiButton";
-import { SettingsButton } from "../../components/settings/SettingsControls";
+import { ListActionButton } from "../../components/list/ListControls";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
@@ -736,7 +736,7 @@ export default function StorageEndpointsPage() {
         title="S3 Endpoints"
         description="Manage the S3/Ceph endpoints used by the console."
         breadcrumbs={adminPageBreadcrumbs("storage-endpoints")}
-        rightContent={metadataReady && !loading && !envManaged && canEditEndpoints ? <SettingsButton onClick={startCreate}>New endpoint</SettingsButton> : undefined}
+        rightContent={metadataReady && !loading && !envManaged && canEditEndpoints ? <ListActionButton variant="primary" onClick={startCreate}>New endpoint</ListActionButton> : undefined}
       />
 
       {envManaged && (

@@ -1,5 +1,11 @@
 # Screenshots by workspace
 
+Table and listing controls share a compact visual style across workspaces:
+normal-case column headings, consistent action buttons and status badges.
+Search, filters and pagination keep their existing functions. On small screens,
+responsive tables become readable rows of details and actions keep touch-sized
+targets; wider operational tables retain internal scrolling.
+
 This page groups representative UI captures by workspace.
 
 Each carousel uses synthetic documentation data and focuses on the screens that matter most to day-to-day operators.

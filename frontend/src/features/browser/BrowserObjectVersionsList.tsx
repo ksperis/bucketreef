@@ -2,10 +2,11 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { formatBytes } from "../../utils/format";
-import { bulkActionClasses, bulkDangerClasses, toolbarButtonClasses } from "./browserConstants";
+
 import { formatDateTime } from "./browserUtils";
 
 type BrowserObjectVersionsListProps = {
@@ -58,25 +59,21 @@ export default function BrowserObjectVersionsList({
             <div className="flex flex-wrap items-center justify-between gap-2">
               {!readOnly && <div className="flex flex-wrap items-center gap-2">
                 {ver.is_delete_marker && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 ui-caption font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-100">
-                    delete marker
-                  </span>
+                  <ListBadge tone="warning">delete marker</ListBadge>
                 )}
                 {ver.is_latest && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 ui-caption font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100">
-                    latest
-                  </span>
+                  <ListBadge tone="success">latest</ListBadge>
                 )}
               </div>}
               <div className="flex flex-wrap items-center gap-2">
                 {!ver.is_delete_marker && !ver.is_latest && (
-                  <button type="button" className={bulkActionClasses} onClick={() => onRestoreVersion(ver)}>
+                  <ListActionButton type="button" onClick={() => onRestoreVersion(ver)}>
                     Restore
-                  </button>
+                  </ListActionButton>
                 )}
-                <button type="button" className={bulkDangerClasses} onClick={() => onDeleteVersion(ver)}>
+                <ListActionButton variant="danger" type="button" onClick={() => onDeleteVersion(ver)}>
                   {ver.is_delete_marker ? "Delete marker" : "Delete version"}
-                </button>
+                </ListActionButton>
               </div>
             </div>
             <div className="mt-2 space-y-1 ui-caption text-slate-500 dark:text-slate-400">
@@ -89,9 +86,9 @@ export default function BrowserObjectVersionsList({
         ))}
       </div>
       {canLoadMore && onLoadMore && (
-        <button type="button" className={toolbarButtonClasses} onClick={onLoadMore} disabled={loading}>
+        <ListActionButton type="button" onClick={onLoadMore} disabled={loading}>
           Load more versions
-        </button>
+        </ListActionButton>
       )}
     </div>
   );

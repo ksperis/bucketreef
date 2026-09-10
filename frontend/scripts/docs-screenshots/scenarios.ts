@@ -13,7 +13,10 @@ function baseStorage(): LocalStorageSeed {
 }
 
 function withBaseRules(...extraRules: MockRule[]): MockRule[] {
-  return [...extraRules, ...buildBaseRules()];
+  return [...extraRules,
+    { id: "admin-navigation-pending", path: /^\/admin\/navigation\/pending-requests$/, body: { identity_link_requests: 0, portal_requests: 0 } },
+    ...buildBaseRules(),
+  ];
 }
 
 const BROWSER_ROOT_UI_STATE_STORAGE_KEY = "browser:root-ui-state:v3";
