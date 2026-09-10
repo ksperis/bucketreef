@@ -47,6 +47,27 @@
   opacity: 0.6;
 }
 
+.bucket-operation-disclosure {
+  border: 1px solid var(--ui-border-soft);
+  border-radius: 6px;
+}
+
+.bucket-operation-disclosure > summary {
+  min-height: var(--bucket-operation-control-height, 44px);
+  padding: 8px 12px;
+  border-radius: inherit;
+  color: var(--ui-text);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.bucket-operation-disclosure > summary:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
 .bucket-operation-mode > legend {
   margin-bottom: 4px;
 }

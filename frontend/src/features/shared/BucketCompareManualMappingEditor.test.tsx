@@ -23,8 +23,6 @@ describe("BucketCompareManualMappingEditor", () => {
         onManualMappingChange={onManualMappingChange}
         availableTargetBucketNames={["target-a", "source-b"]}
         disabled={false}
-        controlClass="control"
-        compactControlClass="compact"
       />
     );
 
@@ -32,7 +30,7 @@ describe("BucketCompareManualMappingEditor", () => {
     expect(screen.getByText("Parsed entries: 1. Invalid lines: 1.")).toBeInTheDocument();
     expect(screen.getByText("- invalid")).toBeInTheDocument();
 
-    const targetInputs = screen.getAllByPlaceholderText("target bucket");
+    const targetInputs = screen.getAllByRole("combobox", { name: /^Target bucket for source-/ });
     expect(targetInputs[0]).toBeDisabled();
     expect(targetInputs[0]).toHaveValue("target-a");
     expect(screen.getByText("Overridden by raw mapping.")).toBeInTheDocument();
@@ -41,7 +39,9 @@ describe("BucketCompareManualMappingEditor", () => {
     fireEvent.change(targetInputs[1], { target: { value: "archive" } });
     expect(onManualMappingChange).toHaveBeenCalledWith("source-b", "archive");
 
-    const textarea = screen.getByPlaceholderText(/source-bucket-a/);
+    const textarea = screen.getByRole("textbox", { name: "Raw bucket mapping" });
+    expect(textarea).toHaveAttribute("aria-invalid", "true");
+    expect(textarea).toHaveAccessibleDescription(/Some mapping lines could not be parsed/);
     fireEvent.change(textarea, { target: { value: "source-b => archive" } });
     expect(onRawMappingTextChange).toHaveBeenCalledWith("source-b => archive");
 
