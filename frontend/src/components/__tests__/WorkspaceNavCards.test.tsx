@@ -3,10 +3,11 @@ import { MemoryRouter } from "react-router-dom";
 import WorkspaceNavCards from "../WorkspaceNavCards";
 
 describe("WorkspaceNavCards", () => {
-  it("renders navigation links with descriptions", () => {
+  it.each([undefined, "compact"] as const)("renders navigation links with descriptions (%s)", (presentation) => {
     const { container } = render(
       <MemoryRouter>
         <WorkspaceNavCards
+          presentation={presentation}
           columns={4}
           items={[
             {
@@ -29,6 +30,6 @@ describe("WorkspaceNavCards", () => {
     expect(screen.getByText("Cross-account bucket listing and operations.")).toBeInTheDocument();
     expect(screen.getByText("Workspace")).toBeInTheDocument();
     expect(screen.queryByText("Navigation")).not.toBeInTheDocument();
-    expect(container.querySelector(".grid")).toHaveClass("xl:grid-cols-4");
+    expect(container.firstElementChild).toHaveClass("xl:grid-cols-4");
   });
 });

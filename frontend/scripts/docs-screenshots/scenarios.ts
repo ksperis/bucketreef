@@ -881,6 +881,7 @@ export const scenarios: DocScreenshotScenario[] = [
     waitFor: "h1:has-text('Manager dashboard')",
     user: adminUser,
     storage: { ...baseStorage(), selectedWorkspace: "manager" },
+    actions: [{ type: "wait", selector: ".recharts-pie-sector" }],
     mockRules: withBaseRules(),
   },
   {
@@ -1003,6 +1004,17 @@ export const scenarios: DocScreenshotScenario[] = [
     waitFor: "h1:has-text('Buckets')",
     user: adminUser,
     storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
+    mockRules: withBaseRules(),
+  },
+  {
+    id: "gallery-ceph-admin-dashboard",
+    docPage: "user/screenshots-gallery.md",
+    route: "/ceph-admin",
+    outputBasename: "ceph-admin-dashboard",
+    waitFor: "h1:has-text('Ceph Admin')",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
+    actions: [{ type: "wait", selector: "text=In progress" }],
     mockRules: withBaseRules(),
   },
   {

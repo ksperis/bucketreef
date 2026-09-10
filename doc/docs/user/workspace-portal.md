@@ -6,6 +6,10 @@ Use **Portal** for an end-user workspace focused on spaces, files,
 collaborators, governance activity, usage, alerts, storage-admin requests, and
 simple preferences.
 
+## Dashboard
+
+The dashboard keeps its five indicators, storage overview, top spaces, recent activity, alerts and quick links. The compact presentation retains quota details and trends; long names and translated descriptions wrap. Selecting a space still opens that space directly.
+
 ## Prerequisites
 
 - The global `portal_enabled` setting is enabled.

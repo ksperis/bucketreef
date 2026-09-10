@@ -52,9 +52,10 @@ const workspaceHealth: WorkspaceEndpointHealthOverviewResponse = {
 };
 
 describe("WorkspaceEndpointHealthCards", () => {
-  it("shows only incident state badges while keeping endpoint status badges", () => {
+  it.each([undefined, "compact"] as const)("shows only incident state badges while keeping endpoint status badges (%s)", (presentation) => {
     render(
       <WorkspaceEndpointHealthCards
+        presentation={presentation}
         data={workspaceHealth}
         loading={false}
         showStatusCounters={false}
@@ -91,9 +92,10 @@ describe("WorkspaceEndpointHealthCards", () => {
     expect(resolvedRow?.querySelector('[aria-hidden="true"]')?.getAttribute("class")).toContain("bg-emerald-500");
   });
 
-  it("summarizes incidents beyond the five visible rows", () => {
+  it.each([undefined, "compact"] as const)("summarizes incidents beyond the five visible rows (%s)", (presentation) => {
     const { container } = render(
       <WorkspaceEndpointHealthCards
+        presentation={presentation}
         data={{
           ...workspaceHealth,
           incidents: Array.from({ length: 7 }, (_, index) => ({
@@ -114,9 +116,10 @@ describe("WorkspaceEndpointHealthCards", () => {
     expect(container.querySelectorAll("[data-incident-state]")).toHaveLength(5);
   });
 
-  it("does not present an old successful check as current", () => {
+  it.each([undefined, "compact"] as const)("does not present an old successful check as current (%s)", (presentation) => {
     render(
       <WorkspaceEndpointHealthCards
+        presentation={presentation}
         data={{
           ...workspaceHealth,
           up_count: 0,

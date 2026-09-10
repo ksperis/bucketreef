@@ -134,7 +134,10 @@ export function WorkspaceStatusDot({ status, className }: { status: HealthCheckS
   return <span className={cx("h-2 w-2 rounded-full", workspaceStatusDotClass(status), className)} />;
 }
 
-export function WorkspaceStatusPill({ status, className }: { status: HealthCheckStatus; className?: string }) {
+export function WorkspaceStatusPill({ status, className, presentation }: { status: HealthCheckStatus; className?: string; presentation?: "compact" }) {
+  if (presentation === "compact") {
+    return <UiBadge tone={status === "up" ? "success" : status === "degraded" ? "warning" : status === "down" ? "danger" : "neutral"} className={cx("ui-dashboard-badge", className)}>{workspaceStatusLabel(status)}</UiBadge>;
+  }
   return (
     <span className={cx("rounded-md border px-2 py-0.5 font-semibold leading-4", workspaceStatusPillClass(status), className)}>
       {workspaceStatusLabel(status)}
@@ -318,23 +321,23 @@ export function WorkspaceDashboardMetricTrendLine({ trend }: { trend: WorkspaceD
   );
 }
 
-function WorkspaceDashboardMetricCard({ metric }: { metric: WorkspaceDashboardMetric }) {
+function WorkspaceDashboardMetricCard({ metric, presentation }: { metric: WorkspaceDashboardMetric; presentation?: "compact" }) {
   const content = (
     <div
-      className={cx(uiCardClass, "flex h-full min-h-[164px] items-center gap-3 overflow-hidden px-4 py-3.5 sm:gap-4 sm:px-5")}
+      className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-kpi" : "flex h-full min-h-[164px] items-center gap-3 overflow-hidden px-4 py-3.5 sm:gap-4 sm:px-5")}
       data-kpi-card={metric.label}
     >
-      <WorkspaceDashboardIconBubble tone={metric.tone} className="h-12 w-12 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.55)] sm:h-14 sm:w-14">
+      <WorkspaceDashboardIconBubble tone={metric.tone} className={presentation === "compact" ? "ui-dashboard-kpi-icon" : "h-12 w-12 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.55)] sm:h-14 sm:w-14"}>
         {metric.icon}
       </WorkspaceDashboardIconBubble>
-      <div className="grid min-h-[120px] min-w-0 flex-1 content-center grid-rows-[auto_2rem_minmax(1rem,auto)_0.375rem_minmax(1rem,auto)] gap-y-1">
+      <div className={presentation === "compact" ? "ui-dashboard-kpi-content" : "grid min-h-[120px] min-w-0 flex-1 content-center grid-rows-[auto_2rem_minmax(1rem,auto)_0.375rem_minmax(1rem,auto)] gap-y-1"}>
         <div className="flex min-w-0 items-center gap-1.5">
-          <p className="min-w-0 whitespace-normal break-words text-[11px] font-bold uppercase leading-4 text-[var(--ui-text-muted)]">
+          <p className={presentation === "compact" ? "ui-dashboard-note" : "min-w-0 whitespace-normal break-words text-[11px] font-bold uppercase leading-4 text-[var(--ui-text-muted)]"}>
             {metric.label}
           </p>
         </div>
         <p
-          className={cx(
+          className={presentation === "compact" ? "ui-dashboard-value" : cx(
             "min-w-0 font-semibold text-[var(--ui-text)]",
             metric.compactValue ? "whitespace-nowrap text-[22px] leading-6" : "text-2xl leading-7"
           )}
@@ -344,7 +347,7 @@ function WorkspaceDashboardMetricCard({ metric }: { metric: WorkspaceDashboardMe
         </p>
         <div className="min-w-0">
           {metric.detail ? (
-            <p className={cx("min-w-0 whitespace-normal break-words text-[13px] leading-4", uiMutedTextClass)}>
+            <p className={presentation === "compact" ? "ui-dashboard-note" : cx("min-w-0 whitespace-normal break-words text-[13px] leading-4", uiMutedTextClass)}>
               {metric.detail}
             </p>
           ) : (
@@ -394,10 +397,12 @@ export function WorkspaceDashboardKpiRow({
   metrics,
   columns = 4,
   className,
+  presentation,
 }: {
   metrics: WorkspaceDashboardMetric[];
   columns?: 4 | 5;
   className?: string;
+  presentation?: "compact";
 }) {
   const gridColumnsClass = columns === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4";
 
@@ -407,7 +412,7 @@ export function WorkspaceDashboardKpiRow({
       data-workspace-dashboard-kpi-row="true"
     >
       {metrics.map((metric) => (
-        <WorkspaceDashboardMetricCard key={metric.label} metric={metric} />
+        <WorkspaceDashboardMetricCard key={metric.label} metric={metric} presentation={presentation} />
       ))}
     </div>
   );
@@ -420,6 +425,7 @@ export function WorkspaceDashboardStorageEvolutionChart({
   chartLabel = "Storage evolution chart",
   yLabelFormatter = formatBytes,
   xLabelFormatter = formatStorageEvolutionShortDate,
+  presentation,
 }: {
   points: WorkspaceDashboardStorageEvolutionPoint[];
   gradientId?: string;
@@ -427,8 +433,10 @@ export function WorkspaceDashboardStorageEvolutionChart({
   chartLabel?: string;
   yLabelFormatter?: (value: number) => string;
   xLabelFormatter?: (value: number) => string;
+  presentation?: "compact";
 }) {
   const fallbackId = useId();
+  const chartColor = presentation === "compact" ? "var(--ui-primary)" : "rgb(37 99 235)";
   const fillId = gradientId ?? `workspace-storage-evolution-fill-${fallbackId.replace(/:/g, "")}`;
   const chart = useMemo(() => {
     if (points.length < 2) return null;
@@ -483,8 +491,8 @@ export function WorkspaceDashboardStorageEvolutionChart({
         <svg className="h-[92px] w-full overflow-visible" viewBox="0 0 320 92" preserveAspectRatio="none" role="img">
           <defs>
             <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="rgb(37 99 235)" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="rgb(37 99 235)" stopOpacity="0.02" />
+              <stop offset="0%" stopColor={chartColor} stopOpacity="0.22" />
+              <stop offset="100%" stopColor={chartColor} stopOpacity="0.02" />
             </linearGradient>
           </defs>
           {[chart.top, (chart.top + chart.bottom) / 2, chart.bottom].map((y) => (
@@ -500,7 +508,7 @@ export function WorkspaceDashboardStorageEvolutionChart({
             />
           ))}
           <path d={chart.areaPath} fill={`url(#${fillId})`} />
-          <path d={chart.linePath} fill="none" stroke="rgb(37 99 235)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={chart.linePath} fill="none" stroke={chartColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <div />
         <div className="mt-1 flex justify-between text-[10px] font-medium leading-3 text-[var(--ui-text-muted)]">
@@ -527,6 +535,51 @@ export function WorkspaceDashboardEmptyState({
   );
 }
 
+/** Presentation only: callers own calculations, formatting and unavailable states. */
+export function WorkspaceDashboardStorageOverview({
+  title, action, usedLabel, usedValue, quotaValue, percentage, percentageLabel,
+  progressLabel, quotaFallback, chart, growth, projection,
+}: {
+  title: ReactNode;
+  action: ReactNode;
+  usedLabel: string;
+  usedValue: string;
+  quotaValue?: string;
+  percentage: number | null;
+  percentageLabel: string;
+  progressLabel?: string;
+  quotaFallback?: ReactNode;
+  chart: ComponentProps<typeof WorkspaceDashboardStorageEvolutionChart>;
+  growth: { label: string; value: string; className: string };
+  projection: { label: string; value: string; adornment?: ReactNode };
+}) {
+  return (
+    <WorkspaceDashboardCard title={title} action={action} presentation="compact" wrapHeading>
+      <div className="ui-dashboard-storage-values">
+        <div className="min-w-0">
+          <p className="ui-dashboard-note">{usedLabel}</p>
+          <p className="ui-dashboard-value">{usedValue}{quotaValue && <span className="ui-dashboard-storage-quota"> / {quotaValue}</span>}</p>
+        </div>
+        <p className="ui-dashboard-value text-primary">{percentageLabel}</p>
+      </div>
+      {percentage != null ? <WorkspaceDashboardProgressBar value={percentage} className="mt-3 h-2.5" ariaLabel={progressLabel} /> : quotaFallback}
+      <WorkspaceDashboardStorageEvolutionChart {...chart} presentation="compact" />
+      <div className="ui-dashboard-storage-outlook">
+        <div className="ui-dashboard-inset">
+          <p className="ui-dashboard-note">{growth.label}</p>
+          <p className={cx("ui-dashboard-outlook-value", growth.className)}>{growth.value}</p>
+        </div>
+        <div className="ui-dashboard-inset">
+          <div className="flex items-center justify-between gap-2">
+            <p className="ui-dashboard-note">{projection.label}</p>{projection.adornment}
+          </div>
+          <p className="ui-dashboard-outlook-value">{projection.value}</p>
+        </div>
+      </div>
+    </WorkspaceDashboardCard>
+  );
+}
+
 export function WorkspaceDashboardCard({
   title,
   action,
@@ -534,6 +587,7 @@ export function WorkspaceDashboardCard({
   className,
   bodyClassName,
   presentation,
+  wrapHeading = false,
   ...props
 }: {
   title?: ReactNode;
@@ -542,12 +596,13 @@ export function WorkspaceDashboardCard({
   className?: string;
   bodyClassName?: string;
   presentation?: "compact";
-} & HTMLAttributes<HTMLElement>) {
+  wrapHeading?: boolean;
+} & Omit<HTMLAttributes<HTMLElement>, "title">) {
   const titleId = useId();
   return (
     <section aria-labelledby={title ? titleId : undefined} className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-panel" : "h-full p-4", className)} {...props}>
       {title || action ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className={wrapHeading ? "ui-dashboard-panel-heading" : "flex items-center justify-between gap-3"}>
           {title ? <h2 id={titleId} className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>{title}</h2> : <span />}
           {action}
         </div>
@@ -590,8 +645,12 @@ export function WorkspaceDashboardAction({ className, ...props }: ComponentProps
   return <UiButton size="xs" {...props} className={cx("ui-dashboard-action", className)} />;
 }
 
-export function WorkspaceDashboardActionLink({ className, ...props }: ComponentProps<typeof Link>) {
-  return <Link {...props} className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "ui-dashboard-action", className)} />;
+export function WorkspaceDashboardActionLink({ className, variant = "secondary", ...props }: ComponentProps<typeof Link> & { variant?: "primary" | "secondary" }) {
+  return <Link {...props} className={cx(uiButtonBaseClass, uiButtonVariants[variant], "ui-dashboard-action", className)} />;
+}
+
+export function WorkspaceDashboardLinkRow({ className, ...props }: ComponentProps<typeof Link>) {
+  return <Link {...props} className={cx("ui-dashboard-link-row", className)} />;
 }
 
 export function WorkspaceDashboardSummary({ items, loading, unavailableReason, title = "Administration" }: {

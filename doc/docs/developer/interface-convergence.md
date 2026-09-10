@@ -461,11 +461,29 @@ Validation combines component tests, the Admin dashboard visual fixtures
 isolated authenticated Admin/Browser harness. Fixtures and Moto are not proof
 of successful Ceph monitoring or live cluster metrics.
 
-## Remaining passes
+## Other dashboards — visual convergence completed
 
-- Audit Manager, Portal and Ceph Admin dashboards independently before adopting
-  compact dashboard components. Preserve their workspace-specific priorities,
-  metric semantics and authorized actions rather than copying Admin's layout.
+Manager and Portal share compact KPI, storage, panel and action presentation.
+All existing blocks, repeated metrics, graph data, list limits and destinations
+remain in their original order. Long names and timestamps wrap. Ceph Admin
+keeps health, conditional incidents and four navigation cards; Storage Ops
+keeps its single context summary. Neither gains new dashboard content.
+
+`WorkspaceDashboardStorageOverview` is presentation-only. Page adapters retain
+calculations, translations and unavailable-state decisions. Health, navigation
+and data-type cards opt into compact styling without changing other consumers.
+The dedicated dashboard presentation fixtures cover the four routes, light/dark,
+custom color, mobile/coarse pointer, 200% reflow, Portal's existing three languages
+and long text. Fixture data and the isolated Admin/Browser Moto harness do not
+prove live Manager, Portal or Ceph workflows against an RGW cluster.
+
+Delivery checks: `npm run check` passed (448 frontend files, 2,457 tests),
+117 browser fixture scenarios passed across the dashboard and workspace suites,
+and the isolated Admin/Browser harness passed 11 authenticated checks. Eight
+documentation images were generated; the screenshot reference check passed.
+The final lint, typecheck, dead-code, build, chunk and bundle checks also passed.
+
+## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.

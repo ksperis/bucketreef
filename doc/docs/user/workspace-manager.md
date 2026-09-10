@@ -4,6 +4,10 @@
 
 Use **Manager** for account-scoped administration aligned with S3/IAM semantics.
 
+## Dashboard
+
+The dashboard keeps storage, buckets, objects and transfer indicators above the existing storage, quota, access, health and activity panels. Compact actions and wrapping names preserve the full information. Quick actions remain **Create bucket** and **Create user**.
+
 ## Prerequisites
 
 - Access to `/manager`.
