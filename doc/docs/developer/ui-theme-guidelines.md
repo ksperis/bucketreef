@@ -39,6 +39,8 @@ The frontend theme is anchored by the shared shell and UI tokens in
 - Buttons: use `UiButton`, `uiButtonBaseClass`, `uiButtonVariants`, or
   `uiIconButtonClass`; keep custom button chains for exceptional states only.
   In listings, use `ListActionButton`/`ListActionLink` and `ListActions` instead.
+  Use `ListActionAnchor` when native navigation is required, such as opening
+  another workspace in a separate tab.
   They own geometry, focus, disabled/loading states and semantic variants
   without changing the default form-button scale.
 - Forms: use `ui-control`, `uiInputClass`, `uiLabelClass`, and

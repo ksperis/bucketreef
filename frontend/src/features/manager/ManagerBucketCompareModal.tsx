@@ -11,6 +11,7 @@ import { ListActionButton, ListBadge } from "../../components/list/ListControls"
 import UiButton from "../../components/ui/UiButton";
 import { BucketCompareResult, BucketCompareResultFilters, BucketCompareSection } from "../shared/BucketCompareResults";
 import ModalActions from "../../components/ModalActions";
+import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { UiTone } from "../../components/ui/styles";
 import { proxyDownload } from "../../api/browserTransfers";
@@ -42,7 +43,6 @@ import {
   getVisibleCompareObjectKeys,
   matchesBucketCompareRunFilters,
   parseOptionalIsoDateTime,
-  renderCompareObjectDetails,
   renderDiffLines,
   sourceCompareObjectDetailFromDiff,
   summarizeBucketCompareRun,
@@ -988,7 +988,7 @@ export default function ManagerBucketCompareModal({
                               bucket: string,
                               includeRemediation: boolean,
                               remediationVariant: "secondary" | "danger"
-                            ) => (detail: ManagerBucketObjectDetail) => {
+                            ) => (detail: ManagerBucketObjectDetail, closeMetadata: () => void) => {
                               const downloadId = `${contextId}:${bucket}:${detail.key}`;
                               const downloadDisabled =
                                 Boolean(managerBrowserDisabledReason) || Boolean(downloadInFlight) || running;
@@ -1001,6 +1001,7 @@ export default function ManagerBucketCompareModal({
                                     onClick={(event) => {
                                       event.preventDefault();
                                       event.stopPropagation();
+                                      closeMetadata();
                                       void downloadCompareObject({
                                         contextId,
                                         bucket,
@@ -1018,6 +1019,7 @@ export default function ManagerBucketCompareModal({
                                       onClick={(event) => {
                                         event.preventDefault();
                                         event.stopPropagation();
+                                        closeMetadata();
                                         openRemediationConfirm(itemIndex, section.key, [detail.key]);
                                       }}
                                     >
@@ -1112,7 +1114,7 @@ export default function ManagerBucketCompareModal({
                                       <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         Source
                                       </p>
-                                      {renderCompareObjectDetails(section.sourceDetails, {
+                                      <BucketCompareObjectDetails rows={section.sourceDetails} options={{
                                         browserDisabledReason: managerBrowserDisabledReason,
                                         buildBrowserHref: (detail) =>
                                           buildManagerBrowserHref(
@@ -1129,13 +1131,13 @@ export default function ManagerBucketCompareModal({
                                                 "secondary"
                                               )
                                             : undefined,
-                                      })}
+                                      }} />
                                     </div>
                                     <div className="space-y-1">
                                       <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         Target
                                       </p>
-                                      {renderCompareObjectDetails(section.targetDetails, {
+                                      <BucketCompareObjectDetails rows={section.targetDetails} options={{
                                         browserDisabledReason: managerBrowserDisabledReason,
                                         buildBrowserHref: (detail) =>
                                           buildManagerBrowserHref(
@@ -1152,7 +1154,7 @@ export default function ManagerBucketCompareModal({
                                                 "danger"
                                               )
                                             : undefined,
-                                      })}
+                                      }} />
                                     </div>
                                   </div>
                                 </div>

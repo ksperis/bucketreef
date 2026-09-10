@@ -307,6 +307,30 @@ copy/remediation controls retain the displayed sample when a diff is truncated.
 Open and cancel each workspace's confirmation without triggering navigation or
 remediation. These checks do not execute live storage operations.
 
+### Object metadata panels
+
+`BucketCompareObjectDetails` owns the shared object rows and metadata panel for
+Ceph Admin and Manager comparisons. It uses the anchored portal and dismissible
+layer primitives, keeping the panel inside the viewport and outside result-list
+clipping. The sticky Close action remains reachable in short viewports. Object
+keys, including significant spaces, and full ETags wrap without losing their
+contents; missing metadata retains its explicit placeholder.
+
+Opening focuses the non-modal panel. Escape/Close returns to the object; Tab
+leaves from that object's position, and outside interaction keeps its destination
+focus. Starting a panel action restores the persistent object trigger before
+dispatch, so cancelling a following confirmation can return to it. Manager
+Browser links remain native links to a separate tab using `ListActionAnchor`,
+and Browser-disabled reasons remain visible. Workspace navigation, download,
+remediation and exact-key callbacks keep their owners.
+
+Validate both workspaces with documentary API fixtures in both themes at desktop
+and mobile widths, plus a 320px viewport, short landscape viewport and desktop
+touch input. Open with Enter, close with Escape/Close, Tab in both directions,
+click outside, and open/cancel the workspace confirmation. Check full object
+keys/ETags, viewport bounds, scrolling, action targets and restored focus. These
+checks exercise presentation and mocked requests, not live storage operations.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.

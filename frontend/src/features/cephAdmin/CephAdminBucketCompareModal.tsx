@@ -10,6 +10,7 @@ import { ListActionButton, ListBadge } from "../../components/list/ListControls"
 import UiButton from "../../components/ui/UiButton";
 import { BucketCompareResult, BucketCompareResultFilters, BucketCompareSection } from "../shared/BucketCompareResults";
 import ModalActions from "../../components/ModalActions";
+import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import {
@@ -36,7 +37,6 @@ import {
   getVisibleCompareObjectKeys,
   matchesBucketCompareRunFilters,
   parseOptionalIsoDateTime,
-  renderCompareObjectDetails,
   renderDiffLines,
   sourceCompareObjectDetailFromDiff,
   summarizeBucketCompareRun,
@@ -711,17 +711,17 @@ export default function CephAdminBucketCompareModal({
                                       <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         Source
                                       </p>
-                                      {renderCompareObjectDetails(section.sourceDetails, {
+                                      <BucketCompareObjectDetails rows={section.sourceDetails} options={{
                                         onExplore: openExploreConfirm,
                                         buildBrowserHref: (detail) =>
                                           buildCephAdminBrowserHref(sourceEndpointId, item.sourceBucket, detail.key),
-                                      })}
+                                      }} />
                                     </div>
                                     <div className="space-y-1">
                                       <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         Target
                                       </p>
-                                      {renderCompareObjectDetails(section.targetDetails, {
+                                      <BucketCompareObjectDetails rows={section.targetDetails} options={{
                                         onExplore: openExploreConfirm,
                                         buildBrowserHref: (detail) =>
                                           buildCephAdminBrowserHref(
@@ -729,7 +729,7 @@ export default function CephAdminBucketCompareModal({
                                             item.targetBucket,
                                             detail.key
                                           ),
-                                      })}
+                                      }} />
                                     </div>
                                   </div>
                                 </div>

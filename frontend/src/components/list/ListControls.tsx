@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes, type ComponentProps } from "react";
+import { forwardRef, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type HTMLAttributes, type ComponentProps } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import UiBadge from "../ui/UiBadge";
 import { cx } from "../ui/styles";
@@ -47,6 +47,13 @@ export const ListActionLink = forwardRef<HTMLAnchorElement, LinkProps & ActionPr
         className={cx(actionClass({ variant, iconOnly }), className)}
       />
     );
+  },
+);
+
+/** Native navigation, including opening another workspace in a separate tab. */
+export const ListActionAnchor = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement> & ActionPresentation>(
+  function ListActionAnchor({ variant, iconOnly, className, ...props }, ref) {
+    return <a {...props} ref={ref} className={cx(actionClass({ variant, iconOnly }), className)} />;
   },
 );
 
