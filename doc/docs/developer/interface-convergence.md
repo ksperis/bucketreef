@@ -359,15 +359,35 @@ both themes at 1440px and 390px, plus deletion and account linking at 320px and
 failure/retry/success, and unchanged target/tenant/options across retries.
 Check shared compact input/select/textarea consumers in Ceph user creation and
 the Manager topic list, including the standard topic-creation field. These
-checks do not execute live RGW or SNS mutations. At 320px the bucket list's
-sticky name cell currently obscures the row action trigger; keyboard opening
-can validate the modal independently while that listing defect awaits its pass.
+checks do not execute live RGW or SNS mutations.
+
+## Bucket list scrolling
+
+Ceph Admin and Storage Ops share the `BucketOpsTable` scroll region. Selection
+and name columns stay pinned only when the region is at least 640px wide,
+leaving space for data columns to scroll beside the identity. Below that width,
+all columns scroll together so the name cannot cover statistics or row actions.
+The decision follows the actual table container width, including sidebar and
+page padding, rather than the window width. Native intrinsic table sizing and
+the user's visible-column choices remain intact.
+
+One CSS contract owns the pinned-cell layers and theme backgrounds. The named
+Bucket list region accepts keyboard focus with a visible inset outline and
+native horizontal scrolling; it leaves the tab order while the advanced filter
+drawer is open.
+
+Validate both workspaces with documentary fixtures and long bucket names in
+both themes at 320px, 390px, 1024px and 1440px. Check widths immediately below
+and above the 640px container threshold, plus a short landscape viewport.
+Scroll to the final columns, open actions with a real pointer click, dismiss
+with Escape and verify restored focus. Confirm keyboard scrolling, selection
+retention, sorting, and pinned identities where there is sufficient space.
+In Ceph Admin, open and cancel an index-check dialog from the scrolled row;
+no live storage operations are needed for this presentation check.
 
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
-- Keep bucket row actions reachable by pointer when sticky columns fill a
-  narrow viewport, including 320px.
 - Adopt canonical field labels/help in remaining legacy forms.
 - Review remaining operational form sections.
 - Review remaining account and bucket form sections against the compact
