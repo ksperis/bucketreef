@@ -4,8 +4,7 @@
  */
 import { useId } from "react";
 import type { InlinePolicy } from "../../api/managerIamPolicies";
-import { summarizeInlinePolicyDocument } from "./inlinePolicySummary";
-import UiBadge from "../../components/ui/UiBadge";
+import InlinePolicyChoice from "./InlinePolicyChoice";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -104,18 +103,7 @@ export default function InlinePolicyDraftEditor({
                   const isSelected = draft.name === selectedDraft?.name;
                   return (
                     <div key={draft.name} className="flex min-w-0 flex-wrap items-center gap-2">
-                      <SettingsButton
-                        variant={isSelected ? "secondary" : "ghost"}
-                        onClick={() => onSelectDraft(draft.name)}
-                        aria-pressed={isSelected}
-                        className="min-w-0 flex-1 flex-wrap text-left sm:flex-nowrap"
-                      >
-                        <span className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-                          <span className="settings-label block break-words [overflow-wrap:anywhere]">{draft.name}</span>
-                          <span className="settings-description block">{summarizeInlinePolicyDocument(draft.document)}</span>
-                        </span>
-                        <UiBadge tone={isSelected ? "primary" : "neutral"}>{isSelected ? "Selected" : "Edit"}</UiBadge>
-                      </SettingsButton>
+                      <InlinePolicyChoice policy={draft} selected={isSelected} onSelect={() => onSelectDraft(draft.name)} />
                       <SettingsButton
                         variant="ghost"
                         onClick={() => onRemoveDraft(draft.name)}

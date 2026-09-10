@@ -17,6 +17,11 @@ import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPa
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import UiInput from "../../components/ui/UiInput";
+import UiTextarea from "../../components/ui/UiTextarea";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { useManagerIamCollection } from "./useManagerIamCollection";
 
 const DEFAULT_POLICY_DOCUMENT = JSON.stringify(
@@ -54,6 +59,14 @@ export default function PoliciesPage() {
   const [documentText, setDocumentText] = useState(DEFAULT_POLICY_DOCUMENT);
   const [showAdvancedModal, setShowAdvancedModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
+  let parsedDocument: Record<string, unknown> | undefined;
+  let documentError: string | undefined;
+  try {
+    parsedDocument = JSON.parse(documentText);
+  } catch {
+    documentError = "Policy document must be valid JSON.";
+  }
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
     stableSignature({ advancedName: "", documentText: DEFAULT_POLICY_DOCUMENT })
@@ -70,19 +83,17 @@ export default function PoliciesPage() {
 
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (needsS3AccountSelection || !advancedName.trim()) return;
-    let parsedDoc: Record<string, unknown>;
-    try {
-      parsedDoc = JSON.parse(documentText);
-    } catch {
-      setError("Policy document must be valid JSON.");
+    if (needsS3AccountSelection || isS3User || creating) return;
+    setValidationAttempted(true);
+    if (!advancedName.trim() || documentError) {
+      focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
     setCreating(true);
     setError(null);
     setActionMessage(null);
     try {
-      await createIamPolicy(accountIdForApi, advancedName.trim(), parsedDoc);
+      await createIamPolicy(accountIdForApi, advancedName.trim(), parsedDocument!);
       setAdvancedName("");
       setDocumentText(DEFAULT_POLICY_DOCUMENT);
       setShowAdvancedModal(false);
@@ -97,6 +108,7 @@ export default function PoliciesPage() {
 
   const openAdvancedModal = () => {
     setError(null);
+    setValidationAttempted(false);
     setAdvancedInitialSignature(stableSignature({ advancedName, documentText }));
     setShowAdvancedModal(true);
   };
@@ -198,49 +210,26 @@ export default function PoliciesPage() {
           backLabel="Back to policies"
           onBack={advancedCloseGuard.requestClose}
           width="standard"
+          contentVariant="plain"
         >
           {error && <PageBanner tone="error">{error}</PageBanner>}
-          <form className="space-y-4" onSubmit={handleAdvancedCreate}>
-            <div className="flex flex-col gap-2">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Policy name</label>
-              <input
-                type="text"
-                value={advancedName}
-                onChange={(e) => setAdvancedName(e.target.value)}
-                placeholder="Policy name"
-                className="rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Policy document (JSON)</label>
-              <textarea
-                value={documentText}
-                onChange={(e) => setDocumentText(e.target.value)}
-                className="min-h-[200px] rounded-md border border-slate-200 px-3 py-2 ui-body font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                spellCheck={false}
-              />
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                Provide a valid IAM policy JSON document. You can start from the default template and customize statements.
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={advancedCloseGuard.requestClose}
-                className="rounded-md border border-slate-200 px-3 py-1.5 ui-caption font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={needsS3AccountSelection || creating}
-                className="rounded-md bg-primary px-3 py-1.5 ui-caption font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-              >
-                {creating ? "Creating..." : "Create policy"}
-              </button>
-            </div>
-          </form>
+          <SettingsForm label="Create IAM policy" onSubmit={handleAdvancedCreate}
+            busy={creating} disabled={needsS3AccountSelection || isS3User} onCancel={advancedCloseGuard.requestClose}
+            submitLabel="Create policy" busyLabel="Creating...">
+            <SettingsSection title="Identity" presentation="compact">
+              <div className="settings-fields">
+                <UiInput label="Policy name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+                  placeholder="Policy name" error={validationAttempted && !advancedName.trim() ? "Policy name is required." : undefined} />
+              </div>
+            </SettingsSection>
+            <SettingsSection title="Policy document" presentation="compact">
+              <div className="settings-fields">
+                <UiTextarea label="Policy document (JSON)" value={documentText} onChange={(event) => setDocumentText(event.target.value)}
+                  className="font-mono" rows={10} spellCheck={false} error={validationAttempted ? documentError : undefined}
+                  hint="Provide a valid IAM policy JSON document. You can start from the default template and customize statements." />
+              </div>
+            </SettingsSection>
+          </SettingsForm>
           {advancedCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}

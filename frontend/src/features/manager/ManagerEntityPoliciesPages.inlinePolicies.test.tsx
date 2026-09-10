@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,8 +8,11 @@ import ManagerUserPoliciesPage from "./ManagerUserPoliciesPage";
 
 const listIamPoliciesMock = vi.fn();
 const listUserPoliciesMock = vi.fn();
+const attachUserPolicyMock = vi.fn();
 const listGroupPoliciesMock = vi.fn();
+const attachGroupPolicyMock = vi.fn();
 const listRolePoliciesMock = vi.fn();
+const attachRolePolicyMock = vi.fn();
 const listUserInlinePoliciesMock = vi.fn();
 const listGroupInlinePoliciesMock = vi.fn();
 const listRoleInlinePoliciesMock = vi.fn();
@@ -36,7 +39,7 @@ vi.mock("../../api/managerIamUsers", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamUsers")>("../../api/managerIamUsers");
   return {
     ...actual,
-    attachUserPolicy: vi.fn(),
+    attachUserPolicy: (...args: unknown[]) => attachUserPolicyMock(...args),
     deleteUserInlinePolicy: vi.fn(),
     detachUserPolicy: vi.fn(),
     listUserInlinePolicies: (...args: unknown[]) => listUserInlinePoliciesMock(...args),
@@ -49,7 +52,7 @@ vi.mock("../../api/managerIamGroups", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamGroups")>("../../api/managerIamGroups");
   return {
     ...actual,
-    attachGroupPolicy: vi.fn(),
+    attachGroupPolicy: (...args: unknown[]) => attachGroupPolicyMock(...args),
     deleteGroupInlinePolicy: vi.fn(),
     detachGroupPolicy: vi.fn(),
     listGroupInlinePolicies: (...args: unknown[]) => listGroupInlinePoliciesMock(...args),
@@ -62,7 +65,7 @@ vi.mock("../../api/managerIamRoles", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamRoles")>("../../api/managerIamRoles");
   return {
     ...actual,
-    attachRolePolicy: vi.fn(),
+    attachRolePolicy: (...args: unknown[]) => attachRolePolicyMock(...args),
     deleteRoleInlinePolicy: vi.fn(),
     detachRolePolicy: vi.fn(),
     listRoleInlinePolicies: (...args: unknown[]) => listRoleInlinePoliciesMock(...args),
@@ -75,6 +78,7 @@ type PageCase = {
   label: string;
   path: string;
   element: JSX.Element;
+  attach: typeof attachUserPolicyMock;
 };
 
 const pages: PageCase[] = [
@@ -82,16 +86,19 @@ const pages: PageCase[] = [
     label: "user",
     path: "/manager/users/:userName/policies",
     element: <ManagerUserPoliciesPage />,
+    attach: attachUserPolicyMock,
   },
   {
     label: "group",
     path: "/manager/groups/:groupName/policies",
     element: <ManagerGroupPoliciesPage />,
+    attach: attachGroupPolicyMock,
   },
   {
     label: "role",
     path: "/manager/roles/:roleName/policies",
     element: <ManagerRolePoliciesPage />,
+    attach: attachRolePolicyMock,
   },
 ];
 
@@ -122,4 +129,35 @@ describe("manager entity policy pages", () => {
     expect(await screen.findByRole("button", { name: /readonly-inline/i })).toBeInTheDocument();
     expect(screen.getByText("Select an existing inline policy to review or edit.")).toBeInTheDocument();
   });
+});
+
+
+it.each(pages)("preserves the $label inline draft while a managed policy is attached", async ({ path, element, attach }) => {
+  const policy = { name: "ManagedReadOnly", arn: "arn:aws:iam::acc-1:policy/ManagedReadOnly" };
+  listIamPoliciesMock.mockResolvedValue([policy]);
+  for (const list of [listUserPoliciesMock, listGroupPoliciesMock, listRolePoliciesMock]) list.mockResolvedValue([]);
+  for (const list of [listUserInlinePoliciesMock, listGroupInlinePoliciesMock, listRoleInlinePoliciesMock]) {
+    list.mockResolvedValue([{ name: "readonly-inline", document: {} }]);
+  }
+  let resolve!: (value: typeof policy) => void;
+  attach.mockReset().mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+  const url = path.replace(/:(userName|groupName|roleName)/, "fixture");
+  render(<MemoryRouter initialEntries={[url]}><Routes><Route path={path} element={element} /></Routes></MemoryRouter>);
+  const choice = await screen.findByRole("button", { name: /readonly-inline/ });
+  await waitFor(() => expect(choice).toBeEnabled());
+  fireEvent.click(choice);
+  const document = screen.getByLabelText("Inline policy document (JSON)");
+  fireEvent.change(document, { target: { value: '{"draft":true}' } });
+  const form = screen.getByRole("form", { name: "Attach managed policy" });
+  await waitFor(() => expect(within(form).getByRole("button", { name: "Attach" })).toBeEnabled());
+  fireEvent.submit(form);
+  expect(within(form).getByLabelText("Managed policy")).toBeDisabled();
+  fireEvent.submit(form);
+  expect(attach).toHaveBeenCalledOnce();
+  expect(attach).toHaveBeenCalledWith("acc-1", "fixture", policy);
+  expect(document).toHaveValue('{"draft":true}');
+  await act(async () => resolve(policy));
+  await screen.findByText("Policy attached");
+  expect(screen.getByLabelText("Inline policy document (JSON)")).toBe(document);
+  expect(document).toHaveValue('{"draft":true}');
 });

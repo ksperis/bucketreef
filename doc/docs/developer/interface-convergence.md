@@ -543,6 +543,39 @@ failure/retry payloads and long identifiers. Footer checks at the start, middle
 and end of scrolling report no bottom gap or horizontal overflow. These fixtures
 validate rendered behavior and requests, not live IAM mutations against RGW.
 
+## IAM policy configuration
+
+Managed-policy creation uses `SettingsForm` with compact identity and JSON
+sections. Existing user, group and role policies use the same compact section
+layout: the inline editor and attached-policy inventory occupy the available
+content width instead of competing in two columns. Managed-policy attachment
+has a visible field label and shared controls. Inline saving and managed
+attachment remain independent operations; only the creation workflow uses a
+sticky page footer.
+
+`InlinePolicyChoice` owns the wrapping policy identity, summary and pressed
+selection state for both creation drafts and persisted inline policies. The
+inline editor associates name and JSON errors with their fields, focuses the
+first error, and freezes its controls throughout save/delete and reload.
+Selection, creation, cancellation and refresh protect unsaved local edits with
+the shared discard confirmation. Replacement warnings remain associated with
+the name field, and deletion retains its explicit policy/impact confirmation.
+
+The inline loader callback is stable across managed-policy operations so a
+parent refresh or attachment cannot reset the inline draft. Request context,
+replacement semantics and policy documents remain unchanged: renaming a
+persisted policy saves another policy without removing its source; blank inline
+JSON still means an empty document, while managed-policy creation requires
+valid JSON. IAM permission semantics remain server-owned.
+
+Long breadcrumb segments wrap through `PageHeader`, retaining the complete
+entity name without introducing horizontal page scrolling. Validation includes
+43 targeted tests, `npm run check:ci`, and 20 routed browser fixture cases across
+the four screens at desktop/mobile widths in both themes, including 320 px.
+The fixtures exercise exact payloads, field errors, pending and duplicate
+submissions, failure/retry, replacement, blank JSON and confirmed deletion.
+They provide rendered/request evidence without performing live IAM mutations.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
