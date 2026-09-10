@@ -2,17 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import type { StorageEndpoint } from "../../api/storageEndpoints";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
-import {
-  cx,
-  uiCheckboxClass,
-  uiLabelClass,
-  uiMutedTextClass,
-  uiPanelMutedClass,
-} from "../../components/ui/styles";
+import { cx, uiCheckboxClass } from "../../components/ui/styles";
 import type { S3ConnectionEndpointMode } from "./s3ConnectionFormModel";
 
 const S3_CONNECTION_PROVIDER_HINT_OPTIONS = [
@@ -43,6 +39,8 @@ type S3ConnectionEndpointFieldsProps = {
   form: S3ConnectionEndpointDraft;
   onFormChange: <K extends keyof S3ConnectionEndpointDraft>(field: K, value: S3ConnectionEndpointDraft[K]) => void;
   errorMessage?: string | null;
+  endpointIdError?: string;
+  endpointUrlError?: string;
 };
 
 export default function S3ConnectionEndpointFields({
@@ -56,107 +54,114 @@ export default function S3ConnectionEndpointFields({
   form,
   onFormChange,
   errorMessage,
+  endpointIdError,
+  endpointUrlError,
 }: S3ConnectionEndpointFieldsProps) {
   const hasConfiguredEndpoints = endpoints.length > 0;
 
   return (
-    <div className={cx("space-y-3 px-3 py-3", uiPanelMutedClass)}>
-      <div>
-        <p className={uiLabelClass}>Endpoint</p>
-        <p className={cx("ui-caption", uiMutedTextClass)}>
-          Choose a configured endpoint or enter an operator-approved public HTTPS custom endpoint.
-        </p>
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <label className={cx("flex items-center gap-2 ui-caption font-semibold", uiMutedTextClass)}>
-          <input
-            type="radio"
-            name={modeInputName}
-            checked={mode === "preset"}
-            onChange={() => onModeChange("preset")}
-            disabled={!hasConfiguredEndpoints}
-            className={cx(uiCheckboxClass, "rounded-full disabled:opacity-60")}
-          />
-          Configured endpoint
-        </label>
-        <label className={cx("flex items-center gap-2 ui-caption font-semibold", uiMutedTextClass)}>
-          <input
-            type="radio"
-            name={modeInputName}
-            checked={mode === "custom"}
-            onChange={() => onModeChange("custom")}
-            className={cx(uiCheckboxClass, "rounded-full")}
-          />
-          Custom endpoint
-        </label>
-      </div>
-      {mode === "preset" ? (
-        <UiSelect
-          label="Configured endpoint"
-          value={endpointId}
-          onChange={(event) => onEndpointIdChange(event.target.value)}
-          disabled={loadingEndpoints || !hasConfiguredEndpoints}
-        >
-          <option value="">
-            {loadingEndpoints
-              ? "Loading endpoints..."
-              : hasConfiguredEndpoints
-                ? "Select endpoint"
-                : "No configured endpoint"}
-          </option>
-          {endpoints.map((endpoint) => (
-            <option key={endpoint.id} value={endpoint.id}>
-              {endpoint.name} ({endpoint.endpoint_url})
-            </option>
-          ))}
-        </UiSelect>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+    <SettingsSection title="Endpoint" presentation="compact"
+      description="Choose a configured endpoint or enter an operator-approved public HTTPS custom endpoint.">
+      <div className="settings-fields">
+        <fieldset className="flex min-w-0 flex-wrap gap-x-4 gap-y-2">
+          <legend className="sr-only">Endpoint source</legend>
+          <label className="settings-choice">
+            <input
+              type="radio"
+              name={modeInputName}
+              value="preset"
+              checked={mode === "preset"}
+              onChange={() => onModeChange("preset")}
+              disabled={!hasConfiguredEndpoints}
+              className={cx(uiCheckboxClass, "rounded-full disabled:opacity-60")}
+            />
+            Configured endpoint
+          </label>
+          <label className="settings-choice">
+            <input
+              type="radio"
+              name={modeInputName}
+              value="custom"
+              checked={mode === "custom"}
+              onChange={() => onModeChange("custom")}
+              className={cx(uiCheckboxClass, "rounded-full")}
+            />
+            Custom endpoint
+          </label>
+        </fieldset>
+        {mode === "preset" ? (
           <UiSelect
-            label="Provider"
-            value={form.provider_hint}
-            onChange={(event) => onFormChange("provider_hint", event.target.value)}
+            label="Configured endpoint"
+            value={endpointId}
+            onChange={(event) => onEndpointIdChange(event.target.value)}
+            disabled={loadingEndpoints}
+            error={endpointIdError}
           >
-            {S3_CONNECTION_PROVIDER_HINT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            <option value="">
+              {loadingEndpoints
+                ? "Loading endpoints..."
+                : hasConfiguredEndpoints
+                  ? "Select endpoint"
+                  : "No configured endpoint"}
+            </option>
+            {endpointId && !endpoints.some((endpoint) => String(endpoint.id) === endpointId) && (
+              <option value={endpointId} disabled>{loadingEndpoints ? "Loading endpoint..." : `Unavailable endpoint (#${endpointId})`}</option>
+            )}
+            {endpoints.map((endpoint) => (
+              <option key={endpoint.id} value={endpoint.id}>
+                {endpoint.name} ({endpoint.endpoint_url})
               </option>
             ))}
           </UiSelect>
-          <UiInput
-            type="text"
-            label="Region"
-            value={form.region}
-            onChange={(event) => onFormChange("region", event.target.value)}
-            placeholder="us-east-1"
-          />
-          <UiInput
-            type="url"
-            label="Endpoint URL"
-            fieldClassName="sm:col-span-2"
-            value={form.endpoint_url}
-            onChange={(event) => onFormChange("endpoint_url", event.target.value)}
-            placeholder="https://s3.example.com"
-          />
-          <div className="sm:col-span-2 flex flex-wrap items-center gap-4">
-            <UiCheckboxField
-              checked={form.force_path_style}
-              onChange={(event) => onFormChange("force_path_style", event.target.checked)}
-              className={cx("ui-caption font-semibold", uiMutedTextClass)}
+        ) : (
+          <div className="settings-fields sm:grid-cols-2">
+            <UiSelect
+              label="Provider"
+              value={form.provider_hint}
+              onChange={(event) => onFormChange("provider_hint", event.target.value)}
             >
-              Force path style
-            </UiCheckboxField>
-            <UiCheckboxField
-              checked={form.verify_tls}
-              onChange={(event) => onFormChange("verify_tls", event.target.checked)}
-              className={cx("ui-caption font-semibold", uiMutedTextClass)}
-            >
-              Verify TLS
-            </UiCheckboxField>
+              {S3_CONNECTION_PROVIDER_HINT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </UiSelect>
+            <UiInput
+              type="text"
+              label="Region"
+              value={form.region}
+              onChange={(event) => onFormChange("region", event.target.value)}
+              placeholder="us-east-1"
+            />
+            <UiInput
+              type="url"
+              label="Endpoint URL"
+              error={endpointUrlError}
+              fieldClassName="sm:col-span-2"
+              value={form.endpoint_url}
+              onChange={(event) => onFormChange("endpoint_url", event.target.value)}
+              placeholder="https://s3.example.com"
+            />
+            <div className="sm:col-span-2 flex flex-wrap items-center gap-4">
+              <UiCheckboxField
+                checked={form.force_path_style}
+                onChange={(event) => onFormChange("force_path_style", event.target.checked)}
+                className="settings-choice"
+              >
+                Force path style
+              </UiCheckboxField>
+              <UiCheckboxField
+                checked={form.verify_tls}
+                onChange={(event) => onFormChange("verify_tls", event.target.checked)}
+                className="settings-choice"
+              >
+                Verify TLS
+              </UiCheckboxField>
+            </div>
           </div>
-        </div>
-      )}
-      {errorMessage ? <p className="ui-caption text-amber-700 dark:text-amber-300">{errorMessage}</p> : null}
-    </div>
+        )}
+        {errorMessage && <UiInlineMessage tone="warning">{errorMessage}</UiInlineMessage>}
+      </div>
+    </SettingsSection>
   );
 }

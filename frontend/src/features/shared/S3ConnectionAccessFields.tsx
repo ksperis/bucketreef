@@ -60,7 +60,7 @@ export default function S3ConnectionAccessFields({
       </div>
       <p id={hintId} className={cx("ui-caption", uiMutedTextClass)}>{hint}</p>
       {error && <p id={errorId} role="alert" className="ui-caption text-rose-600 dark:text-rose-200">{error}</p>}
-      {ownerSummary ? <p className={cx("ui-caption", uiMutedTextClass)}>Owner metadata: {ownerSummary}</p> : null}
+      {ownerSummary ? <p className={cx("ui-caption [overflow-wrap:anywhere]", uiMutedTextClass)}>Owner metadata: {ownerSummary}</p> : null}
     </section>
   );
 }
