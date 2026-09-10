@@ -52,16 +52,7 @@ export function UiTagBadge({
 }: UiTagBadgeProps) {
   const visibilityText = visibilityLabel(visibility);
   const accessibleLabel = visibilityText ? `${label}, ${visibilityText}` : label;
-  const selectionSymbol =
-    selectionState === "selected" ? "✓" : selectionState === "available" ? "+" : null;
-  const labelContent = selectionSymbol ? (
-    <>
-      <span aria-hidden="true" className="shrink-0 text-[11px] font-bold leading-none">
-        {selectionSymbol}
-      </span>
-      <span className="truncate">{label}</span>
-    </>
-  ) : onClick ? (
+  const labelContent = onClick ? (
     <span className="truncate">{label}</span>
   ) : (
     label

@@ -76,6 +76,15 @@
 :is(.ui-data-table, .ui-list-toolbar) .ui-tag-badge { border-radius: var(--list-badge-radius); font-size: var(--list-font-size); font-weight: var(--list-primary-weight); }
 :is(.ui-data-table, .ui-list-toolbar) .ui-tag-badge > :is(span, button) { font-size: inherit; line-height: 16px; padding: 1px var(--list-badge-padding-x); }
 :is(.ui-data-table, .ui-list-toolbar) .ui-tag-badge > button { min-height: var(--list-control-height); }
+/* Bucket tags share a compact treatment in filters and table cells. */
+.bucket-ops-ui-tags { --bucket-tag-control-height: 18px; }
+:is(.ui-data-table, .ui-list-toolbar) .bucket-ops-ui-tags .ui-tag-badge { font-size: 10px; }
+:is(.ui-data-table, .ui-list-toolbar) .bucket-ops-ui-tags .ui-tag-badge > :is(span, button) {
+  min-height: var(--bucket-tag-control-height); padding: 1px 4px; line-height: 14px;
+}
+@media (max-width: 1023px), (any-pointer: coarse) {
+  .bucket-ops-ui-tags { --bucket-tag-control-height: 44px; }
+}
 .ui-list-toolbar { font-size: var(--list-font-size); line-height: var(--list-line-height); }
 .ui-list-toolbar-body { padding: var(--list-toolbar-padding); }
 .ui-list-toolbar-secondary { padding: var(--list-toolbar-padding); }
