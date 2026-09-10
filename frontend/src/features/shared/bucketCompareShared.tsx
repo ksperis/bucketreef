@@ -3,6 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import UiDetails from "../../components/ui/UiDetails";
+import UiInput from "../../components/ui/UiInput";
+import UiTextarea from "../../components/ui/UiTextarea";
+import "./bucketOperationRun.css";
 import { cx, type UiTone } from "../../components/ui/styles";
 import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatLocalDateTime } from "../../utils/dateTime";
@@ -107,7 +111,7 @@ export const BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS = [
 ] as const;
 
 const bucketCompareMappingTableContainerClass =
-  "max-h-[240px] overflow-auto rounded-lg border border-slate-200 dark:border-slate-800";
+  "max-h-[240px] overflow-auto rounded-md border border-[var(--ui-border-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
 type BucketCompareManualMappingEditorProps = {
   rawMappingText: string;
@@ -119,8 +123,6 @@ type BucketCompareManualMappingEditorProps = {
   onManualMappingChange: (sourceBucket: string, targetBucket: string) => void;
   availableTargetBucketNames: string[];
   disabled: boolean;
-  controlClass: string;
-  compactControlClass: string;
 };
 
 export function BucketCompareManualMappingEditor({
@@ -133,29 +135,27 @@ export function BucketCompareManualMappingEditor({
   onManualMappingChange,
   availableTargetBucketNames,
   disabled,
-  controlClass,
-  compactControlClass,
 }: BucketCompareManualMappingEditorProps) {
   const targetOptionsId = useId();
 
   return (
     <div className="space-y-3">
-      <details className="rounded-lg border border-slate-200 dark:border-slate-800">
-        <summary className="cursor-pointer list-none px-3 py-2 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      <UiDetails className="bucket-operation-disclosure">
+        <summary>
           Raw mapping (priority)
         </summary>
-        <div className="space-y-2 border-t border-slate-200 px-3 py-2 dark:border-slate-800">
-          <textarea
+        <div className="space-y-2 border-t border-[var(--ui-border-soft)] px-3 py-2">
+          <UiTextarea
+            label="Raw bucket mapping"
+            hint={<>Accepted formats per line: <code>source =&gt; target</code>, <code>source -&gt; target</code>, <code>source = target</code>.</>}
+            error={parsedRawMapping.invalidLines.length > 0 ? "Some mapping lines could not be parsed." : undefined}
             value={rawMappingText}
             onChange={(event) => onRawMappingTextChange(event.target.value)}
             disabled={disabled}
             rows={6}
             placeholder={"source-bucket-a => target-bucket-a\nsource-bucket-b -> target-bucket-b"}
-            className={`${controlClass} font-mono text-xs`}
+            className="font-mono"
           />
-          <p className="ui-caption text-slate-500 dark:text-slate-400">
-            Accepted formats per line: <code>source =&gt; target</code>, <code>source -&gt; target</code>, <code>source = target</code>.
-          </p>
           <p className="ui-caption text-slate-500 dark:text-slate-400">
             Parsed entries: {parsedRawMapping.mapping.size}. Invalid lines: {parsedRawMapping.invalidLines.length}.
           </p>
@@ -165,13 +165,13 @@ export function BucketCompareManualMappingEditor({
             </pre>
           )}
         </div>
-      </details>
-      <div className={bucketCompareMappingTableContainerClass}>
-        <table className="ui-data-table">
+      </UiDetails>
+      <div className={bucketCompareMappingTableContainerClass} role="region" aria-label="Bucket mapping" tabIndex={0}>
+        <table className="ui-data-table" aria-label="Bucket mapping">
           <thead>
             <tr>
-              <th className="text-left">Source</th>
-              <th className="text-left">Target</th>
+              <th scope="col" className="text-left">Source</th>
+              <th scope="col" className="text-left">Target</th>
             </tr>
           </thead>
           <tbody>
@@ -180,15 +180,14 @@ export function BucketCompareManualMappingEditor({
               const effectiveTarget = resolvedManualMapping.get(sourceBucket) ?? "";
               return (
                 <tr key={sourceBucket} className="align-top">
-                  <td className="ui-table-primary">{sourceBucket}</td>
-                  <td className="space-y-1">
-                    <input
-                      type="text"
+                  <td className="min-w-[12rem] break-all ui-table-primary">{sourceBucket}</td>
+                  <td className="min-w-[14rem] space-y-1">
+                    <UiInput
+                      aria-label={`Target bucket for ${sourceBucket}`}
                       list={targetOptionsId}
                       value={rawTarget ?? (manualMapping[sourceBucket] ?? "")}
                       onChange={(event) => onManualMappingChange(sourceBucket, event.target.value)}
                       disabled={disabled || Boolean(rawTarget)}
-                      className={compactControlClass}
                       placeholder="target bucket"
                     />
                     {rawTarget && (

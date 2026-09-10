@@ -4,13 +4,14 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Modal from "../../components/Modal";
+import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
 import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
 import UiDetails from "../../components/ui/UiDetails";
 import UiProgressBar from "../../components/ui/UiProgressBar";
 import UiSelect from "../../components/ui/UiSelect";
-import { uiCheckboxClass, uiInputClass } from "../../components/ui/styles";
+import { uiInputClass } from "../../components/ui/styles";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import {
   CephAdminBucketCompareResult,
@@ -82,13 +83,7 @@ const copyFeedbackToneClass: Record<CompareVisibleKeysCopyFeedback["tone"], stri
   danger: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-100",
 };
 
-const CONFIG_FEATURE_OPTIONS: Array<{ key: CephAdminBucketCompareConfigFeature; label: string }> =
-  BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS.map((option) => ({
-    key: option.key as CephAdminBucketCompareConfigFeature,
-    label: option.label,
-  }));
-
-const ALL_CONFIG_FEATURE_KEYS = CONFIG_FEATURE_OPTIONS.map((option) => option.key);
+const ALL_CONFIG_FEATURE_KEYS = BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS.map((option) => option.key);
 
 export default function CephAdminBucketCompareModal({
   sourceEndpointId,
@@ -146,8 +141,7 @@ export default function CephAdminBucketCompareModal({
   const requestControllersRef = useRef(new Set<AbortController>());
   const { copyFeedback, copyVisibleKeys } = useCompareVisibleKeysClipboard();
   const controlClass = uiInputClass;
-  const compactControlClass =
-    "w-full rounded-md border border-slate-200 px-2 py-1 ui-body text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+
 
   useEffect(() => {
     if (targetEndpointOptions.length === 0) {
@@ -468,220 +462,91 @@ export default function CephAdminBucketCompareModal({
       contentClassName="min-w-0"
     >
       <div className="space-y-4">
-        <p className="ui-body text-slate-700 dark:text-slate-200">
-          Compare <span className="font-semibold">{sortedSourceBuckets.length}</span> source bucket
-          {sortedSourceBuckets.length > 1 ? "s" : ""} from{" "}
-          <span className="font-semibold">{sourceEndpointName ?? `Endpoint #${sourceEndpointId}`}</span>.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <UiSelect
-            label="Target endpoint"
-            value={targetEndpointId ?? ""}
-            onChange={(event) => setTargetEndpointId(event.target.value ? Number(event.target.value) : null)}
-            disabled={running || targetEndpointOptions.length === 0}
-          >
-            {targetEndpointOptions.length > 0 && <option value="">Select a target endpoint</option>}
-            {targetEndpointOptions.length === 0 && <option value="">No other endpoint available</option>}
-            {targetEndpointOptions.map((endpoint) => (
-              <option key={endpoint.id} value={endpoint.id}>
-                {endpoint.name}
-              </option>
-            ))}
-          </UiSelect>
-          <UiSelect
-            label="Mapping mode"
-            value={mappingMode}
-            onChange={(event) => setMappingMode(event.target.value as "by_name" | "manual")}
-            disabled={running}
-          >
-            <option value="by_name" disabled={sameEndpointSelected}>
-              1:1 by bucket name{sameEndpointSelected ? " (disabled on same endpoint)" : ""}
-            </option>
-            <option value="manual">Manual mapping</option>
-          </UiSelect>
-        </div>
-        {sameEndpointSelected && (
-          <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-            Same-endpoint comparison is enabled: manual mapping is required, and selected source buckets are excluded from targets.
-          </p>
-        )}
-        <div className="grid gap-3 sm:grid-cols-4">
-          <label className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100">
-            <input
-              type="checkbox"
-              checked={includeContent}
-              onChange={(event) => setIncludeContent(event.target.checked)}
-              disabled={running}
-              className={uiCheckboxClass}
-            />
-            Compare bucket content
-          </label>
-          <label className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100">
-            <input
-              type="checkbox"
-              checked={includeConfig}
-              onChange={(event) => setIncludeConfig(event.target.checked)}
-              disabled={running}
-              className={uiCheckboxClass}
-            />
-            Compare bucket configuration
-          </label>
-          <label className="space-y-1 rounded-md border border-slate-200 px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100">
-            <span className="font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Parallelism</span>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={parallelism}
-              onChange={(event) => setParallelism(Number(event.target.value))}
-              disabled={running}
-              className={compactControlClass}
-            />
-          </label>
-          <label className="space-y-1 rounded-md border border-slate-200 px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100">
-            <span className="font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Ignore objects modified after
-            </span>
-            <input
-              type="datetime-local"
-              value={ignoreModifiedAfter}
-              onChange={(event) => setIgnoreModifiedAfter(event.target.value)}
-              disabled={running}
-              className={compactControlClass}
-            />
-          </label>
-        </div>
-        {ignoreModifiedAfterInvalid && (
-          <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
-            Enter a valid modified-after cutoff or clear the field.
-          </p>
-        )}
-        {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">Loading target buckets...</p>}
-        {targetBucketsError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{targetBucketsError}</p>}
-        {mappingMode === "by_name" && missingByName.length > 0 && (
-          <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-            {missingByName.length} target bucket(s) do not exist with the same name.
-          </p>
-        )}
-        {!hasScopeSelected && (
-          <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-            Select at least one comparison scope to run.
-          </p>
-        )}
-        {includeConfig && (
-          <details className="rounded-lg border border-slate-200 dark:border-slate-800">
-            <summary className="cursor-pointer list-none px-3 py-2 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Configuration features to compare
-            </summary>
-            <div className="space-y-3 border-t border-slate-200 px-3 py-3 dark:border-slate-800">
-              <div className="flex flex-wrap items-center gap-2">
-                <UiButton
-                  type="button"
-                  onClick={() => setSelectedConfigFeatures([...ALL_CONFIG_FEATURE_KEYS])}
-                  disabled={running}
-                  variant="secondary"
-                  className="ui-caption"
-                >
-                  Select all
-                </UiButton>
-                <UiButton
-                  type="button"
-                  onClick={() => setSelectedConfigFeatures([])}
-                  disabled={running}
-                  variant="secondary"
-                  className="ui-caption"
-                >
-                  Clear
-                </UiButton>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {CONFIG_FEATURE_OPTIONS.map((option) => (
-                  <label
-                    key={option.key}
-                    className="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1.5 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedConfigFeatures.includes(option.key)}
-                      onChange={(event) => toggleConfigFeature(option.key, event.target.checked)}
-                      disabled={running}
-                      className={uiCheckboxClass}
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </div>
-              {!hasConfigFeatureSelected && (
-                <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-                  Select at least one configuration feature.
-                </p>
-              )}
-            </div>
-          </details>
-        )}
-        {mappingMode === "manual" && (
-          <BucketCompareManualMappingEditor
-            rawMappingText={rawMappingText}
-            onRawMappingTextChange={setRawMappingText}
-            parsedRawMapping={parsedRawMapping}
-            sourceBuckets={sortedSourceBuckets}
-            resolvedManualMapping={resolvedManualMapping}
-            manualMapping={manualMapping}
-            onManualMappingChange={(sourceBucket, targetBucket) =>
-              setManualMapping((prev) => ({ ...prev, [sourceBucket]: targetBucket }))
-            }
-            availableTargetBucketNames={availableTargetBucketNames}
-            disabled={running}
-            controlClass={controlClass}
-            compactControlClass={compactControlClass}
-          />
-        )}
-        {runError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{runError}</p>}
-        {(running || progress.total > 0) && (
-          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/40">
-            <div className="flex flex-wrap items-center justify-between gap-2 ui-caption text-slate-600 dark:text-slate-300">
-              <span>
-                Processing {progress.completed} / {progress.total} mappings
-              </span>
-              <span>{progressPercent}%</span>
-            </div>
-            <UiProgressBar
-              value={progressPercent}
-              label="Bucket comparison progress"
-              className="h-2.5 overflow-hidden bg-slate-200 dark:bg-slate-800"
-              barClassName="bg-primary-500 transition-[width] duration-200"
-            />
-            {progress.failed > 0 && (
-              <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">Failures so far: {progress.failed}</p>
-            )}
-            {progress.cancelled > 0 && (
-              <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-                Cancelled so far: {progress.cancelled}
-              </p>
-            )}
-          </div>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <UiButton
-            onClick={runCompare}
-            disabled={!canRunComparison}
-            className="ui-body"
-          >
-            {running ? "Comparing..." : "Run comparison"}
-          </UiButton>
-          <UiButton onClick={stopComparison} disabled={!running} variant="warning" className="ui-body">
-            {stopping ? "Stopping..." : "Stop"}
-          </UiButton>
-          <UiButton onClick={exportGlobalDiff} disabled={running || items.length === 0} variant="secondary" className="ui-body">
-            Export global diff
-          </UiButton>
-          {items.length > 0 && !running && (
-            <p className="ui-caption text-slate-600 dark:text-slate-300">
-              Done: {resultSummary.success} / Failed: {resultSummary.failed} / Cancelled: {resultSummary.cancelled} / With
-              differences: {resultSummary.withDiff}
+        <BucketCompareSetup
+          sourceCount={sortedSourceBuckets.length}
+          sourceName={sourceEndpointName ?? `Endpoint #${sourceEndpointId}`}
+          targetKind="endpoint"
+          sameTarget={sameEndpointSelected}
+          targetSelector={
+            <UiSelect
+              label="Target endpoint"
+              value={targetEndpointId ?? ""}
+              onChange={(event) => setTargetEndpointId(event.target.value ? Number(event.target.value) : null)}
+              disabled={running || targetEndpointOptions.length === 0}
+            >
+              {targetEndpointOptions.length > 0 && <option value="">Select a target endpoint</option>}
+              {targetEndpointOptions.length === 0 && <option value="">No other endpoint available</option>}
+              {targetEndpointOptions.map((endpoint) => (
+                <option key={endpoint.id} value={endpoint.id}>
+                  {endpoint.name}
+                </option>
+              ))}
+            </UiSelect>
+          }
+          actions={
+            <>
+              <UiButton
+                onClick={runCompare}
+                disabled={!canRunComparison}
+                className="ui-body"
+              >
+                {running ? "Comparing..." : "Run comparison"}
+              </UiButton>
+              <UiButton onClick={stopComparison} disabled={!running} variant="warning" className="ui-body">
+                {stopping ? "Stopping..." : "Stop"}
+              </UiButton>
+              <UiButton onClick={exportGlobalDiff} disabled={running || items.length === 0} variant="secondary" className="ui-body">
+                Export global diff
+              </UiButton>
+            </>
+          }
+          mappingMode={mappingMode}
+          onMappingModeChange={setMappingMode}
+          includeContent={includeContent}
+          onIncludeContentChange={setIncludeContent}
+          includeConfig={includeConfig}
+          onIncludeConfigChange={setIncludeConfig}
+          parallelism={parallelism}
+          onParallelismChange={setParallelism}
+          ignoreModifiedAfter={ignoreModifiedAfter}
+          onIgnoreModifiedAfterChange={setIgnoreModifiedAfter}
+          ignoreModifiedAfterInvalid={ignoreModifiedAfterInvalid}
+          selectedConfigFeatures={selectedConfigFeatures}
+          onConfigFeaturesChange={setSelectedConfigFeatures}
+          onConfigFeatureChange={toggleConfigFeature}
+          running={running}
+        >
+          {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">Loading target buckets...</p>}
+          {targetBucketsError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{targetBucketsError}</p>}
+          {mappingMode === "by_name" && missingByName.length > 0 && (
+            <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
+              {missingByName.length} target bucket(s) do not exist with the same name.
             </p>
           )}
-        </div>
+          {mappingMode === "manual" && (
+            <BucketCompareManualMappingEditor
+              rawMappingText={rawMappingText}
+              onRawMappingTextChange={setRawMappingText}
+              parsedRawMapping={parsedRawMapping}
+              sourceBuckets={sortedSourceBuckets}
+              resolvedManualMapping={resolvedManualMapping}
+              manualMapping={manualMapping}
+              onManualMappingChange={(sourceBucket, targetBucket) =>
+                setManualMapping((prev) => ({ ...prev, [sourceBucket]: targetBucket }))
+              }
+              availableTargetBucketNames={availableTargetBucketNames}
+              disabled={running}
+            />
+          )}
+        </BucketCompareSetup>
+        {runError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{runError}</p>}
+        {(running || progress.total > 0) && <BucketCompareProgress running={running} progress={progress} percent={progressPercent} />}
+        {items.length > 0 && !running && (
+          <p className="ui-caption text-slate-600 dark:text-slate-300">
+            Done: {resultSummary.success} / Failed: {resultSummary.failed} / Cancelled: {resultSummary.cancelled} / With
+            differences: {resultSummary.withDiff}
+          </p>
+        )}
         {items.length > 0 && (
           <div className="space-y-2">
             <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/40 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">

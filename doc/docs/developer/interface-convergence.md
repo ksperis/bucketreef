@@ -254,6 +254,32 @@ attribute values, the TLS flag, pending requests, failure/retry and clean close
 after save. Verify the selected execution context and exact topic ARN in the
 requests. These checks do not exercise real SNS mutations.
 
+## Bucket comparison setup
+
+Manager and Ceph Admin use one `BucketCompareSetup` for comparison scope,
+parallelism, modified-after cutoff, mapping mode and configuration features.
+The workspace supplies its endpoint/context selector, execution actions and
+manual mapping state. `BucketOperationSetup` owns compact control geometry and
+the source/action header; feature choices use two columns on narrow screens.
+
+Configuration and raw-mapping disclosures retain native keyboard behavior and
+visible markers. The raw editor uses a labeled `UiTextarea` with format help and
+parse feedback. Every target input names its source bucket. The intrinsic mapping
+table has a named, focusable scrolling region and readable minimum column widths.
+Raw entries remain authoritative over per-row choices; same-target exclusions,
+fallback mappings and parser behavior remain in the existing shared model.
+
+Both workflows use `BucketCompareProgress` and the common operation progress
+presentation. Settled Ceph comparisons now say **Completed**, matching Manager.
+Run, stop and export remain connected to each workspace's existing handlers.
+
+Validate both routes with documentary fixtures in light/dark at 1440px and
+390px, plus 320px. Exercise same-target restrictions, name/manual mappings,
+invalid/authoritative raw entries, empty scope/features, cutoff and feature
+payloads, frozen options during execution, stop, failure and retry. Check the
+source and target identities in every request and the final progress state.
+These checks do not run real bucket comparisons or Manager remediation.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
