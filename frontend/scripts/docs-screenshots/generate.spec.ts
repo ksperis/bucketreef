@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, type Page } from "@playwright/test";
 
+import { waitForStableDashboardDonut } from "./chartCapture";
 import { registerApiMocks } from "./mockApi";
 import { scenarios } from "./scenarios";
 import { seedUiPreferences } from "./uiPreferences";
@@ -113,6 +114,7 @@ async function captureScenarioVariant(
       }
 
       await page.waitForTimeout(250);
+      if (scenario.id === "workspace-manager") await waitForStableDashboardDonut(page);
 
       const outputPath = path.join(SCREENSHOT_DIR, `${scenario.outputBasename}.${variant}.png`);
       await page.screenshot({ path: outputPath, fullPage: false });

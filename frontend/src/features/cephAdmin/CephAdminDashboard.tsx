@@ -69,30 +69,33 @@ export default function CephAdminDashboard() {
       description={`Cluster-level RGW administration. Active endpoint: ${selectedEndpoint?.name ?? "—"}.`}
       breadcrumbs={cephAdminPageBreadcrumbs("dashboard")}
     >
-      {!selectedEndpoint?.id ? (
-        <PageEmptyState
-          title="Select a Ceph endpoint before using Ceph Admin"
-          description="Cluster-level workflows stay visible, but bucket, account, user, and metrics actions remain unavailable until an endpoint is selected."
-          primaryAction={{ label: "Open buckets", to: "/ceph-admin/buckets" }}
-          tone="warning"
-        />
-      ) : null}
-      {generalSettings.endpoint_status_enabled && selectedEndpoint?.id && (
-        <WorkspaceEndpointHealthCards
-          data={workspaceHealth}
-          loading={workspaceHealthLoading}
-          error={workspaceHealthError}
-          title="Endpoint Health"
-          showStatusCounters={false}
-          action={
-            selectedEndpoint?.id
-              ? { to: `/admin/endpoint-status/${selectedEndpoint.id}`, label: "View details" }
-              : undefined
-          }
-          className="grid gap-4"
-        />
-      )}
-      {selectedEndpoint?.id ? <WorkspaceNavCards items={cards} columns={4} /> : null}
+      <div className="ui-dashboard-compact">
+        {!selectedEndpoint?.id ? (
+          <PageEmptyState
+            title="Select a Ceph endpoint before using Ceph Admin"
+            description="Cluster-level workflows stay visible, but bucket, account, user, and metrics actions remain unavailable until an endpoint is selected."
+            primaryAction={{ label: "Open buckets", to: "/ceph-admin/buckets" }}
+            tone="warning"
+          />
+        ) : null}
+        {generalSettings.endpoint_status_enabled && selectedEndpoint?.id && (
+          <WorkspaceEndpointHealthCards
+            presentation="compact"
+            data={workspaceHealth}
+            loading={workspaceHealthLoading}
+            error={workspaceHealthError}
+            title="Endpoint Health"
+            showStatusCounters={false}
+            action={
+              selectedEndpoint?.id
+                ? { to: `/admin/endpoint-status/${selectedEndpoint.id}`, label: "View details" }
+                : undefined
+            }
+            className="grid gap-3"
+          />
+        )}
+        {selectedEndpoint?.id ? <WorkspaceNavCards presentation="compact" items={cards} columns={4} /> : null}
+      </div>
     </PageShell>
   );
 }

@@ -3,12 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { fetchStorageOpsSummary, type StorageOpsSummary } from "../../api/storageOps";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
 import { storageOpsPageBreadcrumbs } from "./storageOpsBreadcrumbs";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiCardClass } from "../../components/ui/styles";
+import { WorkspaceDashboardActionLink, WorkspaceDashboardCard } from "../../components/WorkspaceDashboardKit";
 import { extractApiError } from "../../utils/apiError";
 
 export default function StorageOpsDashboard() {
@@ -40,31 +39,28 @@ export default function StorageOpsDashboard() {
       breadcrumbs={storageOpsPageBreadcrumbs("dashboard")}
     >
       {summaryError && <PageBanner tone="error">{summaryError}</PageBanner>}
-      <section className={`${uiCardClass} px-4 py-4`}>
+      <WorkspaceDashboardCard presentation="compact">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <p className="ui-dashboard-note">
               Managed contexts
             </p>
-            <p className="mt-1.5 ui-title font-semibold text-slate-900 dark:text-white">
+            <p className="ui-dashboard-value">
               {summary ? summary.total_contexts : "—"}
             </p>
           </div>
           <div className="flex flex-col items-start gap-3 sm:items-end">
-            <p className="ui-caption text-slate-500 dark:text-slate-400">
+            <p className="ui-dashboard-note">
               Accounts: {summary?.total_accounts ?? "—"} | S3 users: {summary?.total_s3_users ?? "—"} | Connections:{" "}
               {summary?.total_connections ?? "—"} | Shared: {summary?.total_shared_connections ?? "—"} | Private:{" "}
               {summary?.total_private_connections ?? "—"} | Endpoints: {summary?.total_endpoints ?? "—"}
             </p>
-            <Link
-              to="/storage-ops/buckets"
-              className={cx(uiButtonBaseClass, uiButtonVariants.primary, "px-3 py-1.5 text-xs")}
-            >
+            <WorkspaceDashboardActionLink variant="primary" to="/storage-ops/buckets">
               Open buckets
-            </Link>
+            </WorkspaceDashboardActionLink>
           </div>
         </div>
-      </section>
+      </WorkspaceDashboardCard>
     </PageShell>
   );
 }

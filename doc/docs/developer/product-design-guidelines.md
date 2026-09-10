@@ -511,5 +511,18 @@ when there is no series. Never turn missing or failed measurements into zero;
 explain unavailable data near its owning metrics and preserve independent
 loading. The seven-day availability mean is not a current health score.
 
-Admin remains English-only. Other dashboards retain their existing layouts
-until a separate, workspace-specific audit selects these compact components.
+Manager, Portal, Ceph Admin and Storage Ops also explicitly adopt the compact
+visual scale. Their blocks, ordering, repeated metrics, charts and destinations
+stay unchanged: visual convergence does not authorize an information redesign.
+Ceph Admin retains health, conditional incidents and four navigation cards;
+Storage Ops retains one context summary and its bucket action. Keep both minimal.
+Manager quick actions remain Create bucket and Create user in one column, with
+more width allocated to quota rows when alongside them.
+
+Manager/Portal KPI cards retain every detail, meter and trend. They start at
+120px high with 32px icon bubbles and grow for translated or long text. Use
+`WorkspaceDashboardStorageOverview` for the common storage presentation;
+callers own calculations, formatting, chart points and unavailable states.
+`wrapHeading` permits action/title wrapping on adopting cards without changing
+other compact panels. Navigation, health and data-type cards opt in separately.
+Portal retains its existing three languages; other dashboards remain English.

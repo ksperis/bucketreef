@@ -228,3 +228,12 @@ Each carousel uses synthetic documentation data and focuses on the screens that 
     <figcaption><strong>Settings.</strong> Portal settings show the selected project, effective values, and delegated override controls when allowed.</figcaption>
   </figure>
 </div>
+
+## Ceph Admin dashboard
+
+The compact overview keeps endpoint health, conditional incidents and navigation.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="../../assets/screenshots/user/ceph-admin-dashboard.light.png" alt="Compact Ceph Admin dashboard with health, incidents and navigation" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="../../assets/screenshots/user/ceph-admin-dashboard.dark.png" alt="Compact Ceph Admin dashboard with health, incidents and navigation" loading="lazy">
+</div>

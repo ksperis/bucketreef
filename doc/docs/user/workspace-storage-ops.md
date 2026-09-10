@@ -4,6 +4,10 @@
 
 Use **Storage Ops** for cross-context bucket operations on S3-compatible backends, outside Ceph-only administration.
 
+## Dashboard
+
+The dashboard remains a single compact summary of authorized contexts, accounts, S3 users, connections and endpoints. **Open buckets** opens the existing operational workbench.
+
 ## Prerequisites
 
 - UI role `ui_user`, `ui_admin`, or `ui_superadmin` with `can_access_storage_ops` entitlement.

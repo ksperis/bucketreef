@@ -4,6 +4,12 @@
 
 Use **Ceph Admin** for Ceph RGW cluster-level operations.
 
+## Dashboard
+
+The dashboard remains focused on endpoint health, current or recent incidents when present, and the four links to metrics, RGW accounts, RGW users and buckets. Status timestamps wrap on small screens; they refer to stored checks, not a new probe.
+
+See the [dashboard preview](screenshots-gallery.md#ceph-admin-dashboard).
+
 ## Prerequisites
 
 - Admin-like UI role.

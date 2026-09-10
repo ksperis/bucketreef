@@ -218,3 +218,14 @@ three from 768px, and two below. Endpoint rows are at least 36px on desktop
 and expand with long text. The map retains its explicit 220px height. This
 geometry is distinct from settings and listing geometry; changes must not
 implicitly restyle nonadopting consumers or global UiButton defaults.
+
+Manager and Portal explicitly pass `presentation="compact"` to the KPI row.
+Its minimum is 120px rather than the legacy 164px, with 32px icon bubbles,
+20px icons, 12px/18px labels and 22px/28px values. Heights grow with content;
+never clamp translated trends or drop quota details to fit. The storage chart
+retains its 92px drawing area and the data-type donut its 128px height.
+Compact storage charts use the primary theme token without changing their
+points or semantic distribution colors. Navigation cards, health cards and
+data-type cards retain their original defaults outside this explicit adoption.
+Use dashboard action links for buttons and `WorkspaceDashboardLinkRow` for
+rich shortcuts; retain plain identity links and their accessible touch areas.

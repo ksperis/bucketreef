@@ -17,7 +17,10 @@ import {
   WorkspaceDashboardIconBubble as IconBubble,
   WorkspaceDashboardKpiRow as KpiRow,
   WorkspaceDashboardProgressBar as ProgressBar,
-  WorkspaceDashboardStorageEvolutionChart,
+  WorkspaceDashboardStorageOverview,
+  WorkspaceDashboardAction,
+  WorkspaceDashboardActionLink,
+  WorkspaceDashboardLinkRow,
   WorkspaceStatusDot,
   type WorkspaceDashboardMetric,
   type WorkspaceDashboardTone,
@@ -33,7 +36,7 @@ import {
 } from "../../components/workspaceDashboardKpis";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import UiBadge from "../../components/ui/UiBadge";
-import { cx, uiCardClass, uiMutedTextClass } from "../../components/ui/styles";
+import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { useI18n, type I18nMessage } from "../../i18n";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
 import {
@@ -228,74 +231,44 @@ function StorageOverviewCard({
     years: (value) => t({ en: `~${value} years`, fr: `~${value} ans`, de: `~${value} Jahre` }),
   });
   return (
-    <section className={cx(uiCardClass, "h-full p-4")}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="ui-subtitle font-semibold text-[var(--ui-text)]">{t({ en: "Storage overview", fr: "Vue du stockage", de: "Speicherübersicht" })}</h2>
-        <Link to="/portal/usage" className="inline-flex items-center gap-2 ui-caption font-semibold text-primary">
-          {t({ en: "Usage analytics", fr: "Analyse d'utilisation", de: "Nutzungsanalyse" })}
-          <OpenIcon className="h-3.5 w-3.5" />
-        </Link>
-      </div>
-      <div className="mt-3 flex items-end justify-between gap-4">
-        <div>
-          <p className={cx("ui-body", uiMutedTextClass)}>{t({ en: "Storage Used", fr: "Stockage utilisé", de: "Genutzter Speicher" })}</p>
-          <p className="mt-1 text-[24px] font-semibold leading-7 text-[var(--ui-text)]">
-            {formatBytes(usedBytes)}
-            {quotaBytes != null && <span className="font-medium text-[var(--ui-text)]/75"> / {formatBytes(quotaBytes)}</span>}
-          </p>
-        </div>
-        <p className="text-[20px] font-semibold leading-6 text-primary">{usagePercent == null ? "" : formatPercentage(usagePercent)}</p>
-      </div>
-      {usagePercent != null ? (
-        <ProgressBar value={usagePercent} className="mt-3 h-2.5" ariaLabel={t({ en: "Portal storage quota usage", fr: "Utilisation du quota de stockage Portal", de: "Portal-Speicherquotennutzung" })} />
-      ) : (
-        <p className={cx("mt-3 ui-caption font-semibold", uiMutedTextClass)}>{t({ en: "Quota unavailable", fr: "Quota indisponible", de: "Quote nicht verfügbar" })}</p>
-      )}
-      <WorkspaceDashboardStorageEvolutionChart
-        points={storageTrendPoints}
-        emptyLabel={t({ en: "Storage usage unavailable.", fr: "Utilisation du stockage indisponible.", de: "Speichernutzung nicht verfügbar." })}
-        chartLabel={t({ en: "Storage evolution chart", fr: "Graphique d'évolution du stockage", de: "Diagramm zur Speicherentwicklung" })}
-      />
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <div className="h-full">
-          <div className="min-h-[55px] rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-1.5">
-            <p className="text-[10px] font-semibold leading-4 text-[var(--ui-text-muted)]">{growthLabel}</p>
-            <p className={cx("mt-1 text-base font-semibold leading-5", growthToneClass)}>
-              {formatWorkspaceSignedBytesDelta(growthDelta)}
-            </p>
-          </div>
-        </div>
-        <div className="h-full">
-          <div className="min-h-[55px] rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-semibold leading-4 text-[var(--ui-text-muted)]">{t({ en: "Projected full", fr: "Saturation estimée", de: "Voraussichtlich voll" })}</p>
-              <InfoIcon className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" />
-            </div>
-            <p className="mt-1 text-base font-semibold leading-5 text-[var(--ui-text)]">{projectedFull}</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <WorkspaceDashboardStorageOverview
+      title={t({ en: "Storage overview", fr: "Vue du stockage", de: "Speicherübersicht" })}
+      action={<WorkspaceDashboardActionLink to="/portal/usage">{t({ en: "Usage analytics", fr: "Analyse d'utilisation", de: "Nutzungsanalyse" })}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
+      usedLabel={t({ en: "Storage Used", fr: "Stockage utilisé", de: "Genutzter Speicher" })}
+      usedValue={formatBytes(usedBytes)}
+      quotaValue={quotaBytes != null ? formatBytes(quotaBytes) : undefined}
+      percentage={usagePercent}
+      percentageLabel={usagePercent == null ? "" : formatPercentage(usagePercent)}
+      progressLabel={t({ en: "Portal storage quota usage", fr: "Utilisation du quota de stockage Portal", de: "Portal-Speicherquotennutzung" })}
+      quotaFallback={<p className="mt-3 ui-dashboard-note">{t({ en: "Quota unavailable", fr: "Quota indisponible", de: "Quote nicht verfügbar" })}</p>}
+      chart={{
+        points: storageTrendPoints,
+        emptyLabel: t({ en: "Storage usage unavailable.", fr: "Utilisation du stockage indisponible.", de: "Speichernutzung nicht verfügbar." }),
+        chartLabel: t({ en: "Storage evolution chart", fr: "Graphique d'évolution du stockage", de: "Diagramm zur Speicherentwicklung" }),
+      }}
+      growth={{ label: growthLabel, value: formatWorkspaceSignedBytesDelta(growthDelta), className: growthToneClass }}
+      projection={{ label: t({ en: "Projected full", fr: "Saturation estimée", de: "Voraussichtlich voll" }), value: projectedFull, adornment: <InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /> }}
+    />
   );
 }
 
 function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard
+    <WorkspaceDashboardCard presentation="compact" wrapHeading
       title={t({ en: "Top storage spaces", fr: "Principaux espaces de stockage", de: "Größte Speicherbereiche" })}
       action={
-        <Link to="/portal/storage-spaces" className="inline-flex items-center gap-2 ui-caption font-semibold text-primary">
+        <WorkspaceDashboardActionLink to="/portal/storage-spaces">
           {t({ en: "View all spaces", fr: "Voir tous les espaces", de: "Alle Bereiche anzeigen" })}
           <OpenIcon className="h-3.5 w-3.5" />
-        </Link>
+        </WorkspaceDashboardActionLink>
       }
     >
       {rows.length === 0 ? (
         <WorkspaceDashboardEmptyState>{t({ en: "No Storage Spaces to display.", fr: "Aucun espace de stockage à afficher.", de: "Keine Speicherbereiche zum Anzeigen." })}</WorkspaceDashboardEmptyState>
       ) : (
         <div className="space-y-2">
-          <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(92px,0.8fr)_minmax(72px,0.5fr)] gap-3 text-[11px] font-semibold leading-4 text-[var(--ui-text-muted)]">
+          <div className="ui-dashboard-ranking-row ui-dashboard-note">
             <span>{t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich" })}</span>
             <span>{t({ en: "Storage", fr: "Stockage", de: "Speicher" })}</span>
             <span className="text-right">{t({ en: "Files", fr: "Fichiers", de: "Dateien" })}</span>
@@ -303,7 +276,7 @@ function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
           {rows.map((row) => (
             <div
               key={row.id}
-              className="grid min-h-[44px] grid-cols-[minmax(0,1.2fr)_minmax(92px,0.8fr)_minmax(72px,0.5fr)] items-center gap-3"
+              className="ui-dashboard-ranking-row"
             >
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
@@ -311,26 +284,26 @@ function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
                     <BucketIcon className="h-4 w-4" />
                   </IconBubble>
                   {row.space && !row.isOther ? (
-                    <Link to={storageSpacePath(row.space)} className="truncate ui-caption font-semibold text-[var(--ui-text)] hover:text-primary">
+                    <Link to={storageSpacePath(row.space)} className="ui-dashboard-text-link ui-dashboard-label hover:text-primary">
                       {row.name}
                     </Link>
                   ) : (
-                    <span className="truncate ui-caption font-semibold text-[var(--ui-text)]">{row.name}</span>
+                    <span className="ui-dashboard-label">{row.name}</span>
                   )}
                 </div>
                 {row.space && row.role ? (
                   <div className="mt-1 flex flex-wrap gap-1.5 pl-9">
-                    <UiBadge tone={portalRoleTone(row.role)} className="px-2 py-0 text-[11px] leading-5">
+                    <UiBadge tone={portalRoleTone(row.role)} className="ui-dashboard-badge">
                       {portalRoleLabel(row.role, t)}
                     </UiBadge>
                   </div>
                 ) : null}
               </div>
-              <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-3">
-                <span className="ui-caption font-semibold text-[var(--ui-text)]">{formatBytes(row.usedBytes)}</span>
+              <div className="ui-dashboard-ranking-storage">
+                <span className="ui-dashboard-label">{formatBytes(row.usedBytes)}</span>
                 {row.percent != null ? <ProgressBar value={row.percent} className="h-1.5" /> : <span className="h-1.5" />}
               </div>
-              <span className="text-right ui-caption font-semibold text-[var(--ui-text)]">{formatSpacedCompactNumber(row.objectCount)}</span>
+              <span className="text-right ui-dashboard-label">{formatSpacedCompactNumber(row.objectCount)}</span>
             </div>
           ))}
         </div>
@@ -342,23 +315,23 @@ function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
 function RecentActivityCard({ rows }: { rows: ActivityRow[] }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard
+    <WorkspaceDashboardCard presentation="compact" wrapHeading
       title={t({ en: "Recent activity", fr: "Activité récente", de: "Letzte Aktivität" })}
-      action={<Link to="/portal/history" className="ui-caption font-semibold text-primary">{t({ en: "View all", fr: "Tout voir", de: "Alle anzeigen" })}</Link>}
+      action={<WorkspaceDashboardActionLink to="/portal/history">{t({ en: "View all", fr: "Tout voir", de: "Alle anzeigen" })}</WorkspaceDashboardActionLink>}
     >
       {rows.length === 0 ? (
         <WorkspaceDashboardEmptyState>{t({ en: "No recent activity.", fr: "Aucune activité récente.", de: "Keine letzte Aktivität." })}</WorkspaceDashboardEmptyState>
       ) : (
         <div className="space-y-2">
           {rows.map((activity) => (
-            <div key={activity.id} className="flex items-start justify-between gap-3">
+            <div key={activity.id} className="ui-dashboard-activity-row">
               <div className="flex min-w-0 items-start gap-2.5">
                 <IconBubble tone={activity.tone} className="h-7 w-7 rounded-md">
                   {activity.icon}
                 </IconBubble>
                 <div className="min-w-0">
-                  <p className="truncate ui-caption font-semibold text-[var(--ui-text)]">{activity.label}</p>
-                  <p className={cx("mt-0.5 truncate ui-caption", uiMutedTextClass)}>{activity.detail}</p>
+                  <p className="ui-dashboard-label">{activity.label}</p>
+                  <p className={cx("mt-0.5 ui-dashboard-note", uiMutedTextClass)}>{activity.detail}</p>
                 </div>
               </div>
               <span className={cx("shrink-0 ui-caption", uiMutedTextClass)}>{activity.time}</span>
@@ -379,16 +352,16 @@ function AlertsCard({
 }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard title={t({ en: "Alerts & service status", fr: "Alertes et statut du service", de: "Warnungen und Dienststatus" })}>
+    <WorkspaceDashboardCard presentation="compact" wrapHeading title={t({ en: "Alerts & service status", fr: "Alertes et statut du service", de: "Warnungen und Dienststatus" })}>
       <div className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="flex min-w-0 items-center gap-2 ui-caption font-semibold text-[var(--ui-text)]">
+        <div className="ui-dashboard-panel-heading">
+          <p className="flex min-w-0 items-center gap-2 ui-dashboard-label">
             <WorkspaceStatusDot status={healthStatus} />
-            <span className="truncate">{workspaceHealthLabel(healthStatus, t)}</span>
+            <span className="min-w-0 break-words">{workspaceHealthLabel(healthStatus, t)}</span>
           </p>
           <UiBadge
             tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : healthStatus === "degraded" ? "warning" : "neutral"}
-            className="px-2 py-0 text-[11px] leading-5"
+            className="ui-dashboard-badge"
           >
             {healthStatus === "up"
               ? t({ en: "Operational", fr: "Opérationnel", de: "Betriebsbereit" })
@@ -407,10 +380,10 @@ function AlertsCard({
           alerts.slice(0, 4).map((alert) => (
             <div key={alert.id} className="flex items-center justify-between gap-3 rounded-md border border-[color:var(--ui-border-soft)] px-3 py-2">
               <div className="min-w-0">
-                <p className="truncate ui-caption font-semibold text-[var(--ui-text)]">{alert.title}</p>
-                <p className={cx("mt-0.5 truncate ui-caption", uiMutedTextClass)}>{alert.description}</p>
+                <p className="ui-dashboard-label">{alert.title}</p>
+                <p className={cx("mt-0.5 ui-dashboard-note", uiMutedTextClass)}>{alert.description}</p>
               </div>
-              <UiBadge tone={alertTone(alert.tone)} className="px-2 py-0 text-[11px] leading-5">
+              <UiBadge tone={alertTone(alert.tone)} className="ui-dashboard-badge">
                 {alert.severityLabel ?? t({ en: "Info", fr: "Info", de: "Info" })}
               </UiBadge>
             </div>
@@ -424,25 +397,24 @@ function AlertsCard({
 function QuickLinksCard({ links }: { links: QuickLink[] }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard title={t({ en: "Quick links", fr: "Raccourcis", de: "Schnellzugriffe" })}>
+    <WorkspaceDashboardCard presentation="compact" wrapHeading title={t({ en: "Quick links", fr: "Raccourcis", de: "Schnellzugriffe" })}>
       <div className="grid gap-2">
         {links.map((link) => (
-          <Link
+          <WorkspaceDashboardLinkRow
             key={link.label}
             to={link.to}
-            className="flex min-h-[48px] items-center justify-between gap-3 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 transition hover:border-primary hover:bg-[var(--ui-hover)]"
           >
             <span className="flex min-w-0 items-center gap-2.5">
               <IconBubble tone={link.tone} className="h-7 w-7 rounded-md">
                 {link.icon}
               </IconBubble>
               <span className="min-w-0">
-                <span className="block truncate ui-caption font-semibold text-[var(--ui-text)]">{link.label}</span>
-                <span className={cx("block truncate ui-caption", uiMutedTextClass)}>{link.detail}</span>
+                <span className="block ui-dashboard-label">{link.label}</span>
+                <span className={cx("block ui-dashboard-note", uiMutedTextClass)}>{link.detail}</span>
               </span>
             </span>
             <OpenIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" />
-          </Link>
+          </WorkspaceDashboardLinkRow>
         ))}
       </div>
     </WorkspaceDashboardCard>
@@ -646,7 +618,7 @@ export default function PortalDashboard() {
   }
 
   return (
-    <div className="space-y-3" data-testid="portal-dashboard">
+    <div className="ui-dashboard-compact" data-testid="portal-dashboard">
       <PageHeader
         title={t({ en: "Portal dashboard", fr: "Tableau de bord Portal", de: "Portal-Dashboard" })}
         description={t({ en: `Workspace overview for ${workspace.accountName}.`, fr: `Vue de l'espace de travail ${workspace.accountName}.`, de: `Arbeitsbereichsübersicht für ${workspace.accountName}.` })}
@@ -657,13 +629,13 @@ export default function PortalDashboard() {
         <PageBanner tone="warning">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>{storageSpacesError ?? stateError}</span>
-            <button
+            <WorkspaceDashboardAction
               type="button"
               onClick={refreshWorkspaceData}
-              className="font-semibold underline underline-offset-2"
+              variant="secondary"
             >
               {t({ en: "Retry", fr: "Réessayer", de: "Erneut versuchen" })}
-            </button>
+            </WorkspaceDashboardAction>
           </div>
         </PageBanner>
       )}
@@ -678,9 +650,9 @@ export default function PortalDashboard() {
         </PageBanner>
       )}
 
-      <KpiRow metrics={metrics} columns={5} />
+      <KpiRow presentation="compact" metrics={metrics} columns={5} />
 
-      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-12">
+      <div className="grid items-start gap-3 lg:grid-cols-2 xl:grid-cols-12">
         <div className="min-w-0 xl:col-span-4">
           <StorageOverviewCard
             usedBytes={workspace.usedBytes}
@@ -694,7 +666,7 @@ export default function PortalDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+      <div className="grid items-start gap-3 lg:grid-cols-2 2xl:grid-cols-3">
         <RecentActivityCard rows={activityRows} />
         <AlertsCard alerts={alerts} healthStatus={healthStatus} />
         <QuickLinksCard links={quickLinks} />

@@ -34,7 +34,10 @@ import {
   WorkspaceDashboardIconBubble as IconBubble,
   WorkspaceDashboardKpiRow as KpiRow,
   WorkspaceDashboardProgressBar as ProgressBar,
-  WorkspaceDashboardStorageEvolutionChart as StorageEvolutionChart,
+  WorkspaceDashboardStorageOverview,
+  WorkspaceDashboardAction,
+  WorkspaceDashboardActionLink,
+  WorkspaceDashboardLinkRow,
   WorkspaceDashboardUnavailableFrame as DashboardUnavailable,
   WorkspaceStatusDot,
   type WorkspaceDashboardTone as DashboardTone,
@@ -51,8 +54,6 @@ import {
 import UiBadge from "../../components/ui/UiBadge";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiCardClass,
   uiMutedTextClass,
 } from "../../components/ui/styles";
@@ -261,55 +262,20 @@ function StorageOverviewCard({
         : "text-rose-600 dark:text-rose-300";
   const growthLabel = trendBaseline?.label ? `Growth (${trendBaseline.label})` : "Growth";
   const projectedFull = formatWorkspaceProjectedFull(usedBytes, quotaBytes, trendBaseline);
-  const content = (
-    <section className={cx(uiCardClass, "h-full p-4")}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <h2 className="ui-subtitle font-semibold text-[var(--ui-text)]">Storage overview</h2>
-          <InfoIcon className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" />
-        </div>
-        <Link to="/manager/metrics" className="inline-flex items-center gap-2 ui-caption font-semibold text-primary">
-          Usage analytics
-          <OpenIcon className="h-3.5 w-3.5" />
-        </Link>
-      </div>
-      <div className="mt-3 flex items-end justify-between gap-4">
-        <div>
-          <p className={cx("ui-body", uiMutedTextClass)}>Storage Used</p>
-          <p className="mt-1 text-[24px] font-semibold leading-7 text-[var(--ui-text)]">
-            {storageValue}
-            {quotaValue && <span className="font-medium text-[var(--ui-text)]/75"> / {quotaValue}</span>}
-          </p>
-        </div>
-        <p className="text-[20px] font-semibold leading-6 text-primary">{usagePercent == null ? "" : formatPercentage(usagePercent)}</p>
-      </div>
-      {usagePercent != null && <ProgressBar value={usagePercent} className="mt-3 h-2.5" />}
-      <StorageEvolutionChart points={chartPoints} />
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <div className="h-full">
-          <div className="min-h-[55px] rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-1.5">
-            <p className="text-[10px] font-semibold leading-4 text-[var(--ui-text-muted)]">{growthLabel}</p>
-            <p className={cx("mt-1 text-base font-semibold leading-5", growthToneClass)}>
-              {formatWorkspaceSignedBytesDelta(growthDelta)}
-            </p>
-          </div>
-        </div>
-        <div className="h-full">
-          <div className="min-h-[55px] rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-semibold leading-4 text-[var(--ui-text-muted)]">Projected full</p>
-              <InfoIcon className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" />
-            </div>
-            <p className="mt-1 text-base font-semibold leading-5 text-[var(--ui-text)]">{projectedFull}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-
   return (
-    <DashboardUnavailable reason={unavailableReason} className="h-full">
-      {content}
+    <DashboardUnavailable reason={unavailableReason}>
+      <WorkspaceDashboardStorageOverview
+        title={<span className="flex items-center gap-1.5">Storage overview<InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /></span>}
+        action={<WorkspaceDashboardActionLink to="/manager/metrics">Usage analytics<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
+        usedLabel="Storage Used"
+        usedValue={storageValue}
+        quotaValue={quotaValue}
+        percentage={usagePercent}
+        percentageLabel={usagePercent == null ? "" : formatPercentage(usagePercent)}
+        chart={{ points: chartPoints }}
+        growth={{ label: growthLabel, value: formatWorkspaceSignedBytesDelta(growthDelta), className: growthToneClass }}
+        projection={{ label: "Projected full", value: projectedFull, adornment: <InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /> }}
+      />
     </DashboardUnavailable>
   );
 }
@@ -322,15 +288,15 @@ function TopBucketsCard({
   unavailableReason?: string | null;
 }) {
   const content = (
-    <section className={cx(uiCardClass, "h-full p-4")}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="ui-subtitle font-semibold text-[var(--ui-text)]">Top buckets by storage</h2>
-        <Link to="/manager/buckets" className="inline-flex items-center gap-2 ui-caption font-semibold text-primary">
+    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
+      <div className="ui-dashboard-panel-heading">
+        <h2 className="ui-dashboard-title">Top buckets by storage</h2>
+        <WorkspaceDashboardActionLink to="/manager/buckets">
           View all buckets
           <OpenIcon className="h-3.5 w-3.5" />
-        </Link>
+        </WorkspaceDashboardActionLink>
       </div>
-      <div className="mt-3 grid grid-cols-[minmax(0,1.2fr)_minmax(92px,0.8fr)_minmax(72px,0.5fr)] gap-3 text-[11px] font-semibold leading-4 text-[var(--ui-text-muted)]">
+      <div className="mt-3 ui-dashboard-ranking-row ui-dashboard-note">
         <span>Bucket</span>
         <span>Storage</span>
         <span className="text-right">Objects</span>
@@ -339,19 +305,19 @@ function TopBucketsCard({
         {rows.map((row) => (
           <div
             key={row.name}
-            className="grid min-h-7 grid-cols-[minmax(0,1.2fr)_minmax(92px,0.8fr)_minmax(72px,0.5fr)] items-center gap-3"
+            className="ui-dashboard-ranking-row"
           >
             <div className="flex min-w-0 items-center gap-2">
               <IconBubble tone="emerald" className="h-6 w-6 rounded-md">
                 <BucketIcon className="h-3.5 w-3.5" />
               </IconBubble>
-              <span className="truncate ui-caption font-semibold text-[var(--ui-text)]">{row.name}</span>
+              <span className="ui-dashboard-label">{row.name}</span>
             </div>
-            <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-3">
-              <span className="ui-caption font-semibold text-[var(--ui-text)]">{formatBytes(row.storageBytes)}</span>
+            <div className="ui-dashboard-ranking-storage">
+              <span className="ui-dashboard-label">{formatBytes(row.storageBytes)}</span>
               <ProgressBar value={row.percent} className="h-1.5" />
             </div>
-            <span className="text-right ui-caption font-semibold text-[var(--ui-text)]">
+            <span className="text-right ui-dashboard-label">
               {formatSpacedCompactNumber(row.objectCount)}
             </span>
           </div>
@@ -360,7 +326,7 @@ function TopBucketsCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="h-full">
+    <DashboardUnavailable reason={unavailableReason}>
       {content}
     </DashboardUnavailable>
   );
@@ -376,9 +342,9 @@ function RecentActivityCard({
   unavailableReason?: string | null;
 }) {
   const content = (
-    <section className={cx(uiCardClass, "h-full p-4")}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="ui-subtitle font-semibold text-[var(--ui-text)]">Recent activity</h2>
+    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
+      <div className="ui-dashboard-panel-heading">
+        <h2 className="ui-dashboard-title">Recent activity</h2>
         <span className="inline-flex items-center gap-2 ui-caption font-semibold text-primary">
           View all
           <OpenIcon className="h-3.5 w-3.5" />
@@ -397,14 +363,14 @@ function RecentActivityCard({
           </div>
         ) : (
           rows.map((activity) => (
-            <div key={activity.id} className="flex items-start justify-between gap-3">
+            <div key={activity.id} className="ui-dashboard-activity-row">
               <div className="flex min-w-0 items-start gap-2.5">
                 <IconBubble tone={activity.tone} className="h-7 w-7 rounded-md">
                   {activity.icon}
                 </IconBubble>
                 <div className="min-w-0">
-                  <p className="truncate ui-caption font-semibold text-[var(--ui-text)]">{activity.label}</p>
-                  <p className={cx("mt-0.5 truncate ui-caption", uiMutedTextClass)}>{activity.detail}</p>
+                  <p className="ui-dashboard-label">{activity.label}</p>
+                  <p className={cx("mt-0.5 ui-dashboard-note", uiMutedTextClass)}>{activity.detail}</p>
                 </div>
               </div>
               <span className={cx("shrink-0 ui-caption", uiMutedTextClass)}>{activity.time}</span>
@@ -415,7 +381,7 @@ function RecentActivityCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="h-full">
+    <DashboardUnavailable reason={unavailableReason}>
       {content}
     </DashboardUnavailable>
   );
@@ -517,23 +483,23 @@ function QuotaStatusCard({
     },
   ];
   const content = (
-    <section className={cx(uiCardClass, "h-full p-[14px]")}>
-      <h2 className="ui-body font-semibold text-[var(--ui-text)]">Quota status</h2>
+    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
+      <h2 className="ui-dashboard-title">Quota status</h2>
       <div className="mt-3 space-y-2">
         {rows.map((row) => (
           <div key={row.label} className="relative" data-quota-status-row={row.label}>
-            <div className="grid grid-cols-[minmax(96px,1fr)_minmax(112px,1.2fr)_42px] items-center gap-2.5">
+            <div className="ui-dashboard-quota-row">
               <div className="flex min-w-0 items-center gap-2">
                 <IconBubble tone={row.tone} className="h-6 w-6 rounded-md">
                   {row.icon}
                 </IconBubble>
-                <span className="truncate ui-caption font-semibold text-[var(--ui-text)]">{row.label}</span>
+                <span className="ui-dashboard-label">{row.label}</span>
               </div>
               <div>
-                <p className="ui-caption font-medium text-[var(--ui-text)]">{row.value}</p>
+                <p className="ui-dashboard-label">{row.value}</p>
                 {row.percent != null && <ProgressBar value={row.percent} className="mt-1 h-1.5" />}
               </div>
-              <span className="text-right ui-caption font-semibold text-[var(--ui-text)]">
+              <span className="text-right ui-dashboard-label">
                 {row.percent == null ? "" : formatPercentage(row.percent)}
               </span>
             </div>
@@ -543,7 +509,7 @@ function QuotaStatusCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="h-full">
+    <DashboardUnavailable reason={unavailableReason}>
       {content}
     </DashboardUnavailable>
   );
@@ -551,40 +517,21 @@ function QuotaStatusCard({
 
 function QuickActionsCard({ actions }: { actions: QuickAction[] }) {
   return (
-    <section className={cx(uiCardClass, "h-full p-[14px]")}>
-      <h2 className="ui-body font-semibold text-[var(--ui-text)]">Quick actions</h2>
+    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
+      <h2 className="ui-dashboard-title">Quick actions</h2>
       <div className="mt-3 grid grid-cols-1 gap-2" data-testid="manager-dashboard-quick-actions-list">
         {actions.map((action) => {
-          const content = (
-            <span
-              className={cx(
-                "flex min-h-[40px] items-center justify-between gap-1.5 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-2 py-1.5 text-left transition",
-                action.unavailableReason
-                  ? "cursor-not-allowed opacity-65"
-                  : "hover:border-primary hover:bg-[var(--ui-hover)]"
-              )}
-              title={action.unavailableReason ?? undefined}
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                <IconBubble tone={action.tone} className="h-6 w-6 rounded-md">
-                  {action.icon}
-                </IconBubble>
-                <span className="min-w-0 text-[11px] font-semibold leading-[14px] text-[var(--ui-text)]">{action.label}</span>
-              </span>
-              <OpenIcon className="h-3 w-3 shrink-0 text-[var(--ui-text-muted)]" />
+          const content = <>
+            <span className="flex min-w-0 items-center gap-2">
+              <IconBubble tone={action.tone} className="h-6 w-6 rounded-md">{action.icon}</IconBubble>
+              <span>{action.label}</span>
             </span>
-          );
-          if (action.unavailableReason) {
-            return (
-              <span key={action.label} aria-disabled="true">
-                {content}
-              </span>
-            );
-          }
-          return (
-            <Link key={action.label} to={action.to}>
-              {content}
-            </Link>
+            <OpenIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" />
+          </>;
+          return action.unavailableReason ? (
+            <span key={action.label} className="ui-dashboard-link-row" aria-disabled="true" title={action.unavailableReason}>{content}</span>
+          ) : (
+            <WorkspaceDashboardLinkRow key={action.label} to={action.to}>{content}</WorkspaceDashboardLinkRow>
           );
         })}
       </div>
@@ -600,24 +547,24 @@ function AccessManagementCard({
   unavailableReason?: string | null;
 }) {
   const content = (
-    <section className={cx(uiCardClass, "h-full p-[14px]")}>
-      <h2 className="ui-body font-semibold text-[var(--ui-text)]">Access management</h2>
+    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
+      <h2 className="ui-dashboard-title">Access management</h2>
       <div className="mt-3 divide-y divide-[color:var(--ui-border-soft)]">
         {counts.map((item) => (
           <Link
             key={item.label}
             to={item.to}
-            className="flex min-h-9 items-center justify-between gap-3 py-1.5 transition hover:text-primary"
+            className="ui-dashboard-text-link w-full flex-wrap justify-between gap-2 py-1"
           >
             <span className="flex min-w-0 items-center gap-3">
               <IconBubble tone={item.tone} className="h-7 w-7 rounded-md">
                 {item.icon}
               </IconBubble>
-              <span className="truncate ui-caption font-semibold text-[var(--ui-text)]">{item.label}</span>
+              <span className="ui-dashboard-label">{item.label}</span>
             </span>
             <span className="flex shrink-0 items-center gap-5">
               <span className={cx("ui-caption font-semibold", uiMutedTextClass)}>{item.value == null ? "" : item.value.toLocaleString()}</span>
-              <span className="inline-flex items-center gap-1 ui-caption font-semibold text-primary">
+              <span className="inline-flex items-center gap-1 ui-dashboard-note text-primary">
                 View all
                 <OpenIcon className="h-3.5 w-3.5" />
               </span>
@@ -628,7 +575,7 @@ function AccessManagementCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="h-full">
+    <DashboardUnavailable reason={unavailableReason}>
       {content}
     </DashboardUnavailable>
   );
@@ -645,19 +592,19 @@ function BackendHealthCard({
   const stale = showEndpoint ? endpoint.is_stale === true : false;
   const healthStatus = showEndpoint ? (stale ? "unknown" : endpoint.status) : "unknown";
   const content = (
-    <section className={cx(uiCardClass, "h-full p-[14px]")}>
+    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
       <div className="flex items-center gap-1.5">
-        <h2 className="ui-body font-semibold text-[var(--ui-text)]">Storage backend health</h2>
+        <h2 className="ui-dashboard-title">Storage backend health</h2>
         <InfoIcon className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" />
       </div>
       <div className="mt-3 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5">
         {showEndpoint ? (
-          <div className="flex items-center justify-between gap-3">
-            <p className="flex min-w-0 items-center gap-2 ui-caption font-semibold text-[var(--ui-text)]">
+          <div className="ui-dashboard-panel-heading">
+            <p className="flex min-w-0 items-center gap-2 ui-dashboard-label">
               <WorkspaceStatusDot status={healthStatus} />
-              <span className="truncate">{endpoint.name}</span>
+              <span className="min-w-0 break-words">{endpoint.name}</span>
             </p>
-            <UiBadge tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : "warning"} className="px-2 py-0 text-[11px] leading-5">
+            <UiBadge tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : "warning"} className="ui-dashboard-badge">
               {stale ? "Stale" : formatStatus(healthStatus)}
             </UiBadge>
           </div>
@@ -669,14 +616,14 @@ function BackendHealthCard({
           <HealthValue label="Last check" value={showEndpoint ? formatLocalDateTime(endpoint.checked_at) : ""} />
         </div>
       </div>
-      <Link to="/manager/metrics" className="mt-2.5 inline-flex items-center gap-2 ui-caption font-semibold text-primary">
+      <WorkspaceDashboardActionLink to="/manager/metrics" className="mt-2.5">
         View details
         <OpenIcon className="h-3.5 w-3.5" />
-      </Link>
+      </WorkspaceDashboardActionLink>
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="h-full">
+    <DashboardUnavailable reason={unavailableReason}>
       {content}
     </DashboardUnavailable>
   );
@@ -692,9 +639,9 @@ function HealthValue({
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between gap-3">
-        <span className="ui-caption font-medium text-[var(--ui-text)]">{label}</span>
-        <span className="ui-caption font-semibold text-[var(--ui-text)]">{value}</span>
+      <div className="ui-dashboard-panel-heading">
+        <span className="ui-dashboard-label">{label}</span>
+        <span className="ui-dashboard-label">{value}</span>
       </div>
     </div>
   );
@@ -710,17 +657,17 @@ function IncidentStrip({
   const incident = incidents.find((item) => item.ongoing) ?? incidents[0] ?? null;
   const hasRealIncident = incidents.length > 0 && !unavailableReason;
   const content = (
-    <section className={cx(uiCardClass, "flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between")}>
+    <section className={cx(uiCardClass, "ui-dashboard-panel ui-dashboard-panel-heading")}>
       <div className="min-w-0">
-        <h2 className="ui-body font-semibold text-[var(--ui-text)]">Ongoing / Recent incidents</h2>
+        <h2 className="ui-dashboard-title">Ongoing / Recent incidents</h2>
         <div className="mt-2 flex flex-wrap items-center gap-4">
           {hasRealIncident && incident ? (
             <>
-              <span className="flex items-center gap-2 ui-caption font-semibold text-[var(--ui-text)]">
+              <span className="flex items-center gap-2 ui-dashboard-label">
                 <span className={cx("h-2.5 w-2.5 rounded-full", incident.ongoing ? "bg-amber-500" : "bg-emerald-500")} />
                 {incident.endpoint_name}
               </span>
-              <UiBadge tone={incident.ongoing ? "warning" : "success"} className="px-2 py-0 text-[11px] leading-5">
+              <UiBadge tone={incident.ongoing ? "warning" : "success"} className="ui-dashboard-badge">
                 {incident.ongoing ? "In progress" : "Resolved"}
               </UiBadge>
               <span className={cx("ui-caption", uiMutedTextClass)}>
@@ -734,14 +681,14 @@ function IncidentStrip({
           )}
         </div>
       </div>
-      <Link to="/manager/metrics" className="inline-flex shrink-0 items-center gap-2 ui-caption font-semibold text-primary">
+      <WorkspaceDashboardActionLink to="/manager/metrics">
         View all incidents
         <OpenIcon className="h-3.5 w-3.5" />
-      </Link>
+      </WorkspaceDashboardActionLink>
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason} className="h-full">
+    <DashboardUnavailable reason={unavailableReason}>
       {content}
     </DashboardUnavailable>
   );
@@ -1197,7 +1144,7 @@ export default function ManagerDashboard() {
   };
 
   return (
-    <div className="space-y-3" data-testid="manager-dashboard">
+    <div className="ui-dashboard-compact" data-testid="manager-dashboard">
       <PageHeader
         title="Manager dashboard"
         description={`Overview of ${accountLabel} storage account and resources.`}
@@ -1207,23 +1154,24 @@ export default function ManagerDashboard() {
             <span className={cx("hidden ui-caption sm:inline", uiMutedTextClass)}>
               Updated {formatLocalDateTime(workspaceHealth?.generated_at ?? lastUpdated)}
             </span>
-            <button
+            <WorkspaceDashboardAction
+              variant="secondary"
               type="button"
               onClick={handleRefresh}
               aria-label="Refresh manager dashboard"
               title="Refresh"
-              className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "h-8 w-8 px-0 py-0")}
+              className="ui-dashboard-action-icon"
               disabled={refreshing}
             >
               <RefreshIcon className={cx("h-4 w-4", refreshing && "animate-spin")} />
-            </button>
+            </WorkspaceDashboardAction>
           </div>
         }
       />
 
-      <KpiRow metrics={metrics} />
+      <KpiRow presentation="compact" metrics={metrics} />
 
-      <div data-testid="manager-dashboard-overview-grid" className="grid gap-3 lg:grid-cols-2 xl:grid-cols-12">
+      <div data-testid="manager-dashboard-overview-grid" className="grid items-start gap-3 lg:grid-cols-2 xl:grid-cols-12">
         <div className="min-w-0 xl:col-span-4">
           <StorageOverviewCard
             usedBytes={storageUsedBytes}
@@ -1241,7 +1189,7 @@ export default function ManagerDashboard() {
         </div>
         {canLoadUsageStatsDataTypes && (
           <div className="min-w-0 xl:col-span-3">
-            <BucketUsageStatsDataTypesCard
+            <BucketUsageStatsDataTypesCard presentation="compact"
               aggregate={usageStatsAggregate}
               loading={usageStatsLoading}
               data-testid="manager-dashboard-data-types"
@@ -1251,7 +1199,7 @@ export default function ManagerDashboard() {
       </div>
 
       <div
-        className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1.44fr)_minmax(0,0.72fr)_minmax(0,0.9fr)_minmax(280px,1fr)]"
+        className="grid items-start gap-3 lg:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)] 2xl:grid-cols-[minmax(0,1.44fr)_minmax(0,0.72fr)_minmax(0,0.9fr)_minmax(280px,1fr)]"
         data-testid="manager-dashboard-resource-grid"
       >
         <QuotaStatusCard
@@ -1276,7 +1224,7 @@ export default function ManagerDashboard() {
         <BackendHealthCard endpoint={healthEndpoint} unavailableReason={endpointUnavailableReason} />
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" data-testid="manager-dashboard-activity-incidents-row">
+      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" data-testid="manager-dashboard-activity-incidents-row">
         <div className="min-w-0" data-testid="manager-dashboard-recent-activity-card">
           <RecentActivityCard rows={activityRows} loading={activityLoading} unavailableReason={activityUnavailableReason} />
         </div>

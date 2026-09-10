@@ -8,6 +8,7 @@ import type {
   BucketUsageStatsSnapshot,
 } from "../../api/bucketUsageStats";
 import { MetricsEmptyState, MetricsTile } from "../../components/MetricsCard";
+import "../../components/compactDashboard.css";
 import PageBanner from "../../components/PageBanner";
 import { cx, uiCardClass, uiMutedTextClass } from "../../components/ui/styles";
 import { formatLocalDateTime } from "../../utils/dateTime";
@@ -68,6 +69,7 @@ type BucketUsageStatsCompositionVisualsProps = {
 };
 
 type BucketUsageStatsDataTypesCardProps = {
+  presentation?: "compact";
   aggregate?: BucketUsageStatsAggregate | null;
   loading?: boolean;
   error?: string | null;
@@ -154,6 +156,7 @@ export function BucketUsageStatsCompositionVisuals({
 }
 
 export function BucketUsageStatsDataTypesCard({
+  presentation,
   aggregate,
   loading,
   error,
@@ -168,10 +171,10 @@ export function BucketUsageStatsDataTypesCard({
   const latest = aggregate?.newest_snapshot_at ? formatLocalDateTime(aggregate.newest_snapshot_at) : null;
 
   return (
-    <section className={cx(uiCardClass, "h-full p-4", className)} data-testid={dataTestId}>
+    <section className={cx(uiCardClass, presentation === "compact" ? "ui-dashboard-panel ui-dashboard-data-types" : "h-full p-4", className)} data-testid={dataTestId}>
       <div>
         <div className="min-w-0">
-          <h2 className="ui-subtitle font-semibold text-[var(--ui-text)]">Data types</h2>
+          <h2 className={presentation === "compact" ? "ui-dashboard-title" : "ui-subtitle font-semibold text-[var(--ui-text)]"}>Data types</h2>
           <div className={cx("mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 ui-caption", uiMutedTextClass)}>
             <span>{latest ? `Latest ${latest}` : "Latest bucket snapshots"}</span>
             {aggregate && <span>{coverage}</span>}
@@ -201,14 +204,14 @@ export function BucketUsageStatsDataTypesCard({
                     data-testid={`manager-dashboard-data-type-color-${entry.key}`}
                     style={{ backgroundColor: usageStatsChartColor(index) }}
                   />
-                  <span className="truncate ui-caption font-semibold text-[var(--ui-text)]" title={entry.label}>
+                  <span className={presentation === "compact" ? "ui-dashboard-label ui-dashboard-data-type-label" : "truncate ui-caption font-semibold text-[var(--ui-text)]"} title={entry.label}>
                     {entry.label}
                   </span>
                 </span>
                 <span className={cx("shrink-0 ui-caption font-semibold", uiMutedTextClass)}>
                   {formatPercentage(entry.ratio_bytes * 100)}
                 </span>
-                <span className={cx("col-span-2 truncate ui-caption", uiMutedTextClass)}>{formatBytes(entry.bytes)}</span>
+                <span className={cx(presentation === "compact" ? "col-span-2 ui-dashboard-note" : "col-span-2 truncate ui-caption", uiMutedTextClass)}>{formatBytes(entry.bytes)}</span>
               </div>
             ))}
           </div>
