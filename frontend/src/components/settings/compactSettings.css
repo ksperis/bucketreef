@@ -1,18 +1,43 @@
-/* Shared settings geometry; colors come from the application theme. */
+/* Opt-in settings geometry and typography; colors come from the theme. */
 :root {
   --settings-content-width: 1120px;
   --settings-title-width: 190px;
-  --settings-section-gap: 20px;
-  --settings-row-height: 56px;
+  --settings-section-gap: 12px;
+  --settings-column-gap: 16px;
+  --settings-row-height: 40px;
+  --settings-row-padding: 6px;
   --settings-control-height: 44px;
+  --settings-control-padding: 4px;
+  --settings-field-gap: 12px;
+  --settings-title-size: 14px;
+  --settings-title-line: 20px;
+  --settings-text-size: 13px;
+  --settings-text-line: 18px;
+  --settings-caption-size: 12px;
+  --settings-caption-line: 16px;
+  --settings-title-weight: 600;
+  --settings-label-weight: 500;
+  --settings-text-weight: 400;
+  --settings-button-padding: 8px;
+  --settings-dialog-padding-x: 16px;
+  --settings-dialog-padding-y: 12px;
+  --settings-actions-padding: 8px;
 }
 .settings-compact {
   width: 100%;
   max-width: var(--settings-content-width);
 }
+.settings-compact,
+.settings-dialog,
+.settings-body,
+.settings-readonly {
+  font-size: var(--settings-text-size);
+  line-height: var(--settings-text-line);
+  font-weight: var(--settings-text-weight);
+}
 .settings-section-compact {
   display: grid;
-  gap: 12px;
+  gap: var(--settings-field-gap);
   padding: var(--settings-section-gap) 0;
   border-top: 1px solid var(--ui-border-soft);
 }
@@ -20,11 +45,45 @@
   border-top: 0;
   padding-top: 0;
 }
+.settings-section-title,
+.settings-dialog .modal-title {
+  font-size: var(--settings-title-size);
+  line-height: var(--settings-title-line);
+  font-weight: var(--settings-title-weight);
+  color: var(--ui-text);
+}
+.settings-label,
+.settings-fields label:not(.settings-choice),
+.settings-form label {
+  font-size: var(--settings-text-size);
+  line-height: var(--settings-text-line);
+  font-weight: var(--settings-label-weight);
+  color: var(--ui-text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.settings-description,
+.settings-item-description,
+.settings-unit,
+.settings-field-help {
+  font-size: var(--settings-caption-size);
+  line-height: var(--settings-caption-line);
+  font-weight: var(--settings-text-weight);
+}
+.settings-description,
+.settings-item-description,
+.settings-unit {
+  color: var(--ui-text-muted);
+}
+.settings-item-description {
+  margin-top: 1px;
+  overflow-wrap: break-word;
+}
 .settings-item-compact {
   display: grid;
-  gap: 8px 16px;
+  gap: 8px var(--settings-column-gap);
   min-height: var(--settings-row-height);
-  padding: 10px 0;
+  padding: var(--settings-row-padding) 0;
   border-top: 1px solid var(--ui-border-soft);
 }
 .settings-item-compact:first-child {
@@ -36,22 +95,34 @@
 .settings-item-action > * {
   max-width: 100%;
 }
-.settings-dialog button,
-.settings-control {
+.settings-control,
+.settings-fields input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.settings-fields select,
+.settings-fields textarea,
+.settings-form .ui-control {
   min-height: var(--settings-control-height);
   height: auto;
-  font-size: 14px;
-  line-height: 20px;
+  padding-top: var(--settings-control-padding);
+  padding-bottom: var(--settings-control-padding);
+  font-size: var(--settings-text-size);
+  line-height: var(--settings-text-line);
+  font-weight: var(--settings-text-weight);
   white-space: normal;
 }
-.settings-form label {
-  text-transform: none;
-  font-size: 14px;
-  letter-spacing: normal;
+.settings-button,
+.settings-dialog .ui-button-base {
+  min-width: var(--settings-control-height);
+  min-height: var(--settings-control-height);
+  height: auto;
+  padding: var(--settings-control-padding) var(--settings-button-padding);
+  font-size: var(--settings-caption-size);
+  line-height: var(--settings-caption-line);
+  font-weight: var(--settings-text-weight);
+  white-space: normal;
 }
-.settings-form input:not([type="checkbox"]):not([type="file"]),
-.settings-form select {
-  min-height: 44px;
+:is(.settings-compact, .settings-dialog, .settings-fields) .settings-switch-target {
+  min-height: var(--settings-control-height);
+  min-width: max(36px, var(--settings-control-height));
 }
 @media (min-width: 640px) {
   .settings-item-compact {
@@ -65,27 +136,22 @@
 }
 @media (min-width: 1024px) {
   :root {
-    --settings-control-height: 32px;
+    --settings-control-height: 28px;
   }
   .settings-section-compact {
     grid-template-columns: var(--settings-title-width) minmax(0, 1fr);
-    gap: 24px;
-  }
-  .settings-dialog button,
-  .settings-control {
-    min-height: 32px;
-    padding-top: 5px;
-    padding-bottom: 5px;
-  }
-  .settings-form input:not([type="checkbox"]):not([type="file"]),
-  .settings-form select {
-    min-height: 32px;
+    gap: var(--settings-column-gap);
   }
 }
-
+/* A large screen can still be operated by touch, including hybrid laptops. */
+@media (any-pointer: coarse) {
+  :root {
+    --settings-control-height: 44px;
+  }
+}
 .settings-preferences > .settings-section-compact:first-child {
   border-top: 1px solid var(--ui-border-soft);
-  padding-top: 20px;
+  padding-top: var(--settings-section-gap);
 }
 .settings-actions {
   position: sticky;
@@ -95,20 +161,20 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 12px;
-  padding: 12px 0;
+  margin-top: 8px;
+  padding: var(--settings-actions-padding) 0;
   border-top: 1px solid var(--ui-border);
   background: var(--ui-bg);
 }
-.settings-fields {
+.settings-fields,
+.settings-stack {
   display: grid;
-  gap: 16px;
+  min-width: 0;
+  gap: var(--settings-field-gap);
 }
 .settings-fields label:not(.settings-choice) {
   display: grid;
-  gap: 6px;
-  font-size: 14px;
-  color: var(--ui-text);
+  gap: 4px;
 }
 .settings-fields .settings-choice {
   display: flex;
@@ -116,25 +182,33 @@
   gap: 8px;
   min-height: var(--settings-control-height);
 }
-.settings-fields input:not([type="checkbox"]):not([type="radio"]),
-.settings-fields select {
-  height: var(--settings-control-height);
-}
-.settings-fields input:not([type="checkbox"]):not([type="radio"]),
-.settings-fields select,
-.settings-fields textarea {
+.settings-dialog input[type="file"] {
   min-height: var(--settings-control-height);
-  font-size: 14px;
-  line-height: 20px;
-}
-@media (min-width: 1024px) {
-  .settings-fields input:not([type="checkbox"]):not([type="radio"]),
-  .settings-fields select {
-    padding-top: 5px;
-    padding-bottom: 5px;
-  }
 }
 .settings-readonly {
-  font-size: 14px;
   color: var(--ui-text-muted);
+}
+.settings-field-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.settings-field-with-unit > :first-child {
+  min-width: 0;
+}
+.settings-unit {
+  flex-shrink: 0;
+}
+.settings-dialog .modal-header,
+.settings-dialog .modal-body {
+  padding: var(--settings-dialog-padding-y) var(--settings-dialog-padding-x);
+}
+.settings-dialog .ui-body {
+  font-size: var(--settings-text-size);
+  line-height: var(--settings-text-line);
+}
+.settings-list-item {
+  padding-top: var(--settings-row-padding);
+  padding-bottom: var(--settings-row-padding);
 }

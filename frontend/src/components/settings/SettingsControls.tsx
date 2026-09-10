@@ -5,6 +5,7 @@ import ConfirmActionDialog from "../ConfirmActionDialog";
 import UiButton from "../ui/UiButton";
 import UiInput from "../ui/UiInput";
 import { useUnsavedChangesGuard } from "../useUnsavedChangesGuard";
+import "./compactSettings.css";
 
 export function SettingsButton({
   className = "",
@@ -15,7 +16,7 @@ export function SettingsButton({
     <UiButton
       {...props}
       size={size}
-      className={`settings-control ${className}`}
+      className={`settings-control settings-button ${className}`}
     />
   );
 }
@@ -92,28 +93,39 @@ export function SettingsField({
   label,
   error,
   help,
+  unit,
   className = "",
   ...props
 }: ComponentProps<typeof UiInput> & {
   label: string;
   error?: string;
   help?: ReactNode;
+  unit?: string;
 }) {
   const id = useId();
+  const unitId = `${id}-unit`;
+  const describedBy = [
+    unit ? unitId : undefined,
+    error || help ? id : undefined,
+    props["aria-describedby"],
+  ].filter(Boolean).join(" ") || undefined;
   return (
     <div className="min-w-0">
-      <UiInput
-        {...props}
-        aria-label={label}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error || help ? id : undefined}
-        className={`settings-control ${className}`}
-      />
+      <div className={unit ? "settings-field-with-unit" : undefined}>
+        <UiInput
+          {...props}
+          aria-label={label}
+          aria-invalid={Boolean(error)}
+          aria-describedby={describedBy}
+          className={`settings-control ${className}`}
+        />
+        {unit && <span id={unitId} className="settings-unit">{unit}</span>}
+      </div>
       {(error || help) && (
         <p
           id={id}
           role={error ? "alert" : undefined}
-          className={`mt-1 text-xs ${error ? "text-rose-700 dark:text-rose-300" : "text-[var(--ui-text-muted)]"}`}
+          className={`mt-1 settings-field-help ${error ? "text-rose-700 dark:text-rose-300" : "text-[var(--ui-text-muted)]"}`}
         >
           {error || help}
         </p>

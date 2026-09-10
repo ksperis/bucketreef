@@ -59,14 +59,14 @@ export default function StorageSpaceIdentityDialog({ accountId, space, onClose, 
       onClose={guard.requestClose} initialFocusRef={focusRef} closeLabel={labels.close} closeAriaLabel={labels.close}
       closeOnBackdropClick={!busy} closeOnEscape={!busy}>
       <form ref={(node) => { formRef.current = node; focusRef.current = node?.querySelector('input:not([disabled])') ?? null; }}
-        noValidate onSubmit={(event) => { event.preventDefault(); void save(); }} className="space-y-4">
-        <label className="block text-sm">{t({ en: "Space name", fr: "Nom de l’espace", de: "Name des Bereichs" })}
+        noValidate onSubmit={(event) => { event.preventDefault(); void save(); }} className="settings-stack">
+        <label className="block settings-label">{t({ en: "Space name", fr: "Nom de l’espace", de: "Name des Bereichs" })}
           {space.nameEditable ? <SettingsField label={t({ en: "Space name", fr: "Nom de l’espace", de: "Name des Bereichs" })}
             value={draft.name} disabled={busy} maxLength={120} error={errors.name}
             onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
             : <span className="settings-readonly block">{space.name} — {t({ en: "Name locked for this space", fr: "Nom verrouillé pour cet espace", de: "Name für diesen Bereich gesperrt" })}</span>}
         </label>
-        <label className="block text-sm">{t({ en: "Space description", fr: "Description de l’espace", de: "Beschreibung des Bereichs" })}
+        <label className="block settings-label">{t({ en: "Space description", fr: "Description de l’espace", de: "Beschreibung des Bereichs" })}
           <SettingsField label={t({ en: "Space description", fr: "Description de l’espace", de: "Beschreibung des Bereichs" })}
             value={draft.description} disabled={busy} maxLength={2000} error={errors.description}
             onChange={(event) => setDraft({ ...draft, description: event.target.value })} />

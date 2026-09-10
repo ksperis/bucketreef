@@ -133,7 +133,7 @@ export default function PortalStorageSpaceSettings({ accountId, space, canConfig
         <SettingsSection presentation="compact" title={t({ en: "File history", fr: "Historique des fichiers", de: "Dateiverlauf" })}>
           {loading && <p role="status">{t({ en: "Loading history settings...", fr: "Chargement de l’historique…", de: "Verlaufseinstellungen werden geladen…" })}</p>}
           {settings && <>
-            {!editable && <p className="py-2 text-[13px] text-[var(--ui-text-muted)]">{readOnlyReason}</p>}
+            {!editable && <p className="py-1 settings-description">{readOnlyReason}</p>}
             <SettingsItem compact title={titles.versioning_enabled}
               status={editable && settings.versioning_status === "Suspended" ? <UiBadge tone="neutral">{t({ en: "Suspended", fr: "Suspendu", de: "Ausgesetzt" })}</UiBadge> : undefined}
               description={t({ en: "Keep previous versions when files are replaced. Turning this off keeps existing versions.", fr: "Conservez les versions précédentes lorsqu’un fichier est remplacé. La désactivation conserve les versions existantes.", de: "Bewahren Sie frühere Versionen ersetzter Dateien auf. Beim Deaktivieren bleiben vorhandene Versionen erhalten." })}
@@ -146,7 +146,7 @@ export default function PortalStorageSpaceSettings({ accountId, space, canConfig
               description={!draft.lifecycle_enabled ? t({ en: "Applies only while automatic cleanup is enabled.", fr: "S’applique uniquement lorsque le nettoyage automatique est activé.", de: "Gilt nur bei aktivierter automatischer Bereinigung." }) : undefined}
               action={editable && draft.lifecycle_enabled ? <SettingsField label={titles.version_history_retention_days} type="number" min={1} step={1} className="w-24"
                 value={draft.version_history_retention_days} error={retentionError} disabled={busy}
-                help={t({ en: "Days", fr: "Jours", de: "Tage" })} onChange={(event) => update("version_history_retention_days", event.target.value)} />
+                unit={t({ en: "Days", fr: "Jours", de: "Tage" })} onChange={(event) => update("version_history_retention_days", event.target.value)} />
                 : <span className="settings-readonly">{formatDays(settings.version_history_retention_days)}</span>} />
           </>}
           {(error || loadFailed) && <UiInlineMessage tone="error" role="alert">{error || loadError}</UiInlineMessage>}
@@ -166,8 +166,8 @@ export default function PortalStorageSpaceSettings({ accountId, space, canConfig
         description={`${t({ en: "Created", fr: "Créé", de: "Erstellt" })} ${space.createdLabel}`}
         status={<UiBadge tone={portalStorageSpaceStatusTone(space)}>{portalStatusLabel(space.status, t)}</UiBadge>}
         action={managementActions(dirty || busy)} />
-      {dirty && <p className="py-2 text-[13px] text-[var(--ui-text-muted)]">{t({ en: "Save or cancel the history changes before running an operation on this space.", fr: "Enregistrez ou annulez les modifications de l’historique avant de lancer une opération sur cet espace.", de: "Speichern oder verwerfen Sie die Verlaufsänderungen, bevor Sie eine Aktion für diesen Bereich ausführen." })}</p>}
-      <p className="py-2 text-[13px] text-[var(--ui-text-muted)]">{!historyCleanupEnabled
+      {dirty && <p className="py-1 settings-description">{t({ en: "Save or cancel the history changes before running an operation on this space.", fr: "Enregistrez ou annulez les modifications de l’historique avant de lancer une opération sur cet espace.", de: "Speichern oder verwerfen Sie die Verlaufsänderungen, bevor Sie eine Aktion für diesen Bereich ausführen." })}</p>}
+      <p className="py-1 settings-description">{!historyCleanupEnabled
         ? t({ en: "Manual history cleanup is disabled for this project.", fr: "Le nettoyage manuel de l’historique est désactivé pour ce projet.", de: "Die manuelle Verlaufsbereinigung ist für dieses Projekt deaktiviert." })
         : t({ en: "Manual cleanup keeps current files and removes older versions and leftover deletion records.", fr: "Le nettoyage manuel conserve les fichiers courants et retire les anciennes versions et les traces de suppression restantes.", de: "Die manuelle Bereinigung behält aktuelle Dateien und entfernt ältere Versionen und verbliebene Löschvermerke." })}</p>
     </SettingsSection>}
@@ -175,9 +175,9 @@ export default function PortalStorageSpaceSettings({ accountId, space, canConfig
     {identityOpen && <StorageSpaceIdentityDialog accountId={accountId} space={space} onClose={() => setIdentityOpen(false)} onSaved={refresh} onDirtyChange={setDialogDirty} />}
     {iconOpen && canConfigureIcon && <StorageSpaceIconPickerModal accountId={accountId} space={space} onClose={() => setIconOpen(false)} onSaved={refresh} onDirtyChange={setDialogDirty} />}
     {detailsOpen && <SettingsDialog title={t({ en: "Connection details", fr: "Détails de connexion", de: "Verbindungsdetails" })} onClose={() => setDetailsOpen(false)} closeLabel={labels.close} closeAriaLabel={labels.close}>
-      <p className="text-sm">{t({ en: "Use this name only when an external application asks for a storage or bucket name.", fr: "Utilisez ce nom uniquement lorsqu’une application externe demande un nom de stockage ou de bucket.", de: "Verwenden Sie diesen Namen nur, wenn eine externe Anwendung nach einem Speicher- oder Bucket-Namen fragt." })}</p>
-      <p className="my-4 break-all font-mono text-sm">{space.internalName ?? space.id}</p>
-      <Link className="settings-control inline-flex items-center rounded border border-[var(--ui-border)] px-3 text-sm text-primary" to={`/portal/access-keys?space_id=${encodeURIComponent(space.internalName ?? space.id)}&create=external`}>
+      <p className="settings-body">{t({ en: "Use this name only when an external application asks for a storage or bucket name.", fr: "Utilisez ce nom uniquement lorsqu’une application externe demande un nom de stockage ou de bucket.", de: "Verwenden Sie diesen Namen nur, wenn eine externe Anwendung nach einem Speicher- oder Bucket-Namen fragt." })}</p>
+      <p className="my-4 break-all font-mono settings-body">{space.internalName ?? space.id}</p>
+      <Link className="settings-control settings-button inline-flex items-center rounded border border-[var(--ui-border)] px-3 text-primary" to={`/portal/access-keys?space_id=${encodeURIComponent(space.internalName ?? space.id)}&create=external`}>
         {t({ en: "Configure access", fr: "Configurer l’accès", de: "Zugriff konfigurieren" })}
       </Link>
     </SettingsDialog>}

@@ -89,12 +89,12 @@ export const SettingsSection = ({
         <div>
           <h2
             id={headingId}
-            className="text-base font-semibold text-[var(--ui-text)]"
+            className="settings-section-title"
           >
             {title}
           </h2>
           {description && (
-            <p className="mt-1 text-[13px] leading-5 text-[var(--ui-text-muted)]">
+            <p className="settings-description mt-1">
               {description}
             </p>
           )}
@@ -146,13 +146,13 @@ export const SettingsItem = ({
         )}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold text-[var(--ui-text)]">
+            <h3 className="settings-label">
               {title}
             </h3>
             {status}
           </div>
           {description && (
-            <div className="mt-0.5 break-words text-[13px] leading-5 text-[var(--ui-text-muted)]">
+            <div className="settings-item-description">
               {description}
             </div>
           )}
@@ -236,7 +236,7 @@ export const SettingsSwitch = ({
   onChange,
 }: SettingsSwitchProps) => (
   <label
-    className={`relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center lg:min-h-8 lg:min-w-9 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+    className={`settings-switch-target relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center lg:min-h-8 lg:min-w-9 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
   >
     <input
       type="checkbox"
