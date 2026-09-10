@@ -6,9 +6,7 @@ import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
-import type { CephAdminQuotaUnit } from "./quotaForm";
-
-const QUOTA_UNIT_OPTIONS: CephAdminQuotaUnit[] = ["MiB", "GiB", "TiB"];
+import { CEPH_ADMIN_QUOTA_UNITS, type CephAdminQuotaUnit } from "./quotaForm";
 
 type CephAdminQuotaFieldsProps = {
   title: string;
@@ -71,9 +69,9 @@ export default function CephAdminQuotaFields({
             value={unitValue}
             onChange={(event) => onUnitChange(event.target.value as CephAdminQuotaUnit)}
           >
-            {QUOTA_UNIT_OPTIONS.map((unit) => (
+            {CEPH_ADMIN_QUOTA_UNITS.map((unit) => (
               <option key={unit} value={unit}>
-                {unit}
+                {unit === "B" ? "Bytes" : unit}
               </option>
             ))}
           </UiSelect>

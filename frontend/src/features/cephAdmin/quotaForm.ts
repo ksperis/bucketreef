@@ -3,9 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-export type CephAdminQuotaUnit = "MiB" | "GiB" | "TiB";
+export const CEPH_ADMIN_QUOTA_UNITS = ["B", "MiB", "GiB", "TiB"] as const;
+export type CephAdminQuotaUnit = (typeof CEPH_ADMIN_QUOTA_UNITS)[number];
 
 const UNIT_FACTORS: Record<CephAdminQuotaUnit, number> = {
+  B: 1,
   MiB: 1024 ** 2,
   GiB: 1024 ** 3,
   TiB: 1024 ** 4,
@@ -24,14 +26,18 @@ export const parseQuotaBytes = (value: string, unit: CephAdminQuotaUnit): number
   if (!trimmed) return null;
   const parsed = Number(trimmed);
   if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return Math.round(parsed * UNIT_FACTORS[unit]);
+  const bytes = Math.round(parsed * UNIT_FACTORS[unit]);
+  return Number.isFinite(bytes) ? bytes : null;
 };
 
 export const quotaBytesToForm = (
   bytes?: number | null
 ): { value: string; unit: CephAdminQuotaUnit } => {
-  if (bytes == null || bytes <= 0) {
+  if (bytes == null || bytes < 0 || !Number.isFinite(bytes)) {
     return { value: "", unit: "GiB" };
+  }
+  if (bytes === 0) {
+    return { value: "0", unit: "GiB" };
   }
   if (bytes % UNIT_FACTORS.TiB === 0) {
     return { value: String(bytes / UNIT_FACTORS.TiB), unit: "TiB" };
@@ -42,5 +48,5 @@ export const quotaBytesToForm = (
   if (bytes % UNIT_FACTORS.MiB === 0) {
     return { value: String(bytes / UNIT_FACTORS.MiB), unit: "MiB" };
   }
-  return { value: String((bytes / UNIT_FACTORS.GiB).toFixed(2)), unit: "GiB" };
+  return { value: String(bytes), unit: "B" };
 };

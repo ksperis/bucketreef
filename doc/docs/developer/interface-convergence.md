@@ -421,10 +421,29 @@ one-time panel with synthetic credentials only; cancel account quota drafts
 through the existing discard confirmation. These checks do not create users,
 change account rights or apply quotas on a live RGW service.
 
+## Exact quota form values
+
+The shared quota conversion and unit catalogue serve RGW user, account and
+default bucket quota forms. Existing limits use the largest exact integer
+MiB/GiB/TiB value, or Bytes when those units would require rounding. A numeric
+zero remains distinct from an empty field. Reject byte conversions that
+overflow to infinity; do not silently serialize them as null.
+
+Saving another profile field omits unchanged quotas. Disabling a quota sends
+only its enabled flag, preserving RGW's stored limits; disabled input values
+do not request a limit change. Clearing an enabled quota still sends explicit
+nulls through the existing API contract. Account and default bucket quotas
+keep separate patches. The detail API currently normalizes disabled and zero
+limits to null; this presentation change does not alter that normalization.
+
+Validate exact byte values, zero, omission, explicit clearing, disabling and
+reenabling in both editors, using documentary API fixtures and captured
+requests in light/dark desktop and narrow layouts. These checks prove form
+behavior and request payloads, not live RGW enforcement. Conversion precision
+is bounded by the existing JavaScript numeric API representation.
+
 ## Remaining passes
 
-- Audit quota form round trips for zero and byte values that cannot be displayed
-  exactly in the current unit selector before changing unrelated configuration.
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
 - Review remaining operational form sections.

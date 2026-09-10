@@ -64,6 +64,44 @@ describe("RGW user configuration form", () => {
     }), "tenant-a"));
   });
 
+  it.each([0, 1537, 1024 ** 3 + 1])("preserves an unchanged %d-byte quota on a profile save", async (bytes) => {
+    const currentDetail = { ...detail, quota: { enabled: true, max_size_bytes: bytes, max_objects: 0 } };
+    getDetail.mockResolvedValueOnce(currentDetail);
+    updateConfig.mockResolvedValueOnce(currentDetail);
+    const form = await openConfiguration();
+    expect(screen.getByLabelText("Storage quota")).toHaveValue(bytes);
+    expect(screen.getByLabelText("Unit")).toHaveValue(bytes === 0 ? "GiB" : "B");
+    expect(screen.getByLabelText("Object quota")).toHaveValue(0);
+    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Alice Ops" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(updateConfig).toHaveBeenCalledOnce());
+    for (const field of ["quota_enabled", "quota_max_size_bytes", "quota_max_objects"]) {
+      expect(updateConfig.mock.calls[0][2]).not.toHaveProperty(field);
+    }
+  });
+
+  it("disables the user quota without clearing the existing limits", async () => {
+    const form = await openConfiguration();
+    fireEvent.click(screen.getByLabelText("Enable user quota"));
+    expect(screen.getByLabelText("Storage quota")).toBeDisabled();
+    fireEvent.submit(form);
+    await waitFor(() => expect(updateConfig).toHaveBeenCalledOnce());
+    const payload = updateConfig.mock.calls[0][2];
+    expect(payload).toHaveProperty("quota_enabled", false);
+    expect(payload).not.toHaveProperty("quota_max_size_bytes");
+    expect(payload).not.toHaveProperty("quota_max_objects");
+  });
+
+  it("submits an explicit byte limit without rounding", async () => {
+    const form = await openConfiguration();
+    fireEvent.change(screen.getByLabelText("Unit"), { target: { value: "B" } });
+    fireEvent.change(screen.getByLabelText("Storage quota"), { target: { value: "1073741825" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(updateConfig).toHaveBeenCalledOnce());
+    expect(updateConfig.mock.calls[0][2]).toHaveProperty("quota_max_size_bytes", 1073741825);
+    expect(updateConfig.mock.calls[0][2]).not.toHaveProperty("quota_max_objects");
+  });
+
   it("freezes the pending draft, prevents duplicate saves and retains retry values", async () => {
     let rejectRequest!: (error: Error) => void;
     updateConfig.mockReturnValueOnce(new Promise((_, reject) => { rejectRequest = reject; }));
