@@ -464,7 +464,7 @@ export default function ManagerUsersPage() {
   ];
 
   return (
-    <div className={workflowPageHostClass(showAdvancedModal || showPrivateAccessModal)}>
+    <div className={workflowPageHostClass(showAdvancedModal)}>
       <PageHeader actionPresentation="listing"
         title="Users"
         description="Create/delete via the account root credentials. Optionally generate an access key on creation."

@@ -20,12 +20,8 @@ export function SettingsButton({
   );
 }
 
-export function SettingsDialog(props: ComponentProps<typeof Modal>) {
-  return (
-    <div className="settings-dialog">
-      <Modal maxWidthClass="max-w-lg" {...props} />
-    </div>
-  );
+export function SettingsDialog({ className = "", ...props }: ComponentProps<typeof Modal>) {
+  return <Modal maxWidthClass="max-w-lg" {...props} className={`settings-dialog ${className}`} />;
 }
 
 export function useSettingsCloseGuard(

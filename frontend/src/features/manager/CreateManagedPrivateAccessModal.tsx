@@ -13,17 +13,21 @@ import {
   createManagedRGWUserPrivateAccess,
   type ManagedInlinePolicy,
 } from "../../api/managedPrivateAccess";
-import Modal from "../../components/Modal";
-import PageBanner from "../../components/PageBanner";
-import UiButton from "../../components/ui/UiButton";
+import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import UiInput from "../../components/ui/UiInput";
+import UiTextarea from "../../components/ui/UiTextarea";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiDetails from "../../components/ui/UiDetails";
-import { cx, uiMutedTextClass, uiPanelMutedClass } from "../../components/ui/styles";
 import S3ConnectionAccessFields from "../shared/S3ConnectionAccessFields";
 import { extractApiError } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 
 const AMAZON_S3_FULL_ACCESS_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonS3FullAccess";
+
+const INLINE_POLICY_TEMPLATE = '{\n  "Version": "2012-10-17",\n  "Statement": []\n}';
 
 type Props = {
   variant: "iam" | "rgw_user";
@@ -44,11 +48,13 @@ export default function CreateManagedPrivateAccessModal({
   onClose,
   onCreated,
 }: Props) {
+  const formRef = useRef<HTMLFormElement>(null);
   const connectionNameRef = useRef<HTMLInputElement | null>(null);
-  const [connectionName, setConnectionName] = useState(() => {
+  const [initialConnectionName] = useState(() => {
     const normalizedContextName = contextName?.trim();
     return normalizedContextName ? `${normalizedContextName} private access` : "My private access";
   });
+  const [connectionName, setConnectionName] = useState(initialConnectionName);
   const [accessBrowser, setAccessBrowser] = useState(true);
   const [accessManager, setAccessManager] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
@@ -57,9 +63,13 @@ export default function CreateManagedPrivateAccessModal({
   );
   const [inlinePolicies, setInlinePolicies] = useState<ManagedInlinePolicy[]>([]);
   const [inlineName, setInlineName] = useState("");
-  const [inlineDocument, setInlineDocument] = useState('{\n  "Version": "2012-10-17",\n  "Statement": []\n}');
+  const [inlineDocument, setInlineDocument] = useState(INLINE_POLICY_TEMPLATE);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string>();
+  const [inlineNameError, setInlineNameError] = useState<string>();
+  const [inlineDocumentError, setInlineDocumentError] = useState<string>();
+  const [accessError, setAccessError] = useState<string>();
 
   const title = variant === "iam" ? "Create my private access" : "Create my private RGW access";
   const selectedInlineNames = useMemo(() => new Set(inlinePolicies.map((policy) => policy.name)), [inlinePolicies]);
@@ -84,14 +94,30 @@ export default function CreateManagedPrivateAccessModal({
       )
     );
 
+  const closeGuard = useSettingsCloseGuard({
+    hasUnsavedChanges: connectionName !== initialConnectionName || !usesDefaultConfiguration
+      || (variant === "iam" && (inlineName !== "" || inlineDocument !== INLINE_POLICY_TEMPLATE)),
+    disabled: busy,
+    onClose,
+  });
+
+  const focusInvalidField = () => {
+    if (formRef.current) focusFirstInvalidField(formRef.current);
+  };
+
   const addInlinePolicy = () => {
+    if (busy) return;
+    setInlineNameError(undefined);
+    setInlineDocumentError(undefined);
     const name = inlineName.trim();
     if (!name) {
-      setError("Inline policy name is required.");
+      setInlineNameError("Inline policy name is required.");
+      focusInvalidField();
       return;
     }
     if (selectedInlineNames.has(name)) {
-      setError("Inline policy names must be unique.");
+      setInlineNameError("Inline policy names must be unique.");
+      focusInvalidField();
       return;
     }
     try {
@@ -103,14 +129,22 @@ export default function CreateManagedPrivateAccessModal({
       setInlineName("");
       setError(null);
     } catch {
-      setError("Inline policy document must be a JSON object.");
+      setInlineDocumentError("Inline policy document must be a JSON object.");
+      focusInvalidField();
     }
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!accessBrowser && !accessManager) {
-      setError("Enable Browser, Manager, or both.");
+    if (busy) return;
+    const missingName = !connectionName.trim();
+    const missingAccess = !accessBrowser && !accessManager;
+    setNameError(missingName ? "Connection name is required." : undefined);
+    setAccessError(missingAccess ? "Enable Browser, Manager, or both." : undefined);
+    if (missingName || missingAccess) {
+      const details = formRef.current?.querySelector("details");
+      if (missingAccess && details) details.open = true;
+      focusInvalidField();
       return;
     }
     setBusy(true);
@@ -140,127 +174,132 @@ export default function CreateManagedPrivateAccessModal({
   };
 
   return (
-    <Modal
+    <SettingsDialog
       title={title}
-      onClose={onClose}
+      onClose={closeGuard.requestClose}
+      closeDisabled={busy}
       maxWidthClass="max-w-3xl"
-      maxBodyHeightClass="max-h-[80vh]"
       initialFocusRef={connectionNameRef}
     >
-      <form className="space-y-4" onSubmit={submit}>
-        {error && <PageBanner tone="error">{error}</PageBanner>}
-        <PageBanner tone="info">
-          {variant === "iam"
-            ? usesDefaultConfiguration
-              ? "BucketReef creates a dedicated IAM user with AmazonS3FullAccess and a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser."
-              : "BucketReef creates a dedicated IAM user and private connection using the advanced configuration below. The generated secret is stored only on the server and is never sent to this browser."
-            : usesDefaultConfiguration
-              ? "BucketReef creates a new access key for this RGW user and stores it in a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser."
-              : "BucketReef creates a new access key for this RGW user and stores it in a private connection using the advanced configuration below. The generated secret is stored only on the server and is never sent to this browser."}
-        </PageBanner>
-        <label className="block space-y-1">
-          <span className="ui-body font-semibold text-[var(--ui-text)]">Connection name</span>
-          <input
+      <form ref={formRef} className="settings-form" onSubmit={submit} noValidate>
+        <fieldset disabled={busy} className="settings-stack min-w-0">
+          {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+          <UiInlineMessage tone="info">
+            {variant === "iam"
+              ? usesDefaultConfiguration
+                ? "BucketReef creates a dedicated IAM user with AmazonS3FullAccess and a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser."
+                : "BucketReef creates a dedicated IAM user and private connection using the advanced configuration below. The generated secret is stored only on the server and is never sent to this browser."
+              : usesDefaultConfiguration
+                ? "BucketReef creates a new access key for this RGW user and stores it in a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser."
+                : "BucketReef creates a new access key for this RGW user and stores it in a private connection using the advanced configuration below. The generated secret is stored only on the server and is never sent to this browser."}
+          </UiInlineMessage>
+          <UiInput
             ref={connectionNameRef}
-            aria-label="Connection name"
+            label="Connection name"
             value={connectionName}
-            onChange={(event) => setConnectionName(event.target.value)}
-            className="ui-control w-full px-3 py-2 ui-body"
+            error={nameError}
+            onChange={(event) => { setConnectionName(event.target.value); setNameError(undefined); }}
             required
           />
-        </label>
 
-        <UiDetails className={cx("group", uiPanelMutedClass)}>
-          <summary className="cursor-pointer px-3 py-3 ui-body font-semibold text-[var(--ui-text)]">
-            Advanced configuration
-            {!usesDefaultConfiguration && (
-              <span className={cx("ml-2 ui-caption font-normal", uiMutedTextClass)}>Customized</span>
-            )}
-          </summary>
-          <div className="space-y-4 border-t border-[color:var(--ui-border-soft)] px-3 py-3">
-            {variant === "iam" && (
-              <>
-                <section className="space-y-2">
-                  <h4 className="ui-body font-semibold text-[var(--ui-text)]">IAM groups</h4>
-                  <div className="flex flex-wrap gap-3">
-                    {groups.length === 0 && <span className="ui-caption text-[var(--ui-text-muted)]">No groups available.</span>}
-                    {groups.map((group) => (
-                      <UiCheckboxField
-                        key={group.name}
-                        checked={selectedGroups.includes(group.name)}
-                        onChange={(event) => setSelectedGroups((current) => event.target.checked
-                          ? [...current, group.name]
-                          : current.filter((name) => name !== group.name))}
-                      >
-                        {group.name}
-                      </UiCheckboxField>
-                    ))}
-                  </div>
-                </section>
-                <section className="space-y-2">
-                  <h4 className="ui-body font-semibold text-[var(--ui-text)]">Managed policies</h4>
-                  <div className="flex flex-wrap gap-3">
-                    {availablePolicies.map((policy) => (
-                      <UiCheckboxField
-                        key={policy.arn}
-                        checked={selectedPolicies.includes(policy.arn)}
-                        onChange={(event) => setSelectedPolicies((current) => event.target.checked
-                          ? [...current, policy.arn]
-                          : current.filter((arn) => arn !== policy.arn))}
-                        labelProps={{ title: policy.arn }}
-                      >
-                        {policy.name}
-                      </UiCheckboxField>
-                    ))}
-                  </div>
-                </section>
-                <section className="space-y-2 rounded-lg border border-[color:var(--ui-border)] p-3">
-                  <h4 className="ui-body font-semibold text-[var(--ui-text)]">Inline policies</h4>
-                  {inlinePolicies.map((policy) => (
-                    <div key={policy.name} className="flex items-center justify-between gap-3 ui-caption">
-                      <span>{policy.name}</span>
-                      <UiButton type="button" variant="ghost" size="xs" onClick={() => setInlinePolicies((current) => current.filter((item) => item.name !== policy.name))}>
-                        Remove
-                      </UiButton>
+          <UiDetails className="modal-disclosure">
+            <summary>
+              Advanced configuration
+              {!usesDefaultConfiguration && <span className="settings-description ml-2">Customized</span>}
+            </summary>
+            <div className="settings-stack pt-2">
+              {variant === "iam" && (
+                <div>
+                  <SettingsSection title="IAM groups" presentation="compact">
+                    <div className="settings-fields">
+                      {groups.length === 0 && <span className="settings-description">No groups available.</span>}
+                      {groups.map((group) => (
+                        <UiCheckboxField
+                          key={group.name}
+                          className="settings-choice min-w-0"
+                          checked={selectedGroups.includes(group.name)}
+                          onChange={(event) => setSelectedGroups((current) => event.target.checked
+                            ? [...current, group.name]
+                            : current.filter((name) => name !== group.name))}
+                        >
+                          <span className="min-w-0 [overflow-wrap:anywhere]">{group.name}</span>
+                        </UiCheckboxField>
+                      ))}
                     </div>
-                  ))}
-                  <input
-                    aria-label="Inline policy name"
-                    placeholder="Inline policy name"
-                    value={inlineName}
-                    onChange={(event) => setInlineName(event.target.value)}
-                    className="ui-control w-full px-3 py-2 ui-body"
-                  />
-                  <textarea
-                    aria-label="Inline policy document"
-                    value={inlineDocument}
-                    onChange={(event) => setInlineDocument(event.target.value)}
-                    rows={6}
-                    className="ui-control w-full px-3 py-2 font-mono ui-caption"
-                  />
-                  <UiButton type="button" variant="secondary" size="xs" onClick={addInlinePolicy}>
-                    Add inline policy
-                  </UiButton>
-                </section>
-              </>
-            )}
-
-            <S3ConnectionAccessFields
-              accessBrowser={accessBrowser}
-              accessManager={accessManager}
-              onAccessBrowserChange={setAccessBrowser}
-              onAccessManagerChange={setAccessManager}
-              hint="Browser is selected by default. At least one workspace must remain enabled."
-            />
-          </div>
-        </UiDetails>
-        <ModalActions>
-          <UiButton type="button" variant="secondary" onClick={onClose}>Cancel</UiButton>
-          <UiButton type="submit" disabled={busy || !connectionName.trim()}>
-            {busy ? "Creating…" : "Create my private access"}
-          </UiButton>
-        </ModalActions>
+                  </SettingsSection>
+                  <SettingsSection title="Managed policies" presentation="compact">
+                    <div className="settings-fields">
+                      {availablePolicies.map((policy) => (
+                        <UiCheckboxField
+                          key={policy.arn}
+                          className="settings-choice min-w-0"
+                          checked={selectedPolicies.includes(policy.arn)}
+                          onChange={(event) => setSelectedPolicies((current) => event.target.checked
+                            ? [...current, policy.arn]
+                            : current.filter((arn) => arn !== policy.arn))}
+                          labelProps={{ title: policy.arn }}
+                        >
+                          <span className="min-w-0 [overflow-wrap:anywhere]">{policy.name}</span>
+                        </UiCheckboxField>
+                      ))}
+                    </div>
+                  </SettingsSection>
+                  <SettingsSection title="Inline policies" presentation="compact">
+                    <div className="settings-fields">
+                      {inlinePolicies.length > 0 && (
+                        <ul className="grid gap-2">
+                          {inlinePolicies.map((policy) => (
+                            <li key={policy.name} className="flex min-w-0 items-start justify-between gap-2">
+                              <span className="settings-label min-w-0 [overflow-wrap:anywhere]">{policy.name}</span>
+                              <SettingsButton variant="ghost" aria-label={`Remove inline policy ${policy.name}`}
+                                onClick={() => { setInlinePolicies((current) => current.filter((item) => item.name !== policy.name)); setInlineNameError(undefined); }}>
+                                Remove
+                              </SettingsButton>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <UiInput
+                        label="Inline policy name"
+                        value={inlineName}
+                        error={inlineNameError}
+                        onChange={(event) => { setInlineName(event.target.value); setInlineNameError(undefined); }}
+                      />
+                      <UiTextarea
+                        label="Inline policy document"
+                        value={inlineDocument}
+                        error={inlineDocumentError}
+                        hint="Provide a JSON object, then add it to the policies for this access."
+                        onChange={(event) => { setInlineDocument(event.target.value); setInlineDocumentError(undefined); }}
+                        rows={6}
+                        spellCheck={false}
+                        className="font-mono"
+                      />
+                      <div className="flex justify-end">
+                        <SettingsButton variant="secondary" onClick={addInlinePolicy}>Add inline policy</SettingsButton>
+                      </div>
+                    </div>
+                  </SettingsSection>
+                </div>
+              )}
+              <S3ConnectionAccessFields
+                accessBrowser={accessBrowser}
+                accessManager={accessManager}
+                onAccessBrowserChange={(value) => { setAccessBrowser(value); setAccessError(undefined); }}
+                onAccessManagerChange={(value) => { setAccessManager(value); setAccessError(undefined); }}
+                hint="Browser is selected by default. At least one workspace must remain enabled."
+                error={accessError}
+                className="settings-fields"
+              />
+            </div>
+          </UiDetails>
+          <ModalActions>
+            <SettingsButton variant="secondary" onClick={closeGuard.requestClose}>Cancel</SettingsButton>
+            <SettingsButton type="submit">{busy ? "Creating…" : "Create my private access"}</SettingsButton>
+          </ModalActions>
+        </fieldset>
       </form>
-    </Modal>
+      {closeGuard.confirmationDialog}
+    </SettingsDialog>
   );
 }
