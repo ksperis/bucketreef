@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "./ModalActions";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createConnection,
@@ -337,7 +338,7 @@ export default function AddS3ConnectionFromKeyModal({
           variant="panel"
         />
 
-        <div className="flex items-center justify-end gap-3">
+        <ModalActions>
           <UiButton
             type="button"
             onClick={closeGuard.requestClose}
@@ -352,7 +353,7 @@ export default function AddS3ConnectionFromKeyModal({
           >
             {saving ? "Creating..." : "Create private connection"}
           </UiButton>
-        </div>
+        </ModalActions>
       </form>
       {closeGuard.confirmationDialog}
     </Modal>

@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "./ModalActions";
 import type { ReactNode } from "react";
 import Modal from "./Modal";
 import UiButton from "./ui/UiButton";
@@ -110,7 +111,7 @@ export default function ConfirmActionDialog({
           </div>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2">
+        <ModalActions>
           <UiButton variant="secondary" onClick={onCancel} disabled={loading}>
             {cancelLabel}
           </UiButton>
@@ -121,7 +122,7 @@ export default function ConfirmActionDialog({
           >
             {loading ? processingLabel : confirmLabel}
           </UiButton>
-        </div>
+        </ModalActions>
       </div>
     </Modal>
   );

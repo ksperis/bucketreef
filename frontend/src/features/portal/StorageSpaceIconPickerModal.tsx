@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { useEffect, useRef, useState } from "react";
 import type { S3AccountSelector } from "../../api/accountParams";
 import {
@@ -228,14 +229,14 @@ export default function StorageSpaceIconPickerModal({
 
         {error ? <div id="space-icon-error"><UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage></div> : null}
 
-        <div className="flex justify-end gap-2">
+        <ModalActions>
           <UiButton variant="secondary" onClick={guard.requestClose} disabled={busy}>
             {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
           </UiButton>
           <UiButton onClick={save} loading={busy} disabled={!dirty || busy}>
             {t({ en: "Save icon", fr: "Enregistrer l’icône", de: "Symbol speichern" })}
           </UiButton>
-        </div>
+        </ModalActions>
       </div>
     </Modal>
     {guard.confirmationDialog}

@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ModalActions from "../../components/ModalActions";
 import { useEffect, useRef, useState } from "react";
 import type { S3AccountSelector } from "../../api/accountParams";
 import { updatePortalStorageSpace } from "../../api/portal";
@@ -72,10 +73,10 @@ export default function StorageSpaceIdentityDialog({ accountId, space, onClose, 
             onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
         </label>
         {errors.save && <UiInlineMessage tone="error" role="alert">{errors.save}</UiInlineMessage>}
-        <div className="flex flex-wrap justify-end gap-2">
+        <ModalActions>
           <SettingsButton variant="secondary" disabled={busy} onClick={guard.requestClose}>{labels.cancel}</SettingsButton>
           <SettingsButton type="submit" disabled={!dirty || busy} loading={busy}>{t({ en: "Save", fr: "Enregistrer", de: "Speichern" })}</SettingsButton>
-        </div>
+        </ModalActions>
       </form>
     </SettingsDialog>
     {guard.confirmationDialog}

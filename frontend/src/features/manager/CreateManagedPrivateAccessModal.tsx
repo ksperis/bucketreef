@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { FormEvent, useMemo, useRef, useState } from "react";
 
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -253,12 +254,12 @@ export default function CreateManagedPrivateAccessModal({
             />
           </div>
         </UiDetails>
-        <div className="flex justify-end gap-2">
+        <ModalActions>
           <UiButton type="button" variant="secondary" onClick={onClose}>Cancel</UiButton>
           <UiButton type="submit" disabled={busy || !connectionName.trim()}>
             {busy ? "Creating…" : "Create my private access"}
           </UiButton>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   );

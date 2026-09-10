@@ -39,7 +39,32 @@
   overscroll-behavior: contain;
 }
 
-@media (max-width: 1023px), (pointer: coarse) {
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ui-border-soft);
+}
+
+.modal-actions > .ui-button-base {
+  min-width: 28px;
+  min-height: 28px;
+  max-width: 100%;
+  height: auto;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1023px), (any-pointer: coarse) {
+  .modal-actions > .ui-button-base,
   .modal-close {
     min-width: 44px;
     min-height: 44px;

@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cx, uiCheckboxClass } from "../../components/ui/styles";
@@ -1460,7 +1461,7 @@ export default function StorageEndpointsPage() {
             <p className="ui-body text-slate-700 dark:text-slate-100">
               Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This action cannot be undone.
             </p>
-            <div className="flex items-center justify-end gap-3">
+            <ModalActions>
               <UiButton
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleteBusy}
@@ -1477,7 +1478,7 @@ export default function StorageEndpointsPage() {
               >
                 {deleteBusy ? "Deleting..." : "Delete"}
               </UiButton>
-            </div>
+            </ModalActions>
           </div>
         </Modal>
       )}

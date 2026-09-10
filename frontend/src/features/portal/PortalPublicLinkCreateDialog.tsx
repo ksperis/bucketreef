@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import type { PortalPublicLink } from "../../api/portalSharing";
 import Modal from "../../components/Modal";
 import PageBanner from "../../components/PageBanner";
@@ -50,6 +51,8 @@ export default function PortalPublicLinkCreateDialog({
         de: "Öffentlichen Link erstellen",
       })}
       onClose={onClose}
+      closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen" })}
+      closeAriaLabel={t({ en: "Close", fr: "Fermer", de: "Schließen" })}
       closeOnBackdropClick={!busy}
       closeOnEscape={!busy}
     >
@@ -107,7 +110,7 @@ export default function PortalPublicLinkCreateDialog({
             </div>
           </div>
         ) : null}
-        <div className="flex flex-wrap justify-end gap-2">
+        <ModalActions>
           <UiButton variant="secondary" onClick={onClose} disabled={busy}>
             {createdLink
               ? t({ en: "Done", fr: "Terminer", de: "Fertig" })
@@ -122,7 +125,7 @@ export default function PortalPublicLinkCreateDialog({
               ? t({ en: "Creating...", fr: "Création...", de: "Wird erstellt..." })
               : t({ en: "Create link", fr: "Créer le lien", de: "Link erstellen" })}
           </UiButton>
-        </div>
+        </ModalActions>
       </div>
     </Modal>
   );

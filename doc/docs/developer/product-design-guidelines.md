@@ -386,6 +386,15 @@ more valuable than extra space. This includes confirmations, one-time secret
 handoffs, compact create forms, small metadata edits, and Browser actions tied
 to the current bucket, prefix, or object selection.
 
+Use `ModalActions` for a short dialog's final actions, keeping it inside the
+owning form. It shares a soft separator, right alignment, wrapping and compact
+28px buttons (44px below 1024px or on coarse-pointer devices). Use `UiButton`
+or `SettingsButton` and retain the explicit button type, busy/disabled behavior
+and existing draft guard. Place Cancel before the committing action; preserve
+specialized multi-action flows such as SSE-C. Pass translated dialog labels
+explicitly from Portal; shared components default to English. Page workflows
+continue to use `WorkflowActions`, and draft-only settings use `SettingsActions`.
+
 Do not keep a generic compatibility component that switches a workflow between
 modal and page presentations. When the same form legitimately needs both,
 factor the fields and business hook, then compose explicit `Modal` and

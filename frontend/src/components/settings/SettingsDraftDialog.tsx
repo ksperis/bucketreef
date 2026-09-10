@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ModalActions from "../ModalActions";
 import {
   type Dispatch,
   type ReactNode,
@@ -93,6 +94,7 @@ export default function SettingsDraftDialog<T>({
         maxWidthClass={maxWidthClass}
       >
         <form
+          className="settings-stack"
           ref={(node) => {
             initialFocus.current =
               node?.querySelector<HTMLElement>(
@@ -108,14 +110,14 @@ export default function SettingsDraftDialog<T>({
           <div className="settings-fields">
             {children(draft, setDraft, errors, validateDraft)}
           </div>
-          <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <ModalActions>
             <SettingsButton variant="secondary" onClick={guard.requestClose}>
               {labels?.cancel ?? "Cancel"}
             </SettingsButton>
             <SettingsButton onClick={apply}>
               {labels?.apply ?? "Apply"}
             </SettingsButton>
-          </div>
+          </ModalActions>
         </form>
       </SettingsDialog>
       {guard.confirmationDialog}

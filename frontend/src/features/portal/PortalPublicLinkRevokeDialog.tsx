@@ -38,6 +38,10 @@ export default function PortalPublicLinkRevokeDialog({
         de: "Link widerrufen",
       })}
       loading={loading}
+      cancelLabel={t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
+      closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen" })}
+      processingLabel={t({ en: "Revoking...", fr: "Révocation...", de: "Wird widerrufen..." })}
+      impactLabel={t({ en: "Impact", fr: "Conséquences", de: "Auswirkungen" })}
       details={[
         {
           label: t({ en: "File", fr: "Fichier", de: "Datei" }),

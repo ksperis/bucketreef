@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -17,6 +18,7 @@ import {
 } from "../../auth/useRecentWebAuthnStepUp";
 import ListPageSection from "../../components/list/ListPageSection";
 import Modal from "../../components/Modal";
+import UiButton from "../../components/ui/UiButton";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
@@ -46,7 +48,6 @@ const API_SCOPES = [
   "storage-ops:read", "storage-ops:write",
 ];
 const secondaryCompactButtonClass = cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-3 py-1.5 ui-caption");
-const primaryCompactButtonClass = cx(uiButtonBaseClass, uiButtonVariants.primary, "px-3 py-1.5 ui-caption");
 
 function extractError(error: unknown): string {
   return extractApiError(error, "Unable to complete request.");
@@ -479,23 +480,22 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
               </p>
             </div>
             {formError && <PageBanner tone="error">{formError}</PageBanner>}
-            <div className="flex justify-end gap-2 pt-2">
-              <button
+            <ModalActions>
+              <UiButton
                 type="button"
                 onClick={createCloseGuard.requestClose}
-                className={secondaryCompactButtonClass}
+                variant="secondary"
                 disabled={creating}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 type="submit"
-                className={primaryCompactButtonClass}
                 disabled={creating}
               >
                 {creating ? "Creating..." : "Create token"}
-              </button>
-            </div>
+              </UiButton>
+            </ModalActions>
           </form>
           {createCloseGuard.confirmationDialog}
         </Modal>
