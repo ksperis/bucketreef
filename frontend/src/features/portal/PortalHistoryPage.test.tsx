@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PortalHistoryPage from "./PortalHistoryPage";
 
@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   serverAccessLoggingEnabled: true,
   accountRole: "portal_manager",
   workspaceLoading: false,
+  stateLoading: false,
+  stateAvailable: true,
+  workspaceError: null as string | null,
   fetchPortalServerAccessLogPage: vi.fn(),
   downloadPortalServerAccessRawLogs: vi.fn(),
   createObjectURL: vi.fn(),
@@ -32,25 +35,32 @@ vi.mock("./usePortalWorkspaceData", () => ({
       ],
       activity: [],
     },
-    state: {
+    state: mocks.stateAvailable ? {
       server_access_logging_enabled: mocks.serverAccessLoggingEnabled,
       portal_role: mocks.accountRole,
-    },
+    } : null,
     selectedAccount: { portal_role: mocks.accountRole },
     loading: mocks.workspaceLoading,
     accountLoading: false,
+    stateLoading: mocks.stateLoading,
     activityLoading: false,
-    error: null,
+    error: mocks.workspaceError,
     accountError: null,
     hasAccountContext: true,
     accountIdForApi: "101",
   }),
 }));
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.search}</div>;
+}
+
 function renderPage(initialEntry = "/portal/history") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <PortalHistoryPage />
+      <LocationProbe />
     </MemoryRouter>
   );
 }
@@ -68,6 +78,9 @@ describe("PortalHistoryPage", () => {
     mocks.serverAccessLoggingEnabled = true;
     mocks.accountRole = "portal_manager";
     mocks.workspaceLoading = false;
+    mocks.stateLoading = false;
+    mocks.stateAvailable = true;
+    mocks.workspaceError = null;
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: mocks.createObjectURL });
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: mocks.revokeObjectURL });
     Object.defineProperty(HTMLAnchorElement.prototype, "click", { configurable: true, value: mocks.anchorClick });
@@ -139,6 +152,37 @@ describe("PortalHistoryPage", () => {
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Access logs" })).not.toBeInTheDocument();
     expect(screen.queryByText("Technical access logs")).not.toBeInTheDocument();
+    expect(mocks.fetchPortalServerAccessLogPage).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("waits for the current project's logging state before resolving a deep link (enabled=%s)", async (enabled) => {
+    mocks.stateAvailable = false;
+    mocks.stateLoading = true;
+    const view = renderPage("/portal/history?project=101&view=access");
+    expect(screen.getByText("Loading history...")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("view=access");
+    expect(mocks.fetchPortalServerAccessLogPage).not.toHaveBeenCalled();
+
+    mocks.stateAvailable = true;
+    mocks.stateLoading = false;
+    mocks.serverAccessLoggingEnabled = enabled;
+    view.rerender(<MemoryRouter><PortalHistoryPage /><LocationProbe /></MemoryRouter>);
+    if (enabled) {
+      expect(screen.getByRole("tab", { name: "Access logs" })).toHaveAttribute("aria-selected", "true");
+      await waitFor(() => expect(mocks.fetchPortalServerAccessLogPage).toHaveBeenCalled());
+    } else {
+      expect(screen.queryByRole("tab", { name: "Access logs" })).not.toBeInTheDocument();
+      expect(screen.getByTestId("location")).not.toHaveTextContent("view=access");
+      expect(mocks.fetchPortalServerAccessLogPage).not.toHaveBeenCalled();
+    }
+  });
+
+  it("preserves the requested view when the workspace state fails", () => {
+    mocks.stateAvailable = false;
+    mocks.workspaceError = "Workspace unavailable";
+    renderPage("/portal/history?project=101&view=access");
+    expect(screen.getByText("Workspace unavailable")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("view=access");
     expect(mocks.fetchPortalServerAccessLogPage).not.toHaveBeenCalled();
   });
 

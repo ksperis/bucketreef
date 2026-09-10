@@ -1,5 +1,5 @@
 import { transferableAbortController } from "node:util";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { act, render, screen, waitFor } from "@testing-library/react";
@@ -15,11 +15,10 @@ vi.mock("../../api/portalAccounts", () => ({
   listPortalAccounts: (...args: unknown[]) => listPortalAccountsMock(...args),
 }));
 
-vi.mock("../../i18n", () => ({
-  useI18n: () => ({
-    t: (values: { en: string }) => values.en,
-  }),
-}));
+vi.mock("../../i18n", () => {
+  const t = (values: { en: string }) => values.en;
+  return { useI18n: () => ({ t }) };
+});
 
 const ACCOUNTS = [
   {
@@ -68,11 +67,51 @@ function renderProvider(initialEntry: string) {
   );
 }
 
+function ReadinessProbe({ observe }: { observe: (value: { loading: boolean; selected: string | null; project: string | null; error: string | null }) => void }) {
+  const { loading, selectedAccountId, error } = usePortalAccountContext();
+  const location = useLocation();
+  const project = new URLSearchParams(location.search).get("project");
+  useEffect(() => {
+    observe({ loading, selected: selectedAccountId, project, error });
+  }, [loading, selectedAccountId, project, error, observe]);
+  return <Probe />;
+}
+
 describe("PortalAccountProvider", () => {
   beforeEach(() => {
     localStorage.clear();
     listPortalAccountsMock.mockReset();
     listPortalAccountsMock.mockResolvedValue(ACCOUNTS);
+  });
+
+  it.each(["/portal/history?view=access", "/portal/history?project=102&view=access"])(
+    "keeps context pending until the URL project is resolved: %s",
+    async (initialEntry) => {
+      const observe = vi.fn();
+      let resolveAccounts!: (value: PortalAccount[]) => void;
+      listPortalAccountsMock.mockReturnValue(new Promise<PortalAccount[]>((resolve) => { resolveAccounts = resolve; }));
+      render(<MemoryRouter initialEntries={[initialEntry]}><PortalAccountProvider><ReadinessProbe observe={observe} /></PortalAccountProvider></MemoryRouter>);
+
+      expect(observe.mock.calls[0][0].loading).toBe(true);
+      await act(async () => resolveAccounts(ACCOUNTS));
+      await waitFor(() => expect(observe).toHaveBeenLastCalledWith(expect.objectContaining({ loading: false })));
+      const ready = observe.mock.calls.map(([value]) => value).filter((value) => !value.loading);
+      expect(ready.length).toBeGreaterThan(0);
+      ready.forEach((value) => {
+        expect(value.selected).not.toBeNull();
+        expect(value.selected).toBe(value.project);
+      });
+      expect(screen.getByTestId("location")).toHaveTextContent("view=access");
+    },
+  );
+
+  it.each(["empty", "error"])("finishes context loading for an %s catalogue", async (outcome) => {
+    const observe = vi.fn();
+    if (outcome === "empty") listPortalAccountsMock.mockResolvedValue([]);
+    else listPortalAccountsMock.mockRejectedValue(new Error("Projects unavailable"));
+    render(<MemoryRouter initialEntries={["/portal/history?project=102&view=access"]}><PortalAccountProvider><ReadinessProbe observe={observe} /></PortalAccountProvider></MemoryRouter>);
+    await waitFor(() => expect(observe).toHaveBeenLastCalledWith(expect.objectContaining({ loading: false, selected: null })));
+    if (outcome === "error") expect(observe.mock.lastCall?.[0].error).toBe("Projects unavailable");
   });
 
   it("uses the project query parameter as the tab authority", async () => {

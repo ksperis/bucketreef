@@ -129,6 +129,11 @@ export function PortalAccountProvider({ children }: { children: ReactNode }) {
   );
   const hasAccountContext = Boolean(selectedAccount);
   const accountIdForApi: S3AccountSelector = hasAccountContext ? selectedAccount?.id ?? null : null;
+  // A loaded catalogue is not a resolved execution context. Keep consumers
+  // pending until the router and selected project agree, including URL switches.
+  const resolvingProject = accounts.length > 0 && (
+    !selectedAccount || selectedAccountId !== searchParams.get(PORTAL_ACCOUNT_URL_PARAM)
+  );
 
   return (
     <PortalAccountContext.Provider
@@ -139,7 +144,7 @@ export function PortalAccountProvider({ children }: { children: ReactNode }) {
         hasAccountContext,
         accountIdForApi,
         selectedAccount,
-        loading,
+        loading: !loaded || loading || resolvingProject,
         error,
       }}
     >

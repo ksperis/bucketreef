@@ -290,6 +290,7 @@ export default function PortalHistoryPage() {
     hasAccountContext,
     accountError,
     accountLoading,
+    stateLoading,
     activityLoading,
     accountIdForApi,
     selectedAccount,
@@ -297,9 +298,11 @@ export default function PortalHistoryPage() {
     includeActivity: requestedHistoryTab === "activity",
   });
   const storageSpaces = workspace.spaces ?? [];
+  const historyStateReady = hasAccountContext && !accountLoading && !stateLoading && state !== null;
   const serverAccessLoggingEnabled = state?.server_access_logging_enabled ?? true;
   const canViewServerAccessLogs =
-    selectedAccount?.portal_role === "portal_manager" || state?.portal_role === "portal_manager";
+    historyStateReady && !error &&
+    (selectedAccount?.portal_role === "portal_manager" || state?.portal_role === "portal_manager");
   const activeHistoryTab: HistoryTab =
     requestedHistoryTab === "access" && (!serverAccessLoggingEnabled || !canViewServerAccessLogs)
       ? "activity"
@@ -513,7 +516,7 @@ export default function PortalHistoryPage() {
   const serverLogAdvancedDraftActiveCount = serverLogAdvancedDraftSummaryItems.length;
 
   useEffect(() => {
-    if (loading || accountLoading) return;
+    if (loading || !historyStateReady || error) return;
     const rawView = searchParams.get("view");
     const invalidView = rawView !== null && !["activity", "access"].includes(rawView);
     const inaccessibleAccessView =
@@ -522,7 +525,8 @@ export default function PortalHistoryPage() {
       selectHistoryTab("activity", true);
     }
   }, [
-    accountLoading,
+    historyStateReady,
+    error,
     canViewServerAccessLogs,
     loading,
     requestedHistoryTab,
@@ -747,7 +751,7 @@ export default function PortalHistoryPage() {
 
   const pageState = resolvePortalWorkspacePageState({
     accountLoading,
-    loading: loading || (activeHistoryTab === "activity" && activityLoading),
+    loading: loading || (hasAccountContext && !historyStateReady && !error) || (activeHistoryTab === "activity" && activityLoading),
     accountError,
     error,
     hasAccountContext,
