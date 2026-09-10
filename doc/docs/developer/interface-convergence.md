@@ -385,8 +385,46 @@ retention, sorting, and pinned identities where there is sufficient space.
 In Ceph Admin, open and cancel an index-check dialog from the scrolled row;
 no live storage operations are needed for this presentation check.
 
+## RGW user forms and quota fields
+
+User creation and the Ceph Admin configuration tab share profile, flags and
+capability fields through `CephAdminUserFormFields`. Compact `SettingsSection`
+and `WorkflowActions` replace local section cards and action geometry. UID,
+account/tenant selection and initial key generation remain creation fields;
+default placement and storage class remain configuration fields. Other editor
+tabs retain their own workflows.
+
+One parser deduplicates capabilities and one validator handles non-negative
+integer limits and storage sizes. Invalid fields receive associated messages
+after submission; correcting a value clears its error, and submitting an
+invalid form focuses the first error. API failures remain form-level feedback.
+The tenant stays editable when an account is selected, allowing the existing
+mutual-exclusion error to be corrected without discarding the draft. Creation
+still derives account-root status from an explicit account selection.
+
+Native forms support Enter submission. A disabled fieldset freezes the submitted
+draft until the request settles, while existing close guards block departure.
+Configuration requires successfully loaded details. Retries retain the same
+endpoint, tenant and payload; quota patching retains its existing omission and
+explicit-null semantics. Generated credentials keep the existing
+one-time panel and S3 Connection permission guard.
+
+`CephAdminQuotaFields` uses the same compact section and field contract in user
+and account creation/configuration, including the unit selector. Account quota
+and default bucket quota retain independent controls and API fields.
+
+Validate the four user/account forms with documentary API fixtures in both
+themes at 1440px and 390px, plus 320px. Check long identities, quota units and
+disabled quota fields, errors and focus, Enter submission, frozen drafts,
+failure/retry/success, exact payloads and clean return after saving. Check the
+one-time panel with synthetic credentials only; cancel account quota drafts
+through the existing discard confirmation. These checks do not create users,
+change account rights or apply quotas on a live RGW service.
+
 ## Remaining passes
 
+- Audit quota form round trips for zero and byte values that cannot be displayed
+  exactly in the current unit selector before changing unrelated configuration.
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
 - Review remaining operational form sections.

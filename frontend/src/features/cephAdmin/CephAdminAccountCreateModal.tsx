@@ -279,7 +279,6 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
           onUnitChange={setAccountQuotaUnit}
           objectValue={accountQuotaObjects}
           onObjectChange={setAccountQuotaObjects}
-          className="bg-white p-4 dark:bg-slate-900"
         />
 
         <CephAdminQuotaFields
@@ -293,7 +292,6 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
           onUnitChange={setBucketQuotaUnit}
           objectValue={bucketQuotaObjects}
           onObjectChange={setBucketQuotaObjects}
-          className="bg-white p-4 dark:bg-slate-900"
         />
 
         <div className="sticky bottom-0 z-10 -mx-6 -mb-4 flex items-center justify-end gap-2 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] px-6 py-3">

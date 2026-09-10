@@ -24,20 +24,22 @@ import {
   updateCephAdminUserKeyStatus,
 } from "../../api/cephAdminUserKeys";
 import AddS3ConnectionFromKeyModal from "../../components/AddS3ConnectionFromKeyModal";
-import WorkflowPage from "../../components/WorkflowPage";
+import WorkflowPage, { WorkflowActions } from "../../components/WorkflowPage";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { SettingsButton } from "../../components/settings/SettingsControls";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
 import UiButton from "../../components/ui/UiButton";
-import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
-import UiSelect from "../../components/ui/UiSelect";
-import UiTextarea from "../../components/ui/UiTextarea";
+import { CephAdminUserProfileFields, CephAdminUserFlags, CephAdminUserCapsFields } from "./CephAdminUserFormFields";
+import { parseCephAdminUserCaps, validateCephAdminUserLimits, type CephAdminUserCapsMode } from "./cephAdminUserForm";
 import UsageTile from "../../components/UsageTile";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 
 import { extractApiError } from "../../utils/apiError";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
 import { canCreateManualPrivateConnections, readStoredUser } from "../../utils/workspaces";
@@ -45,7 +47,7 @@ import { buildCephConnectionDefaults } from "../shared/s3ConnectionFromKey";
 import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { buildCephAdminQuotaPatch } from "./quotaPatch";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
-import { parseQuotaBytes, quotaBytesToForm, type CephAdminQuotaUnit } from "./quotaForm";
+import { parseOptionalNonNegativeInteger, parseQuotaBytes, quotaBytesToForm, type CephAdminQuotaUnit } from "./quotaForm";
 
 type Props = {
   endpointId: number;
@@ -58,7 +60,6 @@ type Props = {
 };
 
 type TabId = "overview" | "ceph" | "s3" | "metrics";
-type CapsMode = "replace" | "add" | "remove";
 
 const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
 
@@ -74,14 +75,6 @@ const formatDate = (value?: string | null) => {
   if (!value) return "-";
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
-};
-
-const capsTextToValues = (value: string): string[] => {
-  const parts = value
-    .split(/\r?\n|,/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-  return Array.from(new Set(parts));
 };
 
 export default function CephAdminUserEditModal({
@@ -132,7 +125,7 @@ export default function CephAdminUserEditModal({
   const [quotaSize, setQuotaSize] = useState("");
   const [quotaUnit, setQuotaUnit] = useState<CephAdminQuotaUnit>("GiB");
   const [quotaObjects, setQuotaObjects] = useState("");
-  const [capsMode, setCapsMode] = useState<CapsMode>("replace");
+  const [capsMode, setCapsMode] = useState<CephAdminUserCapsMode>("replace");
   const [capsText, setCapsText] = useState("");
   const currentSignature = useMemo(
     () =>
@@ -291,27 +284,24 @@ export default function CephAdminUserEditModal({
     }
   }, [activeTab, canViewMetrics]);
 
-  const submit = async () => {
+  const [validationShown, setValidationShown] = useState(false);
+  const validationErrors = validateCephAdminUserLimits({ maxBuckets, quotaEnabled, quotaSize, quotaUnit, quotaObjects });
+  const fieldErrors = validationShown ? validationErrors : {};
+
+  const submit = async (form: HTMLFormElement) => {
+    if (saving || detailLoading || !detail) return;
+    setValidationShown(true);
     setSaveError(null);
     setSaveStatus(null);
-    const accountRootEnabled = Boolean(detail?.account_id);
-
-    const parsedMaxBuckets = maxBuckets.trim() === "" ? null : Number(maxBuckets);
+    if (Object.keys(validationErrors).length > 0) {
+      focusFirstInvalidField(form);
+      return;
+    }
+    const accountRootEnabled = Boolean(detail.account_id);
+    const parsedMaxBuckets = parseOptionalNonNegativeInteger(maxBuckets);
     const parsedQuotaBytes = quotaEnabled ? parseQuotaBytes(quotaSize, quotaUnit) : null;
-    const parsedQuotaObjects = quotaEnabled ? (quotaObjects.trim() === "" ? null : Number(quotaObjects)) : null;
+    const parsedQuotaObjects = quotaEnabled ? parseOptionalNonNegativeInteger(quotaObjects) : null;
 
-    if (parsedMaxBuckets != null && (!Number.isInteger(parsedMaxBuckets) || parsedMaxBuckets < 0)) {
-      setSaveError("Max buckets must be a positive integer.");
-      return;
-    }
-    if (parsedQuotaObjects != null && (!Number.isInteger(parsedQuotaObjects) || parsedQuotaObjects < 0)) {
-      setSaveError("Quota objects must be a positive integer.");
-      return;
-    }
-    if (quotaEnabled && quotaSize.trim() !== "" && parsedQuotaBytes == null) {
-      setSaveError("Storage quota value is invalid.");
-      return;
-    }
     const nextDefaultPlacement = defaultPlacement.trim();
     const nextDefaultStorageClass = defaultStorageClass.trim();
 
@@ -328,7 +318,7 @@ export default function CephAdminUserEditModal({
         account_root: accountRootEnabled ? true : undefined,
         caps: {
           mode: capsMode,
-          values: capsTextToValues(capsText),
+          values: parseCephAdminUserCaps(capsText),
         },
         extra_params: {
           "default-placement": nextDefaultPlacement || "",
@@ -505,133 +495,34 @@ export default function CephAdminUserEditModal({
   );
 
   const cephTab = (
-    <section className="space-y-4">
+    <form aria-label="RGW user configuration" noValidate onSubmit={(event) => { event.preventDefault(); void submit(event.currentTarget); }} className="settings-compact settings-form space-y-3">
+      {detailLoading && <PageBanner tone="info">Loading user details...</PageBanner>}
+      {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
       {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
       {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <UiInput
-          label="Display name"
-          type="text"
-          value={displayName}
-          onChange={(event) => setDisplayName(event.target.value)}
-          size="compact"
-        />
-        <UiInput
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          size="compact"
-        />
-        <UiInput
-          label="Max buckets"
-          type="number"
-          min={0}
-          value={maxBuckets}
-          onChange={(event) => setMaxBuckets(event.target.value)}
-          placeholder="Leave empty to clear"
-          size="compact"
-        />
-        <UiInput
-          label="Op mask"
-          type="text"
-          value={opMask}
-          onChange={(event) => setOpMask(event.target.value)}
-          placeholder="read,write,delete"
-          size="compact"
-        />
-        <UiInput
-          label="Default placement"
-          type="text"
-          value={defaultPlacement}
-          onChange={(event) => setDefaultPlacement(event.target.value)}
-          placeholder="e.g. default-placement"
-          size="compact"
-        />
-        <UiInput
-          label="Default storage class"
-          type="text"
-          value={defaultStorageClass}
-          onChange={(event) => setDefaultStorageClass(event.target.value)}
-          placeholder="e.g. STANDARD"
-          size="compact"
-        />
-      </div>
-
-      <div className={cx(uiPanelMutedClass, "grid gap-2 px-4 py-3 sm:grid-cols-2")}>
-        <UiCheckboxField
-          checked={suspended}
-          onChange={(event) => setSuspended(event.target.checked)}
-          className="ui-body text-slate-700 dark:text-slate-200"
-        >
-          Suspended
-        </UiCheckboxField>
-        <UiCheckboxField
-          checked={adminFlag}
-          onChange={(event) => setAdminFlag(event.target.checked)}
-          className="ui-body text-slate-700 dark:text-slate-200"
-        >
-          Admin
-        </UiCheckboxField>
-        <UiCheckboxField
-          checked={systemFlag}
-          onChange={(event) => setSystemFlag(event.target.checked)}
-          className="ui-body text-slate-700 dark:text-slate-200"
-        >
-          System
-        </UiCheckboxField>
-      </div>
-
-      <CephAdminQuotaFields
-        title="User quota"
-        enabledLabel="Enable user quota"
-        enabled={quotaEnabled}
-        onEnabledChange={setQuotaEnabled}
-        sizeValue={quotaSize}
-        onSizeChange={setQuotaSize}
-        unitValue={quotaUnit}
-        onUnitChange={setQuotaUnit}
-        objectValue={quotaObjects}
-        onObjectChange={setQuotaObjects}
-        sizePlaceholder="Leave empty to clear"
-        objectPlaceholder="Leave empty to clear"
-      />
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <UiSelect
-          label="Caps update mode"
-          value={capsMode}
-          onChange={(event) => setCapsMode(event.target.value as CapsMode)}
-          size="compact"
-        >
-          <option value="replace">Replace</option>
-          <option value="add">Add</option>
-          <option value="remove">Remove</option>
-        </UiSelect>
-      </div>
-
-      <UiTextarea
-        label="Caps (one per line, e.g. users=read)"
-        value={capsText}
-        onChange={(event) => setCapsText(event.target.value)}
-        rows={4}
-        className="font-mono"
-        spellCheck={false}
-        size="compact"
-      />
-
-      <div className="flex items-center justify-end gap-2">
-        <UiButton
-          type="button"
-          onClick={submit}
-          disabled={saving || detailLoading}
-          size="sm"
-        >
+      <fieldset disabled={saving || detailLoading || !detail} className="min-w-0">
+        <SettingsSection title="Profile" presentation="compact">
+          <CephAdminUserProfileFields values={{ displayName, email, maxBuckets, opMask }}
+            onChange={(field, value) => ({ displayName: setDisplayName, email: setEmail, maxBuckets: setMaxBuckets, opMask: setOpMask })[field](value)}
+            maxBucketsError={fieldErrors.maxBuckets} maxBucketsHint="Leave empty to clear the limit.">
+            <UiInput label="Default placement" value={defaultPlacement} onChange={(event) => setDefaultPlacement(event.target.value)} placeholder="e.g. default-placement" />
+            <UiInput label="Default storage class" value={defaultStorageClass} onChange={(event) => setDefaultStorageClass(event.target.value)} placeholder="e.g. STANDARD" />
+          </CephAdminUserProfileFields>
+        </SettingsSection>
+        <CephAdminUserFlags values={{ suspended, admin: adminFlag, system: systemFlag }}
+          onChange={(field, value) => ({ suspended: setSuspended, admin: setAdminFlag, system: setSystemFlag })[field](value)} />
+        <CephAdminQuotaFields title="User quota" enabledLabel="Enable user quota" enabled={quotaEnabled} onEnabledChange={setQuotaEnabled}
+          sizeValue={quotaSize} onSizeChange={setQuotaSize} unitValue={quotaUnit} onUnitChange={setQuotaUnit}
+          objectValue={quotaObjects} onObjectChange={setQuotaObjects} sizePlaceholder="Leave empty to clear" objectPlaceholder="Leave empty to clear"
+          sizeError={fieldErrors.quotaSize} objectError={fieldErrors.quotaObjects} />
+        <CephAdminUserCapsFields mode={capsMode} onModeChange={setCapsMode} value={capsText} onChange={setCapsText} />
+      </fieldset>
+      <WorkflowActions>
+        <SettingsButton type="submit" disabled={saving || detailLoading || !detail}>
           {saving ? "Saving..." : "Save configuration"}
-        </UiButton>
-      </div>
-    </section>
+        </SettingsButton>
+      </WorkflowActions>
+    </form>
   );
 
   const s3Tab = (
@@ -848,7 +739,7 @@ export default function CephAdminUserEditModal({
   return (
     <WorkflowPage
       title={`Configure user · ${identityLabel}`}
-      description="Review configuration, key management, capabilities and metrics on a full workspace page."
+      description="Manage this RGW user’s configuration, access keys, capabilities and metrics."
       breadcrumbs={cephAdminPageBreadcrumbs("users", { label: identityLabel })}
       backLabel="Back to users"
       onBack={closeGuard.requestClose}
