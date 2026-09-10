@@ -117,6 +117,22 @@ describe("BucketIntegrityCheckModal results", () => {
     expect(within(bucketDetails).getByText("AccessDenied: denied")).toBeInTheDocument();
   });
 
+  it("distinguishes missing error details from an error-free bucket", async () => {
+    const result = buildIntegrityResult();
+    result.buckets[0].failures_sample = [];
+    streamManagerBucketIntegrityCheckMock.mockResolvedValueOnce(result);
+    const user = await runIntegrityCheck();
+    const failedBucket = closestDetails(screen.getByText("bucket-a"));
+    await user.click(within(failedBucket).getByText("bucket-a"));
+    expect(within(failedBucket).getByText("Only 0 of 1 error(s) are visible.")).toBeInTheDocument();
+    expect(within(failedBucket).getByText("Error details are unavailable for this bucket.")).toBeInTheDocument();
+    expect(within(failedBucket).queryByText("No affected objects reported for this bucket.")).not.toBeInTheDocument();
+
+    const passedBucket = closestDetails(screen.getByText("bucket-b"));
+    await user.click(within(passedBucket).getByText("bucket-b"));
+    expect(within(passedBucket).getByText("No affected objects reported for this bucket.")).toBeInTheDocument();
+  });
+
   it("runs HEAD mode by default and GET mode when selected", async () => {
     const user = userEvent.setup();
     const { rerender } = render(

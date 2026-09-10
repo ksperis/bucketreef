@@ -70,10 +70,9 @@ menus, association popovers, expansion and Browser column resizing.
 | `features/portal/PortalRequestsPage.tsx` | /portal/requests | DataTableShell × 1 | `PortalRequestsPage.test.tsx` |
 | `features/portal/PortalSharesPage.tsx` | /portal/shares | DataTableShell × 1 | `PortalSharesPage.test.tsx` |
 | `features/portal/PortalStorageSpacesPage.tsx` | /portal/storage-spaces | DataTableShell × 1 | `PortalStorageSpacesPage.test.tsx`; V5 |
-| `features/shared/BucketIntegrityCheckModal.tsx` | /manager/bucket-integrity and integrity workflows from /ceph-admin/buckets, /storage-ops/buckets; failure samples | ui-data-table × 1 | `BucketIntegrityCheckModal.test.tsx` |
+| `features/shared/BucketOperationResult.tsx` | /manager/bucket-integrity, /manager/bucket-purge, /manager/buckets and workflows from /ceph-admin/buckets, /storage-ops/buckets; shared keyboard-scrollable failure samples | ui-data-table × 1 | `BucketIntegrityCheckModal.test.tsx`, `BucketPurgeRunModal.test.tsx` |
 | `features/shared/BucketOpsBulkTransferFields.tsx` | /ceph-admin/buckets, /storage-ops/buckets; transfer selection dialog | ui-data-table × 1 | `BucketOpsBulkTransferFields.test.tsx` |
 | `features/shared/BucketOpsTable.tsx` | /ceph-admin/buckets, /storage-ops/buckets; specialized inventory | ui-data-table × 1 | `BucketOpsTable.test.tsx`, `BucketOpsTableCells.test.tsx`; V7/V8 |
-| `features/shared/BucketPurgeRunModal.tsx` | /manager/bucket-purge, /manager/buckets and purge workflows from /ceph-admin/buckets, /storage-ops/buckets; failure samples | ui-data-table × 1 | `BucketPurgeRunModal.test.tsx` |
 | `features/shared/BucketUsageStatsRunModal.tsx` | Manager, Ceph Admin and Storage Ops usage workflows; result breakdown | ui-data-table × 1 | `BucketUsageStatsRunModal.test.tsx` |
 | `features/shared/ProfilePage.tsx` | /{admin,manager,portal,browser,ceph-admin,storage-ops}/profile; private S3 connections | ui-data-table × 1 | `ProfilePage.validation.test.tsx` |
 | `features/shared/bucketCompareShared.tsx` | /manager/bucket-compare and compare dialogs in Ceph Admin/Storage Ops; manual mappings | ui-data-table × 1 | `bucketCompareShared.test.ts` |
