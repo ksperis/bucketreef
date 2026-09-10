@@ -29,9 +29,28 @@ The authenticated harness validates Admin/Browser rendering with isolated Moto.
 It does not prove Ceph, Portal or Manager storage operations. Temporary captures,
 reports and authentication state must remain outside commits.
 
+## Short-dialog actions
+
+`ModalActions` now owns the final action area for shared confirmations, settings
+draft dialogs, private connection creation, Admin API token creation and endpoint
+deletion, Browser bucket/folder creation, SSE-C, copy and bulk dialogs, Manager
+private access, and Portal public links/space identity/icons. It keeps native
+form submission and save boundaries at the call site. Button geometry and
+mobile wrapping are shared rather than copied into each feature.
+
+Portal public-link dialogs now pass all secondary/close/progress labels in the
+selected language. Other workspace translation boundaries remain unchanged.
+
+Validate final actions with both themes, desktop and 390px mobile. In Browser,
+open **New folder**, check the existing name validation, fill a draft, cancel
+and keep editing, then create a folder on isolated Moto. In compact settings,
+verify **Apply** updates only the draft and **Cancel** retains the existing close
+confirmation. Long translated action labels must wrap within the dialog, with
+44px touch targets. No action may run when merely opening a confirmation.
+
 ## Remaining passes
 
-- Normalize action areas in short dialogs through a shared composition.
+- Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
 - Consolidate repeated column/export popovers in operational inventories.
 - Review remaining account and bucket form sections against the compact

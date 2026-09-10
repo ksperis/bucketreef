@@ -2,12 +2,14 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import Modal from "../../components/Modal";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
-import { browserPanelCardClasses, bulkActionClasses, formInputClasses, toolbarPrimaryClasses } from "./browserConstants";
+import { browserPanelCardClasses, formInputClasses } from "./browserConstants";
+import UiButton from "../../components/ui/UiButton";
 import { stableSignature } from "../../utils/stableSignature";
 import type {
   BrowserBulkRestoreDraft,
@@ -186,19 +188,18 @@ export default function BrowserBulkRestoreModal({
             ? "Restores deleted objects to their latest non-delete-marker version. Target date is ignored in this mode."
             : "Restores the latest version at or before the selected date. Objects with a delete marker at that date are skipped unless deletion is enabled or deleted-object restore is selected."}
         </p>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button type="button" className={bulkActionClasses} onClick={closeGuard.requestClose}>
+        <ModalActions>
+          <UiButton variant="secondary" onClick={closeGuard.requestClose}>
             Cancel
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             type="button"
-            className={toolbarPrimaryClasses}
             onClick={onApply}
             disabled={loading}
           >
             {loading ? (draft.dryRun ? "Previewing..." : "Restoring...") : draft.dryRun ? "Preview changes" : "Run restore"}
-          </button>
-        </div>
+          </UiButton>
+        </ModalActions>
       </div>
       {closeGuard.confirmationDialog}
     </Modal>

@@ -11,8 +11,6 @@ import {
   uiPanelMutedClass,
 } from "../../components/ui/styles";
 
-export const bulkActionClasses =
-  cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5");
 export const bulkDangerClasses =
   cx(uiButtonBaseClass, uiButtonVariants.danger, "px-2.5 py-1.5");
 export const toolbarButtonClasses =

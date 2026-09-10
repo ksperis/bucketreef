@@ -2,12 +2,14 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import Modal from "../../components/Modal";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
-import { browserPanelCardClasses, bulkActionClasses, formInputClasses, toolbarPrimaryClasses } from "./browserConstants";
+import { browserPanelCardClasses, formInputClasses } from "./browserConstants";
+import UiButton from "../../components/ui/UiButton";
 import { stableSignature } from "../../utils/stableSignature";
 import type { BrowserVersionCleanupDraft } from "./useBrowserVersionCleanup";
 
@@ -92,19 +94,18 @@ export default function BrowserCleanupModal({
         <p className="ui-caption text-slate-500 dark:text-slate-400">
           If multiple rules are set, versions matching any rule are removed. The latest version is never deleted.
         </p>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button type="button" className={bulkActionClasses} onClick={closeGuard.requestClose}>
+        <ModalActions>
+          <UiButton variant="secondary" onClick={closeGuard.requestClose}>
             Cancel
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             type="button"
-            className={toolbarPrimaryClasses}
             onClick={onApply}
             disabled={loading}
           >
             {loading ? "Cleaning..." : "Run cleanup"}
-          </button>
-        </div>
+          </UiButton>
+        </ModalActions>
       </div>
       {closeGuard.confirmationDialog}
     </Modal>

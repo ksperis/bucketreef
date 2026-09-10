@@ -2,10 +2,12 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { useEffect, useRef, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import Modal from "../../components/Modal";
-import { bulkActionClasses, formInputClasses, toolbarPrimaryClasses } from "./browserConstants";
+import { formInputClasses } from "./browserConstants";
+import UiButton from "../../components/ui/UiButton";
 
 type BrowserConfirmModalProps = {
   title: string;
@@ -94,14 +96,14 @@ export function BrowserCopyValueModal({
           />
         </div>
         {copyHint && <p className="ui-caption text-slate-500 dark:text-slate-400">{copyHint}</p>}
-        <div className="flex items-center justify-end gap-2">
-          <button type="button" className={bulkActionClasses} onClick={onClose}>
+        <ModalActions>
+          <UiButton variant="secondary" onClick={onClose}>
             Close
-          </button>
-          <button type="button" className={toolbarPrimaryClasses} onClick={() => void handleCopy()}>
+          </UiButton>
+          <UiButton onClick={() => void handleCopy()}>
             Copy
-          </button>
-        </div>
+          </UiButton>
+        </ModalActions>
       </div>
     </Modal>
   );

@@ -2,19 +2,19 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import Modal from "../../components/Modal";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { stableSignature } from "../../utils/stableSignature";
 import {
   aclOptions,
   browserPanelCardClasses,
-  bulkActionClasses,
   formInputClasses,
   storageClassOptions,
-  toolbarPrimaryClasses,
 } from "./browserConstants";
 import type { BrowserBulkAttributesDraft } from "./useBrowserBulkAttributes";
 
@@ -254,19 +254,18 @@ export default function BrowserBulkAttributesModal({
             )}
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button type="button" className={bulkActionClasses} onClick={closeGuard.requestClose}>
+        <ModalActions>
+          <UiButton variant="secondary" onClick={closeGuard.requestClose}>
             Cancel
-          </button>
-          <button
+          </UiButton>
+          <UiButton
             type="button"
-            className={toolbarPrimaryClasses}
             onClick={onApply}
             disabled={loading}
           >
             {loading ? "Updating..." : "Apply changes"}
-          </button>
-        </div>
+          </UiButton>
+        </ModalActions>
       </div>
       {closeGuard.confirmationDialog}
     </Modal>

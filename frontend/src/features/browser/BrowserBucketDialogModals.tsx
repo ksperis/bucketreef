@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ModalActions from "../../components/ModalActions";
 import { useCallback, useState, type ReactNode, type RefObject } from "react";
 import type { BrowserWorkspaceSurface } from "../../api/browserWorkspace";
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -197,7 +198,7 @@ export function BrowserCreateBucketModal({
             {error}
           </p>
         )}
-        <div className="flex items-center justify-end gap-2">
+        <ModalActions>
           <UiButton
             type="button"
             variant="secondary"
@@ -216,7 +217,7 @@ export function BrowserCreateBucketModal({
           >
             {loading ? "Creating..." : "Create bucket"}
           </UiButton>
-        </div>
+        </ModalActions>
       </form>
       {confirmationDialog}
     </Modal>
@@ -289,7 +290,7 @@ export function BrowserSseCustomerKeyModal({
             SSE-C is currently enabled for this bucket.
           </p>
         )}
-        <div className="flex items-center justify-end gap-2">
+        <ModalActions>
           <UiButton type="button" variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </UiButton>
@@ -314,7 +315,7 @@ export function BrowserSseCustomerKeyModal({
           <UiButton type="submit" size="sm">
             Enable
           </UiButton>
-        </div>
+        </ModalActions>
       </form>
       {confirmationDialog}
     </Modal>
@@ -373,7 +374,7 @@ export function BrowserCreateFolderModal({
             {error}
           </p>
         )}
-        <div className="flex items-center justify-end gap-2">
+        <ModalActions>
           <UiButton
             type="button"
             variant="secondary"
@@ -390,7 +391,7 @@ export function BrowserCreateFolderModal({
           >
             {loading ? "Creating..." : "Create"}
           </UiButton>
-        </div>
+        </ModalActions>
       </form>
       {confirmationDialog}
     </Modal>
