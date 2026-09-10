@@ -63,12 +63,62 @@
   overflow-wrap: anywhere;
 }
 
+.modal-options {
+  display: grid;
+  gap: 8px;
+}
+
+.modal-options > :is(.ui-button-base, label) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  height: auto;
+  padding: 6px 8px;
+  border: 1px solid var(--ui-border-soft);
+  border-radius: 6px;
+  color: var(--ui-text);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.modal-options > label:has(input:disabled) {
+  opacity: 0.6;
+}
+
+.modal-option-copy {
+  min-width: 0;
+}
+
+.modal-options > .ui-button-base .modal-option-copy {
+  display: grid;
+  grid-template-columns: minmax(48px, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 12px;
+  width: 100%;
+}
+
+.modal-option-description {
+  display: block;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
 @media (max-width: 1023px), (any-pointer: coarse) {
   .modal-body .ui-control {
     min-height: 44px;
   }
 
   .modal-actions > .ui-button-base,
+  .modal-options > :is(.ui-button-base, label),
   .modal-close {
     min-width: 44px;
     min-height: 44px;

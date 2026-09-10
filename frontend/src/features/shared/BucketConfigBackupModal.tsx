@@ -5,9 +5,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import Modal from "../../components/Modal";
+import ModalActions from "../../components/ModalActions";
+import ModalOptions from "../../components/ModalOptions";
 import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import { uiLabelClass, uiMutedTextClass } from "../../components/ui/styles";
 import type { CephAdminBucketConfigBackupFeature } from "../../api/cephAdminBuckets";
 import { extractApiError } from "../../utils/apiError";
 
@@ -79,36 +82,33 @@ export default function BucketConfigBackupModal({
   return (
     <Modal title="Backup bucket configs" onClose={onClose} maxWidthClass="max-w-xl">
       <div className="space-y-4">
-        <p className="ui-body text-slate-700 dark:text-slate-200">
+        <p className={`ui-caption ${uiMutedTextClass}`}>
           {bucketCount} bucket{bucketCount > 1 ? "s" : ""} selected.
         </p>
-        <div className="space-y-2">
-          <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <fieldset className="min-w-0 space-y-2">
+          <legend className={uiLabelClass}>
             Configurations
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          </legend>
+          <ModalOptions className="sm:grid-cols-2">
             {featureOptions.map((feature) => (
               <UiCheckboxField
                 key={feature.key}
                 checked={selected.has(feature.key) && feature.available}
                 disabled={!feature.available || loading}
                 onChange={(event) => toggleFeature(feature, event.target.checked)}
-                className={`flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100 ${
-                  feature.available ? "" : "opacity-60"
-                }`}
               >
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-semibold">{feature.label}</span>
+                <span className="modal-option-copy">
+                  <span>{feature.label}</span>
                   {!feature.available && feature.unavailableReason && (
-                    <span className="ui-caption text-slate-500 dark:text-slate-400">{feature.unavailableReason}</span>
+                    <span className="modal-option-description">{feature.unavailableReason}</span>
                   )}
                 </span>
               </UiCheckboxField>
             ))}
-          </div>
-        </div>
+          </ModalOptions>
+        </fieldset>
         {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
-        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+        <ModalActions>
           <UiButton type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Cancel
           </UiButton>
@@ -119,7 +119,7 @@ export default function BucketConfigBackupModal({
           >
             {loading ? "Preparing..." : "Download JSON"}
           </UiButton>
-        </div>
+        </ModalActions>
       </div>
     </Modal>
   );

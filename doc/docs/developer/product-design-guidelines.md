@@ -416,6 +416,15 @@ specialized multi-action flows such as SSE-C. Pass translated dialog labels
 explicitly from Portal; shared components default to English. Page workflows
 continue to use `WorkflowActions`, and draft-only settings use `SettingsActions`.
 
+Use `ModalOptions` for a short list of export actions or configuration choices.
+Compose native `UiButton` or `UiCheckboxField` children, with
+`modal-option-copy` and optional `modal-option-description` text. Options share
+theme borders, 13px labels, 12px descriptions and a 36px desktop minimum height
+(44px on touch devices). Keep format descriptions beside their labels where
+space permits; wrap long text instead of truncating it. Group related checkbox
+choices with a fieldset and legend. Keep API payloads and submission behavior
+in the owning feature.
+
 Do not keep a generic compatibility component that switches a workflow between
 modal and page presentations. When the same form legitimately needs both,
 factor the fields and business hook, then compose explicit `Modal` and
