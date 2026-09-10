@@ -74,7 +74,7 @@ export function SettingsActions({
 }) {
   if (!dirty) return null;
   return (
-    <div className="settings-actions ui-page-sticky-actions">
+    <SettingsActionBar>
       <SettingsButton variant="secondary" disabled={busy} onClick={onCancel}>
         {cancelLabel}
       </SettingsButton>
@@ -85,8 +85,12 @@ export function SettingsActions({
       >
         {busy ? savingLabel : saveLabel}
       </SettingsButton>
-    </div>
+    </SettingsActionBar>
   );
+}
+
+export function SettingsActionBar({ children }: { children: ReactNode }) {
+  return <div className="settings-actions ui-page-sticky-actions">{children}</div>;
 }
 
 export function SettingsField({

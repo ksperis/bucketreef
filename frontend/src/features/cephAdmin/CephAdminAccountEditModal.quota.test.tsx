@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CephAdminAccountEditModal from "./CephAdminAccountEditModal";
 
@@ -19,8 +19,8 @@ const detail = {
   bucket_quota: { enabled: true, max_size_bytes: 1537, max_objects: 10 },
 };
 
-async function openConfiguration() {
-  render(<CephAdminAccountEditModal endpointId={7} accountId={detail.account_id} canViewMetrics={false} onClose={vi.fn()} />);
+async function openConfiguration(onClose = vi.fn()) {
+  render(<CephAdminAccountEditModal endpointId={7} accountId={detail.account_id} canViewMetrics={false} onClose={onClose} />);
   await screen.findByText("analytics@example.com");
   fireEvent.click(screen.getByRole("tab", { name: "Configuration" }));
   return {
@@ -36,7 +36,7 @@ async function saveConfiguration() {
   return updateConfig.mock.calls[0][2];
 }
 
-describe("RGW account quota configuration", () => {
+describe("RGW account configuration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getDetail.mockResolvedValue(detail);
@@ -93,5 +93,59 @@ describe("RGW account quota configuration", () => {
     const payload = await saveConfiguration();
     expect(payload).toMatchObject({ bucket_quota_max_size_bytes: null, bucket_quota_max_objects: null });
     expect(Object.keys(payload).filter((key) => key.startsWith("quota_"))).toEqual([]);
+  });
+
+  it("validates limits next to their fields and preserves explicit profile clearing", async () => {
+    const { account, bucket } = await openConfiguration();
+    const form = screen.getByRole("form", { name: "RGW account configuration" });
+    fireEvent.change(screen.getByLabelText("Max users"), { target: { value: "1.5" } });
+    fireEvent.change(account.getByLabelText("Storage quota"), { target: { value: "-1" } });
+    fireEvent.change(bucket.getByLabelText("Object quota"), { target: { value: "-1" } });
+    fireEvent.submit(form);
+    expect(updateConfig).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByLabelText("Max users")).toHaveFocus());
+    for (const field of [screen.getByLabelText("Max users"), account.getByLabelText("Storage quota"), bucket.getByLabelText("Object quota")]) {
+      expect(field).toHaveAttribute("aria-invalid", "true");
+      fireEvent.change(field, { target: { value: "" } });
+      expect(field).not.toHaveAttribute("aria-invalid", "true");
+    }
+    fireEvent.change(screen.getByLabelText("Account name"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(updateConfig).toHaveBeenCalledOnce());
+    expect(updateConfig.mock.calls[0][2]).toMatchObject({ account_name: null, email: null, max_users: null, quota_max_size_bytes: null, bucket_quota_max_objects: null });
+  });
+
+  it("freezes pending fields and retains the exact payload for retry", async () => {
+    let rejectRequest!: (error: Error) => void;
+    updateConfig.mockReturnValueOnce(new Promise((_, reject) => { rejectRequest = reject; }));
+    const onClose = vi.fn();
+    await openConfiguration(onClose);
+    const form = screen.getByRole("form", { name: "RGW account configuration" });
+    fireEvent.change(screen.getByLabelText("Account name"), { target: { value: "Analytics Ops" } });
+    fireEvent.submit(form);
+    for (const field of form.querySelectorAll("input,select")) expect(field).toBeDisabled();
+    fireEvent.submit(form);
+    fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
+    expect(updateConfig).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => rejectRequest(new Error("Account update refused")));
+    expect(await screen.findByText("Account update refused")).toBeInTheDocument();
+    expect(screen.getByLabelText("Account name")).toHaveValue("Analytics Ops");
+    fireEvent.submit(form);
+    await waitFor(() => expect(updateConfig).toHaveBeenCalledTimes(2));
+    expect(updateConfig.mock.calls[1]).toEqual(updateConfig.mock.calls[0]);
+  });
+
+  it("requires loaded account details before enabling configuration", async () => {
+    getDetail.mockRejectedValueOnce(new Error("Unable to read account"));
+    render(<CephAdminAccountEditModal endpointId={7} accountId={detail.account_id} canViewMetrics={false} onClose={vi.fn()} />);
+    await screen.findByText("Unable to read account");
+    fireEvent.click(screen.getByRole("tab", { name: "Configuration" }));
+    expect(screen.getByText("Unable to read account")).toBeInTheDocument();
+    expect(screen.getByLabelText("Account name")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save configuration" })).toBeDisabled();
+    fireEvent.submit(screen.getByRole("form", { name: "RGW account configuration" }));
+    expect(updateConfig).not.toHaveBeenCalled();
   });
 });

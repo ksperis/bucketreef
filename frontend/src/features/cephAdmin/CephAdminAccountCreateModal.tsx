@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   CephAdminRgwAccountDetail,
   createCephAdminAccount,
@@ -10,8 +10,10 @@ import {
 } from "../../api/cephAdminAccounts";
 import WorkflowPage from "../../components/WorkflowPage";
 import PageBanner from "../../components/PageBanner";
-import UiButton from "../../components/ui/UiButton";
-import UiInput from "../../components/ui/UiInput";
+import { SettingsActionBar, SettingsButton } from "../../components/settings/SettingsControls";
+import CephAdminAccountFormFields from "./CephAdminAccountFormFields";
+import { parseCephAdminAccountLimits, validateCephAdminAccountForm } from "./cephAdminAccountForm";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { extractApiError } from "../../utils/apiError";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { stableSignature } from "../../utils/stableSignature";
@@ -97,76 +99,36 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
     disabled: saving,
   });
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const [validationAttempted, setValidationAttempted] = useState(false);
+  const profileValues = { accountName, email, maxUsers, maxBuckets, maxRoles, maxGroups, maxAccessKeys };
+  const validation = validateCephAdminAccountForm(profileValues,
+    { enabled: accountQuotaEnabled, size: accountQuotaSize, unit: accountQuotaUnit, objects: accountQuotaObjects },
+    { enabled: bucketQuotaEnabled, size: bucketQuotaSize, unit: bucketQuotaUnit, objects: bucketQuotaObjects }, true);
+
   const submit = async () => {
+    if (saving) return;
     setError(null);
     setStatus(null);
-
-    const normalizedName = accountName.trim();
-    if (!normalizedName) {
-      setError("Account name is required.");
+    setValidationAttempted(true);
+    if (validation.invalid) {
+      if (formRef.current) focusFirstInvalidField(formRef.current);
       return;
     }
-
-    const parsedMaxUsers = maxUsers.trim() ? parseOptionalNonNegativeInteger(maxUsers) : null;
-    if (maxUsers.trim() && parsedMaxUsers == null) {
-      setError("Max users must be a positive integer.");
-      return;
-    }
-    const parsedMaxBuckets = maxBuckets.trim() ? parseOptionalNonNegativeInteger(maxBuckets) : null;
-    if (maxBuckets.trim() && parsedMaxBuckets == null) {
-      setError("Max buckets must be a positive integer.");
-      return;
-    }
-    const parsedMaxRoles = maxRoles.trim() ? parseOptionalNonNegativeInteger(maxRoles) : null;
-    if (maxRoles.trim() && parsedMaxRoles == null) {
-      setError("Max roles must be a positive integer.");
-      return;
-    }
-    const parsedMaxGroups = maxGroups.trim() ? parseOptionalNonNegativeInteger(maxGroups) : null;
-    if (maxGroups.trim() && parsedMaxGroups == null) {
-      setError("Max groups must be a positive integer.");
-      return;
-    }
-    const parsedMaxAccessKeys = maxAccessKeys.trim() ? parseOptionalNonNegativeInteger(maxAccessKeys) : null;
-    if (maxAccessKeys.trim() && parsedMaxAccessKeys == null) {
-      setError("Max access keys must be a positive integer.");
-      return;
-    }
-
+    const limits = parseCephAdminAccountLimits(profileValues);
     const parsedAccountQuotaBytes = accountQuotaEnabled ? parseQuotaBytes(accountQuotaSize, accountQuotaUnit) : null;
-    if (accountQuotaEnabled && accountQuotaSize.trim() && parsedAccountQuotaBytes == null) {
-      setError("Account quota size value is invalid.");
-      return;
-    }
-    const parsedAccountQuotaObjects = accountQuotaEnabled
-      ? parseOptionalNonNegativeInteger(accountQuotaObjects)
-      : null;
-    if (accountQuotaEnabled && accountQuotaObjects.trim() && parsedAccountQuotaObjects == null) {
-      setError("Account quota object value must be a positive integer.");
-      return;
-    }
-
+    const parsedAccountQuotaObjects = accountQuotaEnabled ? parseOptionalNonNegativeInteger(accountQuotaObjects) : null;
     const parsedBucketQuotaBytes = bucketQuotaEnabled ? parseQuotaBytes(bucketQuotaSize, bucketQuotaUnit) : null;
-    if (bucketQuotaEnabled && bucketQuotaSize.trim() && parsedBucketQuotaBytes == null) {
-      setError("Bucket quota size value is invalid.");
-      return;
-    }
-    const parsedBucketQuotaObjects = bucketQuotaEnabled
-      ? parseOptionalNonNegativeInteger(bucketQuotaObjects)
-      : null;
-    if (bucketQuotaEnabled && bucketQuotaObjects.trim() && parsedBucketQuotaObjects == null) {
-      setError("Bucket quota object value must be a positive integer.");
-      return;
-    }
+    const parsedBucketQuotaObjects = bucketQuotaEnabled ? parseOptionalNonNegativeInteger(bucketQuotaObjects) : null;
 
     const payload: CreateCephAdminAccountPayload = {
-      account_name: normalizedName,
+      account_name: accountName.trim(),
       email: email.trim() || undefined,
-      max_users: parsedMaxUsers ?? undefined,
-      max_buckets: parsedMaxBuckets ?? undefined,
-      max_roles: parsedMaxRoles ?? undefined,
-      max_groups: parsedMaxGroups ?? undefined,
-      max_access_keys: parsedMaxAccessKeys ?? undefined,
+      max_users: limits.max_users ?? undefined,
+      max_buckets: limits.max_buckets ?? undefined,
+      max_roles: limits.max_roles ?? undefined,
+      max_groups: limits.max_groups ?? undefined,
+      max_access_keys: limits.max_access_keys ?? undefined,
       quota_enabled: accountQuotaEnabled ? true : undefined,
       quota_max_size_bytes: parsedAccountQuotaBytes ?? undefined,
       quota_max_objects: parsedAccountQuotaObjects ?? undefined,
@@ -196,113 +158,59 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
       backLabel="Back to accounts"
       onBack={closeGuard.requestClose}
       width="standard"
+      contentVariant="plain"
     >
-      <div className="space-y-4">
+      <form ref={formRef} aria-label="Create RGW account" noValidate
+        onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         {error && <PageBanner tone="error">{error}</PageBanner>}
         {status && <PageBanner tone="success">{status}</PageBanner>}
+        <fieldset disabled={saving} className="min-w-0">
+          <CephAdminAccountFormFields creating values={profileValues}
+            errors={validationAttempted ? validation.profile : undefined}
+            onChange={(field, value) => ({ accountName: setAccountName, email: setEmail,
+              maxBuckets: setMaxBuckets, maxUsers: setMaxUsers, maxRoles: setMaxRoles,
+              maxGroups: setMaxGroups, maxAccessKeys: setMaxAccessKeys })[field](value)} />
 
-        <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="ui-body font-semibold text-slate-900 dark:text-slate-100">Account</h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            <UiInput
-              label="Account name *"
-              type="text"
-              value={accountName}
-              onChange={(event) => setAccountName(event.target.value)}
-              placeholder="Enter account name"
-              size="compact"
-            />
-            <UiInput
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              size="compact"
-            />
-            <UiInput
-              label="Max buckets"
-              type="number"
-              min={0}
-              value={maxBuckets}
-              onChange={(event) => setMaxBuckets(event.target.value)}
-              placeholder="Leave empty for unlimited"
-              size="compact"
-            />
-            <UiInput
-              label="Max users"
-              type="number"
-              min={0}
-              value={maxUsers}
-              onChange={(event) => setMaxUsers(event.target.value)}
-              placeholder="Leave empty for unlimited"
-              size="compact"
-            />
-            <UiInput
-              label="Max roles"
-              type="number"
-              min={0}
-              value={maxRoles}
-              onChange={(event) => setMaxRoles(event.target.value)}
-              placeholder="Leave empty for unlimited"
-              size="compact"
-            />
-            <UiInput
-              label="Max groups"
-              type="number"
-              min={0}
-              value={maxGroups}
-              onChange={(event) => setMaxGroups(event.target.value)}
-              placeholder="Leave empty for unlimited"
-              size="compact"
-            />
-            <UiInput
-              label="Max access keys"
-              type="number"
-              min={0}
-              value={maxAccessKeys}
-              onChange={(event) => setMaxAccessKeys(event.target.value)}
-              placeholder="Leave empty for unlimited"
-              fieldClassName="md:col-span-2"
-              size="compact"
-            />
-          </div>
-        </section>
+          <CephAdminQuotaFields
+            title="Account quota"
+            enabledLabel="Enable account quota"
+            enabled={accountQuotaEnabled}
+            onEnabledChange={setAccountQuotaEnabled}
+            sizeValue={accountQuotaSize}
+            onSizeChange={setAccountQuotaSize}
+            unitValue={accountQuotaUnit}
+            onUnitChange={setAccountQuotaUnit}
+            sizeError={validationAttempted ? validation.accountQuota.size : undefined}
+            objectError={validationAttempted ? validation.accountQuota.objects : undefined}
+            objectValue={accountQuotaObjects}
+            onObjectChange={setAccountQuotaObjects}
+          />
 
-        <CephAdminQuotaFields
-          title="Account quota"
-          enabledLabel="Enable account quota"
-          enabled={accountQuotaEnabled}
-          onEnabledChange={setAccountQuotaEnabled}
-          sizeValue={accountQuotaSize}
-          onSizeChange={setAccountQuotaSize}
-          unitValue={accountQuotaUnit}
-          onUnitChange={setAccountQuotaUnit}
-          objectValue={accountQuotaObjects}
-          onObjectChange={setAccountQuotaObjects}
-        />
+          <CephAdminQuotaFields
+            title="Bucket quota"
+            enabledLabel="Enable bucket quota"
+            enabled={bucketQuotaEnabled}
+            onEnabledChange={setBucketQuotaEnabled}
+            sizeValue={bucketQuotaSize}
+            onSizeChange={setBucketQuotaSize}
+            unitValue={bucketQuotaUnit}
+            onUnitChange={setBucketQuotaUnit}
+            sizeError={validationAttempted ? validation.bucketQuota.size : undefined}
+            objectError={validationAttempted ? validation.bucketQuota.objects : undefined}
+            objectValue={bucketQuotaObjects}
+            onObjectChange={setBucketQuotaObjects}
+          />
 
-        <CephAdminQuotaFields
-          title="Bucket quota"
-          enabledLabel="Enable bucket quota"
-          enabled={bucketQuotaEnabled}
-          onEnabledChange={setBucketQuotaEnabled}
-          sizeValue={bucketQuotaSize}
-          onSizeChange={setBucketQuotaSize}
-          unitValue={bucketQuotaUnit}
-          onUnitChange={setBucketQuotaUnit}
-          objectValue={bucketQuotaObjects}
-          onObjectChange={setBucketQuotaObjects}
-        />
-
-        <div className="ui-page-sticky-actions -mx-6 flex items-center justify-end gap-2 border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] px-6 py-3">
-          <UiButton variant="secondary" size="sm" onClick={closeGuard.requestClose}>
+        </fieldset>
+        <SettingsActionBar>
+          <SettingsButton variant="secondary" onClick={closeGuard.requestClose} disabled={saving}>
             Cancel
-          </UiButton>
-          <UiButton size="sm" onClick={submit} disabled={saving}>
+          </SettingsButton>
+          <SettingsButton type="submit" disabled={saving}>
             {saving ? "Creating..." : "Create account"}
-          </UiButton>
-        </div>
-      </div>
+          </SettingsButton>
+        </SettingsActionBar>
+      </form>
       {closeGuard.confirmationDialog}
     </WorkflowPage>
   );

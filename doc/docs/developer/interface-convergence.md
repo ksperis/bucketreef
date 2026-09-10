@@ -413,6 +413,17 @@ one-time panel and S3 Connection permission guard.
 and account creation/configuration, including the unit selector. Account quota
 and default bucket quota retain independent controls and API fields.
 
+Account creation and configuration also share `CephAdminAccountFormFields` for
+identity and the five resource limits. Both use compact `SettingsSection` fields
+and the canonical `SettingsActionBar`, including its bottom-aligned sticky
+behavior. Empty creation limits defer to cluster defaults; empty configuration
+limits retain the existing explicit-clear contract. Account and user forms use
+one quota validator. Account errors appear beside each field, clear as values
+are corrected or quotas disabled, and receive focus on invalid submission.
+Native Enter submission, frozen pending drafts and detail-load guards apply to
+account forms too. A failed save retains the draft and permits an identical
+retry; unchanged quotas remain omitted from configuration requests.
+
 Validate the four user/account forms with documentary API fixtures in both
 themes at 1440px and 390px, plus 320px. Check long identities, quota units and
 disabled quota fields, errors and focus, Enter submission, frozen drafts,
