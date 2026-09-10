@@ -192,7 +192,7 @@ async function openDetailsByLabel(user: ReturnType<typeof userEvent.setup>, labe
 }
 
 async function openResultDetails(user: ReturnType<typeof userEvent.setup>) {
-  return openDetailsByLabel(user, /bucket-a\s*->\s*bucket-a/i);
+  return openDetailsByLabel(user, /bucket-a\s*→\s*bucket-a/i);
 }
 
 async function openContentDetails(user: ReturnType<typeof userEvent.setup>) {
@@ -243,10 +243,36 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     runManagerBucketCompareActionMock.mockResolvedValue(buildActionResult());
   });
 
+  it("keeps pair progress indeterminate until the comparison settles", async () => {
+    let resolveComparison!: (result: ManagerBucketCompareResult) => void;
+    compareManagerBucketPairMock.mockReturnValue(new Promise((resolve) => { resolveComparison = resolve; }));
+    await runInitialComparison();
+    const pairProgress = screen.getByRole("progressbar", { name: "Comparison progress for bucket-a to bucket-a" });
+    expect(pairProgress).not.toHaveAttribute("aria-valuenow");
+    resolveComparison(buildCompareResult());
+    await waitFor(() => expect(screen.getByRole("progressbar", { name: "Comparison progress for bucket-a to bucket-a" })).toHaveAttribute("aria-valuenow", "100"));
+  });
+
+  it("renders configuration feature sections within one bucket-pair result", async () => {
+    compareManagerBucketPairMock.mockResolvedValue(buildCompareResult({
+      config_diff: {
+        changed: true,
+        sections: [{ key: "versioning_status", label: "Versioning", source: "Enabled", target: "Suspended", changed: true }],
+      },
+    }));
+    const user = await runInitialComparison();
+    await openResultDetails(user);
+    await openDetailsByLabel(user, "Config diff");
+    await openDetailsByLabel(user, "Versioning");
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(screen.getByText("Suspended")).toBeInTheDocument();
+    expect(screen.getAllByRole("progressbar", { name: "Comparison progress for bucket-a to bucket-a" })).toHaveLength(1);
+  });
+
   it("labels completed results with differences and keeps the result tree collapsed", async () => {
     await runInitialComparison();
 
-    const resultLabel = await screen.findByText(/bucket-a\s*->\s*bucket-a/i);
+    const resultLabel = await screen.findByText(/bucket-a\s*→\s*bucket-a/i);
     expect(screen.getByRole("progressbar", { name: "Bucket comparison progress" })).toHaveAttribute(
       "aria-valuenow",
       "100"

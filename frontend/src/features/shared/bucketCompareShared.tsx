@@ -70,13 +70,13 @@ type RunStatusItem = {
   result?: { has_differences?: boolean } | null;
 };
 
-type BucketCompareRunPresentationItem = RunStatusItem & {
+export type BucketCompareRunPresentationItem = RunStatusItem & {
   sourceBucket: string;
   targetBucket: string;
   error?: string;
 };
 
-type BucketCompareRunFilters = {
+export type BucketCompareRunFilters = {
   search: string;
   status: "all" | RunItemStatus;
   differences: "all" | "with_diff" | "no_diff";
