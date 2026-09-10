@@ -131,7 +131,7 @@ export default function PageHeader({
           </nav>
         )}
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h1 className={cx("text-[17px] font-bold leading-6", uiTitleTextClass)}>{title}</h1>
+          <h1 className={cx("min-w-0 text-[17px] font-bold leading-6 [overflow-wrap:anywhere]", uiTitleTextClass)}>{title}</h1>
           {inlineContent ? <div className="flex flex-wrap items-center gap-2">{inlineContent}</div> : null}
         </div>
         {description ? <p className={cx("mt-1 max-w-3xl text-xs leading-5", uiMutedTextClass)}>{description}</p> : null}

@@ -28,6 +28,10 @@ import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagerIamCollection } from "./useManagerIamCollection";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import UiInput from "../../components/ui/UiInput";
 
 const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
 
@@ -65,6 +69,7 @@ export default function ManagerGroupsPage() {
     resetInlinePolicyDraftEditor,
   } = useInlinePolicyDraftEditor(setError);
   const [advancedName, setAdvancedName] = useState("");
+  const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [policies, setPolicies] = useState<IamPolicy[]>([]);
   const [policySearch, setPolicySearch] = useState("");
@@ -120,7 +125,12 @@ export default function ManagerGroupsPage() {
 
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (needsS3AccountSelection || !advancedName.trim()) return;
+    if (needsS3AccountSelection || busy !== null) return;
+    setAdvancedValidationAttempted(true);
+    if (!advancedName.trim()) {
+      focusFirstInvalidField(e.currentTarget as HTMLFormElement);
+      return;
+    }
     setBusy(advancedName);
     setError(null);
     setActionMessage(null);
@@ -180,6 +190,7 @@ export default function ManagerGroupsPage() {
 
   const openAdvancedModal = () => {
     setError(null);
+    setAdvancedValidationAttempted(false);
     setAdvancedName("");
     setSelectedPolicies([]);
     setPolicySearch("");
@@ -340,20 +351,18 @@ export default function ManagerGroupsPage() {
           backLabel="Back to groups"
           onBack={advancedCloseGuard.requestClose}
           width="standard"
+          contentVariant="plain"
         >
           {error && <PageBanner tone="error">{error}</PageBanner>}
-          <form className="space-y-4" onSubmit={handleAdvancedCreate}>
-            <div className="flex flex-col gap-2">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Group name</label>
-              <input
-                type="text"
-                value={advancedName}
-                onChange={(e) => setAdvancedName(e.target.value)}
-                placeholder="Group name"
-                className="rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                required
-              />
-            </div>
+          <SettingsForm label="Create IAM group" onSubmit={handleAdvancedCreate}
+            busy={busy !== null} disabled={!selectedS3AccountId} onCancel={advancedCloseGuard.requestClose}
+            submitLabel="Create group" busyLabel="Creating...">
+            <SettingsSection title="Identity" presentation="compact">
+              <div className="settings-fields">
+                <UiInput label="Group name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+                  placeholder="Group name" error={advancedValidationAttempted && !advancedName.trim() ? "Group name is required." : undefined} />
+              </div>
+            </SettingsSection>
             <ManagedPolicySelectionPanel
               title="Attach policies"
               description="Select managed policies to link immediately."
@@ -391,23 +400,7 @@ export default function ManagerGroupsPage() {
               onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
               onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
             />
-            <div className="flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={advancedCloseGuard.requestClose}
-                className="rounded-md border border-slate-200 px-4 py-2 ui-body font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={!selectedS3AccountId || busy !== null}
-                className="rounded-md bg-primary px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-              >
-                {busy === advancedName ? "Creating..." : "Create group"}
-              </button>
-            </div>
-          </form>
+          </SettingsForm>
           {advancedCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}

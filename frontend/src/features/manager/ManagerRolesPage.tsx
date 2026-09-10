@@ -36,6 +36,10 @@ import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagerIamCollection } from "./useManagerIamCollection";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import ManagerRoleFormFields from "./ManagerRoleFormFields";
+import { parseIamRolePolicy } from "./iamRoleForm";
 
 const DEFAULT_ASSUME_ROLE_DOCUMENT = JSON.stringify(
   {
@@ -89,6 +93,7 @@ export default function ManagerRolesPage() {
     resetInlinePolicyDraftEditor,
   } = useInlinePolicyDraftEditor(setError);
   const [advancedName, setAdvancedName] = useState("");
+  const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [advancedPath, setAdvancedPath] = useState(DEFAULT_ROLE_PATH);
   const [assumeRolePolicyText, setAssumeRolePolicyText] = useState(DEFAULT_ASSUME_ROLE_DOCUMENT);
   const [creating, setCreating] = useState(false);
@@ -118,6 +123,9 @@ export default function ManagerRolesPage() {
   );
   const [loadingRoleDetails, setLoadingRoleDetails] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editValidationAttempted, setEditValidationAttempted] = useState(false);
+  const advancedPolicy = parseIamRolePolicy(assumeRolePolicyText);
+  const editPolicy = parseIamRolePolicy(editAssumeRolePolicyText);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const loadPolicies = useCallback(
@@ -172,12 +180,10 @@ export default function ManagerRolesPage() {
 
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (needsS3AccountSelection || !advancedName.trim()) return;
-    let parsedAssumeDoc: Record<string, unknown>;
-    try {
-      parsedAssumeDoc = JSON.parse(assumeRolePolicyText);
-    } catch {
-      setError("Assume role policy must be valid JSON.");
+    if (needsS3AccountSelection || creating) return;
+    setAdvancedValidationAttempted(true);
+    if (!advancedName.trim() || advancedPolicy.error) {
+      focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
     const trimmedPath = advancedPath.trim();
@@ -189,7 +195,7 @@ export default function ManagerRolesPage() {
       await createIamRole(accountIdForApi, {
         name: roleName,
         path: trimmedPath === "" ? undefined : trimmedPath,
-        assume_role_policy_document: parsedAssumeDoc,
+        assume_role_policy_document: advancedPolicy.document,
         inline_policies: inlineDrafts,
       });
       if (selectedPolicies.length > 0) {
@@ -247,6 +253,7 @@ export default function ManagerRolesPage() {
 
   const openAdvancedModal = () => {
     setError(null);
+    setAdvancedValidationAttempted(false);
     setAdvancedName("");
     setAdvancedPath(DEFAULT_ROLE_PATH);
     setAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
@@ -298,6 +305,7 @@ export default function ManagerRolesPage() {
   const openEditModal = async (roleName: string) => {
     if (needsS3AccountSelection) return;
     setShowEditModal(true);
+    setEditValidationAttempted(false);
     setEditingRole({ name: roleName });
     setLoadingRoleDetails(true);
     setError(null);
@@ -341,22 +349,18 @@ export default function ManagerRolesPage() {
 
   const handleSaveEdit = async (e: FormEvent) => {
     e.preventDefault();
-    if (needsS3AccountSelection || !editingRole) return;
-    let parsedAssumeDoc: Record<string, unknown>;
-    try {
-      parsedAssumeDoc = JSON.parse(editAssumeRolePolicyText);
-    } catch {
-      setError("Assume role policy must be valid JSON.");
+    if (needsS3AccountSelection || !editingRole || loadingRoleDetails || savingEdit) return;
+    setEditValidationAttempted(true);
+    if (editPolicy.error) {
+      focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
-    const trimmedPath = editPath.trim();
     setSavingEdit(true);
     setError(null);
     setActionMessage(null);
     try {
       await updateIamRole(accountIdForApi, editingRole.name, {
-        path: trimmedPath === "" ? undefined : trimmedPath,
-        assume_role_policy_document: parsedAssumeDoc,
+        assume_role_policy_document: editPolicy.document,
       });
       setActionMessage("Role updated");
       closeEditModal();
@@ -504,43 +508,16 @@ export default function ManagerRolesPage() {
           backLabel="Back to roles"
           onBack={advancedCloseGuard.requestClose}
           width="standard"
+          contentVariant="plain"
         >
           {error && <PageBanner tone="error">{error}</PageBanner>}
-          <form className="space-y-4" onSubmit={handleAdvancedCreate}>
-            <div className="flex flex-col gap-2">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Role name</label>
-              <input
-                type="text"
-                value={advancedName}
-                onChange={(e) => setAdvancedName(e.target.value)}
-                placeholder="Role name"
-                className="rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Role path (optional)</label>
-              <input
-                type="text"
-                value={advancedPath}
-                onChange={(e) => setAdvancedPath(e.target.value)}
-                placeholder="/application/"
-                className="rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-              <p className="ui-caption text-slate-500 dark:text-slate-400">Defaults to &quot;/&quot;. Sets the IAM path prefix for the role.</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Assume role policy (JSON)</label>
-              <textarea
-                value={assumeRolePolicyText}
-                onChange={(e) => setAssumeRolePolicyText(e.target.value)}
-                className="min-h-[180px] rounded-md border border-slate-200 px-3 py-2 ui-body font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                spellCheck={false}
-              />
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                IAM trust policy document used by STS AssumeRole. Provide valid JSON.
-              </p>
-            </div>
+          <SettingsForm label="Create IAM role" onSubmit={handleAdvancedCreate}
+            busy={creating} disabled={needsS3AccountSelection} onCancel={advancedCloseGuard.requestClose}
+            submitLabel="Create role" busyLabel="Creating...">
+            <ManagerRoleFormFields name={advancedName} path={advancedPath} policy={assumeRolePolicyText}
+              onNameChange={setAdvancedName} onPathChange={setAdvancedPath} onPolicyChange={setAssumeRolePolicyText}
+              nameError={advancedValidationAttempted && !advancedName.trim() ? "Role name is required." : undefined}
+              policyError={advancedValidationAttempted ? advancedPolicy.error : undefined} />
             <ManagedPolicySelectionPanel
               title="Attach policies"
               description="Select managed policies to grant permissions immediately."
@@ -578,23 +555,7 @@ export default function ManagerRolesPage() {
               onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
               onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
             />
-            <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={advancedCloseGuard.requestClose}
-                className="rounded-md border border-slate-200 px-4 py-2 ui-body font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={needsS3AccountSelection || creating}
-                className="rounded-md bg-primary px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-              >
-                {creating ? "Creating..." : "Create role"}
-              </button>
-            </div>
-          </form>
+          </SettingsForm>
           {advancedCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}
@@ -606,64 +567,18 @@ export default function ManagerRolesPage() {
           backLabel="Back to roles"
           onBack={editCloseGuard.requestClose}
           width="standard"
+          contentVariant="plain"
         >
           {error && <PageBanner tone="error">{error}</PageBanner>}
           {loadingRoleDetails ? (
             <p className="ui-body text-slate-500 dark:text-slate-300">Loading role details...</p>
           ) : (
-            <form className="space-y-4" onSubmit={handleSaveEdit}>
-              <div className="flex flex-col gap-2">
-                <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Role name</label>
-                <input
-                  type="text"
-                  value={editingRole?.name ?? ""}
-                  readOnly
-                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 ui-body text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Role path</label>
-                <input
-                  type="text"
-                  value={editPath}
-                  onChange={(e) => setEditPath(e.target.value)}
-                  className="rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  disabled={savingEdit}
-                />
-                <p className="ui-caption text-slate-500 dark:text-slate-400">
-                  Path is set at creation time. IAM does not allow changing it later; updating with a different path will fail.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">Assume role policy (JSON)</label>
-                <textarea
-                  value={editAssumeRolePolicyText}
-                  onChange={(e) => setEditAssumeRolePolicyText(e.target.value)}
-                  className="min-h-[200px] rounded-md border border-slate-200 px-3 py-2 ui-body font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  spellCheck={false}
-                  disabled={savingEdit}
-                />
-                <p className="ui-caption text-slate-500 dark:text-slate-400">
-                  Update the trust policy document used by STS AssumeRole. Provide valid JSON.
-                </p>
-              </div>
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={editCloseGuard.requestClose}
-                  className="rounded-md border border-slate-200 px-4 py-2 ui-body font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={needsS3AccountSelection || savingEdit || !editingRole}
-                  className="rounded-md bg-primary px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-                >
-                  {savingEdit ? "Saving..." : "Save changes"}
-                </button>
-              </div>
-            </form>
+            <SettingsForm label="Edit IAM role" onSubmit={handleSaveEdit} busy={savingEdit}
+              disabled={needsS3AccountSelection || !editingRole} onCancel={editCloseGuard.requestClose}
+              submitLabel="Save changes" busyLabel="Saving...">
+              <ManagerRoleFormFields editing name={editingRole?.name ?? ""} path={editPath} policy={editAssumeRolePolicyText}
+                onPolicyChange={setEditAssumeRolePolicyText} policyError={editValidationAttempted ? editPolicy.error : undefined} />
+            </SettingsForm>
           )}
           {editCloseGuard.confirmationDialog}
         </WorkflowPage>

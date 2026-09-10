@@ -4,7 +4,7 @@
  */
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
@@ -40,6 +40,11 @@ import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagerIamCollection } from "./useManagerIamCollection";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import UiInput from "../../components/ui/UiInput";
+import { SettingsButton } from "../../components/settings/SettingsControls";
 
 const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
 
@@ -85,6 +90,7 @@ export default function ManagerUsersPage() {
     resetInlinePolicyDraftEditor,
   } = useInlinePolicyDraftEditor(setError);
   const [advancedName, setAdvancedName] = useState("");
+  const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [createKey, setCreateKey] = useState(true);
   const [createdKey, setCreatedKey] = useState<AccessKey | null>(null);
   const [createdForUser, setCreatedForUser] = useState<string | null>(null);
@@ -97,6 +103,7 @@ export default function ManagerUsersPage() {
   const [policySearch, setPolicySearch] = useState("");
   const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
   const [filter, setFilter] = useState("");
+  const groupOptionsId = useId();
   const [showGroupOptions, setShowGroupOptions] = useState(false);
   const [showPolicyOptions, setShowPolicyOptions] = useState(false);
   const [showAdvancedModal, setShowAdvancedModal] = useState(false);
@@ -217,7 +224,12 @@ export default function ManagerUsersPage() {
 
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (needsS3AccountSelection || !advancedName.trim()) return;
+    if (needsS3AccountSelection || busy !== null) return;
+    setAdvancedValidationAttempted(true);
+    if (!advancedName.trim()) {
+      focusFirstInvalidField(e.currentTarget as HTMLFormElement);
+      return;
+    }
     setBusy(advancedName);
     setError(null);
     setActionMessage(null);
@@ -283,6 +295,7 @@ export default function ManagerUsersPage() {
 
   const openAdvancedModal = () => {
     setError(null);
+    setAdvancedValidationAttempted(false);
     setAdvancedName("");
     setCreateKey(true);
     setSelectedGroups([]);
@@ -547,73 +560,45 @@ export default function ManagerUsersPage() {
           backLabel="Back to users"
           onBack={advancedCloseGuard.requestClose}
           width="standard"
+          contentVariant="plain"
         >
           {error && <PageBanner tone="error">{error}</PageBanner>}
-          <form className="space-y-4" onSubmit={handleAdvancedCreate}>
-            <div className="flex flex-col gap-2">
-              <label className="ui-body font-semibold text-slate-700 dark:text-slate-200">User name</label>
-              <input
-                type="text"
-                value={advancedName}
-                onChange={(e) => setAdvancedName(e.target.value)}
-                placeholder="User name"
-                className="rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                required
-              />
-            </div>
-            <UiCheckboxField
-              checked={createKey}
-              onChange={(e) => setCreateKey(e.target.checked)}
-              className="rounded-md border border-slate-200 px-3 py-2 ui-body text-slate-600 dark:border-slate-700 dark:text-slate-300"
-            >
-              Auto-generate an access key (shown only once)
-            </UiCheckboxField>
-            <div className="space-y-2 rounded-lg border border-dashed border-[color:var(--ui-border)] p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="ui-body font-semibold text-slate-800 dark:text-slate-100">Add to groups (optional)</div>
-                  <p className="ui-caption text-slate-500 dark:text-slate-400">Launch permissions by linking groups before creation.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {selectedGroups.length > 0 && (
-                    <span className="ui-caption uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      {selectedGroups.length} selected
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setShowGroupOptions((prev) => !prev)}
-                    className="rounded-full border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 hover:border-primary hover:text-primary dark:border-slate-700 dark:text-slate-100 dark:hover:border-primary-500 dark:hover:text-primary-100"
-                  >
+          <SettingsForm label="Create IAM user" onSubmit={handleAdvancedCreate}
+            busy={busy !== null} disabled={needsS3AccountSelection} onCancel={advancedCloseGuard.requestClose}
+            submitLabel="Create user" busyLabel="Creating...">
+            <SettingsSection title="Identity" presentation="compact">
+              <div className="settings-fields">
+                <UiInput label="User name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+                  placeholder="User name" error={advancedValidationAttempted && !advancedName.trim() ? "User name is required." : undefined} />
+                <UiCheckboxField checked={createKey} onChange={(event) => setCreateKey(event.target.checked)} className="settings-choice settings-body">
+                  Auto-generate an access key (shown only once)
+                </UiCheckboxField>
+              </div>
+            </SettingsSection>
+            <SettingsSection title="Add to groups (optional)" description="Launch permissions by linking groups before creation." presentation="compact">
+              <div className="settings-stack">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {selectedGroups.length > 0 && <span className="settings-description">{selectedGroups.length} selected</span>}
+                  <SettingsButton variant="secondary" onClick={() => setShowGroupOptions((prev) => !prev)}
+                    aria-expanded={showGroupOptions} aria-controls={groupOptionsId}>
                     {showGroupOptions ? "Hide" : "Show"}
-                  </button>
+                  </SettingsButton>
+                </div>
+                <div id={groupOptionsId} hidden={!showGroupOptions} className={showGroupOptions ? "settings-fields" : undefined}>
+                  {groups.length === 0 && <p className="settings-description">No groups available.</p>}
+                  <div className="grid gap-x-4 sm:grid-cols-2">
+                    {groups.map((group) => (
+                      <UiCheckboxField key={group.name} checked={selectedGroups.includes(group.name)}
+                        onChange={(event) => setSelectedGroups((current) => event.target.checked
+                          ? [...current, group.name] : current.filter((name) => name !== group.name))}
+                        className="settings-choice min-w-0 settings-body">
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{group.name}</span>
+                      </UiCheckboxField>
+                    ))}
+                  </div>
                 </div>
               </div>
-              {showGroupOptions && (
-                <div className="flex flex-wrap gap-2">
-                  {groups.length === 0 && <span className="ui-body text-slate-500 dark:text-slate-400">No groups available.</span>}
-                  {groups.map((g) => {
-                    const checked = selectedGroups.includes(g.name);
-                    return (
-                      <UiCheckboxField
-                        key={g.name}
-                        checked={checked}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedGroups((prev) => [...prev, g.name]);
-                          } else {
-                            setSelectedGroups((prev) => prev.filter((name) => name !== g.name));
-                          }
-                        }}
-                        className="rounded border border-slate-200 px-3 py-2 ui-body dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                      >
-                        {g.name}
-                      </UiCheckboxField>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            </SettingsSection>
             <ManagedPolicySelectionPanel
               title="Attach policies (optional)"
               description="Bind JSON policies now or skip and attach later."
@@ -651,23 +636,7 @@ export default function ManagerUsersPage() {
               onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
               onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
             />
-            <div className="flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={advancedCloseGuard.requestClose}
-                className="rounded-md border border-slate-200 px-4 py-2 ui-body font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={needsS3AccountSelection || busy !== null}
-                className="rounded-md bg-primary px-4 py-2 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
-              >
-                {busy === advancedName ? "Creating..." : "Create user"}
-              </button>
-            </div>
-          </form>
+          </SettingsForm>
           {advancedCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}
