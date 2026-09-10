@@ -9,12 +9,11 @@ import { cx, uiCardClass } from "../ui/styles";
 
 type ListPageSectionProps = Omit<
   ListToolbarProps,
-  "className" | "showHeading"
+  "className"
 > & {
   children: ReactNode;
   className?: string;
   toolbarClassName?: string;
-  showHeading?: boolean;
 };
 
 /**
@@ -25,7 +24,6 @@ export default function ListPageSection({
   children,
   className,
   toolbarClassName,
-  showHeading = false,
   ...toolbarProps
 }: ListPageSectionProps) {
   return (
@@ -33,7 +31,6 @@ export default function ListPageSection({
       <ListToolbar
         {...toolbarProps}
         className={toolbarClassName}
-        showHeading={showHeading}
       />
       {children}
     </section>

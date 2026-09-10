@@ -187,6 +187,21 @@ describe("ProfilePage live validation", () => {
     localStorage.clear();
   });
 
+  it("opts non-Browser connection lists into the common header and keeps creation in the page header", async () => {
+    const target = document.createElement("header");
+    document.body.append(target);
+    const { unmount } = render(<ProfilePage showPageHeader={false} showSettingsCards={false}
+      showConnectionsSection listPresentation headerActionsTarget={target} />);
+    await waitFor(() => expect(listConnectionsMock).toHaveBeenCalled());
+    expect(screen.getByRole("region", { name: "Private S3 connections" })).toHaveAttribute("data-list-variant", "page");
+    expect(screen.getByRole("searchbox", { name: "Search connections" })).toBeInTheDocument();
+    fireEvent.click(within(target).getByRole("button", { name: "Add connection" }));
+    expect(screen.getByRole("heading", { name: "Add private S3 connection" })).toBeInTheDocument();
+    unmount();
+    expect(target).toBeEmptyDOMElement();
+    target.remove();
+  });
+
   it("describes an administrator-managed identity as read-only", async () => {
     render(<ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />);
 

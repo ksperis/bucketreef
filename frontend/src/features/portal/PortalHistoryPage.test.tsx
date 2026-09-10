@@ -98,7 +98,7 @@ describe("PortalHistoryPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Access logs" }));
 
-    expect(screen.getByText("Technical access logs")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Technical access logs" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retrieve logs" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export logs" })).toBeInTheDocument();
     await waitFor(() => {

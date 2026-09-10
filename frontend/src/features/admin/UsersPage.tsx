@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1568,8 +1569,9 @@ export default function UsersPage() {
       )}
 
       <ListPageSection
+        variant="page"
+        mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
           title="Users"
-          description="Search matches across the full user record, including role and linked entities."
           countLabel={`${totalUsers} entr${totalUsers === 1 ? "y" : "ies"}`}
           search={
             <ToolbarSearchInput

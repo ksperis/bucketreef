@@ -165,9 +165,8 @@ export default function PoliciesPage() {
           tone="warning"
         />
       ) : (
-        <ListPageSection
+        <ListPageSection variant="page"
             title="Policies"
-            description="Managed IAM policies available in the selected execution context."
             countLabel={`${filteredPolicies.length} result(s)`}
             search={
               <ManagerToolbarSearch

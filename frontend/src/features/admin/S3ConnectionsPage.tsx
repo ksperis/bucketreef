@@ -1006,9 +1006,8 @@ export default function S3ConnectionsPage() {
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{error}</PageBanner>}
 
-      <ListPageSection
+      <ListPageSection variant="page"
           title="Shared S3 Connections"
-          description="Search matches all records."
           countLabel={`${total} entr${total === 1 ? "y" : "ies"}`}
           search={
             <ToolbarSearchInput

@@ -12,8 +12,8 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
 }));
 
 vi.mock("./ProfilePage", () => ({
-  default: ({ showConnectionsSection, onUnsavedChangesChange }: { showConnectionsSection?: boolean; onUnsavedChangesChange?: (dirty: boolean) => void }) => (
-    <div>
+  default: ({ showConnectionsSection, listPresentation, onUnsavedChangesChange }: { showConnectionsSection?: boolean; listPresentation?: boolean; onUnsavedChangesChange?: (dirty: boolean) => void }) => (
+    <div data-testid="profile-content" data-list-presentation={String(listPresentation ?? false)}>
       {showConnectionsSection ? "Connections content" : "Profile content"}
       <button type="button" onClick={() => onUnsavedChangesChange?.(true)}>Make dirty</button>
     </div>
@@ -119,6 +119,11 @@ describe("AccountProfilePage", () => {
     await user.click(screen.getByRole("button", { name: "Discard changes" }));
     expect(screen.getByText("Security content")).toBeInTheDocument();
     expect(screen.getByText("/profile?tab=security")).toBeInTheDocument();
+  });
+
+  it.each(["admin", "browser", "manager", "portal", "ceph-admin", "storage-ops"])("limits the common connection header to non-Browser uses under /%s", workspace => {
+    renderPage(`/${workspace}/profile?tab=connections`);
+    expect(screen.getByTestId("profile-content")).toHaveAttribute("data-list-presentation", String(workspace !== "browser"));
   });
 
   it("uses the Browser breadcrumb on the standalone Browser profile route", () => {

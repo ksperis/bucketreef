@@ -128,7 +128,7 @@ export default function StorageEndpointList({
     {error && <PageBanner tone="error"><ListActions className="justify-between" role="alert">
       <span>{error}</span><ListActionButton variant="secondary" disabled={loading} onClick={onRetry}>Retry</ListActionButton>
     </ListActions></PageBanner>}
-    <ListPageSection title="S3 Endpoints"
+    <ListPageSection variant="page" title="S3 Endpoints"
       countLabel={loading && !endpoints.length ? "Loading endpoints..." : error && !endpoints.length ? "Endpoints unavailable" : `${count.format(rows.length)}${activeFilters.length ? ` of ${count.format(endpoints.length)}` : ""} endpoint${(activeFilters.length ? endpoints.length : rows.length) === 1 ? "" : "s"}`}
       search={<ToolbarSearchInput value={filters.query} onChange={(value) => onFiltersChange({ ...filters, query: value })}
         placeholder="Search name, URL, provider, region or tag" className="endpoint-search w-full sm:w-80" active={Boolean(query)} matchMode={filters.mode}

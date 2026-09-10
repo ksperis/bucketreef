@@ -160,3 +160,17 @@ page context inputs reuse `ui-list-control`, so unrelated form headers and
 controls keep their existing appearance. See the
 [presentation inventory](listing-presentation-inventory.md) for the exceptions
 and validation command.
+
+
+### Consultation toolbar scope
+
+`ListToolbar` and `ListPageSection` require `page` or `section`. Their
+`data-list-variant` and `ui-list-toolbar-*` classes own the heading, search,
+filter, tools, count and secondary zones. Search is 18rem maximum, flexible
+on desktop and full-width below 768px. Filter selects are bounded to 14rem
+and their labels remain inline. Use the form primitives' labels rather than
+local uppercase spans. `UiField` marker classes change presentation only
+inside these toolbar zones; ordinary forms retain their existing defaults.
+Mobile sort controls use `ui-list-mobile-sort`; they are hidden while table
+column headers are visible. Table cell and row-action geometry is independent
+of these header variants. Browser does not opt into the new header zones.

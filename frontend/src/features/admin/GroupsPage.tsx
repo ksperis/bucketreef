@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import {
   type Dispatch,
@@ -1136,8 +1137,9 @@ export default function GroupsPage() {
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       <ListPageSection
+        variant="page"
+        mobileSort={<TableSortControls columns={groupTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
           title="Groups"
-          description="Search across group names, members, and linked resources."
           countLabel={`${totalGroups} entr${totalGroups === 1 ? "y" : "ies"}`}
           search={
             <ToolbarSearchInput

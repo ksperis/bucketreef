@@ -85,9 +85,8 @@ export default function ManagerMigrationsListPage() {
           tone="warning"
         />
       ) : (
-        <ListPageSection
+        <ListPageSection variant="page"
             title="Migrations"
-            description="Operational list of migration runs for the active source context."
             countLabel={`${sortedMigrations.length} result(s)`}
         >
           <div className="max-h-[720px] space-y-2 overflow-auto p-4">

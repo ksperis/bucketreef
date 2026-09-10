@@ -2,93 +2,67 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { ReactNode } from "react";
-import {
-  cx,
-  uiMutedTextClass,
-  uiTitleTextClass,
-  uiToolbarClass,
-  uiToolbarSecondaryClass,
-} from "./ui/styles";
+import { useId, type ReactNode } from "react";
+import { SearchIcon } from "../features/browser/browserIcons";
+import { cx, uiMutedTextClass, uiToolbarClass, uiToolbarSecondaryClass } from "./ui/styles";
 
 export type ListToolbarProps = {
+  variant: "page" | "section";
   title: ReactNode;
   description?: ReactNode;
-  showHeading?: boolean;
+  headingActions?: ReactNode;
   countLabel?: ReactNode;
   search?: ReactNode;
   filters?: ReactNode;
   columns?: ReactNode;
   actions?: ReactNode;
+  mobileSort?: ReactNode;
   secondaryContent?: ReactNode;
-  stackControlsOnMobile?: boolean;
   className?: string;
 };
 
-function ToolbarControlGroup({ children }: { children: ReactNode }) {
-  if (!children) {
-    return null;
-  }
-  return <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full">{children}</div>;
-}
-
+/** Both variants share the same search, filters, tools, then count layout. */
 export default function ListToolbar({
-  title,
-  description,
-  showHeading = true,
-  countLabel,
-  search,
-  filters,
-  columns,
-  actions,
-  secondaryContent,
-  stackControlsOnMobile = false,
-  className,
+  variant, title, description, headingActions, countLabel,
+  search, filters, columns, actions, mobileSort, secondaryContent, className,
 }: ListToolbarProps) {
-  const accessibleLabel = typeof title === "string" ? title : undefined;
+  const headingId = useId();
+  const hasControls = search || filters || columns || actions || mobileSort || countLabel != null;
 
   return (
     <div
       className={cx("ui-list-toolbar", uiToolbarClass, className)}
-      role={!showHeading && accessibleLabel ? "region" : undefined}
-      aria-label={!showHeading ? accessibleLabel : undefined}
+      data-list-variant={variant}
+      role="region"
+      aria-labelledby={variant === "section" ? headingId : undefined}
+      aria-label={variant === "page" && typeof title === "string" ? title : undefined}
     >
-      <div className="ui-list-toolbar-body flex flex-col gap-3">
-        <div
-          className={cx(
-            "flex flex-col gap-3",
-            showHeading ? "lg:flex-row lg:items-start lg:justify-between" : "lg:flex-row lg:items-center lg:justify-between"
-          )}
-        >
-          {showHeading ? (
-            <div className="space-y-1">
-              <p className={cx("ui-body", uiTitleTextClass)}>{title}</p>
-              {description ? <p className={cx("ui-caption", uiMutedTextClass)}>{description}</p> : null}
+      {variant === "section" ? (
+        <div className="ui-list-toolbar-heading">
+          <div className="min-w-0">
+            <h2 id={headingId} className="ui-list-toolbar-title">{title}</h2>
+            {description ? <p className={cx("ui-caption mt-1", uiMutedTextClass)}>{description}</p> : null}
+          </div>
+          {headingActions ? <div className="ui-list-toolbar-heading-actions">{headingActions}</div> : null}
+        </div>
+      ) : null}
+      {hasControls ? (
+        <div className="ui-list-toolbar-body">
+          {search ? (
+            <div className="ui-list-toolbar-search">
+              <SearchIcon aria-hidden="true" className="ui-list-toolbar-search-icon" />
+              {search}
             </div>
           ) : null}
-          <div
-            className={cx(
-              "flex flex-wrap items-center gap-2",
-              showHeading ? "lg:justify-end" : "min-w-0 flex-1 justify-between"
-            )}
-          >
-            {countLabel ? <span className={cx("shrink-0 ui-caption", uiMutedTextClass)}>{countLabel}</span> : null}
-            <div className={cx(
-              "flex min-w-0 flex-1 flex-wrap items-center gap-2 max-sm:w-full lg:justify-end",
-              stackControlsOnMobile && "max-sm:basis-full"
-            )}>
-              <ToolbarControlGroup>{search}</ToolbarControlGroup>
-              <ToolbarControlGroup>{filters}</ToolbarControlGroup>
-              <ToolbarControlGroup>{columns}</ToolbarControlGroup>
-              <ToolbarControlGroup>{actions}</ToolbarControlGroup>
-            </div>
-          </div>
+          {filters ? <div className="ui-list-toolbar-filters">{filters}</div> : null}
+          {columns || actions || mobileSort ? (
+            <div className="ui-list-toolbar-tools">{columns}{actions}{mobileSort}</div>
+          ) : null}
+          {countLabel != null ? <span className="ui-list-toolbar-count">{countLabel}</span> : null}
         </div>
-      </div>
+      ) : null}
       {secondaryContent ? (
-        <div className={cx("ui-list-toolbar-secondary", uiToolbarSecondaryClass)}>
-          {secondaryContent}
-        </div>
+        <div className={cx("ui-list-toolbar-secondary", uiToolbarSecondaryClass)}>{secondaryContent}</div>
       ) : null}
     </div>
   );

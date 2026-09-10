@@ -158,7 +158,7 @@ export default function ManagerFeatureRulesPage() {
       ) : (
         <ListPageSection
             title="Feature rules"
-            showHeading
+            variant="page"
             countLabel={`${filteredItems.length} bucket(s) · ${ruleCount} ${selectedItemLabel} · ${configuredCount} configured`}
             search={
               <UiInput

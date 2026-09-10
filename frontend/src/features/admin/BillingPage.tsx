@@ -492,7 +492,7 @@ export default function BillingPage() {
       description="Monthly usage and cost overview."
       breadcrumbs={adminPageBreadcrumbs("billing")}
       rightContent={
-        <div className="flex min-w-0 flex-wrap items-end gap-2">
+        <>
           <UiInput
             label="Month"
             type="month"
@@ -524,7 +524,7 @@ export default function BillingPage() {
             <DownloadIcon aria-hidden="true" className="h-3.5 w-3.5" />
             Export CSV
           </ListActionButton>
-        </div>
+        </>
       }
     >
       {pageError && selectedEndpointId != null ? <PageBanner tone="error">{pageError}</PageBanner> : null}
@@ -590,9 +590,9 @@ export default function BillingPage() {
           ) : null}
           {summaryLoading ? <PageBanner tone="info">Loading summary...</PageBanner> : <InlineSummary label={`Monthly totals · ${selectedEndpoint?.name ?? ""} · ${month}`} items={stats} />}
 
-          <ListPageSection
-            stackControlsOnMobile
+          <ListPageSection variant="section"
             title="Subjects"
+            mobileSort={<MobileTableSort options={SORT_OPTIONS} field={sortBy} direction={sortDir} onFieldChange={setSortBy} onDirectionChange={setSortDir} />}
             countLabel={`${subjectsTotal} subject${subjectsTotal === 1 ? "" : "s"}`}
             filters={
               <div className="flex min-w-0 flex-wrap items-end gap-2">
@@ -608,7 +608,7 @@ export default function BillingPage() {
                     </option>
                   ))}
                 </UiSelect>
-                <MobileTableSort options={SORT_OPTIONS} field={sortBy} direction={sortDir} onFieldChange={setSortBy} onDirectionChange={setSortDir} />
+
               </div>
             }
           >

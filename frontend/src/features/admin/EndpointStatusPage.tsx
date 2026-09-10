@@ -457,7 +457,7 @@ export default function EndpointStatusPage() {
       <ListPageSection
           title="Incidents"
           description="All incidents across endpoints. Default view is 6 months."
-          showHeading
+          variant="section"
           countLabel={incidentsCountLabel}
           filters={
             <UiSegmentedControl

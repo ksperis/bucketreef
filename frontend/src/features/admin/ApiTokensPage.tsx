@@ -47,8 +47,6 @@ const API_SCOPES = [
 ];
 const secondaryCompactButtonClass = cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-3 py-1.5 ui-caption");
 const primaryCompactButtonClass = cx(uiButtonBaseClass, uiButtonVariants.primary, "px-3 py-1.5 ui-caption");
-const toolbarActionButtonClass = cx(uiButtonBaseClass, uiButtonVariants.secondary, "h-8 px-3 py-1.5 ui-caption");
-const toolbarPrimaryActionButtonClass = cx(uiButtonBaseClass, uiButtonVariants.primary, "h-8 px-3 py-1.5 ui-caption");
 
 function extractError(error: unknown): string {
   return extractApiError(error, "Unable to complete request.");
@@ -284,11 +282,6 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
     : "";
   const headerActions = [
     {
-      label: "Refresh",
-      onClick: loadTokens,
-      variant: "ghost" as const,
-    },
-    {
       label: "Create token",
       onClick: openCreateModal,
     },
@@ -404,7 +397,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       <ListPageSection
           title="API tokens"
           description="Manage long-lived admin tokens for automation and integrations."
-          showHeading={showPageHeader === false}
+          variant={showPageHeader ? "page" : "section"}
           countLabel={`${sortedTokens.length} token${sortedTokens.length === 1 ? "" : "s"}${includeRevoked ? " (including revoked/expired)" : ""}`}
           filters={
             <label className={toolbarCompactToggleClasses}>
@@ -417,20 +410,8 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
               Show revoked/expired
             </label>
           }
-          actions={
-            showPageHeader
-              ? undefined
-              : headerActions.map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    onClick={action.onClick}
-                    className={action.variant === "ghost" ? toolbarActionButtonClass : toolbarPrimaryActionButtonClass}
-                  >
-                    {action.label}
-                  </button>
-                ))
-          }
+          actions={<ListActionButton onClick={() => void loadTokens()} loading={loading}>Refresh</ListActionButton>}
+          headingActions={!showPageHeader ? <ListActionButton variant="primary" onClick={openCreateModal}>Create token</ListActionButton> : undefined}
       >
         <DataTableShell
           columns={tokenTableColumns}

@@ -1086,10 +1086,9 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       {statsWarning && <PageBanner tone="warning">{statsWarning}</PageBanner>}
 
       {!selectedEndpointId && shell.emptyState ? <PageEmptyState {...shell.emptyState} /> : null}
-      <ListPageSection
+      <ListPageSection variant="page"
           className="space-y-4"
           title="Buckets"
-          description={shell.pageDescription}
           countLabel={`${total} result(s)`}
           search={
             <BucketOpsQuickFilter controller={filterController} value={filter} />

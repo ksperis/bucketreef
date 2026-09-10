@@ -45,6 +45,7 @@ export default function AccountProfilePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingTab, setPendingTab] = useState<AccountTab | null>(null);
   const workspace = resolveWorkspaceIdFromPath(location.pathname);
+  const [connectionActionsTarget, setConnectionActionsTarget] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!requestedTab || requestedTab === activeTab) return;
@@ -78,6 +79,7 @@ export default function AccountProfilePage() {
   return (
     <PageShell
       className="account-profile"
+      rightContent={workspace !== "browser" && activeTab === "connections" ? <div ref={setConnectionActionsTarget} /> : undefined}
       title={text("title")}
       breadcrumbLabel={text("breadcrumb")}
       description={text(isS3Session ? "temporary" : "intro")}
@@ -96,7 +98,9 @@ export default function AccountProfilePage() {
           <ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "connections" ? (
-          <ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection onUnsavedChangesChange={setHasUnsavedChanges} />
+          <ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection
+            listPresentation={workspace !== "browser"} headerActionsTarget={connectionActionsTarget}
+            onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "security" ? <SecurityPage onUnsavedChangesChange={setHasUnsavedChanges} /> : null}
       </PageTabPanel>

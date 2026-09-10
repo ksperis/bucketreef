@@ -716,7 +716,7 @@ export default function PortalRequestsPage() {
               fr: "Mes demandes d'aide",
               de: "Meine Hilfeanfragen",
             })}
-            showHeading
+            variant="page"
             countLabel={t({
               en: `${requests.length} request(s)`,
               fr: `${requests.length} demande(s)`,

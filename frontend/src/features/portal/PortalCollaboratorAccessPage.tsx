@@ -396,7 +396,7 @@ export default function PortalCollaboratorAccessPage() {
         </UiCard>
       ) : null}
 
-      <ListPageSection
+      <ListPageSection variant="section"
         title={t({ en: "Active Storage Space access", fr: "Accès aux Storage Spaces actifs", de: "Zugriff auf aktive Storage Spaces" })}
         description={t({
           en: "Inherited access is explained here and cannot be removed individually.",

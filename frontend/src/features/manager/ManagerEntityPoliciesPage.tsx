@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ListPageSection from "../../components/list/ListPageSection";
 import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -325,11 +326,7 @@ export default function ManagerEntityPoliciesPage({
           key={`${config.singularLabel}-inline-${accountIdForApi ?? "none"}-${rawEntityName ?? ""}`}
         />
 
-        <div className="ui-surface-card">
-          <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-            <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Attached Policies</p>
-            <p className="ui-caption text-slate-500 dark:text-slate-400">Attach/detach managed policies for this {config.singularLabel}.</p>
-          </div>
+        <ListPageSection variant="section" title="Attached Policies" description={`Attach/detach managed policies for this ${config.singularLabel}.`}>
           <div className="space-y-3 px-4 py-3">
             <form onSubmit={handleAttach} className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <select
@@ -365,7 +362,7 @@ export default function ManagerEntityPoliciesPage({
             tableClassName="ui-data-table"
             responsiveCards
           />
-        </div>
+        </ListPageSection>
       </div>
       {policyConfirmation.confirmationDialog}
     </PageShell>

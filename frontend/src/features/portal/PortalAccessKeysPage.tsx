@@ -1039,13 +1039,13 @@ export default function PortalAccessKeysPage() {
               tone="warning"
             />
           ) : (
-            <ListPageSection
+            <ListPageSection variant="page"
               title={t({ en: "Tool access", fr: "Accès outil", de: "Werkzeugzugriff" })}
-              description={t({
+              secondaryContent={<p>{t({
                 en: "Store secrets when they are created; they cannot be shown again. Portal's own runtime access is hidden from this list.",
                 fr: "Enregistrez les secrets à la création; ils ne pourront plus être affichés. L'accès runtime propre à Portal est masqué dans cette liste.",
                 de: "Speichern Sie Secrets beim Erstellen; sie können nicht erneut angezeigt werden. Portals eigener Laufzeitzugriff ist in dieser Liste ausgeblendet.",
-              })}
+              })}</p>}
               countLabel={t({ en: `${visibleKeys.length} access`, fr: `${visibleKeys.length} accès`, de: `${visibleKeys.length} Zugriffe` })}
             >
               <DataTableShell

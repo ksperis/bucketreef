@@ -457,7 +457,7 @@ export default function KeyRotationPage() {
             aria-label="Rotation results"
             className="border-t border-[var(--ui-border-soft)] pt-5"
           >
-            <ListToolbar
+            <ListToolbar variant="section"
               title={
                 previousResult
                   ? "Previous execution summary"

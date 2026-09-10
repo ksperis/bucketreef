@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import UiInput from "../../components/ui/UiInput";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { uiCheckboxClass } from "../../components/ui/styles";
@@ -128,7 +129,6 @@ export default function TopicsPage() {
     selectedS3AccountId,
     accountIdForApi,
     requiresS3AccountSelection,
-    sessionS3AccountName,
     accessMode,
   } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
@@ -139,7 +139,6 @@ export default function TopicsPage() {
   }, [accounts, accountIdForApi, selectedS3AccountId]);
   const endpointCaps = selectedS3Account?.storage_endpoint_capabilities ?? null;
   const snsFeatureEnabled = endpointCaps ? endpointCaps.sns !== false : true;
-  const accountLabel = selectedS3Account?.display_name ?? sessionS3AccountName ?? "Current account";
   const [topics, setTopics] = useState<Topic[]>([]);
   const [topicFilter, setTopicFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -610,17 +609,15 @@ export default function TopicsPage() {
           tone="warning"
         />
       ) : (
-        <ListPageSection
+        <ListPageSection variant="page"
             title="Topics"
-            description={`${accountLabel} · Topic inventory, attributes, and policies.`}
             countLabel={`${filteredTopics.length} result(s)`}
             search={
-              <input
-                type="text"
+              <UiInput aria-label="Search" size="compact"
+                type="search"
                 value={topicFilter}
                 onChange={(e) => setTopicFilter(e.target.value)}
                 placeholder="Search by topic or ARN"
-                className="w-full rounded-md border border-slate-200 px-3 py-1.5 ui-caption text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-72 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             }
         >

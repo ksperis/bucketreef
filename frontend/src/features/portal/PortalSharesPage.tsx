@@ -194,16 +194,11 @@ function CollaboratorsInventory({
   );
 
   return (
-    <ListPageSection
+    <ListPageSection variant="page"
       title={t({
         en: "Project members",
         fr: "Membres du projet",
         de: "Projektmitglieder",
-      })}
-      description={t({
-            en: "Review each person's effective access across active Storage Spaces.",
-            fr: "Revoyez les accès effectifs de chaque personne dans les Storage Spaces actifs.",
-            de: "Prüfen Sie den effektiven Zugriff jeder Person auf aktive Storage Spaces.",
       })}
       countLabel={t({
         en: `${visibleCollaborators.length} of ${collaborators.length} member${collaborators.length === 1 ? "" : "s"}`,

@@ -45,6 +45,16 @@ describe("ApiTokensPage list states", () => {
     finishRecentWebAuthnVerificationMock.mockResolvedValue({ mfa_verified_at: "2026-08-14T10:00:00Z" });
   });
 
+  it.each([true, false])("separates creation from list tools with page header %s", async (showPageHeader) => {
+    render(<ApiTokensPage showPageHeader={showPageHeader} />);
+    await waitFor(() => expect(listApiTokensMock).toHaveBeenCalled());
+    const create = screen.getByRole("button", { name: "Create token" });
+    const refresh = screen.getByRole("button", { name: "Refresh" });
+    expect(refresh.closest(".ui-list-toolbar-tools")).not.toBeNull();
+    expect(create.closest(showPageHeader ? "header" : ".ui-list-toolbar-heading")).not.toBeNull();
+    expect(create.closest(".ui-list-toolbar-body")).toBeNull();
+  });
+
   it("shows the load error once in the table when no rows are available", async () => {
     listApiTokensMock.mockRejectedValueOnce(new Error("Failed to load tokens"));
 

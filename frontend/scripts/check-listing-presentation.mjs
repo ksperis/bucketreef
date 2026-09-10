@@ -1,5 +1,7 @@
 /* Keep listing geometry in the shared stylesheet, not in page renderers. */
 import fs from "node:fs";
+import process from "node:process";
+import console from "node:console";
 import path from "node:path";
 import ts from "typescript";
 
@@ -26,6 +28,15 @@ function inspect(file) {
       if (inRow && ["button", "Link"].includes(tag)) {
         const cls = node.attributes.properties.find((prop) => ts.isJsxAttribute(prop) && prop.name.getText(ast) === "className")?.getText(ast) ?? "";
         if (/rounded|uiButtonBaseClass|formInlineActionClasses/.test(cls)) report(node, "Use ListActionButton/Link for row actions; retain native controls only for identity, selection or specialized menus.");
+      }
+      if (["ListToolbar", "ListPageSection"].includes(tag)) {
+        const attributes = node.attributes.properties.filter(ts.isJsxAttribute);
+        if (attributes.some(prop => ["showHeading", "stackControlsOnMobile"].includes(prop.name.getText(ast)))) {
+          report(node, "Use the explicit page/section variant and shared responsive layout.");
+        }
+        if (!attributes.some(prop => prop.name.getText(ast) === "variant") && !node.attributes.properties.some(ts.isJsxSpreadAttribute)) {
+          report(node, "Choose a page or section list header variant explicitly.");
+        }
       }
       if (tag === "table" || tag === "DataTableShell") tables += 1;
       if (["ListActionButton", "ListActionLink", "ListBadge"].includes(tag)) {

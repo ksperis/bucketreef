@@ -4,6 +4,9 @@
  */
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import ListToolbar from "../../components/ListToolbar";
+import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { isApiError } from "../../api/client";
 import { useSearchParams } from "react-router-dom";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
@@ -88,6 +91,9 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type ProfilePageProps = {
   showPageHeader?: boolean;
+  /** Opt in outside Browser; the shared Browser profile keeps its existing header. */
+  listPresentation?: boolean;
+  headerActionsTarget?: HTMLElement | null;
   showSettingsCards?: boolean;
   showConnectionsSection?: boolean;
   onUnsavedChangesChange?: (dirty: boolean) => void;
@@ -95,6 +101,8 @@ type ProfilePageProps = {
 
 export default function ProfilePage({
   showPageHeader = true,
+  listPresentation = false,
+  headerActionsTarget,
   showSettingsCards: showSettingsCardsProp = true,
   showConnectionsSection: showConnectionsSectionProp = false,
   onUnsavedChangesChange,
@@ -845,7 +853,15 @@ export default function ProfilePage({
             <>
               {connectionsError && <PageBanner tone="error">{connectionsError}</PageBanner>}
               {connectionsMessage && <PageBanner tone="success">{connectionsMessage}</PageBanner>}
+              {listPresentation && headerActionsTarget && canCreateManualConnections && !showCreateConnectionModal && !editingConnection ? createPortal(
+                <ListActionButton variant="primary" onClick={openCreateConnectionModal}>Add connection</ListActionButton>,
+                headerActionsTarget,
+              ) : null}
               <div className="rounded-lg border border-[color:var(--ui-border)]">
+                {listPresentation ? <ListToolbar variant="page" title="Private S3 connections"
+                  countLabel={`${filteredConnections.length} connections shown${filteredConnections.length !== connections.length ? ` of ${connections.length}` : ""}`}
+                  search={<ToolbarSearchInput value={connectionsFilter} onChange={handleConnectionsFilterChange}
+                    placeholder="Name, endpoint, provider, tag..." label="Search connections" />} /> : (
                 <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
                   <p className="ui-caption text-slate-500 dark:text-slate-400">
                     {filteredConnections.length} connections shown
@@ -871,6 +887,7 @@ export default function ProfilePage({
                     )}
                   </div>
                 </div>
+                )}
                 {selectedFilteredConnectionIds.length > 0 && (
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2 dark:border-slate-800 dark:bg-slate-900/50">
                     <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">

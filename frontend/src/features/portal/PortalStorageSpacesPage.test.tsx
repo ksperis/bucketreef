@@ -280,6 +280,31 @@ describe("PortalStorageSpacesPage", () => {
     expect(screen.queryByText(/mock|mocked|preview/i)).not.toBeInTheDocument();
   });
 
+  it("shares column and mobile sorting, preserves filters and keeps creation in the page header", async () => {
+    const user = userEvent.setup();
+    const base = mocks.hookResult.workspace.spaces[0];
+    mocks.hookResult.workspace.spaces = [
+      { ...base, id: "alpha", name: "Alpha", objectCount: 20, usedBytes: 900 },
+      { ...base, id: "beta", name: "Beta", objectCount: 10, usedBytes: 100 },
+    ];
+    render(<MemoryRouter><PortalStorageSpacesPage /></MemoryRouter>);
+    const names = () => screen.getAllByRole("row").slice(1).map(row => row.textContent);
+    expect(names()[0]).toContain("Alpha");
+    expect(screen.getByRole("button", { name: "Create space" }).closest("header")).not.toBeNull();
+    await user.click(within(screen.getByRole("columnheader", { name: "Files" })).getByRole("button"));
+    expect(names()[0]).toContain("Beta");
+    expect(screen.getByLabelText("Sort by")).toHaveValue("object_count");
+    await user.selectOptions(screen.getByLabelText("Direction"), "desc");
+    expect(names()[0]).toContain("Alpha");
+    expect(screen.getByRole("columnheader", { name: /Files/ })).toHaveAttribute("aria-sort", "descending");
+    await user.selectOptions(screen.getByLabelText("Sort by"), "used_bytes");
+    expect(names()[0]).toContain("Beta");
+    await user.type(screen.getByRole("searchbox", { name: "Search" }), "Alpha");
+    expect(names()).toHaveLength(1);
+    expect(screen.getByText("1 of 2 spaces")).toBeInTheDocument();
+    expect(screen.getByLabelText("Sort by")).toHaveValue("used_bytes");
+  });
+
   it("opens a space when a neutral row cell is clicked", () => {
     render(
       <MemoryRouter initialEntries={["/portal/storage-spaces"]}>
