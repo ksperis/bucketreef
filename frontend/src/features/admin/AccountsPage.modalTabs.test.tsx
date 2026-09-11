@@ -1110,4 +1110,51 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.queryByText("S3Account updated")).not.toBeInTheDocument();
   });
 
+  it.each([
+    { bucket_count: null, rgw_user_count: 0, rgw_topic_count: 0 },
+    { bucket_count: 0, rgw_user_count: 1, rgw_topic_count: 1 },
+  ])("keeps RGW deletion unavailable for unverified or attached resources: %j", async (counts) => {
+    getS3AccountMock.mockResolvedValueOnce({ id: 1, name: "acc-1", rgw_account_id: "RGW001", ...counts,
+      rgw_user_uids: ["tenant$user"], rgw_topics: ["notification-topic"] });
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Delete acc-1" }));
+    expect(dialog.getByRole("checkbox", { name: "Also delete RGW tenant RGW001" })).toBeDisabled();
+    expect(dialog.getByText("tenant$user")).toBeInTheDocument();
+    expect(dialog.getByText("notification-topic")).toBeInTheDocument();
+    if (counts.bucket_count === null) expect(dialog.getByText(/Unable to verify linked RGW resources/)).toBeInTheDocument();
+    expect(deleteS3AccountMock).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole("button", { name: "Delete account" }));
+    await waitFor(() => expect(deleteS3AccountMock).toHaveBeenCalledWith(1, { deleteRgw: false }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("retains the explicit RGW choice after failure and locks the confirmation during retry", async () => {
+    getS3AccountMock.mockResolvedValueOnce({ id: 1, name: "acc-1", rgw_account_id: "RGW001", bucket_count: 0, rgw_user_count: 0, rgw_topic_count: 0 });
+    deleteS3AccountMock.mockRejectedValueOnce(new Error("RGW refused deletion"));
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Delete acc-1" }));
+    const choice = dialog.getByRole("checkbox", { name: "Also delete RGW tenant RGW001" });
+    expect(choice).not.toBeChecked();
+    fireEvent.click(choice);
+    fireEvent.click(dialog.getByRole("button", { name: "Delete account" }));
+    expect(await dialog.findByRole("alert")).toHaveTextContent("RGW refused deletion");
+    expect(choice).toBeChecked();
+    let resolve!: () => void;
+    deleteS3AccountMock.mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
+    const confirm = dialog.getByRole("button", { name: "Delete account" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(choice).toBeDisabled();
+    expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(dialog.getByRole("button", { name: "Close modal" })).toBeDisabled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(deleteS3AccountMock).toHaveBeenCalledTimes(2);
+    expect(deleteS3AccountMock).toHaveBeenLastCalledWith(1, { deleteRgw: true });
+    await act(async () => resolve());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
 });

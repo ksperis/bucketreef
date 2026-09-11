@@ -76,6 +76,11 @@ The frontend theme is anchored by the shared shell and UI tokens in
   below 1024px or with a coarse pointer. Settings dialogs and shared confirmations
   use the compact spacing contract. Do not compensate for viewport issues with
   page-specific modal sizes.
+- Destructive confirmations reuse `ConfirmActionDialog`, including Admin
+  connection, endpoint, RGW account and RGW user deletion. Put optional deletion
+  choices in its `options` slot (disabled while loading), resource constraints
+  in `warning` with `warningTone="warning"`, and request failures in `error`.
+  Keep resource counters, identifiers and backend deletion guards intact.
 - Badges and tags: use `UiBadge` / `UiTagBadge` and their shared
   `uiBadgeShapeClass` (4px radius, 1px border), pale tone fill and medium text,
   without shadows. Preserve semantic tones and custom tag palettes in both
