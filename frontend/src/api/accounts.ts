@@ -133,7 +133,7 @@ export async function deleteS3Account(accountId: number, options?: { deleteRgw?:
   await client.delete(`/admin/accounts/${accountId}`, { params });
 }
 
-export type ImportS3AccountPayload = {
+type ImportS3AccountPayload = {
   rgw_account_id: string;
   name?: string | null;
   email?: string | null;

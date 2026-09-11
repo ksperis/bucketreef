@@ -173,6 +173,10 @@
   display: grid;
   gap: 4px;
 }
+.settings-fields .ui-field {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .settings-fields .settings-choice {
   display: flex;
   align-items: center;
@@ -219,6 +223,9 @@
 .settings-dialog .modal-header,
 .settings-dialog .modal-body {
   padding: var(--settings-dialog-padding-y) var(--settings-dialog-padding-x);
+}
+.settings-dialog .settings-section-compact {
+  grid-template-columns: minmax(0, 1fr);
 }
 .settings-dialog .ui-body:not(.ui-button-base) {
   font-size: var(--settings-text-size);

@@ -6,12 +6,9 @@ import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UiButton from "../../components/ui/UiButton";
-import UiInput from "../../components/ui/UiInput";
-import UiSelect from "../../components/ui/UiSelect";
 import {
   AccountGroupLink,
   AccountUserLink,
-  ImportS3AccountPayload,
   S3Account,
   S3AccountSummary,
   createS3Account,
@@ -35,11 +32,15 @@ import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { listMinimalUsers, UserSummary } from "../../api/users";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import Modal from "../../components/Modal";
-import ModalActions from "../../components/ModalActions";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsDialog } from "../../components/settings/SettingsControls";
+import AdminRgwEndpointField from "./AdminRgwEndpointField";
+import AdminRgwCreateFields from "./AdminRgwCreateFields";
+import { useAdminRgwFormValidation, rgwCreateErrors, rgwImportEntries } from "./useAdminRgwFormValidation";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiTextarea from "../../components/ui/UiTextarea";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import WorkflowPage, {
   WorkflowActions,
   WorkflowMetadata,
@@ -636,16 +637,18 @@ export default function S3AccountsPage() {
     rowCount: accounts.length,
   });
 
-  const handleSubmit = async (e: FormEvent) => {
+  const createValidation = useAdminRgwFormValidation(form, rgwCreateErrors(form));
+  const importEntries = rgwImportEntries(importText, "account");
+  const importValidation = useAdminRgwFormValidation({importText, storage_endpoint_id: importTenantEndpointId}, {
+    ...(importEntries.error ? {importText: importEntries.error} : {}),
+    ...(!importTenantEndpointId ? {storage_endpoint_id: "Select a Ceph endpoint."} : {}),
+  });
+  const createPending = useRef(false);
+  const importPending = useRef(false);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!form.name) {
-      setActionError("Account name is required");
-      return;
-    }
-    if (!form.storage_endpoint_id) {
-      setActionError("Select a Ceph endpoint to create an account.");
-      return;
-    }
+    if (createPending.current || !createValidation.validate(e.currentTarget)) return;
     if (createPermissionLoading) {
       setActionError("Checking endpoint permissions. Please wait.");
       return;
@@ -654,6 +657,7 @@ export default function S3AccountsPage() {
       setActionError("Selected endpoint does not allow this operation (missing accounts=write).");
       return;
     }
+    createPending.current = true;
     setCreating(true);
     setActionError(null);
     setActionMessage(null);
@@ -684,7 +688,34 @@ export default function S3AccountsPage() {
     } catch (err) {
       setActionError(extractError(err));
     } finally {
+      createPending.current = false;
       setCreating(false);
+    }
+  };
+
+  const submitImport = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (importPending.current || !importValidation.validate(event.currentTarget)) return;
+    if (importPermissionLoading || !importEndpointCanWrite) return;
+    importPending.current = true;
+    setImportBusy(true);
+    setImportError(null);
+    setImportMessage(null);
+    try {
+      await importS3Accounts(importEntries.entries.map(identifier => ({
+        rgw_account_id: identifier,
+        storage_endpoint_id: Number(importTenantEndpointId),
+      })));
+      setImportMessage("S3Accounts imported.");
+      importValidation.reset();
+      setImportText("");
+      setImportInitialSignature(buildImportSignature({ importText: "", importTenantEndpointId }));
+      await fetchS3Accounts();
+    } catch (err) {
+      setImportError(extractError(err));
+    } finally {
+      importPending.current = false;
+      setImportBusy(false);
     }
   };
 
@@ -735,12 +766,6 @@ export default function S3AccountsPage() {
   const importEndpointCanWrite = selectedImportEndpointId ? endpointAccountsWrite[selectedImportEndpointId] === true : false;
   const createPermissionError = selectedCreateEndpointId ? endpointPermissionErrors[selectedCreateEndpointId] ?? null : null;
   const importPermissionError = selectedImportEndpointId ? endpointPermissionErrors[selectedImportEndpointId] ?? null : null;
-  const importDisabled =
-    importBusy ||
-    !importText.trim() ||
-    !importTenantEndpointId ||
-    importPermissionLoading ||
-    !importEndpointCanWrite;
   const createCurrentSignature = useMemo(
     () => buildCreateSignature(form),
     [buildCreateSignature, form]
@@ -936,6 +961,7 @@ export default function S3AccountsPage() {
                 {
                   label: "Import",
                   onClick: () => {
+                    importValidation.reset();
                     setImportText("");
                     setImportError(null);
                     setImportMessage(null);
@@ -948,6 +974,9 @@ export default function S3AccountsPage() {
                 {
                   label: "Create account",
                   onClick: () => {
+                    createValidation.reset();
+                    setActionError(null);
+                    setActionMessage(null);
                     setCreateInitialSignature(buildCreateSignature(form));
                     setShowCreateModal(true);
                     void loadEndpointsIfNeeded();
@@ -959,103 +988,22 @@ export default function S3AccountsPage() {
       />
 
       {error && <PageBanner tone="error">{error}</PageBanner>}
+      {actionMessage && <UiInlineMessage tone="success" role="status">{actionMessage}</UiInlineMessage>}
 
       {isSuperAdmin && showCreateModal && (
-        <Modal title="Create an account" onClose={createCloseGuard.requestClose} closeDisabled={creating}>
-          <p className="mb-3 ui-body text-slate-500">
-            Super-admin only. Provision an RGW account (server-side generated <code>account_id</code>) with optional quotas.
-          </p>
-          {actionError && (
-            <PageBanner tone="error" className="mb-3">
-              {actionError}
-            </PageBanner>
-          )}
-          {actionMessage && (
-            <PageBanner tone="success" className="mb-3">
-              {actionMessage}
-            </PageBanner>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <UiInput
-                  label="Account name *"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  required
-                />
-                <UiInput
-                  label="Email contact"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="contact@example.com"
-                />
-                <UiSelect
-                  label="Storage endpoint (Ceph) *"
-                  value={form.storage_endpoint_id}
-                  onChange={(e) => setForm((f) => ({ ...f, storage_endpoint_id: e.target.value }))}
-                  required
-                  disabled={loadingEndpoints || accountCephEndpoints.length === 0}
-                >
-                  <option value="" disabled>
-                    {loadingEndpoints ? "Loading..." : "No Ceph endpoint with account API enabled"}
-                  </option>
-                  {accountCephEndpoints.map((ep) => (
-                    <option key={ep.id} value={ep.id}>
-                      {ep.name} {ep.is_default ? "(default)" : ""}
-                    </option>
-                  ))}
-                </UiSelect>
-                {form.storage_endpoint_id && (
-                  <div className="md:col-span-2">
-                    {createPermissionLoading ? (
-                      <PageBanner tone="info">Checking endpoint permissions...</PageBanner>
-                    ) : createPermissionError ? (
-                      <PageBanner tone="warning">
-                        {createPermissionError}. Validation is disabled until permissions can be verified.
-                      </PageBanner>
-                    ) : !createEndpointCanWrite ? (
-                      <PageBanner tone="warning">
-                        Selected endpoint does not allow this operation: missing <code>accounts=write</code>.
-                      </PageBanner>
-                    ) : null}
-                  </div>
-                )}
-                <div className="md:col-span-2 space-y-3">
-                  {adminTagCatalogError && <PageBanner tone="warning">{adminTagCatalogError}</PageBanner>}
-                  <UiTagEditor
-                    label="Tags"
-                    tags={form.tags}
-                    catalog={adminTagCatalog}
-                    onChange={(tags) => setForm((current) => ({ ...current, tags }))}
-                    placeholder="Add a tag for this account"
-                    hint={adminTagCatalogLoading ? "Loading existing tag catalog..." : undefined}
-                  />
-                </div>
-              </div>
-            <AdminQuotaFields
-              storageValue={form.quota_max_size_gb}
-              storageUnit={form.quota_max_size_unit}
-              objectValue={form.quota_max_objects}
-              disabled={creating}
-              onStorageValueChange={(value) => setForm((current) => ({ ...current, quota_max_size_gb: value }))}
-              onStorageUnitChange={(value) => setForm((current) => ({ ...current, quota_max_size_unit: value }))}
-              onObjectValueChange={(value) => setForm((current) => ({ ...current, quota_max_objects: value }))}
-            />
-            <ModalActions>
-              <UiButton variant="secondary" onClick={createCloseGuard.requestClose} disabled={creating}>
-                Cancel
-              </UiButton>
-              <UiButton
-                type="submit"
-                disabled={creating || createPermissionLoading || !createEndpointCanWrite}
-              >
-                {creating ? "Creating..." : "Create account"}
-              </UiButton>
-            </ModalActions>
-            {createCloseGuard.confirmationDialog}
-          </form>
-        </Modal>
+        <SettingsDialog title="Create an account" onClose={createCloseGuard.requestClose} closeDisabled={creating} maxWidthClass="max-w-2xl">
+          <SettingsForm label="Create RGW account" presentation="dialog" busy={creating} onSubmit={handleSubmit}
+            submitDisabled={createPermissionLoading || !createEndpointCanWrite}
+            onCancel={createCloseGuard.requestClose} submitLabel="Create account" busyLabel="Creating...">
+            <AdminRgwCreateFields kind="account" value={form} onChange={patch => setForm(current => ({...current, ...patch}))}
+              errors={createValidation.errors} busy={creating}
+              endpoint={{label: "Storage endpoint (Ceph) *", endpoints: accountCephEndpoints, loading: loadingEndpoints,
+                operation: "accounts", permissionLoading: createPermissionLoading, permissionError: createPermissionError, canWrite: createEndpointCanWrite}}
+              tags={{catalog: adminTagCatalog, loading: adminTagCatalogLoading, error: adminTagCatalogError}} />
+            {actionError && <UiInlineMessage tone="error" role="alert">{actionError}</UiInlineMessage>}
+          </SettingsForm>
+          {createCloseGuard.confirmationDialog}
+        </SettingsDialog>
       )}
 
       {isSuperAdmin && accountToDelete && (
@@ -1112,126 +1060,25 @@ export default function S3AccountsPage() {
       )}
 
       {isSuperAdmin && showImportModal && (
-        <Modal
-          title="Import RGW accounts"
-          onClose={importCloseGuard.requestClose}
-          closeDisabled={importBusy}
-          maxWidthClass="max-w-xl"
-        >
-          <p className="mb-3 ui-body text-slate-500">
-            Enter RGW tenant IDs (RGWXXXXXXXXXXXXXXX) one per line. The platform will ensure a root user exists and retrieve keys.
-          </p>
-          {importError && (
-            <PageBanner tone="error" className="mb-3">
-              {importError}
-            </PageBanner>
-          )}
-          {importMessage && (
-            <PageBanner tone="success" className="mb-3">
-              {importMessage}
-            </PageBanner>
-          )}
-          <>
-            <UiTextarea
-              label="RGW tenant IDs"
-              className="min-h-32"
-              disabled={importBusy}
-              rows={6}
-              placeholder="RGW00000000000000001"
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-            />
-            <UiSelect
-              label="Ceph endpoint"
-              fieldClassName="mt-3"
-              value={importTenantEndpointId}
-              onChange={(e) => setImportTenantEndpointId(e.target.value)}
-              disabled={importBusy || accountCephEndpoints.length === 0}
-              required
-            >
-              <option value="" disabled>
-                {accountCephEndpoints.length === 0 ? "No Ceph endpoint with account API enabled" : "Select"}
-              </option>
-              {accountCephEndpoints.map((ep) => (
-                <option key={ep.id} value={ep.id}>
-                  {ep.name} {ep.is_default ? "(default)" : ""}
-                </option>
-              ))}
-            </UiSelect>
-            {importTenantEndpointId && (
-              <>
-                {importPermissionLoading ? (
-                  <PageBanner tone="info" className="mt-3">
-                    Checking endpoint permissions...
-                  </PageBanner>
-                ) : importPermissionError ? (
-                  <PageBanner tone="warning" className="mt-3">
-                    {importPermissionError}. Validation is disabled until permissions can be verified.
-                  </PageBanner>
-                ) : !importEndpointCanWrite ? (
-                  <PageBanner tone="warning" className="mt-3">
-                    Selected endpoint does not allow this operation: missing <code>accounts=write</code>.
-                  </PageBanner>
-                ) : null}
-              </>
-            )}
-          </>
-          <ModalActions>
-            <UiButton variant="secondary" onClick={importCloseGuard.requestClose} disabled={importBusy}>
-              Cancel
-            </UiButton>
-            <UiButton
-              disabled={importDisabled}
-              onClick={async () => {
-                try {
-                  if (!importTenantEndpointId) {
-                    setImportError("Select a Ceph endpoint to import accounts.");
-                    setImportMessage(null);
-                    return;
-                  }
-                  if (!importEndpointCanWrite) {
-                    setImportError("Selected endpoint does not allow this operation (missing accounts=write).");
-                    setImportMessage(null);
-                    return;
-                  }
-                  setImportBusy(true);
-                  setImportError(null);
-                  setImportMessage(null);
-                  const raw = importText
-                    .split(/\r?\n/)
-                    .map((line) => line.trim())
-                    .filter(Boolean);
-                  if (raw.length === 0) {
-                    setImportError("Enter at least one entry.");
-                    setImportMessage(null);
-                    return;
-                  }
-                  const invalid = raw.filter((id) => !/^RGW\d{17}$/.test(id));
-                  if (invalid.length > 0) {
-                    setImportError(`Invalid identifiers: ${invalid.join(", ")}`);
-                    return;
-                  }
-                  const payload: ImportS3AccountPayload[] = raw.map((id) => ({
-                    rgw_account_id: id,
-                    storage_endpoint_id: Number(importTenantEndpointId),
-                  }));
-                  await importS3Accounts(payload);
-                  setImportMessage("S3Accounts imported.");
-                  setImportText("");
-                  setImportInitialSignature(buildImportSignature({ importText: "", importTenantEndpointId }));
-                  await fetchS3Accounts();
-                } catch (err) {
-                  setImportError(extractError(err));
-                } finally {
-                  setImportBusy(false);
-                }
-              }}
-            >
-              {importBusy ? "Importing..." : "Import"}
-            </UiButton>
-          </ModalActions>
+        <SettingsDialog title="Import RGW accounts" onClose={importCloseGuard.requestClose} closeDisabled={importBusy} maxWidthClass="max-w-xl">
+          <SettingsForm label="Import RGW accounts" presentation="dialog" busy={importBusy} onSubmit={submitImport}
+            submitDisabled={importPermissionLoading || !importEndpointCanWrite}
+            onCancel={importCloseGuard.requestClose} submitLabel="Import" busyLabel="Importing...">
+            <div className="settings-fields settings-form">
+              <p className="settings-body text-[var(--ui-text-muted)]">Enter RGW tenant IDs, one per line. The platform will ensure a root user exists and retrieve keys.</p>
+              <UiTextarea label="RGW tenant IDs" name="importText" rows={6} required value={importText}
+                error={importValidation.errors.importText} placeholder="RGW00000000000000001"
+                onChange={event => setImportText(event.target.value)} />
+              <AdminRgwEndpointField label="Ceph endpoint" value={importTenantEndpointId}
+                onChange={setImportTenantEndpointId} endpoints={accountCephEndpoints}
+                error={importValidation.errors.storage_endpoint_id} loading={loadingEndpoints} operation="accounts"
+                permissionLoading={importPermissionLoading} permissionError={importPermissionError} canWrite={importEndpointCanWrite} />
+              {importError && <UiInlineMessage tone="error" role="alert">{importError}</UiInlineMessage>}
+              {importMessage && <UiInlineMessage tone="success" role="status">{importMessage}</UiInlineMessage>}
+            </div>
+          </SettingsForm>
           {importCloseGuard.confirmationDialog}
-        </Modal>
+        </SettingsDialog>
       )}
 
       {isSuperAdmin && editingS3Account && (
