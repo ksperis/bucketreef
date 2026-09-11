@@ -76,6 +76,7 @@ import PageTabs from "../../components/PageTabs";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
 import { stableSignature } from "../../utils/stableSignature";
@@ -383,12 +384,14 @@ export default function GroupsPage() {
     clearAdminPrincipalEditRequest();
   };
 
+  const hasUnsavedChanges = showModal && (
+    stableSignature(form) !== initialFormSignature || Boolean(avatarFile) || removeAvatarImage ||
+    memberSelections.length > 0 || accountSelections.length > 0 || s3UserSelections.length > 0 ||
+    connectionSelections.length > 0 || Object.keys(accountAccessChoice).length > 0
+  );
   const closeGuard = useSettingsCloseGuard({
-    hasUnsavedChanges: showModal && (
-      stableSignature(form) !== initialFormSignature || Boolean(avatarFile) || removeAvatarImage ||
-      memberSelections.length > 0 || accountSelections.length > 0 || s3UserSelections.length > 0 ||
-      connectionSelections.length > 0 || Object.keys(accountAccessChoice).length > 0
-    ),
+    hasUnsavedChanges,
+    description: "Your changes have not been saved.",
     onClose: closeModal,
     disabled: saving,
   });
@@ -1141,6 +1144,7 @@ export default function GroupsPage() {
 
   return (
     <div className={workflowPageHostClass(showModal)}>
+      <SettingsNavigationGuard dirty={hasUnsavedChanges} onDiscard={closeModal} />
       <PageHeader actionPresentation="listing"
         title="UI Groups"
         description="Create reusable UI access groups for workspace, Manager tool, and execution context access."
