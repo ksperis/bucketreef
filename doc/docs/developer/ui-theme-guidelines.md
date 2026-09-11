@@ -173,6 +173,14 @@ confirmation through `ConfirmActionDialog.error`. Keep the exact WebAuthn guard
 detection, explicit verification and single retry contract in
 `useRecentWebAuthnStepUp`; its dialog uses `SettingsDialog` and shared actions.
 
+API token creation also uses `SettingsDialog`, native fieldsets and compact
+checkbox choices. Validate required names, scopes and whole-day expiry beside
+their fields; blank expiry delegates to the server default. Freeze the draft and
+close paths during creation, including explicit passkey verification. Keep the
+one-time secret panel and use shared `SettingsButton` actions for copying or
+hiding the newly created token. Copied examples resolve the configured API base
+against the current origin rather than assuming a local backend address.
+
 Settings typography is also tokenized: titles 14px/20px at weight 600, labels
 13px/18px at weight 500, body/inputs 13px/18px at weight 400, descriptions and
 buttons 12px/16px at weight 400. Use `settings-section-title`, `settings-label`,
