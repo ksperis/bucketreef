@@ -132,7 +132,7 @@ describe("CephAdminUserCreateModal", () => {
     expect(within(dialog).getByText("AKIA-CEPH-BOB")).toHaveClass("font-mono");
     expect(within(dialog).getByText("SECRET-CEPH-BOB")).toHaveClass("font-mono");
     expect(within(dialog).getAllByRole("button", { name: "Copy" })).toHaveLength(2);
-    expect(within(dialog).getByRole("button", { name: "Add as S3 Connection" })).toHaveClass("h-7");
+    expect(within(dialog).getByRole("button", { name: "Add as S3 Connection" })).toHaveClass("settings-button");
   });
 
   it("hides Add as S3 Connection without manual creation permission", async () => {

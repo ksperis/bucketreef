@@ -15,7 +15,6 @@ import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
-import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
@@ -263,14 +262,13 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
               { label: "Secret key", value: generatedKey.secret_key, copyLabel: "Copy" },
             ]}
             actions={canAddAsS3Connection ? (
-              <UiButton
+              <SettingsButton
                 type="button"
                 onClick={() => setShowAddConnectionModal(true)}
                 variant="secondary"
-                size="xs"
               >
                 Add as S3 Connection
-              </UiButton>
+              </SettingsButton>
             ) : undefined}
           />
         )}

@@ -540,14 +540,13 @@ export default function CephAdminUserEditModal({
             { label: "Secret key", value: createdKey.secret_key, copyLabel: "Copy" },
           ]}
           actions={canAddAsS3Connection ? (
-            <UiButton
+            <SettingsButton
               type="button"
               onClick={() => setShowAddConnectionModal(true)}
               variant="secondary"
-              size="xs"
             >
               Add as S3 Connection
-            </UiButton>
+            </SettingsButton>
           ) : undefined}
         />
       )}

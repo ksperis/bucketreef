@@ -181,6 +181,13 @@ one-time secret panel and use shared `SettingsButton` actions for copying or
 hiding the newly created token. Copied examples resolve the configured API base
 against the current origin rather than assuming a local backend address.
 
+`OneTimeSecretPanel` owns the compact handoff presentation for generated API
+tokens and S3 keys across Admin, Manager, Ceph Admin and Portal. Reuse its warning
+palette, standard badge, labelled value groups and shared copy controls. Each
+copy reports success or a recoverable failure beside that value; Portal supplies
+localized feedback. Keep values intact and selectable, including long strings,
+and keep workflow-specific actions and secret lifetimes in the caller.
+
 Settings typography is also tokenized: titles 14px/20px at weight 600, labels
 13px/18px at weight 500, body/inputs 13px/18px at weight 400, descriptions and
 buttons 12px/16px at weight 400. Use `settings-section-title`, `settings-label`,
