@@ -4,7 +4,7 @@
  */
 import ModalActions from "../../components/ModalActions";
 import { ListBadge, ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import {
   ApiTokenInfo,
@@ -17,8 +17,8 @@ import {
   useRecentWebAuthnStepUp,
 } from "../../auth/useRecentWebAuthnStepUp";
 import ListPageSection from "../../components/list/ListPageSection";
-import Modal from "../../components/Modal";
-import UiButton from "../../components/ui/UiButton";
+import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
@@ -30,7 +30,7 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { toolbarCompactToggleClasses } from "../../components/toolbarControlClasses";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiCheckboxClass, uiLabelClass } from "../../components/ui/styles";
+import { uiCheckboxClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import { stableSignature } from "../../utils/stableSignature";
@@ -48,7 +48,6 @@ const API_SCOPES = [
   "browser:read", "browser:write", "portal:read", "portal:write", "ceph-admin:read", "ceph-admin:write",
   "storage-ops:read", "storage-ops:write",
 ];
-const secondaryCompactButtonClass = cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-3 py-1.5 ui-caption");
 
 function extractError(error: unknown): string {
   return extractApiError(error, "Unable to complete request.");
@@ -94,6 +93,13 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
   const [expiresInDays, setExpiresInDays] = useState(String(DEFAULT_EXPIRY_DAYS));
   const [scopes, setScopes] = useState<string[]>(["profile:read"]);
   const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
+  const [createAttempted, setCreateAttempted] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const expiryRef = useRef<HTMLInputElement>(null);
+  const scopesRef = useRef<HTMLFieldSetElement>(null);
+  const scopesErrorId = useId();
+  const [invalidExpiryInput, setInvalidExpiryInput] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [createInitialSignature, setCreateInitialSignature] = useState(() =>
     stableSignature({ tokenName: "", expiresInDays: String(DEFAULT_EXPIRY_DAYS), scopes: ["profile:read"] })
@@ -102,6 +108,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
   const [busyTokenId, setBusyTokenId] = useState<string | null>(null);
   const [revealedToken, setRevealedToken] = useState<RevealedToken | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
   const revokeConfirmation = useConfirmActionDialog();
   const {
     runWithStepUp,
@@ -110,10 +117,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
 
   const apiBase = useMemo(() => {
     const configured = (import.meta.env.VITE_API_URL || "/api").replace(/\/+$/, "");
-    if (configured.startsWith("http://") || configured.startsWith("https://")) {
-      return configured;
-    }
-    return `http://localhost:8000${configured}`;
+    return new URL(configured || "/", window.location.origin).href.replace(/\/+$/, "");
   }, []);
 
   const sortedTokens = useMemo(() => {
@@ -131,20 +135,22 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
   });
 
   const loadTokens = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     setLoading(true);
     setLoadError(null);
     try {
       const data = await listApiTokens(includeRevoked);
-      setTokens(data);
+      if (generation === loadGeneration.current) setTokens(data);
     } catch (loadError) {
-      setLoadError(extractError(loadError));
+      if (generation === loadGeneration.current) setLoadError(extractError(loadError));
     } finally {
-      setLoading(false);
+      if (generation === loadGeneration.current) setLoading(false);
     }
   }, [includeRevoked]);
 
   useEffect(() => {
-    loadTokens();
+    void loadTokens();
+    return () => { loadGeneration.current += 1; };
   }, [loadTokens]);
 
   const resetCreateForm = () => {
@@ -152,16 +158,19 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
     setExpiresInDays(String(DEFAULT_EXPIRY_DAYS));
     setScopes(["profile:read"]);
     setFormError(null);
-    setCreating(false);
+    setCreateAttempted(false);
+    setInvalidExpiryInput(false);
     setCreateInitialSignature(stableSignature({ tokenName: "", expiresInDays: String(DEFAULT_EXPIRY_DAYS), scopes: ["profile:read"] }));
   };
 
   const openCreateModal = () => {
+    if (creatingRef.current) return;
     resetCreateForm();
     setShowCreateModal(true);
   };
 
   const closeCreateModal = () => {
+    if (creatingRef.current) return;
     setShowCreateModal(false);
     setFormError(null);
   };
@@ -180,29 +189,27 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
     disabled: creating,
   });
 
+  const nameError = !tokenName.trim() ? "Token name is required." : undefined;
+  const scopesError = scopes.length === 0 ? "Select at least one scope." : undefined;
+  const normalizedDays = expiresInDays.trim();
+  const expiryError = invalidExpiryInput || (normalizedDays && (!Number.isSafeInteger(Number(normalizedDays)) || Number(normalizedDays) < 1))
+    ? "Expiry must be a positive integer (days)." : undefined;
+
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
+    if (creatingRef.current) return;
     setFormError(null);
     setActionMessage(null);
+    setCreateAttempted(true);
     const normalizedName = tokenName.trim();
-    if (!normalizedName) {
-      setFormError("Token name is required.");
+    if (nameError || expiryError || scopesError) {
+      if (nameError) nameRef.current?.focus();
+      else if (expiryError) expiryRef.current?.focus();
+      else scopesRef.current?.querySelector("input")?.focus();
       return;
     }
-    if (scopes.length === 0) {
-      setFormError("Select at least one scope.");
-      return;
-    }
-    const normalizedDays = expiresInDays.trim();
-    let payloadDays: number | undefined;
-    if (normalizedDays) {
-      const parsed = Number.parseInt(normalizedDays, 10);
-      if (!Number.isFinite(parsed) || parsed < 1) {
-        setFormError("Expiry must be a positive integer (days).");
-        return;
-      }
-      payloadDays = parsed;
-    }
+    const payloadDays = normalizedDays ? Number(normalizedDays) : undefined;
+    creatingRef.current = true;
     setCreating(true);
     try {
       const created = await runWithStepUp(() => createApiToken({
@@ -220,6 +227,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
         setFormError(extractError(createError));
       }
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   };
@@ -363,34 +371,27 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
           values={[{ label: "Token", value: revealedToken.value }]}
           actions={
             <>
-            <button
-              type="button"
-              className={secondaryCompactButtonClass}
+            <SettingsButton variant="secondary"
               onClick={() => copyAndNotify(revealedToken.value, "Token copied to clipboard.")}
             >
               Copy token
-            </button>
-            <button
-              type="button"
-              className={secondaryCompactButtonClass}
+            </SettingsButton>
+            <SettingsButton variant="secondary"
               onClick={() => copyAndNotify(authHeaderSnippet, "Authorization header copied.")}
             >
               Copy auth header
-            </button>
-            <button
-              type="button"
-              className={secondaryCompactButtonClass}
+            </SettingsButton>
+            <SettingsButton variant="secondary"
               onClick={() => copyAndNotify(curlSnippet, "cURL example copied.")}
             >
               Copy cURL
-            </button>
-            <button
-              type="button"
-              className={secondaryCompactButtonClass}
+            </SettingsButton>
+            <SettingsButton variant="secondary"
               onClick={() => copyAndNotify(ansibleSnippet, "Ansible header snippet copied.")}
             >
               Copy Ansible
-            </button>
+            </SettingsButton>
+            <SettingsButton variant="secondary" onClick={() => { setRevealedToken(null); setCopyMessage(null); }}>Hide token</SettingsButton>
             </>
           }
         />
@@ -431,67 +432,74 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       {revokeConfirmation.confirmationDialog}
 
       {showCreateModal && (
-        <Modal title="Create API token" onClose={createCloseGuard.requestClose} maxWidthClass="max-w-xl">
-          <form className="space-y-4" onSubmit={handleCreate}>
-            <p className="ui-caption text-slate-500 dark:text-slate-400">
-              Create a long-lived JWT token for automation (Ansible, CI, scripts). The token secret will be shown once.
+        <SettingsDialog title="Create API token" onClose={createCloseGuard.requestClose} closeDisabled={creating} initialFocusRef={nameRef} maxWidthClass="max-w-xl">
+          <form aria-label="Create API token" className="settings-stack" onSubmit={handleCreate} noValidate>
+            <p className="settings-description">
+              Create a token for automation (Ansible, CI, scripts). Its secret will be shown once.
             </p>
-            <UiInput
-              label="Token name"
-              type="text"
-              value={tokenName}
-              onChange={(event) => setTokenName(event.target.value)}
-              placeholder="ansible-production"
-              maxLength={128}
-              required
-            />
-            <fieldset className="space-y-2">
-              <legend className={uiLabelClass}>Scopes</legend>
-              <div className="grid grid-cols-2 gap-2">
-                {API_SCOPES.map((scope) => (
-                  <label key={scope} className="flex items-center gap-2 ui-caption text-slate-700 dark:text-slate-200">
-                    <input
-                      type="checkbox"
-                      className={uiCheckboxClass}
+            <fieldset disabled={creating} className="settings-fields">
+              <div className="settings-fields sm:grid-cols-2">
+                <UiInput
+                  ref={nameRef}
+                  label="Token name"
+                  type="text"
+                  value={tokenName}
+                  onChange={(event) => setTokenName(event.target.value)}
+                  placeholder="ansible-production"
+                  maxLength={128}
+                  required
+                  error={createAttempted ? nameError : undefined}
+                />
+                <UiInput
+                  ref={expiryRef}
+                  label="Expiry (days)"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={expiresInDays}
+                  onChange={(event) => setExpiresInDays(event.target.value)}
+                  onInput={(event) => setInvalidExpiryInput(event.currentTarget.validity.badInput)}
+                  hint="Leave blank to use the server default."
+                  error={createAttempted ? expiryError : undefined}
+                />
+              </div>
+              <fieldset ref={scopesRef} aria-invalid={createAttempted && Boolean(scopesError)} aria-describedby={createAttempted && scopesError ? scopesErrorId : undefined} className="min-w-0">
+                <legend className="settings-label mb-1">Scopes</legend>
+                <div className="grid grid-cols-2 gap-x-2">
+                  {API_SCOPES.map((scope) => (
+                    <UiCheckboxField key={scope} className="settings-choice settings-description [overflow-wrap:anywhere]"
                       checked={scopes.includes(scope)}
                       onChange={(event) => setScopes((current) => event.target.checked
                         ? [...current, scope]
                         : current.filter((entry) => entry !== scope))}
-                    />
-                    {scope}
-                  </label>
-                ))}
-              </div>
+                    >
+                      {scope}
+                    </UiCheckboxField>
+                  ))}
+                </div>
+                {createAttempted && scopesError && <p id={scopesErrorId} role="alert" className="settings-description text-rose-700 dark:text-rose-300">{scopesError}</p>}
+              </fieldset>
             </fieldset>
-            <UiInput
-              label="Expiry (days)"
-              type="number"
-              min={1}
-              step={1}
-              value={expiresInDays}
-              onChange={(event) => setExpiresInDays(event.target.value)}
-              hint="Leave the default value unless you need a shorter or longer validity."
-            />
             {formError && <PageBanner tone="error">{formError}</PageBanner>}
             <ModalActions>
-              <UiButton
+              <SettingsButton
                 type="button"
                 onClick={createCloseGuard.requestClose}
                 variant="secondary"
                 disabled={creating}
               >
                 Cancel
-              </UiButton>
-              <UiButton
+              </SettingsButton>
+              <SettingsButton
                 type="submit"
                 disabled={creating}
               >
                 {creating ? "Creating..." : "Create token"}
-              </UiButton>
+              </SettingsButton>
             </ModalActions>
           </form>
           {createCloseGuard.confirmationDialog}
-        </Modal>
+        </SettingsDialog>
       )}
       {verificationDialog}
     </div>
