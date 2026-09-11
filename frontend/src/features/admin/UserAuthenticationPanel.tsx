@@ -41,10 +41,11 @@ function submitOnEnter(event: KeyboardEvent<HTMLFieldSetElement>, action: () => 
   }
 }
 
-export default function UserAuthenticationPanel({ userId, canMutate, onBusyChange }: {
+export default function UserAuthenticationPanel({ userId, canMutate, onBusyChange, onDirtyChange }: {
   userId: number;
   canMutate: boolean;
   onBusyChange?: (busy: boolean) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [security, setSecurity] = useState<AdminUserSecurity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +82,9 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   const date = (value?: string | null) => securityDate(value, navigator.language, "Not available");
 
   useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
+  const dirty = Boolean(password || passwordConfirmation || providerId || subject || identityEmail);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
 
   const load = useCallback(async () => {
     const generation = ++loadGeneration.current;

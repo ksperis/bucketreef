@@ -333,6 +333,12 @@ router navigation and browser unload, while `useSettingsCloseGuard` protects
 explicit cancellation. Register one route guard for the whole page, including
 any dialog subdraft, so a navigation asks only once.
 
+Admin UI User and Group editors share the same dirty state for explicit closing,
+route navigation and browser unload. Include pending association selections and
+group avatar changes. UI User authentication actions save independently: protect
+unsubmitted fields when leaving their tab or page, retain them after a failed
+action, and clear only the successfully submitted action's fields.
+
 Storage Space settings use independent save boundaries: identity and icon dialogs
 save their own API operation, while file-history controls share a page draft.
 Their buttons say **Save**, not **Apply**. Closing a modified dialog requires

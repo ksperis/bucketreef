@@ -57,9 +57,9 @@ import {
 } from "./adminAccessConfig";
 import PageBanner from "../../components/PageBanner";
 import SettingsForm from "../../components/settings/SettingsForm";
-import { SettingsButton } from "../../components/settings/SettingsControls";
+import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import AdminUserIdentityFields, { userIdentityErrors, type UserIdentityErrors } from "./AdminUserIdentityFields";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
@@ -229,6 +229,7 @@ export default function UsersPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [authenticationBusy, setAuthenticationBusy] = useState(false);
+  const [authenticationDirty, setAuthenticationDirty] = useState(false);
   const savingRef = useRef(false);
   const [createAttempted, setCreateAttempted] = useState(false);
   const [editAttempted, setEditAttempted] = useState(false);
@@ -794,16 +795,28 @@ export default function UsersPage() {
     };
   };
 
-  const createCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showCreateModal && createCurrentSignature !== createInitialSignature,
+  const createDirty = showCreateModal && createCurrentSignature !== createInitialSignature;
+  const editDirty = showEditModal && (editCurrentSignature !== editInitialSignature || authenticationDirty);
+  const createCloseGuard = useSettingsCloseGuard({
+    hasUnsavedChanges: createDirty,
+    description: "Your changes have not been saved.",
     onClose: closeCreateModal,
     disabled: creating,
   });
 
-  const editCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showEditModal && editCurrentSignature !== editInitialSignature,
+  const editCloseGuard = useSettingsCloseGuard({
+    hasUnsavedChanges: editDirty,
+    description: "Your changes have not been saved.",
     onClose: closeEditModal,
     disabled: authenticationBusy || (editingUser ? busyId === editingUser.id : false),
+  });
+
+  const pendingEditTab = useRef<UserModalTab>("general");
+  const authenticationTabGuard = useSettingsCloseGuard({
+    hasUnsavedChanges: authenticationDirty,
+    description: "Your changes have not been saved.",
+    disabled: authenticationBusy,
+    onClose: () => setEditModalTab(pendingEditTab.current),
   });
 
   const handleCreate = async (e: FormEvent) => {
@@ -1214,6 +1227,10 @@ export default function UsersPage() {
 
   return (
     <div className={workflowPageHostClass(showCreateModal || (Boolean(editingUser) && showEditModal))}>
+      <SettingsNavigationGuard dirty={createDirty || editDirty} onDiscard={() => {
+        if (showCreateModal) closeCreateModal();
+        if (showEditModal) closeEditModal();
+      }} />
       <PageHeader actionPresentation="listing"
         title="UI Users"
         description={usersDescription}
@@ -1569,7 +1586,11 @@ export default function UsersPage() {
             ) : undefined}>
             <WorkflowTabs<UserModalTab>
               activeTab={editModalTab}
-              onTabChange={setEditModalTab}
+              onTabChange={(tab) => {
+                if (tab === editModalTab) return;
+                pendingEditTab.current = tab;
+                authenticationTabGuard.requestClose();
+              }}
               ariaLabel="User configuration sections"
               idPrefix="admin-user-edit"
               tabs={editUserWorkflowTabs.map((tab) => ({ ...tab, disabled: authenticationBusy }))}
@@ -1593,6 +1614,7 @@ export default function UsersPage() {
                 key={editingUser.id}
                 userId={editingUser.id}
                 onBusyChange={setAuthenticationBusy}
+                onDirtyChange={setAuthenticationDirty}
                 canMutate={currentUserId === null || currentUserId !== editingUser.id}
               />
             )}
@@ -1799,6 +1821,7 @@ export default function UsersPage() {
 
           </SettingsForm>
           {editCloseGuard.confirmationDialog}
+          {authenticationTabGuard.confirmationDialog}
         </WorkflowPage>
       )}
       {verificationDialog}
