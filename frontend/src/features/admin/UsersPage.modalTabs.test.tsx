@@ -87,7 +87,11 @@ vi.mock("../../api/groups", () => ({
 }));
 
 vi.mock("./UserAuthenticationPanel", () => ({
-  default: () => <div>Authentication actions are applied immediately.</div>,
+  default: ({ onBusyChange }: { onBusyChange: (busy: boolean) => void }) => <div>
+    Authentication actions are applied immediately.
+    <button type="button" onClick={() => onBusyChange(true)}>Start authentication action</button>
+    <button type="button" onClick={() => onBusyChange(false)}>Complete authentication action</button>
+  </div>,
 }));
 
 describe("UsersPage modal tabs", () => {
@@ -797,6 +801,15 @@ describe("UsersPage modal tabs", () => {
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
     fireEvent.submit(screen.getByRole("form", { name: "Edit UI user" }));
     expect(updateUserMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Start authentication action" }));
+    for (const tab of screen.getAllByRole("tab")) expect(tab).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to users" })).toBeDisabled();
+    // Authentication dialogs remain operable inside the parent form.
+    expect(screen.getByRole("button", { name: "Complete authentication action" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Complete authentication action" }));
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.getByRole("tab", { name: "General" })).toBeEnabled();
   });
 
   it("shows Connections and Manager in create/edit and submits their permissions", async () => {

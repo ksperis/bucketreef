@@ -228,6 +228,7 @@ export default function UsersPage() {
   const [editGroupSelections, setEditGroupSelections] = useState<number[]>([]);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
+  const [authenticationBusy, setAuthenticationBusy] = useState(false);
   const savingRef = useRef(false);
   const [createAttempted, setCreateAttempted] = useState(false);
   const [editAttempted, setEditAttempted] = useState(false);
@@ -802,7 +803,7 @@ export default function UsersPage() {
   const editCloseGuard = useUnsavedChangesGuard({
     hasUnsavedChanges: showEditModal && editCurrentSignature !== editInitialSignature,
     onClose: closeEditModal,
-    disabled: editingUser ? busyId === editingUser.id : false,
+    disabled: authenticationBusy || (editingUser ? busyId === editingUser.id : false),
   });
 
   const handleCreate = async (e: FormEvent) => {
@@ -1545,7 +1546,7 @@ export default function UsersPage() {
           breadcrumbs={adminPageBreadcrumbs("users", { label: "Edit" })}
           backLabel="Back to users"
           onBack={editCloseGuard.requestClose}
-          backDisabled={busyId === editingUser.id}
+          backDisabled={busyId === editingUser.id || authenticationBusy}
           contentClassName="settings-compact settings-form"
           contentVariant="plain"
           width="wide"
@@ -1564,14 +1565,14 @@ export default function UsersPage() {
           <SettingsForm label="Edit UI user" busy={busyId === editingUser.id} onSubmit={submitEdit}
             onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
             actions={editModalTab === "authentication" ? (
-              <SettingsButton variant="secondary" onClick={editCloseGuard.requestClose}>Done</SettingsButton>
+              <SettingsButton variant="secondary" disabled={authenticationBusy} onClick={editCloseGuard.requestClose}>Done</SettingsButton>
             ) : undefined}>
             <WorkflowTabs<UserModalTab>
               activeTab={editModalTab}
               onTabChange={setEditModalTab}
               ariaLabel="User configuration sections"
               idPrefix="admin-user-edit"
-              tabs={editUserWorkflowTabs}
+              tabs={editUserWorkflowTabs.map((tab) => ({ ...tab, disabled: authenticationBusy }))}
             >
 
             {editModalTab === "general" && (
@@ -1589,7 +1590,9 @@ export default function UsersPage() {
 
             {editModalTab === "authentication" && (
               <UserAuthenticationPanel
+                key={editingUser.id}
                 userId={editingUser.id}
+                onBusyChange={setAuthenticationBusy}
                 canMutate={currentUserId === null || currentUserId !== editingUser.id}
               />
             )}

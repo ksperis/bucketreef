@@ -5,6 +5,13 @@ import { axe } from "jest-axe";
 import ConfirmActionDialog from "../ConfirmActionDialog";
 
 describe("ConfirmActionDialog", () => {
+  it("keeps a failed action visible in the open confirmation", () => {
+    render(<ConfirmActionDialog title="Revoke identity" description="Review the selected identity."
+      confirmLabel="Revoke" error="Unable to revoke this identity." onCancel={() => undefined} onConfirm={() => undefined} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Unable to revoke this identity.");
+    expect(screen.getByRole("button", { name: "Revoke" })).toBeEnabled();
+  });
+
   it("renders details and triggers callbacks", async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();

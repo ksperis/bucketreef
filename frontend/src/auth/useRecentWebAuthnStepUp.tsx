@@ -5,9 +5,9 @@ import {
   beginRecentWebAuthnVerification,
   finishRecentWebAuthnVerification,
 } from "../api/security";
-import Modal from "../components/Modal";
+import ModalActions from "../components/ModalActions";
+import { SettingsButton, SettingsDialog } from "../components/settings/SettingsControls";
 import PageBanner from "../components/PageBanner";
-import UiButton from "../components/ui/UiButton";
 import { authenticatePasskey } from "./webauthn";
 import { extractApiError, isRecentWebAuthnRequired } from "../utils/apiError";
 
@@ -119,7 +119,7 @@ export function useRecentWebAuthnStepUp(labels: StepUpLabels = defaultLabels) {
   }, [verifyNow]);
 
   const verificationDialog = useMemo(() => promptOpen ? (
-    <Modal
+    <SettingsDialog
       title={labels.title ?? "Verify with passkey"}
       closeLabel={labels.close}
       closeAriaLabel={labels.close}
@@ -128,18 +128,19 @@ export function useRecentWebAuthnStepUp(labels: StepUpLabels = defaultLabels) {
       zIndexClass="z-[90]"
       closeOnBackdropClick={!verifying}
       closeOnEscape={!verifying}
+      closeDisabled={verifying}
     >
-      <div className="space-y-4">
-        <p className="ui-body text-[var(--ui-text)]">
+      <div className="settings-stack">
+        <p className="settings-body text-[var(--ui-text)]">
           {labels.description ?? "Confirm your identity to continue this sensitive action in the current session."}
         </p>
         {verificationError ? <PageBanner tone="error">{verificationError}</PageBanner> : null}
-        <div className="flex justify-end gap-2">
-          <UiButton variant="secondary" onClick={cancelPrompt} disabled={verifying}>{labels.cancel ?? "Cancel"}</UiButton>
-          <UiButton onClick={() => void confirmPrompt()} loading={verifying}>{labels.title ?? "Verify with passkey"}</UiButton>
-        </div>
+        <ModalActions>
+          <SettingsButton variant="secondary" onClick={cancelPrompt} disabled={verifying}>{labels.cancel ?? "Cancel"}</SettingsButton>
+          <SettingsButton onClick={() => void confirmPrompt()} loading={verifying}>{labels.title ?? "Verify with passkey"}</SettingsButton>
+        </ModalActions>
       </div>
-    </Modal>
+    </SettingsDialog>
   ) : null, [cancelPrompt, confirmPrompt, labels, promptOpen, verificationError, verifying]);
 
   return {
