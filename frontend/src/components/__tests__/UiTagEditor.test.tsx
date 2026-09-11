@@ -31,6 +31,21 @@ function getTagChip(label: string) {
 }
 
 describe("UiTagEditor", () => {
+  it("closes portal controls and freezes tag edits while disabled", async () => {
+    const user = userEvent.setup(), onChange = vi.fn();
+    const props = { tags: [{ label: "draft", color_key: "neutral" as const, scope: "standard" as const }], onChange };
+    const { rerender } = render(<UiTagEditor {...props} />);
+    await openSettings("draft");
+    rerender(<UiTagEditor {...props} disabled />);
+    expect(screen.queryByRole("group", { name: "Tag settings for draft" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Remove tag draft" }));
+    expect(onChange).not.toHaveBeenCalled();
+    rerender(<UiTagEditor {...props} />);
+    await user.click(screen.getByRole("button", { name: "Remove tag draft" }));
+    expect(onChange).toHaveBeenCalledWith([]);
+  });
+
   it("uses the standard field spacing and associates its visible label", () => {
     render(<StatefulEditor />);
 

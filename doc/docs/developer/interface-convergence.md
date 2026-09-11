@@ -172,6 +172,46 @@ landscape component layouts. These fixtures validate rendering and request
 payloads with synthetic keys; they do not create live RGW users, keys or S3
 connections.
 
+## Shared and private connection editors
+
+Admin shared-connection and profile private-connection creation/editing use
+`SettingsForm` and compact, unframed `SettingsSection` rows. Identity and tag
+fields share `S3ConnectionIdentityFields`; endpoint and credential fields retain
+their existing shared components. The Admin editor keeps its General, Linked UI
+users and Linked UI groups tabs, with one save boundary for metadata, credentials
+and associations. Profile editing retains server-managed and revoked-grant
+restrictions while allowing the existing name, tags and workspace-access edits.
+
+The payload model identifies the field responsible for each local error.
+`useS3ConnectionFormValidation` associates those errors without duplicating the
+payload rules, preserves native URL validation and focuses the first invalid
+field. Admin validation returns to General when its fields are hidden behind an
+association tab. Credential diagnostics remain advisory and do not disable
+saving. Existing secret handling, endpoint-ID precedence and payloads remain
+unchanged.
+
+Endpoint mode changes happen on opening or explicit selection. A late catalogue
+response does not replace an existing preset or create an untouched draft, and
+selecting a preset preserves inactive custom-field values. Pending submissions
+freeze the full form, association tabs, tag controls and return actions. A failed
+request retains the draft for an identical retry. The shared workflow return
+breadcrumb prevents native navigation and delegates to its close guard; a busy
+return cannot bypass that guard.
+
+Settings tag editors align with compact fields. Long tags stay within their
+available width, retaining the full accessible label and tooltip. Edit/remove
+buttons keep compact desktop geometry and 44px touch targets. A disabled editor
+closes its portal controls so they cannot mutate a submitted draft.
+
+Validation: the complete frontend suite passed with 2,511 tests across 450 files;
+the final 71 targeted tests and `npm run check:ci` also passed. Thirty routed
+fixture cases cover the four editors plus server-managed and revoked-grant
+private editing, desktop/mobile, light/dark and 320px. They check field errors,
+association payloads, tags, keyboard submission, pending guards and failure/retry.
+Very long tags cause no horizontal form overflow; 54 start/middle/end scroll
+measurements report a zero-pixel gap below the sticky action bar. All requests
+use synthetic fixture data, without creating live connections or rotating keys.
+
 ## Shared short-form fields
 
 API token name/expiry and Browser bucket/folder creation now use `UiInput`;

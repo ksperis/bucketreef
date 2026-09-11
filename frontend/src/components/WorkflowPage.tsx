@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useInRouterContext } from "react-router-dom";
 
 import PageHeader, { type PageBreadcrumb } from "./PageHeader";
@@ -16,6 +16,7 @@ type WorkflowPageProps = {
   metaContent?: ReactNode;
   rightContent?: ReactNode;
   backLabel?: string;
+  backDisabled?: boolean;
   backTo?: string;
   onBack?: () => void;
   children: ReactNode;
@@ -45,6 +46,7 @@ export default function WorkflowPage({
   metaContent,
   rightContent,
   backLabel = "Back",
+  backDisabled = false,
   backTo,
   onBack,
   children,
@@ -68,8 +70,10 @@ export default function WorkflowPage({
         index === backBreadcrumbIndex
           ? {
               ...breadcrumb,
-              onClick: () => {
-                breadcrumb.onClick?.();
+              onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+                event.preventDefault();
+                if (backDisabled) return;
+                breadcrumb.onClick?.(event);
                 onBack?.();
               },
             }
@@ -77,7 +81,7 @@ export default function WorkflowPage({
       )
     : breadcrumbs.map((breadcrumb) => ({ label: breadcrumb.label }));
   const actions = backTo || onBack
-    ? [{ label: backLabel, to: inRouterContext ? backTo : undefined, onClick: onBack, variant: "secondary" as const }]
+    ? [{ label: backLabel, to: inRouterContext ? backTo : undefined, onClick: onBack, disabled: backDisabled, variant: "secondary" as const }]
     : [];
 
   return (

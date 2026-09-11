@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import WorkflowPage, {
@@ -14,6 +14,25 @@ import WorkflowPage, {
 } from "../WorkflowPage";
 
 describe("WorkflowPage", () => {
+  it("keeps the return breadcrumb inside the close guard and blocks it while busy", () => {
+    const onBack = vi.fn();
+    const Location = () => <span data-testid="location">{useLocation().pathname}</span>;
+    const Page = ({ busy }: { busy: boolean }) => <MemoryRouter initialEntries={["/editor"]}>
+      <Location />
+      <WorkflowPage title="Editor" breadcrumbs={[{ label: "Connections", to: "/connections" }, { label: "Edit" }]}
+        onBack={onBack} backDisabled={busy}><p>Draft</p></WorkflowPage>
+    </MemoryRouter>;
+    const { rerender } = render(<Page busy />);
+    expect(screen.getByRole("button", { name: "Back" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("link", { name: "Connections" }));
+    expect(onBack).not.toHaveBeenCalled();
+    expect(screen.getByTestId("location")).toHaveTextContent("/editor");
+    rerender(<Page busy={false} />);
+    fireEvent.click(screen.getByRole("link", { name: "Connections" }));
+    expect(onBack).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("location")).toHaveTextContent("/editor");
+  });
+
   it("renders page hierarchy and a predictable return action", () => {
     const onBack = vi.fn();
 

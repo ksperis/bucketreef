@@ -3,11 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActionButton, ListActionLink } from "./list/ListControls";
-import { ReactNode } from "react";
+import { ReactNode, type MouseEventHandler } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
 import { cx, uiButtonBaseClass, uiButtonVariants, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
 
-export type PageBreadcrumb = { label: string; to?: string; onClick?: () => void };
+export type PageBreadcrumb = { label: string; to?: string; onClick?: MouseEventHandler<HTMLAnchorElement> };
 type Action = {
   label: string;
   onClick?: () => void;

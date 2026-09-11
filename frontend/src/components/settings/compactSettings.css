@@ -179,6 +179,25 @@
   gap: 8px;
   min-height: var(--settings-control-height);
 }
+.settings-form .ui-tag-editor-control {
+  min-height: var(--settings-control-height);
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+}
+.settings-form .ui-tag-editor input {
+  min-height: calc(var(--settings-control-height) - 6px);
+  font-size: var(--settings-text-size);
+  line-height: var(--settings-text-line);
+}
+@media (max-width: 1023px), (any-pointer: coarse) {
+  .settings-form .ui-tag-editor-control .ui-tag-badge > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
 .settings-dialog input[type="file"] {
   min-height: var(--settings-control-height);
 }

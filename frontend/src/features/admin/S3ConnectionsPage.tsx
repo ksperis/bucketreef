@@ -3,13 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
-import { Dispatch, FormEvent, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import Modal from "../../components/Modal";
 import ModalActions from "../../components/ModalActions";
-import WorkflowPage, { WorkflowActions, workflowPageHostClass } from "../../components/WorkflowPage";
+import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
 import DataTableShell, {
@@ -19,17 +19,10 @@ import DataTableShell, {
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
-import UiTagEditor from "../../components/UiTagEditor";
 import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
-import {
-  cx,
-  uiMutedTextClass,
-  uiPanelMutedClass,
-  uiTitleTextClass,
-} from "../../components/ui/styles";
 
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
@@ -50,6 +43,10 @@ import { extractApiError } from "../../utils/apiError";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import S3ConnectionIdentityFields from "../shared/S3ConnectionIdentityFields";
+import { useS3ConnectionFormValidation } from "../shared/useS3ConnectionFormValidation";
 import S3ConnectionEndpointFields from "../shared/S3ConnectionEndpointFields";
 import S3ConnectionCredentialFields from "../shared/S3ConnectionCredentialFields";
 import S3CredentialsValidationMessage from "../shared/S3CredentialsValidationMessage";
@@ -61,6 +58,7 @@ import {
   createDefaultAdminS3ConnectionForm,
   normalizeS3ConnectionLinkedIds,
   parseS3ConnectionCredentialOwnerType,
+  preferredS3ConnectionEndpointId,
   prepareCreateAdminS3ConnectionPayload,
   prepareUpdateAdminS3ConnectionPayload,
   type EditAdminS3ConnectionForm,
@@ -109,7 +107,6 @@ export default function S3ConnectionsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [createEndpointMode, setCreateEndpointMode] = useState<S3ConnectionEndpointMode>("custom");
   const [createEndpointPresetId, setCreateEndpointPresetId] = useState("");
-  const [createPresetTouched, setCreatePresetTouched] = useState(false);
   const [createForm, setCreateForm] = useState(createDefaultAdminS3ConnectionForm);
   const [createInitialSignature, setCreateInitialSignature] = useState("");
 
@@ -196,7 +193,6 @@ export default function S3ConnectionsPage() {
     const nextForm = createDefaultAdminS3ConnectionForm();
     setCreateEndpointMode("custom");
     setCreateEndpointPresetId("");
-    setCreatePresetTouched(false);
     setCreateError(null);
     setCreateForm(nextForm);
     setCreateInitialSignature(
@@ -205,6 +201,7 @@ export default function S3ConnectionsPage() {
   };
 
   const openCreateModal = () => {
+    createFormValidation.reset();
     const nextForm = createDefaultAdminS3ConnectionForm();
     let nextEndpointMode: S3ConnectionEndpointMode = "custom";
     let nextEndpointPresetId = "";
@@ -220,7 +217,6 @@ export default function S3ConnectionsPage() {
     }
     setCreateEndpointMode(nextEndpointMode);
     setCreateEndpointPresetId(nextEndpointPresetId);
-    setCreatePresetTouched(false);
     setCreateError(null);
     setCreateForm(nextForm);
     setCreateInitialSignature(
@@ -444,6 +440,13 @@ export default function S3ConnectionsPage() {
     disabled: editBusy,
     onClose: closeEditModal,
   });
+  const createPrepared = prepareCreateAdminS3ConnectionPayload(createForm, createEndpointMode, createEndpointPresetId);
+  const createFormValidation = useS3ConnectionFormValidation(createPrepared, createEndpointMode === "custom" ? createForm.endpoint_url : undefined);
+  const editPrepared = prepareUpdateAdminS3ConnectionPayload({
+    credentialDraft: editCredentials, endpointId: editEndpointPresetId, endpointMode: editEndpointMode,
+    form: editForm, linkedGroupIds: editLinkedGroupIds, linkedUserIds: editLinkedUserIds,
+  });
+  const editFormValidation = useS3ConnectionFormValidation(editPrepared, editEndpointMode === "custom" ? editForm.endpoint_url : undefined);
   const tableStatus = resolveListTableStatus({
     loading,
     error,
@@ -495,22 +498,6 @@ export default function S3ConnectionsPage() {
     setSelectedIds([]);
   }, [page, pageSize]);
 
-  useEffect(() => {
-    if (!showCreateModal) return;
-    if (createPresetTouched || createEndpointPresetId) return;
-    if (!defaultEndpoint) return;
-    if (createForm.endpoint_url.trim()) return;
-    const defaultId = String(defaultEndpoint.id);
-    setCreateEndpointMode("preset");
-    setCreateEndpointPresetId(defaultId);
-    setCreateForm((prev) => ({
-      ...prev,
-      endpoint_url: defaultEndpoint.endpoint_url,
-      region: defaultEndpoint.region || "",
-      force_path_style: false,
-      verify_tls: true,
-    }));
-  }, [createEndpointPresetId, createForm.endpoint_url, createPresetTouched, defaultEndpoint, showCreateModal]);
 
   const handleFilterChange = (value: string) => {
     setFilter(value);
@@ -592,6 +579,7 @@ export default function S3ConnectionsPage() {
   );
 
   const openEdit = (conn: S3ConnectionAdminItem) => {
+    editFormValidation.reset();
     const presetMatch =
       conn.storage_endpoint_id != null
         ? storageEndpoints.find((ep) => ep.id === conn.storage_endpoint_id)
@@ -641,35 +629,10 @@ export default function S3ConnectionsPage() {
     setEditError(null);
   };
 
-  type ConnectionEndpointForm = {
-    endpoint_url: string;
-    region: string;
-  };
-
-  const applyEndpointPreset = <T extends ConnectionEndpointForm>(
-    endpointId: string,
-    setForm: Dispatch<SetStateAction<T>>
-  ) => {
-    const endpoint = storageEndpoints.find((ep) => String(ep.id) === endpointId);
-    if (!endpoint) return;
-    setForm((prev) => ({
-      ...prev,
-      endpoint_url: endpoint.endpoint_url,
-      region: endpoint.region || "",
-    }));
-  };
-
-  const submitCreate = async (e: FormEvent) => {
+  const submitCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const prepared = prepareCreateAdminS3ConnectionPayload(
-      createForm,
-      createEndpointMode,
-      createEndpointPresetId,
-    );
-    if (prepared.error !== null) {
-      setCreateError(prepared.error);
-      return;
-    }
+    if (creating || !createFormValidation.validate(e.currentTarget) || createPrepared.payload === null) return;
+    const prepared = createPrepared;
     setCreating(true);
     setCreateError(null);
     try {
@@ -685,21 +648,14 @@ export default function S3ConnectionsPage() {
     }
   };
 
-  const submitEdit = async (e: FormEvent) => {
+  const submitEdit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!editing) return;
-    const prepared = prepareUpdateAdminS3ConnectionPayload({
-      credentialDraft: editCredentials,
-      endpointId: editEndpointPresetId,
-      endpointMode: editEndpointMode,
-      form: editForm,
-      linkedGroupIds: editLinkedGroupIds,
-      linkedUserIds: editLinkedUserIds,
-    });
-    if (prepared.error !== null) {
-      setEditError(prepared.error);
+    if (!editing || editBusy) return;
+    if (!editFormValidation.validate(e.currentTarget) || editPrepared.payload === null) {
+      setEditTab("general");
       return;
     }
+    const prepared = editPrepared;
     setEditBusy(true);
     setEditError(null);
     try {
@@ -1098,6 +1054,9 @@ export default function S3ConnectionsPage() {
           breadcrumbs={adminPageBreadcrumbs("shared-connections", { label: "Create" })}
           backLabel="Back to connections"
           onBack={createCloseGuard.requestClose}
+          backDisabled={creating}
+          contentVariant="plain"
+          contentClassName="settings-compact"
           width="wide"
         >
           {createError && (
@@ -1105,87 +1064,36 @@ export default function S3ConnectionsPage() {
               {createError}
             </UiInlineMessage>
           )}
-          <form className="space-y-4" onSubmit={submitCreate}>
-              <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <UiInput
-                label="Name *"
-                value={createForm.name}
-                onChange={(e) => setCreateForm((p) => ({ ...p, name: e.target.value }))}
-                required
-              />
-              <div className="space-y-3">
-                {adminTagCatalogError && <PageBanner tone="warning">{adminTagCatalogError}</PageBanner>}
-                <UiTagEditor
-                  label="Tags"
-                  tags={createForm.tags}
-                  catalog={adminTagCatalog}
-                  onChange={(tags) => setCreateForm((current) => ({ ...current, tags }))}
-                  placeholder="Add a tag for this shared connection"
-                  hint={adminTagCatalogLoading ? "Loading existing tag catalog..." : undefined}
-                  compact
-                />
+          <SettingsForm label="Create shared S3 connection" onSubmit={submitCreate} busy={creating}
+            onCancel={createCloseGuard.requestClose} submitLabel="Create" busyLabel="Creating...">
+            <S3ConnectionIdentityFields name={createForm.name} nameError={createFormValidation.errorFor("name")}
+              onNameChange={(name) => setCreateForm((current) => ({ ...current, name }))} catalogError={adminTagCatalogError}
+              tagEditor={{ tags: createForm.tags, catalog: adminTagCatalog,
+                onChange: (tags) => setCreateForm((current) => ({ ...current, tags })),
+                placeholder: "Add a tag for this shared connection", disabled: creating,
+                hint: adminTagCatalogLoading ? "Loading existing tag catalog..." : undefined }} />
+            <S3ConnectionEndpointFields mode={createEndpointMode}
+              onModeChange={(mode) => { setCreateEndpointMode(mode); if (mode === "preset") setCreateEndpointPresetId(preferredS3ConnectionEndpointId(createEndpointPresetId, storageEndpoints)); }}
+              modeInputName="create-admin-s3-connection-endpoint-mode" endpointId={createEndpointPresetId}
+              onEndpointIdChange={setCreateEndpointPresetId} endpoints={storageEndpoints} loadingEndpoints={loadingEndpoints}
+              form={createForm} onFormChange={(field, value) => setCreateForm((current) => ({ ...current, [field]: value }))}
+              endpointIdError={createFormValidation.errorFor("endpointId")} endpointUrlError={createFormValidation.errorFor("endpointUrl")} />
+            <SettingsSection title="Credentials" presentation="compact">
+              <div className="settings-stack">
+                <S3ConnectionCredentialFields accessKeyId={createForm.access_key_id} secretAccessKey={createForm.secret_access_key}
+                  onAccessKeyIdChange={(value) => setCreateForm((current) => ({ ...current, access_key_id: value }))}
+                  onSecretAccessKeyChange={(value) => setCreateForm((current) => ({ ...current, secret_access_key: value }))}
+                  error={createFormValidation.errorFor("credentials")} required accessKeyLabel="Access key ID" secretAccessKeyLabel="Secret access key" />
+                <S3CredentialsValidationMessage validation={createCredentialsValidation} />
               </div>
-              <div className="sm:col-span-2">
-                <S3ConnectionEndpointFields
-                  mode={createEndpointMode}
-                  onModeChange={(mode) => {
-                    setCreatePresetTouched(true);
-                    setCreateEndpointMode(mode);
-                  }}
-                  modeInputName="create-admin-s3-connection-endpoint-mode"
-                  endpointId={createEndpointPresetId}
-                  onEndpointIdChange={(endpointId) => {
-                    setCreateEndpointPresetId(endpointId);
-                    setCreatePresetTouched(true);
-                    if (endpointId) {
-                      applyEndpointPreset(endpointId, setCreateForm);
-                    }
-                  }}
-                  endpoints={storageEndpoints}
-                  loadingEndpoints={loadingEndpoints}
-                  form={createForm}
-                  onFormChange={(field, value) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      [field]: value,
-                    }))
-                  }
-                />
-              </div>
-              <div className={cx("px-3 py-2 sm:col-span-2", uiPanelMutedClass)}>
-                <div className="ui-body text-[var(--ui-text)]">
-                  Visibility: <span className="font-semibold">Shared</span>
-                </div>
-                <p className={cx("ui-caption", uiMutedTextClass)}>
-                  Admin connections are always shared with linked UI users.
-                </p>
-              </div>
-              <div className={cx("px-3 py-2 sm:col-span-2", uiPanelMutedClass)}>
-                <div className="ui-body font-semibold text-[var(--ui-text)]">Manager-only execution</div>
-                <p className={cx("ui-caption", uiMutedTextClass)}>
-                  Shared connections are never exposed to Browser. Browser users must create a private connection.
-                </p>
-              </div>
-            </div>
-            <S3ConnectionCredentialFields
-              accessKeyId={createForm.access_key_id}
-              secretAccessKey={createForm.secret_access_key}
-              onAccessKeyIdChange={(value) => setCreateForm((p) => ({ ...p, access_key_id: value }))}
-              onSecretAccessKeyChange={(value) => setCreateForm((p) => ({ ...p, secret_access_key: value }))}
-              required
-            />
-            <S3CredentialsValidationMessage validation={createCredentialsValidation} />
-              </>
-            <div className="flex items-center justify-end gap-3">
-              <UiButton variant="secondary" onClick={createCloseGuard.requestClose} disabled={creating}>
-                Cancel
-              </UiButton>
-              <UiButton type="submit" disabled={creating}>
-                {creating ? "Creating..." : "Create"}
-              </UiButton>
-            </div>
-          </form>
+            </SettingsSection>
+            <SettingsSection title="Access" presentation="compact">
+              <p className="settings-label">Visibility: Shared</p>
+              <p className="settings-description mt-1">Admin connections are always shared with linked UI users.</p>
+              <p className="settings-label mt-3">Manager-only execution</p>
+              <p className="settings-description mt-1">Shared connections are never exposed to Browser. Browser users must create a private connection.</p>
+            </SettingsSection>
+          </SettingsForm>
           {createCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}
@@ -1198,6 +1106,8 @@ export default function S3ConnectionsPage() {
           breadcrumbs={adminPageBreadcrumbs("shared-connections", { label: "Edit" })}
           backLabel="Back to connections"
           onBack={editCloseGuard.requestClose}
+          backDisabled={editBusy}
+          contentClassName="settings-compact"
           contentVariant="plain"
           width="wide"
         >
@@ -1206,7 +1116,8 @@ export default function S3ConnectionsPage() {
               {editError}
             </UiInlineMessage>
           )}
-          <form className="space-y-4" onSubmit={submitEdit}>
+          <SettingsForm label="Edit shared S3 connection" onSubmit={submitEdit} busy={editBusy}
+            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving...">
             <WorkflowTabs<EditTab>
               activeTab={editTab}
               onTabChange={setEditTab}
@@ -1221,85 +1132,35 @@ export default function S3ConnectionsPage() {
 
             {showEditGeneralTab && (
               <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <UiInput
-                    label="Name *"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
-                    required
-                  />
-                  <div className="space-y-3">
-                    {adminTagCatalogError && <PageBanner tone="warning">{adminTagCatalogError}</PageBanner>}
-                    <UiTagEditor
-                      label="Tags"
-                      tags={editForm.tags}
-                      catalog={adminTagCatalog}
-                      onChange={(tags) => setEditForm((current) => ({ ...current, tags }))}
-                      placeholder="Add a tag for this shared connection"
-                      hint={adminTagCatalogLoading ? "Loading existing tag catalog..." : undefined}
-                      compact
-                    />
-                  </div>
-                </div>
+            <S3ConnectionIdentityFields name={editForm.name} nameError={editFormValidation.errorFor("name")}
+              onNameChange={(name) => setEditForm((current) => ({ ...current, name }))} catalogError={adminTagCatalogError}
+              tagEditor={{ tags: editForm.tags, catalog: adminTagCatalog,
+                onChange: (tags) => setEditForm((current) => ({ ...current, tags })),
+                placeholder: "Add a tag for this shared connection", disabled: editBusy,
+                hint: adminTagCatalogLoading ? "Loading existing tag catalog..." : undefined }} />
+            <S3ConnectionEndpointFields mode={editEndpointMode}
+              onModeChange={(mode) => { setEditEndpointMode(mode); if (mode === "preset") setEditEndpointPresetId(preferredS3ConnectionEndpointId(editEndpointPresetId, storageEndpoints)); }}
+              modeInputName="edit-admin-s3-connection-endpoint-mode" endpointId={editEndpointPresetId}
+              onEndpointIdChange={setEditEndpointPresetId} endpoints={storageEndpoints} loadingEndpoints={loadingEndpoints}
+              form={editForm} onFormChange={(field, value) => setEditForm((current) => ({ ...current, [field]: value }))}
+              endpointIdError={editFormValidation.errorFor("endpointId")} endpointUrlError={editFormValidation.errorFor("endpointUrl")} />
+            <SettingsSection title="Credentials" presentation="compact" description="Leave blank to keep the current keys.">
+              <div className="settings-stack">
+                <S3ConnectionCredentialFields accessKeyId={editCredentials.access_key_id} secretAccessKey={editCredentials.secret_access_key}
+                  onAccessKeyIdChange={(value) => setEditCredentials((current) => ({ ...current, access_key_id: value }))}
+                  onSecretAccessKeyChange={(value) => setEditCredentials((current) => ({ ...current, secret_access_key: value }))}
+                  error={editFormValidation.errorFor("credentials")} />
 
-                <S3ConnectionEndpointFields
-                  mode={editEndpointMode}
-                  onModeChange={setEditEndpointMode}
-                  modeInputName={`edit-admin-s3-connection-endpoint-mode-${editing.id}`}
-                  endpointId={editEndpointPresetId}
-                  onEndpointIdChange={(endpointId) => {
-                    setEditEndpointPresetId(endpointId);
-                    if (endpointId) {
-                      applyEndpointPreset(endpointId, setEditForm);
-                    }
-                  }}
-                  endpoints={storageEndpoints}
-                  loadingEndpoints={loadingEndpoints}
-                  form={editForm}
-                  onFormChange={(field, value) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      [field]: value,
-                    }))
-                  }
-                />
-
-                <div className={cx("px-3 py-2", uiPanelMutedClass)}>
-                  <div className="ui-body text-[var(--ui-text)]">
-                    Visibility: <span className="font-semibold">Shared</span>
-                  </div>
-                  <div className={cx("ui-caption", uiMutedTextClass)}>
-                    {`Created by: ${editing.created_by_email || editing.created_by_user_id}`}
-                  </div>
-                </div>
-
-                <div className={cx("space-y-3 px-3 py-3", uiPanelMutedClass)}>
-                  <div>
-                    <div className={cx("ui-body", uiTitleTextClass)}>Credentials</div>
-                    <div className={cx("ui-caption", uiMutedTextClass)}>Leave blank to keep the current keys.</div>
-                  </div>
-                  <S3ConnectionCredentialFields
-                    accessKeyId={editCredentials.access_key_id}
-                    secretAccessKey={editCredentials.secret_access_key}
-                    onAccessKeyIdChange={(value) => setEditCredentials((p) => ({ ...p, access_key_id: value }))}
-                    onSecretAccessKeyChange={(value) => setEditCredentials((p) => ({ ...p, secret_access_key: value }))}
-                  />
-                </div>
-
-                <div className={cx("space-y-3 px-3 py-3", uiPanelMutedClass)}>
-                  <div>
-                    <div className={cx("ui-body", uiTitleTextClass)}>Access and credential metadata</div>
-                    <div className={cx("ui-caption", uiMutedTextClass)}>
-                      Store owner context for keys imported from manager/ceph-admin flows.
-                    </div>
-                  </div>
-                  <div className={cx("rounded-md px-3 py-2", uiPanelMutedClass)}>
-                    <div className="ui-body font-semibold text-[var(--ui-text)]">Manager-only execution</div>
-                    <div className={cx("ui-caption", uiMutedTextClass)}>
-                      Browser access is disabled for all shared connections.
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              </div>
+            </SettingsSection>
+                <SettingsSection title="Access and credential metadata" presentation="compact"
+                  description="Store owner context for keys imported from manager/ceph-admin flows.">
+                  <div className="settings-stack">
+                    <div><p className="settings-label">Visibility: Shared</p>
+                      <p className="settings-description mt-1 [overflow-wrap:anywhere]">Created by: {editing.created_by_email || editing.created_by_user_id}</p></div>
+                    <div><p className="settings-label">Manager-only execution</p>
+                      <p className="settings-description mt-1">Browser access is disabled for all shared connections.</p></div>
+                    <div className="settings-fields sm:grid-cols-2">
                     <UiSelect
                       label="Owner type"
                       value={editForm.credential_owner_type}
@@ -1323,13 +1184,14 @@ export default function S3ConnectionsPage() {
                       onChange={(e) => setEditForm((p) => ({ ...p, credential_owner_identifier: e.target.value }))}
                       placeholder="account-id / user-id"
                     />
+                    </div>
                   </div>
-                </div>
+                </SettingsSection>
               </>
             )}
 
             {showEditUsersTab && (
-              <div className={cx("space-y-3 px-3 py-3", uiPanelMutedClass)}>
+              <div className="settings-stack">
                 <AdminAssociationSectionHeader
                   title="Linked UI users"
                   countLabel={`${linkedEditUsers.length} linked`}
@@ -1414,7 +1276,7 @@ export default function S3ConnectionsPage() {
             )}
 
             {showEditGroupsTab && (
-              <div className={cx("space-y-3 px-3 py-3", uiPanelMutedClass)}>
+              <div className="settings-stack">
                 <AdminAssociationSectionHeader
                   title="Linked UI groups"
                   countLabel={`${linkedEditGroups.length} linked`}
@@ -1499,15 +1361,7 @@ export default function S3ConnectionsPage() {
             )}
             </WorkflowTabs>
 
-            <WorkflowActions>
-              <UiButton variant="secondary" onClick={editCloseGuard.requestClose} disabled={editBusy}>
-                Close
-              </UiButton>
-              <UiButton type="submit" disabled={editBusy}>
-                {editBusy ? "Saving..." : "Save"}
-              </UiButton>
-            </WorkflowActions>
-          </form>
+          </SettingsForm>
           {editCloseGuard.confirmationDialog}
 
         </WorkflowPage>
