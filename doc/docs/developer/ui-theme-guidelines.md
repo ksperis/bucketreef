@@ -164,6 +164,15 @@ guards include pending association selections and image changes. The user
 Authentication tab keeps its immediate actions and Done footer: it must never
 submit the parent profile draft.
 
+The Authentication tab uses the same compact sections for passkeys, passwords,
+external identities and sessions. Its native fieldsets submit their own immediate
+action on Enter and freeze both their fields and the parent editor navigation
+while an operation or passkey verification is pending. Loading errors offer a
+read-only retry; mutation errors remain beside the action or inside its existing
+confirmation through `ConfirmActionDialog.error`. Keep the exact WebAuthn guard
+detection, explicit verification and single retry contract in
+`useRecentWebAuthnStepUp`; its dialog uses `SettingsDialog` and shared actions.
+
 Settings typography is also tokenized: titles 14px/20px at weight 600, labels
 13px/18px at weight 500, body/inputs 13px/18px at weight 400, descriptions and
 buttons 12px/16px at weight 400. Use `settings-section-title`, `settings-label`,

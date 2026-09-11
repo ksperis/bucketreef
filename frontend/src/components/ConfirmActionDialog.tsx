@@ -29,6 +29,7 @@ type ConfirmActionDialogProps = {
   details?: ConfirmActionDialogDetail[];
   impacts?: ReactNode[];
   warning?: ReactNode;
+  error?: ReactNode;
   maxWidthClass?: string;
   zIndexClass?: string;
   onCancel: () => void;
@@ -49,6 +50,7 @@ export default function ConfirmActionDialog({
   details = [],
   impacts = [],
   warning,
+  error,
   maxWidthClass = "max-w-xl",
   zIndexClass,
   onCancel,
@@ -93,6 +95,7 @@ export default function ConfirmActionDialog({
         )}
 
         {warning && <UiInlineMessage tone="neutral" className="[overflow-wrap:anywhere]">{warning}</UiInlineMessage>}
+        {error && <UiInlineMessage tone="error" role="alert" className="[overflow-wrap:anywhere]">{error}</UiInlineMessage>}
 
         <ModalActions>
           <UiButton variant="secondary" onClick={onCancel} disabled={loading}>{cancelLabel}</UiButton>

@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { FormEvent } from "react";
+import { StrictMode, type FormEvent } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../api/client";
@@ -153,4 +153,166 @@ describe("UserAuthenticationPanel", () => {
     expect(mocks.beginRecentWebAuthnVerification).toHaveBeenCalledOnce();
     expect(await screen.findByText("MFA reset completed. Sessions and API tokens were revoked.")).toBeInTheDocument();
   });
+  it("keeps unavailable security details out of the form until reload succeeds", async () => {
+    mocks.getAdminUserSecurity.mockRejectedValueOnce(new Error("Fixture load failed"));
+    render(<UserAuthenticationPanel userId={42} canMutate />);
+    expect(await screen.findByText("Unable to load authentication details.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset MFA" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Laptop")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset MFA" })).toBeEnabled();
+  });
+
+  it("ignores a stale failure after the latest authentication load succeeded", async () => {
+    let rejectStaleLoad!: (error: Error) => void;
+    mocks.getAdminUserSecurity.mockImplementationOnce(() => new Promise((_, reject) => { rejectStaleLoad = reject; }));
+    render(<StrictMode><UserAuthenticationPanel userId={42} canMutate /></StrictMode>);
+    expect(await screen.findByText("Laptop")).toBeInTheDocument();
+    await act(async () => rejectStaleLoad(new Error("Stale authentication failure")));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset MFA" })).toBeEnabled();
+  });
+
+  it("validates password fields, isolates Enter, and retains a frozen draft after failure", async () => {
+    const user = userEvent.setup(), parentSubmit = vi.fn((event: FormEvent) => event.preventDefault()), onBusyChange = vi.fn();
+    let rejectSave!: (reason: Error) => void;
+    mocks.setAdminUserPassword.mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
+    render(<form onSubmit={parentSubmit}><UserAuthenticationPanel userId={42} canMutate onBusyChange={onBusyChange} /></form>);
+    const password = await screen.findByLabelText("New password");
+    const confirm = screen.getByLabelText("Confirm password");
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+    expect(password).toHaveAttribute("aria-invalid", "true");
+    expect(password).toHaveFocus();
+    await user.type(password, "fixture-password");
+    await user.type(confirm, "different-password");
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+    expect(confirm).toHaveFocus();
+    expect(mocks.setAdminUserPassword).not.toHaveBeenCalled();
+    await user.clear(confirm);
+    await user.type(confirm, "fixture-password{Enter}");
+    await waitFor(() => expect(mocks.setAdminUserPassword).toHaveBeenCalledWith(42, "fixture-password"));
+    expect(onBusyChange).toHaveBeenLastCalledWith(true);
+    expect(password).toBeDisabled();
+    expect(screen.getByLabelText("Provider ID")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+    expect(mocks.setAdminUserPassword).toHaveBeenCalledTimes(1);
+    await act(async () => rejectSave(new Error("Fixture password failure")));
+    expect(await within(screen.getByRole("group", { name: "Change local password" })).findByRole("alert")).toHaveTextContent("Fixture password failure");
+    expect(password).toHaveValue("fixture-password");
+    expect(confirm).toHaveValue("fixture-password");
+    expect(password).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+    await waitFor(() => expect(password).toHaveValue(""));
+    expect(mocks.setAdminUserPassword.mock.calls[1]).toEqual(mocks.setAdminUserPassword.mock.calls[0]);
+    expect(parentSubmit).not.toHaveBeenCalled();
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it.each(["oidc", "ldap"])("validates identity fields and preserves the %s payload on Enter", async (providerType) => {
+    const user = userEvent.setup(), parentSubmit = vi.fn((event: FormEvent) => event.preventDefault());
+    render(<form onSubmit={parentSubmit}><UserAuthenticationPanel userId={42} canMutate /></form>);
+    await user.click(await screen.findByRole("button", { name: "Link identity" }));
+    expect(screen.getByLabelText("Provider ID")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Provider ID")).toHaveFocus();
+    expect(screen.getByLabelText("Immutable subject")).toHaveAttribute("aria-invalid", "true");
+    await user.selectOptions(screen.getByLabelText("Provider type"), providerType);
+    await user.type(screen.getByLabelText("Provider ID"), " company-two ");
+    await user.type(screen.getByLabelText("Immutable subject"), " immutable-subject-two ");
+    const email = screen.getByLabelText("Claimed email (optional)");
+    await user.type(email, "invalid-email");
+    await user.click(screen.getByRole("button", { name: "Link identity" }));
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveFocus();
+    expect(mocks.addAdminExternalIdentity).not.toHaveBeenCalled();
+    await user.clear(email);
+    await user.type(email, "claim@example.com");
+    fireEvent.keyDown(email, { key: "Enter", isComposing: true });
+    expect(mocks.addAdminExternalIdentity).not.toHaveBeenCalled();
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(mocks.addAdminExternalIdentity).toHaveBeenCalledWith(42, {
+      provider_type: providerType, provider_id: " company-two ", subject: " immutable-subject-two ",
+      email: "claim@example.com", email_verified: providerType === "oidc",
+    }));
+    await waitFor(() => expect(screen.getByLabelText("Provider ID")).toHaveValue(""));
+    expect(parentSubmit).not.toHaveBeenCalled();
+  });
+
+  it("shows an action failure inside its confirmation and retries the same identity", async () => {
+    const user = userEvent.setup();
+    mocks.revokeAdminExternalIdentity.mockRejectedValueOnce(new ApiError("Request failed", {
+      response: { status: 403, data: { detail: "Fixture permission denied" }, headers: {} },
+    }));
+    render(<UserAuthenticationPanel userId={42} canMutate />);
+    const region = await screen.findByRole("region", { name: "External identities" });
+    await user.click(within(region).getByRole("button", { name: "Revoke" }));
+    const dialog = screen.getByRole("dialog", { name: "Revoke external identity" });
+    expect(within(dialog).getByText("immutable-subject")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Fixture permission denied");
+    expect(screen.queryByRole("dialog", { name: "Verify with passkey" })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(mocks.revokeAdminExternalIdentity.mock.calls).toEqual([[42, "identity-1"], [42, "identity-1"]]);
+  });
+
+  it("distinguishes a refresh failure after a successful action from a failed action", async () => {
+    const user = userEvent.setup();
+    mocks.getAdminUserSecurity.mockResolvedValueOnce(security).mockRejectedValueOnce(new Error("Fixture refresh failed"));
+    render(<UserAuthenticationPanel userId={42} canMutate />);
+    const password = await screen.findByLabelText("New password");
+    await user.type(password, "fixture-password");
+    await user.type(screen.getByLabelText("Confirm password"), "fixture-password");
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+    expect(await screen.findByText("Fixture refresh failed")).toBeInTheDocument();
+    expect(screen.getByText("Local password updated and user sessions revoked.")).toBeInTheDocument();
+    expect(password).toHaveValue("");
+    expect(password).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(password).toBeEnabled());
+    expect(mocks.setAdminUserPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains the password draft when passkey verification is cancelled", async () => {
+    const user = userEvent.setup(), onBusyChange = vi.fn();
+    mocks.setAdminUserPassword.mockRejectedValueOnce(new ApiError("Request failed", {
+      response: { status: 403, data: { detail: "Recent WebAuthn verification required" }, headers: {} },
+    }));
+    render(<UserAuthenticationPanel userId={42} canMutate onBusyChange={onBusyChange} />);
+    const password = await screen.findByLabelText("New password");
+    await user.type(password, "fixture-password");
+    await user.type(screen.getByLabelText("Confirm password"), "fixture-password");
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+    const dialog = await screen.findByRole("dialog", { name: "Verify with passkey" });
+    expect(password).toBeDisabled();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(password).toHaveValue("fixture-password");
+    await waitFor(() => expect(password).toBeEnabled());
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    expect(mocks.setAdminUserPassword).toHaveBeenCalledTimes(1);
+    expect(mocks.authenticatePasskey).not.toHaveBeenCalled();
+  });
+
+  it("locks passkey verification dismissal only while the verification request is pending", async () => {
+    const user = userEvent.setup();
+    let completeVerification!: () => void;
+    mocks.finishRecentWebAuthnVerification.mockImplementationOnce(() => new Promise<void>((resolve) => { completeVerification = resolve; }));
+    mocks.resetAdminUserMfa.mockRejectedValueOnce(new ApiError("Request failed", {
+      response: { status: 403, data: { detail: "Recent WebAuthn verification required" }, headers: {} },
+    }));
+    render(<UserAuthenticationPanel userId={42} canMutate />);
+    await user.click(await screen.findByRole("button", { name: "Reset MFA" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Reset user MFA" })).getByRole("button", { name: "Reset MFA" }));
+    const dialog = await screen.findByRole("dialog", { name: "Verify with passkey" });
+    await user.click(within(dialog).getByRole("button", { name: "Verify with passkey" }));
+    await waitFor(() => expect(mocks.finishRecentWebAuthnVerification).toHaveBeenCalledOnce());
+    expect(within(dialog).getByRole("button", { name: "Close modal" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(dialog).toBeInTheDocument();
+    await act(async () => completeVerification());
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(mocks.resetAdminUserMfa).toHaveBeenCalledTimes(2);
+  });
+
 });
