@@ -7,8 +7,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
-import Modal from "../../components/Modal";
-import ModalActions from "../../components/ModalActions";
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
@@ -19,7 +18,6 @@ import DataTableShell, {
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
-import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
@@ -672,7 +670,7 @@ export default function S3ConnectionsPage() {
   };
 
   const submitDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || deleteBusy) return;
     setDeleteBusy(true);
     setDeleteError(null);
     try {
@@ -776,6 +774,7 @@ export default function S3ConnectionsPage() {
   };
 
   const submitBulkDelete = async () => {
+    if (bulkDeleteBusy) return;
     if (selectedIds.length === 0) {
       setBulkDeleteOpen(false);
       return;
@@ -1369,39 +1368,29 @@ export default function S3ConnectionsPage() {
 
       {/* Bulk delete modal */}
       {bulkDeleteOpen && (
-        <Modal title={`Delete selected (${selectedIds.length})`} onClose={() => (!bulkDeleteBusy ? setBulkDeleteOpen(false) : null)} closeDisabled={bulkDeleteBusy}>
-          <div className="space-y-4">
-            <p className="ui-body">
-              This will permanently delete {selectedIds.length} selected connection{selectedIds.length > 1 ? "s" : ""}.
-            </p>
-            <ModalActions>
-              <UiButton variant="secondary" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleteBusy}>
-                Cancel
-              </UiButton>
-              <UiButton variant="danger" onClick={() => void submitBulkDelete()} disabled={bulkDeleteBusy}>
-                {bulkDeleteBusy ? "Deleting..." : "Delete selected connections"}
-              </UiButton>
-            </ModalActions>
-          </div>
-        </Modal>
+        <ConfirmActionDialog
+          title={`Delete selected (${selectedIds.length})`}
+          description={`This will permanently delete ${selectedIds.length} selected connection${selectedIds.length > 1 ? "s" : ""} and their credentials.`}
+          confirmLabel="Delete selected connections"
+          processingLabel="Deleting..."
+          loading={bulkDeleteBusy}
+          onCancel={() => setBulkDeleteOpen(false)}
+          onConfirm={() => void submitBulkDelete()}
+        />
       )}
 
       {/* Delete modal */}
       {deleteTarget && (
-        <Modal title={`Delete: ${deleteTarget.name}`} onClose={() => (!deleteBusy ? setDeleteTarget(null) : null)} closeDisabled={deleteBusy}>
-          <div className="space-y-4">
-            {deleteError && <PageBanner tone="error">{deleteError}</PageBanner>}
-            <p className="ui-body">This will permanently delete the connection and its credentials.</p>
-            <ModalActions>
-              <UiButton variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleteBusy}>
-                Cancel
-              </UiButton>
-              <UiButton variant="danger" onClick={submitDelete} disabled={deleteBusy}>
-                {deleteBusy ? "Deleting..." : "Delete"}
-              </UiButton>
-            </ModalActions>
-          </div>
-        </Modal>
+        <ConfirmActionDialog
+          title={`Delete: ${deleteTarget.name}`}
+          description="This will permanently delete the connection and its credentials."
+          confirmLabel="Delete"
+          processingLabel="Deleting..."
+          loading={deleteBusy}
+          error={deleteError}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void submitDelete()}
+        />
       )}
     </div>
   );

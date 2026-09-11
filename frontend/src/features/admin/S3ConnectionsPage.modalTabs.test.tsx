@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import S3ConnectionsPage from "./S3ConnectionsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
@@ -463,4 +463,48 @@ describe("S3ConnectionsPage modal tabs", () => {
     expect(within(dialog).getByRole("radio", { name: "Custom endpoint" })).not.toBeChecked();
     expect(within(dialog).queryByRole("combobox", { name: "Provider" })).not.toBeInTheDocument();
   });
+  it("keeps single-deletion failures in a protected confirmation", async () => {
+    deleteAdminS3ConnectionMock.mockRejectedValueOnce(new Error("Connection is in use"));
+    render(<S3ConnectionsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    const dialog = within(screen.getByRole("dialog", { name: "Delete: connection-1" }));
+    expect(deleteAdminS3ConnectionMock).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole("button", { name: "Delete", exact: true }));
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Connection is in use");
+    let resolve!: () => void;
+    deleteAdminS3ConnectionMock.mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
+    const confirm = dialog.getByRole("button", { name: "Delete", exact: true });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(dialog.getByRole("button", { name: "Close modal" })).toBeDisabled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(deleteAdminS3ConnectionMock).toHaveBeenCalledTimes(2);
+    expect(deleteAdminS3ConnectionMock).toHaveBeenLastCalledWith(1);
+    await act(async () => resolve());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("retains only failed connections for an explicitly confirmed bulk retry", async () => {
+    listAdminS3ConnectionsMock.mockResolvedValue({ items: [makeConnection(1), makeConnection(2)], total: 2, page: 1, page_size: 25, has_next: false });
+    deleteAdminS3ConnectionMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Denied"));
+    render(<S3ConnectionsPage />);
+    await screen.findByText("connection-2");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select connection connection-1" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select connection connection-2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete selected", exact: true }));
+    const dialog = within(screen.getByRole("dialog", { name: "Delete selected (2)" }));
+    expect(deleteAdminS3ConnectionMock).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole("button", { name: "Delete selected connections" }));
+    await screen.findByText("1 connection could not be deleted.");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Select connection connection-1" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select connection connection-2" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Delete selected", exact: true }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Delete selected (1)" })).getByRole("button", { name: "Delete selected connections" }));
+    await waitFor(() => expect(deleteAdminS3ConnectionMock.mock.calls).toEqual([[1], [2], [2]]));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
 });

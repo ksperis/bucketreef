@@ -2,7 +2,6 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import ModalActions from "../../components/ModalActions";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cx, uiCheckboxClass } from "../../components/ui/styles";
@@ -19,7 +18,7 @@ import {
   type StorageEndpointPayload,
   type StorageProvider,
 } from "../../api/storageEndpoints";
-import Modal from "../../components/Modal";
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import WorkflowPage, { WorkflowActions, WorkflowSection } from "../../components/WorkflowPage";
 import PageHeader from "../../components/PageHeader";
 import PageTabs from "../../components/PageTabs";
@@ -1455,32 +1454,16 @@ export default function StorageEndpointsPage() {
       )}
 
       {deleteTarget && (
-        <Modal title="Delete endpoint" onClose={() => { if (!deleteBusy) setDeleteTarget(null); }} closeOnEscape={!deleteBusy} closeOnBackdropClick={!deleteBusy}>
-          <div className="space-y-4">
-            {deleteError && <PageBanner tone="error">{deleteError}</PageBanner>}
-            <p className="ui-body text-slate-700 dark:text-slate-100">
-              Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This action cannot be undone.
-            </p>
-            <ModalActions>
-              <UiButton
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleteBusy}
-                variant="secondary"
-                size="sm"
-              >
-                Cancel
-              </UiButton>
-              <UiButton
-                onClick={handleDelete}
-                disabled={deleteBusy}
-                variant="danger"
-                size="sm"
-              >
-                {deleteBusy ? "Deleting..." : "Delete"}
-              </UiButton>
-            </ModalActions>
-          </div>
-        </Modal>
+        <ConfirmActionDialog
+          title="Delete endpoint"
+          description={<>Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This action cannot be undone.</>}
+          confirmLabel="Delete"
+          processingLabel="Deleting..."
+          loading={deleteBusy}
+          error={deleteError}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void handleDelete()}
+        />
       )}
     </div>
   );

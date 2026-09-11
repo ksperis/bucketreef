@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import S3UsersPage from "./S3UsersPage";
@@ -585,4 +585,45 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.queryByText("rgw-user-2")).not.toBeInTheDocument();
     expect(screen.getByText("legacy").parentElement?.className).toContain("text-[10px]");
   });
+  it.each([null, 2])("blocks RGW deletion when the owned-bucket count is %s", async (bucket_count) => {
+    getS3UserWithBucketsMock.mockResolvedValueOnce({ id: 5, name: "rgw-user-1", rgw_user_uid: "rgw-uid-1", bucket_count });
+    render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Delete rgw-user-1" }));
+    expect(dialog.getByRole("checkbox", { name: "Also delete RGW user rgw-uid-1" })).toBeDisabled();
+    expect(dialog.getByText(`Buckets: ${bucket_count ?? "unknown"}`)).toBeInTheDocument();
+    expect(deleteS3UserMock).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole("button", { name: "Delete user" }));
+    await waitFor(() => expect(deleteS3UserMock).toHaveBeenCalledWith(5, { deleteRgw: false }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("keeps the selected RGW deletion and an actionable error through a protected retry", async () => {
+    getS3UserWithBucketsMock.mockResolvedValueOnce({ id: 5, name: "rgw-user-1", rgw_user_uid: "rgw-uid-1", bucket_count: 0 });
+    deleteS3UserMock.mockRejectedValueOnce(new Error("RGW refused deletion"));
+    render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Delete rgw-user-1" }));
+    const choice = dialog.getByRole("checkbox", { name: "Also delete RGW user rgw-uid-1" });
+    expect(choice).not.toBeChecked();
+    fireEvent.click(choice);
+    fireEvent.click(dialog.getByRole("button", { name: "Delete user" }));
+    expect(await dialog.findByRole("alert")).toHaveTextContent("RGW refused deletion");
+    expect(choice).toBeChecked();
+    let resolve!: () => void;
+    deleteS3UserMock.mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
+    const confirm = dialog.getByRole("button", { name: "Delete user" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(choice).toBeDisabled();
+    expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(dialog.getByRole("button", { name: "Close modal" })).toBeDisabled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(deleteS3UserMock).toHaveBeenCalledTimes(2);
+    expect(deleteS3UserMock).toHaveBeenLastCalledWith(5, { deleteRgw: true });
+    await act(async () => resolve());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
 });

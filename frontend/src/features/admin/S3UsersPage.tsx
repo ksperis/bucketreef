@@ -29,7 +29,7 @@ import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import Modal from "../../components/Modal";
 import ModalActions from "../../components/ModalActions";
-import ModalOptions from "../../components/ModalOptions";
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import WorkflowPage, {
   WorkflowActions,
@@ -808,7 +808,7 @@ export default function S3UsersPage() {
   });
 
   const confirmDeleteUser = async () => {
-    if (!userToDelete) return;
+    if (!userToDelete || deleteModalBusy) return;
     setDeleteBusyId(userToDelete.id);
     setDeleteModalError(null);
     setActionMessage(null);
@@ -1513,53 +1513,34 @@ export default function S3UsersPage() {
       )}
 
       {userToDelete && (
-        <Modal title={`Delete ${userToDelete.name}`} onClose={closeDeleteModal} closeDisabled={deleteModalBusy}>
-          <div className="space-y-3 ui-body text-slate-600 dark:text-slate-300">
-            <p>
-              This removes the standalone RGW user from the UI and deletes the access key used by this interface. You can also delete the underlying RGW user once it no longer owns buckets.
-            </p>
-            {deleteModalHasResources && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 ui-body text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/50 dark:text-amber-100">
-                This RGW user still has linked resources. Remove owned buckets before deleting it from RGW.
-                <div className="mt-1 ui-caption font-semibold">Buckets: {userToDelete.bucket_count ?? "unknown"}</div>
-              </div>
-            )}
-            <ModalOptions>
-              <UiCheckboxField
-                checked={deleteFromRgw}
-                disabled={deleteModalBusy || deleteModalHasResources}
-                onChange={(event) => setDeleteFromRgw(event.target.checked)}
-              >
-                <span className="modal-option-copy">
-                  Also delete RGW user <code className="break-all font-mono">{userToDelete.rgw_user_uid}</code>
-                </span>
-              </UiCheckboxField>
-            </ModalOptions>
-            {deleteModalError && (
-              <UiInlineMessage tone="error">
-                {deleteModalError}
-              </UiInlineMessage>
-            )}
-          </div>
-          <ModalActions>
-            <UiButton
-              type="button"
-              onClick={closeDeleteModal}
-              disabled={deleteModalBusy}
-              variant="secondary"
+        <ConfirmActionDialog
+          title={`Delete ${userToDelete.name}`}
+          description="This removes the standalone RGW user from the UI and deletes the access key used by this interface. You can also delete the underlying RGW user once it no longer owns buckets."
+          confirmLabel="Delete user"
+          processingLabel="Deleting..."
+          loading={deleteModalBusy}
+          error={deleteModalError}
+          warningTone="warning"
+          warning={deleteModalHasResources && (
+            <div className="space-y-2">
+              <p>This RGW user still has linked resources. Remove owned buckets before deleting it from RGW.</p>
+              <p className="settings-label">Buckets: {userToDelete.bucket_count ?? "unknown"}</p>
+            </div>
+          )}
+          options={
+            <UiCheckboxField
+              checked={deleteFromRgw}
+              disabled={deleteModalBusy || deleteModalHasResources}
+              onChange={(event) => setDeleteFromRgw(event.target.checked)}
             >
-              Cancel
-            </UiButton>
-            <UiButton
-              type="button"
-              onClick={confirmDeleteUser}
-              disabled={deleteModalBusy}
-              variant="danger"
-            >
-              {deleteModalBusy ? "Deleting..." : "Delete user"}
-            </UiButton>
-          </ModalActions>
-        </Modal>
+              <span className="modal-option-copy">
+                Also delete RGW user <code className="break-all font-mono">{userToDelete.rgw_user_uid}</code>
+              </span>
+            </UiCheckboxField>
+          }
+          onCancel={closeDeleteModal}
+          onConfirm={() => void confirmDeleteUser()}
+        />
       )}
 
     </div>

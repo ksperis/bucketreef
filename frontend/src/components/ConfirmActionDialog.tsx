@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import ModalActions from "./ModalActions";
+import ModalOptions from "./ModalOptions";
 import { type ReactNode, useId } from "react";
 import Modal from "./Modal";
 import UiButton from "./ui/UiButton";
@@ -29,6 +30,8 @@ type ConfirmActionDialogProps = {
   details?: ConfirmActionDialogDetail[];
   impacts?: ReactNode[];
   warning?: ReactNode;
+  warningTone?: "neutral" | "warning";
+  options?: ReactNode;
   error?: ReactNode;
   maxWidthClass?: string;
   zIndexClass?: string;
@@ -50,6 +53,8 @@ export default function ConfirmActionDialog({
   details = [],
   impacts = [],
   warning,
+  warningTone = "neutral",
+  options,
   error,
   maxWidthClass = "max-w-xl",
   zIndexClass,
@@ -94,7 +99,12 @@ export default function ConfirmActionDialog({
           </UiInlineMessage>
         )}
 
-        {warning && <UiInlineMessage tone="neutral" className="[overflow-wrap:anywhere]">{warning}</UiInlineMessage>}
+        {warning && <UiInlineMessage tone={warningTone} className="[overflow-wrap:anywhere]">{warning}</UiInlineMessage>}
+        {options && (
+          <fieldset disabled={loading} className="min-w-0">
+            <ModalOptions>{options}</ModalOptions>
+          </fieldset>
+        )}
         {error && <UiInlineMessage tone="error" role="alert" className="[overflow-wrap:anywhere]">{error}</UiInlineMessage>}
 
         <ModalActions>

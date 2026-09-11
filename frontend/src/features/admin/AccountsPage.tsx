@@ -37,7 +37,7 @@ import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import Modal from "../../components/Modal";
 import ModalActions from "../../components/ModalActions";
-import ModalOptions from "../../components/ModalOptions";
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiTextarea from "../../components/ui/UiTextarea";
 import WorkflowPage, {
@@ -907,7 +907,7 @@ export default function S3AccountsPage() {
   };
 
   const confirmDeleteS3Account = async () => {
-    if (!accountToDelete) return;
+    if (!accountToDelete || deleteModalBusy) return;
     const targetId = accountToDelete.id;
     setDeletingS3AccountId(targetId);
     setActionError(null);
@@ -1059,52 +1059,43 @@ export default function S3AccountsPage() {
       )}
 
       {isSuperAdmin && accountToDelete && (
-        <Modal title={`Delete ${accountToDelete.name}`} onClose={closeDeleteModal} closeDisabled={deleteModalBusy}>
-          <p className="mb-3 ui-body text-slate-500 dark:text-slate-400">
-            Removing this account deletes the UI entry. Optionally delete the backing RGW tenant if it no longer contains resources.
-          </p>
-          {actionError && (
-            <PageBanner tone="error" className="mb-3">
-              {actionError}
-            </PageBanner>
-          )}
-          {deleteModalHasResources && (
-            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 ui-body text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/50 dark:text-amber-100">
-              {deleteModalUnknownResources
+        <ConfirmActionDialog
+          title={`Delete ${accountToDelete.name}`}
+          description="Removing this account deletes the UI entry. Optionally delete the backing RGW tenant if it no longer contains resources."
+          confirmLabel="Delete account"
+          processingLabel="Deleting..."
+          loading={deleteModalBusy}
+          error={actionError}
+          warningTone="warning"
+          warning={deleteModalHasResources && (
+            <div className="space-y-2">
+              <p>{deleteModalUnknownResources
                 ? "Unable to verify linked RGW resources. RGW deletion is disabled until counts are available."
-                : "This RGW tenant still has attached resources. Remove buckets and RGW users (excluding the admin user) before deleting it from RGW."}
-              <div className="mt-1 ui-caption font-semibold">
+                : "This RGW tenant still has attached resources. Remove buckets, RGW users (excluding the admin user), and notification topics before deleting it from RGW."}</p>
+              <p className="settings-label">
                 Buckets: {accountToDelete.bucket_count ?? "unknown"} · IAM users (excl. admin):{" "}
                 {accountToDelete.rgw_user_count ?? "unknown"} · RGW topics:{" "}
                 {accountToDelete.rgw_topic_count ?? "unknown"}
-              </div>
+              </p>
               {accountToDelete.rgw_user_uids && accountToDelete.rgw_user_uids.length > 0 && (
-                <div className="mt-2 rounded-lg border border-amber-200/40 bg-white/60 px-3 py-2 ui-caption text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/40 dark:text-amber-50">
-                  <p className="font-semibold">RGW users to remove:</p>
+                <div>
+                  <p className="settings-label">RGW users to remove:</p>
                   <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto">
-                    {accountToDelete.rgw_user_uids.map((uid) => (
-                      <li key={uid} className="break-all">
-                        {uid}
-                      </li>
-                    ))}
+                    {accountToDelete.rgw_user_uids.map((uid) => <li key={uid}>{uid}</li>)}
                   </ul>
                 </div>
               )}
               {accountToDelete.rgw_topics && accountToDelete.rgw_topics.length > 0 && (
-                <div className="mt-2 rounded-lg border border-amber-200/40 bg-white/60 px-3 py-2 ui-caption text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/40 dark:text-amber-50">
-                  <p className="font-semibold">Notification topics to remove:</p>
+                <div>
+                  <p className="settings-label">Notification topics to remove:</p>
                   <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto">
-                    {accountToDelete.rgw_topics.map((topic) => (
-                      <li key={topic} className="break-all">
-                        {topic}
-                      </li>
-                    ))}
+                    {accountToDelete.rgw_topics.map((topic) => <li key={topic}>{topic}</li>)}
                   </ul>
                 </div>
               )}
             </div>
           )}
-          <ModalOptions>
+          options={
             <UiCheckboxField
               checked={deleteFromRgw}
               disabled={deleteModalBusy || deleteModalHasResources}
@@ -1114,26 +1105,10 @@ export default function S3AccountsPage() {
                 Also delete RGW tenant <code className="break-all font-mono">{accountToDelete.rgw_account_id ?? accountToDelete.id}</code>
               </span>
             </UiCheckboxField>
-          </ModalOptions>
-          <ModalActions>
-            <UiButton
-              type="button"
-              onClick={closeDeleteModal}
-              disabled={deleteModalBusy}
-              variant="secondary"
-            >
-              Cancel
-            </UiButton>
-            <UiButton
-              type="button"
-              onClick={confirmDeleteS3Account}
-              disabled={deleteModalBusy}
-              variant="danger"
-            >
-              {deleteModalBusy ? "Deleting..." : "Delete account"}
-            </UiButton>
-          </ModalActions>
-        </Modal>
+          }
+          onCancel={closeDeleteModal}
+          onConfirm={() => void confirmDeleteS3Account()}
+        />
       )}
 
       {isSuperAdmin && showImportModal && (
