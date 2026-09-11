@@ -54,7 +54,6 @@ import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
-import { cx, uiPanelMutedClass } from "../../components/ui/styles";
 
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
@@ -64,7 +63,7 @@ import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import { AdminAccessToggleSection } from "./AdminAccessSections";
 import AdminQuotaFields from "./AdminQuotaFields";
@@ -969,6 +968,7 @@ export default function S3UsersPage() {
           )}
           <form onSubmit={submitEdit} className="space-y-4">
             <WorkflowTabs<EditTab>
+              panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
               activeTab={editTab}
               onTabChange={(tab) => {
                 if (tab === "users") {
@@ -1055,7 +1055,7 @@ export default function S3UsersPage() {
             )}
 
             {showEditUsersTab && (
-              <div className={cx("space-y-3 px-3 py-2", uiPanelMutedClass)}>
+              <div className="space-y-3">
                 <AdminAssociationSectionHeader
                   title="Linked UI users"
                   countLabel={`${editForm.user_links.length} linked`}
@@ -1169,7 +1169,7 @@ export default function S3UsersPage() {
             )}
 
             {showEditGroupsTab && (
-              <div className={cx("space-y-3 px-3 py-2", uiPanelMutedClass)}>
+              <div className="space-y-3">
                 <AdminAssociationSectionHeader
                   title="Linked UI groups"
                   countLabel={`${editForm.group_links.length} linked${uiGroupsLoading ? " · loading..." : ""}`}

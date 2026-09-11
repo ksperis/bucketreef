@@ -428,11 +428,11 @@ describe("GroupsPage", () => {
     expect(portalRoleSelect).toHaveValue("");
     expect(portalRoleSelect).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
-    fireEvent.click(screen.getByRole("button", { name: /S3 Users \(0\)/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /S3 Users \(0\)/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add RGW users" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "s3-user-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
-    fireEvent.click(screen.getByRole("button", { name: /Connections \(0\)/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Connections \(0\)/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add S3 connections" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "shared-conn" }));
     expect(screen.queryByRole("checkbox", { name: "private-conn" })).not.toBeInTheDocument();

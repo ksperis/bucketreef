@@ -40,7 +40,7 @@ import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import { extractApiError } from "../../utils/apiError";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
-import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import S3ConnectionIdentityFields from "../shared/S3ConnectionIdentityFields";
@@ -1118,6 +1118,7 @@ export default function S3ConnectionsPage() {
           <SettingsForm label="Edit shared S3 connection" onSubmit={submitEdit} busy={editBusy}
             onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving...">
             <WorkflowTabs<EditTab>
+              panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
               activeTab={editTab}
               onTabChange={setEditTab}
               ariaLabel="Shared connection configuration sections"

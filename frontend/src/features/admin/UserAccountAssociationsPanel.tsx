@@ -17,7 +17,7 @@ import AccountAccessRoleSelectors, {
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
-import { AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationAccountOptionRowClass, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
+import { AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
 
 export type AccountSelection = AccountAccessGrant & {
   id: number;
@@ -66,12 +66,6 @@ export default function UserAccountAssociationsPanel({
 
   return (
     <div className="space-y-3">
-      <AdminAssociationSectionHeader
-        title="Linked accounts"
-        countLabel={`${accounts.selected.length} linked`}
-        actionLabel={accounts.showPanel ? "Close" : "Add accounts"}
-        onAction={() => accounts.setShowPanel((current) => !current)}
-      />
       <div className={adminAssociationTableContainerClass}>
         <table className="ui-data-table">
           <thead>

@@ -509,12 +509,12 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "acc-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
-    fireEvent.click(screen.getByRole("button", { name: /S3 Users \(0\)/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /S3 Users \(0\)/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add users" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "s3-user-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
-    fireEvent.click(screen.getByRole("button", { name: /Connections \(0\)/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Connections \(0\)/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add connections" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "conn-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
@@ -522,7 +522,7 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
 
-    expect(screen.getByRole("button", { name: /Accounts \(1\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Accounts \(1\)/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
@@ -570,7 +570,7 @@ describe("UsersPage modal tabs", () => {
 
     const verificationDialog = await screen.findByRole("dialog", { name: "Verify with passkey" });
     expect(screen.getByRole("heading", { name: "Create user" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Accounts \(1\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Accounts \(1\)/ })).toBeInTheDocument();
     fireEvent.click(within(verificationDialog).getByRole("button", { name: "Verify with passkey" }));
 
     await waitFor(() => expect(updateUserMock).toHaveBeenCalledTimes(2));
@@ -614,13 +614,13 @@ describe("UsersPage modal tabs", () => {
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
-    fireEvent.click(screen.getByRole("button", { name: /S3 Users \(0\)/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /S3 Users \(0\)/ }));
 
     await waitFor(() => {
       expect(listMinimalS3UsersMock).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Accounts \(0\)/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Accounts \(0\)/ }));
 
     await waitFor(() => {
       expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(3);

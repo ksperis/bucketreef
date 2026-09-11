@@ -85,6 +85,7 @@ import {
 } from "./adminPrincipalEditLink";
 import UserAssociationsTabs, { type AssociationTab } from "./UserAssociationsTabs";
 import type { AccountSelection } from "./UserAccountAssociationsPanel";
+import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
 
@@ -1288,6 +1289,7 @@ export default function UsersPage() {
           <SettingsForm label="Create UI user" busy={creating} onSubmit={handleCreate}
             onCancel={createCloseGuard.requestClose} submitLabel="Create" busyLabel="Creating...">
             <WorkflowTabs<UserModalTab>
+              panelClassName={createModalTab === "groups" || createModalTab === "associations" ? adminAssociationPanelClass : undefined}
               activeTab={createModalTab}
               onTabChange={setCreateModalTab}
               ariaLabel="User creation sections"
@@ -1590,6 +1592,7 @@ export default function UsersPage() {
               <SettingsButton variant="secondary" disabled={authenticationBusy} onClick={editCloseGuard.requestClose}>Done</SettingsButton>
             ) : undefined}>
             <WorkflowTabs<UserModalTab>
+              panelClassName={editModalTab === "groups" || editModalTab === "associations" ? adminAssociationPanelClass : undefined}
               activeTab={editModalTab}
               onTabChange={(tab) => {
                 if (tab === editModalTab) return;
