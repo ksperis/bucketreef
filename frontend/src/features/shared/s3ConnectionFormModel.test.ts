@@ -253,9 +253,10 @@ describe("s3ConnectionFormModel", () => {
         "custom",
         "",
       ),
-    ).toEqual({ error: "Connection name is required.", payload: null });
+    ).toEqual({ error: "Connection name is required.", field: "name", payload: null });
     expect(prepareCreatePrivateConnectionPayload(form, "preset", "invalid")).toEqual({
       error: "Select a configured endpoint.",
+      field: "endpointId",
       payload: null,
     });
   });
@@ -299,6 +300,7 @@ describe("s3ConnectionFormModel", () => {
     });
     expect(prepareCreateAdminS3ConnectionPayload(form, "preset", "invalid")).toEqual({
       error: "Select a configured endpoint.",
+      field: "endpointId",
       payload: null,
     });
   });
@@ -374,6 +376,7 @@ describe("s3ConnectionFormModel", () => {
       }),
     ).toEqual({
       error: "Provide both access key ID and secret access key to update credentials.",
+      field: "credentials",
       payload: null,
     });
     expect(normalizeS3ConnectionLinkedIds([4, Number.NaN, 2, 4, 0])).toEqual([2, 4]);
@@ -439,6 +442,7 @@ describe("s3ConnectionFormModel", () => {
       }),
     ).toEqual({
       error: "Provide both access key ID and secret access key to update credentials.",
+      field: "credentials",
       payload: null,
     });
   });

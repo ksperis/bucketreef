@@ -278,6 +278,42 @@ describe("ProfilePage live validation", () => {
     expect(onDirty).toHaveBeenLastCalledWith(false);
   });
 
+  it("preserves an unavailable preset while loading and freezes a private edit during save", async () => {
+    listConnectionsMock.mockResolvedValue([makeConnection()]);
+    let resolveEndpoints!: (items: unknown[]) => void;
+    listStorageEndpointsMock.mockReturnValue(new Promise((resolve) => { resolveEndpoints = resolve; }));
+    let reject!: (error: Error) => void;
+    updateConnectionMock.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; })).mockResolvedValue(makeConnection());
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      render(<ProfilePage showConnectionsSection />);
+      fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+      const preset = screen.getByRole("combobox", { name: "Configured endpoint" });
+      expect(preset).toHaveValue("2");
+      resolveEndpoints([{ id: 3, name: "Other", endpoint_url: "https://other.example.test", is_default: true }]);
+      await waitFor(() => expect(preset).toBeEnabled());
+      expect(preset).toHaveValue("2");
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog", { name: "Discard changes?" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      const form = screen.getByRole("form", { name: "Edit private S3 connection" });
+      fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Preserved private draft" } });
+      fireEvent.submit(form);
+      await waitFor(() => expect(updateConnectionMock).toHaveBeenCalledTimes(1));
+      for (const control of form.querySelectorAll("input, select, button")) expect(control).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Back to connections" })).toBeDisabled();
+      fireEvent.submit(form);
+      expect(updateConnectionMock).toHaveBeenCalledTimes(1);
+      reject(new Error("Fixture failure"));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+      expect(screen.getByLabelText("Name")).toHaveValue("Preserved private draft");
+      fireEvent.submit(form);
+      await waitFor(() => expect(updateConnectionMock).toHaveBeenCalledTimes(2));
+      expect(updateConnectionMock.mock.calls[1]).toEqual(updateConnectionMock.mock.calls[0]);
+      expect(updateConnectionMock.mock.calls[0][1].storage_endpoint_id).toBe(2);
+    } finally { consoleError.mockRestore(); }
+  });
+
   it("shows validation error without disabling Create connection", async () => {
     render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
     await screen.findByRole("table");
@@ -295,7 +331,7 @@ describe("ProfilePage live validation", () => {
     const tagInput = within(dialog).getByRole("textbox", { name: "Add a tag for this private connection" });
     const endpointHeading = within(dialog).getByText("Endpoint");
     expect(tagInput.parentElement?.parentElement?.className).toContain("min-h-10");
-    expect(within(dialog).queryByText("Tags")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Tags")).toHaveAttribute("for", tagInput.id);
     expect(within(dialog).queryByText("Private tags are used for filtering and optional selector display.")).not.toBeInTheDocument();
     expectBefore(nameInput, tagInput);
     expectBefore(tagInput, endpointHeading);
@@ -397,7 +433,7 @@ describe("ProfilePage live validation", () => {
     expect(within(dialog).getByRole("radio", { name: "Custom endpoint" })).not.toBeChecked();
     const tagInput = within(dialog).getByRole("textbox", { name: "Add a tag for this private connection" });
     expect(tagInput.parentElement?.parentElement?.className).toContain("min-h-10");
-    expect(within(dialog).queryByText("Tags")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Tags")).toHaveAttribute("for", tagInput.id);
     expect(within(dialog).queryByText("Private tags are used for filtering and optional selector display.")).not.toBeInTheDocument();
     expectBefore(within(dialog).getByLabelText("Name"), tagInput);
     expectBefore(tagInput, within(dialog).getByText("Endpoint"));

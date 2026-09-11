@@ -15,11 +15,9 @@ import PageHeader from "../../components/PageHeader";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import PaginationControls from "../../components/PaginationControls";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
-import UiTagEditor from "../../components/UiTagEditor";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
-import UiInput from "../../components/ui/UiInput";
 
 import { toolbarCompactInputClasses } from "../../components/toolbarControlClasses";
 import { uiDataTableClass } from "../../components/ui/styles";
@@ -49,6 +47,10 @@ import { useTagCatalog } from "../../hooks/useTagCatalog";
 import ProfilePreferencesPage from "./ProfilePreferencesPage";
 import S3ConnectionAccessFields from "./S3ConnectionAccessFields";
 import S3ConnectionCredentialFields from "./S3ConnectionCredentialFields";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import S3ConnectionIdentityFields from "./S3ConnectionIdentityFields";
+import { useS3ConnectionFormValidation } from "./useS3ConnectionFormValidation";
 import S3ConnectionEndpointFields from "./S3ConnectionEndpointFields";
 import S3CredentialsValidationMessage from "./S3CredentialsValidationMessage";
 import {
@@ -65,6 +67,7 @@ import {
   type CreatePrivateConnectionForm,
   type PrivateConnectionDraft,
   type S3ConnectionEndpointMode,
+  preferredS3ConnectionEndpointId,
   prepareCreatePrivateConnectionPayload,
   prepareUpdatePrivateConnectionPayload,
 } from "./s3ConnectionFormModel";
@@ -223,6 +226,16 @@ export default function ProfilePage({
       editingConnectionId == null ? null : connections.find((connection) => connection.id === editingConnectionId) ?? null,
     [connections, editingConnectionId]
   );
+
+  const createPrepared = prepareCreatePrivateConnectionPayload(createConnectionForm, createConnectionEndpointMode, createConnectionEndpointId);
+  const createFormValidation = useS3ConnectionFormValidation(createPrepared, createConnectionEndpointMode === "custom" ? createConnectionForm.endpoint_url : undefined);
+  const currentEditDraft = editingConnection ? connectionDrafts[editingConnection.id] ?? buildPrivateConnectionDraft(editingConnection) : null;
+  const editPrepared = currentEditDraft && editingConnection ? prepareUpdatePrivateConnectionPayload({
+    canManageCredentials: canCreateManualConnections, serverManaged: Boolean(editingConnection.server_managed),
+    credentialDraft: connectionCredentialDrafts[editingConnection.id] ?? createEmptyConnectionCredentialDraft(),
+    draft: currentEditDraft, endpointId: editConnectionEndpointId, endpointMode: editConnectionEndpointMode,
+  }) : { error: null, payload: null };
+  const editFormValidation = useS3ConnectionFormValidation(editPrepared, canCreateManualConnections && !editingConnection?.server_managed && editConnectionEndpointMode === "custom" ? currentEditDraft?.endpoint_url : undefined);
 
   const createConnectionCurrentSignature = useMemo(
     () =>
@@ -399,54 +412,6 @@ export default function ProfilePage({
     setSelectedConnectionIds([]);
   }, [connectionsPage, connectionsPageSize, showConnectionsSection]);
 
-  useEffect(() => {
-    if (!showCreateConnectionModal) return;
-    if (createConnectionEndpointMode !== "preset") return;
-    if (availableStorageEndpoints.length === 0) {
-      setCreateConnectionEndpointMode("custom");
-      setCreateConnectionEndpointId("");
-      return;
-    }
-    if (
-      createConnectionEndpointId &&
-      availableStorageEndpoints.some((item) => String(item.id) === createConnectionEndpointId)
-    ) {
-      return;
-    }
-    const preferred = availableStorageEndpoints.find((item) => item.is_default) ?? availableStorageEndpoints[0];
-    setCreateConnectionEndpointId(String(preferred.id));
-  }, [
-    availableStorageEndpoints,
-    createConnectionEndpointId,
-    createConnectionEndpointMode,
-    showCreateConnectionModal,
-  ]);
-
-  useEffect(() => {
-    if (!editingConnection) return;
-    if (!canCreateManualConnections || editingConnection.server_managed) return;
-    if (editConnectionEndpointMode !== "preset") return;
-    if (availableStorageEndpoints.length === 0) {
-      setEditConnectionEndpointMode("custom");
-      setEditConnectionEndpointId("");
-      return;
-    }
-    if (
-      editConnectionEndpointId &&
-      availableStorageEndpoints.some((item) => String(item.id) === editConnectionEndpointId)
-    ) {
-      return;
-    }
-    const preferred = availableStorageEndpoints.find((item) => item.is_default) ?? availableStorageEndpoints[0];
-    setEditConnectionEndpointId(String(preferred.id));
-  }, [
-    availableStorageEndpoints,
-    canCreateManualConnections,
-    editConnectionEndpointId,
-    editConnectionEndpointMode,
-    editingConnection,
-  ]);
-
   const refreshConnections = async () => {
     if (!showConnectionsSection || !canAccessConnectionsSection) return;
     setConnectionsLoading(true);
@@ -466,6 +431,7 @@ export default function ProfilePage({
   };
 
   const openCreateConnectionModal = () => {
+    createFormValidation.reset();
     if (!canCreateManualConnections) return;
     setConnectionsError(null);
     setConnectionsMessage(null);
@@ -492,6 +458,7 @@ export default function ProfilePage({
   };
 
   const openEditConnectionModal = (connection: S3Connection) => {
+    editFormValidation.reset();
     setConnectionsError(null);
     setConnectionsMessage(null);
     const nextDraft = buildPrivateConnectionDraft(connection);
@@ -523,20 +490,12 @@ export default function ProfilePage({
     setEditingConnectionId(connection.id);
   };
 
-  const handleCreatePrivateConnection = async (event: FormEvent) => {
+  const handleCreatePrivateConnection = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canCreateManualConnections) return;
+    if (!canCreateManualConnections || creatingConnection || !createFormValidation.validate(event.currentTarget) || createPrepared.payload === null) return;
+    const prepared = createPrepared;
     setConnectionsError(null);
     setConnectionsMessage(null);
-    const prepared = prepareCreatePrivateConnectionPayload(
-      createConnectionForm,
-      createConnectionEndpointMode,
-      createConnectionEndpointId,
-    );
-    if (prepared.payload === null) {
-      setConnectionsError(prepared.error);
-      return;
-    }
     setCreatingConnection(true);
     try {
       await createConnection(prepared.payload);
@@ -584,29 +543,11 @@ export default function ProfilePage({
     }));
   };
 
-  const handleUpdatePrivateConnection = async (connectionId: number): Promise<boolean> => {
-    if (!canAccessConnectionsSection) return false;
-    const draft = connectionDrafts[connectionId];
-    if (!draft) return false;
-    const credentialDraft =
-      connectionCredentialDrafts[connectionId] ??
-      createEmptyConnectionCredentialDraft();
-    const connection = connections.find((item) => item.id === connectionId);
-    const serverManaged = Boolean(connection?.server_managed);
+  const handleUpdatePrivateConnection = async (connectionId: number, form: HTMLFormElement): Promise<boolean> => {
+    if (!canAccessConnectionsSection || savingConnectionBusyId !== null || !editFormValidation.validate(form) || editPrepared.payload === null) return false;
+    const prepared = editPrepared;
     setConnectionsError(null);
     setConnectionsMessage(null);
-    const prepared = prepareUpdatePrivateConnectionPayload({
-      canManageCredentials: canCreateManualConnections,
-      credentialDraft,
-      draft,
-      endpointId: editConnectionEndpointId,
-      endpointMode: editConnectionEndpointMode,
-      serverManaged,
-    });
-    if (prepared.payload === null) {
-      setConnectionsError(prepared.error);
-      return false;
-    }
     setSavingConnectionBusyId(connectionId);
     try {
       await updateConnection(connectionId, prepared.payload);
@@ -1155,6 +1096,9 @@ export default function ProfilePage({
           breadcrumbs={[{ label: "Profile", to: "/profile" }, { label: "Private connections", to: "/profile?view=connections" }, { label: "Create" }]}
           backLabel="Back to connections"
           onBack={createConnectionCloseGuard.requestClose}
+          backDisabled={creatingConnection}
+          contentVariant="plain"
+          contentClassName="settings-compact"
           width="standard"
         >
           {connectionsError && (
@@ -1162,92 +1106,35 @@ export default function ProfilePage({
               {connectionsError}
             </UiInlineMessage>
           )}
-          <form onSubmit={handleCreatePrivateConnection} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-                <UiInput
-                  label="Name"
-                  value={createConnectionForm.name}
-                  onChange={(event) => setCreateConnectionForm((prev) => ({ ...prev, name: event.target.value }))}
-                  placeholder="Mon endpoint S3"
-                />
-                <div className="space-y-3 sm:pt-6">
-                  {privateTagCatalogError && <PageBanner tone="warning">{privateTagCatalogError}</PageBanner>}
-                  <UiTagEditor
-                    label="Tags"
-                    tags={createConnectionForm.tags}
-                    catalog={privateTagCatalog}
-                    onChange={(tags) => setCreateConnectionForm((prev) => ({ ...prev, tags }))}
-                    catalogMode="private"
-                    placeholder="Add a tag for this private connection"
-                    hint={privateTagCatalogLoading ? "Loading existing private tags..." : undefined}
-                    hideLabel
-                    compact
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <S3ConnectionEndpointFields
-                    mode={createConnectionEndpointMode}
-                    onModeChange={setCreateConnectionEndpointMode}
-                    modeInputName="create-connection-endpoint-mode"
-                    endpointId={createConnectionEndpointId}
-                    onEndpointIdChange={setCreateConnectionEndpointId}
-                    endpoints={availableStorageEndpoints}
-                    loadingEndpoints={loadingStorageEndpoints}
-                    form={createConnectionForm}
-                    onFormChange={(field, value) =>
-                      setCreateConnectionForm((prev) => ({
-                        ...prev,
-                        [field]: value,
-                      }))
-                    }
-                    errorMessage={
-                      storageEndpointsError
-                        ? `Unable to load configured endpoints (${storageEndpointsError}). Use custom mode.`
-                        : null
-                    }
-                  />
-                </div>
-                <S3ConnectionCredentialFields
-                  accessKeyId={createConnectionForm.access_key_id}
-                  secretAccessKey={createConnectionForm.secret_access_key}
-                  onAccessKeyIdChange={(value) =>
-                    setCreateConnectionForm((prev) => ({ ...prev, access_key_id: value }))
-                  }
-                  onSecretAccessKeyChange={(value) =>
-                    setCreateConnectionForm((prev) => ({ ...prev, secret_access_key: value }))
-                  }
-                  className="sm:col-span-2"
-                />
-                <div className="sm:col-span-2">
+          <SettingsForm label="Create private S3 connection" onSubmit={handleCreatePrivateConnection} busy={creatingConnection}
+            onCancel={createConnectionCloseGuard.requestClose} submitLabel="Create connection" busyLabel="Creating...">
+              <S3ConnectionIdentityFields name={createConnectionForm.name} onNameChange={(name) => setCreateConnectionForm((current) => ({ ...current, name }))}
+                nameError={createFormValidation.errorFor("name")} catalogError={privateTagCatalogError}
+                tagEditor={{ tags: createConnectionForm.tags, catalog: privateTagCatalog, onChange: (tags) => setCreateConnectionForm((current) => ({ ...current, tags })),
+                  catalogMode: "private", placeholder: "Add a tag for this private connection", disabled: creatingConnection,
+                  hint: privateTagCatalogLoading ? "Loading existing private tags..." : undefined }} />
+              <S3ConnectionEndpointFields mode={createConnectionEndpointMode}
+                onModeChange={(mode) => { setCreateConnectionEndpointMode(mode); if (mode === "preset") setCreateConnectionEndpointId(preferredS3ConnectionEndpointId(createConnectionEndpointId, availableStorageEndpoints)); }}
+                modeInputName="create-connection-endpoint-mode" endpointId={createConnectionEndpointId}
+                onEndpointIdChange={setCreateConnectionEndpointId} endpoints={availableStorageEndpoints} loadingEndpoints={loadingStorageEndpoints}
+                form={createConnectionForm} onFormChange={(field, value) => setCreateConnectionForm((current) => ({ ...current, [field]: value }))}
+                endpointIdError={createFormValidation.errorFor("endpointId")} endpointUrlError={createFormValidation.errorFor("endpointUrl")}
+                errorMessage={storageEndpointsError ? `Unable to load configured endpoints (${storageEndpointsError}). Use custom mode.` : null} />
+              <SettingsSection title="Credentials" presentation="compact">
+                <div className="settings-stack">
+
+                  <S3ConnectionCredentialFields accessKeyId={createConnectionForm.access_key_id} secretAccessKey={createConnectionForm.secret_access_key}
+                    onAccessKeyIdChange={(value) => setCreateConnectionForm((current) => ({ ...current, access_key_id: value }))} onSecretAccessKeyChange={(value) => setCreateConnectionForm((current) => ({ ...current, secret_access_key: value }))}
+                    error={createFormValidation.errorFor("credentials")} required accessKeyLabel="Access key ID" secretAccessKeyLabel="Secret access key" />
                   <S3CredentialsValidationMessage validation={createConnectionValidation} />
                 </div>
-                <S3ConnectionAccessFields
-                  accessManager={createConnectionForm.access_manager}
-                  accessBrowser={createConnectionForm.access_browser}
-                  onAccessManagerChange={(checked) =>
-                    setCreateConnectionForm((prev) => ({ ...prev, access_manager: checked }))
-                  }
-                  onAccessBrowserChange={(checked) =>
-                    setCreateConnectionForm((prev) => ({ ...prev, access_browser: checked }))
-                  }
-                  className="sm:col-span-2"
-                  variant="panel"
-                />
-              </div>
-            <div className="flex justify-end gap-2">
-              <UiButton
-                variant="secondary"
-                size="sm"
-                onClick={createConnectionCloseGuard.requestClose}
-                disabled={creatingConnection}
-              >
-                Cancel
-              </UiButton>
-              <UiButton type="submit" size="sm" disabled={creatingConnection}>
-                {creatingConnection ? "Creating..." : "Create connection"}
-              </UiButton>
-            </div>
-          </form>
+              </SettingsSection>
+              <SettingsSection title="Access" presentation="compact">
+                <S3ConnectionAccessFields accessManager={Boolean(createConnectionForm.access_manager)} accessBrowser={Boolean(createConnectionForm.access_browser)}
+                  onAccessManagerChange={(checked) => setCreateConnectionForm((current) => ({ ...current, access_manager: checked }))} onAccessBrowserChange={(checked) => setCreateConnectionForm((current) => ({ ...current, access_browser: checked }))}
+                  className="settings-fields" error={createFormValidation.errorFor("access")} />
+              </SettingsSection>
+          </SettingsForm>
           {createConnectionCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}
@@ -1261,6 +1148,9 @@ export default function ProfilePage({
           breadcrumbs={[{ label: "Profile", to: "/profile" }, { label: "Private connections", to: "/profile?view=connections" }, { label: "Edit" }]}
           backLabel="Back to connections"
           onBack={editConnectionCloseGuard.requestClose}
+          backDisabled={savingConnectionBusyId === editingConnection.id}
+          contentVariant="plain"
+          contentClassName="settings-compact"
           width="standard"
         >
           {connectionsError && (
@@ -1268,125 +1158,57 @@ export default function ProfilePage({
               {connectionsError}
             </UiInlineMessage>
           )}
-          <form
-            className="space-y-4"
+          <SettingsForm label="Edit private S3 connection" busy={savingConnectionBusyId === editingConnection.id}
+            onCancel={editConnectionCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
             onSubmit={async (event) => {
-              event.preventDefault();
-              const success = await handleUpdatePrivateConnection(editingConnection.id);
+              const success = await handleUpdatePrivateConnection(editingConnection.id, event.currentTarget);
               if (success) closeEditConnectionModal();
-            }}
-          >
+            }}>
             {(() => {
-              const draft =
-                connectionDrafts[editingConnection.id] ??
-                buildPrivateConnectionDraft(editingConnection);
-              const credentialDraft =
-                connectionCredentialDrafts[editingConnection.id] ??
-                createEmptyConnectionCredentialDraft();
-              return (
-                <>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <UiInput
-                          label="Name"
-                          value={draft.name}
-                          onChange={(event) => handleUpdateConnectionDraft(editingConnection.id, "name", event.target.value)}
-                        />
-                        <div className="space-y-3 sm:pt-6">
-                          {privateTagCatalogError && <PageBanner tone="warning">{privateTagCatalogError}</PageBanner>}
-                          <UiTagEditor
-                            label="Tags"
-                            tags={draft.tags}
-                            catalog={privateTagCatalog}
-                            onChange={(tags) => handleUpdateConnectionDraft(editingConnection.id, "tags", tags)}
-                            catalogMode="private"
-                            placeholder="Add a tag for this private connection"
-                            hint={privateTagCatalogLoading ? "Loading existing private tags..." : undefined}
-                            hideLabel
-                            compact
-                          />
-                        </div>
-                      </div>
-
-                      {canCreateManualConnections && !editingConnection.server_managed && <S3ConnectionEndpointFields
-                        mode={editConnectionEndpointMode}
-                        onModeChange={setEditConnectionEndpointMode}
-                        modeInputName={`edit-connection-endpoint-mode-${editingConnection.id}`}
-                        endpointId={editConnectionEndpointId}
-                        onEndpointIdChange={setEditConnectionEndpointId}
-                        endpoints={availableStorageEndpoints}
-                        loadingEndpoints={loadingStorageEndpoints}
-                        form={draft}
-                        onFormChange={(field, value) => handleUpdateConnectionDraft(editingConnection.id, field, value)}
-                        errorMessage={
-                          storageEndpointsError
-                            ? `Unable to load configured endpoints (${storageEndpointsError}). Use custom mode.`
-                            : null
-                        }
-                      />}
-
-                      {editingConnection.server_managed ? (
-                        <PageBanner tone="info">
-                          This connection is server managed. Its source context, endpoint, remote principal, access key, and secret are immutable here.
-                        </PageBanner>
-                      ) : !canCreateManualConnections ? (
-                        <PageBanner tone="info">
-                          Endpoint, identity, and credentials are locked because manual private connection creation is not granted. You can still edit the name, tags, and workspace access.
-                        </PageBanner>
-                      ) : <div className="space-y-2 rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-700 dark:bg-slate-900/40">
-                        <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          Credentials
-                        </p>
-                        <p className="ui-caption text-slate-500 dark:text-slate-400">
-                          Current Access Key: <span className="ui-mono">{editingConnection.access_key_id || "-"}</span>
-                        </p>
-                        <p className="ui-caption text-slate-500 dark:text-slate-400">
-                          Leave blank to keep current credentials.
-                        </p>
-                        <S3ConnectionCredentialFields
-                          accessKeyId={credentialDraft.access_key_id}
-                          secretAccessKey={credentialDraft.secret_access_key}
-                          onAccessKeyIdChange={(value) =>
-                            handleUpdateConnectionCredentialDraft(editingConnection.id, "access_key_id", value)
-                          }
-                          onSecretAccessKeyChange={(value) =>
-                            handleUpdateConnectionCredentialDraft(editingConnection.id, "secret_access_key", value)
-                          }
-                        />
-                        <S3CredentialsValidationMessage validation={editConnectionValidation} />
-                      </div>}
-
-                      <S3ConnectionAccessFields
-                        accessManager={Boolean(draft.access_manager)}
-                        accessBrowser={Boolean(draft.access_browser)}
-                        onAccessManagerChange={(checked) =>
-                          handleUpdateConnectionDraft(editingConnection.id, "access_manager", checked)
-                        }
-                        onAccessBrowserChange={(checked) =>
-                          handleUpdateConnectionDraft(editingConnection.id, "access_browser", checked)
-                        }
-                        variant="panel"
-                      />
-                </>
-              );
+              const draft = connectionDrafts[editingConnection.id] ?? buildPrivateConnectionDraft(editingConnection);
+              const credentialDraft = connectionCredentialDrafts[editingConnection.id] ?? createEmptyConnectionCredentialDraft();
+              return <>
+              <S3ConnectionIdentityFields name={draft.name} onNameChange={(name) => handleUpdateConnectionDraft(editingConnection.id, "name", name)}
+                nameError={editFormValidation.errorFor("name")} catalogError={privateTagCatalogError}
+                tagEditor={{ tags: draft.tags, catalog: privateTagCatalog, onChange: (tags) => handleUpdateConnectionDraft(editingConnection.id, "tags", tags),
+                  catalogMode: "private", placeholder: "Add a tag for this private connection", disabled: savingConnectionBusyId === editingConnection.id,
+                  hint: privateTagCatalogLoading ? "Loading existing private tags..." : undefined }} />
+                {canCreateManualConnections && !editingConnection.server_managed && (
+              <S3ConnectionEndpointFields mode={editConnectionEndpointMode}
+                onModeChange={(mode) => { setEditConnectionEndpointMode(mode); if (mode === "preset") setEditConnectionEndpointId(preferredS3ConnectionEndpointId(editConnectionEndpointId, availableStorageEndpoints)); }}
+                modeInputName="edit-connection-endpoint-mode" endpointId={editConnectionEndpointId}
+                onEndpointIdChange={setEditConnectionEndpointId} endpoints={availableStorageEndpoints} loadingEndpoints={loadingStorageEndpoints}
+                form={draft} onFormChange={(field, value) => handleUpdateConnectionDraft(editingConnection.id, field, value)}
+                endpointIdError={editFormValidation.errorFor("endpointId")} endpointUrlError={editFormValidation.errorFor("endpointUrl")}
+                errorMessage={storageEndpointsError ? `Unable to load configured endpoints (${storageEndpointsError}). Use custom mode.` : null} />
+                )}
+                {editingConnection.server_managed ? (
+                  <SettingsSection title="Endpoint and credentials" presentation="compact">
+                    <PageBanner tone="info">This connection is server managed. Its source context, endpoint, remote principal, access key, and secret are immutable here.</PageBanner>
+                  </SettingsSection>
+                ) : !canCreateManualConnections ? (
+                  <SettingsSection title="Endpoint and credentials" presentation="compact">
+                    <PageBanner tone="info">Endpoint, identity, and credentials are locked because manual private connection creation is not granted. You can still edit the name, tags, and workspace access.</PageBanner>
+                  </SettingsSection>
+                ) : (
+              <SettingsSection title="Credentials" presentation="compact" description="Leave blank to keep current credentials.">
+                <div className="settings-stack">
+                  <p className="settings-description [overflow-wrap:anywhere]">Current Access Key: <span className="ui-mono">{editingConnection.access_key_id || "-"}</span></p>
+                  <S3ConnectionCredentialFields accessKeyId={credentialDraft.access_key_id} secretAccessKey={credentialDraft.secret_access_key}
+                    onAccessKeyIdChange={(value) => handleUpdateConnectionCredentialDraft(editingConnection.id, "access_key_id", value)} onSecretAccessKeyChange={(value) => handleUpdateConnectionCredentialDraft(editingConnection.id, "secret_access_key", value)}
+                    error={editFormValidation.errorFor("credentials")} />
+                  <S3CredentialsValidationMessage validation={editConnectionValidation} />
+                </div>
+              </SettingsSection>
+                )}
+              <SettingsSection title="Access" presentation="compact">
+                <S3ConnectionAccessFields accessManager={Boolean(draft.access_manager)} accessBrowser={Boolean(draft.access_browser)}
+                  onAccessManagerChange={(checked) => handleUpdateConnectionDraft(editingConnection.id, "access_manager", checked)} onAccessBrowserChange={(checked) => handleUpdateConnectionDraft(editingConnection.id, "access_browser", checked)}
+                  className="settings-fields" error={editFormValidation.errorFor("access")} />
+              </SettingsSection>
+              </>;
             })()}
-            <div className="flex justify-end gap-2">
-              <UiButton
-                variant="secondary"
-                size="sm"
-                onClick={editConnectionCloseGuard.requestClose}
-                disabled={savingConnectionBusyId === editingConnection.id}
-              >
-                Cancel
-              </UiButton>
-              <UiButton
-                type="submit"
-                size="sm"
-                disabled={savingConnectionBusyId === editingConnection.id}
-              >
-                {savingConnectionBusyId === editingConnection.id ? "Saving..." : "Save"}
-              </UiButton>
-            </div>
-          </form>
+          </SettingsForm>
           {editConnectionCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}

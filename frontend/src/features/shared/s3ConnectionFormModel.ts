@@ -101,9 +101,11 @@ type BuildPrivateConnectionsProjectionOptions = {
   selectedConnectionIds: readonly number[];
 };
 
+export type S3ConnectionValidationField = "name" | "endpointId" | "endpointUrl" | "credentials" | "access";
+
 type PreparedConnectionPayload<T> =
   | { error: null; payload: T }
-  | { error: string; payload: null };
+  | { error: string; field: S3ConnectionValidationField; payload: null };
 
 type PreparePrivateConnectionUpdateOptions = {
   canManageCredentials: boolean;
@@ -286,6 +288,12 @@ export function buildS3CredentialsValidationPayload(
   };
 }
 
+export function preferredS3ConnectionEndpointId(currentId: string, endpoints: readonly { id: number; is_default?: boolean }[]): string {
+  const preferred = endpoints.find((endpoint) => String(endpoint.id) === currentId)
+    ?? endpoints.find((endpoint) => endpoint.is_default) ?? endpoints[0];
+  return preferred ? String(preferred.id) : "";
+}
+
 function parseS3ConnectionEndpointId(endpointId: string): number | null {
   const parsed = Number(endpointId);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
@@ -293,8 +301,9 @@ function parseS3ConnectionEndpointId(endpointId: string): number | null {
 
 function invalidConnectionPayload<T>(
   error: string,
+  field: S3ConnectionValidationField,
 ): PreparedConnectionPayload<T> {
-  return { error, payload: null };
+  return { error, field, payload: null };
 }
 
 export function prepareCreatePrivateConnectionPayload(
@@ -303,21 +312,21 @@ export function prepareCreatePrivateConnectionPayload(
   endpointId: string,
 ): PreparedConnectionPayload<CreateConnectionPayload> {
   if (!form.name.trim()) {
-    return invalidConnectionPayload("Connection name is required.");
+    return invalidConnectionPayload("Connection name is required.", "name");
   }
   const parsedEndpointId =
     endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
   if (endpointMode === "preset" && parsedEndpointId === null) {
-    return invalidConnectionPayload("Select a configured endpoint.");
+    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
   }
   if (endpointMode === "custom" && !form.endpoint_url.trim()) {
-    return invalidConnectionPayload("Endpoint URL is required.");
+    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
   }
   if (!form.access_key_id.trim() || !form.secret_access_key.trim()) {
-    return invalidConnectionPayload("S3 credentials are required.");
+    return invalidConnectionPayload("S3 credentials are required.", "credentials");
   }
   if (!form.access_manager && !form.access_browser) {
-    return invalidConnectionPayload("Enable access to manager and/or browser.");
+    return invalidConnectionPayload("Enable access to manager and/or browser.", "access");
   }
 
   const endpointPayload =
@@ -351,18 +360,18 @@ export function prepareCreateAdminS3ConnectionPayload(
   endpointId: string,
 ): PreparedConnectionPayload<CreateAdminS3ConnectionPayload> {
   if (!form.name.trim()) {
-    return invalidConnectionPayload("Connection name is required.");
+    return invalidConnectionPayload("Connection name is required.", "name");
   }
   const parsedEndpointId =
     endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
   if (endpointMode === "preset" && parsedEndpointId === null) {
-    return invalidConnectionPayload("Select a configured endpoint.");
+    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
   }
   if (endpointMode === "custom" && !form.endpoint_url.trim()) {
-    return invalidConnectionPayload("Endpoint URL is required.");
+    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
   }
   if (!form.access_key_id.trim() || !form.secret_access_key) {
-    return invalidConnectionPayload("S3 credentials are required.");
+    return invalidConnectionPayload("S3 credentials are required.", "credentials");
   }
 
   const endpointPayload =
@@ -418,21 +427,22 @@ export function prepareUpdateAdminS3ConnectionPayload({
   linkedUserIds,
 }: PrepareAdminS3ConnectionUpdateOptions): PreparedConnectionPayload<UpdateAdminS3ConnectionPayload> {
   if (!form.name.trim()) {
-    return invalidConnectionPayload("Connection name is required.");
+    return invalidConnectionPayload("Connection name is required.", "name");
   }
   const parsedEndpointId =
     endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
   if (endpointMode === "preset" && parsedEndpointId === null) {
-    return invalidConnectionPayload("Select a configured endpoint.");
+    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
   }
   if (endpointMode === "custom" && !form.endpoint_url.trim()) {
-    return invalidConnectionPayload("Endpoint URL is required.");
+    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
   }
   const accessKeyId = credentialDraft.access_key_id.trim();
   const secretAccessKey = credentialDraft.secret_access_key.trim();
   if ((accessKeyId && !secretAccessKey) || (!accessKeyId && secretAccessKey)) {
     return invalidConnectionPayload(
       "Provide both access key ID and secret access key to update credentials.",
+      "credentials",
     );
   }
 
@@ -478,19 +488,19 @@ export function prepareUpdatePrivateConnectionPayload({
   serverManaged,
 }: PreparePrivateConnectionUpdateOptions): PreparedConnectionPayload<UpdateConnectionPayload> {
   if (!draft.name.trim()) {
-    return invalidConnectionPayload("Connection name is required.");
+    return invalidConnectionPayload("Connection name is required.", "name");
   }
   const endpointEditable = canManageCredentials && !serverManaged;
   const parsedEndpointId =
     endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
   if (endpointEditable && endpointMode === "preset" && parsedEndpointId === null) {
-    return invalidConnectionPayload("Select a configured endpoint.");
+    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
   }
   if (endpointEditable && endpointMode === "custom" && !draft.endpoint_url.trim()) {
-    return invalidConnectionPayload("Endpoint URL is required.");
+    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
   }
   if (!draft.access_manager && !draft.access_browser) {
-    return invalidConnectionPayload("Enable access to manager and/or browser.");
+    return invalidConnectionPayload("Enable access to manager and/or browser.", "access");
   }
   const accessKeyId = credentialDraft.access_key_id.trim();
   const secretAccessKey = credentialDraft.secret_access_key.trim();
@@ -500,6 +510,7 @@ export function prepareUpdatePrivateConnectionPayload({
   ) {
     return invalidConnectionPayload(
       "Provide both access key ID and secret access key to update credentials.",
+      "credentials",
     );
   }
 

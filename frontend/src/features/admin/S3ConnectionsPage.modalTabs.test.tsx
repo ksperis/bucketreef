@@ -115,6 +115,44 @@ describe("S3ConnectionsPage modal tabs", () => {
     setSessionUserCache(null);
   });
 
+  it("returns to General and focuses an invalid field from an association tab", async () => {
+    render(<S3ConnectionsPage />);
+    await screen.findByText("connection-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Endpoint URL"), { target: { value: "invalid-url" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Linked UI groups" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const url = screen.getByLabelText("Endpoint URL");
+    expect(url).toHaveAccessibleDescription("Enter a valid endpoint URL.");
+    await waitFor(() => expect(url).toHaveFocus());
+    expect(updateAdminS3ConnectionMock).not.toHaveBeenCalled();
+    fireEvent.change(url, { target: { value: "https://corrected.example.test" } });
+    expect(url).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("freezes the shared draft and association tabs until an identical retry completes", async () => {
+    let reject!: (error: Error) => void;
+    updateAdminS3ConnectionMock.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+    render(<S3ConnectionsPage />);
+    await screen.findByText("connection-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const form = screen.getByRole("form", { name: "Edit shared S3 connection" });
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Retained draft" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(updateAdminS3ConnectionMock).toHaveBeenCalledTimes(1));
+    for (const control of form.querySelectorAll("input, select, button")) expect(control).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to connections" })).toBeDisabled();
+    fireEvent.submit(form);
+    expect(updateAdminS3ConnectionMock).toHaveBeenCalledTimes(1);
+    reject(new Error("Fixture update failed"));
+    await screen.findByText("Fixture update failed");
+    expect(screen.getByLabelText("Name")).toHaveValue("Retained draft");
+    fireEvent.submit(form);
+    await waitFor(() => expect(updateAdminS3ConnectionMock).toHaveBeenCalledTimes(2));
+    expect(updateAdminS3ConnectionMock.mock.calls[1]).toEqual(updateAdminS3ConnectionMock.mock.calls[0]);
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Edit shared S3 connection" })).not.toBeInTheDocument());
+  });
+
   it("renders direct UI users and UI groups in the combined listing column", async () => {
     listAdminS3ConnectionsMock.mockResolvedValueOnce({
       items: [
@@ -236,7 +274,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
     const dialog = getWorkflowPage("Edit connection · connection-1");
-    fireEvent.change(within(dialog).getByLabelText("Name *"), {
+    fireEvent.change(within(dialog).getByLabelText("Name"), {
       target: { value: "connection-updated" },
     });
     fireEvent.change(within(dialog).getByLabelText("Access key ID"), {
@@ -330,7 +368,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     await within(getWorkflowPage("Edit connection · connection-1")).findByText("Endpoint");
@@ -374,8 +412,8 @@ describe("S3ConnectionsPage modal tabs", () => {
     const providerSelect = within(dialog).getByRole("combobox", { name: "Provider" });
     expect(providerSelect).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Endpoint URL")).toHaveClass("ui-control");
-    expect(within(dialog).getByLabelText("Access key ID *")).toHaveClass("ui-control");
-    expect(within(dialog).getByLabelText("Secret access key *")).toHaveClass("ui-control");
+    expect(within(dialog).getByLabelText("Access key ID")).toHaveClass("ui-control");
+    expect(within(dialog).getByLabelText("Secret access key")).toHaveClass("ui-control");
     expect(providerSelect).toHaveValue("");
     fireEvent.change(providerSelect, { target: { value: "aws" } });
     fireEvent.change(tagInput, {

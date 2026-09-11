@@ -24,6 +24,7 @@ type UiTagEditorProps = {
   catalogMode?: "shared" | "private";
   hideLabel?: boolean;
   compact?: boolean;
+  disabled?: boolean;
 };
 
 function getLabelKey(value: string) {
@@ -40,6 +41,7 @@ export default function UiTagEditor({
   catalogMode = "shared",
   hideLabel = false,
   compact = false,
+  disabled = false,
 }: UiTagEditorProps) {
   const [draft, setDraft] = useState("");
   const [activeTagKey, setActiveTagKey] = useState<string | null>(null);
@@ -83,12 +85,14 @@ export default function UiTagEditor({
   }, [activeTagKey, normalizedTags]);
 
   const addTag = (tag: UiTagDefinition) => {
+    if (disabled) return;
     onChange(normalizeUiTags([...normalizedTags, tag]));
     setDraft("");
     setShowSuggestions(false);
   };
 
   const removeTag = (labelValue: string) => {
+    if (disabled) return;
     const targetKey = getLabelKey(labelValue);
     onChange(normalizeUiTags(normalizedTags.filter((entry) => getLabelKey(entry.label) !== targetKey)));
     if (activeTagKey === targetKey) {
@@ -97,6 +101,7 @@ export default function UiTagEditor({
   };
 
   const updateTag = (labelValue: string, updates: Partial<Pick<UiTagDefinition, "color_key" | "scope">>) => {
+    if (disabled) return;
     const targetKey = getLabelKey(labelValue);
     onChange(
       normalizeUiTags(
@@ -153,7 +158,7 @@ export default function UiTagEditor({
       : "Administrative tags stay in management views. Standard tags can also appear in selectors.";
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="ui-tag-editor flex flex-col gap-1">
       {!hideLabel && (
         <label htmlFor={inputId} className={uiLabelClass}>
           {label}
@@ -163,7 +168,7 @@ export default function UiTagEditor({
         <div className="relative">
           <div
             className={cx(
-              "group flex flex-wrap items-center gap-2 border border-slate-200/80 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/40",
+              "ui-tag-editor-control group flex flex-wrap items-center gap-2 border border-slate-200/80 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/40",
               compact ? "min-h-10 rounded-lg px-2.5 py-1.5" : "min-h-11 rounded-xl px-3 py-2"
             )}
           >
@@ -173,11 +178,13 @@ export default function UiTagEditor({
               return (
                 <span
                   key={`${tag.id ?? tag.label}-${tag.color_key}-${tag.scope}`}
+                  className="min-w-0 max-w-full"
                   ref={(node) => {
                     tagAnchorRefs.current[tagKey] = node;
                   }}
                 >
                   <UiTagBadge
+                    disabled={disabled}
                     label={tag.label}
                     colorKey={tag.color_key}
                     active={isActive}
@@ -194,6 +201,7 @@ export default function UiTagEditor({
               <input
                 id={inputId}
                 type="text"
+                disabled={disabled}
                 value={draft}
                 onChange={(event) => {
                   setDraft(event.target.value);
@@ -212,7 +220,7 @@ export default function UiTagEditor({
               />
             </div>
           </div>
-          {showSuggestions && suggestions.length > 0 && (
+          {!disabled && showSuggestions && suggestions.length > 0 && (
             <div
               className="absolute left-0 top-full z-20 mt-1 max-h-44 w-64 overflow-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
               onMouseDown={(event) => event.preventDefault()}
@@ -238,7 +246,7 @@ export default function UiTagEditor({
       </div>
 
       <UiTagSettingsPopover
-        open={Boolean(activeTag && activeTagAnchorRef.current)}
+        open={!disabled && Boolean(activeTag && activeTagAnchorRef.current)}
         anchorRef={activeTagAnchorRef}
         label={activeTag?.label ?? ""}
         colorKey={activeTag?.color_key ?? "neutral"}
