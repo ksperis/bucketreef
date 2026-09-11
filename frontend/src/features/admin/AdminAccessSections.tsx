@@ -11,12 +11,6 @@ import {
 } from "./adminAccessConfig";
 import type { UiTone } from "../../components/ui/styles";
 
-const adminModalSettingsGroupClass =
-  "rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] p-4";
-
-const adminSettingsItemSurfaceClass = (disabled: boolean) =>
-  disabled ? "bg-[var(--ui-surface-muted)] opacity-75" : "bg-[var(--ui-surface)]";
-
 type WorkspaceAccessToggle = {
   checked: boolean;
   disabled?: boolean;
@@ -41,30 +35,28 @@ export function AdminAccessToggleSection({
   items: WorkspaceAccessToggle[];
 }) {
   return (
-    <div className={adminModalSettingsGroupClass}>
-      <SettingsSection title={title} description={description} layout="stack">
-        {items.map((item) => {
-          const disabled = Boolean(item.disabled);
-          return (
-            <SettingsItem
-              key={item.ariaLabel}
-              title={item.title}
-              description={item.description}
-              className={adminSettingsItemSurfaceClass(disabled)}
-              action={
-                <SettingsToggleAction
-                  checked={item.checked}
-                  disabled={disabled}
-                  onChange={item.onChange}
-                  ariaLabel={item.ariaLabel}
-                  badge={item.badge}
-                />
-              }
-            />
-          );
-        })}
-      </SettingsSection>
-    </div>
+    <SettingsSection title={title} description={description} presentation="compact">
+      {items.map((item) => {
+        const disabled = Boolean(item.disabled);
+        return (
+          <SettingsItem
+            key={item.ariaLabel}
+            title={item.title}
+            description={item.description}
+            compact
+            action={
+              <SettingsToggleAction
+                checked={item.checked}
+                disabled={disabled}
+                onChange={item.onChange}
+                ariaLabel={item.ariaLabel}
+                badge={item.badge}
+              />
+            }
+          />
+        );
+      })}
+    </SettingsSection>
   );
 }
 
@@ -96,22 +88,17 @@ export function BrowserAccessSection({
   description?: string;
 }) {
   return (
-    <div className={adminModalSettingsGroupClass}>
-      <SettingsSection title="Browser" description={description} layout="stack">
-        <SettingsItem
-          title="Technical S3 tools"
-          description="Adds versions, metadata, batch operations, and bucket maintenance tools to /browser. Display density (rows and action toolbar) and optional panels remain personal choices for every Browser user."
-          className={adminSettingsItemSurfaceClass(false)}
-          action={
-            <SettingsToggleAction
-              checked={checked}
-              onChange={onChange}
-              ariaLabel="Enable technical S3 tools"
-            />
-          }
-        />
-      </SettingsSection>
-    </div>
+    <AdminAccessToggleSection
+      title="Browser"
+      description={description}
+      items={[{
+        title: "Technical S3 tools",
+        description: "Adds versions, metadata, batch operations, and bucket maintenance tools to /browser. Display density (rows and action toolbar) and optional panels remain personal choices for every Browser user.",
+        checked,
+        onChange,
+        ariaLabel: "Enable technical S3 tools",
+      }]}
+    />
   );
 }
 
@@ -132,29 +119,18 @@ export function ManagerToolAccessSection({
 }) {
   const normalizedAccess = normalizeManagerToolAccess(access);
   return (
-    <div className={adminModalSettingsGroupClass}>
-      <SettingsSection title={title} description={description} layout="stack">
-        {tools.map((tool) => {
-          const disabled = isToolDisabled ? isToolDisabled(tool) : !tool.enabled;
-          return (
-            <SettingsItem
-              key={tool.key}
-              title={tool.title}
-              description={tool.description}
-              className={adminSettingsItemSurfaceClass(disabled)}
-              action={
-                <SettingsToggleAction
-                  checked={Boolean(normalizedAccess[tool.key])}
-                  disabled={disabled}
-                  onChange={(value) => onChange(tool.key, value)}
-                  ariaLabel={tool.title}
-                  badge={{ visible: !tool.enabled, label: "Disabled globally", tone: "neutral" }}
-                />
-              }
-            />
-          );
-        })}
-      </SettingsSection>
-    </div>
+    <AdminAccessToggleSection
+      title={title}
+      description={description}
+      items={tools.map((tool) => ({
+        title: tool.title,
+        description: tool.description,
+        checked: Boolean(normalizedAccess[tool.key]),
+        disabled: isToolDisabled ? isToolDisabled(tool) : !tool.enabled,
+        onChange: (value) => onChange(tool.key, value),
+        ariaLabel: tool.title,
+        badge: { visible: !tool.enabled, label: "Disabled globally", tone: "neutral" },
+      }))}
+    />
   );
 }

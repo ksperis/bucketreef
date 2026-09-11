@@ -43,7 +43,7 @@ import AccountAccessRoleSelectors, {
 } from "./AccountAccessRoleSelectors";
 import GroupAvatar from "../../components/GroupAvatar";
 import ListPageSection from "../../components/list/ListPageSection";
-import WorkflowPage, { WorkflowActions, workflowPageHostClass } from "../../components/WorkflowPage";
+import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
@@ -73,13 +73,17 @@ import {
   type ManagerToolKey,
 } from "./adminAccessConfig";
 import PageTabs from "../../components/PageTabs";
-import UiButton from "../../components/ui/UiButton";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import UiInput from "../../components/ui/UiInput";
+import UiTextarea from "../../components/ui/UiTextarea";
+import { stableSignature } from "../../utils/stableSignature";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
 } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { formInlineActionClasses, formInlineDeleteClasses } from "../../components/formInlineActionClasses";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { extractApiError } from "../../utils/apiError";
 import { nextSortState } from "../../utils/sortValues";
@@ -90,11 +94,6 @@ import {
 
 type GroupModalTab = "general" | "members" | "associations" | "workspaces" | "connections" | "browser" | "manager";
 type AssociationTab = "accounts" | "s3_users" | "connections";
-const labelClass = "ui-body font-medium text-slate-700 dark:text-slate-200";
-const fieldClass =
-  "rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 ui-body text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30";
-const secondaryButtonClass =
-  "rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-1.5 ui-caption font-semibold text-[var(--ui-text)] hover:bg-[var(--ui-hover)]";
 const MAX_VISIBLE_OPTIONS = 10;
 const groupAvatarIcons: Array<{ value: UiGroupAvatarIcon; label: string }> = [
   { value: "users", label: "Team" },
@@ -105,6 +104,25 @@ const groupAvatarIcons: Array<{ value: UiGroupAvatarIcon; label: string }> = [
 ];
 function includesQuery(label: string, query: string): boolean {
   return !query || label.toLowerCase().includes(query.trim().toLowerCase());
+}
+
+function emptyGroupForm(): UiGroupPayload {
+  return {
+    name: "",
+    description: "",
+    avatar_source: "initials",
+    avatar_icon: null,
+    can_access_ceph_admin: false,
+    can_access_storage_ops: false,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    browser_advanced_features_enabled: false,
+    manager_tool_access: { ...DEFAULT_MANAGER_TOOL_ACCESS },
+    user_ids: [],
+    account_links: [],
+    s3_user_links: [],
+    s3_connection_ids: [],
+  };
 }
 
 export default function GroupsPage() {
@@ -142,20 +160,11 @@ export default function GroupsPage() {
   const [associationTab, setAssociationTab] = useState<AssociationTab>("accounts");
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<UiGroup | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [form, setForm] = useState<UiGroupPayload>({
-    name: "",
-    description: "",
-    can_access_ceph_admin: false,
-    can_access_storage_ops: false,
-    can_create_manual_private_connections: false,
-    can_provision_managed_private_connections: false,
-    browser_advanced_features_enabled: false,
-    manager_tool_access: DEFAULT_MANAGER_TOOL_ACCESS,
-    user_ids: [],
-    account_links: [],
-    s3_user_links: [],
-    s3_connection_ids: [],
-  });
+  const [form, setForm] = useState<UiGroupPayload>(emptyGroupForm);
+  const [initialFormSignature, setInitialFormSignature] = useState(() => stableSignature(emptyGroupForm()));
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [attempted, setAttempted] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [accountSearch, setAccountSearch] = useState("");
   const [s3UserSearch, setS3UserSearch] = useState("");
@@ -288,22 +297,10 @@ export default function GroupsPage() {
   };
 
   const resetForm = () => {
-    setForm({
-      name: "",
-      description: "",
-      avatar_source: "initials",
-      avatar_icon: null,
-      can_access_ceph_admin: false,
-      can_access_storage_ops: false,
-      can_create_manual_private_connections: false,
-      can_provision_managed_private_connections: false,
-      browser_advanced_features_enabled: false,
-      manager_tool_access: { ...DEFAULT_MANAGER_TOOL_ACCESS },
-      user_ids: [],
-      account_links: [],
-      s3_user_links: [],
-      s3_connection_ids: [],
-    });
+    const draft = emptyGroupForm();
+    setForm(draft);
+    setInitialFormSignature(stableSignature(draft));
+    setAttempted(false);
     setModalTab("general");
     setAssociationTab("accounts");
     setMemberSearch("");
@@ -333,8 +330,9 @@ export default function GroupsPage() {
   };
 
   const openEditModal = (group: UiGroup) => {
+    resetForm();
     setEditingGroup(group);
-    setForm({
+    const draft: UiGroupPayload = {
       name: group.name,
       description: group.description ?? "",
       avatar_source: group.avatar?.source ?? "initials",
@@ -358,7 +356,9 @@ export default function GroupsPage() {
         allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
       })),
       s3_connection_ids: (group.s3_connection_details ?? []).map((connection) => Number(connection.id)),
-    });
+    };
+    setForm(draft);
+    setInitialFormSignature(stableSignature(draft));
     setModalTab("general");
     setAssociationTab("accounts");
     setActionError(null);
@@ -383,6 +383,16 @@ export default function GroupsPage() {
     clearAdminPrincipalEditRequest();
   };
 
+  const closeGuard = useSettingsCloseGuard({
+    hasUnsavedChanges: showModal && (
+      stableSignature(form) !== initialFormSignature || Boolean(avatarFile) || removeAvatarImage ||
+      memberSelections.length > 0 || accountSelections.length > 0 || s3UserSelections.length > 0 ||
+      connectionSelections.length > 0 || Object.keys(accountAccessChoice).length > 0
+    ),
+    onClose: closeModal,
+    disabled: saving,
+  });
+
   const updateAccountSelection = (accountId: number, patch: Partial<AccountMembership>) => {
     setForm((current) => ({
       ...current,
@@ -394,12 +404,14 @@ export default function GroupsPage() {
 
   const submitGroup = async (event: FormEvent) => {
     event.preventDefault();
+    if (savingRef.current) return;
+    setAttempted(true);
     setActionError(null);
     setActionMessage(null);
     const name = String(form.name || "").trim();
     if (!name) {
       setModalTab("general");
-      setActionError("Group name is required.");
+      requestAnimationFrame(() => document.getElementById("admin-ui-group-name")?.focus());
       return;
     }
     if ((form.account_links ?? []).some((link) => !hasAccountAccessRole(link))) {
@@ -430,10 +442,11 @@ export default function GroupsPage() {
       s3_user_links: form.s3_user_links ?? [],
       s3_connection_ids: form.s3_connection_ids ?? [],
     };
+    savingRef.current = true;
+    setSaving(true);
     try {
       let savedGroup: UiGroup;
       if (editingGroup) {
-        setBusyId(editingGroup.id);
         savedGroup = await updateGroup(editingGroup.id, payload);
         setActionMessage("Group updated");
       } else {
@@ -450,7 +463,8 @@ export default function GroupsPage() {
     } catch (err) {
       setActionError(extractApiError(err, "Unable to save group."));
     } finally {
-      setBusyId(null);
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
@@ -1185,7 +1199,9 @@ export default function GroupsPage() {
           description="Manage members, storage associations, and inherited workspace permissions for this UI group."
           breadcrumbs={adminPageBreadcrumbs("groups", { label: editingGroup ? "Edit" : "Create" })}
           backLabel="Back to groups"
-          onBack={closeModal}
+          onBack={closeGuard.requestClose}
+          backDisabled={saving}
+          contentClassName="settings-compact settings-form"
           contentVariant="plain"
           width="wide"
         >
@@ -1194,7 +1210,8 @@ export default function GroupsPage() {
               {actionError}
             </PageBanner>
           )}
-          <form onSubmit={submitGroup} className="space-y-4">
+          <SettingsForm label={editingGroup ? "Edit UI group" : "Create UI group"} busy={saving}
+            onSubmit={submitGroup} onCancel={closeGuard.requestClose} submitLabel="Save" busyLabel="Saving...">
             <WorkflowTabs<GroupModalTab>
               activeTab={modalTab}
               onTabChange={setModalTab}
@@ -1212,101 +1229,61 @@ export default function GroupsPage() {
             >
 
             {modalTab === "general" && (
-              <div className="grid grid-cols-1 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className={labelClass}>Name *</label>
-                  <input
-                    type="text"
-                    className={fieldClass}
-                    value={form.name ?? ""}
-                    onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-                    placeholder="Storage operators"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className={labelClass}>Description</label>
-                  <textarea
-                    className={`${fieldClass} min-h-24`}
-                    value={form.description ?? ""}
-                    onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                    placeholder="Optional notes for administrators"
-                  />
-                </div>
-                <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
-                  <div className="flex flex-wrap items-start gap-4">
-                    <GroupAvatar avatar={avatarPreview} name={String(form.name || "UI group")} size="lg" />
-                    <div className="min-w-0 flex-1 space-y-3">
-                      <div>
-                        <div className={labelClass}>Group pictogram</div>
-                        <p className="ui-caption text-slate-500 dark:text-slate-400">
-                          Use initials, a predefined pictogram, or a custom PNG/JPEG image. Groups never use Gravatar or OIDC images.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          className={form.avatar_source === "initials" && !avatarFile ? secondaryButtonClass : formInlineActionClasses}
+              <>
+                <SettingsSection title="Identity" presentation="compact">
+                  <div className="settings-fields">
+                    <UiInput id="admin-ui-group-name" label="Name" required
+                      value={form.name ?? ""} placeholder="Storage operators"
+                      error={attempted && !String(form.name || "").trim() ? "Group name is required." : undefined}
+                      onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+                    <UiTextarea label="Description" rows={3} value={form.description ?? ""}
+                      placeholder="Optional notes for administrators"
+                      onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+                  </div>
+                </SettingsSection>
+                <SettingsSection title="Group pictogram" presentation="compact"
+                  description="Use initials, a predefined pictogram, or a custom PNG/JPEG image. Groups never use Gravatar or OIDC images.">
+                  <div className="settings-fields">
+                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Group pictogram">
+                      <GroupAvatar avatar={avatarPreview} name={String(form.name || "UI group")} size="md" />
+                      <SettingsButton variant={form.avatar_source === "initials" && !avatarFile ? "primary" : "secondary"}
+                        aria-pressed={form.avatar_source === "initials" && !avatarFile}
+                        onClick={() => {
+                          setAvatarFile(null);
+                          setRemoveAvatarImage(false);
+                          setForm((current) => ({ ...current, avatar_source: "initials", avatar_icon: null }));
+                        }}>Initials</SettingsButton>
+                      {groupAvatarIcons.map((icon) => (
+                        <SettingsButton key={icon.value} title={icon.label}
+                          variant={form.avatar_source === "preset" && form.avatar_icon === icon.value && !avatarFile ? "primary" : "secondary"}
+                          aria-label={`Use ${icon.label} pictogram`}
+                          aria-pressed={form.avatar_source === "preset" && form.avatar_icon === icon.value && !avatarFile}
                           onClick={() => {
                             setAvatarFile(null);
-                            setForm((current) => ({ ...current, avatar_source: "initials", avatar_icon: null }));
-                          }}
-                        >
-                          Initials
-                        </button>
-                        {groupAvatarIcons.map((icon) => (
-                          <button
-                            key={icon.value}
-                            type="button"
-                            title={icon.label}
-                            aria-label={`Use ${icon.label} pictogram`}
-                            className={`rounded-md border p-1.5 ${
-                              form.avatar_source === "preset" && form.avatar_icon === icon.value && !avatarFile
-                                ? "border-primary bg-primary-50 dark:bg-primary-950/40"
-                                : "border-[color:var(--ui-border)] bg-[var(--ui-surface)] hover:bg-[var(--ui-hover)]"
-                            }`}
-                            onClick={() => {
-                              setAvatarFile(null);
-                              setForm((current) => ({ ...current, avatar_source: "preset", avatar_icon: icon.value }));
-                            }}
-                          >
-                            <GroupAvatar
-                              avatar={{ source: "preset", initials: "", icon: icon.value }}
-                              name={icon.label}
-                              size="sm"
-                              className="border-0"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <label className={secondaryButtonClass}>
-                          Upload image
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg"
-                            className="sr-only"
-                            onChange={(event) => selectAvatarFile(event.target.files?.[0] ?? null)}
-                          />
-                        </label>
-                        {avatarFile ? <span className="ui-caption text-slate-600 dark:text-slate-300">{avatarFile.name}</span> : null}
-                        {editingGroup?.avatar?.source === "uploaded" && !avatarFile ? (
-                          <button
-                            type="button"
-                             className={formInlineDeleteClasses}
-                            onClick={() => {
-                              setRemoveAvatarImage(true);
-                              setForm((current) => ({ ...current, avatar_source: "initials", avatar_icon: null }));
-                            }}
-                          >
-                            Remove uploaded image
-                          </button>
-                        ) : null}
-                      </div>
+                            setRemoveAvatarImage(false);
+                            setForm((current) => ({ ...current, avatar_source: "preset", avatar_icon: icon.value }));
+                          }}>
+                          <GroupAvatar avatar={{ source: "preset", initials: "", icon: icon.value }}
+                            name={icon.label} size="sm" className="border-0" />
+                        </SettingsButton>
+                      ))}
                     </div>
+                    <UiInput label="Upload image" type="file" accept="image/png,image/jpeg"
+                      hint="PNG or JPEG, up to 1 MiB."
+                      onChange={(event) => {
+                        selectAvatarFile(event.target.files?.[0] ?? null);
+                        event.target.value = "";
+                      }} />
+                    {avatarFile && <p className="settings-readonly [overflow-wrap:anywhere]">{avatarFile.name}</p>}
+                    {editingGroup?.avatar?.source === "uploaded" && !avatarFile && !removeAvatarImage && (
+                      <div><SettingsButton variant="danger" onClick={() => {
+                        setRemoveAvatarImage(true);
+                        setForm((current) => ({ ...current, avatar_source: "initials", avatar_icon: null }));
+                      }}>Remove uploaded image</SettingsButton></div>
+                    )}
                   </div>
-                </div>
-              </div>
+                </SettingsSection>
+              </>
             )}
 
             {modalTab === "members" && renderMembersTab()}
@@ -1412,18 +1389,8 @@ export default function GroupsPage() {
             )}
             </WorkflowTabs>
 
-            <WorkflowActions>
-              <UiButton variant="secondary" onClick={closeModal}>
-                Cancel
-              </UiButton>
-              <UiButton
-                type="submit"
-                disabled={busyId === editingGroup?.id}
-              >
-                {busyId === editingGroup?.id ? "Saving..." : "Save"}
-              </UiButton>
-            </WorkflowActions>
-          </form>
+          </SettingsForm>
+          {closeGuard.confirmationDialog}
         </WorkflowPage>
       )}
 

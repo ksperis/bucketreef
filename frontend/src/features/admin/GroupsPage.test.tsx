@@ -643,4 +643,63 @@ describe("GroupsPage", () => {
       expect(deleteGroupMock).toHaveBeenCalledWith(50);
     });
   });
+  it.each([false, true])("freezes the group draft during save and retains it after failure (edit=%s)", async (editing) => {
+    listGroupsMock.mockResolvedValue({ items: [{ id: 50, name: "original-group", account_links: [] }], total: 1, page: 1, page_size: 25 });
+    const save = editing ? updateGroupMock : createGroupMock;
+    let rejectSave!: (error: Error) => void;
+    save.mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
+    render(<GroupsPage />);
+    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create group", exact: true });
+    await act(async () => { fireEvent.click(trigger); });
+    const form = screen.getByRole("form", { name: editing ? "Edit UI group" : "Create UI group" });
+    fireEvent.change(within(form).getByLabelText("Name"), { target: { value: "retained-group" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    for (const control of form.querySelectorAll("input,textarea,button")) expect(control).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to groups" })).toBeDisabled();
+    fireEvent.submit(form);
+    expect(save).toHaveBeenCalledTimes(1);
+    const payload = save.mock.calls[0];
+    await act(async () => rejectSave(new Error("Fixture save failed")));
+    expect(within(form).getByLabelText("Name")).toHaveValue("retained-group");
+    expect(within(form).getByLabelText("Name")).toBeEnabled();
+    fireEvent.submit(form);
+    await waitFor(() => expect(form).not.toBeInTheDocument());
+    expect(save.mock.calls[1]).toEqual(payload);
+  });
+
+  it("guards pending member selections and resets them after discarding", async () => {
+    render(<GroupsPage />);
+    const trigger = await screen.findByRole("button", { name: "Create group" });
+    await act(async () => { fireEvent.click(trigger); });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Create group" })); });
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add UI users" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "alice@example.com" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to groups" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByRole("checkbox", { name: "alice@example.com" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Back to groups" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Create group" })); });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the latest pictogram choice after cancelling image removal", async () => {
+    listGroupsMock.mockResolvedValue({ items: [{ id: 50, name: "illustrated", avatar: { source: "uploaded", initials: "I" } }], total: 1, page: 1, page_size: 25 });
+    render(<GroupsPage />);
+    const trigger = await screen.findByRole("button", { name: "Edit", exact: true });
+    await act(async () => { fireEvent.click(trigger); });
+    fireEvent.click(screen.getByRole("button", { name: "Remove uploaded image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use Security pictogram" }));
+    expect(screen.getByRole("button", { name: "Use Security pictogram" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+    await waitFor(() => expect(screen.queryByRole("form")).not.toBeInTheDocument());
+    expect(updateGroupMock).toHaveBeenCalledWith(50, expect.objectContaining({ avatar_source: "preset", avatar_icon: "shield" }));
+    expect(deleteGroupAvatarMock).not.toHaveBeenCalled();
+  });
+
 });
