@@ -1,8 +1,10 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import base64
+import json
 import pytest
 from app.main import app
-from app.db import UiGroup, User, UserRole
+from app.db import AuditLog, UiGroup, User, UserRole
 from app.routers import dependencies
 from fastapi.testclient import TestClient
 from tests.s3_account_factory import make_s3_account
@@ -529,3 +531,102 @@ def test_admin_cannot_delete_own_user(client: TestClient):
     response = client.delete(f"/api/admin/users/{admin_user.id}")
     assert response.status_code == 400
     assert response.json()["detail"] == "You cannot delete your own user"
+
+
+PROFILE_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+
+def test_admin_updates_account_preferences_without_changing_access_or_session_version(client, db_session, seed_user_account):
+    user, _ = seed_user_account
+    version = user.auth_version
+    response = client.put(f"/api/admin/users/{user.id}", json={
+        "ui_language": "de", "quota_alerts_enabled": False, "avatar_preference": "initials",
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["ui_language"] == "de"
+    assert response.json()["quota_alerts_enabled"] is False
+    assert response.json()["avatar"]["source"] == "initials"
+    db_session.refresh(user)
+    assert user.auth_version == version
+    assert user.role == UserRole.UI_USER.value
+    # An unrelated edit preserves preferences; explicit null restores automatic language.
+    client.put(f"/api/admin/users/{user.id}", json={"full_name": "New name"})
+    db_session.refresh(user)
+    assert user.ui_language == "de"
+    assert user.quota_alerts_enabled is False
+    assert user.avatar_preference == "initials"
+    cleared = client.put(f"/api/admin/users/{user.id}", json={"ui_language": None})
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["ui_language"] is None
+    audit = db_session.query(AuditLog).filter_by(action="update_ui_user", entity_id=str(user.id)).order_by(AuditLog.id.desc()).first()
+    assert json.loads(audit.metadata_json) == {"ui_language": None}
+
+
+@pytest.mark.parametrize("payload,status_code", [
+    ({"ui_language": "es"}, 422),
+    ({"avatar_preference": "provider"}, 422),
+    ({"avatar_preference": "uploaded"}, 400),
+    ({"quota_alerts_global_watch": True}, 400),
+    ({"ui_preferences": {"theme": "dark"}}, 422),
+])
+def test_admin_rejects_invalid_or_out_of_scope_profile_preferences(client, seed_user_account, payload, status_code):
+    user, _ = seed_user_account
+    response = client.put(f"/api/admin/users/{user.id}", json=payload)
+    assert response.status_code == status_code, response.text
+
+
+def test_admin_global_quota_watch_follows_the_target_role(client, db_session, seed_user_account):
+    user, _ = seed_user_account
+    user.role = UserRole.UI_ADMIN.value
+    db_session.commit()
+    response = client.put(f"/api/admin/users/{user.id}", json={"quota_alerts_global_watch": True})
+    assert response.status_code == 200, response.text
+    assert response.json()["quota_alerts_global_watch"] is True
+    response = client.put(f"/api/admin/users/{user.id}", json={"role": "ui_user"})
+    assert response.status_code == 200, response.text
+    assert response.json()["quota_alerts_global_watch"] is False
+
+
+def test_admin_avatar_upload_and_removal_reuse_validation_and_audit_the_target(client, db_session, seed_user_account):
+    user, _ = seed_user_account
+    version = user.auth_version
+    for content, content_type in [(b"<svg/>", "image/svg+xml"), (b"x" * (1024 * 1024 + 1), "image/png")]:
+        response = client.put(f"/api/admin/users/{user.id}/avatar", files={"file": ("image", content, content_type)})
+        assert response.status_code == 400, response.text
+    uploaded = client.put(f"/api/admin/users/{user.id}/avatar", files={"file": ("image.png", PROFILE_PNG, "image/png")})
+    assert uploaded.status_code == 200, uploaded.text
+    assert uploaded.json()["avatar"]["source"] == "uploaded"
+    db_session.refresh(user)
+    assert user.avatar_image == PROFILE_PNG
+    assert user.auth_version == version
+    audit = db_session.query(AuditLog).filter_by(action="upload_avatar", scope="admin", entity_id=str(user.id)).one()
+    assert audit.user_email == "admin@example.com"
+    assert json.loads(audit.metadata_json) == {"content_type": "image/png", "size_bytes": len(PROFILE_PNG)}
+    removed = client.delete(f"/api/admin/users/{user.id}/avatar")
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["avatar"]["source"] != "uploaded"
+    db_session.refresh(user)
+    assert user.avatar_image is None
+    assert db_session.query(AuditLog).filter_by(action="delete_avatar", scope="admin", entity_id=str(user.id)).count() == 1
+
+
+@pytest.mark.parametrize("role", [UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value])
+def test_regular_admin_cannot_change_a_privileged_profile_or_avatar(client, db_session, seed_user_account, role):
+    user, _ = seed_user_account
+    user.role = role
+    db_session.commit()
+    actor = User(id=1001, email="other-admin@example.com", role=UserRole.UI_ADMIN.value, is_active=True)
+    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: actor
+    assert client.put(f"/api/admin/users/{user.id}", json={"ui_language": "fr"}).status_code == 403
+    assert client.put(f"/api/admin/users/{user.id}/avatar", files={"file": ("image.png", PROFILE_PNG, "image/png")}).status_code == 403
+    assert client.delete(f"/api/admin/users/{user.id}/avatar").status_code == 403
+
+
+def test_admin_avatar_requires_interactive_session_and_existing_target(client, seed_user_account):
+    user, _ = seed_user_account
+    assert client.delete("/api/admin/users/123456/avatar").status_code == 404
+    client.cookies.clear()
+    assert client.put(f"/api/admin/users/{user.id}/avatar", files={"file": ("image.png", PROFILE_PNG, "image/png")}).status_code == 401
+    assert client.delete(f"/api/admin/users/{user.id}/avatar").status_code == 401

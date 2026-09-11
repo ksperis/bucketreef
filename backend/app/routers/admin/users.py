@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -27,6 +27,7 @@ from app.services.user_associations_service import (
     get_user_associations_service,
 )
 from app.services.users_service import UsersService
+from app.services.user_avatar_service import MAX_AVATAR_BYTES, UserAvatarService
 from app.services.identity_security_policy import (
     admin_user_update_requires_step_up,
     ensure_actor_can_assign_role,
@@ -103,7 +104,7 @@ def _protect_superadmin_update(
 
 
 def _safe_update_audit_metadata(payload: UserUpdate) -> dict:
-    metadata = payload.model_dump(exclude_unset=True, exclude_none=True)
+    metadata = payload.model_dump(exclude_unset=True)
     if "password" in metadata:
         metadata["password"] = "<redacted>"
     return metadata
@@ -250,6 +251,53 @@ def update_user(
         detail = sanitize_error_detail(str(exc))
         status_code = status.HTTP_404_NOT_FOUND if detail.lower() == "user not found" else status.HTTP_400_BAD_REQUEST
         raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+def _avatar_target(request: Request, user_id: int, users_service: UsersService, actor: DbUser) -> DbUser:
+    target = users_service.get_by_id(user_id)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    ensure_actor_can_manage_user(actor, target, allow_self=is_superadmin_ui_role(actor.role))
+    require_admin_interactive_session(request, users_service.db, actor)
+    return target
+
+
+@router.put("/{user_id}/avatar", response_model=UserOut)
+async def upload_user_avatar(
+    request: Request,
+    user_id: int,
+    file: UploadFile = File(...),
+    users_service: UsersService = Depends(get_users_service_dependency),
+    current_user: DbUser = Depends(get_current_super_admin),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> UserOut:
+    target = _avatar_target(request, user_id, users_service, current_user)
+    payload = await file.read(MAX_AVATAR_BYTES + 1)
+    try:
+        UserAvatarService(users_service.db).store_uploaded_image(target, payload, file.content_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+    audit_service.record_action(
+        user=current_user, scope="admin", action="upload_avatar", entity_type="ui_user", entity_id=str(target.id),
+        metadata={"content_type": target.avatar_content_type, "size_bytes": len(payload)},
+    )
+    return users_service.user_to_out(target)
+
+
+@router.delete("/{user_id}/avatar", response_model=UserOut)
+def delete_user_avatar(
+    request: Request,
+    user_id: int,
+    users_service: UsersService = Depends(get_users_service_dependency),
+    current_user: DbUser = Depends(get_current_super_admin),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> UserOut:
+    target = _avatar_target(request, user_id, users_service, current_user)
+    UserAvatarService(users_service.db).remove_uploaded_image(target)
+    audit_service.record_action(
+        user=current_user, scope="admin", action="delete_avatar", entity_type="ui_user", entity_id=str(target.id),
+    )
+    return users_service.user_to_out(target)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

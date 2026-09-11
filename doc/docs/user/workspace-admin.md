@@ -99,6 +99,15 @@ hover/focus panel exposes the complete bounded list and its roles. **UI Groups**
 also shows up to five member avatars before a `+N` indicator; the same panel
 still exposes up to 20 members.
 
+The UI User editor uses **Profile and preferences** and **Security**, matching
+the personal profile. Profile and preferences includes identity, avatar,
+language and quota email preferences. Global quota watch is available only for
+administrator accounts. Language and alerts are saved with the user form;
+the avatar has an independent **Edit** dialog and **Save** action. Saving an
+avatar preserves pending changes to identity, preferences and access.
+Browser-local preferences remain in the personal profile. Admin profile
+operations follow the same target-role restrictions as other UI User edits.
+
 In the UI user and UI group editors, association tabs first list the currently
 linked resources. Use **Add…** to open a searchable picker, confirm the pending
 selection with **Add selected**, and use **Remove** on an existing row to

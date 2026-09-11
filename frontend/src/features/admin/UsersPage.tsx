@@ -13,8 +13,10 @@ import {
   type UiRole,
   createUser,
   deleteUser,
+  deleteUserAvatar,
   listUsers,
   updateUser,
+  uploadUserAvatar,
 } from "../../api/users";
 import {
   isRecentWebAuthnVerificationCancelled,
@@ -57,9 +59,13 @@ import {
 } from "./adminAccessConfig";
 import PageBanner from "../../components/PageBanner";
 import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import AdminUserIdentityFields, { userIdentityErrors, type UserIdentityErrors } from "./AdminUserIdentityFields";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import UserAvatarEditor from "../shared/UserAvatarEditor";
+import { UserLanguageField, UserNotificationFields } from "../shared/UserProfilePreferenceFields";
+import { profileMessages, type ProfileText } from "../shared/profileMessages";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
@@ -95,10 +101,12 @@ const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "browser", label: "Browser" },
 ];
 const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
-  { id: "general", label: "General" },
-  { id: "authentication", label: "Authentication" },
+  { id: "general", label: profileMessages.preferencesTab.en },
+  { id: "authentication", label: profileMessages.security.en },
   ...userWorkflowTabs.filter((tab) => tab.id !== "general"),
 ];
+
+const adminProfileText: ProfileText = (key) => profileMessages[key].en;
 
 const storageOpsAccessDescription =
   "Grant direct /storage-ops access when the UI role is User, Admin, or Superadmin.";
@@ -230,6 +238,8 @@ export default function UsersPage() {
   const [creating, setCreating] = useState(false);
   const [authenticationBusy, setAuthenticationBusy] = useState(false);
   const [authenticationDirty, setAuthenticationDirty] = useState(false);
+  const [avatarDirty, setAvatarDirty] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
   const savingRef = useRef(false);
   const [createAttempted, setCreateAttempted] = useState(false);
   const [editAttempted, setEditAttempted] = useState(false);
@@ -796,7 +806,7 @@ export default function UsersPage() {
   };
 
   const createDirty = showCreateModal && createCurrentSignature !== createInitialSignature;
-  const editDirty = showEditModal && (editCurrentSignature !== editInitialSignature || authenticationDirty);
+  const editDirty = showEditModal && (editCurrentSignature !== editInitialSignature || authenticationDirty || avatarDirty);
   const createCloseGuard = useSettingsCloseGuard({
     hasUnsavedChanges: createDirty,
     description: "Your changes have not been saved.",
@@ -808,14 +818,14 @@ export default function UsersPage() {
     hasUnsavedChanges: editDirty,
     description: "Your changes have not been saved.",
     onClose: closeEditModal,
-    disabled: authenticationBusy || (editingUser ? busyId === editingUser.id : false),
+    disabled: authenticationBusy || avatarBusy || (editingUser ? busyId === editingUser.id : false),
   });
 
   const pendingEditTab = useRef<UserModalTab>("general");
-  const authenticationTabGuard = useSettingsCloseGuard({
-    hasUnsavedChanges: authenticationDirty,
+  const editTabGuard = useSettingsCloseGuard({
+    hasUnsavedChanges: authenticationDirty || avatarDirty,
     description: "Your changes have not been saved.",
-    disabled: authenticationBusy,
+    disabled: authenticationBusy || avatarBusy,
     onClose: () => setEditModalTab(pendingEditTab.current),
   });
 
@@ -912,6 +922,9 @@ export default function UsersPage() {
     const nextEditForm = {
       email: user.email,
       full_name: user.full_name ?? "",
+      ui_language: user.ui_language ?? null,
+      quota_alerts_enabled: user.quota_alerts_enabled !== false,
+      quota_alerts_global_watch: Boolean(user.quota_alerts_global_watch),
       role,
       can_access_ceph_admin:
         role === "ui_admin" || role === "ui_superadmin"
@@ -1008,7 +1021,7 @@ export default function UsersPage() {
 
   const submitEdit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!editingUser || savingRef.current || editModalTab === "authentication") return;
+    if (!editingUser || savingRef.current || avatarBusy || editModalTab === "authentication") return;
     setActionError(null);
     setActionMessage(null);
     const errors = userIdentityErrors(editForm, false);
@@ -1033,6 +1046,9 @@ export default function UsersPage() {
         payload.email = editForm.email;
       }
       payload.full_name = editForm.full_name?.trim() || null;
+      payload.ui_language = editForm.ui_language ?? null;
+      payload.quota_alerts_enabled = editForm.quota_alerts_enabled !== false;
+      payload.quota_alerts_global_watch = (nextRole === "ui_admin" || nextRole === "ui_superadmin") && Boolean(editForm.quota_alerts_global_watch);
       if (editForm.role) {
         payload.role = nextRole;
       }
@@ -1563,7 +1579,7 @@ export default function UsersPage() {
           breadcrumbs={adminPageBreadcrumbs("users", { label: "Edit" })}
           backLabel="Back to users"
           onBack={editCloseGuard.requestClose}
-          backDisabled={busyId === editingUser.id || authenticationBusy}
+          backDisabled={busyId === editingUser.id || authenticationBusy || avatarBusy}
           contentClassName="settings-compact settings-form"
           contentVariant="plain"
           width="wide"
@@ -1579,7 +1595,7 @@ export default function UsersPage() {
               {actionMessage}
             </PageBanner>
           )}
-          <SettingsForm label="Edit UI user" busy={busyId === editingUser.id} onSubmit={submitEdit}
+          <SettingsForm label="Edit UI user" busy={busyId === editingUser.id || avatarBusy} onSubmit={submitEdit}
             onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
             actions={editModalTab === "authentication" ? (
               <SettingsButton variant="secondary" disabled={authenticationBusy} onClick={editCloseGuard.requestClose}>Done</SettingsButton>
@@ -1589,24 +1605,45 @@ export default function UsersPage() {
               onTabChange={(tab) => {
                 if (tab === editModalTab) return;
                 pendingEditTab.current = tab;
-                authenticationTabGuard.requestClose();
+                editTabGuard.requestClose();
               }}
               ariaLabel="User configuration sections"
               idPrefix="admin-user-edit"
-              tabs={editUserWorkflowTabs.map((tab) => ({ ...tab, disabled: authenticationBusy }))}
+              tabs={editUserWorkflowTabs.map((tab) => ({ ...tab, disabled: authenticationBusy || avatarBusy }))}
             >
 
             {editModalTab === "general" && (
-              <AdminUserIdentityFields
-                idPrefix="edit-user"
-                values={{ ...editForm, role: editRoleValue }}
-                errors={editAttempted ? userIdentityErrors(editForm, false) : {}}
-                onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))}
-                canAssignAdmin={currentIsSuperAdmin}
-                helpOpen={editRoleHelpOpen}
-                onToggleHelp={() => setEditRoleHelpOpen((open) => !open)}
-                onRoleChange={(value) => setEditForm((current) => ({ ...current, ...roleAccessPatch(value, current) }))}
-              />
+              <>
+                <AdminUserIdentityFields
+                  idPrefix="edit-user"
+                  values={{ ...editForm, role: editRoleValue }}
+                  errors={editAttempted ? userIdentityErrors(editForm, false) : {}}
+                  onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))}
+                  canAssignAdmin={currentIsSuperAdmin}
+                  helpOpen={editRoleHelpOpen}
+                  onToggleHelp={() => setEditRoleHelpOpen((open) => !open)}
+                  onRoleChange={(value) => setEditForm((current) => ({ ...current, ...roleAccessPatch(value, current) }))}
+                >
+                  <UserAvatarEditor avatar={editingUser.avatar} name={editingUser.full_name} email={editingUser.email}
+                    text={adminProfileText} disabled={busyId === editingUser.id || avatarBusy}
+                    onDirtyChange={setAvatarDirty} onBusyChange={setAvatarBusy} onSave={async (draft) => {
+                      const updated = draft.file && draft.preference === "uploaded" ? await uploadUserAvatar(editingUser.id, draft.file)
+                        : draft.remove ? await deleteUserAvatar(editingUser.id) : await updateUser(editingUser.id, { avatar_preference: draft.preference });
+                      setEditingUser(current => current ? { ...current, avatar: updated.avatar } : current);
+                      setUsers(current => current.map(user => user.id === editingUser.id ? { ...user, avatar: updated.avatar } : user));
+                      if (currentUserId === editingUser.id) setSessionUserCache({ ...(readStoredUser() ?? {}), avatar: updated.avatar });
+                      setActionMessage(adminProfileText("imageSaved"));
+                    }} />
+                </AdminUserIdentityFields>
+                <SettingsSection title={adminProfileText("display")} presentation="compact">
+                  <UserLanguageField value={editForm.ui_language ?? "auto"} text={adminProfileText}
+                    onChange={value => setEditForm(current => ({ ...current, ui_language: value === "auto" ? null : value }))} />
+                </SettingsSection>
+                <UserNotificationFields quotaAlerts={editForm.quota_alerts_enabled !== false}
+                  quotaWatch={Boolean(editForm.quota_alerts_global_watch)} canWatch={editRoleValue === "ui_admin" || editRoleValue === "ui_superadmin"}
+                  text={adminProfileText} onQuotaAlertsChange={value => setEditForm(current => ({ ...current, quota_alerts_enabled: value }))}
+                  onQuotaWatchChange={value => setEditForm(current => ({ ...current, quota_alerts_global_watch: value }))} />
+              </>
             )}
 
             {editModalTab === "authentication" && (
@@ -1821,7 +1858,7 @@ export default function UsersPage() {
 
           </SettingsForm>
           {editCloseGuard.confirmationDialog}
-          {authenticationTabGuard.confirmationDialog}
+          {editTabGuard.confirmationDialog}
         </WorkflowPage>
       )}
       {verificationDialog}

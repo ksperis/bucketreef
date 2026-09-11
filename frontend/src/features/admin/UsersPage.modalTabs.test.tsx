@@ -753,8 +753,8 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
 
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "General",
-      "Authentication",
+      "Profile and preferences",
+      "Security",
       "Groups",
       "Associations",
       "Workspaces",
@@ -762,7 +762,7 @@ describe("UsersPage modal tabs", () => {
       "Manager",
       "Browser",
     ]);
-    expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Workspaces" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Access" })).not.toBeInTheDocument();
@@ -793,7 +793,7 @@ describe("UsersPage modal tabs", () => {
 
     render(<UsersPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Authentication" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Security" }));
 
     expect(screen.getByText("Authentication actions are applied immediately.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
@@ -809,7 +809,7 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByRole("button", { name: "Complete authentication action" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Complete authentication action" }));
     expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
-    expect(screen.getByRole("tab", { name: "General" })).toBeEnabled();
+    expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeEnabled();
   });
 
   it("shows Connections and Manager in create/edit and submits their permissions", async () => {

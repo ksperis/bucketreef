@@ -237,18 +237,17 @@ describe("ProfilePage live validation", () => {
   });
 
   it("uploads and removes a profile image", async () => {
-    const { container } = render(
+    render(
       <ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />,
     );
     await screen.findByText("Admin User");
     fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
-    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
-    expect(fileInput).not.toBeNull();
+    const fileInput = screen.getByLabelText("Choose image");
 
     const file = new File([new Uint8Array([1, 2, 3])], "avatar.png", {
       type: "image/png",
     });
-    fireEvent.change(fileInput!, { target: { files: [file] } });
+    fireEvent.change(fileInput, { target: { files: [file] } });
     expect(uploadCurrentUserAvatarMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
 
