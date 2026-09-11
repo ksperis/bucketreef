@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import UsersPage from "./UsersPage";
 import { setSessionUserCache } from "../../utils/workspaces";
@@ -483,8 +483,8 @@ describe("UsersPage modal tabs", () => {
       screen.getByText("Configure identity, workspace access, groups, and storage associations for this UI user.")
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("jane.doe@example.com"), { target: { value: "jane@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("•••••••"), { target: { value: "secret-123" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "jane@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
 
@@ -556,8 +556,8 @@ describe("UsersPage modal tabs", () => {
     render(<UsersPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
-    fireEvent.change(screen.getByPlaceholderText("jane.doe@example.com"), { target: { value: "step-up@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("•••••••"), { target: { value: "secret-123456" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "step-up@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123456" } });
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
     fireEvent.click(screen.getByRole("button", { name: "Add accounts" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "acc-1" }));
@@ -636,8 +636,9 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
-    expect((await screen.findAllByText("Email and password are required.")).length).toBeGreaterThan(0);
-    expect(screen.getByPlaceholderText("jane.doe@example.com")).toBeInTheDocument();
+    expect(await screen.findByText("Email is required.")).toBeInTheDocument();
+    expect(screen.getByText("Password is required.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 
   it("shows Workspaces tab and keeps workspace toggles out of General in create modal", async () => {
@@ -671,8 +672,8 @@ describe("UsersPage modal tabs", () => {
     render(<UsersPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
-    fireEvent.change(screen.getByPlaceholderText("jane.doe@example.com"), { target: { value: "grouped@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("•••••••"), { target: { value: "secret-123" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "grouped@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
     fireEvent.click(screen.getByRole("tab", { name: "Groups" }));
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
@@ -794,6 +795,8 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    fireEvent.submit(screen.getByRole("form", { name: "Edit UI user" }));
+    expect(updateUserMock).not.toHaveBeenCalled();
   });
 
   it("shows Connections and Manager in create/edit and submits their permissions", async () => {
@@ -836,7 +839,7 @@ describe("UsersPage modal tabs", () => {
     expect(screen.queryByText("Privileged Ceph access")).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Bucket quota management" })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Ceph S3 User keys" })).not.toBeInTheDocument();
-    const bucketToolsGroup = screen.getByText("Bucket tools").closest("div");
+    const bucketToolsGroup = screen.getByRole("region", { name: "Bucket tools" });
     expect(bucketToolsGroup).not.toBeNull();
     expect(within(bucketToolsGroup as HTMLElement).getByText("Bucket compare")).toBeInTheDocument();
     expect(within(bucketToolsGroup as HTMLElement).getByText("Bucket integrity check")).toBeInTheDocument();
@@ -909,7 +912,7 @@ describe("UsersPage modal tabs", () => {
     );
   });
 
-  it("keeps role access note hidden by default in create modal and shows it on info icon click", async () => {
+  it("keeps role access note hidden by default in create modal and shows it on help button click", async () => {
     render(<UsersPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
@@ -917,7 +920,6 @@ describe("UsersPage modal tabs", () => {
     expect(screen.queryByText("Role access summary")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Explain role access levels" }));
     expect(screen.getByText("Role access summary")).toBeInTheDocument();
-    expect(screen.getByText("Workspace access")).toBeInTheDocument();
     expect(screen.getByText("No workspace access (profile only)")).toBeInTheDocument();
     expect(screen.getByText("Non-admin workspaces only")).toBeInTheDocument();
     expect(screen.getByText("User access + /admin")).toBeInTheDocument();
@@ -925,7 +927,7 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByText("Ceph Admin and Storage Ops also require dedicated access flags.")).toBeInTheDocument();
   });
 
-  it("keeps role access note hidden by default in edit modal and shows it on info icon click", async () => {
+  it("keeps role access note hidden by default in edit modal and shows it on help button click", async () => {
     listUsersMock.mockResolvedValue({
       items: [
         {
@@ -948,7 +950,6 @@ describe("UsersPage modal tabs", () => {
     expect(screen.queryByText("Role access summary")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Explain role access levels" }));
     expect(screen.getByText("Role access summary")).toBeInTheDocument();
-    expect(screen.getByText("Workspace access")).toBeInTheDocument();
     expect(screen.getByText("No workspace access (profile only)")).toBeInTheDocument();
     expect(screen.getByText("Non-admin workspaces only")).toBeInTheDocument();
     expect(screen.getByText("User access + /admin")).toBeInTheDocument();
@@ -961,8 +962,8 @@ describe("UsersPage modal tabs", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
 
-    fireEvent.change(screen.getByPlaceholderText("jane.doe@example.com"), { target: { value: "ops@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("•••••••"), { target: { value: "secret-123" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ops@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
     fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
     expect(screen.getByText("Mass management workspaces")).toBeInTheDocument();
     expect(screen.getByText("Storage Ops access")).toBeInTheDocument();
@@ -987,8 +988,8 @@ describe("UsersPage modal tabs", () => {
     render(<UsersPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
-    fireEvent.change(screen.getByPlaceholderText("jane.doe@example.com"), { target: { value: "browser@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("•••••••"), { target: { value: "secret-123" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "browser@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
     fireEvent.click(screen.getByRole("tab", { name: "Browser" }));
     expect(screen.getByText("Browser options for this UI user. Groups can also grant these options.")).toBeInTheDocument();
@@ -1012,8 +1013,8 @@ describe("UsersPage modal tabs", () => {
     render(<UsersPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
-    fireEvent.change(screen.getByPlaceholderText("jane.doe@example.com"), { target: { value: "pm@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("•••••••"), { target: { value: "secret-123" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "pm@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Add accounts" }));
@@ -1066,4 +1067,47 @@ describe("UsersPage modal tabs", () => {
       );
     });
   });
+  it.each([false, true])("freezes the user draft during save and retains it after failure (edit=%s)", async (editing) => {
+    const user = { id: 12, email: "draft@example.com", role: "ui_user", account_links: [] };
+    listUsersMock.mockResolvedValue({ items: [user], total: 1, page: 1, page_size: 25, has_next: false });
+    const save = editing ? updateUserMock : createUserMock;
+    let rejectSave!: (error: Error) => void;
+    save.mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
+    render(<UsersPage />);
+    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create user", exact: true });
+    await act(async () => { fireEvent.click(trigger); });
+    const form = screen.getByRole("form", { name: editing ? "Edit UI user" : "Create UI user" });
+    fireEvent.change(within(form).getByLabelText("Email"), { target: { value: "retained@example.com" } });
+    if (!editing) fireEvent.change(within(form).getByLabelText("Password"), { target: { value: "fixture-password" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    for (const control of form.querySelectorAll("input,select,button")) expect(control).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to users" })).toBeDisabled();
+    fireEvent.submit(form);
+    expect(save).toHaveBeenCalledTimes(1);
+    const payload = save.mock.calls[0];
+    await act(async () => rejectSave(new Error("Fixture save failed")));
+    expect(within(form).getByLabelText("Email")).toHaveValue("retained@example.com");
+    expect(within(form).getByLabelText("Email")).toBeEnabled();
+    fireEvent.submit(form);
+    await waitFor(() => expect(form).not.toBeInTheDocument());
+    expect(save.mock.calls[1]).toEqual(payload);
+  });
+
+  it.each([false, true])("returns to the invalid email from another tab (edit=%s)", async (editing) => {
+    listUsersMock.mockResolvedValue({ items: [{ id: 12, email: "draft@example.com", role: "ui_user" }], total: 1, page: 1, page_size: 25 });
+    render(<UsersPage />);
+    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create user", exact: true });
+    await act(async () => { fireEvent.click(trigger); });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "invalid-email" } });
+    if (!editing) fireEvent.change(screen.getByLabelText("Password"), { target: { value: "fixture-password" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("button", { name: editing ? "Save" : "Create", exact: true }));
+    const email = await screen.findByLabelText("Email");
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    await waitFor(() => expect(email).toHaveFocus());
+    expect(createUserMock).not.toHaveBeenCalled();
+    expect(updateUserMock).not.toHaveBeenCalled();
+  });
+
 });

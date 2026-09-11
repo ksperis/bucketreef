@@ -32,7 +32,6 @@ import { S3ConnectionSummary, listMinimalS3Connections } from "../../api/s3Conne
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import ListPageSection from "../../components/list/ListPageSection";
 import WorkflowPage, {
-  WorkflowActions,
   WorkflowMetadata,
   workflowPageHostClass,
 } from "../../components/WorkflowPage";
@@ -57,7 +56,9 @@ import {
   type ManagerToolKey,
 } from "./adminAccessConfig";
 import PageBanner from "../../components/PageBanner";
-import UiButton from "../../components/ui/UiButton";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import AdminUserIdentityFields, { userIdentityErrors, type UserIdentityErrors } from "./AdminUserIdentityFields";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import DataTableShell, {
   dataTableDefaultActionProps,
@@ -68,7 +69,7 @@ import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import UserAvatar from "../../components/UserAvatar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
-import { cx, uiInputClass, uiMutedTextClass } from "../../components/ui/styles";
+import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import { isAdminLikeRole, isSuperAdminRole, readStoredUser, setSessionUserCache } from "../../utils/workspaces";
@@ -99,71 +100,12 @@ const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   ...userWorkflowTabs.filter((tab) => tab.id !== "general"),
 ];
 
-const userModalLabelClass = "ui-body font-medium text-[var(--ui-text)]";
-const userModalFieldClass = cx(uiInputClass, "px-3 py-2 ui-body");
-const roleAccessHelpItems = [
-  { role: "No Access", access: "No workspace access (profile only)" },
-  { role: "User", access: "Non-admin workspaces only" },
-  { role: "Admin", access: "User access + /admin" },
-  { role: "Superadmin", access: "Admin access + /admin settings" },
-];
 const storageOpsAccessDescription =
   "Grant direct /storage-ops access when the UI role is User, Admin, or Superadmin.";
 
-function RoleAccessHelp({
-  open,
-  onToggle,
-  helpId,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  helpId: string;
-}) {
-  return (
-    <>
-      <div className="flex items-center gap-2">
-        <label className={userModalLabelClass}>Role</label>
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label="Explain role access levels"
-          aria-expanded={open}
-          aria-controls={helpId}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 text-[11px] font-bold text-slate-600 transition hover:border-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-slate-600 dark:text-slate-200 dark:hover:border-primary-400 dark:hover:text-primary-100"
-        >
-          i
-        </button>
-      </div>
-      {open && (
-        <div id={helpId} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-slate-700 dark:bg-slate-900/50">
-          <p className="mb-2 ui-badge font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Role access summary</p>
-          <div className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950/70">
-            <table className="ui-data-table w-full table-fixed border-collapse">
-              <thead className="bg-slate-100 dark:bg-slate-900">
-                <tr>
-                  <th className="w-1/3 text-left">
-                    Role
-                  </th>
-                  <th className="text-left">
-                    Workspace access
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {roleAccessHelpItems.map((item, index) => (
-                  <tr key={item.role} className={index % 2 === 0 ? "bg-white dark:bg-slate-950/70" : "bg-slate-50/70 dark:bg-slate-900/60"}>
-                    <td className="ui-table-primary">{item.role}</td>
-                    <td className="ui-table-secondary">{item.access}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">Ceph Admin and Storage Ops also require dedicated access flags.</p>
-        </div>
-      )}
-    </>
-  );
+function focusIdentityError(prefix: string, errors: UserIdentityErrors) {
+  const field = errors.email ? "email" : "password";
+  requestAnimationFrame(() => document.getElementById(`${prefix}-${field}`)?.focus());
 }
 
 export default function UsersPage() {
@@ -285,6 +227,10 @@ export default function UsersPage() {
   const [showEditGroupPanel, setShowEditGroupPanel] = useState(false);
   const [editGroupSelections, setEditGroupSelections] = useState<number[]>([]);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
+  const savingRef = useRef(false);
+  const [createAttempted, setCreateAttempted] = useState(false);
+  const [editAttempted, setEditAttempted] = useState(false);
   const [pendingDeleteUser, setPendingDeleteUser] = useState<User | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -736,6 +682,7 @@ export default function UsersPage() {
   );
 
   const resetCreateModalState = () => {
+    setCreateAttempted(false);
     setForm(createFormTemplate());
     setCreateSelectedS3Accounts([]);
     setCreateSelectedS3Users([]);
@@ -834,9 +781,22 @@ export default function UsersPage() {
     clearAdminPrincipalEditRequest();
   };
 
+  const roleAccessPatch = (role: UiRole, current: UpdateUserPayload) => {
+    const supportsCephAdmin = role === "ui_admin" || role === "ui_superadmin";
+    const supportsStorageOps = role === "ui_user" || supportsCephAdmin;
+    return {
+      role,
+      can_access_ceph_admin: currentIsSuperAdmin && supportsCephAdmin ? Boolean(current.can_access_ceph_admin) : false,
+      can_access_storage_ops: currentIsAdminLike && supportsStorageOps ? Boolean(current.can_access_storage_ops) : false,
+      can_create_manual_private_connections: supportsStorageOps ? Boolean(current.can_create_manual_private_connections) : false,
+      can_provision_managed_private_connections: supportsStorageOps ? Boolean(current.can_provision_managed_private_connections) : false,
+    };
+  };
+
   const createCloseGuard = useUnsavedChangesGuard({
     hasUnsavedChanges: showCreateModal && createCurrentSignature !== createInitialSignature,
     onClose: closeCreateModal,
+    disabled: creating,
   });
 
   const editCloseGuard = useUnsavedChangesGuard({
@@ -847,11 +807,14 @@ export default function UsersPage() {
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
+    if (savingRef.current) return;
     setActionError(null);
     setActionMessage(null);
-    if (!form.email || !form.password) {
+    const errors = userIdentityErrors(form, true);
+    setCreateAttempted(true);
+    if (Object.keys(errors).length) {
       setCreateModalTab("general");
-      setActionError("Email and password are required.");
+      focusIdentityError("create-user", errors);
       return;
     }
     if (createSelectedS3Accounts.some((entry) => !hasAccountAccessRole(entry))) {
@@ -886,6 +849,8 @@ export default function UsersPage() {
       browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
       group_ids: createSelectedGroups,
     };
+    savingRef.current = true;
+    setCreating(true);
     try {
       const created = await runWithStepUp(() => createUser(payload));
       if (created?.id) {
@@ -918,6 +883,9 @@ export default function UsersPage() {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
         setActionError(extractError(err));
       }
+    } finally {
+      savingRef.current = false;
+      setCreating(false);
     }
   };
 
@@ -950,6 +918,7 @@ export default function UsersPage() {
       manager_tool_access: normalizeManagerToolAccess(user.manager_tool_access),
       browser_advanced_features_enabled: Boolean(user.browser_advanced_features_enabled),
     };
+    setEditAttempted(false);
     setEditingUser(user);
     setEditForm(nextEditForm);
     const selectedAccounts = (user.account_links ?? []).map((link) => ({
@@ -1025,15 +994,23 @@ export default function UsersPage() {
 
   const submitEdit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!editingUser) return;
+    if (!editingUser || savingRef.current || editModalTab === "authentication") return;
     setActionError(null);
     setActionMessage(null);
+    const errors = userIdentityErrors(editForm, false);
+    setEditAttempted(true);
+    if (Object.keys(errors).length) {
+      setEditModalTab("general");
+      focusIdentityError("edit-user", errors);
+      return;
+    }
     if (editSelectedS3Accounts.some((entry) => !hasAccountAccessRole(entry))) {
       setEditModalTab("associations");
       setEditAssociationsTab("accounts");
       setActionError(getAccountAccessRequiredMessage(showPortalRole));
       return;
     }
+    savingRef.current = true;
     setBusyId(editingUser.id);
     try {
       const payload: UpdateUserPayload = {};
@@ -1098,6 +1075,7 @@ export default function UsersPage() {
         setActionError(extractError(err));
       }
     } finally {
+      savingRef.current = false;
       setBusyId(null);
     }
   };
@@ -1260,6 +1238,8 @@ export default function UsersPage() {
           breadcrumbs={adminPageBreadcrumbs("users", { label: "Create" })}
           backLabel="Back to users"
           onBack={createCloseGuard.requestClose}
+          backDisabled={creating}
+          contentClassName="settings-compact settings-form"
           contentVariant="plain"
           width="wide"
         >
@@ -1273,7 +1253,8 @@ export default function UsersPage() {
               {actionMessage}
             </PageBanner>
           )}
-          <form onSubmit={handleCreate} className="space-y-4">
+          <SettingsForm label="Create UI user" busy={creating} onSubmit={handleCreate}
+            onCancel={createCloseGuard.requestClose} submitLabel="Create" busyLabel="Creating...">
             <WorkflowTabs<UserModalTab>
               activeTab={createModalTab}
               onTabChange={setCreateModalTab}
@@ -1283,76 +1264,17 @@ export default function UsersPage() {
             >
 
             {createModalTab === "general" && (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                  <label className={userModalLabelClass}>Email *</label>
-                  <input
-                    type="email"
-                    className={userModalFieldClass}
-                    value={form.email}
-                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                    placeholder="jane.doe@example.com"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className={userModalLabelClass}>Password *</label>
-                  <input
-                    type="password"
-                    className={userModalFieldClass}
-                    value={form.password}
-                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                    placeholder="•••••••"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className={userModalLabelClass}>Full name</label>
-                  <input
-                    className={userModalFieldClass}
-                    value={form.full_name ?? ""}
-                    onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
-                    placeholder="Jane Doe"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <RoleAccessHelp
-                    open={createRoleHelpOpen}
-                    onToggle={() => setCreateRoleHelpOpen((prev) => !prev)}
-                    helpId="create-user-role-access-help"
-                  />
-                  <select
-                    className={userModalFieldClass}
-                    value={createRoleValue}
-                    onChange={(e) => {
-                      const value = e.target.value as UiRole;
-                      const supportsCephAdmin = value === "ui_admin" || value === "ui_superadmin";
-                      const supportsStorageOps = value === "ui_user" || supportsCephAdmin;
-                      setForm((f) => ({
-                        ...f,
-                        role: value,
-                        can_access_ceph_admin:
-                          currentIsSuperAdmin && supportsCephAdmin ? Boolean(f.can_access_ceph_admin) : false,
-                        can_access_storage_ops:
-                          currentIsAdminLike && supportsStorageOps ? Boolean(f.can_access_storage_ops) : false,
-                        can_create_manual_private_connections: supportsStorageOps
-                          ? Boolean(f.can_create_manual_private_connections)
-                          : false,
-                        can_provision_managed_private_connections: supportsStorageOps
-                          ? Boolean(f.can_provision_managed_private_connections)
-                          : false,
-                      }));
-                    }}
-                  >
-                    <option value="ui_none">No access</option>
-                    <option value="ui_user">User</option>
-                    <option value="ui_admin" disabled={!currentIsSuperAdmin}>Admin{currentIsSuperAdmin ? "" : " (restricted)"}</option>
-                    <option value="ui_superadmin" disabled={!currentIsSuperAdmin}>
-                      Superadmin{currentIsSuperAdmin ? "" : " (restricted)"}
-                    </option>
-                  </select>
-                </div>
-              </div>
+              <AdminUserIdentityFields
+                idPrefix="create-user"
+                values={{ ...form, role: createRoleValue }}
+                creating
+                errors={createAttempted ? userIdentityErrors(form, true) : {}}
+                onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+                canAssignAdmin={currentIsSuperAdmin}
+                helpOpen={createRoleHelpOpen}
+                onToggleHelp={() => setCreateRoleHelpOpen((open) => !open)}
+                onRoleChange={(value) => setForm((current) => ({ ...current, ...roleAccessPatch(value, current) }))}
+              />
             )}
 
             {createModalTab === "access" && (
@@ -1555,15 +1477,7 @@ export default function UsersPage() {
             )}
             </WorkflowTabs>
 
-            <WorkflowActions>
-              <UiButton variant="secondary" onClick={createCloseGuard.requestClose}>
-                Cancel
-              </UiButton>
-              <UiButton type="submit">
-                Create
-              </UiButton>
-            </WorkflowActions>
-          </form>
+          </SettingsForm>
           {createCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}
@@ -1631,6 +1545,8 @@ export default function UsersPage() {
           breadcrumbs={adminPageBreadcrumbs("users", { label: "Edit" })}
           backLabel="Back to users"
           onBack={editCloseGuard.requestClose}
+          backDisabled={busyId === editingUser.id}
+          contentClassName="settings-compact settings-form"
           contentVariant="plain"
           width="wide"
           metaContent={<WorkflowMetadata items={[{ label: "Identity", value: editingUser.email }]} />}
@@ -1645,7 +1561,11 @@ export default function UsersPage() {
               {actionMessage}
             </PageBanner>
           )}
-          <form onSubmit={submitEdit} className="space-y-4">
+          <SettingsForm label="Edit UI user" busy={busyId === editingUser.id} onSubmit={submitEdit}
+            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
+            actions={editModalTab === "authentication" ? (
+              <SettingsButton variant="secondary" onClick={editCloseGuard.requestClose}>Done</SettingsButton>
+            ) : undefined}>
             <WorkflowTabs<UserModalTab>
               activeTab={editModalTab}
               onTabChange={setEditModalTab}
@@ -1655,63 +1575,16 @@ export default function UsersPage() {
             >
 
             {editModalTab === "general" && (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                  <label className={userModalLabelClass}>Email</label>
-                  <input
-                    type="email"
-                    className={userModalFieldClass}
-                    value={editForm.email ?? ""}
-                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className={userModalLabelClass}>Full name</label>
-                  <input
-                    className={userModalFieldClass}
-                    value={editForm.full_name ?? ""}
-                    onChange={(e) => setEditForm((f) => ({ ...f, full_name: e.target.value }))}
-                    placeholder="Jane Doe"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <RoleAccessHelp
-                    open={editRoleHelpOpen}
-                    onToggle={() => setEditRoleHelpOpen((prev) => !prev)}
-                    helpId="edit-user-role-access-help"
-                  />
-                  <select
-                    className={userModalFieldClass}
-                    value={editRoleValue}
-                    onChange={(e) => {
-                      const value = e.target.value as UiRole;
-                      const supportsCephAdmin = value === "ui_admin" || value === "ui_superadmin";
-                      const supportsStorageOps = value === "ui_user" || supportsCephAdmin;
-                      setEditForm((f) => ({
-                        ...f,
-                        role: value,
-                        can_access_ceph_admin:
-                          currentIsSuperAdmin && supportsCephAdmin ? Boolean(f.can_access_ceph_admin) : false,
-                        can_access_storage_ops:
-                          currentIsAdminLike && supportsStorageOps ? Boolean(f.can_access_storage_ops) : false,
-                        can_create_manual_private_connections: supportsStorageOps
-                          ? Boolean(f.can_create_manual_private_connections)
-                          : false,
-                        can_provision_managed_private_connections: supportsStorageOps
-                          ? Boolean(f.can_provision_managed_private_connections)
-                          : false,
-                      }));
-                    }}
-                  >
-                    <option value="ui_none">No access</option>
-                    <option value="ui_user">User</option>
-                    <option value="ui_admin" disabled={!currentIsSuperAdmin}>Admin{currentIsSuperAdmin ? "" : " (restricted)"}</option>
-                    <option value="ui_superadmin" disabled={!currentIsSuperAdmin}>
-                      Superadmin{currentIsSuperAdmin ? "" : " (restricted)"}
-                    </option>
-                  </select>
-                </div>
-              </div>
+              <AdminUserIdentityFields
+                idPrefix="edit-user"
+                values={{ ...editForm, role: editRoleValue }}
+                errors={editAttempted ? userIdentityErrors(editForm, false) : {}}
+                onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))}
+                canAssignAdmin={currentIsSuperAdmin}
+                helpOpen={editRoleHelpOpen}
+                onToggleHelp={() => setEditRoleHelpOpen((open) => !open)}
+                onRoleChange={(value) => setEditForm((current) => ({ ...current, ...roleAccessPatch(value, current) }))}
+              />
             )}
 
             {editModalTab === "authentication" && (
@@ -1921,26 +1794,7 @@ export default function UsersPage() {
             )}
             </WorkflowTabs>
 
-            <WorkflowActions>
-              {editModalTab === "authentication" ? (
-                <UiButton variant="secondary" onClick={editCloseGuard.requestClose}>
-                  Done
-                </UiButton>
-              ) : (
-                <>
-                  <UiButton variant="secondary" onClick={editCloseGuard.requestClose}>
-                    Cancel
-                  </UiButton>
-                  <UiButton
-                    type="submit"
-                    disabled={busyId === editingUser.id}
-                  >
-                    {busyId === editingUser.id ? "Saving..." : "Save"}
-                  </UiButton>
-                </>
-              )}
-            </WorkflowActions>
-          </form>
+          </SettingsForm>
           {editCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}

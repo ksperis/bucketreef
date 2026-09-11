@@ -155,6 +155,15 @@ overrides and Storage Space settings now use the compact presentation. The forme
 Portal alias facade and unused card/form helpers have been removed; import the
 canonical components directly.
 
+Admin UI User and UI Group editors also use the compact settings sections and
+`SettingsForm` footer. `AdminUserIdentityFields` owns the shared user identity
+fields, while `AdminAccessToggleSection` presents all direct or inherited access
+switches. Preserve the distinct grant semantics and the Manager-before-Browser
+tab order. Pending saves freeze the draft and return controls; group close
+guards include pending association selections and image changes. The user
+Authentication tab keeps its immediate actions and Done footer: it must never
+submit the parent profile draft.
+
 Settings typography is also tokenized: titles 14px/20px at weight 600, labels
 13px/18px at weight 500, body/inputs 13px/18px at weight 400, descriptions and
 buttons 12px/16px at weight 400. Use `settings-section-title`, `settings-label`,
