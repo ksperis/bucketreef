@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.4 - 2026-09-11
+
+### Added
+
+- Added protected profile and settings drafts, recovery-code handoff outside the authenticated shell, and shared avatar, language, and notification editing for personal and Admin workflows.
+- Added compact shared controls for settings, identity, S3 connection, RGW, IAM, bucket comparison, maintenance, inventory, and one-time-secret workflows.
+
+### Changed
+
+- Standardized compact dashboards, tables, filters, action menus, forms, dialogs, and responsive layouts across Admin, Manager, Ceph Admin, Portal, Browser, and Storage Ops.
+- Routed long-running Manager bucket operations through resolved execution contexts and added migration `0124_canonical_manager_usage_scopes` to canonicalize persisted usage-snapshot scopes.
+- Separated Ceph Admin bucket snapshots from response paging and consolidated cache, credential, tool-grant, and execution-context resolution contracts.
+
+### Fixed/Security
+
+- Preserved exact S3 object keys and literal prefixes across Browser reads, navigation, version listings, comparisons, and remediation without trimming valid whitespace or empty slash segments.
+- Made cache invalidation race-safe, rejected incomplete endpoint and STS credentials, bounded credential caches and eager reads, and closed download bodies and long-running S3 clients on every exit.
+- Preserved partial deletion outcomes, unsaved frontend edits, exact quota limits, narrow-list actions, profile navigation, and responsive dialog access.
+
+### Breaking changes
+
+- Object-column requests now require nonempty keys and columns, and exact version listings reject an empty key with HTTP 422. Omit the key to list by prefix; whitespace-only object keys remain valid.
+- The frontend `/admin/accounts` alias has been removed. Update bookmarks to `/admin/s3-accounts`; backend endpoints under `/api/admin/accounts` are unchanged.
+- Former `/portal/storage-spaces/:spaceId/objects/*` frontend URLs are no longer translated. Use `/portal/storage-spaces/:spaceId` with the `object` and `object_view` query parameters; backend object APIs are unchanged.
+
+### Tests
+
+- Expanded backend coverage for exact-key handling, execution-context attribution, migrations, deletion results, resource cleanup, cache concurrency, STS credentials, and Ceph Admin listings.
+- Expanded frontend, browser, accessibility, documentation-screenshot, responsive-layout, protected-draft, settings, navigation, and shared-component validation.
+
 ## 0.2.3 - 2026-09-04
 
 ### Added
