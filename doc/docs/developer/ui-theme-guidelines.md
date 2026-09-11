@@ -81,6 +81,12 @@ The frontend theme is anchored by the shared shell and UI tokens in
   choices in its `options` slot (disabled while loading), resource constraints
   in `warning` with `warningTone="warning"`, and request failures in `error`.
   Keep resource counters, identifiers and backend deletion guards intact.
+- Admin RGW creation reuses `AdminRgwCreateFields`; creation and import share
+  `AdminRgwEndpointField` and named, field-adjacent validation. Use `SettingsForm`
+  with `presentation="dialog"` inside `SettingsDialog`, or its page footer for
+  a workflow page. `submitDisabled` blocks submission without freezing editable
+  choices; `busy` freezes the draft and dismissal until the request completes.
+  Keep successful import forms clean after clearing their identifiers.
 - Badges and tags: use `UiBadge` / `UiTagBadge` and their shared
   `uiBadgeShapeClass` (4px radius, 1px border), pale tone fill and medium text,
   without shadows. Preserve semantic tones and custom tag palettes in both

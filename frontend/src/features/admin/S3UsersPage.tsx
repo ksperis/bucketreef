@@ -4,7 +4,7 @@
  */
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListActionButton, ListActionLink } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   S3User,
@@ -27,8 +27,11 @@ import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
-import Modal from "../../components/Modal";
-import ModalActions from "../../components/ModalActions";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsDialog } from "../../components/settings/SettingsControls";
+import AdminRgwEndpointField from "./AdminRgwEndpointField";
+import AdminRgwCreateFields from "./AdminRgwCreateFields";
+import { useAdminRgwFormValidation, rgwCreateErrors, rgwImportEntries } from "./useAdminRgwFormValidation";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import WorkflowPage, {
@@ -50,7 +53,7 @@ import UiTagEditor from "../../components/UiTagEditor";
 import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
-import UiSelect from "../../components/ui/UiSelect";
+import UiTextarea from "../../components/ui/UiTextarea";
 import { cx, uiPanelMutedClass } from "../../components/ui/styles";
 
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
@@ -556,16 +559,18 @@ export default function S3UsersPage() {
     }
   };
 
-  const submitCreate = async (e: FormEvent) => {
+  const createValidation = useAdminRgwFormValidation(createForm, rgwCreateErrors(createForm));
+  const importEntries = rgwImportEntries(importText, "user");
+  const importValidation = useAdminRgwFormValidation({importText, storage_endpoint_id: importEndpointId}, {
+    ...(importEntries.error ? {importText: importEntries.error} : {}),
+    ...(!importEndpointId ? {storage_endpoint_id: "Select a Ceph endpoint."} : {}),
+  });
+  const createPending = useRef(false);
+  const importPending = useRef(false);
+
+  const submitCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!createForm.name.trim()) {
-      setCreateError("Name is required");
-      return;
-    }
-    if (!createForm.storage_endpoint_id) {
-      setCreateError("Select a Ceph endpoint.");
-      return;
-    }
+    if (createPending.current || !createValidation.validate(e.currentTarget)) return;
     if (createPermissionLoading) {
       setCreateError("Checking endpoint permissions. Please wait.");
       return;
@@ -574,6 +579,7 @@ export default function S3UsersPage() {
       setCreateError("Selected endpoint does not allow this operation (missing users=write).");
       return;
     }
+    createPending.current = true;
     setCreating(true);
     setCreateError(null);
     try {
@@ -602,54 +608,33 @@ export default function S3UsersPage() {
     } catch (err) {
       setCreateError(extractError(err));
     } finally {
+      createPending.current = false;
       setCreating(false);
     }
   };
 
-  const submitImport = async () => {
-    const entries = importText
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (entries.length === 0) {
-      setImportError("Enter at least one uid.");
-      setImportMessage(null);
-      return;
-    }
-    if (!importEndpointId) {
-      setImportError("Select a Ceph endpoint.");
-      setImportMessage(null);
-      return;
-    }
-    if (importPermissionLoading) {
-      setImportError("Checking endpoint permissions. Please wait.");
-      setImportMessage(null);
-      return;
-    }
-    if (!importEndpointCanWrite) {
-      setImportError("Selected endpoint does not allow this operation (missing users=write).");
-      setImportMessage(null);
-      return;
-    }
+  const submitImport = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (importPending.current || !importValidation.validate(event.currentTarget)) return;
+    if (importPermissionLoading || !importEndpointCanWrite) return;
+    importPending.current = true;
+    setImportBusy(true);
+    setImportError(null);
+    setImportMessage(null);
     try {
-      setImportBusy(true);
-      setImportError(null);
-      setImportMessage(null);
-      const payload = entries.map((line) => {
-        const uid = (line.includes("/") ? line.split("/", 2)[1] : line).trim();
-        if (!uid) {
-          throw new Error(`Invalid entry "${line}" (missing uid).`);
-        }
-        return { uid, storage_endpoint_id: Number(importEndpointId) };
-      });
-      await importS3Users(payload);
+      await importS3Users(importEntries.entries.map(identifier => ({
+        uid: identifier,
+        storage_endpoint_id: Number(importEndpointId),
+      })));
       setImportMessage("Users imported.");
+      importValidation.reset();
       setImportText("");
       setImportInitialSignature(stableSignature({ importText: "", importEndpointId }));
       await fetchUsers();
     } catch (err) {
       setImportError(extractError(err));
     } finally {
+      importPending.current = false;
       setImportBusy(false);
     }
   };
@@ -835,6 +820,9 @@ export default function S3UsersPage() {
           {
             label: "Import",
             onClick: () => {
+              importValidation.reset();
+              setImportError(null);
+              setImportMessage(null);
               setImportInitialSignature(stableSignature({ importText, importEndpointId }));
               setShowImportModal(true);
               void loadEndpointsIfNeeded();
@@ -844,6 +832,8 @@ export default function S3UsersPage() {
           {
             label: "Create user",
             onClick: () => {
+              createValidation.reset();
+              setCreateError(null);
               setCreateInitialSignature(stableSignature({ createForm: { ...createForm, tags: normalizeUiTags(createForm.tags) } }));
               setShowCreateModal(true);
               void loadEndpointsIfNeeded();
@@ -910,192 +900,39 @@ export default function S3UsersPage() {
       </ListPageSection>
 
       {showCreateModal && (
-        <Modal title="Create user" onClose={createCloseGuard.requestClose} closeDisabled={creating}>
-          {createError && (
-            <UiInlineMessage tone="error" className="mb-3">
-              {createError}
-            </UiInlineMessage>
-          )}
-          <form onSubmit={submitCreate} className="space-y-4">
-            <WorkflowSection
-              title="User details"
-              description="Define the RGW identity, endpoint, contact, and administrative tags."
-            >
-              <div className="grid gap-4 md:grid-cols-2">
-                <UiInput
-                  label="Display name *"
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
-                  required
-                />
-                <UiInput
-                  label="UID (optional)"
-                  value={createForm.uid}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, uid: e.target.value }))}
-                  placeholder="user-123"
-                />
-                <UiSelect
-                  label="Ceph endpoint *"
-                  value={createForm.storage_endpoint_id}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, storage_endpoint_id: e.target.value }))}
-                  disabled={loadingEndpoints || adminCephEndpoints.length === 0}
-                  required
-                >
-                  <option value="" disabled>
-                    {loadingEndpoints
-                      ? "Loading..."
-                      : adminCephEndpoints.length === 0
-                        ? "No Ceph endpoint with admin enabled"
-                        : "Select"}
-                  </option>
-                  {adminCephEndpoints.map((ep) => (
-                    <option key={ep.id} value={ep.id}>
-                      {ep.name} {ep.is_default ? "(default)" : ""}
-                    </option>
-                  ))}
-                </UiSelect>
-                <UiInput
-                  label="Email"
-                  type="email"
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
-                  placeholder="user@example.com"
-                />
-                {createForm.storage_endpoint_id && (
-                  <div className="flex flex-col gap-1 md:col-span-2">
-                    {createPermissionLoading ? (
-                      <PageBanner tone="info">Checking endpoint permissions...</PageBanner>
-                    ) : createPermissionError ? (
-                      <PageBanner tone="warning">
-                        {createPermissionError}. Validation is disabled until permissions can be verified.
-                      </PageBanner>
-                    ) : !createEndpointCanWrite ? (
-                      <PageBanner tone="warning">
-                        Selected endpoint does not allow this operation: missing <code>users=write</code>.
-                      </PageBanner>
-                    ) : null}
-                  </div>
-                )}
-                <div className="md:col-span-2">
-                  {adminTagCatalogError && <PageBanner tone="warning">{adminTagCatalogError}</PageBanner>}
-                  <UiTagEditor
-                    label="Tags"
-                    tags={createForm.tags}
-                    catalog={adminTagCatalog}
-                    onChange={(tags) => setCreateForm((prev) => ({ ...prev, tags }))}
-                    placeholder="Add a tag for this RGW user"
-                    hint={adminTagCatalogLoading ? "Loading existing tag catalog..." : undefined}
-                  />
-                </div>
-              </div>
-            </WorkflowSection>
-            <AdminQuotaFields
-              storageValue={createForm.quota_max_size_gb}
-              storageUnit={createForm.quota_max_size_unit}
-              objectValue={createForm.quota_max_objects}
-              disabled={creating}
-              onStorageValueChange={(value) =>
-                setCreateForm((prev) => ({ ...prev, quota_max_size_gb: value }))
-              }
-              onStorageUnitChange={(value) =>
-                setCreateForm((prev) => ({ ...prev, quota_max_size_unit: value }))
-              }
-              onObjectValueChange={(value) =>
-                setCreateForm((prev) => ({ ...prev, quota_max_objects: value }))
-              }
-            />
-            <ModalActions>
-              <UiButton variant="secondary" onClick={createCloseGuard.requestClose} disabled={creating}>
-                Cancel
-              </UiButton>
-              <UiButton
-                type="submit"
-                disabled={creating || createPermissionLoading || !createEndpointCanWrite}
-              >
-                {creating ? "Creating..." : "Create user"}
-              </UiButton>
-            </ModalActions>
-            {createCloseGuard.confirmationDialog}
-          </form>
-        </Modal>
+        <SettingsDialog title="Create user" onClose={createCloseGuard.requestClose} closeDisabled={creating} maxWidthClass="max-w-2xl">
+          <SettingsForm label="Create RGW user" presentation="dialog" busy={creating} onSubmit={submitCreate}
+            submitDisabled={createPermissionLoading || !createEndpointCanWrite}
+            onCancel={createCloseGuard.requestClose} submitLabel="Create user" busyLabel="Creating...">
+            <AdminRgwCreateFields kind="user" value={createForm} onChange={patch => setCreateForm(current => ({...current, ...patch}))}
+              errors={createValidation.errors} busy={creating}
+              endpoint={{label: "Ceph endpoint *", endpoints: adminCephEndpoints, loading: loadingEndpoints,
+                operation: "users", permissionLoading: createPermissionLoading, permissionError: createPermissionError, canWrite: createEndpointCanWrite}}
+              tags={{catalog: adminTagCatalog, loading: adminTagCatalogLoading, error: adminTagCatalogError}} />
+            {createError && <UiInlineMessage tone="error" role="alert">{createError}</UiInlineMessage>}
+          </SettingsForm>
+          {createCloseGuard.confirmationDialog}
+        </SettingsDialog>
       )}
 
       {showImportModal && (
-        <WorkflowPage
-          title="Import RGW users"
-          description="Import multiple RGW users, validate endpoint access, and review generated keys."
-          breadcrumbs={adminPageBreadcrumbs("rgw-users", { label: "Import" })}
-          backLabel="Back to RGW users"
-          onBack={importCloseGuard.requestClose}
-          width="standard"
-        >
-          <p className="mb-3 ui-body text-slate-500">Enter RGW user IDs, one per line. The platform will fetch or generate keys.</p>
-          {importError && (
-            <UiInlineMessage tone="error" className="mb-3">
-              {importError}
-            </UiInlineMessage>
-          )}
-          {importMessage && (
-            <UiInlineMessage tone="success" className="mb-3">
-              {importMessage}
-            </UiInlineMessage>
-          )}
-          <textarea
-            className="ui-control min-h-32"
-            rows={6}
-            placeholder="user-alpha"
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-          />
-          <UiSelect
-            label="Ceph endpoint *"
-            fieldClassName="mt-3"
-            value={importEndpointId}
-            onChange={(e) => setImportEndpointId(e.target.value)}
-            disabled={loadingEndpoints || adminCephEndpoints.length === 0}
-            required
-          >
-            <option value="" disabled>
-              {loadingEndpoints
-                ? "Loading..."
-                : adminCephEndpoints.length === 0
-                  ? "No Ceph endpoint with admin enabled"
-                  : "Select"}
-            </option>
-            {adminCephEndpoints.map((ep) => (
-              <option key={ep.id} value={ep.id}>
-                {ep.name} {ep.is_default ? "(default)" : ""}
-              </option>
-            ))}
-          </UiSelect>
-          {importEndpointId && (
-            <>
-              {importPermissionLoading ? (
-                <PageBanner tone="info" className="mt-3">
-                  Checking endpoint permissions...
-                </PageBanner>
-              ) : importPermissionError ? (
-                <PageBanner tone="warning" className="mt-3">
-                  {importPermissionError}. Validation is disabled until permissions can be verified.
-                </PageBanner>
-              ) : !importEndpointCanWrite ? (
-                <PageBanner tone="warning" className="mt-3">
-                  Selected endpoint does not allow this operation: missing <code>users=write</code>.
-                </PageBanner>
-              ) : null}
-            </>
-          )}
-          <div className="mt-4 flex items-center justify-end gap-3">
-            <UiButton variant="secondary" onClick={importCloseGuard.requestClose}>
-              Cancel
-            </UiButton>
-            <UiButton
-              disabled={importBusy || importPermissionLoading || !importEndpointCanWrite || !importText.trim() || !importEndpointId}
-              onClick={submitImport}
-            >
-              {importBusy ? "Importing..." : "Import"}
-            </UiButton>
-          </div>
+        <WorkflowPage title="Import RGW users" description="Import existing standalone RGW users from a Ceph endpoint." breadcrumbs={adminPageBreadcrumbs("rgw-users", {label: "Import"})} backLabel="Back to RGW users" backDisabled={importBusy} onBack={importCloseGuard.requestClose} contentVariant="plain" width="standard">
+          <SettingsForm label="Import RGW users" busy={importBusy} onSubmit={submitImport}
+            submitDisabled={importPermissionLoading || !importEndpointCanWrite}
+            onCancel={importCloseGuard.requestClose} submitLabel="Import" busyLabel="Importing...">
+            <div className="settings-fields settings-form">
+              <p className="settings-body text-[var(--ui-text-muted)]">Enter RGW user IDs, one per line. The platform will fetch or generate keys.</p>
+              <UiTextarea label="RGW user IDs" name="importText" rows={6} required value={importText}
+                error={importValidation.errors.importText} placeholder="user-alpha"
+                onChange={event => setImportText(event.target.value)} />
+              <AdminRgwEndpointField label="Ceph endpoint *" value={importEndpointId}
+                onChange={setImportEndpointId} endpoints={adminCephEndpoints}
+                error={importValidation.errors.storage_endpoint_id} loading={loadingEndpoints} operation="users"
+                permissionLoading={importPermissionLoading} permissionError={importPermissionError} canWrite={importEndpointCanWrite} />
+              {importError && <UiInlineMessage tone="error" role="alert">{importError}</UiInlineMessage>}
+              {importMessage && <UiInlineMessage tone="success" role="status">{importMessage}</UiInlineMessage>}
+            </div>
+          </SettingsForm>
           {importCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}

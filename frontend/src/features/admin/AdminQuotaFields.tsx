@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { WorkflowSection } from "../../components/WorkflowPage";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 
@@ -11,6 +12,8 @@ type AdminQuotaFieldsProps = {
   storageUnit: string;
   objectValue: string;
   disabled: boolean;
+  compact?: boolean;
+  errors?: Record<string, string | undefined>;
   onStorageValueChange: (value: string) => void;
   onStorageUnitChange: (value: string) => void;
   onObjectValueChange: (value: string) => void;
@@ -21,12 +24,16 @@ export default function AdminQuotaFields({
   storageUnit,
   objectValue,
   disabled,
+  compact = false,
+  errors = {},
   onStorageValueChange,
   onStorageUnitChange,
   onObjectValueChange,
 }: AdminQuotaFieldsProps) {
+  const Section = compact ? SettingsSection : WorkflowSection;
   return (
-    <WorkflowSection
+    <Section
+      presentation="compact"
       title="Quotas"
       description="Set optional storage and object limits. Leave a value empty to disable that limit."
     >
@@ -34,6 +41,8 @@ export default function AdminQuotaFields({
         <div className="grid grid-cols-[minmax(0,1fr)_6rem] items-start gap-2">
           <UiInput
             label="Storage quota"
+            name="quota_max_size_gb"
+            error={errors.quota_max_size_gb}
             type="number"
             min={0}
             step="any"
@@ -56,6 +65,8 @@ export default function AdminQuotaFields({
         </div>
         <UiInput
           label="Object quota"
+          name="quota_max_objects"
+          error={errors.quota_max_objects}
           type="number"
           min={0}
           step={1}
@@ -65,6 +76,6 @@ export default function AdminQuotaFields({
           placeholder="No limit"
         />
       </div>
-    </WorkflowSection>
+    </Section>
   );
 }
