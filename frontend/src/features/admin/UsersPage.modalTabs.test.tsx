@@ -655,13 +655,11 @@ describe("UsersPage modal tabs", () => {
       "Associations",
       "Workspaces",
       "Connections",
-      "Manager",
-      "Browser",
     ]);
     expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Workspaces" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Browser" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Access" })).not.toBeInTheDocument();
     expect(screen.queryByText("Ceph Admin access")).not.toBeInTheDocument();
     expect(screen.queryByText("Storage Ops access")).not.toBeInTheDocument();
@@ -759,8 +757,6 @@ describe("UsersPage modal tabs", () => {
       "Associations",
       "Workspaces",
       "Connections",
-      "Manager",
-      "Browser",
     ]);
     expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
@@ -839,24 +835,23 @@ describe("UsersPage modal tabs", () => {
     render(<UsersPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     expect(screen.getByRole("tab", { name: "Connections" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Manager" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Connections" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow manual private connection creation" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Manager" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow managed private connection provisioning" }));
 
-    expect(screen.getByText("Bucket tools")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Manager", exact: true })).toBeInTheDocument();
     expect(screen.queryByText("Privileged Ceph access")).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Bucket quota management" })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Ceph S3 User keys" })).not.toBeInTheDocument();
-    const bucketToolsGroup = screen.getByRole("region", { name: "Bucket tools" });
-    expect(bucketToolsGroup).not.toBeNull();
-    expect(within(bucketToolsGroup as HTMLElement).getByText("Bucket compare")).toBeInTheDocument();
-    expect(within(bucketToolsGroup as HTMLElement).getByText("Bucket integrity check")).toBeInTheDocument();
-    expect(within(bucketToolsGroup as HTMLElement).getByText("Bucket migration")).toBeInTheDocument();
+    const managerSection = screen.getByRole("region", { name: "Manager", exact: true });
+    expect(within(managerSection).getByText("Bucket compare")).toBeInTheDocument();
+    expect(within(managerSection).getByText("Bucket integrity check")).toBeInTheDocument();
+    expect(within(managerSection).getByText("Bucket migration")).toBeInTheDocument();
 
     const compareToggle = screen.getByRole("switch", { name: /Bucket compare/i });
     const migrationToggle = screen.getByRole("switch", { name: /Bucket migration/i });
@@ -906,7 +901,7 @@ describe("UsersPage modal tabs", () => {
 
     render(<UsersPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Manager" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
 
     const toggle = screen.getByRole("switch", {
       name: "Allow managed private connection provisioning",
@@ -1004,7 +999,7 @@ describe("UsersPage modal tabs", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "browser@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
     expect(screen.getByText("Browser options for this UI user. Groups can also grant these options.")).toBeInTheDocument();
     const advancedToggle = screen.getByRole("switch", { name: "Enable technical S3 tools" });
     expect(advancedToggle).not.toBeChecked();
@@ -1114,7 +1109,7 @@ describe("UsersPage modal tabs", () => {
     await act(async () => { fireEvent.click(trigger); });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "invalid-email" } });
     if (!editing) fireEvent.change(screen.getByLabelText("Password"), { target: { value: "fixture-password" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
     fireEvent.click(screen.getByRole("button", { name: editing ? "Save" : "Create", exact: true }));
     const email = await screen.findByLabelText("Email");
     expect(email).toHaveAttribute("aria-invalid", "true");

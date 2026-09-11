@@ -109,6 +109,7 @@ export function ManagerToolAccessSection({
   access,
   onChange,
   isToolDisabled,
+  additionalItems = [],
 }: {
   title: string;
   description: string;
@@ -116,13 +117,14 @@ export function ManagerToolAccessSection({
   access?: ManagerToolAccess | null;
   onChange: (key: ManagerToolKey, value: boolean) => void;
   isToolDisabled?: (tool: ManagerToolDefinition) => boolean;
+  additionalItems?: WorkspaceAccessToggle[];
 }) {
   const normalizedAccess = normalizeManagerToolAccess(access);
   return (
     <AdminAccessToggleSection
       title={title}
       description={description}
-      items={tools.map((tool) => ({
+      items={[...additionalItems, ...tools.map<WorkspaceAccessToggle>((tool) => ({
         title: tool.title,
         description: tool.description,
         checked: Boolean(normalizedAccess[tool.key]),
@@ -130,7 +132,7 @@ export function ManagerToolAccessSection({
         onChange: (value) => onChange(tool.key, value),
         ariaLabel: tool.title,
         badge: { visible: !tool.enabled, label: "Disabled globally", tone: "neutral" },
-      }))}
+      }))]}
     />
   );
 }

@@ -88,7 +88,7 @@ import type { AccountSelection } from "./UserAccountAssociationsPanel";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
 
-type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access" | "connections" | "browser" | "manager";
+type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access" | "connections";
 type AuxiliaryLoadState = "idle" | "loading" | "loaded" | "error";
 
 const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
@@ -97,8 +97,6 @@ const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "associations", label: "Associations" },
   { id: "access", label: "Workspaces" },
   { id: "connections", label: "Connections" },
-  { id: "manager", label: "Manager" },
-  { id: "browser", label: "Browser" },
 ];
 const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "general", label: profileMessages.preferencesTab.en },
@@ -1312,47 +1310,89 @@ export default function UsersPage() {
             )}
 
             {createModalTab === "access" && (
-              <WorkspaceAccessSection
-                description="Additional operational workspaces available to this UI user."
-                cephAdmin={{
-                  title: "Ceph Admin access",
-                  description:
-                    'Allow access to /ceph-admin. Grantable only by Superadmin for roles "Admin" and "Superadmin".',
-                  checked: createCanGrantCephAdmin && Boolean(form.can_access_ceph_admin),
-                  disabled: !createCanGrantCephAdmin,
-                  onChange: (value) =>
-                    setForm((f) => ({
-                      ...f,
-                      can_access_ceph_admin: value,
-                    })),
-                  ariaLabel: "Allow access to /ceph-admin",
-                }}
-                storageOps={{
-                  title: "Storage Ops access",
-                  description: storageOpsAccessDescription,
-                  checked: createCanGrantStorageOps && Boolean(form.can_access_storage_ops),
-                  disabled: !createCanGrantStorageOps,
-                  onChange: (value) =>
-                    setForm((f) => ({
-                      ...f,
-                      can_access_storage_ops: value,
-                    })),
-                  ariaLabel: "Allow access to /storage-ops",
-                }}
-              />
-            )}
+              <>
+                <WorkspaceAccessSection
+                  description="Additional operational workspaces available to this UI user."
+                  cephAdmin={{
+                    title: "Ceph Admin access",
+                    description:
+                      'Allow access to /ceph-admin. Grantable only by Superadmin for roles "Admin" and "Superadmin".',
+                    checked: createCanGrantCephAdmin && Boolean(form.can_access_ceph_admin),
+                    disabled: !createCanGrantCephAdmin,
+                    onChange: (value) =>
+                      setForm((f) => ({
+                        ...f,
+                        can_access_ceph_admin: value,
+                      })),
+                    ariaLabel: "Allow access to /ceph-admin",
+                  }}
+                  storageOps={{
+                    title: "Storage Ops access",
+                    description: storageOpsAccessDescription,
+                    checked: createCanGrantStorageOps && Boolean(form.can_access_storage_ops),
+                    disabled: !createCanGrantStorageOps,
+                    onChange: (value) =>
+                      setForm((f) => ({
+                        ...f,
+                        can_access_storage_ops: value,
+                      })),
+                    ariaLabel: "Allow access to /storage-ops",
+                  }}
+                />
+                {!createTargetSupportsManagerTools && (
+                  <PageBanner tone="warning">
+                    Manager access requires the target role to be User, Admin, or Superadmin.
+                  </PageBanner>
+                )}
 
-            {createModalTab === "browser" && (
-              <BrowserAccessSection
-                description="Browser options for this UI user. Groups can also grant these options."
-                checked={Boolean(form.browser_advanced_features_enabled)}
-                onChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    browser_advanced_features_enabled: value,
-                  }))
-                }
-              />
+                <ManagerToolAccessSection
+                  title="Manager"
+                  additionalItems={[
+                    {
+                      title: "Provision managed private connections",
+                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
+                      checked: createTargetSupportsManagerTools && Boolean(form.can_provision_managed_private_connections),
+                      disabled:
+                        !createTargetSupportsManagerTools ||
+                        !generalSettings.managed_private_connection_provisioning_enabled,
+                      onChange: (value) =>
+                        setForm((current) => ({
+                          ...current,
+                          can_provision_managed_private_connections: value,
+                        })),
+                      ariaLabel: "Allow managed private connection provisioning",
+                      badge: {
+                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
+                        label: "Disabled globally",
+                        tone: "neutral",
+                      },
+                    },
+                  ]}
+                  description="Manager permissions for advanced operations."
+                  tools={managerToolDefinitions}
+                  access={form.manager_tool_access}
+                  isToolDisabled={(tool) => !createTargetSupportsManagerTools || !tool.enabled}
+                  onChange={(key: ManagerToolKey, value) =>
+                    setForm((current) => ({
+                      ...current,
+                      manager_tool_access: {
+                        ...normalizeManagerToolAccess(current.manager_tool_access),
+                        [key]: value,
+                      },
+                    }))
+                  }
+                />
+                <BrowserAccessSection
+                  description="Browser options for this UI user. Groups can also grant these options."
+                  checked={Boolean(form.browser_advanced_features_enabled)}
+                  onChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      browser_advanced_features_enabled: value,
+                    }))
+                  }
+                />
+              </>
             )}
 
             {createModalTab === "connections" && (
@@ -1374,57 +1414,6 @@ export default function UsersPage() {
                   },
                 ]}
               />
-            )}
-
-            {createModalTab === "manager" && (
-              <div className="space-y-4">
-                {!createTargetSupportsManagerTools && (
-                  <PageBanner tone="warning">
-                    Manager access requires the target role to be User, Admin, or Superadmin.
-                  </PageBanner>
-                )}
-                <AdminAccessToggleSection
-                  title="Managed private access"
-                  description="Server-side provisioning permissions for this UI user."
-                  items={[
-                    {
-                      title: "Provision managed private connections",
-                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
-                      checked: createTargetSupportsManagerTools && Boolean(form.can_provision_managed_private_connections),
-                      disabled:
-                        !createTargetSupportsManagerTools ||
-                        !generalSettings.managed_private_connection_provisioning_enabled,
-                      onChange: (value) =>
-                        setForm((current) => ({
-                          ...current,
-                          can_provision_managed_private_connections: value,
-                        })),
-                      ariaLabel: "Allow managed private connection provisioning",
-                      badge: {
-                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: "Disabled globally",
-                        tone: "neutral",
-                      },
-                    },
-                  ]}
-                />
-                <ManagerToolAccessSection
-                  title="Bucket tools"
-                  description="Manager permissions for advanced operations."
-                  tools={managerToolDefinitions}
-                  access={form.manager_tool_access}
-                  isToolDisabled={(tool) => !createTargetSupportsManagerTools || !tool.enabled}
-                  onChange={(key: ManagerToolKey, value) =>
-                    setForm((current) => ({
-                      ...current,
-                      manager_tool_access: {
-                        ...normalizeManagerToolAccess(current.manager_tool_access),
-                        [key]: value,
-                      },
-                    }))
-                  }
-                />
-              </div>
             )}
 
             {createModalTab === "associations" && (
@@ -1657,47 +1646,89 @@ export default function UsersPage() {
             )}
 
             {editModalTab === "access" && (
-              <WorkspaceAccessSection
-                description="Additional operational workspaces available to this UI user."
-                cephAdmin={{
-                  title: "Ceph Admin access",
-                  description:
-                    'Allow access to /ceph-admin. Grantable only by Superadmin for roles "Admin" and "Superadmin".',
-                  checked: editCanGrantCephAdmin && Boolean(editForm.can_access_ceph_admin),
-                  disabled: !editCanGrantCephAdmin,
-                  onChange: (value) =>
-                    setEditForm((f) => ({
-                      ...f,
-                      can_access_ceph_admin: value,
-                    })),
-                  ariaLabel: "Allow access to /ceph-admin",
-                }}
-                storageOps={{
-                  title: "Storage Ops access",
-                  description: storageOpsAccessDescription,
-                  checked: editCanGrantStorageOps && Boolean(editForm.can_access_storage_ops),
-                  disabled: !editCanGrantStorageOps,
-                  onChange: (value) =>
-                    setEditForm((f) => ({
-                      ...f,
-                      can_access_storage_ops: value,
-                    })),
-                  ariaLabel: "Allow access to /storage-ops",
-                }}
-              />
-            )}
+              <>
+                <WorkspaceAccessSection
+                  description="Additional operational workspaces available to this UI user."
+                  cephAdmin={{
+                    title: "Ceph Admin access",
+                    description:
+                      'Allow access to /ceph-admin. Grantable only by Superadmin for roles "Admin" and "Superadmin".',
+                    checked: editCanGrantCephAdmin && Boolean(editForm.can_access_ceph_admin),
+                    disabled: !editCanGrantCephAdmin,
+                    onChange: (value) =>
+                      setEditForm((f) => ({
+                        ...f,
+                        can_access_ceph_admin: value,
+                      })),
+                    ariaLabel: "Allow access to /ceph-admin",
+                  }}
+                  storageOps={{
+                    title: "Storage Ops access",
+                    description: storageOpsAccessDescription,
+                    checked: editCanGrantStorageOps && Boolean(editForm.can_access_storage_ops),
+                    disabled: !editCanGrantStorageOps,
+                    onChange: (value) =>
+                      setEditForm((f) => ({
+                        ...f,
+                        can_access_storage_ops: value,
+                      })),
+                    ariaLabel: "Allow access to /storage-ops",
+                  }}
+                />
+                {!editTargetSupportsManagerTools && (
+                  <PageBanner tone="warning">
+                    Manager access requires the target role to be User, Admin, or Superadmin.
+                  </PageBanner>
+                )}
 
-            {editModalTab === "browser" && (
-              <BrowserAccessSection
-                description="Browser options for this UI user. Groups can also grant these options."
-                checked={Boolean(editForm.browser_advanced_features_enabled ?? editingUser.browser_advanced_features_enabled)}
-                onChange={(value) =>
-                  setEditForm((current) => ({
-                    ...current,
-                    browser_advanced_features_enabled: value,
-                  }))
-                }
-              />
+                <ManagerToolAccessSection
+                  title="Manager"
+                  additionalItems={[
+                    {
+                      title: "Provision managed private connections",
+                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
+                      checked: editTargetSupportsManagerTools && Boolean(editForm.can_provision_managed_private_connections),
+                      disabled:
+                        !editTargetSupportsManagerTools ||
+                        !generalSettings.managed_private_connection_provisioning_enabled,
+                      onChange: (value) =>
+                        setEditForm((current) => ({
+                          ...current,
+                          can_provision_managed_private_connections: value,
+                        })),
+                      ariaLabel: "Allow managed private connection provisioning",
+                      badge: {
+                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
+                        label: "Disabled globally",
+                        tone: "neutral",
+                      },
+                    },
+                  ]}
+                  description="Manager permissions for advanced operations."
+                  tools={managerToolDefinitions}
+                  access={editForm.manager_tool_access ?? editingUser.manager_tool_access}
+                  isToolDisabled={(tool) => !editTargetSupportsManagerTools || !tool.enabled}
+                  onChange={(key: ManagerToolKey, value) =>
+                    setEditForm((f) => ({
+                      ...f,
+                      manager_tool_access: {
+                        ...normalizeManagerToolAccess(f.manager_tool_access ?? editingUser.manager_tool_access),
+                        [key]: value,
+                      },
+                    }))
+                  }
+                />
+                <BrowserAccessSection
+                  description="Browser options for this UI user. Groups can also grant these options."
+                  checked={Boolean(editForm.browser_advanced_features_enabled ?? editingUser.browser_advanced_features_enabled)}
+                  onChange={(value) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      browser_advanced_features_enabled: value,
+                    }))
+                  }
+                />
+              </>
             )}
 
             {editModalTab === "connections" && (
@@ -1719,57 +1750,6 @@ export default function UsersPage() {
                   },
                 ]}
               />
-            )}
-
-            {editModalTab === "manager" && (
-              <div className="space-y-4">
-                  {!editTargetSupportsManagerTools && (
-                    <PageBanner tone="warning">
-                      Manager access requires the target role to be User, Admin, or Superadmin.
-                    </PageBanner>
-                  )}
-                <AdminAccessToggleSection
-                  title="Managed private access"
-                  description="Server-side provisioning permissions for this UI user."
-                  items={[
-                    {
-                      title: "Provision managed private connections",
-                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
-                      checked: editTargetSupportsManagerTools && Boolean(editForm.can_provision_managed_private_connections),
-                      disabled:
-                        !editTargetSupportsManagerTools ||
-                        !generalSettings.managed_private_connection_provisioning_enabled,
-                      onChange: (value) =>
-                        setEditForm((current) => ({
-                          ...current,
-                          can_provision_managed_private_connections: value,
-                        })),
-                      ariaLabel: "Allow managed private connection provisioning",
-                      badge: {
-                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: "Disabled globally",
-                        tone: "neutral",
-                      },
-                    },
-                  ]}
-                />
-                <ManagerToolAccessSection
-                  title="Bucket tools"
-                  description="Manager permissions for advanced operations."
-                  tools={managerToolDefinitions}
-                  access={editForm.manager_tool_access ?? editingUser.manager_tool_access}
-                  isToolDisabled={(tool) => !editTargetSupportsManagerTools || !tool.enabled}
-                  onChange={(key: ManagerToolKey, value) =>
-                    setEditForm((f) => ({
-                      ...f,
-                      manager_tool_access: {
-                        ...normalizeManagerToolAccess(f.manager_tool_access ?? editingUser.manager_tool_access),
-                        [key]: value,
-                      },
-                    }))
-                  }
-                />
-              </div>
             )}
 
             {editModalTab === "associations" && (

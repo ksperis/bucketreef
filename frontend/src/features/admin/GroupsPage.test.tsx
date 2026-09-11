@@ -393,8 +393,6 @@ describe("GroupsPage", () => {
       "Associations",
       "Workspaces",
       "Connections",
-      "Manager",
-      "Browser",
     ]);
     fireEvent.change(screen.getByPlaceholderText("Storage operators"), { target: { value: "ops-group" } });
 
@@ -402,7 +400,7 @@ describe("GroupsPage", () => {
     expect(screen.getByRole("switch", { name: "Allow group access to /ceph-admin" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Allow group access to /storage-ops" })).not.toBeChecked();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
     expect(screen.getByText("Browser options inherited by group members.")).toBeInTheDocument();
     const browserAdvancedToggle = screen.getByRole("switch", { name: "Enable technical S3 tools" });
     expect(browserAdvancedToggle).not.toBeChecked();
@@ -443,7 +441,7 @@ describe("GroupsPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Connections" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow manual private connection creation" }));
 
-    fireEvent.click(screen.getByRole("tab", { name: "Manager" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow managed private connection provisioning" }));
     expect(screen.getByRole("switch", { name: "Bucket compare" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Bucket integrity check" })).not.toBeChecked();
@@ -546,7 +544,7 @@ describe("GroupsPage", () => {
 
     render(<GroupsPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Manager" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
 
     const toggle = screen.getByRole("switch", {
       name: "Allow managed private connection provisioning",
