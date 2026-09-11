@@ -170,6 +170,31 @@ describe("Admin principal editor navigation", () => {
       await screen.findByRole("heading", { name: "Other page" });
       expect(unloadBlocked()).toBe(false);
     });
+
+    it("keeps operational, Manager and Browser access together across tab changes and saves", async () => {
+      await openEditor();
+      fireEvent.click(screen.getByRole("tab", { name: "Workspaces", exact: true }));
+      expect(screen.queryByRole("tab", { name: "Manager" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
+      expect(within(screen.getByRole("tabpanel")).getAllByRole("heading", { level: 2 }).map(heading => heading.textContent)).toEqual([
+        "Mass management workspaces", "Manager", "Browser",
+      ]);
+      const labels = [editor.name === "UI User" ? "Allow access to /storage-ops" : "Allow group access to /storage-ops",
+        "Bucket compare", "Enable technical S3 tools"];
+      for (const label of labels) fireEvent.click(screen.getByRole("switch", { name: label, exact: true }));
+      fireEvent.click(screen.getByRole("tab", { name: "Connections", exact: true }));
+      fireEvent.click(screen.getByRole("tab", { name: "Workspaces", exact: true }));
+      fireEvent.click(screen.getByRole("link", { name: "Other page" }));
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+      for (const label of labels) expect(screen.getByRole("switch", { name: label, exact: true })).toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+      await waitFor(() => expect(editor.update).toHaveBeenCalledOnce());
+      expect(editor.update.mock.calls[0][1]).toEqual(expect.objectContaining({
+        can_access_storage_ops: true, browser_advanced_features_enabled: true,
+        manager_tool_access: expect.objectContaining({ bucket_compare: true }),
+      }));
+      await waitFor(() => expect(unloadBlocked()).toBe(false));
+    });
   });
 
   it("protects a group avatar change even when text and permissions are unchanged", async () => {

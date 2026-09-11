@@ -108,6 +108,12 @@ avatar preserves pending changes to identity, preferences and access.
 Browser-local preferences remain in the personal profile. Admin profile
 operations follow the same target-role restrictions as other UI User edits.
 
+UI User and UI Group editors group operational workspace access, Manager
+permissions and Browser options in the **Workspaces** tab. The three sections
+share the principal's existing draft and **Save** action. UI User controls
+describe direct access; UI Group controls describe permissions inherited by
+eligible members.
+
 In the UI user and UI group editors, association tabs first list the currently
 linked resources. Use **Add…** to open a searchable picker, confirm the pending
 selection with **Add selected**, and use **Remove** on an existing row to

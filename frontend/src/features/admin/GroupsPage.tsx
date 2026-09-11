@@ -93,7 +93,7 @@ import {
   readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
 
-type GroupModalTab = "general" | "members" | "associations" | "workspaces" | "connections" | "browser" | "manager";
+type GroupModalTab = "general" | "members" | "associations" | "workspaces" | "connections";
 type AssociationTab = "accounts" | "s3_users" | "connections";
 const MAX_VISIBLE_OPTIONS = 10;
 const groupAvatarIcons: Array<{ value: UiGroupAvatarIcon; label: string }> = [
@@ -1227,8 +1227,6 @@ export default function GroupsPage() {
                 { id: "associations", label: "Associations" },
                 { id: "workspaces", label: "Workspaces" },
                 { id: "connections", label: "Connections" },
-                { id: "manager", label: "Manager" },
-                { id: "browser", label: "Browser" },
               ]}
             >
 
@@ -1297,36 +1295,69 @@ export default function GroupsPage() {
             )}
 
             {modalTab === "workspaces" && (
-              <WorkspaceAccessSection
-                description="Additional operational workspaces inherited by group members."
-                cephAdmin={{
-                  title: "Ceph Admin access",
-                  description: "Grant effective /ceph-admin access to members whose UI role is Admin or Superadmin.",
-                  checked: Boolean(form.can_access_ceph_admin),
-                  onChange: (value) => setForm((current) => ({ ...current, can_access_ceph_admin: value })),
-                  ariaLabel: "Allow group access to /ceph-admin",
-                }}
-                storageOps={{
-                  title: "Storage Ops access",
-                  description: "Grant effective /storage-ops access to members with User, Admin, or Superadmin roles.",
-                  checked: Boolean(form.can_access_storage_ops),
-                  onChange: (value) => setForm((current) => ({ ...current, can_access_storage_ops: value })),
-                  ariaLabel: "Allow group access to /storage-ops",
-                }}
-              />
-            )}
-
-            {modalTab === "browser" && (
-              <BrowserAccessSection
-                description="Browser options inherited by group members."
-                checked={Boolean(form.browser_advanced_features_enabled)}
-                onChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    browser_advanced_features_enabled: value,
-                  }))
-                }
-              />
+              <>
+                <WorkspaceAccessSection
+                  description="Additional operational workspaces inherited by group members."
+                  cephAdmin={{
+                    title: "Ceph Admin access",
+                    description: "Grant effective /ceph-admin access to members whose UI role is Admin or Superadmin.",
+                    checked: Boolean(form.can_access_ceph_admin),
+                    onChange: (value) => setForm((current) => ({ ...current, can_access_ceph_admin: value })),
+                    ariaLabel: "Allow group access to /ceph-admin",
+                  }}
+                  storageOps={{
+                    title: "Storage Ops access",
+                    description: "Grant effective /storage-ops access to members with User, Admin, or Superadmin roles.",
+                    checked: Boolean(form.can_access_storage_ops),
+                    onChange: (value) => setForm((current) => ({ ...current, can_access_storage_ops: value })),
+                    ariaLabel: "Allow group access to /storage-ops",
+                  }}
+                />
+                <ManagerToolAccessSection
+                  title="Manager"
+                  additionalItems={[
+                    {
+                      title: "Provision managed private connections",
+                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
+                      checked: Boolean(form.can_provision_managed_private_connections),
+                      disabled: !generalSettings.managed_private_connection_provisioning_enabled,
+                      onChange: (value) =>
+                        setForm((current) => ({
+                          ...current,
+                          can_provision_managed_private_connections: value,
+                        })),
+                      ariaLabel: "Allow managed private connection provisioning",
+                      badge: {
+                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
+                        label: "Disabled globally",
+                        tone: "neutral",
+                      },
+                    },
+                  ]}
+                  description="Manager permissions inherited by group members."
+                  tools={managerToolDefinitions}
+                  access={form.manager_tool_access}
+                  onChange={(key: ManagerToolKey, value) =>
+                    setForm((current) => ({
+                      ...current,
+                      manager_tool_access: {
+                        ...normalizeManagerToolAccess(current.manager_tool_access),
+                        [key]: value,
+                      },
+                    }))
+                  }
+                />
+                <BrowserAccessSection
+                  description="Browser options inherited by group members."
+                  checked={Boolean(form.browser_advanced_features_enabled)}
+                  onChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      browser_advanced_features_enabled: value,
+                    }))
+                  }
+                />
+              </>
             )}
 
             {modalTab === "connections" && (
@@ -1349,48 +1380,6 @@ export default function GroupsPage() {
               />
             )}
 
-            {modalTab === "manager" && (
-              <div className="space-y-4">
-                <AdminAccessToggleSection
-                  title="Managed private access"
-                  description="Server-side provisioning permissions inherited by group members."
-                  items={[
-                    {
-                      title: "Provision managed private connections",
-                      description: "Allow server-side IAM or RGW credential provisioning without revealing generated secrets.",
-                      checked: Boolean(form.can_provision_managed_private_connections),
-                      disabled: !generalSettings.managed_private_connection_provisioning_enabled,
-                      onChange: (value) =>
-                        setForm((current) => ({
-                          ...current,
-                          can_provision_managed_private_connections: value,
-                        })),
-                      ariaLabel: "Allow managed private connection provisioning",
-                      badge: {
-                        visible: !generalSettings.managed_private_connection_provisioning_enabled,
-                        label: "Disabled globally",
-                        tone: "neutral",
-                      },
-                    },
-                  ]}
-                />
-                <ManagerToolAccessSection
-                  title="Bucket tools"
-                  description="Manager permissions inherited by group members."
-                  tools={managerToolDefinitions}
-                  access={form.manager_tool_access}
-                  onChange={(key: ManagerToolKey, value) =>
-                    setForm((current) => ({
-                      ...current,
-                      manager_tool_access: {
-                        ...normalizeManagerToolAccess(current.manager_tool_access),
-                        [key]: value,
-                      },
-                    }))
-                  }
-                />
-              </div>
-            )}
             </WorkflowTabs>
 
           </SettingsForm>
