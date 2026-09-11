@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { UiRole, UpdateUserPayload } from "../../api/users";
+import type { ReactNode } from "react";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
@@ -22,7 +23,7 @@ export function userIdentityErrors(values: IdentityValues, creating: boolean): U
 
 export default function AdminUserIdentityFields({
   values, creating = false, onChange, onRoleChange, canAssignAdmin, errors,
-  helpOpen, onToggleHelp, idPrefix,
+  helpOpen, onToggleHelp, idPrefix, children,
 }: {
   values: IdentityValues;
   creating?: boolean;
@@ -33,6 +34,7 @@ export default function AdminUserIdentityFields({
   helpOpen: boolean;
   onToggleHelp: () => void;
   idPrefix: string;
+  children?: ReactNode;
 }) {
   const helpId = `${idPrefix}-role-access-help`;
   return (
@@ -73,6 +75,7 @@ export default function AdminUserIdentityFields({
           </div>}
         </div>
       </div>
+      {children}
     </SettingsSection>
   );
 }

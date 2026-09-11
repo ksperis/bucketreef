@@ -40,6 +40,7 @@ from app.models.user import (
     UserAvatarPreference,
     UserCreate,
     UserOut,
+    UserProfilePreferencesUpdate,
     UserSummary,
     UserUpdate,
     validate_password_policy,
@@ -223,6 +224,7 @@ class UsersService:
         next_role, role_security_changed = self._apply_role_updates(user, payload)
         security_changed = security_changed or role_security_changed
         self._apply_access_updates(user, payload, role=next_role)
+        self._apply_profile_preferences(user, payload)
         self._apply_association_updates(user, payload, associations)
         if security_changed:
             user.auth_version += 1
@@ -248,6 +250,19 @@ class UsersService:
         logger.debug("Updated user id=%s email=%s", user.id, user.email)
         return user
 
+    def _apply_profile_preferences(self, user: User, payload: UserProfilePreferencesUpdate) -> None:
+        fields = payload.model_fields_set
+        if "ui_language" in fields:
+            user.ui_language = payload.ui_language or None
+        if "quota_alerts_enabled" in fields:
+            user.quota_alerts_enabled = bool(payload.quota_alerts_enabled)
+        if "quota_alerts_global_watch" in fields:
+            if not is_admin_ui_role(user.role) and payload.quota_alerts_global_watch:
+                raise ValueError("Global quota watch requires admin role")
+            user.quota_alerts_global_watch = bool(payload.quota_alerts_global_watch) if is_admin_ui_role(user.role) else False
+        if "avatar_preference" in fields:
+            UserAvatarService(self.db).set_preference(user, payload.avatar_preference or "auto")
+
     def update_current_user(
         self,
         user: User,
@@ -269,18 +284,18 @@ class UsersService:
         normalized_name = full_name.strip() if full_name is not None else None
         if full_name is not None:
             user.full_name = normalized_name or None
-        if update_ui_language:
-            user.ui_language = ui_language or None
-        if update_quota_alerts_enabled:
-            user.quota_alerts_enabled = bool(quota_alerts_enabled)
-        if update_quota_alerts_global_watch:
-            if not is_admin_ui_role(user.role) and bool(quota_alerts_global_watch):
-                raise ValueError("Global quota watch requires admin role")
-            user.quota_alerts_global_watch = bool(quota_alerts_global_watch) if is_admin_ui_role(user.role) else False
+        preference_changes = {}
+        for name, value, included in (
+            ("ui_language", ui_language, update_ui_language),
+            ("quota_alerts_enabled", quota_alerts_enabled, update_quota_alerts_enabled),
+            ("quota_alerts_global_watch", quota_alerts_global_watch, update_quota_alerts_global_watch),
+            ("avatar_preference", avatar_preference, update_avatar_preference),
+        ):
+            if included:
+                preference_changes[name] = value
+        self._apply_profile_preferences(user, UserProfilePreferencesUpdate(**preference_changes))
         if update_ui_preferences:
             user.ui_preferences_json = _dump_ui_preferences(ui_preferences or UiPreferences())
-        if update_avatar_preference:
-            UserAvatarService(self.db).set_preference(user, avatar_preference or "auto")
 
         password_changed = False
         if current_password is not None or new_password is not None:

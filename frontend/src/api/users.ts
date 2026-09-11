@@ -134,6 +134,10 @@ export type CreateUserPayload = {
 export type UpdateUserPayload = {
   email?: string;
   full_name?: string | null;
+  avatar_preference?: UserAvatarPreference;
+  ui_language?: "en" | "fr" | "de" | null;
+  quota_alerts_enabled?: boolean;
+  quota_alerts_global_watch?: boolean;
   password?: string;
   role?: UiRole;
   can_access_ceph_admin?: boolean;
@@ -192,6 +196,16 @@ export async function updateUser(userId: number, payload: UpdateUserPayload): Pr
 
 export async function deleteUser(userId: number): Promise<void> {
   await client.delete(`/admin/users/${userId}`);
+}
+
+export async function uploadUserAvatar(userId: number, file: File): Promise<User> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return (await client.put<User>(`/admin/users/${userId}/avatar`, formData)).data;
+}
+
+export async function deleteUserAvatar(userId: number): Promise<User> {
+  return (await client.delete<User>(`/admin/users/${userId}/avatar`)).data;
 }
 
 export async function fetchCurrentUser(): Promise<User> {

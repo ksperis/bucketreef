@@ -13,11 +13,15 @@ const fixtures = vi.hoisted(() => ({
   updateUser: vi.fn(),
   updateGroup: vi.fn(),
   setPassword: vi.fn(),
+  uploadAvatar: vi.fn(),
+  deleteAvatar: vi.fn(),
 }));
 vi.mock("../../api/users", () => ({
   listUsers: async () => ({ items: [fixtures.user], total: 1, page: 1, page_size: 25, has_next: false }),
   listMinimalUsers: async () => [fixtures.user],
   updateUser: fixtures.updateUser,
+  uploadUserAvatar: fixtures.uploadAvatar,
+  deleteUserAvatar: fixtures.deleteAvatar,
   createUser: vi.fn(),
   deleteUser: vi.fn(),
   assignUserToS3Account: vi.fn(),
@@ -182,10 +186,10 @@ describe("Admin principal editor navigation", () => {
     mount(editors[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Alice draft" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Authentication" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Security" }));
     const provider = await screen.findByLabelText("Provider ID");
     fireEvent.change(provider, { target: { value: "fixture-provider" } });
-    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Profile and preferences" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(provider).toHaveValue("fixture-provider");
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
@@ -193,18 +197,18 @@ describe("Admin principal editor navigation", () => {
     fireEvent.click(screen.getByRole("link", { name: "Other page" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(provider).toHaveValue("fixture-provider");
-    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Profile and preferences" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
     expect(screen.getByLabelText("Full name")).toHaveValue("Alice draft");
     expect(unloadBlocked()).toBe(true);
-    fireEvent.click(screen.getByRole("tab", { name: "Authentication" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Security" }));
     expect(await screen.findByLabelText("Provider ID")).toHaveValue("");
   });
 
   it("protects an authentication-only draft after failure and allows navigation after its successful action", async () => {
     mount(editors[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
-    fireEvent.click(screen.getByRole("tab", { name: "Authentication" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Security" }));
     fireEvent.change(await screen.findByLabelText("New password"), { target: { value: "fixture-password" } });
     fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "fixture-password" } });
     fixtures.setPassword.mockRejectedValueOnce(new Error("Fixture password failure"));
@@ -220,4 +224,64 @@ describe("Admin principal editor navigation", () => {
     await screen.findByRole("heading", { name: "Other page" });
     expect(fixtures.updateUser).not.toHaveBeenCalled();
   });
+
+  it("saves account language and alerts with the protected principal draft", async () => {
+    mount(editors[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Theme" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Global quota watch" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Language" }), { target: { value: "de" } });
+    fireEvent.click(screen.getByRole("switch", { name: "Quota alert emails" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Groups" }));
+    fireEvent.click(screen.getByRole("link", { name: "Other page" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Profile and preferences" }));
+    expect(screen.getByRole("combobox", { name: "Language" })).toHaveValue("de");
+    expect(screen.getByRole("switch", { name: "Quota alert emails" })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+    await waitFor(() => expect(fixtures.updateUser).toHaveBeenCalledWith(2, expect.objectContaining({
+      ui_language: "de", quota_alerts_enabled: false, quota_alerts_global_watch: false,
+    })));
+    await waitFor(() => expect(unloadBlocked()).toBe(false));
+  });
+
+  it("saves an avatar independently without submitting or resetting the parent draft", async () => {
+    mount(editors[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Unsaved name" } });
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit profile image" });
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Image source" }), { target: { value: "initials" } });
+    fixtures.updateUser.mockRejectedValueOnce(new Error("Fixture avatar save failure"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save", exact: true }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Unable to save your changes.");
+    expect(fixtures.updateUser).toHaveBeenCalledExactlyOnceWith(2, { avatar_preference: "initials" });
+    expect(within(dialog).getByRole("combobox", { name: "Image source" })).toHaveValue("initials");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save", exact: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(fixtures.updateUser).toHaveBeenCalledTimes(2);
+    expect(fixtures.updateUser.mock.calls[1]).toEqual(fixtures.updateUser.mock.calls[0]);
+    expect(screen.getByLabelText("Full name")).toHaveValue("Unsaved name");
+    expect(unloadBlocked()).toBe(true);
+    fireEvent.click(screen.getByRole("link", { name: "Other page" }));
+    expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
+  });
+
+  it("protects avatar-only changes and discards them without a request", async () => {
+    const router = mount(editors[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Image source" }), { target: { value: "initials" } });
+    expect(unloadBlocked()).toBe(true);
+    await act(async () => { void router.navigate("/other"); });
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Discard changes?" })).getByRole("button", { name: "Keep editing" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit profile image" });
+    expect(within(dialog).getByRole("combobox", { name: "Image source" })).toHaveValue("initials");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel", exact: true }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Discard unsaved changes?" })).getByRole("button", { name: "Discard changes" }));
+    expect(unloadBlocked()).toBe(false);
+    expect(fixtures.updateUser).not.toHaveBeenCalled();
+  });
+
 });

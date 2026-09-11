@@ -153,7 +153,14 @@ class UserCreate(ApiModel):
     group_ids: Optional[list[int]] = None
 
 
-class UserUpdate(ApiModel):
+class UserProfilePreferencesUpdate(ApiModel):
+    avatar_preference: Optional[UserAvatarPreference] = None
+    ui_language: Optional[UiLanguage] = None
+    quota_alerts_enabled: Optional[bool] = None
+    quota_alerts_global_watch: Optional[bool] = None
+
+
+class UserUpdate(UserProfilePreferencesUpdate):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     password: Optional[str] = None
@@ -171,12 +178,8 @@ class UserUpdate(ApiModel):
     group_ids: Optional[list[int]] = None
 
 
-class UserSelfUpdate(ApiModel):
+class UserSelfUpdate(UserProfilePreferencesUpdate):
     full_name: Optional[str] = None
-    avatar_preference: Optional[UserAvatarPreference] = None
-    ui_language: Optional[UiLanguage] = None
-    quota_alerts_enabled: Optional[bool] = None
-    quota_alerts_global_watch: Optional[bool] = None
     ui_preferences: Optional[UiPreferences] = None
     current_password: Optional[str] = None
     new_password: Optional[str] = None

@@ -339,6 +339,12 @@ group avatar changes. UI User authentication actions save independently: protect
 unsubmitted fields when leaving their tab or page, retain them after a failed
 action, and clear only the successfully submitted action's fields.
 
+`UserAvatarEditor`, `UserLanguageField` and `UserNotificationFields` are shared
+by the personal profile and Admin UI User editor. Avatar saves use the target
+surface's API adapter and never submit or reset the enclosing principal draft.
+The Admin editor exposes account preferences only; browser-local controls stay
+on the personal profile. Use the profile message catalogue for matching labels.
+
 Storage Space settings use independent save boundaries: identity and icon dialogs
 save their own API operation, while file-history controls share a page draft.
 Their buttons say **Save**, not **Apply**. Closing a modified dialog requires
