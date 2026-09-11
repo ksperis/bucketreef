@@ -5,7 +5,6 @@
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { S3AccountSelector } from "../../api/accountParams";
@@ -498,12 +497,11 @@ export default function ManagerUsersPage() {
             },
           ]}
           actions={
-            <Link
+            <ListActionLink
               to={`/manager/users/${encodeURIComponent(createdForUser)}/keys`}
-              className="ui-body font-medium text-primary hover:text-primary-600 dark:text-primary-200 dark:hover:text-primary-100"
             >
               Manage keys
-            </Link>
+            </ListActionLink>
           }
         />
       )}

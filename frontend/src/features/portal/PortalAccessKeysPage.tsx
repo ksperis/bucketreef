@@ -644,6 +644,10 @@ export default function PortalAccessKeysPage() {
                 })}</>
             }
             badge={t({ en: "Copy these values now", fr: "Copiez ces valeurs maintenant", de: "Diese Werte jetzt kopieren" })}
+            copyFeedback={{
+              copied: t({ en: "Copied to clipboard.", fr: "Copié dans le presse-papiers.", de: "In die Zwischenablage kopiert." }),
+              failed: t({ en: "Unable to copy. Select and copy this value manually.", fr: "Copie impossible. Sélectionnez et copiez cette valeur manuellement.", de: "Kopieren nicht möglich. Wählen Sie diesen Wert aus und kopieren Sie ihn manuell." }),
+            }}
             values={[
               {
                 label: t({ en: "Access ID", fr: "ID d'accès", de: "Zugriffs-ID" }),

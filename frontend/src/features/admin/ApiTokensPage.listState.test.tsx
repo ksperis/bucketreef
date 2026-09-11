@@ -122,7 +122,7 @@ describe("ApiTokensPage list states", () => {
     expect(await screen.findByText("New API token: automation")).toBeInTheDocument();
     expect(screen.getByText("One-time display")).toBeInTheDocument();
     expect(screen.getByText("secret-token-value")).toHaveClass("font-mono");
-    expect(screen.getByText("secret-token-value")).toHaveClass("border-amber-200");
+    expect(within(screen.getByRole("region", { name: "New API token: automation" })).getByRole("group", { name: "Token" })).toHaveTextContent("secret-token-value");
     expect(screen.getByRole("button", { name: "Copy auth header" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Hide token" }));
     expect(screen.queryByText("secret-token-value")).not.toBeInTheDocument();
