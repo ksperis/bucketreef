@@ -262,6 +262,24 @@ or permissions validation.
   10px text, 20px badges on desktop and 4px gaps. Keep 44px controls on touch
   devices and below 1024px. Do not shrink unrelated workspace tags.
 
+## Admin association tabs
+
+UI Users, UI Groups, RGW Accounts, RGW Users and Shared S3 Connections use the
+shared Admin association composition. A tab that already names its linked
+inventory uses `AdminAssociationSectionHeader` as a single-row `ListToolbar`
+with `variant="page"`: keep an accessible region name, one count and the
+Add/Close action, without repeating the heading. Association panels opt into
+`adminAssociationPanelClass` for 12px spacing; other workflow panels retain
+their existing layout.
+
+UI User and Group Associations reuse `AdminAssociationTabs`: unframed `PageTabs`
+with `variant="bar"`, counts in the tabs, and the active Add/Close action beside
+them. Do not repeat totals, linked counts, or headings above the table. Keep the
+shared-connection restriction visible. Subtabs use named tablists, linked
+panels, arrow/Home/End navigation, wrapping and 44px touch targets. Table row
+geometry, draft ownership, role editors and unsaved-change protection stay in
+their existing components.
+
 ## Compact settings with section titles at the side
 
 The personal profile and the seven migrated settings pages use the opt-in `SettingsSection presentation="compact"`

@@ -43,9 +43,11 @@ export default function UserGroupsSelector({
   return (
     <AdminAssociationLinkedTable
       title="Linked UI groups"
-      countLabel={`${selectedIds.length} linked`}
-      actionLabel={showPanel ? "Close" : "Add UI groups"}
-      onAction={() => setShowPanel((current) => !current)}
+      toolbar={{
+        countLabel: `${selectedIds.length} linked`,
+        actionLabel: showPanel ? "Close" : "Add UI groups",
+        onAction: () => setShowPanel((current) => !current),
+      }}
       headers={[{ label: "Group" }, { label: "Actions", align: "right" }]}
       hasItems={selectedIds.length > 0}
       emptyLabel="No linked groups yet."

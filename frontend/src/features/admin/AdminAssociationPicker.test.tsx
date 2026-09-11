@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, AdminAssociationSectionHeader } from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, AdminAssociationSectionHeader, AdminAssociationTabs } from "./AdminAssociationPicker";
 
 describe("AdminAssociationPicker", () => {
   it("renders the shared linked table and its picker action", () => {
@@ -9,9 +10,7 @@ describe("AdminAssociationPicker", () => {
     render(
       <AdminAssociationLinkedTable
         title="Linked UI groups"
-        countLabel="1 linked"
-        actionLabel="Add UI groups"
-        onAction={onAction}
+        toolbar={{ countLabel: "1 linked", actionLabel: "Add UI groups", onAction }}
         headers={[{ label: "Group" }, { label: "Actions", align: "right" }]}
         hasItems
         emptyLabel="No linked groups yet."
@@ -48,8 +47,46 @@ describe("AdminAssociationPicker", () => {
       />
     );
 
+    expect(screen.getByRole("region", { name: "Linked users" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.getByText("2 linked")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add users" }));
     expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps one count and the active action with keyboard-accessible association tabs", async () => {
+    const user = userEvent.setup();
+    const addAccounts = vi.fn();
+    const addConnections = vi.fn();
+    function Associations() {
+      const [active, setActive] = useState("accounts");
+      return <AdminAssociationTabs activeTab={active} onChange={setActive} tabs={[
+        { id: "accounts", label: "Accounts", count: 1, actionLabel: "Add accounts", onAction: addAccounts,
+          content: <p>Account memberships</p> },
+        { id: "connections", label: "Connections", count: 0, actionLabel: "Add connections", onAction: addConnections,
+          hint: "Shared connections only", content: <p>Connection memberships</p> },
+      ]} />;
+    }
+    render(<Associations />);
+    const accounts = screen.getByRole("tab", { name: "Accounts (1)" });
+    expect(screen.getByRole("tabpanel", { name: "Accounts (1)" })).toHaveTextContent("Account memberships");
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.queryByText(/linked|total/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add accounts" }));
+    expect(addAccounts).toHaveBeenCalledTimes(1);
+    accounts.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("tab", { name: "Connections (0)" })).toHaveFocus();
+    expect(screen.getByRole("tabpanel", { name: "Connections (0)" })).toHaveTextContent("Connection memberships");
+    expect(screen.queryByRole("button", { name: "Add accounts" })).not.toBeInTheDocument();
+    expect(screen.getByText("Shared connections only")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add connections" }));
+    expect(addConnections).toHaveBeenCalledTimes(1);
+    screen.getByRole("tab", { name: "Connections (0)" }).focus();
+    await user.keyboard("{Home}");
+    expect(accounts).toHaveFocus();
+    await user.keyboard("{End}");
+    expect(screen.getByRole("tab", { name: "Connections (0)" })).toHaveFocus();
   });
 
   it("renders common search, states, and footer actions", async () => {

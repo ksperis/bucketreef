@@ -64,7 +64,7 @@ import {
   ManagerToolAccessSection,
   WorkspaceAccessSection,
 } from "./AdminAccessSections";
-import { AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationAccountOptionLabelClass, adminAssociationCheckboxClass, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
+import { AdminAssociationLinkedTable, AdminAssociationTabs, adminAssociationPanelClass, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationAccountOptionLabelClass, adminAssociationCheckboxClass, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
@@ -72,7 +72,6 @@ import {
   normalizeManagerToolAccess,
   type ManagerToolKey,
 } from "./adminAccessConfig";
-import PageTabs from "../../components/PageTabs";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
@@ -523,9 +522,11 @@ export default function GroupsPage() {
   const renderMembersTab = () => (
     <AdminAssociationLinkedTable
       title="Members"
-      countLabel={`${selectedUserIds.size} linked`}
-      actionLabel={showMemberPicker ? "Close" : "Add UI users"}
-      onAction={() => setShowMemberPicker((current) => !current)}
+      toolbar={{
+        countLabel: `${selectedUserIds.size} linked`,
+        actionLabel: showMemberPicker ? "Close" : "Add UI users",
+        onAction: () => setShowMemberPicker((current) => !current),
+      }}
       headers={[{ label: "User" }, { label: "Actions", align: "right" }]}
       hasItems={selectedUserIds.size > 0}
       emptyLabel="No linked users yet."
@@ -601,17 +602,17 @@ export default function GroupsPage() {
   );
 
   const renderAssociationsTab = () => (
-    <PageTabs
+    <AdminAssociationTabs
       tabs={[
         {
           id: "accounts",
-          label: `Accounts (${selectedAccountIds.size})`,
+          label: "Accounts",
+          count: selectedAccountIds.size,
+          actionLabel: showAccountPicker ? "Close" : "Add accounts",
+          onAction: () => setShowAccountPicker((current) => !current),
           content: (
             <AdminAssociationLinkedTable
               title="Linked accounts"
-              countLabel={`${selectedAccountIds.size} linked`}
-              actionLabel={showAccountPicker ? "Close" : "Add accounts"}
-              onAction={() => setShowAccountPicker((current) => !current)}
               headers={[
                 { label: "Account" },
                 { label: "Manager role" },
@@ -782,13 +783,13 @@ export default function GroupsPage() {
         },
         {
           id: "s3_users",
-          label: `S3 Users (${selectedS3UserIds.size})`,
+          label: "S3 Users",
+          count: selectedS3UserIds.size,
+          actionLabel: showS3UserPicker ? "Close" : "Add RGW users",
+          onAction: () => setShowS3UserPicker((current) => !current),
           content: (
             <AdminAssociationLinkedTable
               title="Linked RGW users"
-              countLabel={`${selectedS3UserIds.size} linked`}
-              actionLabel={showS3UserPicker ? "Close" : "Add RGW users"}
-              onAction={() => setShowS3UserPicker((current) => !current)}
               headers={[{ label: "RGW user" }, { label: "Actions", align: "right" }]}
               hasItems={selectedS3UserIds.size > 0}
               emptyLabel="No linked RGW users yet."
@@ -888,13 +889,14 @@ export default function GroupsPage() {
         },
         {
           id: "connections",
-          label: `Connections (${selectedConnectionIds.size})`,
+          label: "Connections",
+          count: selectedConnectionIds.size,
+          actionLabel: showConnectionPicker ? "Close" : "Add S3 connections",
+          onAction: () => setShowConnectionPicker((current) => !current),
+          hint: "Shared connections only",
           content: (
             <AdminAssociationLinkedTable
               title="Linked shared S3 connections"
-              countLabel={`${selectedConnectionIds.size} linked`}
-              actionLabel={showConnectionPicker ? "Close" : "Add S3 connections"}
-              onAction={() => setShowConnectionPicker((current) => !current)}
               headers={[{ label: "S3 connection" }, { label: "Actions", align: "right" }]}
               hasItems={selectedConnectionIds.size > 0}
               emptyLabel="No linked S3 connections yet."
@@ -1217,6 +1219,7 @@ export default function GroupsPage() {
           <SettingsForm label={editingGroup ? "Edit UI group" : "Create UI group"} busy={saving}
             onSubmit={submitGroup} onCancel={closeGuard.requestClose} submitLabel="Save" busyLabel="Saving...">
             <WorkflowTabs<GroupModalTab>
+              panelClassName={modalTab === "members" || modalTab === "associations" ? adminAssociationPanelClass : undefined}
               activeTab={modalTab}
               onTabChange={setModalTab}
               ariaLabel="UI group configuration sections"

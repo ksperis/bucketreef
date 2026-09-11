@@ -1,0 +1,29 @@
+/* Association tabs own their compact spacing without changing other workflows. */
+.admin-association-toolbar.ui-list-toolbar {
+  --list-toolbar-padding: 0;
+  border: 0;
+}
+.admin-association-toolbar .ui-list-toolbar-count {
+  order: -1;
+  margin-left: 0;
+  margin-right: auto;
+}
+.admin-association-tabs [role="tab"] {
+  min-height: var(--list-control-height);
+}
+@media (max-width: 767px) {
+  .admin-association-tabs [role="tablist"] {
+    flex-basis: 100%;
+  }
+  .admin-association-tabs [role="tablist"] + div {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 1023px), (any-pointer: coarse) {
+  .admin-association-tabs [role="tab"],
+  .admin-association-tabs .ui-list-action,
+  .admin-association-toolbar .ui-list-action {
+    min-height: 44px;
+  }
+}

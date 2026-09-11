@@ -5,12 +5,15 @@
 import ListToolbar from "../../components/ListToolbar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { ListActionButton } from "../../components/list/ListControls";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import PageTabs, { PageTabPanel } from "../../components/PageTabs";
 
 import UiButton from "../../components/ui/UiButton";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTableContainerClass } from "../../components/ui/styles";
+import "./adminAssociations.css";
 
 const adminAssociationAddPanelClass = cx(uiCardMutedClass, "space-y-2 px-3 py-2");
+export const adminAssociationPanelClass = "mt-3 min-w-0 space-y-3";
 export const adminAssociationCheckboxClass = "h-3 w-3 rounded border-slate-300 text-primary focus:ring-primary";
 export const adminAssociationTableContainerClass = uiTableContainerClass;
 
@@ -28,7 +31,7 @@ export const adminAssociationAccountOptionRowClass = (selected: boolean) =>
   }`;
 
 type AdminAssociationSectionHeaderProps = {
-  title: ReactNode;
+  title: string;
   countLabel: ReactNode;
   actionLabel: ReactNode;
   onAction: () => void;
@@ -41,16 +44,58 @@ export function AdminAssociationSectionHeader({
   onAction,
 }: AdminAssociationSectionHeaderProps) {
   return (
-    <ListToolbar variant="section" title={title} countLabel={countLabel}
-      headingActions={<ListActionButton onClick={onAction}>{actionLabel}</ListActionButton>} />
+    <ListToolbar variant="page" title={title} countLabel={countLabel}
+      className="admin-association-toolbar"
+      actions={<ListActionButton onClick={onAction}>{actionLabel}</ListActionButton>} />
+  );
+}
+
+type AdminAssociationTab<T extends string> = {
+  id: T;
+  label: string;
+  count: number;
+  actionLabel: string;
+  onAction: () => void;
+  hint?: string;
+  content: ReactNode;
+};
+
+/** Association counts and actions belong to their subtab, above its unframed table. */
+export function AdminAssociationTabs<T extends string>({
+  tabs,
+  activeTab,
+  onChange,
+}: {
+  tabs: AdminAssociationTab<T>[];
+  activeTab: T;
+  onChange: (tab: T) => void;
+}) {
+  const idPrefix = `admin-associations-${useId().replaceAll(":", "")}`;
+  const active = tabs.find((tab) => tab.id === activeTab);
+  return (
+    <div className="admin-association-tabs min-w-0 space-y-3">
+      <PageTabs
+        variant="bar"
+        ariaLabel="Association types"
+        idPrefix={idPrefix}
+        tabs={tabs.map(({ id, label, count }) => ({ id, label: `${label} (${count})` }))}
+        activeTab={activeTab}
+        onChange={(id) => onChange(id as T)}
+        headerActions={active ? <>
+          {active.hint ? <span className={cx("ui-caption", uiMutedTextClass)}>{active.hint}</span> : null}
+          <ListActionButton onClick={active.onAction}>{active.actionLabel}</ListActionButton>
+        </> : undefined}
+      />
+      <PageTabPanel idPrefix={idPrefix} tabId={activeTab} className="min-w-0">
+        {active?.content}
+      </PageTabPanel>
+    </div>
   );
 }
 
 type AdminAssociationLinkedTableProps = {
-  title: ReactNode;
-  countLabel: ReactNode;
-  actionLabel: ReactNode;
-  onAction: () => void;
+  title: string;
+  toolbar?: Omit<AdminAssociationSectionHeaderProps, "title">;
   headers: Array<{ label: ReactNode; align?: "left" | "right" }>;
   hasItems: boolean;
   emptyLabel: ReactNode;
@@ -60,9 +105,7 @@ type AdminAssociationLinkedTableProps = {
 
 export function AdminAssociationLinkedTable({
   title,
-  countLabel,
-  actionLabel,
-  onAction,
+  toolbar,
   headers,
   hasItems,
   emptyLabel,
@@ -71,14 +114,9 @@ export function AdminAssociationLinkedTable({
 }: AdminAssociationLinkedTableProps) {
   return (
     <div className="space-y-3">
-      <AdminAssociationSectionHeader
-        title={title}
-        countLabel={countLabel}
-        actionLabel={actionLabel}
-        onAction={onAction}
-      />
+      {toolbar ? <AdminAssociationSectionHeader title={title} {...toolbar} /> : null}
       <div className={adminAssociationTableContainerClass}>
-        <table className="ui-data-table">
+        <table className="ui-data-table" aria-label={title}>
           <thead>
             <tr>
               {headers.map((header, index) => (

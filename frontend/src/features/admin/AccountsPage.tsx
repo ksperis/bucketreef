@@ -79,7 +79,7 @@ import {
 import { AdminAccessToggleSection } from "./AdminAccessSections";
 import AdminQuotaFields from "./AdminQuotaFields";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
-import { AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationAccountOptionRowClass, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
+import { AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationAccountOptionRowClass, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { extractApiError } from "../../utils/apiError";
@@ -1113,6 +1113,7 @@ export default function S3AccountsPage() {
           )}
           <div className="space-y-4">
             <WorkflowTabs<EditTab>
+              panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
               activeTab={editTab}
               onTabChange={(tab) => {
                 if (tab === "users") {
