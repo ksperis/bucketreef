@@ -118,7 +118,7 @@ export default function BucketUiTagSettingsBadge({
         />
       </span>
       <UiTagSettingsPopover
-        open={open}
+        open={open && !visibilityConfirmation.isConfirming}
         anchorRef={anchorRef}
         label={tag.label}
         colorKey={tag.color_key}

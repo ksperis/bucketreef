@@ -3,13 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Modal from "../../components/Modal";
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
 import { BucketCompareResult, BucketCompareResultFilters, BucketCompareSection } from "../shared/BucketCompareResults";
-import ModalActions from "../../components/ModalActions";
 import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
@@ -795,28 +794,17 @@ export default function CephAdminBucketCompareModal({
         )}
       </div>
       {pendingExplore && (
-        <Modal
+        <ConfirmActionDialog
           title="Leave comparison page?"
-          onClose={() => setPendingExplore(null)}
+          description="This will leave the bucket comparison page and open this object in Browser."
+          details={[{ label: "Object key", value: pendingExplore.objectKey, mono: true }]}
+          confirmLabel="Open Browser"
+          tone="primary"
           maxWidthClass="max-w-lg"
-          maxBodyHeightClass="max-h-[70vh]"
           zIndexClass="z-[60]"
-        >
-          <div className="space-y-3">
-            <p className="ui-body text-slate-700 dark:text-slate-200">
-              This will leave the bucket comparison page and open this object in Browser.
-            </p>
-            <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[11px] font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-100">
-              {pendingExplore.objectKey}
-            </p>
-            <ModalActions>
-              <UiButton variant="secondary" onClick={() => setPendingExplore(null)}>
-                Cancel
-              </UiButton>
-              <UiButton onClick={confirmExploreNavigation}>Open Browser</UiButton>
-            </ModalActions>
-          </div>
-        </Modal>
+          onCancel={() => setPendingExplore(null)}
+          onConfirm={confirmExploreNavigation}
+        />
       )}
     </WorkflowPage>
   );

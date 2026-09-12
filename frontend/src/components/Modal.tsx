@@ -119,7 +119,7 @@ export default function Modal({
     if (!container) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isTopModal(modalId)) return;
+      if (!isTopModal(modalId) || event.defaultPrevented) return;
       if (event.key === "Escape" && closeOnEscape) {
         event.preventDefault();
         if (!closeDisabled) onClose();

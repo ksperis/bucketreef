@@ -215,6 +215,29 @@ Contextual drawers yield Escape and focus trapping whenever `hasOpenModal()` is
 true, including pending dialogs with Escape disabled. A covered drawer must not
 close or rewrite its object URL while the user operates a child dialog.
 
+Bucket selection dialogs in Ceph Admin and Storage Ops use `SettingsDialog`,
+`ModalOptions` and `ModalActions` for the same compact geometry. Configuration
+backups use `SettingsFormDialog`: selected features survive capability-list
+refreshes, unavailable features cannot be submitted, and pending downloads
+freeze both the form and closing. Selection exports remain immediate format
+actions with progress in the workbench.
+
+UI tag operations retain custom drafts until the operation succeeds, show
+submission errors inside the dialog and guard closing/navigation. Existing-tag
+actions do not discard a separate new-tag draft. The selection-action hook
+returns an error message on failure and `null` on success so the dialog can
+retain its draft without changing tag API payloads or target resolution.
+Tag settings popovers share the menu surface and compact settings controls;
+they own Tab and Escape until closed and return focus to their tag trigger.
+Hide a tag popover while its visibility confirmation is open so the topmost
+confirmation owns Escape.
+
+Comparison confirmations use `ConfirmActionDialog` and its detail/impact
+slots. Manager remediation must retain the source and target execution
+contexts, exact object keys, cutoff and destructive/truncation warnings.
+Ceph Admin navigation confirmations retain the full object key. Confirmation
+only starts the existing workflow; its execution and progress stay in the page.
+
 `OneTimeSecretPanel` owns the compact handoff presentation for generated API
 tokens and S3 keys across Admin, Manager, Ceph Admin and Portal. Reuse its warning
 palette, standard badge, labelled value groups and shared copy controls. Each
