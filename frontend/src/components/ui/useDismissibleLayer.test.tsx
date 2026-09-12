@@ -3,6 +3,35 @@ import { describe, expect, it, vi } from "vitest";
 import { useDismissibleLayer } from "./useDismissibleLayer";
 
 describe("useDismissibleLayer", () => {
+  it("consumes a nested popover Escape but yields to a later dialog", () => {
+    const owner = document.createElement("div");
+    owner.setAttribute("role", "dialog");
+    const anchor = document.createElement("button");
+    owner.append(anchor);
+    const confirmation = document.createElement("div");
+    confirmation.setAttribute("role", "dialog");
+    const confirm = document.createElement("button");
+    confirmation.append(confirm);
+    document.body.append(owner, confirmation);
+    const onDismiss = vi.fn();
+    const bubbling = vi.fn();
+    document.addEventListener("keydown", bubbling);
+    const { unmount } = renderHook(() => useDismissibleLayer({
+      open: true, insideRefs: [{ current: anchor }], onDismiss,
+      preventEscapeDefault: true, stopEscapePropagation: true,
+    }));
+    fireEvent.keyDown(confirm, { key: "Escape" });
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(bubbling).toHaveBeenCalledOnce();
+    fireEvent.keyDown(anchor, { key: "Escape" });
+    expect(onDismiss).toHaveBeenCalledExactlyOnceWith("escape");
+    expect(bubbling).toHaveBeenCalledOnce();
+    unmount();
+    document.removeEventListener("keydown", bubbling);
+    owner.remove();
+    confirmation.remove();
+  });
+
   it("ignores inside interactions and reports outside dismissal", () => {
     const anchor = document.createElement("button");
     const surface = document.createElement("div");

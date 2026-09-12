@@ -185,14 +185,14 @@ export function useBucketOpsSelectionActions({
       bucketNames.length === 0 ||
       activeActionRef.current !== null
     ) {
-      return;
+      return "A selection action is already running or this selection is no longer available.";
     }
     const parsedTagValues = Array.isArray(tag) ? tag : [tag];
     if (
       parsedTagValues.length === 0 ||
       (action === "remove" && Array.isArray(tag))
     ) {
-      return;
+      return "Choose at least one UI tag to apply.";
     }
 
     const runToken = actionSequenceRef.current + 1;
@@ -212,10 +212,11 @@ export function useBucketOpsSelectionActions({
         if (actionSequenceRef.current !== runToken) return;
         setSelectionActionProgress({ label: progressLabel, ...progress });
       });
-      if (actionSequenceRef.current !== runToken) return;
+      if (actionSequenceRef.current !== runToken) return "The bucket selection changed.";
       if (targets.length === 0) {
-        setError("Unable to resolve selected buckets for UI tag update.");
-        return;
+        const message = "Unable to resolve selected buckets for UI tag update.";
+        setError(message);
+        return message;
       }
       if (missingNames.length > 0) {
         setError(
@@ -240,12 +241,16 @@ export function useBucketOpsSelectionActions({
           },
         },
       );
-      if (actionSequenceRef.current === runToken) refreshBuckets();
+      if (actionSequenceRef.current !== runToken) return "The bucket selection changed.";
+      refreshBuckets();
+      return null;
     } catch (error) {
+      const message = extractError(error);
       if (actionSequenceRef.current === runToken) {
-        setError(extractError(error));
+        setError(message);
         refreshBuckets();
       }
+      return message;
     } finally {
       if (actionSequenceRef.current === runToken) {
         activeActionRef.current = null;
