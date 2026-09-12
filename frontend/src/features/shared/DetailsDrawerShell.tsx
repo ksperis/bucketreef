@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import UiButton from "../../components/ui/UiButton";
+import { hasOpenModal } from "../../components/Modal";
 import { getFocusableElements, trapFocusWithin } from "../../components/ui/focusTrap";
 import { cx, uiDividerClass, uiTitleTextClass } from "../../components/ui/styles";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
@@ -76,6 +77,7 @@ export default function DetailsDrawerShell({
     const drawer = drawerRef.current;
     if (!drawer) return;
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (hasOpenModal() || event.defaultPrevented) return;
       if (event.key === "Escape") {
         event.preventDefault();
         (onEscape ?? onClose)();

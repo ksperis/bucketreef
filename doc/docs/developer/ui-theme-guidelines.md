@@ -192,6 +192,29 @@ one-time secret panel and use shared `SettingsButton` actions for copying or
 hiding the newly created token. Copied examples resolve the configured API base
 against the current origin rather than assuming a local backend address.
 
+Short editable dialogs can compose `SettingsFormDialog`, which reuses
+`SettingsDialog`, `SettingsForm` and `ModalActions`. Portal membership and quota
+requests, space creation/import, public links and raw-log exports use this
+composition. It owns the 12px field spacing, native form validation, translated
+Cancel/Done controls, first-field focus, inline submission errors and pending
+fieldset/close locks. The async submit callback must return its promise so the
+dialog can suppress repeated submissions until it settles.
+
+Mount one instance per draft and supply a stable `draftKey` containing only
+editable values. Closing a changed draft uses the shared discard confirmation;
+route departures and reloads are protected too. `onClose("navigation")` must
+clear local state without rewriting the destination URL. After a successful
+save that navigates, unmount the dialog before navigation so the saved draft
+does not trigger a discard prompt. A completed public-link dialog keeps its
+copy action and Done control, clears its dirty state and hides creation.
+Callers retain API payloads, permission checks, field validation and resource
+context; membership identity/reason fields are shared in `PortalRequestFields`.
+Page-history load errors stay outside these dialogs; submission errors stay
+inside, alongside the retained draft so the user can retry.
+Contextual drawers yield Escape and focus trapping whenever `hasOpenModal()` is
+true, including pending dialogs with Escape disabled. A covered drawer must not
+close or rewrite its object URL while the user operates a child dialog.
+
 `OneTimeSecretPanel` owns the compact handoff presentation for generated API
 tokens and S3 keys across Admin, Manager, Ceph Admin and Portal. Reuse its warning
 palette, standard badge, labelled value groups and shared copy controls. Each
