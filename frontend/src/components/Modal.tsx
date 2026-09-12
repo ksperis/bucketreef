@@ -11,6 +11,11 @@ import "./modal.css";
 const modalStack: string[] = [];
 const modalStackListeners = new Set<() => void>();
 
+/** Contextual drawers yield keyboard ownership while a modal covers them. */
+export function hasOpenModal() {
+  return modalStack.length > 0;
+}
+
 function notifyModalStackListeners() {
   modalStackListeners.forEach((listener) => listener());
 }

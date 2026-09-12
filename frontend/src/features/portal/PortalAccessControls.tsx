@@ -270,7 +270,7 @@ export function PortalShareCandidatePicker({
             const disabled = Boolean(candidate.already_shared);
             return (
               <div key={candidate.user_id} className="grid gap-2 border-b border-[color:var(--ui-border-soft)] px-3 py-2 last:border-b-0 md:grid-cols-[minmax(0,1fr)_150px_130px]">
-                <label className={cx("flex min-w-0 items-center gap-2 text-xs font-semibold", disabled && "opacity-60")}>
+                <label className={cx("settings-choice flex min-w-0 items-center gap-2 text-xs font-semibold", disabled && "opacity-60")}>
                   <input
                     type="checkbox"
                     className={uiCheckboxClass}

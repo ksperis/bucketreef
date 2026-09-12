@@ -3,6 +3,7 @@ import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import DetailsDrawerShell from "./DetailsDrawerShell";
+import Modal from "../../components/Modal";
 
 function installMatchMedia(matches: boolean) {
   Object.defineProperty(window, "matchMedia", {
@@ -79,5 +80,37 @@ describe("DetailsDrawerShell", () => {
     expect(screen.queryByRole("dialog", { name: "report.csv" })).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
     expect(document.body.style.overflow).toBe("");
+  });
+
+  it.each([false, true])("yields Escape and focus to a pending child modal (mobile: %s)", (mobile) => {
+    installMatchMedia(mobile);
+    const closeDrawer = vi.fn();
+    function Nested({ busy }: { busy: boolean }) {
+      const [open, setOpen] = useState(false);
+      return <>
+        <DetailsDrawerShell title="report.csv" onClose={closeDrawer}>
+          <button onClick={() => setOpen(true)}>Create link</button>
+        </DetailsDrawerShell>
+        {open && <Modal title="Public link" onClose={() => setOpen(false)} closeDisabled={busy} closeOnEscape={!busy}>
+          <button>Copy link</button>
+        </Modal>}
+      </>;
+    }
+    const { rerender } = render(<Nested busy />);
+    fireEvent.click(screen.getByRole("button", { name: "Create link" }));
+    const dialog = screen.getByRole("dialog", { name: "Public link" });
+    const copy = within(dialog).getByRole("button", { name: "Copy link" });
+    copy.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(dialog).toBeInTheDocument();
+    expect(closeDrawer).not.toHaveBeenCalled();
+    rerender(<Nested busy={false} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(dialog).not.toBeInTheDocument();
+    expect(closeDrawer).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(closeDrawer).toHaveBeenCalledOnce();
   });
 });

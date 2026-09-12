@@ -24,10 +24,10 @@ import DataTableShell, {
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
-import Modal from "../../components/Modal";
+import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
+import { PortalMemberRequestFields } from "./PortalRequestFields";
 
 import UiBadge from "../../components/ui/UiBadge";
-import UiButton from "../../components/ui/UiButton";
 import UiCard from "../../components/ui/UiCard";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
@@ -36,8 +36,6 @@ import {
   cx,
   uiButtonBaseClass,
   uiButtonVariants,
-  uiInputClass,
-  uiLabelClass,
   uiMutedTextClass,
   uiPanelMutedClass,
 } from "../../components/ui/styles";
@@ -669,62 +667,20 @@ export default function PortalSharesPage() {
       ) : null}
 
       {memberRequestOpen ? (
-        <Modal
-          title={t({
-            en: "Request a project member",
-            fr: "Demander l'ajout d'un membre",
-            de: "Projektmitglied anfragen",
-          })}
+        <SettingsFormDialog
+          title={t({ en: "Request a project member", fr: "Demander l'ajout d'un membre", de: "Projektmitglied anfragen" })}
+          draftKey={JSON.stringify([memberRequestName, memberRequestEmail, memberRequestReason])}
+          busy={memberRequestBusy}
+          disabled={!canRequestMemberChanges || !memberRequestName.trim() || !memberRequestEmail.trim()}
+          error={memberRequestError}
+          submitLabel={t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden" })}
+          onSubmit={handleMemberRequest}
           onClose={closeMemberRequest}
-          closeOnBackdropClick={!memberRequestBusy}
-          closeOnEscape={!memberRequestBusy}
         >
-          <form className="grid gap-3" onSubmit={handleMemberRequest}>
-            {memberRequestError ? <PageBanner tone="error">{memberRequestError}</PageBanner> : null}
-            <UiInput
-              label={t({ en: "Name", fr: "Nom", de: "Name" })}
-              value={memberRequestName}
-              onChange={(event) => setMemberRequestName(event.target.value)}
-              disabled={memberRequestBusy}
-              required
-            />
-            <UiInput
-              label={t({ en: "Email", fr: "E-mail", de: "E-Mail" })}
-              type="email"
-              value={memberRequestEmail}
-              onChange={(event) => setMemberRequestEmail(event.target.value)}
-              disabled={memberRequestBusy}
-              required
-            />
-            <label className="grid gap-1">
-              <span className={uiLabelClass}>
-                {t({
-                  en: "Reason (optional)",
-                  fr: "Motif (optionnel)",
-                  de: "Grund (optional)",
-                })}
-              </span>
-              <textarea
-                className={cx(uiInputClass, "min-h-[72px] px-3 py-2 ui-body")}
-                value={memberRequestReason}
-                onChange={(event) => setMemberRequestReason(event.target.value)}
-                disabled={memberRequestBusy}
-              />
-            </label>
-            <div className="flex justify-end gap-2">
-              <UiButton type="button" variant="secondary" onClick={closeMemberRequest} disabled={memberRequestBusy}>
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
-              </UiButton>
-              <UiButton
-                type="submit"
-                loading={memberRequestBusy}
-                disabled={memberRequestBusy || !memberRequestName.trim() || !memberRequestEmail.trim()}
-              >
-                {t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden" })}
-              </UiButton>
-            </div>
-          </form>
-        </Modal>
+          <PortalMemberRequestFields name={memberRequestName} email={memberRequestEmail} reason={memberRequestReason}
+            onNameChange={setMemberRequestName} onEmailChange={setMemberRequestEmail} onReasonChange={setMemberRequestReason}
+            disabled={memberRequestBusy} />
+        </SettingsFormDialog>
       ) : null}
 
       {pendingAction?.type === "revoke-public-link" ? (

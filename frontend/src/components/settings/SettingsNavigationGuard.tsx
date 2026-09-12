@@ -12,6 +12,7 @@ type Props = {
   confirmLabel?: string;
   cancelLabel?: string;
   closeLabel?: string;
+  discardDisabled?: boolean;
 };
 
 function RouteGuard({
@@ -22,6 +23,7 @@ function RouteGuard({
   confirmLabel = "Discard changes",
   cancelLabel = "Keep editing",
   closeLabel,
+  discardDisabled = false,
 }: Props) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -38,9 +40,11 @@ function RouteGuard({
       confirmLabel={confirmLabel}
       cancelLabel={cancelLabel}
       closeLabel={closeLabel}
+      confirmDisabled={discardDisabled}
       zIndexClass="z-[110]"
       onCancel={() => blocker.reset()}
       onConfirm={() => {
+        if (discardDisabled) return;
         onDiscard?.();
         blocker.proceed();
       }}
@@ -56,5 +60,6 @@ export default function SettingsNavigationGuard(props: Props) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [props.dirty]);
-  return hasDataRouter ? <RouteGuard {...props} /> : null;
+  // An idle page guard must not compete with an edited dialog's route blocker.
+  return hasDataRouter && props.dirty ? <RouteGuard {...props} /> : null;
 }
