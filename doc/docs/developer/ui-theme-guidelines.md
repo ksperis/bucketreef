@@ -215,6 +215,27 @@ Contextual drawers yield Escape and focus trapping whenever `hasOpenModal()` is
 true, including pending dialogs with Escape disabled. A covered drawer must not
 close or rewrite its object URL while the user operates a child dialog.
 
+Editable workflow pages use `SettingsWorkflowForm`, combining `WorkflowPage`,
+compact settings sections and the shared sticky `SettingsForm` footer.
+`useSettingsFormController` gives these pages and `SettingsFormDialog` the same
+native submission, pending lock, discard and navigation contract. A loading
+page freezes fields and submission but permits leaving; read failures expose a
+retry action and must not make a fallback draft writable.
+
+Manager SNS creation uses `SettingsFormDialog`; attributes and policy use
+`SettingsWorkflowForm`. Each editor owns its load and draft, ignores late
+responses after unmount, and accepts a new baseline only after loading or
+saving succeeds. Submission errors retain the current draft. Capture the topic
+ARN and execution context when opening an action: a context-selector update
+must not retarget an existing draft or remove it before navigation confirmation.
+Manager's context selector navigates to the new `ctx` before the provider changes
+the executor; eager selection must not remount its keyed outlet before a draft
+or pending-operation guard can decide. Clean editors close when the context
+changes. Topic deletion uses a controlled
+`ConfirmActionDialog` so failures remain visible and retryable, with dismissal
+and navigation locked during the request. Keep native SNS attributes, policy
+JSON and executor parameters in the feature layer.
+
 Bucket selection dialogs in Ceph Admin and Storage Ops use `SettingsDialog`,
 `ModalOptions` and `ModalActions` for the same compact geometry. Configuration
 backups use `SettingsFormDialog`: selected features survive capability-list

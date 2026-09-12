@@ -1,9 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import TopicsPage from "./TopicsPage";
+import { transferableAbortController } from "node:util";
+import { setSessionUserCache } from "../../utils/workspaces";
 
 const useS3AccountContextMock = vi.fn();
 const listTopicsMock = vi.fn();
@@ -33,7 +35,10 @@ vi.mock("../../api/topics", async () => {
 });
 
 describe("TopicsPage", () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); setSessionUserCache(null); });
+
   beforeEach(() => {
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     useS3AccountContextMock.mockReset();
     listTopicsMock.mockReset();
     getTopicConfigurationMock.mockReset();
@@ -98,7 +103,7 @@ describe("TopicsPage", () => {
     await waitFor(() => expect(deleteTopicMock).toHaveBeenCalledWith(7, topicArn));
   });
 
-  it("loads normalized Ceph topic configuration into the attributes modal and saves the edited payload", async () => {
+  it("loads normalized Ceph topic configuration into the attributes editor and saves the edited payload", async () => {
     const user = userEvent.setup();
     const topicArn = "arn:aws:sns:us-east-1:lab:topic-events";
     useS3AccountContextMock.mockReturnValue({
@@ -192,7 +197,7 @@ describe("TopicsPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Create topic" }));
     expect(createTopicMock).toHaveBeenCalledWith("conn-7", { name: "topic-events" });
     expect(name).toBeDisabled();
-    expect(within(dialog).getByRole("button", { name: "Close modal" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Close", exact: true })).toBeDisabled();
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
     await user.keyboard("{Escape}");
     expect(dialog).toBeInTheDocument();
@@ -307,4 +312,142 @@ describe("TopicsPage", () => {
     expect(screen.queryByText("secondary-topic")).not.toBeInTheDocument();
     expect(screen.getByText("No topics.")).toBeInTheDocument();
   });
+
+  const topicArn = "arn:aws:sns:default:tenant:topic-events";
+  const editors = [
+    { action: "Attributes", field: "Push endpoint URL", submit: "Save attributes", load: getTopicConfigurationMock, save: updateTopicConfigurationMock,
+      response: { configuration: { "push-endpoint": "https://notify.example.test/current" } }, value: "https://notify.example.test/current", edited: "https://notify.example.test/draft" },
+    { action: "Policy", field: "Policy JSON", submit: "Save policy", load: getTopicPolicyMock, save: updateTopicPolicyMock,
+      response: { policy: { Version: "2012-10-17", Statement: [] } }, value: JSON.stringify({ Version: "2012-10-17", Statement: [] }, null, 2), edited: '{"Statement":[],"Id":"draft"}' },
+  ];
+  function selectAccount(accountId = "conn-7") {
+    useS3AccountContextMock.mockReturnValue({ accountIdForApi: accountId, accounts: [], requiresS3AccountSelection: false });
+    listTopicsMock.mockResolvedValue([{ name: "topic-events", arn: topicArn, configuration: {} }]);
+  }
+
+  it("compares editable attributes independently of regenerated row identifiers", async () => {
+    selectAccount();
+    getTopicConfigurationMock.mockResolvedValue({ configuration: { persistent: "true" } });
+    const user = userEvent.setup();
+    render(<MemoryRouter><TopicsPage /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Attributes", exact: true }));
+    await screen.findByRole("textbox", { name: "Attribute name 1" });
+    await user.click(screen.getByRole("button", { name: "Remove attribute 1" }));
+    await user.click(screen.getByRole("button", { name: "Add attribute" }));
+    await user.type(screen.getByRole("textbox", { name: "Attribute name 1" }), "persistent");
+    await user.type(screen.getByRole("textbox", { name: "Attribute value 1" }), "true");
+    await user.click(screen.getByRole("button", { name: "Back to topics" }));
+    expect(await screen.findByRole("heading", { name: "SNS Topics" })).toBeVisible();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(updateTopicConfigurationMock).not.toHaveBeenCalled();
+  });
+
+  it.each(editors)("disables $action after a read error, retries loading, and ignores a closed editor's late response", async ({ action, field, load, submit, response, value }) => {
+    selectAccount();
+    const user = userEvent.setup();
+    let resolveOld!: (value: unknown) => void;
+    load.mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; })).mockRejectedValueOnce(new Error("Read unavailable")).mockResolvedValue(response);
+    render(<MemoryRouter><TopicsPage /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: action, exact: true }));
+    expect(screen.getByRole("textbox", { name: field })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Back to topics" }));
+    await user.click(await screen.findByRole("button", { name: action, exact: true }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Read unavailable");
+    expect(screen.getByRole("textbox", { name: field })).toBeDisabled();
+    expect(screen.getByRole("button", { name: submit })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Retry loading" }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: field })).toHaveValue(value));
+    fireEvent.change(screen.getByRole("textbox", { name: field }), { target: { value: "unsaved draft" } });
+    await act(async () => resolveOld({ configuration: {}, policy: { Id: "stale" } }));
+    expect(screen.getByRole("textbox", { name: field })).toHaveValue("unsaved draft");
+    expect(load.mock.calls).toEqual([["conn-7", topicArn], ["conn-7", topicArn], ["conn-7", topicArn]]);
+  });
+
+  it.each(editors)("keeps the $action draft and executor during a failed save and clears its guard after retry", async ({ action, field, load, save, submit, response, edited }) => {
+    selectAccount(); load.mockResolvedValue(response);
+    const user = userEvent.setup();
+    let rejectSave!: (error: Error) => void;
+    save.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectSave = reject; })).mockResolvedValue(response);
+    const { rerender } = render(<MemoryRouter><TopicsPage /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: action, exact: true }));
+    const input = screen.getByRole("textbox", { name: field });
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: edited } });
+    await user.click(screen.getByRole("button", { name: submit }));
+    fireEvent.submit(input.closest("form")!);
+    expect(save).toHaveBeenCalledOnce();
+    expect(input).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to topics" })).toBeDisabled();
+    selectAccount("s3u-8");
+    rerender(<MemoryRouter><TopicsPage /></MemoryRouter>);
+    expect(input).toBeInTheDocument();
+    await act(async () => rejectSave(new Error("Write unavailable")));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Write unavailable");
+    expect(input).toHaveValue(edited);
+    expect(input).toBeEnabled();
+    // A cancelled context navigation restores the previous selection.
+    selectAccount(); rerender(<MemoryRouter><TopicsPage /></MemoryRouter>);
+    await user.click(screen.getByRole("button", { name: submit }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save.mock.calls[0]).toEqual(save.mock.calls[1]);
+    expect(save.mock.calls[0].slice(0, 2)).toEqual(["conn-7", topicArn]);
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Back to topics" }));
+    expect(await screen.findByRole("heading", { name: "SNS Topics" })).toBeVisible();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it.each(editors)("protects $action drafts during route and context navigation", async ({ action, field, load, response, edited }) => {
+    selectAccount(); load.mockResolvedValue(response);
+    setSessionUserCache({ role: "ui_user", authType: "password" });
+    const user = userEvent.setup();
+    const router = createMemoryRouter([
+      { path: "/manager/topics", element: <TopicsPage /> },
+      { path: "/manager/buckets", element: <p>Buckets destination</p> },
+    ], { initialEntries: ["/manager/topics?ctx=conn-7"] });
+    render(<RouterProvider router={router} />);
+    await user.click(await screen.findByRole("button", { name: action, exact: true }));
+    const input = screen.getByRole("textbox", { name: field });
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: edited } });
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    await act(async () => { void router.navigate("/manager/topics?ctx=s3u-8"); });
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(router.state.location.search).toBe("?ctx=conn-7");
+    expect(input).toHaveValue(edited);
+    await user.click(screen.getByRole("button", { name: "Back to topics" }));
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(input).toHaveValue(edited);
+    await act(async () => { void router.navigate("/manager/buckets"); });
+    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    expect(await screen.findByText("Buckets destination")).toBeVisible();
+    router.dispose();
+  });
+
+  it("retains a failed deletion for retry and blocks duplicate submissions and pending dismissal", async () => {
+    selectAccount();
+    const user = userEvent.setup();
+    let rejectDelete!: (error: Error) => void;
+    deleteTopicMock.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectDelete = reject; })).mockResolvedValue(undefined);
+    render(<MemoryRouter><TopicsPage /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    const dialog = screen.getByRole("dialog", { name: "Delete notification topic?" });
+    const confirm = within(dialog).getByRole("button", { name: "Delete topic" });
+    await user.dblClick(confirm);
+    expect(deleteTopicMock).toHaveBeenCalledOnce();
+    expect(confirm).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(dialog).toBeInTheDocument();
+    await act(async () => rejectDelete(new Error("Delete unavailable")));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Delete unavailable");
+    await user.click(confirm);
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(deleteTopicMock.mock.calls).toEqual([["conn-7", topicArn], ["conn-7", topicArn]]);
+  });
+
 });
