@@ -38,7 +38,6 @@ function ManagerShell() {
   const {
     accounts,
     selectedS3AccountId,
-    setSelectedS3AccountId,
     requiresS3AccountSelection,
     sessionS3AccountName,
     selectedS3AccountType,
@@ -122,7 +121,8 @@ function ManagerShell() {
   const handleS3AccountChange = (selectedValue: string) => {
     const value = selectedValue || null;
     if (value === selectedS3AccountId) return;
-    setSelectedS3AccountId(value);
+    // Commit the URL navigation before changing the executor. An eager context
+    // update remounts the keyed Outlet and destroys its unsaved-changes guard.
     const nextParams = new URLSearchParams(searchParams);
     if (value) {
       nextParams.set("ctx", value);

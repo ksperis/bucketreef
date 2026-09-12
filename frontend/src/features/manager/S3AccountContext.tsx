@@ -12,7 +12,6 @@ import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 type S3AccountContextType = {
   accounts: ExecutionContext[];
   selectedS3AccountId: string | null;
-  setSelectedS3AccountId: (id: string | null) => void;
   requiresS3AccountSelection: boolean;
   hasS3AccountContext: boolean;
   accountIdForApi: S3AccountSelector;
@@ -34,7 +33,6 @@ type S3AccountContextType = {
 const S3AccountContext = createContext<S3AccountContextType>({
   accounts: [],
   selectedS3AccountId: null,
-  setSelectedS3AccountId: () => {},
   requiresS3AccountSelection: true,
   hasS3AccountContext: false,
   accountIdForApi: null,
@@ -79,7 +77,6 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
     contexts: accounts,
     selectedContextId: selectedS3AccountId,
     selectedContext: selectedS3Account,
-    setSelectedContextId: updateSelected,
     requiresSelection: requiresS3AccountSelection,
     accessError,
     sessionAccountName,
@@ -163,7 +160,6 @@ export function S3AccountProvider({ children, scope = "manager" }: S3AccountProv
       value={{
         accounts,
         selectedS3AccountId,
-        setSelectedS3AccountId: updateSelected,
         requiresS3AccountSelection,
         hasS3AccountContext,
         accountIdForApi,

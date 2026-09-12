@@ -1,7 +1,7 @@
-import { render } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { useState, type ReactNode } from "react";
+import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SidebarSection } from "../../components/Sidebar";
 import {
@@ -9,6 +9,10 @@ import {
   TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS,
 } from "../../components/topbarControlWidths";
 import ManagerLayout from "./ManagerLayout";
+import { transferableAbortController } from "node:util";
+import userEvent from "@testing-library/user-event";
+import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
+import UiInput from "../../components/ui/UiInput";
 import { setSessionUserCache } from "../../utils/workspaces";
 
 const useS3AccountContextMock = vi.fn();
@@ -72,9 +76,10 @@ vi.mock("../../components/TopbarContextAccountSelector", () => ({
     triggerMode?: string;
     widthClassName?: string;
     showTriggerTags?: boolean;
+    onContextChange: (id: string) => void;
   }) => {
     capturedAccountSelectorProps = props;
-    return <button type="button">Manager account selector</button>;
+    return <button type="button" onClick={() => props.onContextChange("conn-2")}>Manager account selector</button>;
   },
   getContextAccessModeVisual: () => ({ shortLabel: "Admin", classes: "" }),
 }));
@@ -626,3 +631,46 @@ describe("ManagerLayout", () => {
     expect(capturedAccountSelectorProps?.widthClassName).toBe(TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS);
   });
 });
+
+
+it("retains the mounted form until context navigation is confirmed", async () => {
+  vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
+  const user = userEvent.setup();
+  setStoredManagerUser();
+  const eagerSelection = vi.fn();
+  useS3AccountContextMock.mockImplementation(() => {
+    const { search } = useLocation();
+    return buildContext({
+      accounts: [{ id: "s3u-1", display_name: "S3 User 1" }, { id: "conn-2", display_name: "Connection 2" }],
+      selectedS3AccountId: new URLSearchParams(search).get("ctx"),
+      setSelectedS3AccountId: eagerSelection,
+    });
+  });
+  useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+  function Draft() {
+    const [name, setName] = useState("");
+    return <SettingsWorkflowForm title="Edit topic" dirty={Boolean(name)} onClose={() => {}} onSubmit={() => {}} submitLabel="Save">
+      <UiInput label="Topic name" value={name} onChange={event => setName(event.target.value)} />
+    </SettingsWorkflowForm>;
+  }
+  const router = createMemoryRouter([{ path: "/manager", element: <ManagerLayout />, children: [
+    { index: true, element: <p>Manager destination</p> },
+    { path: "topics", element: <Draft /> },
+  ] }], { initialEntries: ["/manager/topics?ctx=s3u-1"] });
+  render(<RouterProvider router={router} />);
+  await user.type(screen.getByRole("textbox", { name: "Topic name" }), "Unsaved topic");
+  await user.click(screen.getByRole("button", { name: "Manager account selector" }));
+  expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeVisible();
+  expect(eagerSelection).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Keep editing" }));
+  expect(screen.getByRole("textbox", { name: "Topic name" })).toHaveValue("Unsaved topic");
+  expect(router.state.location.search).toBe("?ctx=s3u-1");
+  await user.click(screen.getByRole("button", { name: "Manager account selector" }));
+  await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+  expect(await screen.findByText("Manager destination")).toBeVisible();
+  expect(router.state.location.search).toBe("?ctx=conn-2");
+  expect(capturedAccountSelectorProps?.selectedContextId).toBe("conn-2");
+  router.dispose();
+});
+
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); setSessionUserCache(null); });
