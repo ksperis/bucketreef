@@ -115,7 +115,7 @@ class BucketMigrationObjectTransferMixin:
             if value is not None:
                 extra_args[extra_arg_field] = value
         if tags:
-            extra_args["Tagging"] = urlencode({tag_key: tag_value for tag_key, tag_value in tags})
+            extra_args["Tagging"] = urlencode(tags)
         return extra_args
 
     def _stream_copy_object(

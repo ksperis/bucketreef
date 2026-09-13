@@ -390,7 +390,6 @@ class _VersionAwareObjectSyncRunner:
                 and bool(self.migration.auto_grant_source_read_for_copy)
             ):
                 candidate = self.service._sample_version_probe_candidate(
-                    self.source_bucket,
                     source_profile=(
                         source_profile if isinstance(source_profile, dict) else None
                     ),

@@ -260,13 +260,24 @@ class BucketMigrationObjectInspectionMixin:
             response = client.get_object_tagging(**kwargs)
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to fetch tags for '{key}' in bucket '{bucket_name}': {exc}") from exc
-        tagset = response.get("TagSet") if isinstance(response, dict) else []
+        tagset = response.get("TagSet") if isinstance(response, dict) else None
+        invalid_response = f"Invalid object tags response for '{key}' in bucket '{bucket_name}'"
+        if not isinstance(tagset, list):
+            raise RuntimeError(invalid_response)
         tags: list[tuple[str, str]] = []
-        for raw in tagset or []:
-            key_value = str(raw.get("Key") or "").strip()
-            if not key_value:
-                continue
-            tags.append((key_value, str(raw.get("Value") or "")))
+        seen: set[str] = set()
+        for raw in tagset:
+            if not isinstance(raw, dict):
+                raise RuntimeError(invalid_response)
+            tag_key = raw.get("Key")
+            tag_value = raw.get("Value")
+            if (
+                not isinstance(tag_key, str) or not tag_key
+                or not isinstance(tag_value, str) or tag_key in seen
+            ):
+                raise RuntimeError(invalid_response)
+            seen.add(tag_key)
+            tags.append((tag_key, tag_value))
         return tuple(sorted(tags))
 
     def _checksums_from_head_response(self, response: dict[str, Any]) -> dict[str, str]:
