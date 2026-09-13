@@ -11,7 +11,7 @@ export function UserLanguageField({ value, onChange, disabled, text }: {
     <UiSelect aria-label={text("language")} className="settings-control w-full sm:w-56" value={value}
       disabled={disabled} onChange={event => onChange(event.target.value as UiLanguagePreference)}>
       <option value="auto">{text("browserAuto")}</option><option value="fr">Français</option>
-      <option value="en">English</option><option value="de">Deutsch</option>
+      <option value="en">English</option><option value="de">Deutsch</option><option value="zh">简体中文</option>
     </UiSelect>
   } />;
 }

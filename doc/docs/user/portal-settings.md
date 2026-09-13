@@ -58,8 +58,8 @@ you also edited, the page reports a conflict instead of overwriting it. Cancel
 to load the current values. Changing project or leaving a modified form asks
 for confirmation before switching the active project.
 
-The page and its dialogs follow your profile language (English, French or
-German), including automatic language selection. Currently applied inherited
+The page and its dialogs follow your profile language (English, French, German or
+Simplified Chinese), including automatic language selection. Currently applied inherited
 values are refreshed after saving; an overridden platform default is not
 available for preview through the project API.
 

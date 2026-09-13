@@ -221,4 +221,4 @@ leave them blank to keep the stored secret, following the field's explicit
 removal controls. Sensitive updates retain passkey verification.
 
 These administration pages remain in English. The user Portal project settings
-and shared profile support English, French and German.
+and shared profile support English, French, German and Simplified Chinese.

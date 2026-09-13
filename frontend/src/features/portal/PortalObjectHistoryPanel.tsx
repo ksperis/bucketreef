@@ -43,13 +43,14 @@ export default function PortalObjectHistoryPanel({
           en: "Restoring an older version creates a new current version. The existing history stays available.",
           fr: "Restaurer une ancienne version crée une nouvelle version actuelle. L'historique existant reste disponible.",
           de: "Beim Wiederherstellen einer älteren Version wird eine neue aktuelle Version erstellt. Der Verlauf bleibt erhalten.",
+          zh: "恢复旧版本会创建新的当前版本。现有历史记录将保留。",
         })}
       </PageBanner>
 
       <UiCard
         actions={
           <UiButton size="xs" variant="secondary" onClick={onRetry} disabled={loading}>
-            {t({ en: "Refresh", fr: "Actualiser", de: "Aktualisieren" })}
+            {t({ en: "Refresh", fr: "Actualiser", de: "Aktualisieren", zh: "刷新" })}
           </UiButton>
         }
       >
@@ -58,7 +59,7 @@ export default function PortalObjectHistoryPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span>{error}</span>
               <UiButton size="xs" variant="secondary" onClick={onRetry}>
-                {t({ en: "Try again", fr: "Réessayer", de: "Erneut versuchen" })}
+                {t({ en: "Try again", fr: "Réessayer", de: "Erneut versuchen", zh: "重试" })}
               </UiButton>
             </div>
           </PageBanner>
@@ -70,6 +71,7 @@ export default function PortalObjectHistoryPanel({
               en: "Loading file history...",
               fr: "Chargement de l'historique...",
               de: "Dateiverlauf wird geladen...",
+              zh: "正在加载文件历史…",
             })}
           </div>
         ) : null}
@@ -81,6 +83,7 @@ export default function PortalObjectHistoryPanel({
                 en: "No previous version yet",
                 fr: "Aucune version précédente",
                 de: "Noch keine frühere Version",
+                zh: "暂无历史版本",
               })}
             </div>
             <p className={cx("mt-1 text-xs", uiMutedTextClass)}>
@@ -88,13 +91,14 @@ export default function PortalObjectHistoryPanel({
                 en: "A new entry will appear after the file is replaced or deleted.",
                 fr: "Une nouvelle entrée apparaîtra lorsque le fichier sera remplacé ou supprimé.",
                 de: "Ein neuer Eintrag erscheint, nachdem die Datei ersetzt oder gelöscht wurde.",
+                zh: "文件被替换或删除后，将出现新记录。",
               })}
             </p>
           </div>
         ) : null}
 
         {history && history.versions.length > 0 ? (
-          <ol className="space-y-0" aria-label={t({ en: "File versions", fr: "Versions du fichier", de: "Dateiversionen" })}>
+          <ol className="space-y-0" aria-label={t({ en: "File versions", fr: "Versions du fichier", de: "Dateiversionen", zh: "文件版本" })}>
             {history.versions.map((version, index) => {
               const current = version.is_latest && !version.is_delete_marker;
               const restoring = restoringVersionId === version.version_id;
@@ -130,22 +134,25 @@ export default function PortalObjectHistoryPanel({
                                   en: "Moved to trash",
                                   fr: "Placé dans la corbeille",
                                   de: "In den Papierkorb verschoben",
+                                  zh: "已移至回收站",
                                 })
                               : current
                                 ? t({
                                     en: "Current version",
                                     fr: "Version actuelle",
                                     de: "Aktuelle Version",
+                                    zh: "当前版本",
                                   })
                                 : t({
                                     en: "Previous version",
                                     fr: "Version précédente",
                                     de: "Frühere Version",
+                                    zh: "历史版本",
                                   })}
                           </h3>
                           {current ? (
                             <UiBadge tone="success">
-                              {t({ en: "Current", fr: "Actuelle", de: "Aktuell" })}
+                              {t({ en: "Current", fr: "Actuelle", de: "Aktuell", zh: "当前" })}
                             </UiBadge>
                           ) : null}
                         </div>
@@ -168,6 +175,7 @@ export default function PortalObjectHistoryPanel({
                             en: "Restore this version",
                             fr: "Restaurer cette version",
                             de: "Diese Version wiederherstellen",
+                            zh: "恢复此版本",
                           })}
                         </UiButton>
                       ) : null}
@@ -178,6 +186,7 @@ export default function PortalObjectHistoryPanel({
                           en: "The file was deleted at this point, then restored or replaced later.",
                           fr: "Le fichier a été supprimé à ce moment-là, puis restauré ou remplacé par la suite.",
                           de: "Die Datei wurde zu diesem Zeitpunkt gelöscht und später wiederhergestellt oder ersetzt.",
+                          zh: "文件在此时被删除，之后又被恢复或替换。",
                         })}
                       </p>
                     ) : null}
@@ -195,6 +204,7 @@ export default function PortalObjectHistoryPanel({
                 en: "Show older versions",
                 fr: "Afficher les versions plus anciennes",
                 de: "Ältere Versionen anzeigen",
+                zh: "显示更早的版本",
               })}
             </UiButton>
           </div>
@@ -206,6 +216,7 @@ export default function PortalObjectHistoryPanel({
               en: "Your access is read-only. You can review history but cannot restore a version.",
               fr: "Votre accès est en lecture seule. Vous pouvez consulter l'historique, mais pas restaurer une version.",
               de: "Ihr Zugriff ist schreibgeschützt. Sie können den Verlauf ansehen, aber keine Version wiederherstellen.",
+              zh: "你拥有只读权限，可以查看历史记录，但无法恢复版本。",
             })}
           </p>
         ) : null}

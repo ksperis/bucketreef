@@ -55,6 +55,7 @@ export function portalAccessModeDescription(mode: PortalAccessMode, t: ReturnTyp
       en: "Everyone already added to this account can work in the space automatically.",
       fr: "Toutes les personnes déjà ajoutées à ce compte peuvent travailler dans cet espace automatiquement.",
       de: "Alle bereits zu diesem Konto hinzugefügten Personen können automatisch in diesem Bereich arbeiten.",
+      zh: "已加入此账户的所有成员都可以自动使用此空间。",
     });
   }
   if (mode === "restricted") {
@@ -62,12 +63,14 @@ export function portalAccessModeDescription(mode: PortalAccessMode, t: ReturnTyp
       en: "Only the people you choose can work in this space.",
       fr: "Seules les personnes que vous choisissez peuvent travailler dans cet espace.",
       de: "Nur die von Ihnen ausgewählten Personen können in diesem Bereich arbeiten.",
+      zh: "只有你选择的人员可以使用此空间。",
     });
   }
   return t({
     en: "Only you and project managers can access this space.",
     fr: "Seuls vous et les gestionnaires du projet pouvez accéder à cet espace.",
     de: "Nur Sie und die Projektmanager können auf diesen Bereich zugreifen.",
+    zh: "只有你和项目管理员可以访问此空间。",
   });
 }
 
@@ -83,18 +86,20 @@ export function portalAccessModeSummary(
         en: `Team: ${memberCount} member${memberCount > 1 ? "s" : ""}`,
         fr: `Équipe : ${memberCount} membre${memberCount > 1 ? "s" : ""}`,
         de: `Team: ${memberCount} Mitglied${memberCount > 1 ? "er" : ""}`,
+        zh: `团队：${memberCount} 名成员`,
       });
     }
-    return t({ en: "Team: all account members", fr: "Équipe : tous les membres du compte", de: "Team: alle Kontomitglieder" });
+    return t({ en: "Team: all account members", fr: "Équipe : tous les membres du compte", de: "Team: alle Kontomitglieder", zh: "团队：所有账户成员" });
   }
   if (mode === "restricted") {
     return t({
       en: `Selected people: ${selectedCount}`,
       fr: `Personnes choisies : ${selectedCount}`,
       de: `Ausgewählte Personen: ${selectedCount}`,
+      zh: `指定人员：${selectedCount} 人`,
     });
   }
-  return t({ en: "Private: you and project managers", fr: "Privé : vous et les gestionnaires du projet", de: "Privat: Sie und Projektmanager" });
+  return t({ en: "Private: you and project managers", fr: "Privé : vous et les gestionnaires du projet", de: "Privat: Sie und Projektmanager", zh: "私有：你和项目管理员" });
 }
 
 export function PortalAccessModeFields({
@@ -224,7 +229,7 @@ export function PortalShareCandidatePicker({
       setRequestName("");
       setRequestEmail("");
     } catch (err) {
-      setRequestError(err instanceof Error ? err.message : t({ en: "Unable to send the request.", fr: "Impossible d'envoyer la demande.", de: "Anfrage kann nicht gesendet werden." }));
+      setRequestError(err instanceof Error ? err.message : t({ en: "Unable to send the request.", fr: "Impossible d'envoyer la demande.", de: "Anfrage kann nicht gesendet werden.", zh: "无法发送请求。" }));
     } finally {
       setRequestBusy(false);
     }
@@ -236,10 +241,11 @@ export function PortalShareCandidatePicker({
           en: "Need someone who is not listed? Ask an admin to add them to this project, then you can invite them to the space.",
           fr: "Besoin d'une personne absente de la liste ? Demandez à un admin de l'ajouter au projet, puis vous pourrez l'inviter dans l'espace.",
           de: "Fehlt eine Person in der Liste? Bitten Sie einen Admin, sie zum Projekt hinzuzufügen; danach können Sie sie in den Bereich einladen.",
+          zh: "需要邀请未列出的人员？请先让管理员将其添加到此项目，再邀请他们加入空间。",
         })}
       </div>
       <UiButton size="sm" variant="secondary" onClick={openRequestForm}>
-        {t({ en: "Request collaborator access", fr: "Demander l'ajout d'un collaborateur", de: "Mitwirkenden-Zugriff anfragen" })}
+        {t({ en: "Request collaborator access", fr: "Demander l'ajout d'un collaborateur", de: "Mitwirkenden-Zugriff anfragen", zh: "申请添加协作者" })}
       </UiButton>
     </div>
   ) : null;
@@ -247,19 +253,19 @@ export function PortalShareCandidatePicker({
     <div className="space-y-2">
       <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_auto]">
         <UiInput
-          label={t({ en: "People", fr: "Personnes", de: "Personen" })}
+          label={t({ en: "People", fr: "Personnes", de: "Personen", zh: "人员" })}
           size="compact"
           className="h-9"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={t({ en: "Search people by name or email...", fr: "Rechercher une personne par nom ou email...", de: "Personen nach Name oder E-Mail suchen..." })}
+          placeholder={t({ en: "Search people by name or email...", fr: "Rechercher une personne par nom ou email...", de: "Personen nach Name oder E-Mail suchen...", zh: "按姓名或邮箱搜索人员…" })}
         />
         <div className={cx("self-center text-[11px] font-semibold", uiMutedTextClass)}>
-          {selectedCount} {t({ en: "selected", fr: "sélectionné(s)", de: "ausgewählt" })}
+          {selectedCount} {t({ en: "selected", fr: "sélectionné(s)", de: "ausgewählt", zh: "已选择" })}
         </div>
       </div>
       {loading ? (
-        <div className={cx("text-xs font-semibold", uiMutedTextClass)}>{t({ en: "Loading people...", fr: "Chargement des personnes...", de: "Personen werden geladen..." })}</div>
+        <div className={cx("text-xs font-semibold", uiMutedTextClass)}>{t({ en: "Loading people...", fr: "Chargement des personnes...", de: "Personen werden geladen...", zh: "正在加载人员…" })}</div>
       ) : error ? (
         <UiInlineMessage tone="error">{error}</UiInlineMessage>
       ) : visibleCandidates.length > 0 ? (
@@ -293,8 +299,9 @@ export function PortalShareCandidatePicker({
                           en: `Already invited · ${portalRoleLabel(existingRole, t)}`,
                           fr: `Déjà invité · ${portalRoleLabel(existingRole, t)}`,
                           de: `Bereits eingeladen · ${portalRoleLabel(existingRole, t)}`,
+                          zh: `已邀请 · ${portalRoleLabel(existingRole, t)}`,
                         })
-                      : t({ en: "Already invited", fr: "Déjà invité", de: "Bereits eingeladen" })}
+                      : t({ en: "Already invited", fr: "Déjà invité", de: "Bereits eingeladen", zh: "已邀请" })}
                   </UiBadge>
                 ) : (
                   <UiSelect
@@ -303,7 +310,7 @@ export function PortalShareCandidatePicker({
                     value={selectedRole ?? "Viewer"}
                     disabled={!selectedRole}
                     onChange={(event) => onRoleChange(candidate.user_id, event.target.value as PortalStorageSpaceGrantRole)}
-                    aria-label={t({ en: `Access for ${candidate.email}`, fr: `Accès pour ${candidate.email}`, de: `Zugriff für ${candidate.email}` })}
+                    aria-label={t({ en: `Access for ${candidate.email}`, fr: `Accès pour ${candidate.email}`, de: `Zugriff für ${candidate.email}`, zh: `${candidate.email} 的访问权限` })}
                   >
                     <option value="Viewer">{portalRoleLabel("Viewer", t)}</option>
                     <option value="Editor">{portalRoleLabel("Editor", t)}</option>
@@ -321,11 +328,13 @@ export function PortalShareCandidatePicker({
                   en: "No person matches this search.",
                   fr: "Aucune personne ne correspond à cette recherche.",
                   de: "Keine Person passt zu dieser Suche.",
+                  zh: "没有符合搜索条件的人员。",
                 })
               : t({
                   en: "Only people already added to this project can be invited here.",
                   fr: "Seules les personnes déjà ajoutées à ce projet peuvent être invitées ici.",
                   de: "Nur bereits zu diesem Projekt hinzugefügte Personen können hier eingeladen werden.",
+                  zh: "此处只能邀请已加入此项目的人员。",
                 })}
           </div>
           {requestCta}
@@ -333,7 +342,7 @@ export function PortalShareCandidatePicker({
       )}
       {requestOpen ? (
         <Modal
-          title={t({ en: "Request collaborator access", fr: "Demander l'ajout d'un collaborateur", de: "Mitwirkenden-Zugriff anfragen" })}
+          title={t({ en: "Request collaborator access", fr: "Demander l'ajout d'un collaborateur", de: "Mitwirkenden-Zugriff anfragen", zh: "申请添加协作者" })}
           onClose={closeRequestForm}
           closeOnBackdropClick={!requestBusy}
           closeOnEscape={!requestBusy}
@@ -344,19 +353,20 @@ export function PortalShareCandidatePicker({
                 en: "Ask an admin to add this person to the project. Once they are added, you can invite them to the space.",
                 fr: "Demandez à un admin d'ajouter cette personne au projet. Une fois ajoutée, vous pourrez l'inviter dans l'espace.",
                 de: "Bitten Sie einen Admin, diese Person zum Projekt hinzuzufügen. Danach können Sie sie in den Bereich einladen.",
+                zh: "请让管理员将此人添加到项目。添加后，你就可以邀请其加入空间。",
               })}
             </p>
             {requestError ? <UiInlineMessage tone="error">{requestError}</UiInlineMessage> : null}
             <UiInput
-              label={t({ en: "Name", fr: "Nom", de: "Name" })}
+              label={t({ en: "Name", fr: "Nom", de: "Name", zh: "姓名" })}
               size="compact"
               className="h-9"
               value={requestName}
               onChange={(event) => setRequestName(event.target.value)}
-              placeholder={t({ en: "Collaborator name", fr: "Nom du collaborateur", de: "Name des Mitwirkenden" })}
+              placeholder={t({ en: "Collaborator name", fr: "Nom du collaborateur", de: "Name des Mitwirkenden", zh: "协作者姓名" })}
             />
             <UiInput
-              label={t({ en: "Email", fr: "Email", de: "E-Mail" })}
+              label={t({ en: "Email", fr: "Email", de: "E-Mail", zh: "邮箱" })}
               size="compact"
               className="h-9"
               value={requestEmail}
@@ -365,10 +375,10 @@ export function PortalShareCandidatePicker({
             />
             <div className="flex flex-wrap justify-end gap-2">
               <UiButton variant="secondary" onClick={closeRequestForm} disabled={requestBusy}>
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
+                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
               </UiButton>
               <UiButton disabled={!requestName.trim() || !requestEmail.trim() || requestBusy} loading={requestBusy} onClick={submitRequest}>
-                {requestBusy ? t({ en: "Sending...", fr: "Envoi...", de: "Wird gesendet..." }) : t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden" })}
+                {requestBusy ? t({ en: "Sending...", fr: "Envoi...", de: "Wird gesendet...", zh: "正在发送…" }) : t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden", zh: "发送请求" })}
               </UiButton>
             </div>
           </div>

@@ -42,7 +42,7 @@ export function usePortalPublicLinkActions({
         await copyTextToClipboard(link.url);
         onMessage(
           copySuccessMessage ??
-            t({ en: "Link copied.", fr: "Lien copié.", de: "Link kopiert." }),
+            t({ en: "Link copied.", fr: "Lien copié.", de: "Link kopiert.", zh: "链接已复制。" }),
         );
       } catch {
         onMessage(
@@ -50,6 +50,7 @@ export function usePortalPublicLinkActions({
             en: "Clipboard is unavailable in this browser.",
             fr: "Le presse-papiers est indisponible dans ce navigateur.",
             de: "Die Zwischenablage ist in diesem Browser nicht verfügbar.",
+            zh: "此浏览器无法使用剪贴板。",
           }),
         );
       }
@@ -75,6 +76,7 @@ export function usePortalPublicLinkActions({
             en: "Public link revoked.",
             fr: "Lien public révoqué.",
             de: "Öffentlicher Link widerrufen.",
+            zh: "公开链接已撤销。",
           }),
         );
       } catch (err) {
@@ -86,6 +88,7 @@ export function usePortalPublicLinkActions({
               en: "Unable to revoke public link.",
               fr: "Impossible de révoquer le lien public.",
               de: "Öffentlicher Link kann nicht widerrufen werden.",
+              zh: "无法撤销公开链接。",
             }),
           ),
         );
