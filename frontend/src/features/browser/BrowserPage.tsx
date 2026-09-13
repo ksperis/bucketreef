@@ -40,6 +40,7 @@ import {
   type BrowserSidebarBodyRenderer,
 } from "./BrowserLayout";
 import BrowserBulkAttributesModal from "./BrowserBulkAttributesModal";
+import { hasOpenModal } from "../../components/Modal";
 import BrowserObjectExplorer from "./BrowserObjectExplorer";
 import BrowserObjectSearchHeader from "./BrowserObjectSearchHeader";
 import BrowserFoldersPanel from "./BrowserFoldersPanel";
@@ -1658,6 +1659,9 @@ export default function BrowserPage({
     bucketName,
     prefix,
     onNavigate: ({ bucketName: nextBucket, prefix: nextPrefix }) => {
+      // Native bucket/prefix history can change without a router URL change.
+      // Keep the modal's targets stable just like the covered page controls.
+      if (hasOpenModal()) return false;
       return requestDetailsDrawerTransition(() => {
         setBucketName(nextBucket);
         setPrefix(nextPrefix);

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useSearchParams } from "react-router-dom";
 import AccountControlIcon from "../../components/AccountControlIcon";
 import Layout from "../../components/Layout";
 import PageBanner from "../../components/PageBanner";
@@ -47,7 +47,6 @@ function BrowserShell() {
     contexts,
     contextsLoaded,
     selectedContextId,
-    setSelectedContextId,
     requiresContextSelection,
     sessionAccountName,
     accessError,
@@ -103,10 +102,15 @@ function BrowserShell() {
     };
   }, [isBrowserExplorerRoute, requiresContextSelection, selectedContextId]);
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const handleS3AccountChange = (selectedValue: string) => {
     const value = selectedValue || null;
     if (value === selectedContextId) return;
-    setSelectedContextId(value);
+    const nextParams = new URLSearchParams(searchParams);
+    if (value) nextParams.set("ctx", value);
+    else nextParams.delete("ctx");
+    // Keep the mounted draft and executor until route guards accept the change.
+    setSearchParams(nextParams, { replace: true });
   };
   const setSidebarBody = useCallback((renderer: BrowserSidebarBodyRenderer | null) => {
     setSidebarBodyState(() => renderer);

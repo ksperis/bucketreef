@@ -2,19 +2,14 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import ModalActions from "../../components/ModalActions";
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import Modal from "../../components/Modal";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
+import type { Dispatch, SetStateAction } from "react";
+import InlineSummary from "../../components/InlineSummary";
+import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
-import { browserPanelCardClasses, formInputClasses } from "./browserConstants";
-import UiButton from "../../components/ui/UiButton";
+import UiInput from "../../components/ui/UiInput";
 import { stableSignature } from "../../utils/stableSignature";
-import type {
-  BrowserBulkRestoreDraft,
-  BrowserBulkRestorePreview,
-} from "./useBrowserBulkRestore";
+import type { BrowserBulkRestoreDraft, BrowserBulkRestorePreview } from "./useBrowserBulkRestore";
 
 type BrowserBulkRestoreModalProps = {
   draft: BrowserBulkRestoreDraft;
@@ -22,7 +17,7 @@ type BrowserBulkRestoreModalProps = {
   fileCount: number;
   folderCount: number;
   loading: boolean;
-  onApply: () => void;
+  onApply: () => void | Promise<void>;
   onClose: () => void;
   preview?: BrowserBulkRestorePreview | null;
   setDraft: Dispatch<SetStateAction<BrowserBulkRestoreDraft>>;
@@ -43,16 +38,6 @@ export default function BrowserBulkRestoreModal({
   summary,
   targetPath,
 }: BrowserBulkRestoreModalProps) {
-  const currentSignature = useMemo(
-    () => stableSignature(draft),
-    [draft],
-  );
-  const [initialSignature] = useState(currentSignature);
-  const closeGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: currentSignature !== initialSignature,
-    onClose,
-    disabled: loading,
-  });
   const updateDraft = <Key extends keyof BrowserBulkRestoreDraft>(
     key: Key,
     value: BrowserBulkRestoreDraft[Key],
@@ -66,142 +51,56 @@ export default function BrowserBulkRestoreModal({
     }));
 
   return (
-    <Modal title="Restore to date" onClose={closeGuard.requestClose} maxWidthClass="max-w-2xl">
-      <div className="space-y-4 ui-caption text-slate-600 dark:text-slate-300">
-        <div className="space-y-1">
-          <p className="font-semibold text-slate-800 dark:text-slate-100">Targets</p>
-          <p>
-            {fileCount} file(s) · {folderCount} folder(s)
-            {folderCount > 0 && " (folders use prefix history)"}
-          </p>
-          {targetPath && (
-            <p className="ui-caption text-slate-500 dark:text-slate-400">
-              Path: <span className="font-semibold text-slate-700 dark:text-slate-100">{targetPath}</span>
-            </p>
-          )}
+    <SettingsFormDialog title="Restore to date" draftKey={stableSignature(draft)}
+      busy={loading} error={error} onSubmit={onApply} onClose={onClose}
+      submitLabel={loading ? (draft.dryRun ? "Previewing..." : "Restoring...") : draft.dryRun ? "Preview changes" : "Run restore"}
+      maxWidthClass="max-w-2xl">
+      <InlineSummary label="Targets" items={[
+        { label: "Files", value: fileCount },
+        { label: "Folders", value: folderCount, hint: folderCount > 0 ? "Folders use prefix history." : undefined },
+      ]} />
+      {targetPath && <p className="settings-description break-all">Path: {targetPath}</p>}
+      {summary && <UiInlineMessage tone="success" role="status">{summary}</UiInlineMessage>}
+      <UiCheckboxField className="settings-choice" checked={draft.restoreDeleted}
+        onChange={(event) => updateDraft("restoreDeleted", event.target.checked)}>
+        Restore deleted objects to their latest version
+      </UiCheckboxField>
+      <UiInput label="Target date" type="datetime-local" value={draft.date}
+        onChange={(event) => updateDraft("date", event.target.value)} disabled={draft.restoreDeleted}
+        hint={draft.restoreDeleted ? "Date is ignored while latest deleted-object restore is enabled." : undefined} />
+      <UiCheckboxField className="settings-choice" checked={draft.deleteMissing} disabled={draft.restoreDeleted}
+        onChange={(event) => updateDraft("deleteMissing", event.target.checked)}>
+        Delete objects not present at the selected date
+      </UiCheckboxField>
+      <UiCheckboxField className="settings-choice" checked={draft.dryRun}
+        onChange={(event) => updateDraft("dryRun", event.target.checked)}>
+        Dry run (preview only)
+      </UiCheckboxField>
+      {preview && <section aria-label="Restore preview" className="settings-stack">
+        <InlineSummary label="Preview" items={[
+          { label: "Restore", value: preview.totalRestore },
+          { label: "Delete", value: preview.totalDelete },
+          { label: "Unchanged", value: preview.totalUnchanged },
+        ]} />
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "Restore", keys: preview.restoreKeys, total: preview.totalRestore },
+            { label: "Delete", keys: preview.deleteKeys, total: preview.totalDelete },
+            { label: "Unchanged", keys: preview.unchangedKeys, total: preview.totalUnchanged },
+          ].map(({ label, keys, total }) => <div key={label} className="min-w-0 space-y-1">
+            <h3 className="settings-label">{label}</h3>
+            {keys.length === 0 ? <p className="settings-description">No items</p> :
+              <ul className="settings-description">{keys.map((key) =>
+                <li key={key} className="break-all whitespace-pre-wrap">{key}</li>)}</ul>}
+            {total > keys.length && <p className="settings-description">+{total - keys.length} more</p>}
+          </div>)}
         </div>
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
-        {summary && <UiInlineMessage tone="success">{summary}</UiInlineMessage>}
-        <div className={browserPanelCardClasses}>
-          <UiCheckboxField
-            checked={draft.restoreDeleted}
-            onChange={(event) => updateDraft("restoreDeleted", event.target.checked)}
-            className="ui-caption text-slate-500 dark:text-slate-400"
-          >
-            Restore deleted objects to their latest version
-          </UiCheckboxField>
-          <div className={`mt-3 space-y-2 ${draft.restoreDeleted ? "opacity-60" : ""}`}>
-            <label className="ui-caption font-semibold text-slate-500 dark:text-slate-400">Target date</label>
-            <input
-              type="datetime-local"
-              className={formInputClasses}
-              value={draft.date}
-              onChange={(event) => updateDraft("date", event.target.value)}
-              disabled={draft.restoreDeleted}
-            />
-            {draft.restoreDeleted && (
-              <p className="ui-caption text-slate-400">Date is ignored while latest deleted-object restore is enabled.</p>
-            )}
-          </div>
-          <UiCheckboxField
-            checked={draft.deleteMissing}
-            onChange={(event) => updateDraft("deleteMissing", event.target.checked)}
-            disabled={draft.restoreDeleted}
-            className={`mt-3 ui-caption ${
-              draft.restoreDeleted ? "text-slate-400 dark:text-slate-500" : "text-slate-500 dark:text-slate-400"
-            }`}
-          >
-            Delete objects not present at the selected date
-          </UiCheckboxField>
-          <UiCheckboxField
-            checked={draft.dryRun}
-            onChange={(event) => updateDraft("dryRun", event.target.checked)}
-            className="mt-3 ui-caption text-slate-500 dark:text-slate-400"
-          >
-            Dry run (preview only)
-          </UiCheckboxField>
-        </div>
-        {preview && (
-          <div className={browserPanelCardClasses}>
-            <p className="font-semibold text-slate-800 dark:text-slate-100">Preview</p>
-            <p className="ui-caption text-slate-500 dark:text-slate-400">
-              Restore {preview.totalRestore} · Delete {preview.totalDelete} · Unchanged{" "}
-              {preview.totalUnchanged}
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <div className="space-y-1">
-                <p className="ui-caption font-semibold text-slate-500 dark:text-slate-400">Restore</p>
-                {preview.restoreKeys.length === 0 ? (
-                  <p className="ui-caption text-slate-400">No items</p>
-                ) : (
-                  preview.restoreKeys.map((key) => (
-                    <p key={`restore-${key}`} className="truncate ui-caption text-slate-600 dark:text-slate-300">
-                      {key}
-                    </p>
-                  ))
-                )}
-                {preview.totalRestore > preview.restoreKeys.length && (
-                  <p className="ui-caption text-slate-400">
-                    +{preview.totalRestore - preview.restoreKeys.length} more
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <p className="ui-caption font-semibold text-slate-500 dark:text-slate-400">Delete</p>
-                {preview.deleteKeys.length === 0 ? (
-                  <p className="ui-caption text-slate-400">No items</p>
-                ) : (
-                  preview.deleteKeys.map((key) => (
-                    <p key={`delete-${key}`} className="truncate ui-caption text-slate-600 dark:text-slate-300">
-                      {key}
-                    </p>
-                  ))
-                )}
-                {preview.totalDelete > preview.deleteKeys.length && (
-                  <p className="ui-caption text-slate-400">
-                    +{preview.totalDelete - preview.deleteKeys.length} more
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <p className="ui-caption font-semibold text-slate-500 dark:text-slate-400">Unchanged</p>
-                {preview.unchangedKeys.length === 0 ? (
-                  <p className="ui-caption text-slate-400">No items</p>
-                ) : (
-                  preview.unchangedKeys.map((key) => (
-                    <p key={`unchanged-${key}`} className="truncate ui-caption text-slate-600 dark:text-slate-300">
-                      {key}
-                    </p>
-                  ))
-                )}
-                {preview.totalUnchanged > preview.unchangedKeys.length && (
-                  <p className="ui-caption text-slate-400">
-                    +{preview.totalUnchanged - preview.unchangedKeys.length} more
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        <p className="ui-caption text-slate-500 dark:text-slate-400">
-          {draft.restoreDeleted
-            ? "Restores deleted objects to their latest non-delete-marker version. Target date is ignored in this mode."
-            : "Restores the latest version at or before the selected date. Objects with a delete marker at that date are skipped unless deletion is enabled or deleted-object restore is selected."}
-        </p>
-        <ModalActions>
-          <UiButton variant="secondary" onClick={closeGuard.requestClose}>
-            Cancel
-          </UiButton>
-          <UiButton
-            type="button"
-            onClick={onApply}
-            disabled={loading}
-          >
-            {loading ? (draft.dryRun ? "Previewing..." : "Restoring...") : draft.dryRun ? "Preview changes" : "Run restore"}
-          </UiButton>
-        </ModalActions>
-      </div>
-      {closeGuard.confirmationDialog}
-    </Modal>
+      </section>}
+      <p className="settings-description">
+        {draft.restoreDeleted
+          ? "Restores deleted objects to their latest non-delete-marker version. Target date is ignored in this mode."
+          : "Restores the latest version at or before the selected date. Objects with a delete marker at that date are skipped unless deletion is enabled or deleted-object restore is selected."}
+      </p>
+    </SettingsFormDialog>
   );
 }
