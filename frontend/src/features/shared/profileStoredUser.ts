@@ -7,7 +7,7 @@ import type { UserAvatarDescriptor } from "../../api/users";
 
 type StoredUserProfilePatch = {
   fullName?: string | null;
-  uiLanguage?: "en" | "fr" | "de" | null;
+  uiLanguage?: "en" | "fr" | "de" | "zh" | null;
   uiPreferences?: Record<string, unknown> | null;
   avatar?: UserAvatarDescriptor | null;
 };

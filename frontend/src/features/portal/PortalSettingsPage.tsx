@@ -16,7 +16,7 @@ export default function PortalSettingsPage() {
   const { t, locale } = useI18n();
   const { selectedAccount, selectedAccountId, loading, error } =
     usePortalAccountContext();
-  const title = t({ en: "Settings", fr: "Paramètres", de: "Einstellungen" });
+  const title = t({ en: "Settings", fr: "Paramètres", de: "Einstellungen", zh: "设置" });
   return (
     <PageShell
       title={title}
@@ -24,12 +24,14 @@ export default function PortalSettingsPage() {
         en: "Manage project capabilities and defaults.",
         fr: "Gérez les fonctions et valeurs par défaut du projet.",
         de: "Verwalten Sie Projektfunktionen und Standardwerte.",
+        zh: "管理项目功能和默认设置。",
       })}
       breadcrumbs={portalBreadcrumbs({ label: title })}
       breadcrumbLabel={t({
         en: "Breadcrumb",
         fr: "Fil d’Ariane",
         de: "Brotkrumennavigation",
+        zh: "面包屑导航",
       })}
     >
       {error && <PageBanner tone="error">{error}</PageBanner>}
@@ -53,11 +55,13 @@ export default function PortalSettingsPage() {
                 en: "Loading projects...",
                 fr: "Chargement des projets...",
                 de: "Projekte werden geladen...",
+                zh: "正在加载项目…",
               })
             : t({
                 en: "Select a project to view its settings.",
                 fr: "Sélectionnez un projet pour consulter ses paramètres.",
                 de: "Wählen Sie ein Projekt, um seine Einstellungen anzuzeigen.",
+                zh: "选择项目以查看设置。",
               })}
         </PageBanner>
       )}

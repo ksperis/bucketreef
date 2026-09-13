@@ -193,14 +193,14 @@ export default function ProjectSettingsEditor({
   };
   const enabled = (value: boolean) =>
     value
-      ? t({ en: "Enabled", fr: "Activé", de: "Aktiviert" })
-      : t({ en: "Disabled", fr: "Désactivé", de: "Deaktiviert" });
+      ? t({ en: "Enabled", fr: "Activé", de: "Aktiviert", zh: "已启用" })
+      : t({ en: "Disabled", fr: "Désactivé", de: "Deaktiviert", zh: "已禁用" });
   const source = (custom: boolean) =>
     custom
-      ? t({ en: "Project", fr: "Projet", de: "Projekt" })
-      : t({ en: "Platform", fr: "Plateforme", de: "Plattform" });
+      ? t({ en: "Project", fr: "Projet", de: "Projekt", zh: "项目" })
+      : t({ en: "Platform", fr: "Plateforme", de: "Plattform", zh: "平台" });
   const effective = (value: string) =>
-    `${t({ en: "Currently applied", fr: "Actuellement appliqué", de: "Derzeit angewendet" })}: ${value}`;
+    `${t({ en: "Currently applied", fr: "Actuellement appliqué", de: "Derzeit angewendet", zh: "当前生效" })}: ${value}`;
   const row = (
     key: FlagField,
     title: string,
@@ -236,6 +236,7 @@ export default function ProjectSettingsEditor({
                 en: "Platform value",
                 fr: "Valeur de la plateforme",
                 de: "Plattformwert",
+                zh: "平台值",
               })}
             </option>
             <option value="enabled">{enabled(true)}</option>
@@ -248,29 +249,31 @@ export default function ProjectSettingsEditor({
     />
   );
   const fieldLabels: Record<string, string> = {
-    browser_access_enabled: t({ en: "Browser workspace access", fr: "Accès à l’espace Browser", de: "Browser-Arbeitsbereich" }),
-    allow_private_storage_space_create: t({ en: "Private Storage Space creation", fr: "Création d’espaces privés", de: "Private Speicherbereiche erstellen" }),
-    allow_portal_named_bucket_create: t({ en: "Named bucket creation", fr: "Création de buckets nommés", de: "Benannte Buckets erstellen" }),
-    allow_portal_user_access_key_create: t({ en: "Personal access keys", fr: "Clés d’accès personnelles", de: "Persönliche Zugriffsschlüssel" }),
-    server_access_logging_enabled: t({ en: "Server access logging", fr: "Journalisation des accès serveur", de: "Server-Zugriffsprotokollierung" }),
-    storage_space_version_cleanup_enabled: t({ en: "Storage Space history cleanup", fr: "Nettoyage de l’historique", de: "Versionsverlauf bereinigen" }),
-    versioning: t({ en: "Versioning", fr: "Gestion des versions", de: "Versionierung" }),
-    enable_lifecycle: t({ en: "Lifecycle", fr: "Cycle de vie", de: "Lebenszyklus" }),
+    browser_access_enabled: t({ en: "Browser workspace access", fr: "Accès à l’espace Browser", de: "Browser-Arbeitsbereich", zh: "对象浏览工作区访问" }),
+    allow_private_storage_space_create: t({ en: "Private Storage Space creation", fr: "Création d’espaces privés", de: "Private Speicherbereiche erstellen", zh: "创建私有存储空间" }),
+    allow_portal_named_bucket_create: t({ en: "Named bucket creation", fr: "Création de buckets nommés", de: "Benannte Buckets erstellen", zh: "创建指定名称的存储桶" }),
+    allow_portal_user_access_key_create: t({ en: "Personal access keys", fr: "Clés d’accès personnelles", de: "Persönliche Zugriffsschlüssel", zh: "个人访问密钥" }),
+    server_access_logging_enabled: t({ en: "Server access logging", fr: "Journalisation des accès serveur", de: "Server-Zugriffsprotokollierung", zh: "服务器访问日志" }),
+    storage_space_version_cleanup_enabled: t({ en: "Storage Space history cleanup", fr: "Nettoyage de l’historique", de: "Versionsverlauf bereinigen", zh: "存储空间历史记录清理" }),
+    versioning: t({ en: "Versioning", fr: "Gestion des versions", de: "Versionierung", zh: "版本控制" }),
+    enable_lifecycle: t({ en: "Lifecycle", fr: "Cycle de vie", de: "Lebenszyklus", zh: "生命周期" }),
     enable_cors: "CORS",
-    cors_allowed_origins: t({ en: "CORS origins", fr: "Origines CORS", de: "CORS-Ursprünge" }),
-    noncurrent_version_expiration_days: t({ en: "Version history retention", fr: "Conservation de l’historique", de: "Aufbewahrung des Versionsverlaufs" }),
+    cors_allowed_origins: t({ en: "CORS origins", fr: "Origines CORS", de: "CORS-Ursprünge", zh: "CORS 来源" }),
+    noncurrent_version_expiration_days: t({ en: "Version history retention", fr: "Conservation de l’historique", de: "Aufbewahrung des Versionsverlaufs", zh: "版本历史保留期限" }),
     delegated_to_portal_managers: "Delegation",
   };
-  const customize = t({ en: "Customize", fr: "Personnaliser", de: "Anpassen" });
+  const customize = t({ en: "Customize", fr: "Personnaliser", de: "Anpassen", zh: "自定义" });
   const originsTitle = t({
     en: "CORS origins",
     fr: "Origines CORS",
     de: "CORS-Ursprünge",
+    zh: "CORS 来源",
   });
   const retentionTitle = t({
     en: "Version history retention",
     fr: "Conservation de l’historique",
     de: "Aufbewahrung des Versionsverlaufs",
+    zh: "版本历史保留期限",
   });
   const days =
     settings?.effective.bucket_defaults.noncurrent_version_expiration_days ?? 0;
@@ -287,6 +290,7 @@ export default function ProjectSettingsEditor({
             en: "Loading project settings...",
             fr: "Chargement des paramètres du projet...",
             de: "Projekteinstellungen werden geladen...",
+            zh: "正在加载项目设置…",
           })}
         </PageBanner>
       )}
@@ -297,23 +301,27 @@ export default function ProjectSettingsEditor({
                 en: "Unable to load project settings.",
                 fr: "Impossible de charger les paramètres du projet.",
                 de: "Projekteinstellungen konnten nicht geladen werden.",
+                zh: "无法加载项目设置。",
               })
             : error === "conflict"
               ? t({
                   en: "A setting you edited has changed on the server. Your draft is preserved. Cancel to load the current values.",
                   fr: "Un paramètre modifié a changé sur le serveur. Votre brouillon est conservé. Annulez pour charger les valeurs actuelles.",
                   de: "Eine bearbeitete Einstellung wurde auf dem Server geändert. Ihr Entwurf bleibt erhalten. Brechen Sie ab, um die aktuellen Werte zu laden.",
+                  zh: "你编辑的一项设置已在服务器上变更。草稿已保留。取消编辑以加载当前值。",
                 })
               : error === "access"
                 ? t({
                     en: "Your settings access has changed. Your draft is preserved; reload this page to review your permissions.",
                     fr: "Vos droits de modification ont changé. Votre brouillon est conservé ; rechargez la page pour consulter vos droits.",
                     de: "Ihre Bearbeitungsrechte haben sich geändert. Ihr Entwurf bleibt erhalten; laden Sie die Seite neu, um Ihre Rechte zu prüfen.",
+                    zh: "你的设置访问权限已变更。草稿已保留；请重新加载此页面以检查权限。",
                   })
                 : t({
                     en: "Unable to save project settings. Your changes are preserved.",
                     fr: "Impossible d’enregistrer les paramètres. Vos modifications sont conservées.",
                     de: "Projekteinstellungen konnten nicht gespeichert werden. Ihre Änderungen bleiben erhalten.",
+                    zh: "无法保存项目设置。你的更改已保留。",
                   })}
           {error === "conflict" && conflicts.length > 0 && (
             <p>{new Intl.ListFormat(locale).format(conflicts.map((field) => fieldLabels[field] ?? field))}</p>
@@ -326,12 +334,13 @@ export default function ProjectSettingsEditor({
             en: "Project settings saved.",
             fr: "Paramètres du projet enregistrés.",
             de: "Projekteinstellungen gespeichert.",
+            zh: "项目设置已保存。",
           })}
         </PageBanner>
       )}
       {!admin && <SettingsSection
         presentation="compact"
-        title={t({ en: "Project", fr: "Projet", de: "Projekt" })}
+        title={t({ en: "Project", fr: "Projet", de: "Projekt", zh: "项目" })}
       >
         <SettingsItem
           compact
@@ -344,11 +353,13 @@ export default function ProjectSettingsEditor({
                     en: "Can edit",
                     fr: "Modification autorisée",
                     de: "Bearbeitung erlaubt",
+                    zh: "可编辑",
                   })
                 : t({
                     en: "Read only",
                     fr: "Lecture seule",
                     de: "Schreibgeschützt",
+                    zh: "只读",
                   })}
             </UiBadge>
           }
@@ -360,17 +371,20 @@ export default function ProjectSettingsEditor({
                   en: "Project settings are shared with administrators. Platform values are resolved when you save.",
                   fr: "Ces paramètres sont partagés avec les administrateurs. Les valeurs de la plateforme sont résolues à l’enregistrement.",
                   de: "Diese Einstellungen werden mit Administratoren geteilt. Plattformwerte werden beim Speichern ermittelt.",
+                  zh: "项目设置与管理员共享。保存时会解析平台值。",
                 })
               : !settings.delegated_to_portal_managers
                 ? t({
                     en: "Project settings are managed by the platform administrator.",
                     fr: "Les paramètres du projet sont gérés par l’administrateur de la plateforme.",
                     de: "Projekteinstellungen werden vom Plattformadministrator verwaltet.",
+                    zh: "项目设置由平台管理员管理。",
                   })
                 : t({
                     en: "Only delegated project managers can edit these settings.",
                     fr: "Seuls les gestionnaires délégués du projet peuvent modifier ces paramètres.",
                     de: "Nur berechtigte Projektmanager können diese Einstellungen bearbeiten.",
+                    zh: "只有获得委派权限的项目管理员才能编辑这些设置。",
                   })}
           </p>
         )}
@@ -398,6 +412,7 @@ export default function ProjectSettingsEditor({
                 en: "Allowed features",
                 fr: "Fonctions autorisées",
                 de: "Erlaubte Funktionen",
+                zh: "允许的功能",
               })}
             >
               {row(
@@ -406,6 +421,7 @@ export default function ProjectSettingsEditor({
                   en: "Browser workspace access",
                   fr: "Accès à l’espace Browser",
                   de: "Browser-Arbeitsbereich",
+                  zh: "对象浏览工作区访问",
                 }),
                 settings.effective.browser_access_enabled,
               )}
@@ -415,6 +431,7 @@ export default function ProjectSettingsEditor({
                   en: "Private Storage Space creation",
                   fr: "Création d’espaces privés",
                   de: "Private Speicherbereiche erstellen",
+                  zh: "创建私有存储空间",
                 }),
                 settings.effective.allow_private_storage_space_create,
               )}
@@ -424,6 +441,7 @@ export default function ProjectSettingsEditor({
                   en: "Named bucket creation",
                   fr: "Création de buckets nommés",
                   de: "Benannte Buckets erstellen",
+                  zh: "创建指定名称的存储桶",
                 }),
                 settings.effective.allow_portal_named_bucket_create,
               )}
@@ -433,6 +451,7 @@ export default function ProjectSettingsEditor({
                   en: "Personal access keys",
                   fr: "Clés d’accès personnelles",
                   de: "Persönliche Zugriffsschlüssel",
+                  zh: "个人访问密钥",
                 }),
                 settings.effective.allow_portal_user_access_key_create,
               )}
@@ -442,12 +461,14 @@ export default function ProjectSettingsEditor({
                   en: "Server access logging",
                   fr: "Journalisation des accès serveur",
                   de: "Server-Zugriffsprotokollierung",
+                  zh: "服务器访问日志",
                 }),
                 settings.effective.server_access_logging_enabled,
                 t({
                   en: "Collects object activity for project history.",
                   fr: "Collecte l’activité des objets pour l’historique du projet.",
                   de: "Erfasst Objektaktivitäten für den Projektverlauf.",
+                  zh: "采集对象活动，用于项目历史记录。",
                 }),
               )}
               {row(
@@ -456,6 +477,7 @@ export default function ProjectSettingsEditor({
                   en: "Storage Space history cleanup",
                   fr: "Nettoyage de l’historique",
                   de: "Versionsverlauf bereinigen",
+                  zh: "存储空间历史记录清理",
                 }),
                 settings.effective.storage_space_version_cleanup_enabled,
               )}
@@ -466,11 +488,13 @@ export default function ProjectSettingsEditor({
                 en: "New Storage Space defaults",
                 fr: "Valeurs des nouveaux espaces",
                 de: "Standardwerte neuer Speicherbereiche",
+                zh: "新存储空间默认设置",
               })}
               description={t({
                 en: "Applied to new spaces only. Existing spaces keep their configuration.",
                 fr: "Appliquées aux nouveaux espaces. Les espaces existants conservent leur configuration.",
                 de: "Gelten nur für neue Bereiche. Bestehende Bereiche behalten ihre Konfiguration.",
+                zh: "仅应用于新空间。现有空间保留其配置。",
               })}
             >
               {row(
@@ -479,12 +503,13 @@ export default function ProjectSettingsEditor({
                   en: "Versioning",
                   fr: "Gestion des versions",
                   de: "Versionierung",
+                  zh: "版本控制",
                 }),
                 settings.effective.bucket_defaults.versioning,
               )}
               {row(
                 "lifecycle",
-                t({ en: "Lifecycle", fr: "Cycle de vie", de: "Lebenszyklus" }),
+                t({ en: "Lifecycle", fr: "Cycle de vie", de: "Lebenszyklus", zh: "生命周期" }),
                 settings.effective.bucket_defaults.enable_lifecycle,
               )}
               <SettingsItem
@@ -502,7 +527,7 @@ export default function ProjectSettingsEditor({
                       {draft.versionHistoryRetentionOverride && (
                         <SettingsField
                           label={retentionTitle}
-                          unit={t({ en: "Days", fr: "Jours", de: "Tage" })}
+                          unit={t({ en: "Days", fr: "Jours", de: "Tage", zh: "天" })}
                           type="number"
                           min={1}
                           step={1}
@@ -520,6 +545,7 @@ export default function ProjectSettingsEditor({
                                   en: "Enter a positive whole number.",
                                   fr: "Saisissez un entier positif.",
                                   de: "Geben Sie eine positive ganze Zahl ein.",
+                                  zh: "请输入正整数。",
                                 })
                               : undefined
                           }
@@ -550,7 +576,7 @@ export default function ProjectSettingsEditor({
                 description={effective(
                   new Intl.ListFormat(locale).format(
                     settings.effective.bucket_defaults.cors_allowed_origins,
-                  ) || t({ en: "None", fr: "Aucune", de: "Keine" }),
+                  ) || t({ en: "None", fr: "Aucune", de: "Keine", zh: "无" }),
                 )}
                 status={
                   <UiBadge tone="neutral">
@@ -569,6 +595,7 @@ export default function ProjectSettingsEditor({
                             en: "Configure",
                             fr: "Configurer",
                             de: "Konfigurieren",
+                            zh: "配置",
                           })}
                         </SettingsButton>
                       )}
@@ -594,6 +621,7 @@ export default function ProjectSettingsEditor({
                   en: "Restore platform values",
                   fr: "Rétablir les valeurs de la plateforme",
                   de: "Plattformwerte wiederherstellen",
+                  zh: "恢复平台值",
                 })}
               </SettingsButton>
             )}
@@ -608,12 +636,14 @@ export default function ProjectSettingsEditor({
               en: "Save changes",
               fr: "Enregistrer",
               de: "Änderungen speichern",
+              zh: "保存更改",
             })}
             cancelLabel={labels.cancel}
             savingLabel={t({
               en: "Saving...",
               fr: "Enregistrement...",
               de: "Speichern...",
+              zh: "正在保存…",
             })}
           />
         </form>
@@ -633,11 +663,13 @@ export default function ProjectSettingsEditor({
             en: "Restore platform values?",
             fr: "Rétablir les valeurs de la plateforme ?",
             de: "Plattformwerte wiederherstellen?",
+            zh: "恢复平台值？",
           })}
           description={t({
             en: "All project customizations will be removed from your draft. Save to apply this change.",
             fr: "Toutes les personnalisations seront retirées du brouillon. Enregistrez pour appliquer ce changement.",
             de: "Alle Projektanpassungen werden aus Ihrem Entwurf entfernt. Speichern Sie, um diese Änderung anzuwenden.",
+            zh: "所有项目自定义设置都将从草稿中移除。保存后生效。",
           })}
           confirmLabel={labels.apply}
           cancelLabel={labels.cancel}
@@ -673,6 +705,7 @@ export default function ProjectSettingsEditor({
                 en: "One origin per line, or * for all origins.",
                 fr: "Une origine par ligne, ou * pour toutes les origines.",
                 de: "Ein Ursprung pro Zeile oder * für alle Ursprünge.",
+                zh: "每行一个来源，或使用 * 表示所有来源。",
               })}
               <textarea
                 className="w-full rounded border border-[var(--ui-border)] bg-[var(--ui-surface)] p-2"

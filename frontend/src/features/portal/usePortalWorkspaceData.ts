@@ -162,6 +162,7 @@ export function usePortalWorkspaceData({
                 en: "Unable to load portal workspace.",
                 fr: "Impossible de charger l'espace de travail portail.",
                 de: "Portal-Arbeitsbereich kann nicht geladen werden.",
+                zh: "无法加载 Portal 工作区。",
               })
             ),
           });
@@ -201,6 +202,7 @@ export function usePortalWorkspaceData({
                 en: "Unable to load storage spaces.",
                 fr: "Impossible de charger les espaces de stockage.",
                 de: "Storage Spaces konnen nicht geladen werden.",
+                zh: "无法加载存储空间。",
               })
             )
           );
@@ -240,6 +242,7 @@ export function usePortalWorkspaceData({
                 en: "Usage data is unavailable.",
                 fr: "Les donnees d'usage sont indisponibles.",
                 de: "Nutzungsdaten sind nicht verfugbar.",
+                zh: "用量数据不可用。",
               })
             )
           );
@@ -279,6 +282,7 @@ export function usePortalWorkspaceData({
                 en: "Usage trend data is unavailable.",
                 fr: "Les tendances d'usage sont indisponibles.",
                 de: "Nutzungstrends sind nicht verfugbar.",
+                zh: "用量趋势数据不可用。",
               })
             )
           );
@@ -331,6 +335,7 @@ export function usePortalWorkspaceData({
                   en: "Traffic data is unavailable.",
                   fr: "Les donnees de trafic sont indisponibles.",
                   de: "Traffic-Daten sind nicht verfugbar.",
+                  zh: "流量数据不可用。",
                 })
               )
         );
@@ -346,6 +351,7 @@ export function usePortalWorkspaceData({
                 en: "Traffic data is unavailable.",
                 fr: "Les donnees de trafic sont indisponibles.",
                 de: "Traffic-Daten sind nicht verfugbar.",
+                zh: "流量数据不可用。",
               })
             )
           );
@@ -435,6 +441,7 @@ export function usePortalWorkspaceData({
                 en: "Unable to load collaborators.",
                 fr: "Impossible de charger les collaborateurs.",
                 de: "Mitwirkende können nicht geladen werden.",
+                zh: "无法加载协作者。",
               })
             )
           );
@@ -505,14 +512,14 @@ export function usePortalWorkspaceData({
         {
           id: `health-${ongoingIncident.endpoint_id}`,
           tone: ongoingIncident.status === "down" ? "danger" : "warning",
-          title: t({ en: "Storage service availability issue", fr: "Problème de disponibilité du service de stockage", de: "Verfügbarkeitsproblem des Speicherdienstes" }),
+          title: t({ en: "Storage service availability issue", fr: "Problème de disponibilité du service de stockage", de: "Verfügbarkeitsproblem des Speicherdienstes", zh: "存储服务可用性异常" }),
           description:
             ongoingIncident.status === "down"
-              ? t({ en: "One storage service is currently unavailable. Transfers may fail until it recovers.", fr: "Un service de stockage est actuellement indisponible. Les transferts peuvent échouer jusqu'à son rétablissement.", de: "Ein Speicherdienst ist derzeit nicht verfügbar. Übertragungen können fehlschlagen, bis er wiederhergestellt ist." })
-              : t({ en: "One storage service is degraded. Transfers may be slower than usual.", fr: "Un service de stockage est dégradé. Les transferts peuvent être plus lents que d'habitude.", de: "Ein Speicherdienst ist beeinträchtigt. Übertragungen können langsamer als üblich sein." }),
+              ? t({ en: "One storage service is currently unavailable. Transfers may fail until it recovers.", fr: "Un service de stockage est actuellement indisponible. Les transferts peuvent échouer jusqu'à son rétablissement.", de: "Ein Speicherdienst ist derzeit nicht verfügbar. Übertragungen können fehlschlagen, bis er wiederhergestellt ist.", zh: "一个存储服务当前不可用。恢复之前，传输可能失败。" })
+              : t({ en: "One storage service is degraded. Transfers may be slower than usual.", fr: "Un service de stockage est dégradé. Les transferts peuvent être plus lents que d'habitude.", de: "Ein Speicherdienst ist beeinträchtigt. Übertragungen können langsamer als üblich sein.", zh: "一个存储服务性能下降。传输速度可能比平时慢。" }),
           severityLabel: ongoingIncident.status === "down"
-            ? t({ en: "Critical", fr: "Critique", de: "Kritisch" })
-            : t({ en: "Warning", fr: "Avertissement", de: "Warnung" }),
+            ? t({ en: "Critical", fr: "Critique", de: "Kritisch", zh: "严重" })
+            : t({ en: "Warning", fr: "Avertissement", de: "Warnung", zh: "警告" }),
         },
       ];
     }
@@ -521,11 +528,11 @@ export function usePortalWorkspaceData({
         {
           id: "health-degraded",
           tone: health.down_count > 0 ? "danger" : "warning",
-          title: t({ en: "Storage service needs attention", fr: "Le service de stockage demande de l'attention", de: "Speicherdienst erfordert Aufmerksamkeit" }),
-          description: t({ en: "One storage service reported recent availability issues.", fr: "Un service de stockage a signalé des problèmes de disponibilité récents.", de: "Ein Speicherdienst hat kürzlich Verfügbarkeitsprobleme gemeldet." }),
+          title: t({ en: "Storage service needs attention", fr: "Le service de stockage demande de l'attention", de: "Speicherdienst erfordert Aufmerksamkeit", zh: "存储服务需要关注" }),
+          description: t({ en: "One storage service reported recent availability issues.", fr: "Un service de stockage a signalé des problèmes de disponibilité récents.", de: "Ein Speicherdienst hat kürzlich Verfügbarkeitsprobleme gemeldet.", zh: "一个存储服务报告了近期可用性问题。" }),
           severityLabel: health.down_count > 0
-            ? t({ en: "Critical", fr: "Critique", de: "Kritisch" })
-            : t({ en: "Warning", fr: "Avertissement", de: "Warnung" }),
+            ? t({ en: "Critical", fr: "Critique", de: "Kritisch", zh: "严重" })
+            : t({ en: "Warning", fr: "Avertissement", de: "Warnung", zh: "警告" }),
         },
       ];
     }

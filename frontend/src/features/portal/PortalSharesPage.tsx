@@ -104,7 +104,7 @@ function CollaboratorsInventory({
     () => [
       {
         id: "person",
-        label: t({ en: "Person", fr: "Personne", de: "Person" }),
+        label: t({ en: "Person", fr: "Personne", de: "Person", zh: "人员" }),
         primary: true,
         render: (collaborator) => (
           <span className="flex min-w-0 items-center gap-2.5">
@@ -136,6 +136,7 @@ function CollaboratorsInventory({
           en: "Project role",
           fr: "Rôle projet",
           de: "Projektrolle",
+          zh: "项目角色",
         }),
         render: (collaborator) => (
           <UiBadge
@@ -151,7 +152,7 @@ function CollaboratorsInventory({
       },
       {
         id: "source",
-        label: t({ en: "Access", fr: "Accès", de: "Zugriff" }),
+        label: t({ en: "Access", fr: "Accès", de: "Zugriff", zh: "访问权限" }),
         render: (collaborator) =>
           portalAccessSourceLabel(collaborator.access_source, t),
       },
@@ -161,6 +162,7 @@ function CollaboratorsInventory({
           en: "Member since",
           fr: "Membre depuis",
           de: "Mitglied seit",
+          zh: "加入时间",
         }),
         render: (collaborator) =>
           collaborator.member_since
@@ -169,7 +171,7 @@ function CollaboratorsInventory({
       },
       {
         id: "action",
-        label: t({ en: "Action", fr: "Action", de: "Aktion" }),
+        label: t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" }),
         align: "right" as const,
         mobileRole: "actions" as const,
         render: (collaborator) =>
@@ -183,6 +185,7 @@ function CollaboratorsInventory({
                 en: "Review access",
                 fr: "Revoir les accès",
                 de: "Zugriff prüfen",
+                zh: "审查访问权限",
               })}
             </ListActionLink>
           ) : (
@@ -199,11 +202,13 @@ function CollaboratorsInventory({
         en: "Project members",
         fr: "Membres du projet",
         de: "Projektmitglieder",
+        zh: "项目成员",
       })}
       countLabel={t({
         en: `${visibleCollaborators.length} of ${collaborators.length} member${collaborators.length === 1 ? "" : "s"}`,
         fr: `${visibleCollaborators.length} sur ${collaborators.length} membre${collaborators.length > 1 ? "s" : ""}`,
         de: `${visibleCollaborators.length} von ${collaborators.length} Mitglied${collaborators.length === 1 ? "" : "ern"}`,
+        zh: `共 ${collaborators.length} 名成员，显示 ${visibleCollaborators.length} 名`,
       })}
       search={
         <UiInput
@@ -211,6 +216,7 @@ function CollaboratorsInventory({
               en: "Search members",
               fr: "Rechercher des membres",
               de: "Mitglieder suchen",
+              zh: "搜索成员",
             })}
             size="compact"
             className="h-9"
@@ -220,6 +226,7 @@ function CollaboratorsInventory({
               en: "Name, email, or access source...",
               fr: "Nom, email ou source d'accès...",
               de: "Name, E-Mail oder Zugriffsquelle...",
+              zh: "姓名、邮箱或访问来源…",
             })}
           />
       }
@@ -233,6 +240,7 @@ function CollaboratorsInventory({
             en: "Loading project members...",
             fr: "Chargement des membres du projet...",
             de: "Projektmitglieder werden geladen...",
+            zh: "正在加载项目成员…",
           })}
           errorMessage={
             error ??
@@ -240,6 +248,7 @@ function CollaboratorsInventory({
               en: "Unable to load project members.",
               fr: "Impossible de charger les membres du projet.",
               de: "Projektmitglieder können nicht geladen werden.",
+              zh: "无法加载项目成员。",
             })
           }
           emptyMessage={
@@ -248,11 +257,13 @@ function CollaboratorsInventory({
                   en: "No member matches this search.",
                   fr: "Aucun membre ne correspond à cette recherche.",
                   de: "Kein Mitglied passt zu dieser Suche.",
+                  zh: "没有符合搜索条件的成员。",
                 })
               : t({
                   en: "No project members to display.",
                   fr: "Aucun membre du projet à afficher.",
                   de: "Keine Projektmitglieder zum Anzeigen.",
+                  zh: "没有可显示的项目成员。",
                 })
           }
           responsiveCards
@@ -415,6 +426,7 @@ export default function PortalSharesPage() {
           en: "Member request sent. Track it in Help requests.",
           fr: "Demande d'ajout envoyée. Suivez-la dans les demandes d'aide.",
           de: "Mitgliedsanfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen.",
+          zh: "成员请求已发送。可在“帮助请求”中查看进度。",
         }),
       );
     } catch (err) {
@@ -426,6 +438,7 @@ export default function PortalSharesPage() {
             en: "Unable to send the member request.",
             fr: "Impossible d'envoyer la demande d'ajout.",
             de: "Mitgliedsanfrage kann nicht gesendet werden.",
+            zh: "无法发送成员请求。",
           }),
         ),
       );
@@ -459,11 +472,13 @@ export default function PortalSharesPage() {
       en: "Loading collaborators...",
       fr: "Chargement des collaborateurs...",
       de: "Mitwirkende werden geladen...",
+      zh: "正在加载协作者…",
     }),
     noAccountMessage: t({
       en: "Select a project to manage collaborators.",
       fr: "Sélectionnez un projet pour gérer les collaborateurs.",
       de: "Wählen Sie ein Projekt aus, um Mitwirkende zu verwalten.",
+      zh: "选择项目以管理协作者。",
     }),
   });
   if (pageState) return pageState;
@@ -474,17 +489,20 @@ export default function PortalSharesPage() {
           en: "Collaborators",
           fr: "Collaborateurs",
           de: "Mitwirkende",
+          zh: "协作者",
         })}
         description={t({
           en: "Review project members and track links shared outside the project.",
           fr: "Revoyez les membres du projet et suivez les liens partagés à l'extérieur.",
           de: "Prüfen Sie Projektmitglieder und verfolgen Sie extern geteilte Links.",
+          zh: "审查项目成员并跟踪共享到项目外部的链接。",
         })}
         breadcrumbs={portalBreadcrumbs({
           label: t({
             en: "Collaborators",
             fr: "Collaborateurs",
             de: "Mitwirkende",
+            zh: "协作者",
           }),
         })}
         actions={[
@@ -495,6 +513,7 @@ export default function PortalSharesPage() {
                     en: "Request member",
                     fr: "Demander un membre",
                     de: "Mitglied anfragen",
+                    zh: "申请添加成员",
                   }),
                   onClick: () => {
                     setMemberRequestError(null);
@@ -510,6 +529,7 @@ export default function PortalSharesPage() {
               en: "Open spaces",
               fr: "Ouvrir les espaces",
               de: "Bereiche öffnen",
+              zh: "打开空间列表",
             }),
             to: "/portal/storage-spaces",
           },
@@ -530,6 +550,7 @@ export default function PortalSharesPage() {
               en: "Project members",
               fr: "Membres du projet",
               de: "Projektmitglieder",
+              zh: "项目成员",
             }),
           },
           {
@@ -538,6 +559,7 @@ export default function PortalSharesPage() {
               en: "External links",
               fr: "Liens externes",
               de: "Externe Links",
+              zh: "外部链接",
             }),
           },
         ]}
@@ -554,6 +576,7 @@ export default function PortalSharesPage() {
           en: "Collaborator overview",
           fr: "Vue d'ensemble des collaborateurs",
           de: "Mitwirkendenübersicht",
+          zh: "协作者概览",
         })}
         idPrefix="portal-collaborators"
       />
@@ -586,6 +609,7 @@ export default function PortalSharesPage() {
                   en: "Create links from a file",
                   fr: "Créer les liens depuis un fichier",
                   de: "Links aus einer Datei erstellen",
+                  zh: "从文件创建链接",
                 })}
               </h2>
               <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>
@@ -593,19 +617,20 @@ export default function PortalSharesPage() {
                   en: "Public links are created from file actions. Use this overview to copy or revoke existing links.",
                   fr: "Les liens publics se créent depuis les actions d'un fichier. Utilisez cette vue pour copier ou révoquer les liens existants.",
                   de: "Öffentliche Links werden über Dateiaktionen erstellt. In dieser Übersicht können Sie vorhandene Links kopieren oder widerrufen.",
+                  zh: "请通过文件操作创建公开链接。在此概览中可复制或撤销现有链接。",
                 })}
               </p>
               {activeManagedTeamSpaces.length > 0 ? (
                 <div className="mt-3 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)_auto] md:items-end">
                   <UiSelect
-                    label={t({ en: "Filter by space", fr: "Filtrer par espace", de: "Nach Bereich filtern" })}
+                    label={t({ en: "Filter by space", fr: "Filtrer par espace", de: "Nach Bereich filtern", zh: "按空间筛选" })}
                     size="compact"
                     className="h-9"
                     value={selectedLinkSpaceId}
                     onChange={(event) => setSelectedLinkSpaceId(event.target.value)}
                   >
                     <option value="">
-                      {t({ en: "All spaces", fr: "Tous les espaces", de: "Alle Bereiche" })}
+                      {t({ en: "All spaces", fr: "Tous les espaces", de: "Alle Bereiche", zh: "所有空间" })}
                     </option>
                     {activeManagedTeamSpaces.map((space) => (
                       <option key={space.id} value={space.id}>
@@ -618,6 +643,7 @@ export default function PortalSharesPage() {
                       en: `${activePublicLinkCount} active link${activePublicLinkCount === 1 ? "" : "s"} in this view`,
                       fr: `${activePublicLinkCount} lien${activePublicLinkCount > 1 ? "s" : ""} actif${activePublicLinkCount > 1 ? "s" : ""} dans cette vue`,
                       de: `${activePublicLinkCount} aktive Link${activePublicLinkCount === 1 ? "" : "s"} in dieser Ansicht`,
+                      zh: `当前视图中有 ${activePublicLinkCount} 个有效链接`,
                     })}
                   </div>
                   <Link
@@ -633,8 +659,8 @@ export default function PortalSharesPage() {
                     )}
                   >
                     {selectedPublicLinkSpace
-                      ? t({ en: "Open files", fr: "Ouvrir les fichiers", de: "Dateien öffnen" })
-                      : t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen" })}
+                      ? t({ en: "Open files", fr: "Ouvrir les fichiers", de: "Dateien öffnen", zh: "打开文件" })
+                      : t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen", zh: "打开空间列表" })}
                   </Link>
                 </div>
               ) : (
@@ -643,6 +669,7 @@ export default function PortalSharesPage() {
                     en: "Only project managers can create public links from active team spaces.",
                     fr: "Seuls les gestionnaires du projet peuvent créer des liens publics depuis les espaces d'équipe actifs.",
                     de: "Nur Projektmanager können öffentliche Links aus aktiven Teambereichen erstellen.",
+                    zh: "只有项目管理员可以为活跃团队空间创建公开链接。",
                   })}
                 </PageBanner>
               )}
@@ -654,13 +681,14 @@ export default function PortalSharesPage() {
               showSpaceColumn
               showCopyForInactive
               expirationFormat="date"
-              copyLabel={t({ en: "Copy", fr: "Copier", de: "Kopieren" })}
+              copyLabel={t({ en: "Copy", fr: "Copier", de: "Kopieren", zh: "复制" })}
               onCopy={copyPublicLink}
               onRevoke={handleRevokePublicLink}
               emptyMessage={t({
                 en: "No external links in this view.",
                 fr: "Aucun lien externe dans cette vue.",
                 de: "Keine externen Links in dieser Ansicht.",
+                zh: "当前视图中没有外部链接。",
               })}
             />
             </div>
@@ -674,6 +702,7 @@ export default function PortalSharesPage() {
             en: "Request a project member",
             fr: "Demander l'ajout d'un membre",
             de: "Projektmitglied anfragen",
+            zh: "申请添加项目成员",
           })}
           onClose={closeMemberRequest}
           closeOnBackdropClick={!memberRequestBusy}
@@ -682,14 +711,14 @@ export default function PortalSharesPage() {
           <form className="grid gap-3" onSubmit={handleMemberRequest}>
             {memberRequestError ? <PageBanner tone="error">{memberRequestError}</PageBanner> : null}
             <UiInput
-              label={t({ en: "Name", fr: "Nom", de: "Name" })}
+              label={t({ en: "Name", fr: "Nom", de: "Name", zh: "姓名" })}
               value={memberRequestName}
               onChange={(event) => setMemberRequestName(event.target.value)}
               disabled={memberRequestBusy}
               required
             />
             <UiInput
-              label={t({ en: "Email", fr: "E-mail", de: "E-Mail" })}
+              label={t({ en: "Email", fr: "E-mail", de: "E-Mail", zh: "邮箱" })}
               type="email"
               value={memberRequestEmail}
               onChange={(event) => setMemberRequestEmail(event.target.value)}
@@ -702,6 +731,7 @@ export default function PortalSharesPage() {
                   en: "Reason (optional)",
                   fr: "Motif (optionnel)",
                   de: "Grund (optional)",
+                  zh: "原因（可选）",
                 })}
               </span>
               <textarea
@@ -713,14 +743,14 @@ export default function PortalSharesPage() {
             </label>
             <div className="flex justify-end gap-2">
               <UiButton type="button" variant="secondary" onClick={closeMemberRequest} disabled={memberRequestBusy}>
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
+                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
               </UiButton>
               <UiButton
                 type="submit"
                 loading={memberRequestBusy}
                 disabled={memberRequestBusy || !memberRequestName.trim() || !memberRequestEmail.trim()}
               >
-                {t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden" })}
+                {t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden", zh: "发送请求" })}
               </UiButton>
             </div>
           </form>
