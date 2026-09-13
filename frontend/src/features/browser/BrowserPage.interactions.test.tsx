@@ -5646,6 +5646,14 @@ describe("BrowserPage interactions", () => {
     await user.type(within(modal).getByPlaceholderText("Content-Type"), "text/plain");
     await user.click(within(modal).getByRole("button", { name: "Apply changes" }));
 
+    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket", exact: true });
+    const selectedBucket = bucketSelector.textContent;
+    fireEvent(window, new PopStateEvent("popstate", {
+      state: { browserPage: true, bucketName: "other-bucket", prefix: "other/" },
+    }));
+    expect(bucketSelector.textContent).toBe(selectedBucket);
+    expect(modal).toBeVisible();
+
     const dialog = await openOperationsPanel(user);
     await user.click(await within(dialog).findByRole("button", { name: "Stop" }));
 
@@ -5753,6 +5761,14 @@ describe("BrowserPage interactions", () => {
     });
     await user.click(within(modal).getByRole("button", { name: "Run restore" }));
 
+    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket", exact: true });
+    const selectedBucket = bucketSelector.textContent;
+    fireEvent(window, new PopStateEvent("popstate", {
+      state: { browserPage: true, bucketName: "other-bucket", prefix: "other/" },
+    }));
+    expect(bucketSelector.textContent).toBe(selectedBucket);
+    expect(modal).toBeVisible();
+
     const dialog = await openOperationsPanel(user);
     await user.click(await within(dialog).findByRole("button", { name: "Stop" }));
 
@@ -5796,6 +5812,14 @@ describe("BrowserPage interactions", () => {
     const modal = await screen.findByRole("dialog", { name: "Clean old versions" });
     await user.type(within(modal).getByPlaceholderText("e.g. 3"), "1");
     await user.click(within(modal).getByRole("button", { name: "Run cleanup" }));
+
+    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket", exact: true });
+    const selectedBucket = bucketSelector.textContent;
+    fireEvent(window, new PopStateEvent("popstate", {
+      state: { browserPage: true, bucketName: "other-bucket", prefix: "other/" },
+    }));
+    expect(bucketSelector.textContent).toBe(selectedBucket);
+    expect(modal).toBeVisible();
 
     const dialog = await openOperationsPanel(user);
     await user.click(await within(dialog).findByRole("button", { name: "Stop" }));

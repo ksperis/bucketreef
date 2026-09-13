@@ -211,6 +211,26 @@ Callers retain API payloads, permission checks, field validation and resource
 context; membership identity/reason fields are shared in `PortalRequestFields`.
 Page-history load errors stay outside these dialogs; submission errors stay
 inside, alongside the retained draft so the user can retry.
+Browser bulk attributes, restore-to-date and old-version cleanup also use
+`SettingsFormDialog` because their targets belong to the current selection or
+prefix. Keep the target summary visible and use `UiInput`, `UiSelect` and
+`UiTextarea` with associated labels. Conditional attribute groups share the
+same 12px field rhythm and soft separators; metadata fields use two columns
+when space allows. Restore preview keys wrap without normalizing or truncating
+the object key. Operation hooks retain S3 payloads, version rules, cancellation
+and partial-result summaries. Return their apply promise to lock fields, close
+paths and repeated submissions while an operation runs. A dry-run result does
+not complete the draft: the user can review it and run the restore.
+
+Browser context changes, like Manager context changes, navigate through `ctx`
+before changing provider state or stored preferences. The catalogue derives the
+executor after navigation is accepted, so a keyed outlet cannot erase a draft
+before its route guard runs. Do not expose an eager context-state setter.
+Native bucket/prefix history entries may keep the same URL. While any modal
+owns the Browser interaction, reject those local history transitions too;
+otherwise Back can silently change the targets beneath a pending operation.
+The modal's Close/Cancel controls keep their existing draft confirmation.
+
 Contextual drawers yield Escape and focus trapping whenever `hasOpenModal()` is
 true, including pending dialogs with Escape disabled. A covered drawer must not
 close or rewrite its object URL while the user operates a child dialog.
