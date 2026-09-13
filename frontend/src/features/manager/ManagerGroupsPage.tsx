@@ -15,10 +15,9 @@ import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
+import { workflowPageHostClass } from "../../components/WorkflowPage";
 
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
@@ -28,7 +27,7 @@ import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagerIamCollection } from "./useManagerIamCollection";
-import SettingsForm from "../../components/settings/SettingsForm";
+import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
@@ -37,7 +36,7 @@ const extractError = (err: unknown): string => extractApiError(err, "Unexpected 
 
 export default function ManagerGroupsPage() {
   const deleteConfirmation = useConfirmActionDialog();
-  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, selectedS3AccountId, accessMode } = useS3AccountContext();
+  const { selectedS3AccountType, accountIdForApi, requiresS3AccountSelection, accessMode } = useS3AccountContext();
   const needsS3AccountSelection = requiresS3AccountSelection && !accountIdForApi;
   const isS3User = selectedS3AccountType === "s3_user";
   const [groupFilter, setGroupFilter] = useState("");
@@ -75,7 +74,7 @@ export default function ManagerGroupsPage() {
   const [policySearch, setPolicySearch] = useState("");
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
   const [showPolicyOptions, setShowPolicyOptions] = useState(false);
-  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
     stableSignature({
@@ -150,7 +149,7 @@ export default function ManagerGroupsPage() {
       setPolicySearch("");
       setShowPolicyOptions(false);
       resetInlinePolicyDraftEditor();
-      setShowAdvancedModal(false);
+      setShowCreateForm(false);
       setActionMessage("Group created");
       await load(accountIdForApi);
     } catch (err) {
@@ -188,7 +187,7 @@ export default function ManagerGroupsPage() {
     });
   };
 
-  const openAdvancedModal = () => {
+  const openCreateForm = () => {
     setError(null);
     setAdvancedValidationAttempted(false);
     setAdvancedName("");
@@ -196,7 +195,7 @@ export default function ManagerGroupsPage() {
     setPolicySearch("");
     setShowPolicyOptions(false);
     resetInlinePolicyDraftEditor();
-    setShowAdvancedModal(true);
+    setShowCreateForm(true);
     setAdvancedInitialSignature(
       stableSignature({
         advancedName: "",
@@ -208,8 +207,8 @@ export default function ManagerGroupsPage() {
     );
   };
 
-  const closeAdvancedModal = () => {
-    setShowAdvancedModal(false);
+  const closeCreateForm = () => {
+    setShowCreateForm(false);
     setAdvancedName("");
     setSelectedPolicies([]);
     setPolicySearch("");
@@ -217,11 +216,6 @@ export default function ManagerGroupsPage() {
     resetInlinePolicyDraftEditor();
   };
 
-  const advancedCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showAdvancedModal && advancedCurrentSignature !== advancedInitialSignature,
-    onClose: closeAdvancedModal,
-    disabled: busy !== null,
-  });
 
   const filteredGroups = groups.filter((group) => {
     const needle = groupFilter.trim().toLowerCase();
@@ -283,7 +277,7 @@ export default function ManagerGroupsPage() {
   ];
 
   return (
-    <div className={workflowPageHostClass(showAdvancedModal)}>
+    <div className={workflowPageHostClass(showCreateForm)}>
       <PageHeader actionPresentation="listing"
         title="IAM Groups"
         description="Manage groups using the account root keys."
@@ -293,14 +287,14 @@ export default function ManagerGroupsPage() {
             ? [
                 {
                   label: "Create group",
-                  onClick: openAdvancedModal,
+                  onClick: openCreateForm,
                 },
               ]
             : []
         }
       />
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {needsS3AccountSelection ? (
@@ -343,66 +337,63 @@ export default function ManagerGroupsPage() {
         </ListPageSection>
       )}
 
-      {showAdvancedModal && (
-        <WorkflowPage
+      {showCreateForm && (
+        <SettingsWorkflowForm
           title="Create IAM group"
-          description="Define the group and attach its managed and inline policies in one focused workflow."
+          description="Create a group and assign its managed and inline policies."
           breadcrumbs={managerPageBreadcrumbs("groups", { label: "Create" })}
           backLabel="Back to groups"
-          onBack={advancedCloseGuard.requestClose}
-          width="standard"
+          onClose={closeCreateForm}
           contentVariant="plain"
+          dirty={advancedCurrentSignature !== advancedInitialSignature}
+          error={error} onSubmit={handleAdvancedCreate}
+          busy={busy !== null} disabled={needsS3AccountSelection}
+          submitLabel="Create group" busyLabel="Creating..."
         >
-          {error && <PageBanner tone="error">{error}</PageBanner>}
-          <SettingsForm label="Create IAM group" onSubmit={handleAdvancedCreate}
-            busy={busy !== null} disabled={!selectedS3AccountId} onCancel={advancedCloseGuard.requestClose}
-            submitLabel="Create group" busyLabel="Creating...">
-            <SettingsSection title="Identity" presentation="compact">
-              <div className="settings-fields">
-                <UiInput label="Group name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
-                  placeholder="Group name" error={advancedValidationAttempted && !advancedName.trim() ? "Group name is required." : undefined} />
-              </div>
-            </SettingsSection>
-            <ManagedPolicySelectionPanel
-              title="Attach policies"
-              description="Select managed policies to link immediately."
-              emptyMessage="No policies available. Create them first."
-              footer="Policies can also be attached later from the group page."
-              policies={policies}
-              selectedPolicyArns={selectedPolicies}
-              search={policySearch}
-              expanded={showPolicyOptions}
-              onSearchChange={setPolicySearch}
-              onExpandedChange={setShowPolicyOptions}
-              onSelectionChange={setSelectedPolicies}
-            />
-            <InlinePolicyDraftEditor
-              drafts={inlineDrafts}
-              selectedDraftName={selectedInlineDraftName}
-              draftName={inlineDraftName}
-              draftText={inlinePolicyText}
-              entityLabel="group"
-              mode={inlineDraftMode}
-              expanded={showInlinePolicyOptions}
-              onCreateDraft={handleCreateInlineDraft}
-              onSelectDraft={handleSelectInlineDraft}
-              onDraftNameChange={(value) => {
-                setInlineDraftName(value);
-                setError(null);
-              }}
-              onDraftTextChange={(value) => {
-                setInlinePolicyText(value);
-                setError(null);
-              }}
-              onSaveDraft={handleAddInlineDraft}
-              onRemoveDraft={handleRemoveInlineDraft}
-              onClearDrafts={handleClearInlineDrafts}
-              onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
-              onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
-            />
-          </SettingsForm>
-          {advancedCloseGuard.confirmationDialog}
-        </WorkflowPage>
+          <SettingsSection title="Identity" presentation="compact">
+            <div className="settings-fields">
+              <UiInput label="Group name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+                placeholder="Group name" error={advancedValidationAttempted && !advancedName.trim() ? "Group name is required." : undefined} />
+            </div>
+          </SettingsSection>
+          <ManagedPolicySelectionPanel
+            title="Attach policies"
+            description="Select managed policies to link immediately."
+            emptyMessage="No policies available. Create them first."
+            footer="Policies can also be attached later from the group page."
+            policies={policies}
+            selectedPolicyArns={selectedPolicies}
+            search={policySearch}
+            expanded={showPolicyOptions}
+            onSearchChange={setPolicySearch}
+            onExpandedChange={setShowPolicyOptions}
+            onSelectionChange={setSelectedPolicies}
+          />
+          <InlinePolicyDraftEditor
+            drafts={inlineDrafts}
+            selectedDraftName={selectedInlineDraftName}
+            draftName={inlineDraftName}
+            draftText={inlinePolicyText}
+            entityLabel="group"
+            mode={inlineDraftMode}
+            expanded={showInlinePolicyOptions}
+            onCreateDraft={handleCreateInlineDraft}
+            onSelectDraft={handleSelectInlineDraft}
+            onDraftNameChange={(value) => {
+              setInlineDraftName(value);
+              setError(null);
+            }}
+            onDraftTextChange={(value) => {
+              setInlinePolicyText(value);
+              setError(null);
+            }}
+            onSaveDraft={handleAddInlineDraft}
+            onRemoveDraft={handleRemoveInlineDraft}
+            onClearDrafts={handleClearInlineDrafts}
+            onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
+            onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
+          />
+        </SettingsWorkflowForm>
       )}
       {deleteConfirmation.confirmationDialog}
     </div>
