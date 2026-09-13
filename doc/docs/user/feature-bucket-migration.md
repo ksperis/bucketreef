@@ -34,6 +34,13 @@ Run a comparison or inventory check first when the source and target already con
 
 Migration runs with explicit progress, safety checks, and auditable operator decisions.
 
+Version-aware checks and reads address the exact source object key and version
+ID, including spaces. Streamed object copies also preserve exact tag names and
+values: `" stage "` and `"stage"` are different tag names. Version-aware
+verification reports a mismatch if tags differ between source and target.
+Invalid tag responses from storage stop the affected copy or verification
+instead of silently migrating without tags.
+
 ## You are done when
 
 Prechecks are clean, the run reaches its expected final state, and any cutover, retry, rollback, or source-deletion action is explicitly reviewed.
