@@ -312,6 +312,21 @@ using theme colors and wrapping long values for narrow screens. Context or
 feature changes clear the previous inspection and rows; failed inventory loads
 use the error state rather than the filtered-empty state.
 
+Portal external-tool access creation uses `SettingsWorkflowForm` with compact
+Recipient and Access sections. `SettingsChoiceRow` supports named native radio
+groups as well as independent checkboxes; keep the input's native keyboard
+behavior and the same row presentation. Creation retains the personal IAM key
+limit, owner/manager space eligibility, external scope and one-time secret panel.
+The form guards dirty drafts and pending creation; retries keep the recipient,
+space and permission. A tools page is mounted for one project so late reads
+cannot replace another project's keys or expose the previous creation result.
+
+`PortalToolConnectionDialog` owns its space load and ignores results after it
+closes. It uses `SettingsDialog`, shared controls and compact application rows.
+Load spaces only when the configurator is needed; retain selection on reopening
+and show copy/download feedback inside the dialog. Keep existing-key scope,
+endpoint addressing and secret-free download generation in feature helpers.
+
 `useSettingsRemoteDraft` is shared by SNS and IAM role editing. Mount it for one
 resource and execution context, provide a stable load callback, and disable
 editing/submission until the remote baseline is available. Its retry control

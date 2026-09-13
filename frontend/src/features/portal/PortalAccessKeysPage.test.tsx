@@ -1,8 +1,9 @@
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { transferableAbortController } from "node:util";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-dom";
 import { LanguageProvider } from "../../components/language";
 import PortalAccessKeysPage from "./PortalAccessKeysPage";
 import type { PortalAccessKeysState } from "../../api/portalAccessKeys";
@@ -63,7 +64,7 @@ function renderPage(initialEntry = "/portal/access-keys") {
   return render(
     <LanguageProvider>
       <MemoryRouter initialEntries={[initialEntry]}>
-        <PortalAccessKeysPage />
+        <main><PortalAccessKeysPage /></main>
       </MemoryRouter>
     </LanguageProvider>
   );
@@ -87,6 +88,7 @@ describe("PortalAccessKeysPage", () => {
     cleanup();
     setSessionUserCache(null);
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   beforeEach(() => {
@@ -261,7 +263,7 @@ describe("PortalAccessKeysPage", () => {
     await user.click(within(setupDialog).getByRole("button", { name: "Create tool access" }));
 
     const workflow = getCreateWorkflowPage();
-    expect(within(workflow).getByText(/prefer sharing the Space there/i)).toBeInTheDocument();
+    expect(within(workflow).getByText(/share the space there/i)).toBeInTheDocument();
   });
 
   it("does not offer access creation from the configurator in read-only mode", async () => {
@@ -308,8 +310,9 @@ describe("PortalAccessKeysPage", () => {
     renderPage();
 
     await screen.findByRole("heading", { name: "External S3 tools" });
-    await waitFor(() => expect(mocks.listPortalStorageSpaces).toHaveBeenCalledWith("101", { sort: "name" }));
+    expect(mocks.listPortalStorageSpaces).not.toHaveBeenCalled();
     const setupDialog = await openSetupDialog(user);
+    await waitFor(() => expect(mocks.listPortalStorageSpaces).toHaveBeenCalledWith("101", { sort: "name" }));
     const cyberduckLink = within(setupDialog).getByRole("link", { name: /Install Cyberduck from the official site/ });
     const mountainDuckLink = within(setupDialog).getByRole("link", { name: /Install Mountain Duck from the official site/ });
     const winScpLink = within(setupDialog).getByRole("link", { name: /Install WinSCP from the official site/ });
@@ -560,6 +563,135 @@ describe("PortalAccessKeysPage", () => {
     expect(within(deleteDialog).getByText("External tools using this access stop working immediately.")).toBeInTheDocument();
     await user.click(within(deleteDialog).getByRole("button", { name: "Delete access" }));
     await waitFor(() => expect(mocks.deletePortalAccessKey).toHaveBeenCalledWith("101", "AK-USER"));
+  });
+
+  it("guards an edited access draft on close, reload and route navigation", async () => {
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
+    setSessionUserCache({ role: "ui_user", authType: "password" });
+    const user = userEvent.setup();
+    const router = createMemoryRouter([
+      { path: "/portal/access-keys", element: <PortalAccessKeysPage /> },
+      { path: "/portal", element: <p>Portal destination</p> },
+    ], { initialEntries: ["/portal/access-keys"] });
+    render(<LanguageProvider><RouterProvider router={router} /></LanguageProvider>);
+    await screen.findByText("AK-USER");
+    await user.click(screen.getByRole("button", { name: "New tool access" }));
+    await user.click(screen.getByRole("radio", { name: "For an external user" }));
+    await user.type(screen.getByRole("textbox", { name: "External user" }), "External partner");
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Back to tool access" }));
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByRole("textbox", { name: "External user" })).toHaveValue("External partner");
+    await user.click(within(getCreateWorkflowPage()).getByRole("link", { name: "Portal", exact: true }));
+    expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    expect(await screen.findByText("Portal destination")).toBeVisible();
+    expect(mocks.createPortalAccessKey).not.toHaveBeenCalled();
+    router.dispose();
+  });
+
+  it("locks a pending creation, retains its failed draft and exposes the secret only after retry succeeds", async () => {
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
+    setSessionUserCache({ role: "ui_user", authType: "password" });
+    const user = userEvent.setup();
+    let reject!: (error: Error) => void;
+    mocks.createPortalAccessKey.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+    const router = createMemoryRouter([
+      { path: "/portal/access-keys", element: <PortalAccessKeysPage /> },
+      { path: "/portal", element: <p>Portal destination</p> },
+    ], { initialEntries: ["/portal/access-keys"] });
+    render(<LanguageProvider><RouterProvider router={router} /></LanguageProvider>);
+    await screen.findByText("AK-USER");
+    await user.click(screen.getByRole("button", { name: "New tool access" }));
+    await user.click(screen.getByRole("radio", { name: "For an external user" }));
+    await screen.findByRole("option", { name: "Research Data" });
+    await user.type(screen.getByRole("textbox", { name: "External user" }), "Partner name");
+    await user.click(screen.getByRole("radio", { name: "Read/write" }));
+    await user.type(screen.getByRole("textbox", { name: "External user" }), "{Enter}");
+    fireEvent.submit(screen.getByRole("form", { name: "Create S3 tool access" }));
+    expect(mocks.createPortalAccessKey).toHaveBeenCalledOnce();
+    expect(mocks.createPortalAccessKey).toHaveBeenCalledWith("101", {
+      target_type: "external", storage_space_id: "research-data", external_email: "Partner name", permission: "read_write",
+    });
+    expect(screen.getByRole("textbox", { name: "External user" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "For myself" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to tool access" })).toBeDisabled();
+    await user.click(within(getCreateWorkflowPage()).getByRole("link", { name: "Portal", exact: true }));
+    expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    await act(async () => reject(new Error("Create temporarily unavailable")));
+    expect(screen.getAllByText("Create temporarily unavailable")).toHaveLength(1);
+    expect(screen.getByRole("textbox", { name: "External user" })).toHaveValue("Partner name");
+    expect(screen.getByRole("radio", { name: "Read/write" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Create access" }));
+    expect(await screen.findByRole("button", { name: "Copy secret key" })).toBeVisible();
+    expect(screen.queryByRole("form", { name: "Create S3 tool access" })).not.toBeInTheDocument();
+    expect(mocks.createPortalAccessKey).toHaveBeenCalledTimes(2);
+    expect(router.state.location.pathname).toBe("/portal/access-keys");
+    router.dispose();
+  });
+
+  it("retries an owned-space read without losing the external recipient or admitting archived and viewer spaces", async () => {
+    const user = userEvent.setup();
+    mocks.listPortalStorageSpaces.mockRejectedValueOnce(new Error("Spaces unavailable"));
+    mocks.listPortalStorageSpaces.mockResolvedValueOnce([
+      { id: "viewer", name: "Viewer only", role: "Viewer" },
+      { id: "archived", name: "Archived", role: "Owner", archived_at: "2026-09-01T00:00:00Z" },
+      { id: "managed", name: "Managed space", role: "Manager" },
+    ]);
+    renderPage();
+    await screen.findByText("AK-USER");
+    await user.click(screen.getByRole("button", { name: "New tool access" }));
+    await user.click(screen.getByRole("radio", { name: "For an external user" }));
+    await user.type(screen.getByRole("textbox", { name: "External user" }), "partner@example.test");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Spaces unavailable");
+    expect(screen.getByRole("button", { name: "Create access" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("option", { name: "Managed space" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Viewer only" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Archived" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "External user" })).toHaveValue("partner@example.test");
+    expect(screen.getByRole("button", { name: "Create access" })).toBeEnabled();
+    expect(await axe(getCreateWorkflowPage())).toHaveNoViolations();
+  });
+
+  it("ignores late project reads after switching the mounted tools page", async () => {
+    let finish!: (state: PortalAccessKeysState) => void;
+    mocks.fetchPortalAccessKeysState.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const view = renderPage();
+    await waitFor(() => expect(mocks.fetchPortalAccessKeysState).toHaveBeenCalledWith("101"));
+    mocks.account = { ...mocks.account, accountIdForApi: "102" };
+    mocks.fetchPortalAccessKeysState.mockResolvedValueOnce({ ...mocks.state, access_keys: [{ access_key_id: "NEW-PROJECT", is_active: true }] });
+    view.rerender(<LanguageProvider><MemoryRouter><main><PortalAccessKeysPage /></main></MemoryRouter></LanguageProvider>);
+    expect(await screen.findByText("NEW-PROJECT")).toBeVisible();
+    await act(async () => finish(mocks.state));
+    expect(screen.queryByText("AK-USER")).not.toBeInTheDocument();
+    expect(screen.getByText("NEW-PROJECT")).toBeVisible();
+  });
+
+  it("ignores closed-dialog space reads and reports clipboard failures inside the configurator", async () => {
+    const user = userEvent.setup();
+    let finish!: (spaces: unknown[]) => void;
+    mocks.listPortalStorageSpaces.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    renderPage();
+    let dialog = await openSetupDialog(user);
+    await user.click(within(dialog).getByRole("button", { name: "Close modal" }));
+    dialog = await openSetupDialog(user);
+    expect(await within(dialog).findByRole("option", { name: "Research Data" })).toBeInTheDocument();
+    await act(async () => finish([{ id: "old-space", name: "Old space", role: "Owner" }]));
+    expect(within(dialog).queryByRole("option", { name: "Old space" })).not.toBeInTheDocument();
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Space" }), "shared-readonly");
+    await user.click(within(dialog).getByText("Advanced tools and manual setup"));
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(new Error("Permission denied"));
+    await user.click(within(dialog).getByRole("button", { name: "Copy Access ID: AK-USER" }));
+    expect(await within(dialog).findByRole("status")).toHaveTextContent("Unable to copy this value.");
+    await user.click(within(dialog).getByRole("button", { name: "Close modal" }));
+    dialog = await openSetupDialog(user);
+    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: "Space" })).toHaveValue("shared-readonly"));
+    expect(within(dialog).queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("disables mutations when access-key management is disabled", async () => {
