@@ -1,3 +1,4 @@
+import { BrowserRouter, useNavigate } from "react-router-dom";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBrowserNavigationHistory } from "./useBrowserNavigationHistory";
@@ -5,7 +6,7 @@ import { useBrowserNavigationHistory } from "./useBrowserNavigationHistory";
 describe("useBrowserNavigationHistory", () => {
   beforeEach(() => {
     window.history.replaceState(
-      { source: "route" },
+      { usr: { source: "route" }, key: "initial", idx: 0 },
       "",
       "/browser?view=objects#content",
     );
@@ -26,17 +27,14 @@ describe("useBrowserNavigationHistory", () => {
           prefix,
           onNavigate,
         }),
-      { initialProps: { prefix: "" } },
+      { initialProps: { prefix: "" }, wrapper: BrowserRouter },
     );
 
     await waitFor(() => expect(replaceState).toHaveBeenCalledTimes(1));
     expect(replaceState).toHaveBeenCalledWith(
-      {
-        source: "route",
-        browserPage: true,
-        bucketName: "bucket-a",
-        prefix: "",
-      },
+      expect.objectContaining({
+        usr: { source: "route", browserPage: true, bucketName: "bucket-a", prefix: "" }, idx: 0,
+      }),
       "",
       "/browser?view=objects#content",
     );
@@ -44,12 +42,9 @@ describe("useBrowserNavigationHistory", () => {
     rerender({ prefix: "folder/" });
     await waitFor(() => expect(pushState).toHaveBeenCalledTimes(1));
     expect(pushState).toHaveBeenLastCalledWith(
-      {
-        source: "route",
-        browserPage: true,
-        bucketName: "bucket-a",
-        prefix: "folder/",
-      },
+      expect.objectContaining({
+        usr: { source: "route", browserPage: true, bucketName: "bucket-a", prefix: "folder/" }, idx: 1,
+      }),
       "",
       "/browser?view=objects#content",
     );
@@ -65,21 +60,21 @@ describe("useBrowserNavigationHistory", () => {
           prefix,
           onNavigate,
         }),
-      { initialProps: { prefix: "folder/" } },
+      { initialProps: { prefix: "folder/" }, wrapper: BrowserRouter },
     );
     await waitFor(() =>
-      expect(window.history.state).toMatchObject({ browserPage: true }),
+      expect(window.history.state).toMatchObject({ usr: { browserPage: true } }),
     );
     pushState.mockClear();
 
     act(() => {
       window.dispatchEvent(
         new PopStateEvent("popstate", {
-          state: {
+          state: { usr: {
             browserPage: true,
             bucketName: "bucket-a",
             prefix: "",
-          },
+          } },
         }),
       );
     });
@@ -102,20 +97,21 @@ describe("useBrowserNavigationHistory", () => {
         prefix: "folder/",
         onNavigate,
       }),
+      { wrapper: BrowserRouter },
     );
     await waitFor(() =>
-      expect(window.history.state).toMatchObject({ browserPage: true }),
+      expect(window.history.state).toMatchObject({ usr: { browserPage: true } }),
     );
     pushState.mockClear();
 
     act(() => {
       window.dispatchEvent(
         new PopStateEvent("popstate", {
-          state: {
+          state: { usr: {
             browserPage: true,
             bucketName: "bucket-a",
             prefix: "",
-          },
+          } },
         }),
       );
     });
@@ -125,18 +121,15 @@ describe("useBrowserNavigationHistory", () => {
       prefix: "",
     });
     expect(pushState).toHaveBeenCalledWith(
-      {
-        source: "route",
-        browserPage: true,
-        bucketName: "bucket-a",
-        prefix: "folder/",
-      },
+      expect.objectContaining({
+        usr: { source: "route", browserPage: true, bucketName: "bucket-a", prefix: "folder/" }, idx: 1,
+      }),
       "",
       "/browser?view=objects#content",
     );
   });
 
-  it("re-anchors the browser after leaving its history entries", async () => {
+  it("leaves router-owned navigation alone outside the explorer history", async () => {
     const pushState = vi.spyOn(window.history, "pushState");
     const onNavigate = vi.fn();
     renderHook(() =>
@@ -145,9 +138,10 @@ describe("useBrowserNavigationHistory", () => {
         prefix: "folder/",
         onNavigate,
       }),
+      { wrapper: BrowserRouter },
     );
     await waitFor(() =>
-      expect(window.history.state).toMatchObject({ browserPage: true }),
+      expect(window.history.state).toMatchObject({ usr: { browserPage: true } }),
     );
     pushState.mockClear();
 
@@ -162,16 +156,21 @@ describe("useBrowserNavigationHistory", () => {
       );
     });
 
-    expect(pushState).toHaveBeenCalledWith(
-      {
-        source: "external",
-        browserPage: true,
-        bucketName: "bucket-a",
-        prefix: "folder/",
-      },
-      "",
-      "/browser?view=objects#content",
-    );
+    expect(pushState).not.toHaveBeenCalled();
     expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it("keeps router indexes distinct when prefix history is followed by another page", async () => {
+    const { result, rerender } = renderHook(({ prefix }) => {
+      useBrowserNavigationHistory({ bucketName: "bucket-a", prefix, onNavigate: () => undefined });
+      return useNavigate();
+    }, { initialProps: { prefix: "" }, wrapper: BrowserRouter });
+    expect(window.history.state.idx).toBe(0);
+    rerender({ prefix: " leading//folder/" });
+    expect(window.history.state.idx).toBe(1);
+    expect(window.history.state.usr.prefix).toBe(" leading//folder/");
+    await act(async () => { await result.current("/portal/requests"); });
+    expect(window.history.state.idx).toBe(2);
+    expect(window.location.pathname).toBe("/portal/requests");
   });
 });

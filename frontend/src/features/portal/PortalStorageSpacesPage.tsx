@@ -1096,7 +1096,7 @@ export default function PortalStorageSpacesPage() {
                 {portalAccessModeDescription("private", t)}
               </div>
             )}
-            <div
+            {effectiveNewAccessMode !== "restricted" && <div
               className={cx("text-[11px] font-semibold", uiMutedTextClass)}
             >
               {portalAccessModeSummary(
@@ -1105,7 +1105,7 @@ export default function PortalStorageSpacesPage() {
                 portalMemberCount,
                 t,
               )}
-            </div>
+            </div>}
           </div>
           {effectiveNewAccessMode === "restricted" ? (
             <PortalShareCandidatePicker
@@ -1201,7 +1201,7 @@ export default function PortalStorageSpacesPage() {
                 de: "Standardrolle für Teammitglieder",
               })}
             />
-            <div
+            {importAccessMode !== "restricted" && <div
               className={cx("text-[11px] font-semibold", uiMutedTextClass)}
             >
               {portalAccessModeSummary(
@@ -1210,7 +1210,7 @@ export default function PortalStorageSpacesPage() {
                 portalMemberCount,
                 t,
               )}
-            </div>
+            </div>}
           </div>
           {importAccessMode === "restricted" ? (
             <PortalShareCandidatePicker

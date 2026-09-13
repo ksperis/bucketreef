@@ -57,6 +57,11 @@ Portal managers can browse and manage every project space.
    header or file area to open the same contextual workflow.
 9. Choose **Add people**, search by name or email, select the least-powerful
    role that fits the work, then confirm **Add people**.
+   Searching preserves the people and roles already selected. Existing invitations
+   remain visible with their current role. If the people list cannot load, use
+   **Retry**; a failed invitation keeps the selection for another attempt.
+   Leaving with unsaved selections asks for confirmation. While an invitation or
+   membership request is being sent, wait for it to finish before leaving.
 10. If no person matches, choose **Request collaborator access**, add their name
    and email, then send the request. An admin must add them to the project
    before you can invite them to a space. Follow the status in **Portal > Help

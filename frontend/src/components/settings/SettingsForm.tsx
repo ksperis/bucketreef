@@ -26,6 +26,8 @@ export default function SettingsForm({
   const Actions = presentation === "dialog" ? ModalActions : SettingsActionBar;
   return (
     <form ref={formRef} aria-label={label} className={presentation === "dialog" ? "settings-stack settings-form" : undefined} noValidate={noValidate} onSubmit={(event) => {
+      // A dialog rendered in a portal must never submit an enclosing workflow.
+      event.stopPropagation();
       event.preventDefault();
       if (!busy && !disabled && !submitDisabled) onSubmit(event);
     }}>
