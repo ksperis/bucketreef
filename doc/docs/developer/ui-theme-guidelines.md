@@ -229,6 +229,22 @@ selected text, shared actions and an announced result. A missing clipboard API
 and a rejected clipboard permission both open the same fallback for paths and
 presigned URLs. A failed presign must not open a copy dialog with no URL.
 
+Read-only collection dialogs compose `ListDialog`: it shares `SettingsDialog`
+geometry, an unframed `ListToolbar`, loaded counts, refresh/pagination controls,
+and announced loading, error and empty states. Retain existing rows while
+loading or after pagination failures; an initial failure must not look like an empty
+collection. The modal body owns vertical scrolling, with no extra height-limited
+list nested inside it. Descriptions and long identifiers wrap within the dialog.
+Browser prefix versions and multipart uploads use responsive `DataTableShell`
+rows with this composition. Counts describe loaded rows, not a server total;
+exports retain the exact keys, versions and prefix. Keep row-action confirmation
+and execution in the existing callers.
+
+The Browser operations overview uses the same collection chrome while retaining
+its timeline cards, group pagination and operation-specific actions. Use shared
+listing buttons and badges, `aria-pressed` for filters, `aria-expanded` for file
+groups and a named progress bar. Closing this read-only view never cancels work.
+
 Browser bulk attributes, restore-to-date and old-version cleanup also use
 `SettingsFormDialog` because their targets belong to the current selection or
 prefix. Keep the target summary visible and use `UiInput`, `UiSelect` and

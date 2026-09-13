@@ -38,11 +38,11 @@ export function BrowserOperationCard({
     <div className="border-b border-[color:var(--ui-border-soft)] py-3 last:border-b-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <p className="ui-caption font-semibold text-[var(--ui-text)]">
+          <p className="ui-caption whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">
             {title}
           </p>
           {subtitle && (
-            <p className="ui-caption text-[var(--ui-text-muted)]">
+            <p className="ui-caption whitespace-pre-wrap [overflow-wrap:anywhere] text-[var(--ui-text-muted)]">
               {subtitle}
             </p>
           )}
@@ -64,7 +64,9 @@ export function BrowserOperationCard({
         </div>
       </div>
       {typeof progress === "number" && (
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--ui-surface-muted)]">
+        <div role="progressbar" aria-label={title} aria-valuemin={0} aria-valuemax={100}
+          aria-valuenow={Math.min(100, Math.max(0, progress))}
+          className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--ui-surface-muted)]">
           <div
             className="h-full bg-primary-500"
             style={{ width: `${progress}%` }}
@@ -169,17 +171,17 @@ function DetailItemRow({
   return (
     <div className="ui-caption flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="truncate font-semibold text-slate-800 dark:text-slate-100">
+        <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">
           {item.label}
         </p>
-        <p className="ui-caption text-slate-400">
+        <p className="ui-caption text-[var(--ui-text-muted)]">
           {label}
           {showSize && item.sizeBytes != null
             ? ` · ${formatBytes(item.sizeBytes)}`
             : ""}
         </p>
         {showError && item.errorMessage && (
-          <p className="ui-caption text-rose-600 dark:text-rose-200">
+          <p className="ui-caption [overflow-wrap:anywhere] text-[var(--list-danger-text)]">
             {item.errorMessage}
           </p>
         )}
@@ -267,6 +269,7 @@ export function BrowserTransferOperationGroupCard({
         <>
           <ListActionButton
             type="button"
+            aria-expanded={expanded}
             onClick={() => onToggleExpanded(group.op.id)}
           >
             {expanded ? "Hide files" : "Show files"}

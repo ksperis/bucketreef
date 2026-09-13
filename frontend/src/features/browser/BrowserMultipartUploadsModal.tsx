@@ -5,9 +5,7 @@
 import { ListActionButton } from "../../components/list/ListControls";
 import type { MultipartUploadItem } from "../../api/browserMultipart";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import Modal from "../../components/Modal";
-import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import ListDialog from "../../components/list/ListDialog";
 
 import { formatDateTime } from "./browserUtils";
 
@@ -40,17 +38,12 @@ export default function BrowserMultipartUploadsModal({
   onAbort,
   onClose,
 }: BrowserMultipartUploadsModalProps) {
-  const tableStatus = resolveListTableStatus({
-    loading,
-    error,
-    rowCount: uploads.length,
-  });
   const uploadColumns: Array<DataTableColumn<MultipartUploadItem>> = [
     {
       id: "key",
       label: "Key",
       primary: true,
-      cellClassName: "max-w-[280px] break-all",
+      cellClassName: "max-w-[280px] break-all whitespace-pre-wrap",
       render: (upload) => upload.key,
     },
     {
@@ -73,7 +66,7 @@ export default function BrowserMultipartUploadsModal({
       id: "owner",
       label: "Owner",
       render: (upload) => (
-        <span className="block max-w-[200px] truncate" title={upload.owner || ""}>
+        <span className="block max-w-[200px] [overflow-wrap:anywhere]">
           {upload.owner || "-"}
         </span>
       ),
@@ -100,52 +93,24 @@ export default function BrowserMultipartUploadsModal({
   ];
 
   return (
-    <Modal title={`Multipart uploads · ${bucketName}`} onClose={onClose} maxWidthClass="max-w-5xl" maxBodyHeightClass="max-h-[75vh]">
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 ui-caption text-slate-600 dark:text-slate-300">
-          <div className="min-w-0">
-            <span className="font-semibold">Bucket {bucketName}</span>
-            <p className="text-slate-500 dark:text-slate-400">In-progress multipart uploads.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {loading && <span className="text-slate-500 dark:text-slate-400">Loading...</span>}
-            <ListActionButton
-              type="button"
-              onClick={onRefresh}
-              disabled={loading}
-            >
-              Refresh
-            </ListActionButton>
-          </div>
-        </div>
-
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
-
-        <DataTableShell
+    <ListDialog title="Multipart uploads" onClose={onClose} maxWidthClass="max-w-5xl"
+      description={`Bucket ${bucketName} · In-progress multipart uploads.`}
+      rowCount={uploads.length} countLabel={`${uploads.length} loaded`}
+      loading={loading || loadingMore} loadingMessage="Loading multipart uploads..." error={error}
+      emptyMessage="No multipart uploads in progress." onRefresh={onRefresh}
+      loadMore={{ available: canLoadMore, onClick: onLoadMore }}>
+      <DataTableShell
           columns={uploadColumns}
           rows={uploads}
           rowKey={getUploadRowId}
-          status={tableStatus}
+          status="ready"
           loadingMessage="Loading multipart uploads..."
           errorMessage="Unable to load multipart uploads."
           emptyMessage="No multipart uploads in progress."
-          containerClassName="max-h-[56vh] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800"
+          containerClassName="rounded-lg border border-[var(--ui-border)]"
           tableClassName="ui-data-table"
           responsiveCards
-        />
-
-        {canLoadMore && (
-          <div className="text-right">
-            <ListActionButton
-              type="button"
-              onClick={onLoadMore}
-              disabled={loading || loadingMore}
-            >
-              {loadingMore ? "Loading..." : "Load more"}
-            </ListActionButton>
-          </div>
-        )}
-      </div>
-    </Modal>
+      />
+    </ListDialog>
   );
 }
