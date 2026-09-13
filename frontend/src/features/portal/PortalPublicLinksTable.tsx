@@ -55,7 +55,7 @@ export default function PortalPublicLinksTable({
         ? [
             {
               id: "space",
-              label: t({ en: "Space", fr: "Espace", de: "Bereich" }),
+              label: t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" }),
               primary: true,
               render: (link: PortalPublicLink) => link.storage_space_name,
             },
@@ -63,7 +63,7 @@ export default function PortalPublicLinksTable({
         : []),
       {
         id: "file",
-        label: t({ en: "File", fr: "Fichier", de: "Datei" }),
+        label: t({ en: "File", fr: "Fichier", de: "Datei", zh: "文件" }),
         primary: !showSpaceColumn,
         cellClassName: fitContainer ? "min-w-0" : undefined,
         render: (link) => (
@@ -74,7 +74,7 @@ export default function PortalPublicLinksTable({
       },
       {
         id: "status",
-        label: t({ en: "Status", fr: "Statut", de: "Status" }),
+        label: t({ en: "Status", fr: "Statut", de: "Status", zh: "状态" }),
         render: (link) => (
           <UiBadge tone={link.status === "Active" ? "success" : "neutral"}>
             {portalPublicLinkStatusLabel(link.status, t)}
@@ -83,7 +83,7 @@ export default function PortalPublicLinksTable({
       },
       {
         id: "expires",
-        label: t({ en: "Expires", fr: "Expire", de: "Läuft ab" }),
+        label: t({ en: "Expires", fr: "Expire", de: "Läuft ab", zh: "过期时间" }),
         render: (link) =>
           link.expires_at
             ? expirationFormat === "date"
@@ -93,7 +93,7 @@ export default function PortalPublicLinksTable({
       },
       {
         id: "url",
-        label: t({ en: "URL", fr: "URL", de: "URL" }),
+        label: t({ en: "URL", fr: "URL", de: "URL", zh: "URL" }),
         cellClassName: fitContainer
           ? "min-w-0 max-w-0 text-primary dark:text-primary-200"
           : "max-w-[260px] text-primary dark:text-primary-200",
@@ -105,7 +105,7 @@ export default function PortalPublicLinksTable({
       },
       {
         id: "action",
-        label: t({ en: "Action", fr: "Action", de: "Aktion" }),
+        label: t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" }),
         align: "right",
         mobileRole: "actions",
         headerClassName: fitContainer ? "!w-56" : undefined,
@@ -129,6 +129,7 @@ export default function PortalPublicLinksTable({
                     en: "Copy link",
                     fr: "Copier le lien",
                     de: "Link kopieren",
+                    zh: "复制链接",
                   })}
               </ListActionButton>
             ) : null}
@@ -139,7 +140,7 @@ export default function PortalPublicLinksTable({
                 onClick={() => onRevoke(link)}
                  variant="danger"
               >
-                {t({ en: "Revoke", fr: "Révoquer", de: "Widerrufen" })}
+                {t({ en: "Revoke", fr: "Révoquer", de: "Widerrufen", zh: "撤销" })}
               </ListActionButton>
             ) : null}
           </div>
@@ -170,6 +171,7 @@ export default function PortalPublicLinksTable({
         en: "Loading links...",
         fr: "Chargement des liens...",
         de: "Links werden geladen...",
+        zh: "正在加载链接…",
       })}
       errorMessage={
         errorMessage ??
@@ -177,6 +179,7 @@ export default function PortalPublicLinksTable({
           en: "Unable to load links.",
           fr: "Impossible de charger les liens.",
           de: "Links können nicht geladen werden.",
+          zh: "无法加载链接。",
         })
       }
       emptyMessage={emptyMessage}

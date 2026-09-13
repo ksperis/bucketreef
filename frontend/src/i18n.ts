@@ -5,11 +5,11 @@
 import { useCallback } from "react";
 import { useOptionalLanguage, type UiLanguage } from "./components/language";
 
-export type I18nMessage = string | { en?: string; fr?: string; de?: string };
+export type I18nMessage = string | { en?: string; fr?: string; de?: string; zh?: string };
 
 export function translate(message: I18nMessage, locale: UiLanguage = "en"): string {
   if (typeof message === "string") return message;
-  return message[locale] ?? message.en ?? message.fr ?? message.de ?? "";
+  return message[locale] ?? message.en ?? message.fr ?? message.de ?? message.zh ?? "";
 }
 
 export function useI18n() {

@@ -22,17 +22,18 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
+import type { UiLanguage } from "../../components/language";
 import type { PortalWorkspaceSpace } from "./portalWorkspaceModel";
 
 const MAX_ICON_BYTES = 1024 * 1024;
 const ALLOWED_ICON_TYPES = new Set(["image/png", "image/jpeg"]);
 
-const presetLabels: Record<StorageSpaceIconPreset, { en: string; fr: string; de: string }> = {
-  bucket: { en: "Bucket", fr: "Seau", de: "Bucket" },
-  folder: { en: "Folder", fr: "Dossier", de: "Ordner" },
-  archive: { en: "Archive", fr: "Archive", de: "Archiv" },
-  database: { en: "Database", fr: "Base de données", de: "Datenbank" },
-  media: { en: "Media", fr: "Médias", de: "Medien" },
+const presetLabels: Record<StorageSpaceIconPreset, Record<UiLanguage, string>> = {
+  bucket: { en: "Bucket", fr: "Seau", de: "Bucket", zh: "存储桶" },
+  folder: { en: "Folder", fr: "Dossier", de: "Ordner", zh: "文件夹" },
+  archive: { en: "Archive", fr: "Archive", de: "Archiv", zh: "归档" },
+  database: { en: "Database", fr: "Base de données", de: "Datenbank", zh: "数据库" },
+  media: { en: "Media", fr: "Médias", de: "Medien", zh: "媒体" },
 };
 
 export default function StorageSpaceIconPickerModal({
@@ -81,6 +82,7 @@ export default function StorageSpaceIconPickerModal({
         en: "Choose a PNG or JPEG image.",
         fr: "Choisissez une image PNG ou JPEG.",
         de: "Wählen Sie ein PNG- oder JPEG-Bild.",
+        zh: "请选择 PNG 或 JPEG 图片。",
       }));
       fileInput.current?.focus();
       return;
@@ -105,6 +107,7 @@ export default function StorageSpaceIconPickerModal({
         en: "Unable to update the Storage Space icon.",
         fr: "Impossible de mettre à jour l’icône de l’espace.",
         de: "Das Symbol des Speicherbereichs konnte nicht aktualisiert werden.",
+        zh: "无法更新存储空间图标。",
       })));
     } finally {
       pending.current = false;
@@ -115,7 +118,7 @@ export default function StorageSpaceIconPickerModal({
   return (
     <>
     <Modal
-      title={t({ en: "Storage Space icon", fr: "Icône de l’espace", de: "Speicherbereichssymbol" })}
+      title={t({ en: "Storage Space icon", fr: "Icône de l’espace", de: "Speicherbereichssymbol", zh: "存储空间图标" })}
       onClose={guard.requestClose}
       initialFocusRef={initialFocus}
       closeLabel={labels.close}
@@ -126,18 +129,19 @@ export default function StorageSpaceIconPickerModal({
     >
       <div className="settings-stack" ref={(node) => { initialFocus.current = node?.querySelector('input:checked') ?? null; }}>
         {source === "uploaded" && !preview && initialSource === "uploaded" && <StorageSpaceIcon icon={space.icon} name={space.name} size="md" decorative />}
-        {source === "uploaded" && preview && <img src={preview} alt={t({ en: "Icon preview", fr: "Aperçu de l’icône", de: "Symbolvorschau" })} className="h-16 w-16 rounded object-contain" />}
+        {source === "uploaded" && preview && <img src={preview} alt={t({ en: "Icon preview", fr: "Aperçu de l’icône", de: "Symbolvorschau", zh: "图标预览" })} className="h-16 w-16 rounded object-contain" />}
         <p className={cx("settings-body", uiMutedTextClass)}>
           {t({
             en: "Choose a pictogram or upload a custom PNG/JPEG image (1 MiB maximum).",
             fr: "Choisissez un pictogramme ou importez une image PNG/JPEG personnalisée (1 Mio maximum).",
             de: "Wählen Sie ein Piktogramm oder laden Sie ein eigenes PNG-/JPEG-Bild hoch (maximal 1 MiB).",
+            zh: "选择图形图标，或上传自定义 PNG/JPEG 图片（最大 1 MiB）。",
           })}
         </p>
 
         <fieldset>
           <legend className="mb-2 settings-label">
-            {t({ en: "Pictograms", fr: "Pictogrammes", de: "Piktogramme" })}
+            {t({ en: "Pictograms", fr: "Pictogrammes", de: "Piktogramme", zh: "图形图标" })}
           </legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {storageSpaceIconPresets.map((candidate) => {
@@ -197,7 +201,7 @@ export default function StorageSpaceIconPickerModal({
                 setError(null);
               }}
             />
-            {t({ en: "Custom image", fr: "Image personnalisée", de: "Eigenes Bild" })}
+            {t({ en: "Custom image", fr: "Image personnalisée", de: "Eigenes Bild", zh: "自定义图片" })}
           </span>
           <input
             type="file"
@@ -206,7 +210,7 @@ export default function StorageSpaceIconPickerModal({
             aria-describedby={error ? "space-icon-error" : undefined}
             disabled={busy}
             accept="image/png,image/jpeg"
-            aria-label={t({ en: "Custom image file", fr: "Fichier image personnalisé", de: "Eigene Bilddatei" })}
+            aria-label={t({ en: "Custom image file", fr: "Fichier image personnalisé", de: "Eigene Bilddatei", zh: "自定义图片文件" })}
             className="mt-3 block w-full settings-body"
             onChange={(event) => {
               const nextFile = event.target.files?.[0] ?? null;
@@ -214,12 +218,12 @@ export default function StorageSpaceIconPickerModal({
               setError(null);
               if (nextFile && !ALLOWED_ICON_TYPES.has(nextFile.type)) {
                 setFile(null);
-                setError(t({ en: "The image must be a PNG or JPEG file.", fr: "L’image doit être un fichier PNG ou JPEG.", de: "Das Bild muss eine PNG- oder JPEG-Datei sein." }));
+                setError(t({ en: "The image must be a PNG or JPEG file.", fr: "L’image doit être un fichier PNG ou JPEG.", de: "Das Bild muss eine PNG- oder JPEG-Datei sein.", zh: "图片必须是 PNG 或 JPEG 文件。" }));
                 return;
               }
               if (nextFile && nextFile.size > MAX_ICON_BYTES) {
                 setFile(null);
-                setError(t({ en: "The image must be 1 MiB or smaller.", fr: "L’image ne doit pas dépasser 1 Mio.", de: "Das Bild darf höchstens 1 MiB groß sein." }));
+                setError(t({ en: "The image must be 1 MiB or smaller.", fr: "L’image ne doit pas dépasser 1 Mio.", de: "Das Bild darf höchstens 1 MiB groß sein.", zh: "图片大小不得超过 1 MiB。" }));
                 return;
               }
               setFile(nextFile);
@@ -231,10 +235,10 @@ export default function StorageSpaceIconPickerModal({
 
         <ModalActions>
           <UiButton variant="secondary" onClick={guard.requestClose} disabled={busy}>
-            {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
+            {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
           </UiButton>
           <UiButton onClick={save} loading={busy} disabled={!dirty || busy}>
-            {t({ en: "Save icon", fr: "Enregistrer l’icône", de: "Symbol speichern" })}
+            {t({ en: "Save icon", fr: "Enregistrer l’icône", de: "Symbol speichern", zh: "保存图标" })}
           </UiButton>
         </ModalActions>
       </div>

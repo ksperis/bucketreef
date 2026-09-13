@@ -5,7 +5,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { readStoredUser, SESSION_USER_UPDATED_EVENT } from "../utils/workspaces";
 
-export type UiLanguage = "en" | "fr" | "de";
+export type UiLanguage = "en" | "fr" | "de" | "zh";
 export type UiLanguagePreference = UiLanguage | "auto";
 
 type LanguageContextValue = {
@@ -15,7 +15,7 @@ type LanguageContextValue = {
   setLanguagePreference: (preference: UiLanguagePreference) => void;
 };
 
-const SUPPORTED_LANGUAGES: UiLanguage[] = ["en", "fr", "de"];
+const SUPPORTED_LANGUAGES: UiLanguage[] = ["en", "fr", "de", "zh"];
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
@@ -23,7 +23,7 @@ function parseStoredUserLanguage(): UiLanguagePreference {
   if (typeof window === "undefined") return "auto";
   const parsed = readStoredUser();
   const lang = parsed?.ui_language;
-  if (lang === "en" || lang === "fr" || lang === "de") {
+  if (lang === "en" || lang === "fr" || lang === "de" || lang === "zh") {
     return lang;
   }
   return "auto";
@@ -37,6 +37,12 @@ function detectBrowserLanguage(): UiLanguage {
   for (const candidate of candidates) {
     const normalized = String(candidate ?? "").toLowerCase();
     const base = normalized.split("-")[0];
+    // Only auto-select Simplified Chinese. Traditional Chinese can still opt in
+    // explicitly through the profile language selector.
+    if (base === "zh") {
+      if (normalized.includes("hant") || /(?:^|-)(tw|hk|mo)(?:-|$)/.test(normalized)) continue;
+      return "zh";
+    }
     if (SUPPORTED_LANGUAGES.includes(base as UiLanguage)) {
       return base as UiLanguage;
     }
@@ -61,7 +67,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof document !== "undefined") {
-      document.documentElement.lang = language;
+      document.documentElement.lang = language === "zh" ? "zh-Hans" : language;
     }
   }, [language]);
 

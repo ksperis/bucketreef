@@ -99,6 +99,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
             en: "Cleanup canceled.",
             fr: "Nettoyage annulé.",
             de: "Bereinigung abgebrochen.",
+            zh: "清理已取消。",
           }),
         );
       } else {
@@ -109,6 +110,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
               en: "Unable to clean up this Storage Space history.",
               fr: "Impossible de nettoyer l'historique de cet espace.",
               de: "Der Verlauf dieses Bereichs kann nicht bereinigt werden.",
+              zh: "无法清理此存储空间的历史记录。",
             }),
           ),
         );
@@ -151,15 +153,17 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
         en: "Clean up history",
         fr: "Nettoyer l'historique",
         de: "Historie bereinigen",
+        zh: "清理历史记录",
       })}
       description={t({
         en: "Review the impact, follow the complete scan and keep the cleanup result visible.",
         fr: "Vérifiez l'impact, suivez l'analyse complète et conservez le résultat du nettoyage visible.",
         de: "Prüfen Sie die Auswirkungen, verfolgen Sie den vollständigen Scan und behalten Sie das Ergebnis sichtbar.",
+        zh: "检查操作影响，跟踪完整扫描过程，并保留清理结果以便查看。",
       })}
       breadcrumbs={portalBreadcrumbs(
         {
-          label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche" }),
+          label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche", zh: "空间" }),
           to: "/portal/storage-spaces",
         },
         { label: spaceName },
@@ -168,6 +172,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
             en: "History cleanup",
             fr: "Nettoyage de l'historique",
             de: "Historienbereinigung",
+            zh: "历史记录清理",
           }),
         },
       )}
@@ -175,6 +180,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
         en: "Back to the space",
         fr: "Retour à l'espace",
         de: "Zurück zum Bereich",
+        zh: "返回空间",
       })}
       onBack={running ? undefined : onClose}
       width="standard"
@@ -186,13 +192,14 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
             en: "This scans the entire space, deletes older file versions, then removes leftover deletion records. Current files are kept, but deleted history cannot be restored from Portal.",
             fr: "Cette opération parcourt tout l'espace, supprime les anciennes versions de fichiers, puis retire les traces de suppression restantes. Les fichiers courants sont conservés, mais l'historique supprimé ne pourra pas être restauré depuis Portal.",
             de: "Diese Aktion durchsucht den gesamten Bereich, löscht ältere Dateiversionen und entfernt verbliebene Löschvermerke. Aktuelle Dateien bleiben erhalten, gelöschte Historie kann in Portal aber nicht wiederhergestellt werden.",
+            zh: "此操作会扫描整个空间，删除旧文件版本，再移除残留删除记录。当前文件会保留，但删除的历史记录无法从 Portal 恢复。",
           })}
         </PageBanner>
 
         <dl className="grid gap-3 text-xs sm:grid-cols-2">
           <div>
             <dt className={cx("font-semibold uppercase", uiMutedTextClass)}>
-              {t({ en: "Space", fr: "Espace", de: "Bereich" })}
+              {t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" })}
             </dt>
             <dd className={cx("mt-1 break-all font-bold", uiTitleTextClass)}>
               {spaceName}
@@ -204,6 +211,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                 en: "Current storage",
                 fr: "Stockage courant",
                 de: "Aktueller Speicher",
+                zh: "当前存储用量",
               })}
             </dt>
             <dd className={cx("mt-1 font-bold", uiTitleTextClass)}>
@@ -227,11 +235,13 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                         en: `at least ${formatCompactNumber(progress.delete_candidates)}`,
                         fr: `au moins ${formatCompactNumber(progress.delete_candidates)}`,
                         de: `mindestens ${formatCompactNumber(progress.delete_candidates)}`,
+                        zh: `至少 ${formatCompactNumber(progress.delete_candidates)}`,
                       })
                     : t({
                         en: "discovering",
                         fr: "détection",
                         de: "wird ermittelt",
+                        zh: "正在查找",
                       })}
               </p>
             </div>
@@ -243,6 +253,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                   en: "Storage Space history cleanup progress",
                   fr: "Progression du nettoyage de l'historique",
                   de: "Fortschritt der Historienbereinigung",
+                  zh: "存储空间历史记录清理进度",
                 })}
               >
                 <div className="h-full w-full animate-pulse rounded-full bg-rose-500/70" />
@@ -254,6 +265,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                   en: "Storage Space history cleanup progress",
                   fr: "Progression du nettoyage de l'historique",
                   de: "Fortschritt der Historienbereinigung",
+                  zh: "存储空间历史记录清理进度",
                 })}
                 className="mt-2 h-2 bg-[var(--ui-surface-muted)]"
                 barClassName="bg-rose-600 transition-[width] duration-150 ease-out"
@@ -264,6 +276,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                 en: `${formatCompactNumber(progress.scanned_versions)} versions scanned, ${formatCompactNumber(progress.scanned_delete_markers)} delete markers scanned, ${formatBytes(progress.bytes_freed)} gained so far.`,
                 fr: `${formatCompactNumber(progress.scanned_versions)} versions scannées, ${formatCompactNumber(progress.scanned_delete_markers)} delete markers scannés, ${formatBytes(progress.bytes_freed)} gagnés pour l'instant.`,
                 de: `${formatCompactNumber(progress.scanned_versions)} Versionen geprüft, ${formatCompactNumber(progress.scanned_delete_markers)} Delete Marker geprüft, bisher ${formatBytes(progress.bytes_freed)} frei geworden.`,
+                zh: `已扫描 ${formatCompactNumber(progress.scanned_versions)} 个版本、${formatCompactNumber(progress.scanned_delete_markers)} 个删除标记，目前已释放 ${formatBytes(progress.bytes_freed)}。`,
               })}
             </p>
           </div>
@@ -276,21 +289,24 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                 en: "Space gained",
                 fr: "Espace gagné",
                 de: "Frei geworden",
+                zh: "已释放空间",
               })}
               value={formatBytes(result.bytes_freed)}
-              detail={t({ en: "estimated", fr: "estimé", de: "geschätzt" })}
+              detail={t({ en: "estimated", fr: "estimé", de: "geschätzt", zh: "估算值" })}
             />
             <PortalWorkflowMetricCard
               label={t({
                 en: "Versions deleted",
                 fr: "Versions supprimées",
                 de: "Versionen gelöscht",
+                zh: "已删除版本",
               })}
               value={formatCompactNumber(result.deleted_versions)}
               detail={t({
                 en: "historical",
                 fr: "historiques",
                 de: "historisch",
+                zh: "历史版本",
               })}
             />
             <PortalWorkflowMetricCard
@@ -298,12 +314,14 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                 en: "Markers removed",
                 fr: "Markers retirés",
                 de: "Marker entfernt",
+                zh: "已移除标记",
               })}
               value={formatCompactNumber(result.deleted_delete_markers)}
               detail={t({
                 en: "orphan delete markers",
                 fr: "delete markers orphelins",
                 de: "verwaiste Delete Marker",
+                zh: "孤立删除标记",
               })}
             />
           </div>
@@ -316,8 +334,8 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
             disabled={running}
           >
             {result
-              ? t({ en: "Done", fr: "Terminer", de: "Fertig" })
-              : t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
+              ? t({ en: "Done", fr: "Terminer", de: "Fertig", zh: "完成" })
+              : t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
           </UiButton>
           {running ? (
             <UiButton variant="danger" onClick={() => abortRef.current?.abort()}>
@@ -325,6 +343,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                 en: "Stop cleanup",
                 fr: "Arrêter le nettoyage",
                 de: "Bereinigung stoppen",
+                zh: "停止清理",
               })}
             </UiButton>
           ) : (
@@ -337,6 +356,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
                 en: "Start cleanup",
                 fr: "Démarrer le nettoyage",
                 de: "Bereinigung starten",
+                zh: "开始清理",
               })}
             </UiButton>
           )}

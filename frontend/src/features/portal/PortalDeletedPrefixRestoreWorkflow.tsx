@@ -92,6 +92,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
             en: "Restoration stopped. Files already restored remain available.",
             fr: "Restauration arrêtée. Les fichiers déjà restaurés restent disponibles.",
             de: "Wiederherstellung gestoppt. Bereits wiederhergestellte Dateien bleiben verfügbar.",
+            zh: "恢复已停止。已恢复的文件仍然可用。",
           }),
         );
         onBrowserRefresh();
@@ -104,6 +105,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
               en: "Unable to restore the deleted files in this folder.",
               fr: "Impossible de restaurer les fichiers supprimés de ce dossier.",
               de: "Gelöschte Dateien in diesem Ordner konnten nicht wiederhergestellt werden.",
+              zh: "无法恢复此文件夹中的已删除文件。",
             }),
           ),
         );
@@ -137,15 +139,17 @@ export default function PortalDeletedPrefixRestoreWorkflow({
         en: "Restore deleted files",
         fr: "Restaurer les fichiers supprimés",
         de: "Gelöschte Dateien wiederherstellen",
+        zh: "恢复已删除文件",
       })}
       description={t({
         en: "Restore recoverable files from this folder and its subfolders.",
         fr: "Restaurez les fichiers récupérables de ce dossier et de ses sous-dossiers.",
         de: "Stellen Sie wiederherstellbare Dateien aus diesem Ordner und seinen Unterordnern wieder her.",
+        zh: "恢复此文件夹及其子文件夹中可恢复的文件。",
       })}
       breadcrumbs={portalBreadcrumbs(
         {
-          label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche" }),
+          label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche", zh: "空间" }),
           to: "/portal/storage-spaces",
         },
         { label: spaceName },
@@ -154,6 +158,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
             en: "Restore folder",
             fr: "Restaurer le dossier",
             de: "Ordner wiederherstellen",
+            zh: "恢复文件夹",
           }),
         },
       )}
@@ -161,6 +166,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
         en: "Back to files",
         fr: "Retour aux fichiers",
         de: "Zurück zu Dateien",
+        zh: "返回文件列表",
       })}
       onBack={running ? undefined : close}
       width="standard"
@@ -172,12 +178,13 @@ export default function PortalDeletedPrefixRestoreWorkflow({
             en: "Only files that are currently deleted are restored. Existing files and version history are kept.",
             fr: "Seuls les fichiers actuellement supprimés sont restaurés. Les fichiers existants et leur historique sont conservés.",
             de: "Nur aktuell gelöschte Dateien werden wiederhergestellt. Vorhandene Dateien und der Versionsverlauf bleiben erhalten.",
+            zh: "仅恢复当前已删除的文件。现有文件和版本历史将保留。",
           })}
         </PageBanner>
         <dl className="grid gap-3 text-xs sm:grid-cols-2">
           <div>
             <dt className={cx("font-semibold uppercase", uiMutedTextClass)}>
-              {t({ en: "Space", fr: "Espace", de: "Bereich" })}
+              {t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" })}
             </dt>
             <dd className={cx("mt-1 font-bold", uiTitleTextClass)}>
               {spaceName}
@@ -185,7 +192,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
           </div>
           <div>
             <dt className={cx("font-semibold uppercase", uiMutedTextClass)}>
-              {t({ en: "Folder", fr: "Dossier", de: "Ordner" })}
+              {t({ en: "Folder", fr: "Dossier", de: "Ordner", zh: "文件夹" })}
             </dt>
             <dd className={cx("mt-1 break-all font-mono", uiTitleTextClass)}>
               {target.key}
@@ -207,6 +214,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
                       en: "discovering",
                       fr: "détection",
                       de: "wird ermittelt",
+                      zh: "正在查找",
                     })}
               </p>
             </div>
@@ -218,6 +226,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
                   en: "Deleted file restoration progress",
                   fr: "Progression de la restauration",
                   de: "Fortschritt der Wiederherstellung",
+                  zh: "已删除文件恢复进度",
                 })}
               >
                 <div className="h-full w-full animate-pulse rounded-full bg-primary/70" />
@@ -229,6 +238,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
                   en: "Deleted file restoration progress",
                   fr: "Progression de la restauration",
                   de: "Fortschritt der Wiederherstellung",
+                  zh: "已删除文件恢复进度",
                 })}
                 className="mt-2 h-2 bg-[var(--ui-surface-muted)]"
               />
@@ -238,6 +248,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
                 en: `${formatCompactNumber(progress.scanned_versions)} versions and ${formatCompactNumber(progress.scanned_delete_markers)} deletion records scanned.`,
                 fr: `${formatCompactNumber(progress.scanned_versions)} versions et ${formatCompactNumber(progress.scanned_delete_markers)} traces de suppression analysées.`,
                 de: `${formatCompactNumber(progress.scanned_versions)} Versionen und ${formatCompactNumber(progress.scanned_delete_markers)} Löschvermerke geprüft.`,
+                zh: `已扫描 ${formatCompactNumber(progress.scanned_versions)} 个版本和 ${formatCompactNumber(progress.scanned_delete_markers)} 条删除记录。`,
               })}
             </p>
           </div>
@@ -247,12 +258,13 @@ export default function PortalDeletedPrefixRestoreWorkflow({
           <>
             <div className="grid gap-2 sm:grid-cols-3">
               <PortalWorkflowMetricCard
-                label={t({ en: "Found", fr: "Trouvés", de: "Gefunden" })}
+                label={t({ en: "Found", fr: "Trouvés", de: "Gefunden", zh: "已找到" })}
                 value={formatCompactNumber(result.restore_candidates)}
                 detail={t({
                   en: "recoverable files",
                   fr: "fichiers récupérables",
                   de: "wiederherstellbare Dateien",
+                  zh: "个可恢复文件",
                 })}
               />
               <PortalWorkflowMetricCard
@@ -260,12 +272,14 @@ export default function PortalDeletedPrefixRestoreWorkflow({
                   en: "Restored",
                   fr: "Restaurés",
                   de: "Wiederhergestellt",
+                  zh: "已恢复",
                 })}
                 value={formatCompactNumber(result.restored_objects)}
                 detail={t({
                   en: "returned to their folders",
                   fr: "replacés dans leurs dossiers",
                   de: "in ihre Ordner zurückgelegt",
+                  zh: "已放回原文件夹",
                 })}
               />
               <PortalWorkflowMetricCard
@@ -273,12 +287,14 @@ export default function PortalDeletedPrefixRestoreWorkflow({
                   en: "Not restored",
                   fr: "Non restaurés",
                   de: "Nicht wiederhergestellt",
+                  zh: "未恢复",
                 })}
                 value={formatCompactNumber(result.failed_objects)}
                 detail={t({
                   en: "review below",
                   fr: "à vérifier ci-dessous",
                   de: "unten prüfen",
+                  zh: "请查看下方",
                 })}
               />
             </div>
@@ -289,6 +305,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({
                     en: "Files requiring attention",
                     fr: "Fichiers à vérifier",
                     de: "Zu prüfende Dateien",
+                    zh: "需要关注的文件",
                   })}
                 </p>
                 <ul className="mt-2 space-y-1 ui-caption">
@@ -308,22 +325,23 @@ export default function PortalDeletedPrefixRestoreWorkflow({
         <WorkflowActions>
           {running ? (
             <UiButton variant="secondary" onClick={() => abortRef.current?.abort()}>
-              {t({ en: "Stop", fr: "Arrêter", de: "Stoppen" })}
+              {t({ en: "Stop", fr: "Arrêter", de: "Stoppen", zh: "停止" })}
             </UiButton>
           ) : result ? (
             <UiButton onClick={close}>
-              {t({ en: "Done", fr: "Terminer", de: "Fertig" })}
+              {t({ en: "Done", fr: "Terminer", de: "Fertig", zh: "完成" })}
             </UiButton>
           ) : (
             <>
               <UiButton variant="secondary" onClick={close}>
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
+                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
               </UiButton>
               <UiButton onClick={() => void startRestore()}>
                 {t({
                   en: "Restore files",
                   fr: "Restaurer les fichiers",
                   de: "Dateien wiederherstellen",
+                  zh: "恢复文件",
                 })}
               </UiButton>
             </>

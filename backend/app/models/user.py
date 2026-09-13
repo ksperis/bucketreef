@@ -10,7 +10,7 @@ from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
-UiLanguage = Literal["en", "fr", "de"]
+UiLanguage = Literal["en", "fr", "de", "zh"]
 UiThemePreference = Literal["light", "dark"]
 UiRole = Literal["ui_superadmin", "ui_admin", "ui_user", "ui_none"]
 UserAvatarPreference = Literal["auto", "uploaded", "gravatar", "initials"]

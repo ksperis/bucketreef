@@ -244,8 +244,8 @@ export default function PortalStorageSpacesPage() {
       {
         id: "name",
         field: "name",
-        label: t({ en: "Space", fr: "Espace", de: "Bereich" }),
-        mobileLabel: t({ en: "Space", fr: "Espace", de: "Bereich" }),
+        label: t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" }),
+        mobileLabel: t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" }),
         primary: true,
         render: (space) => (
           <div className="flex min-w-0 items-start gap-2">
@@ -271,6 +271,7 @@ export default function PortalStorageSpacesPage() {
           en: "Collaborators",
           fr: "Collaborateurs",
           de: "Mitwirkende",
+          zh: "协作者",
         }),
         render: (space) => {
           const status = visibleStatus(space);
@@ -296,7 +297,7 @@ export default function PortalStorageSpacesPage() {
                 />
               ) : (
                 <span className={cx("text-xs", uiMutedTextClass)}>
-                  {t({ en: "No collaborators", fr: "Aucun collaborateur", de: "Keine Mitwirkenden" })}
+                  {t({ en: "No collaborators", fr: "Aucun collaborateur", de: "Keine Mitwirkenden", zh: "没有协作者" })}
                 </span>
               )}
               {status ? (
@@ -314,29 +315,29 @@ export default function PortalStorageSpacesPage() {
       {
         id: "files",
         field: "object_count",
-        label: t({ en: "Files", fr: "Fichiers", de: "Dateien" }),
+        label: t({ en: "Files", fr: "Fichiers", de: "Dateien", zh: "文件" }),
         render: (space) => formatCompactNumber(space.objectCount),
       },
       {
         id: "size",
         field: "used_bytes",
-        label: t({ en: "Size", fr: "Taille", de: "Größe" }),
+        label: t({ en: "Size", fr: "Taille", de: "Größe", zh: "大小" }),
         render: (space) => formatBytes(space.usedBytes),
       },
       {
         id: "created",
         field: "created_at",
-        label: t({ en: "Created", fr: "Créé", de: "Erstellt" }),
+        label: t({ en: "Created", fr: "Créé", de: "Erstellt", zh: "创建时间" }),
         render: (space) => space.createdLabel,
       },
       {
         id: "region",
-        label: t({ en: "Region", fr: "Région", de: "Region" }),
+        label: t({ en: "Region", fr: "Région", de: "Region", zh: "区域" }),
         render: (space) => space.region,
       },
       {
         id: "action",
-        label: t({ en: "Action", fr: "Action", de: "Aktion" }),
+        label: t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" }),
         align: "right",
         mobileRole: "actions",
         render: (space) => (
@@ -346,7 +347,7 @@ export default function PortalStorageSpacesPage() {
 
               {...dataTableDefaultActionProps}
             >
-              {t({ en: "Open", fr: "Ouvrir", de: "Öffnen" })}
+              {t({ en: "Open", fr: "Ouvrir", de: "Öffnen", zh: "打开" })}
             </ListActionLink>
           </ListActions>
         ),
@@ -583,6 +584,7 @@ export default function PortalStorageSpacesPage() {
                 en: "Unable to load people.",
                 fr: "Impossible de charger les personnes.",
                 de: "Personen können nicht geladen werden.",
+                zh: "无法加载人员。",
               }),
             ),
           );
@@ -648,6 +650,7 @@ export default function PortalStorageSpacesPage() {
             en: "Unable to create this space.",
             fr: "Impossible de créer cet espace.",
             de: "Dieser Bereich kann nicht erstellt werden.",
+            zh: "无法创建此空间。",
           }),
         ),
       );
@@ -682,6 +685,7 @@ export default function PortalStorageSpacesPage() {
             en: "Unable to add existing storage.",
             fr: "Impossible d'ajouter le stockage existant.",
             de: "Vorhandener Speicher kann nicht hinzugefügt werden.",
+            zh: "无法添加现有存储。",
           }),
         ),
       );
@@ -699,14 +703,16 @@ export default function PortalStorageSpacesPage() {
       en: "Discard changes?",
       fr: "Abandonner les modifications ?",
       de: "Änderungen verwerfen?",
+      zh: "放弃更改？",
     }),
     description: t({
       en: "You have unapplied changes. Closing this dialog will discard them.",
       fr: "Vous avez des modifications non appliquées. Fermer cette fenêtre les abandonnera.",
       de: "Sie haben nicht angewendete Änderungen. Beim Schließen werden sie verworfen.",
+      zh: "你有尚未应用的更改。关闭此对话框将放弃这些更改。",
     }),
-    cancelLabel: t({ en: "Keep editing", fr: "Continuer la modification", de: "Weiter bearbeiten" }),
-    confirmLabel: t({ en: "Discard changes", fr: "Abandonner", de: "Änderungen verwerfen" }),
+    cancelLabel: t({ en: "Keep editing", fr: "Continuer la modification", de: "Weiter bearbeiten", zh: "继续编辑" }),
+    confirmLabel: t({ en: "Discard changes", fr: "Abandonner", de: "Änderungen verwerfen", zh: "放弃更改" }),
   });
   const importCloseGuard = useUnsavedChangesGuard({
     hasUnsavedChanges:
@@ -717,14 +723,16 @@ export default function PortalStorageSpacesPage() {
       en: "Discard changes?",
       fr: "Abandonner les modifications ?",
       de: "Änderungen verwerfen?",
+      zh: "放弃更改？",
     }),
     description: t({
       en: "You have unapplied changes. Closing this dialog will discard them.",
       fr: "Vous avez des modifications non appliquées. Fermer cette fenêtre les abandonnera.",
       de: "Sie haben nicht angewendete Änderungen. Beim Schließen werden sie verworfen.",
+      zh: "你有尚未应用的更改。关闭此对话框将放弃这些更改。",
     }),
-    cancelLabel: t({ en: "Keep editing", fr: "Continuer la modification", de: "Weiter bearbeiten" }),
-    confirmLabel: t({ en: "Discard changes", fr: "Abandonner", de: "Änderungen verwerfen" }),
+    cancelLabel: t({ en: "Keep editing", fr: "Continuer la modification", de: "Weiter bearbeiten", zh: "继续编辑" }),
+    confirmLabel: t({ en: "Discard changes", fr: "Abandonner", de: "Änderungen verwerfen", zh: "放弃更改" }),
   });
 
   const dismissStartGuide = () => {
@@ -742,11 +750,13 @@ export default function PortalStorageSpacesPage() {
       en: "Loading spaces...",
       fr: "Chargement des espaces...",
       de: "Bereiche werden geladen...",
+      zh: "正在加载空间…",
     }),
     noAccountMessage: t({
       en: "Select a project to view spaces.",
       fr: "Sélectionnez un projet pour voir les espaces.",
       de: "Wählen Sie ein Projekt aus, um Bereiche anzuzeigen.",
+      zh: "选择项目以查看空间。",
     }),
   });
   if (pageState) return pageState;
@@ -758,6 +768,7 @@ export default function PortalStorageSpacesPage() {
               en: "Create space",
               fr: "Créer un espace",
               de: "Bereich erstellen",
+              zh: "创建空间",
             }),
             onClick: openCreate,
           },
@@ -770,6 +781,7 @@ export default function PortalStorageSpacesPage() {
               en: "Add existing space",
               fr: "Ajouter un espace existant",
               de: "Vorhandenen Bereich hinzufügen",
+              zh: "添加现有空间",
             }),
             onClick: openImport,
             variant: "secondary" as const,
@@ -785,14 +797,15 @@ export default function PortalStorageSpacesPage() {
 
   return (
     <PageShell actionPresentation="listing"
-      title={t({ en: "Spaces", fr: "Espaces", de: "Bereiche" })}
+      title={t({ en: "Spaces", fr: "Espaces", de: "Bereiche", zh: "空间" })}
       description={t({
         en: "Create places for project files, upload data, and invite collaborators.",
         fr: "Créez des espaces pour les fichiers de projet, ajoutez des données et invitez des collaborateurs.",
         de: "Erstellen Sie Bereiche für Projektdateien, laden Sie Daten hoch und laden Sie Mitwirkende ein.",
+        zh: "为项目文件创建空间、上传数据并邀请协作者。",
       })}
       breadcrumbs={portalBreadcrumbs({
-        label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche" }),
+        label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche", zh: "空间" }),
       })}
       actions={headerActions}
     >
@@ -814,6 +827,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Start here",
                   fr: "Commencer ici",
                   de: "Hier starten",
+                  zh: "从这里开始",
                 })}
               </div>
               <h2
@@ -824,6 +838,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Create, fill, and share a space",
                   fr: "Créer, remplir et partager un espace",
                   de: "Bereich erstellen, füllen und teilen",
+                  zh: "创建空间、添加内容并共享",
                 })}
               </h2>
               <p
@@ -836,6 +851,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Use spaces as project rooms: create one, add files, then bring collaborators in when the content is ready.",
                   fr: "Utilisez les espaces comme des salles de projet : créez-en un, ajoutez des fichiers, puis invitez les collaborateurs quand le contenu est prêt.",
                   de: "Nutzen Sie Bereiche wie Projekträume: Erstellen Sie einen, fügen Sie Dateien hinzu und laden Sie Mitwirkende ein, sobald die Inhalte bereit sind.",
+                  zh: "将空间用作项目资料室：创建空间、添加文件，然后在内容准备就绪后邀请协作者。",
                 })}
               </p>
             </div>
@@ -845,6 +861,7 @@ export default function PortalStorageSpacesPage() {
                   en: "No spaces yet",
                   fr: "Aucun espace",
                   de: "Noch keine Bereiche",
+                  zh: "暂无空间",
                 })}
               </UiBadge>
               <UiButton size="xs" variant="ghost" onClick={dismissStartGuide}>
@@ -852,22 +869,25 @@ export default function PortalStorageSpacesPage() {
                   en: "Dismiss guide",
                   fr: "Masquer le guide",
                   de: "Anleitung ausblenden",
+                  zh: "关闭指引",
                 })}
               </UiButton>
             </div>
           </div>
           <ol className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <StartStep
-              step={t({ en: "Step 1", fr: "Étape 1", de: "Schritt 1" })}
+              step={t({ en: "Step 1", fr: "Étape 1", de: "Schritt 1", zh: "第 1 步" })}
               title={t({
                 en: "Set up a space",
                 fr: "Configurer un espace",
                 de: "Bereich einrichten",
+                zh: "设置空间",
               })}
               description={t({
                 en: "Name the project, dataset, or team room where files will live.",
                 fr: "Nommez le projet, le jeu de données ou l'espace d'équipe où les fichiers seront rangés.",
                 de: "Benennen Sie das Projekt, den Datensatz oder Teamraum, in dem Dateien liegen werden.",
+                zh: "为存放文件的项目、数据集或团队空间命名。",
               })}
               action={
                 canCreate ? (
@@ -884,6 +904,7 @@ export default function PortalStorageSpacesPage() {
                       en: "Start a new space",
                       fr: "Démarrer un nouvel espace",
                       de: "Neuen Bereich starten",
+                      zh: "新建空间",
                     })}
                   </button>
                 ) : (
@@ -894,22 +915,25 @@ export default function PortalStorageSpacesPage() {
                       en: "Ask to be added",
                       fr: "Demander un accès",
                       de: "Zugriff anfragen",
+                      zh: "申请加入",
                     })}
                   </span>
                 )
               }
             />
             <StartStep
-              step={t({ en: "Step 2", fr: "Étape 2", de: "Schritt 2" })}
+              step={t({ en: "Step 2", fr: "Étape 2", de: "Schritt 2", zh: "第 2 步" })}
               title={t({
                 en: "Upload files",
                 fr: "Ajouter des fichiers",
                 de: "Dateien hochladen",
+                zh: "上传文件",
               })}
               description={t({
                 en: "Open a space and use its file area to add folders or data.",
                 fr: "Ouvrez un espace et utilisez sa zone de fichiers pour ajouter des dossiers ou des données.",
                 de: "Öffnen Sie einen Bereich und nutzen Sie den Dateibereich, um Ordner oder Daten hinzuzufügen.",
+                zh: "打开空间，在文件区域中添加文件夹或数据。",
               })}
               action={
                 firstWritableSpace ? (
@@ -925,6 +949,7 @@ export default function PortalStorageSpacesPage() {
                       en: "Open files",
                       fr: "Ouvrir les fichiers",
                       de: "Dateien öffnen",
+                      zh: "打开文件",
                     })}
                   </Link>
                 ) : (
@@ -935,22 +960,25 @@ export default function PortalStorageSpacesPage() {
                       en: "Create a space first",
                       fr: "Créez d'abord un espace",
                       de: "Zuerst Bereich erstellen",
+                      zh: "请先创建空间",
                     })}
                   </span>
                 )
               }
             />
             <StartStep
-              step={t({ en: "Step 3", fr: "Étape 3", de: "Schritt 3" })}
+              step={t({ en: "Step 3", fr: "Étape 3", de: "Schritt 3", zh: "第 3 步" })}
               title={t({
                 en: "Invite people",
                 fr: "Inviter des personnes",
                 de: "Personen einladen",
+                zh: "邀请人员",
               })}
               description={t({
                 en: "Managers can give internal collaborators Viewer or Editor access to team spaces.",
                 fr: "Les gestionnaires peuvent donner aux collaborateurs un accès Lecteur ou Éditeur aux espaces d'équipe.",
                 de: "Manager können internen Mitwirkenden Viewer- oder Editor-Zugriff auf Teambereiche geben.",
+                zh: "管理员可以向内部协作者授予团队空间的查看者或编辑者权限。",
               })}
               action={
                 firstManagedTeamSpace ? (
@@ -962,7 +990,7 @@ export default function PortalStorageSpacesPage() {
                       "h-8 px-3 py-1.5 text-xs",
                     )}
                   >
-                    {t({ en: "Invite people", fr: "Inviter", de: "Einladen" })}
+                    {t({ en: "Invite people", fr: "Inviter", de: "Einladen", zh: "邀请人员" })}
                   </Link>
                 ) : (
                   <span
@@ -972,22 +1000,25 @@ export default function PortalStorageSpacesPage() {
                       en: "A managed team space is needed",
                       fr: "Un espace d'équipe géré est requis",
                       de: "Ein verwalteter Teambereich ist erforderlich",
+                      zh: "需要受管理的团队空间",
                     })}
                   </span>
                 )
               }
             />
             <StartStep
-              step={t({ en: "Step 4", fr: "Étape 4", de: "Schritt 4" })}
+              step={t({ en: "Step 4", fr: "Étape 4", de: "Schritt 4", zh: "第 4 步" })}
               title={t({
                 en: "Share a file",
                 fr: "Partager un fichier",
                 de: "Datei teilen",
+                zh: "共享文件",
               })}
               description={t({
                 en: "Choose a file from the space to create an external link only when it is needed.",
                 fr: "Choisissez un fichier depuis l'espace pour créer un lien externe uniquement si nécessaire.",
                 de: "Wählen Sie bei Bedarf eine Datei im Bereich aus, um einen externen Link zu erstellen.",
+                zh: "仅在需要时，从空间中选择文件并创建外部链接。",
               })}
               action={
                 firstManagedTeamSpace ? (
@@ -1003,6 +1034,7 @@ export default function PortalStorageSpacesPage() {
                       en: "Choose file",
                       fr: "Choisir un fichier",
                       de: "Datei wählen",
+                      zh: "选择文件",
                     })}
                   </Link>
                 ) : (
@@ -1013,6 +1045,7 @@ export default function PortalStorageSpacesPage() {
                       en: "A managed team space is needed",
                       fr: "Un espace d'équipe géré est requis",
                       de: "Ein verwalteter Teambereich ist erforderlich",
+                      zh: "需要受管理的团队空间",
                     })}
                   </span>
                 )
@@ -1028,6 +1061,7 @@ export default function PortalStorageSpacesPage() {
             en: "Create a space",
             fr: "Créer un espace",
             de: "Bereich erstellen",
+            zh: "创建空间",
           })}
           onClose={createCloseGuard.requestClose}
           maxWidthClass="max-w-3xl"
@@ -1039,6 +1073,7 @@ export default function PortalStorageSpacesPage() {
                 en: "Name the place first. You can upload files and invite collaborators right after it opens.",
                 fr: "Nommez d'abord l'espace. Vous pourrez ajouter des fichiers et inviter des collaborateurs dès son ouverture.",
                 de: "Benennen Sie zuerst den Bereich. Danach können Sie Dateien hochladen und Mitwirkende einladen.",
+                zh: "先为空间命名。打开后即可上传文件并邀请协作者。",
               })}
             </p>
             <div
@@ -1055,6 +1090,7 @@ export default function PortalStorageSpacesPage() {
                     en: "Space setup",
                     fr: "Configuration de l'espace",
                     de: "Bereich einrichten",
+                    zh: "空间设置",
                   })}
                   size="compact"
                   className="ui-list-control"
@@ -1070,6 +1106,7 @@ export default function PortalStorageSpacesPage() {
                       en: "Let Portal choose the ID",
                       fr: "Laisser Portal choisir l'identifiant",
                       de: "Portal wählt die ID",
+                      zh: "由 Portal 选择 ID",
                     })}
                   </option>
                   <option value="named_bucket">
@@ -1077,6 +1114,7 @@ export default function PortalStorageSpacesPage() {
                       en: "Use a custom tool ID",
                       fr: "Utiliser un identifiant d'outil",
                       de: "Eigene Werkzeug-ID nutzen",
+                      zh: "使用自定义工具 ID",
                     })}
                   </option>
                 </UiSelect>
@@ -1088,11 +1126,13 @@ export default function PortalStorageSpacesPage() {
                         en: "Space name and tool ID",
                         fr: "Nom de l'espace et identifiant d'outil",
                         de: "Bereichsname und Werkzeug-ID",
+                        zh: "空间名称和工具 ID",
                       })
                     : t({
                         en: "Space name",
                         fr: "Nom de l'espace",
                         de: "Name des Bereichs",
+                        zh: "空间名称",
                       })
                 }
                 size="compact"
@@ -1105,11 +1145,13 @@ export default function PortalStorageSpacesPage() {
                         en: "Project or dataset ID",
                         fr: "Identifiant du projet ou du jeu de données",
                         de: "Projekt- oder Datensatz-ID",
+                        zh: "项目或数据集 ID",
                       })
                     : t({
                         en: "Project, team, or dataset name",
                         fr: "Nom du projet, de l'équipe ou du jeu de données",
                         de: "Projekt-, Team- oder Datensatzname",
+                        zh: "项目、团队或数据集名称",
                       })
                 }
               />
@@ -1118,6 +1160,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Description",
                   fr: "Description",
                   de: "Beschreibung",
+                  zh: "描述",
                 })}
                 size="compact"
                 className="ui-list-control"
@@ -1127,6 +1170,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Description",
                   fr: "Description",
                   de: "Beschreibung",
+                  zh: "描述",
                 })}
               />
             </div>
@@ -1142,11 +1186,13 @@ export default function PortalStorageSpacesPage() {
                     en: "Who can access this space?",
                     fr: "Qui peut accéder à cet espace ?",
                     de: "Wer kann auf diesen Bereich zugreifen?",
+                    zh: "谁可以访问此空间？",
                   })}
                   roleLabel={t({
                     en: "Default role for team members",
                     fr: "Rôle par défaut des membres",
                     de: "Standardrolle für Teammitglieder",
+                    zh: "团队成员默认角色",
                   })}
                 />
               ) : (
@@ -1191,14 +1237,14 @@ export default function PortalStorageSpacesPage() {
                 onClick={createCloseGuard.requestClose}
                 disabled={createBusy}
               >
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
+                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
               </UiButton>
               <UiButton
                 disabled={!newName.trim() || createBusy}
                 loading={createBusy}
                 onClick={handleCreate}
               >
-                {t({ en: "Create", fr: "Créer", de: "Erstellen" })}
+                {t({ en: "Create", fr: "Créer", de: "Erstellen", zh: "创建" })}
               </UiButton>
             </WorkflowActions>
             {createCloseGuard.confirmationDialog}
@@ -1212,6 +1258,7 @@ export default function PortalStorageSpacesPage() {
             en: "Add existing space",
             fr: "Ajouter un espace existant",
             de: "Vorhandenen Bereich hinzufügen",
+            zh: "添加现有空间",
           })}
           onClose={importCloseGuard.requestClose}
           maxWidthClass="max-w-3xl"
@@ -1223,6 +1270,7 @@ export default function PortalStorageSpacesPage() {
                 en: "Attach existing storage to Portal and define its initial access.",
                 fr: "Rattachez un stockage existant à Portal et définissez ses accès initiaux.",
                 de: "Binden Sie vorhandenen Speicher an Portal an und legen Sie den anfänglichen Zugriff fest.",
+                zh: "将现有存储接入 Portal，并定义其初始访问权限。",
               })}
             </p>
             <div className="grid gap-3 lg:grid-cols-[1fr_1.5fr]">
@@ -1231,6 +1279,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Existing technical ID",
                   fr: "Identifiant technique existant",
                   de: "Vorhandene technische ID",
+                  zh: "现有技术 ID",
                 })}
                 size="compact"
                 className="ui-list-control"
@@ -1240,6 +1289,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Existing technical ID",
                   fr: "Identifiant technique existant",
                   de: "Vorhandene technische ID",
+                  zh: "现有技术 ID",
                 })}
               />
               <UiInput
@@ -1247,6 +1297,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Description",
                   fr: "Description",
                   de: "Beschreibung",
+                  zh: "描述",
                 })}
                 size="compact"
                 className="ui-list-control"
@@ -1256,6 +1307,7 @@ export default function PortalStorageSpacesPage() {
                   en: "Description",
                   fr: "Description",
                   de: "Beschreibung",
+                  zh: "描述",
                 })}
               />
             </div>
@@ -1270,11 +1322,13 @@ export default function PortalStorageSpacesPage() {
                   en: "Who can access this space?",
                   fr: "Qui peut accéder à cet espace ?",
                   de: "Wer kann auf diesen Bereich zugreifen?",
+                  zh: "谁可以访问此空间？",
                 })}
                 roleLabel={t({
                   en: "Default role for team members",
                   fr: "Rôle par défaut des membres",
                   de: "Standardrolle für Teammitglieder",
+                  zh: "团队成员默认角色",
                 })}
               />
               <div
@@ -1314,14 +1368,14 @@ export default function PortalStorageSpacesPage() {
                 onClick={importCloseGuard.requestClose}
                 disabled={importBusy}
               >
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen" })}
+                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
               </UiButton>
               <UiButton
                 disabled={!importBucketName.trim() || importBusy}
                 loading={importBusy}
                 onClick={handleImport}
               >
-                {t({ en: "Add", fr: "Ajouter", de: "Hinzufügen" })}
+                {t({ en: "Add", fr: "Ajouter", de: "Hinzufügen", zh: "添加" })}
               </UiButton>
             </WorkflowActions>
             {importCloseGuard.confirmationDialog}
@@ -1337,6 +1391,7 @@ export default function PortalStorageSpacesPage() {
               en: `Active spaces (${activeSpaces.length})`,
               fr: `Espaces actifs (${activeSpaces.length})`,
               de: `Aktive Bereiche (${activeSpaces.length})`,
+              zh: `活跃空间（${activeSpaces.length}）`,
             }),
           },
           {
@@ -1345,6 +1400,7 @@ export default function PortalStorageSpacesPage() {
               en: `Archived (${archivedSpaces.length})`,
               fr: `Archivés (${archivedSpaces.length})`,
               de: `Archiviert (${archivedSpaces.length})`,
+              zh: `已归档（${archivedSpaces.length}）`,
             }),
           },
         ]}
@@ -1354,20 +1410,22 @@ export default function PortalStorageSpacesPage() {
           en: "Storage space views",
           fr: "Vues des espaces de stockage",
           de: "Speicherbereichsansichten",
+          zh: "存储空间视图",
         })}
         idPrefix="portal-storage-spaces"
       />
 
       <PortalTabPanel idPrefix="portal-storage-spaces" tabId={activeTab}>
         <ListPageSection variant="page"
-          title={t({ en: "Storage spaces", fr: "Espaces de stockage", de: "Speicherbereiche" })}
+          title={t({ en: "Storage spaces", fr: "Espaces de stockage", de: "Speicherbereiche", zh: "存储空间" })}
           countLabel={t({
             en: `${filteredSpaces.length} of ${visibleSpaces.length} spaces`,
             fr: `${filteredSpaces.length} sur ${visibleSpaces.length} espaces`,
             de: `${filteredSpaces.length} von ${visibleSpaces.length} Bereichen`,
+            zh: `共 ${visibleSpaces.length} 个空间，显示 ${filteredSpaces.length} 个`,
           })}
           search={<UiInput
-            label={t({ en: "Search", fr: "Recherche", de: "Suche" })}
+            label={t({ en: "Search", fr: "Recherche", de: "Suche", zh: "搜索" })}
             type="search"
             size="compact"
             className="ui-list-control"
@@ -1377,10 +1435,11 @@ export default function PortalStorageSpacesPage() {
               en: "Search spaces...",
               fr: "Rechercher des espaces...",
               de: "Bereiche suchen...",
+              zh: "搜索空间…",
             })}
           />}
           filters={<><UiSelect
-            label={t({ en: "My role", fr: "Mon rôle", de: "Meine Rolle" })}
+            label={t({ en: "My role", fr: "Mon rôle", de: "Meine Rolle", zh: "我的角色" })}
             size="compact"
             className="ui-list-control"
             value={roleFilter}
@@ -1391,7 +1450,7 @@ export default function PortalStorageSpacesPage() {
             }
           >
             <option value="all">
-              {t({ en: "All roles", fr: "Tous les rôles", de: "Alle Rollen" })}
+              {t({ en: "All roles", fr: "Tous les rôles", de: "Alle Rollen", zh: "所有角色" })}
             </option>
             <option value="Manager">{portalRoleLabel("Manager", t)}</option>
             <option value="Owner">{portalRoleLabel("Owner", t)}</option>
@@ -1400,14 +1459,14 @@ export default function PortalStorageSpacesPage() {
           </UiSelect>
           {activeTab === "active" ? (
             <UiSelect
-              label={t({ en: "Status", fr: "Statut", de: "Status" })}
+              label={t({ en: "Status", fr: "Statut", de: "Status", zh: "状态" })}
               size="compact"
               className="ui-list-control"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
               <option value="all">
-                {t({ en: "All states", fr: "Tous les états", de: "Alle Status" })}
+                {t({ en: "All states", fr: "Tous les états", de: "Alle Status", zh: "所有状态" })}
               </option>
               {statusOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -1417,10 +1476,10 @@ export default function PortalStorageSpacesPage() {
             </UiSelect>
           ) : null}</>}
           mobileSort={<TableSortControls columns={storageSpaceColumns} sort={tableSort} labels={{
-            sortBy: t({ en: "Sort by", fr: "Trier par", de: "Sortieren nach" }),
-            direction: t({ en: "Direction", fr: "Ordre", de: "Reihenfolge" }),
-            ascending: t({ en: "Ascending", fr: "Croissant", de: "Aufsteigend" }),
-            descending: t({ en: "Descending", fr: "Décroissant", de: "Absteigend" }),
+            sortBy: t({ en: "Sort by", fr: "Trier par", de: "Sortieren nach", zh: "排序依据" }),
+            direction: t({ en: "Direction", fr: "Ordre", de: "Reihenfolge", zh: "排序方向" }),
+            ascending: t({ en: "Ascending", fr: "Croissant", de: "Aufsteigend", zh: "升序" }),
+            descending: t({ en: "Descending", fr: "Décroissant", de: "Absteigend", zh: "降序" }),
           }} />}
         >
           <DataTableShell
@@ -1433,11 +1492,13 @@ export default function PortalStorageSpacesPage() {
               en: "Loading spaces...",
               fr: "Chargement des espaces...",
               de: "Bereiche werden geladen...",
+              zh: "正在加载空间…",
             })}
             errorMessage={t({
               en: "Unable to load spaces.",
               fr: "Impossible de charger les espaces.",
               de: "Bereiche können nicht geladen werden.",
+              zh: "无法加载空间。",
             })}
             emptyMessage={
               activeTab === "archived"
@@ -1445,17 +1506,20 @@ export default function PortalStorageSpacesPage() {
                     en: "No archived spaces.",
                     fr: "Aucun espace archivé.",
                     de: "Keine archivierten Bereiche.",
+                    zh: "没有已归档空间。",
                   })
                 : canCreate
                 ? t({
                     en: "No spaces yet. Create one to start storing files.",
                     fr: "Aucun espace pour l'instant. Créez-en un pour commencer à stocker des fichiers.",
                     de: "Noch keine Bereiche. Erstellen Sie einen, um Dateien zu speichern.",
+                    zh: "暂无空间。创建一个即可开始存储文件。",
                   })
                 : t({
                     en: "No spaces are available. Ask an administrator to add you to a space or enable creation for your account.",
                     fr: "Aucun espace n'est disponible. Demandez à un administrateur de vous ajouter à un espace ou d'activer la création pour votre compte.",
                     de: "Es sind keine Bereiche verfügbar. Bitten Sie einen Administrator, Sie zu einem Bereich hinzuzufügen oder die Erstellung für Ihr Konto zu aktivieren.",
+                    zh: "没有可用空间。请让管理员将你添加到空间，或为你的账户启用创建功能。",
                   })
             }
             responsiveCards

@@ -183,6 +183,7 @@ export default function PortalRequestsPage() {
             en: "Unable to load requests.",
             fr: "Impossible de charger les demandes.",
             de: "Anfragen können nicht geladen werden.",
+            zh: "无法加载请求。",
           }),
         ),
       );
@@ -232,6 +233,7 @@ export default function PortalRequestsPage() {
             en: "Unable to load current usage.",
             fr: "Impossible de charger l'usage actuel.",
             de: "Aktuelle Nutzung kann nicht geladen werden.",
+            zh: "无法加载当前用量。",
           }),
         ),
       );
@@ -266,6 +268,7 @@ export default function PortalRequestsPage() {
             en: "Unable to load collaborators.",
             fr: "Impossible de charger les collaborateurs.",
             de: "Mitwirkende konnen nicht geladen werden.",
+            zh: "无法加载协作者。",
           }),
         ),
       );
@@ -322,6 +325,7 @@ export default function PortalRequestsPage() {
           en: "Request sent. You can follow its status below.",
           fr: "Demande envoyée. Vous pouvez suivre son statut ci-dessous.",
           de: "Anfrage gesendet. Sie können den Status unten verfolgen.",
+          zh: "请求已发送。你可以在下方查看状态。",
         }),
       );
       setRequestDialog(null);
@@ -336,6 +340,7 @@ export default function PortalRequestsPage() {
             en: "Unable to send the collaborator request.",
             fr: "Impossible d'envoyer la demande collaborateur.",
             de: "Anfrage fur Mitwirkende kann nicht gesendet werden.",
+            zh: "无法发送协作者请求。",
           }),
         ),
       );
@@ -415,6 +420,7 @@ export default function PortalRequestsPage() {
           en: "Storage limit must be greater than zero.",
           fr: "La limite de stockage doit être supérieure à zéro.",
           de: "Die Speichergrenze muss größer als null sein.",
+          zh: "存储上限必须大于零。",
         }),
       );
       return;
@@ -425,6 +431,7 @@ export default function PortalRequestsPage() {
           en: "The requested storage limit is lower than the space already used.",
           fr: "La limite demandée est inférieure à l'espace déjà utilisé.",
           de: "Die angeforderte Speichergrenze liegt unter der bereits genutzten Kapazität.",
+          zh: "请求的存储上限低于当前已用空间。",
         }),
       );
       return;
@@ -436,11 +443,13 @@ export default function PortalRequestsPage() {
               en: "A raise must target a limit higher than the current limit.",
               fr: "Une augmentation doit viser une limite supérieure à la limite actuelle.",
               de: "Eine Erhöhung muss über der aktuellen Grenze liegen.",
+              zh: "提高上限时，新上限必须高于当前上限。",
             })
           : t({
               en: "A reduction must target a limit lower than the current limit.",
               fr: "Une réduction doit viser une limite inférieure à la limite actuelle.",
               de: "Eine Senkung muss unter der aktuellen Grenze liegen.",
+              zh: "降低上限时，新上限必须低于当前上限。",
             }),
       );
       return;
@@ -463,6 +472,7 @@ export default function PortalRequestsPage() {
           en: "Request sent. You can follow its status below.",
           fr: "Demande envoyée. Vous pouvez suivre son statut ci-dessous.",
           de: "Anfrage gesendet. Sie können den Status unten verfolgen.",
+          zh: "请求已发送。你可以在下方查看状态。",
         }),
       );
       setRequestDialog(null);
@@ -477,6 +487,7 @@ export default function PortalRequestsPage() {
             en: "Unable to send the storage limit request.",
             fr: "Impossible d'envoyer la demande de limite de stockage.",
             de: "Anfrage zur Speichergrenze kann nicht gesendet werden.",
+            zh: "无法发送存储上限请求。",
           }),
         ),
       );
@@ -489,7 +500,7 @@ export default function PortalRequestsPage() {
     () => [
       {
         id: "request",
-        label: t({ en: "Request", fr: "Demande", de: "Anfrage" }),
+        label: t({ en: "Request", fr: "Demande", de: "Anfrage", zh: "请求" }),
         primary: true,
         render: (request) => (
           <div className="min-w-0">
@@ -504,19 +515,19 @@ export default function PortalRequestsPage() {
       },
       {
         id: "status",
-        label: t({ en: "Status", fr: "Statut", de: "Status" }),
+        label: t({ en: "Status", fr: "Statut", de: "Status", zh: "状态" }),
         render: (request) => (
           <PortalRequestStatusBadge status={request.status} />
         ),
       },
       {
         id: "created",
-        label: t({ en: "Created", fr: "Créée", de: "Erstellt" }),
+        label: t({ en: "Created", fr: "Créée", de: "Erstellt", zh: "创建时间" }),
         render: (request) => formatLocalDateTime(request.created_at),
       },
       {
         id: "updated",
-        label: t({ en: "Updated", fr: "Mise à jour", de: "Aktualisiert" }),
+        label: t({ en: "Updated", fr: "Mise à jour", de: "Aktualisiert", zh: "更新时间" }),
         render: (request) =>
           formatLocalDateTime(request.decided_at ?? request.updated_at),
       },
@@ -546,17 +557,20 @@ export default function PortalRequestsPage() {
           en: "Help requests",
           fr: "Demandes d'aide",
           de: "Hilfeanfragen",
+          zh: "帮助请求",
         })}
         description={t({
           en: "Ask the support team for help with collaborators and project storage limits.",
           fr: "Demandez de l'aide à l'équipe support pour les collaborateurs et les limites de stockage du projet.",
           de: "Bitten Sie das Support-Team um Hilfe bei Mitwirkenden und Projekt-Speichergrenzen.",
+          zh: "向支持团队寻求协作者和项目存储上限方面的帮助。",
         })}
         breadcrumbs={portalBreadcrumbs({
           label: t({
             en: "Help requests",
             fr: "Demandes d'aide",
             de: "Hilfeanfragen",
+            zh: "帮助请求",
           }),
         })}
     >
@@ -576,6 +590,7 @@ export default function PortalRequestsPage() {
             en: "Only storage managers can submit collaborator or storage-limit requests for this project.",
             fr: "Seuls les managers du stockage peuvent envoyer des demandes collaborateur ou limite pour ce projet.",
             de: "Nur Speicher-Manager konnen fur dieses Projekt Mitwirkenden- oder Speichergrenzen-Anfragen senden.",
+            zh: "仅存储管理员可以为此项目提交协作者或存储上限请求。",
           })}
         </PageBanner>
       ) : null}
@@ -590,6 +605,7 @@ export default function PortalRequestsPage() {
                     en: "Request help",
                     fr: "Demander de l'aide",
                     de: "Hilfe anfordern",
+                    zh: "请求帮助",
                   }),
                 },
               ]
@@ -600,6 +616,7 @@ export default function PortalRequestsPage() {
               en: `History (${requests.length})`,
               fr: `Historique (${requests.length})`,
               de: `Verlauf (${requests.length})`,
+              zh: `历史记录（${requests.length}）`,
             }),
           },
         ]}
@@ -609,6 +626,7 @@ export default function PortalRequestsPage() {
           en: "Help request views",
           fr: "Vues des demandes d'aide",
           de: "Ansichten der Hilfeanfragen",
+          zh: "帮助请求视图",
         })}
         idPrefix="portal-help-requests"
         headerActions={
@@ -618,7 +636,7 @@ export default function PortalRequestsPage() {
               onClick={handleRefresh}
               loading={busy === "refresh"}
             >
-              {t({ en: "Refresh", fr: "Actualiser", de: "Aktualisieren" })}
+              {t({ en: "Refresh", fr: "Actualiser", de: "Aktualisieren", zh: "刷新" })}
             </ListActionButton>
           ) : null
         }
@@ -635,11 +653,13 @@ export default function PortalRequestsPage() {
               en: "Add or remove a collaborator",
               fr: "Ajouter ou retirer un collaborateur",
               de: "Mitwirkenden hinzufugen oder entfernen",
+              zh: "添加或移除协作者",
             })}
             description={t({
               en: "Ask support to update project membership from one shared form.",
               fr: "Demandez au support de mettre à jour les membres du projet depuis un formulaire commun.",
               de: "Bitten Sie den Support, die Projektmitglieder uber ein gemeinsames Formular zu aktualisieren.",
+              zh: "通过统一表单申请由支持团队更新项目成员。",
             })}
             actions={
               <UiButton
@@ -651,6 +671,7 @@ export default function PortalRequestsPage() {
                   en: "Manage membership",
                   fr: "Gérer les membres",
                   de: "Mitglieder verwalten",
+                  zh: "管理成员资格",
                 })}
               </UiButton>
             }
@@ -660,6 +681,7 @@ export default function PortalRequestsPage() {
                 en: "Add a new person by email, or select an existing direct collaborator to remove.",
                 fr: "Ajoutez une nouvelle personne par e-mail, ou sélectionnez un collaborateur direct existant à retirer.",
                 de: "Fugen Sie eine neue Person per E-Mail hinzu oder wahlen Sie einen bestehenden direkten Mitwirkenden zum Entfernen aus.",
+                zh: "通过邮箱添加新人员，或选择现有的直接协作者将其移除。",
               })}
             </p>
           </UiCard>
@@ -669,11 +691,13 @@ export default function PortalRequestsPage() {
               en: "Change storage limit",
               fr: "Modifier la limite",
               de: "Speichergrenze ändern",
+              zh: "更改存储上限",
             })}
             description={t({
               en: "Ask for more room, or lower the project limit after cleanup.",
               fr: "Demandez plus d'espace, ou réduisez la limite du projet après nettoyage.",
               de: "Fordern Sie mehr Speicher an oder senken Sie die Projektgrenze nach einer Bereinigung.",
+              zh: "申请更多空间，或在清理后降低项目上限。",
             })}
             actions={
               <UiButton
@@ -686,6 +710,7 @@ export default function PortalRequestsPage() {
                   en: "Change limit",
                   fr: "Changer la limite",
                   de: "Grenze ändern",
+                  zh: "更改上限",
                 })}
               </UiButton>
             }
@@ -696,11 +721,13 @@ export default function PortalRequestsPage() {
                     en: "Current usage will be checked before the request is sent.",
                     fr: "L'usage actuel sera vérifié avant l'envoi de la demande.",
                     de: "Die aktuelle Nutzung wird vor dem Senden geprüft.",
+                    zh: "发送请求前将检查当前用量。",
                   })
                 : t({
                     en: `Currently used: ${formatBytes(usedBytes)}.`,
                     fr: `Actuellement utilisé : ${formatBytes(usedBytes)}.`,
                     de: `Aktuell genutzt: ${formatBytes(usedBytes)}.`,
+                    zh: `当前已用：${formatBytes(usedBytes)}。`,
                   })}
             </p>
           </UiCard>
@@ -715,12 +742,14 @@ export default function PortalRequestsPage() {
               en: "My help requests",
               fr: "Mes demandes d'aide",
               de: "Meine Hilfeanfragen",
+              zh: "我的帮助请求",
             })}
             variant="page"
             countLabel={t({
               en: `${requests.length} request(s)`,
               fr: `${requests.length} demande(s)`,
               de: `${requests.length} Anfrage(n)`,
+              zh: `${requests.length} 项请求`,
             })}
           >
             <DataTableShell
@@ -732,6 +761,7 @@ export default function PortalRequestsPage() {
                 en: "Loading requests...",
                 fr: "Chargement des demandes...",
                 de: "Anfragen werden geladen...",
+                zh: "正在加载请求…",
               })}
               errorMessage={
                 error ??
@@ -739,12 +769,14 @@ export default function PortalRequestsPage() {
                   en: "Unable to load requests.",
                   fr: "Impossible de charger les demandes.",
                   de: "Anfragen können nicht geladen werden.",
+                  zh: "无法加载请求。",
                 })
               }
               emptyMessage={t({
                 en: "No help requests yet.",
                 fr: "Aucune demande d'aide pour le moment.",
                 de: "Noch keine Hilfeanfragen.",
+                zh: "暂无帮助请求。",
               })}
               responsiveCards
               expandedRow={(request) => <PortalRequestDetails request={request} />}
@@ -759,12 +791,13 @@ export default function PortalRequestsPage() {
             en: "Update project membership",
             fr: "Mettre à jour les membres du projet",
             de: "Projektmitglieder aktualisieren",
+            zh: "更新项目成员",
           })}
           onClose={closeRequestDialog}
         >
           <form className="grid gap-3" onSubmit={handleCollaboratorRequest}>
             <UiSelect
-              label={t({ en: "Action", fr: "Action", de: "Aktion" })}
+              label={t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" })}
               value={collaboratorAction}
               onChange={(event) =>
                 handleCollaboratorActionChange(
@@ -778,15 +811,15 @@ export default function PortalRequestsPage() {
               }
             >
               <option value="add">
-                {t({ en: "Add", fr: "Ajouter", de: "Hinzufugen" })}
+                {t({ en: "Add", fr: "Ajouter", de: "Hinzufugen", zh: "添加" })}
               </option>
               <option value="remove">
-                {t({ en: "Remove", fr: "Retirer", de: "Entfernen" })}
+                {t({ en: "Remove", fr: "Retirer", de: "Entfernen", zh: "移除" })}
               </option>
             </UiSelect>
             {collaboratorAction === "remove" ? (
               <UiSelect
-                label={t({ en: "Email", fr: "Mail", de: "E-Mail" })}
+                label={t({ en: "Email", fr: "Mail", de: "E-Mail", zh: "邮箱" })}
                 value={targetEmail}
                 onChange={(event) =>
                   applyRemovalCollaborator(event.target.value)
@@ -805,6 +838,7 @@ export default function PortalRequestsPage() {
                     en: "Select a collaborator",
                     fr: "Sélectionner un collaborateur",
                     de: "Mitwirkenden auswahlen",
+                    zh: "选择协作者",
                   })}
                 </option>
                 {removableCollaborators.map((collaborator) => (
@@ -817,7 +851,7 @@ export default function PortalRequestsPage() {
               </UiSelect>
             ) : (
               <UiInput
-                label={t({ en: "Email", fr: "Mail", de: "E-Mail" })}
+                label={t({ en: "Email", fr: "Mail", de: "E-Mail", zh: "邮箱" })}
                 type="email"
                 value={targetEmail}
                 onChange={(event) => setTargetEmail(event.target.value)}
@@ -830,7 +864,7 @@ export default function PortalRequestsPage() {
               />
             )}
             <UiInput
-              label={t({ en: "Name", fr: "Nom", de: "Name" })}
+              label={t({ en: "Name", fr: "Nom", de: "Name", zh: "姓名" })}
               value={targetName}
               onChange={(event) => setTargetName(event.target.value)}
               disabled={
@@ -849,6 +883,7 @@ export default function PortalRequestsPage() {
                   en: "No direct Portal collaborators can be removed from this project.",
                   fr: "Aucun collaborateur Portal direct ne peut être retiré de ce projet.",
                   de: "Keine direkten Portal-Mitwirkenden konnen aus diesem Projekt entfernt werden.",
+                  zh: "此项目中没有可移除的直接 Portal 协作者。",
                 })}
               </PageBanner>
             ) : null}
@@ -858,6 +893,7 @@ export default function PortalRequestsPage() {
                   en: "Reason (optional)",
                   fr: "Motif (optionnel)",
                   de: "Grund (optional)",
+                  zh: "原因（可选）",
                 })}
               </span>
               <textarea
@@ -886,11 +922,13 @@ export default function PortalRequestsPage() {
                       en: "Send removal request",
                       fr: "Envoyer la demande de retrait",
                       de: "Entfernungsanfrage senden",
+                      zh: "发送移除请求",
                     })
                   : t({
                       en: "Send request",
                       fr: "Envoyer la demande",
                       de: "Anfrage senden",
+                      zh: "发送请求",
                     })}
               </UiButton>
             </div>
@@ -904,6 +942,7 @@ export default function PortalRequestsPage() {
             en: "Change project storage limit",
             fr: "Modifier la limite de stockage du projet",
             de: "Speichergrenze des Projekts ändern",
+            zh: "更改项目存储上限",
           })}
           onClose={closeRequestDialog}
           maxWidthClass="max-w-3xl"
@@ -911,7 +950,7 @@ export default function PortalRequestsPage() {
           <form className="grid gap-3" onSubmit={handleQuotaRequest}>
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_96px]">
               <UiSelect
-                label={t({ en: "Change", fr: "Changement", de: "Änderung" })}
+                label={t({ en: "Change", fr: "Changement", de: "Änderung", zh: "变更" })}
                 value={quotaDirection}
                 onChange={(event) =>
                   setQuotaDirection(event.target.value as PortalQuotaDirection)
@@ -923,10 +962,10 @@ export default function PortalRequestsPage() {
                 }
               >
                 <option value="increase">
-                  {t({ en: "Raise", fr: "Augmenter", de: "Erhöhen" })}
+                  {t({ en: "Raise", fr: "Augmenter", de: "Erhöhen", zh: "提高" })}
                 </option>
                 <option value="decrease">
-                  {t({ en: "Lower", fr: "Réduire", de: "Senken" })}
+                  {t({ en: "Lower", fr: "Réduire", de: "Senken", zh: "降低" })}
                 </option>
               </UiSelect>
               <UiInput
@@ -934,6 +973,7 @@ export default function PortalRequestsPage() {
                   en: "New limit",
                   fr: "Nouvelle limite",
                   de: "Neue Grenze",
+                  zh: "新上限",
                 })}
                 type="number"
                 min="0"
@@ -948,7 +988,7 @@ export default function PortalRequestsPage() {
                 required
               />
               <UiSelect
-                label={t({ en: "Unit", fr: "Unité", de: "Einheit" })}
+                label={t({ en: "Unit", fr: "Unité", de: "Einheit", zh: "单位" })}
                 value={quotaUnit}
                 onChange={(event) =>
                   setQuotaUnit(event.target.value as PortalQuotaUnit)
@@ -981,6 +1021,7 @@ export default function PortalRequestsPage() {
                   en: "The new limit must stay above the space already used.",
                   fr: "La nouvelle limite doit rester au-dessus de l'espace déjà utilisé.",
                   de: "Die neue Grenze muss über der bereits genutzten Kapazität bleiben.",
+                  zh: "新上限必须高于当前已用空间。",
                 })}
               </PageBanner>
             ) : null}
@@ -991,11 +1032,13 @@ export default function PortalRequestsPage() {
                       en: "The new limit is not higher than the current limit.",
                       fr: "La nouvelle limite n'est pas supérieure à la limite actuelle.",
                       de: "Die neue Grenze liegt nicht über der aktuellen Grenze.",
+                      zh: "新上限未高于当前上限。",
                     })
                   : t({
                       en: "The new limit is not lower than the current limit.",
                       fr: "La nouvelle limite n'est pas inférieure à la limite actuelle.",
                       de: "Die neue Grenze liegt nicht unter der aktuellen Grenze.",
+                      zh: "新上限未低于当前上限。",
                     })}
               </PageBanner>
             ) : null}
@@ -1005,6 +1048,7 @@ export default function PortalRequestsPage() {
                   en: "Reason (optional)",
                   fr: "Motif (optionnel)",
                   de: "Grund (optional)",
+                  zh: "原因（可选）",
                 })}
               </span>
               <textarea
@@ -1029,6 +1073,7 @@ export default function PortalRequestsPage() {
                   en: "Send request",
                   fr: "Envoyer la demande",
                   de: "Anfrage senden",
+                  zh: "发送请求",
                 })}
               </UiButton>
             </div>
@@ -1087,6 +1132,7 @@ function QuotaChangePreview({
             en: "Storage limit preview",
             fr: "Prévisualisation de la limite",
             de: "Vorschau der Speichergrenze",
+            zh: "存储上限预览",
           })}
         </p>
         {loading ? (
@@ -1095,6 +1141,7 @@ function QuotaChangePreview({
               en: "Loading usage...",
               fr: "Chargement de l'usage...",
               de: "Nutzung wird geladen...",
+              zh: "正在加载用量…",
             })}
           </p>
         ) : null}
@@ -1105,6 +1152,7 @@ function QuotaChangePreview({
           en: "Storage limit bar",
           fr: "Barre de limite",
           de: "Balken der Speichergrenze",
+          zh: "存储上限进度条",
         })}
       >
         <div
@@ -1130,6 +1178,7 @@ function QuotaChangePreview({
             en: "Used now",
             fr: "Utilisé actuellement",
             de: "Aktuell genutzt",
+            zh: "当前已用",
           })}
           value={
             usedBytes == null
@@ -1137,6 +1186,7 @@ function QuotaChangePreview({
                   en: "Unavailable",
                   fr: "Indisponible",
                   de: "Nicht verfügbar",
+                  zh: "不可用",
                 })
               : formatBytes(usedBytes)
           }
@@ -1147,10 +1197,11 @@ function QuotaChangePreview({
             en: "Current limit",
             fr: "Limite actuelle",
             de: "Aktuelle Grenze",
+            zh: "当前上限",
           })}
           value={
             currentQuotaBytes == null
-              ? t({ en: "No limit", fr: "Aucune limite", de: "Keine Grenze" })
+              ? t({ en: "No limit", fr: "Aucune limite", de: "Keine Grenze", zh: "无限制" })
               : formatBytes(currentQuotaBytes)
           }
           swatchClassName="bg-[var(--ui-text)]/70"
@@ -1162,11 +1213,13 @@ function QuotaChangePreview({
                   en: "Requested raise",
                   fr: "Augmentation demandée",
                   de: "Angeforderte Erhöhung",
+                  zh: "申请提高至",
                 })
               : t({
                   en: "Requested reduction",
                   fr: "Réduction demandée",
                   de: "Angeforderte Senkung",
+                  zh: "申请降低至",
                 })
           }
           value={
@@ -1175,6 +1228,7 @@ function QuotaChangePreview({
                   en: "Enter a limit",
                   fr: "Saisir une limite",
                   de: "Grenze eingeben",
+                  zh: "输入上限",
                 })
               : formatBytes(targetQuotaBytes)
           }
@@ -1218,7 +1272,7 @@ function PortalRequestDetails({ request }: { request: PortalAdminRequest }) {
       {reason ? (
         <div>
           <p className={uiLabelClass}>
-            {t({ en: "Reason", fr: "Motif", de: "Grund" })}
+            {t({ en: "Reason", fr: "Motif", de: "Grund", zh: "原因" })}
           </p>
           <p className="mt-1 ui-body">{reason}</p>
         </div>
@@ -1229,7 +1283,7 @@ function PortalRequestDetails({ request }: { request: PortalAdminRequest }) {
       {request.messages.length > 0 ? (
         <div className={cx("border-t pt-3", uiDividerClass)}>
           <p className={uiLabelClass}>
-            {t({ en: "Messages", fr: "Messages", de: "Nachrichten" })}
+            {t({ en: "Messages", fr: "Messages", de: "Nachrichten", zh: "消息" })}
           </p>
           <div className="mt-2 grid gap-2">
             {request.messages.map((message) => (
