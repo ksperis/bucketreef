@@ -68,6 +68,10 @@ an owner; Portal managers administer them for the project.
 
 When a Portal manager creates or imports a Selected people space, selected collaborators are saved with the space. If a searched person is not already available in the current project, ask an admin to add that external collaborator first.
 
+Creation, import and **Add people** use the same people selector. Its count
+includes your current selection across searches. The default team role is shown
+only for Team access; Selected people spaces use each person's chosen role.
+
 ## Version history settings
 
 Open the Space **Settings** tab. **Identity** shows its name, description and

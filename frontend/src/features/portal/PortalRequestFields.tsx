@@ -19,12 +19,23 @@ export function PortalMemberRequestFields({ name, email, reason, onNameChange, o
   onNameChange: (value: string) => void; onEmailChange: (value: string) => void; onReasonChange: (value: string) => void;
   disabled?: boolean; nameDisabled?: boolean; emailControl?: ReactNode;
 }) {
+  return <>
+    <PortalMemberIdentityFields name={name} email={email} onNameChange={onNameChange} onEmailChange={onEmailChange}
+      disabled={disabled} nameDisabled={nameDisabled} emailControl={emailControl} />
+    <PortalRequestReason value={reason} onChange={onReasonChange} disabled={disabled} />
+  </>;
+}
+
+export function PortalMemberIdentityFields({ name, email, onNameChange, onEmailChange, disabled, nameDisabled, emailControl }: {
+  name: string; email: string;
+  onNameChange: (value: string) => void; onEmailChange: (value: string) => void;
+  disabled?: boolean; nameDisabled?: boolean; emailControl?: ReactNode;
+}) {
   const { t } = useI18n();
   return <>
     <UiInput label={t({ en: "Name", fr: "Nom", de: "Name" })} value={name}
       onChange={(event) => onNameChange(event.target.value)} disabled={disabled || nameDisabled} required />
     {emailControl ?? <UiInput label={t({ en: "Email", fr: "E-mail", de: "E-Mail" })} type="email" value={email}
       onChange={(event) => onEmailChange(event.target.value)} disabled={disabled} required />}
-    <PortalRequestReason value={reason} onChange={onReasonChange} disabled={disabled} />
   </>;
 }

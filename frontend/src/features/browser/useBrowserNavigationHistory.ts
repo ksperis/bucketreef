@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type BrowserNavigationLocation = {
   bucketName: string;
@@ -26,6 +27,14 @@ export function useBrowserNavigationHistory({
   prefix,
   onNavigate,
 }: UseBrowserNavigationHistoryOptions): void {
+  const navigate = useNavigate();
+  const route = useLocation();
+  const navigateRef = useRef(navigate);
+  const routePathRef = useRef("");
+  const routeStateRef = useRef<Record<string, unknown>>({});
+  navigateRef.current = navigate;
+  routePathRef.current = `${route.pathname}${route.search}${route.hash}`;
+  routeStateRef.current = route.state ?? {};
   const browserPathRef = useRef("");
   const currentLocationRef = useRef<BrowserNavigationLocation>({
     bucketName,
@@ -40,13 +49,16 @@ export function useBrowserNavigationHistory({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    browserPathRef.current = currentBrowserPath();
+    browserPathRef.current = routePathRef.current;
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handlePopState = (event: PopStateEvent) => {
-      const state = event.state as Partial<BrowserHistoryState> | null;
+      // Router-owned history keeps its index and user state together. Raw
+      // pushState entries can make later Portal form blockers miss a Back step.
+      const state = event.state?.usr as Partial<BrowserHistoryState> | null;
+      if (currentBrowserPath() !== browserPathRef.current) return;
       const currentLocation = currentLocationRef.current;
       if (state?.browserPage) {
         const nextLocation = {
@@ -58,30 +70,20 @@ export function useBrowserNavigationHistory({
           nextLocation.prefix !== currentLocation.prefix;
         const accepted = onNavigateRef.current(nextLocation);
         if (accepted === false) {
-          window.history.pushState(
-            {
-              ...(window.history.state ?? {}),
+          navigateRef.current(browserPathRef.current, {
+            state: {
+              ...routeStateRef.current,
               browserPage: true,
               ...currentLocation,
             } satisfies BrowserHistoryState,
-            "",
-            browserPathRef.current || currentBrowserPath(),
-          );
+          });
           return;
         }
         skipNextWriteRef.current = locationChanged;
         return;
       }
 
-      window.history.pushState(
-        {
-          ...(window.history.state ?? {}),
-          browserPage: true,
-          ...currentLocation,
-        } satisfies BrowserHistoryState,
-        "",
-        browserPathRef.current || currentBrowserPath(),
-      );
+      // Leaving the explorer belongs to the router and the destination page.
     };
     window.addEventListener("popstate", handlePopState);
     return () => {
@@ -105,18 +107,15 @@ export function useBrowserNavigationHistory({
       return;
     }
 
-    const baseState = window.history.state ?? {};
+    const baseState = routeStateRef.current;
     const nextState = {
       ...baseState,
       browserPage: true,
       ...location,
     } satisfies BrowserHistoryState;
-    const path = browserPathRef.current || currentBrowserPath();
-    if (!baseState?.browserPage) {
-      window.history.replaceState(nextState, "", path);
-    } else {
-      window.history.pushState(nextState, "", path);
-    }
+    const path = routePathRef.current;
+    browserPathRef.current = path;
     lastWrittenLocationRef.current = location;
+    navigateRef.current(path, { state: nextState, replace: !lastLocation || !baseState?.browserPage });
   }, [bucketName, prefix]);
 }

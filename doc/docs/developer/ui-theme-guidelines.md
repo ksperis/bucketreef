@@ -327,6 +327,27 @@ Load spaces only when the configurator is needed; retain selection on reopening
 and show copy/download feedback inside the dialog. Keep existing-key scope,
 endpoint addressing and secret-free download generation in feature helpers.
 
+Portal space creation, import and collaborator invitation reuse
+`PortalAccessModeFields` and `PortalShareCandidatePicker`. The team default role
+appears only for Team access. The picker uses a named `ListToolbar`, shared
+checkboxes and settings controls; keep one selection count and wrap identities
+instead of truncating them. Existing grants remain disabled and show their role.
+`PortalAddPeopleWorkflow` owns the space-scoped catalogue and selected roles,
+with explicit loading failures, retry and the shared draft/pending guard.
+
+`PortalCollaboratorRequestDialog` reuses the membership identity fields and
+settings form controller. Render its form in a DOM portal and stop settings
+form submit propagation so it cannot submit the enclosing invitation. The
+enclosing workflow aggregates the child dirty/busy state into one navigation
+guard; explicit dialog cancellation guards only the membership request draft.
+Keep Admin membership requests distinct from space invitations.
+
+Browser bucket/prefix history must use router navigation and router user state.
+Raw `history.pushState` entries duplicate the router index and can bypass a
+later page's unsaved-change blocker, including after leaving the embedded
+Portal file explorer. Preserve literal prefixes and let the router own exits
+from the explorer.
+
 `useSettingsRemoteDraft` is shared by SNS and IAM role editing. Mount it for one
 resource and execution context, provide a stable load callback, and disable
 editing/submission until the remote baseline is available. Its retry control
