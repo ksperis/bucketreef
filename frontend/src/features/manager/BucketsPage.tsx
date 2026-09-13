@@ -5,13 +5,12 @@
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { isApiError } from "../../api/client";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiCheckboxClass } from "../../components/ui/styles";
 import {
   createBucket,
   deleteBucket,
@@ -36,8 +35,7 @@ import { useS3AccountContext } from "./S3AccountContext";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
-import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
+import { workflowPageHostClass } from "../../components/WorkflowPage";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
@@ -47,15 +45,8 @@ import UiMeterBar from "../../components/ui/UiMeterBar";
 
 import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
-import {
-  S3_BUCKET_NAME_MAX_LENGTH,
-  isValidS3BucketName,
-  normalizeS3BucketName,
-  normalizeS3BucketNameInput,
-} from "../../utils/s3BucketName";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
-import { stableSignature } from "../../utils/stableSignature";
 import { compareByNullableField, nextSortState, type SortableField } from "../../utils/sortValues";
 import { getManagerToolAccess, readStoredUser } from "../../utils/workspaces";
 import {
@@ -79,22 +70,8 @@ import {
   buildWebsiteSummaryLines,
 } from "../shared/bucketFeatureSummaries";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
+import BucketCreateWorkflow from "./BucketCreateWorkflow";
 
-type BucketForm = {
-  name: string;
-  locationConstraint: string;
-  versioning: boolean;
-};
-
-const defaultForm: BucketForm = {
-  name: "",
-  locationConstraint: "",
-  versioning: false,
-};
-
-const buildDefaultForm = (): BucketForm => ({
-  ...defaultForm,
-});
 const extractError = (err: unknown, fallback = "Unexpected error"): string => extractApiError(err, fallback);
 
 function QuotaBar({ usedBytes, quotaBytes }: { usedBytes?: number | null; quotaBytes?: number | null }) {
@@ -244,13 +221,7 @@ export default function BucketsPage() {
   const [pendingDeleteWithPurgeBucketName, setPendingDeleteWithPurgeBucketName] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardStep, setWizardStep] = useState(0);
-  const [useCustomLocationConstraint, setUseCustomLocationConstraint] = useState(false);
-  const [bucketForm, setBucketForm] = useState<BucketForm>(buildDefaultForm);
-  const [wizardInitialSignature, setWizardInitialSignature] = useState(() =>
-    stableSignature({ bucketForm: buildDefaultForm(), useCustomLocationConstraint: false })
-  );
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [filter, setFilter] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(loadVisibleColumns);
   const fetchRequestRef = useRef(0);
@@ -267,7 +238,6 @@ export default function BucketsPage() {
     direction: "desc",
   });
   const [enrichingColumns, setEnrichingColumns] = useState(false);
-  const invalidBucketNameMessage = "Invalid name. 3-63 characters, lowercase letters, numbers, dots or hyphens.";
 
   const selectedS3Account = useMemo(
     () => accounts.find((a) => a.id === selectedS3AccountId),
@@ -665,31 +635,6 @@ export default function BucketsPage() {
     }
   };
 
-  const handleCreate = async (event: FormEvent) => {
-    event.preventDefault();
-    if (needsS3AccountSelection) {
-      setActionError("Select an account before creating a bucket.");
-      return;
-    }
-    const normalizedBucketName = normalizeS3BucketName(bucketForm.name);
-    if (!normalizedBucketName) {
-      setActionError("Bucket name is required.");
-      return;
-    }
-    if (!isValidS3BucketName(normalizedBucketName)) {
-      setActionError(invalidBucketNameMessage);
-      return;
-    }
-    const locationConstraint = useCustomLocationConstraint ? bucketForm.locationConstraint.trim() || undefined : undefined;
-    const result = await performCreate(normalizedBucketName, bucketForm.versioning, locationConstraint);
-    if (result.created) {
-      setBucketForm(buildDefaultForm());
-      setShowWizard(false);
-      setWizardStep(0);
-      setUseCustomLocationConstraint(false);
-    }
-  };
-
   const requestDelete = (name: string) => {
     if (needsS3AccountSelection) return;
     const targetBucket = buckets.find((b) => b.name === name);
@@ -877,41 +822,19 @@ export default function BucketsPage() {
 
     return cols;
   })();
-  const stepTitles = ["General", "Protection"];
-  const isBucketNameValid = !bucketForm.name || isValidS3BucketName(bucketForm.name);
-  const wizardCurrentSignature = useMemo(
-    () => stableSignature({ bucketForm, useCustomLocationConstraint }),
-    [bucketForm, useCustomLocationConstraint]
-  );
-  const closeWizard = () => {
-    setShowWizard(false);
-    setBucketForm(buildDefaultForm());
-    setWizardStep(0);
-    setUseCustomLocationConstraint(false);
-    setWizardInitialSignature(stableSignature({ bucketForm: buildDefaultForm(), useCustomLocationConstraint: false }));
-  };
-  const wizardCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showWizard && wizardCurrentSignature !== wizardInitialSignature,
-    onClose: closeWizard,
-    disabled: creating,
-  });
   const tableStatus = resolveListTableStatus({
     loading,
     error,
     rowCount: filteredBuckets.length,
   });
 
-  const openAdvancedModal = () => {
+  const openCreateForm = () => {
     setActionError(null);
-    setBucketForm(buildDefaultForm());
-    setWizardStep(0);
-    setUseCustomLocationConstraint(false);
-    setWizardInitialSignature(stableSignature({ bucketForm: buildDefaultForm(), useCustomLocationConstraint: false }));
-    setShowWizard(true);
+    setShowCreateForm(true);
   };
 
   return (
-    <div className={workflowPageHostClass(Boolean(showWizard || pendingDeleteWithPurgeBucketName))}>
+    <div className={workflowPageHostClass(Boolean(showCreateForm || pendingDeleteWithPurgeBucketName))}>
       <PageHeader actionPresentation="listing"
         title="Buckets"
         description="Bucket inventory and configuration for the active manager context."
@@ -919,7 +842,7 @@ export default function BucketsPage() {
         actions={[
           {
             label: "Create bucket",
-            onClick: openAdvancedModal,
+            onClick: openCreateForm,
             disabled: baseLoadFailed || (loading && buckets.length === 0),
           },
         ]}
@@ -1043,160 +966,9 @@ export default function BucketsPage() {
         />
       )}
 
-      {showWizard && (
-        <WorkflowPage
-          title="Create bucket"
-          description="Define the bucket identity and initial protection settings for the active manager context."
-          breadcrumbs={managerPageBreadcrumbs("buckets", { label: "Create" })}
-          backLabel="Back to buckets"
-          onBack={wizardCloseGuard.requestClose}
-          width="narrow"
-        >
-          {actionError && <PageBanner tone="error">{actionError}</PageBanner>}
-          <form className="space-y-4" onSubmit={handleCreate}>
-            <div className="flex items-center gap-3">
-              {stepTitles.map((title, index) => (
-                <div key={title} className="flex items-center gap-2 ui-body">
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full border ui-caption font-semibold ${
-                      index === wizardStep
-                        ? "border-primary bg-primary-100/70 text-primary-800 dark:border-primary-500 dark:bg-primary-500/20 dark:text-primary-100"
-                        : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    {index + 1}
-                  </div>
-                  <span className={index === wizardStep ? "font-semibold text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"}>
-                    {title}
-                  </span>
-                  {index < stepTitles.length - 1 && <span className="text-slate-400 dark:text-slate-600">—</span>}
-                </div>
-              ))}
-            </div>
-
-            {wizardStep === 0 && (
-              <div className="space-y-4">
-                <div className="flex flex-col gap-2">
-                  <label className="ui-body font-medium text-slate-700 dark:text-slate-200">Bucket name</label>
-                  <input
-                    value={bucketForm.name}
-                    onChange={(e) => {
-                      const value = normalizeS3BucketNameInput(e.target.value);
-                      setBucketForm((prev) => ({ ...prev, name: value }));
-                    }}
-                    maxLength={S3_BUCKET_NAME_MAX_LENGTH}
-                    title={!bucketForm.name || isBucketNameValid ? undefined : invalidBucketNameMessage}
-                    className={`rounded-md border px-3 py-2 ui-body focus:outline-none focus:ring-2 ${
-                      !bucketForm.name || isBucketNameValid
-                        ? "border-slate-200 focus:border-primary focus:ring-primary/30 dark:border-slate-700 dark:text-slate-100"
-                        : "border-rose-400 text-rose-700 focus:border-rose-500 focus:ring-rose-200 dark:border-rose-500 dark:text-rose-200 dark:focus:ring-rose-900/50"
-                    } dark:bg-slate-900`}
-                    placeholder="ex: backups-prod"
-                    required
-                  />
-                  {bucketForm.name && !isBucketNameValid && (
-                    <p className="ui-caption font-semibold text-rose-600 dark:text-rose-300">{invalidBucketNameMessage}</p>
-                  )}
-                  <p className="ui-caption text-slate-500 dark:text-slate-400">
-                    DNS compatible, lowercase, numbers, dots, and hyphens. The selected account will be used.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 ui-caption text-slate-600 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={useCustomLocationConstraint}
-                      onChange={(e) => setUseCustomLocationConstraint(e.target.checked)}
-                      className={uiCheckboxClass}
-                    />
-                    <span>Custom LocationConstraint</span>
-                  </label>
-                  {useCustomLocationConstraint && (
-                    <div className="flex flex-col gap-2">
-                      <input
-                        value={bucketForm.locationConstraint}
-                        onChange={(e) => setBucketForm((prev) => ({ ...prev, locationConstraint: e.target.value }))}
-                        className="rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                        placeholder="ex: eu-west-1"
-                      />
-                      <p className="ui-caption text-slate-500 dark:text-slate-400">
-                        Optional. Empty value uses the endpoint default region/placement.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {wizardStep === 1 && (
-              <div className="space-y-4">
-                <label className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 ui-body text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100">
-                  <span>
-                    Versioning
-                    <span className="block ui-caption text-slate-500 dark:text-slate-400">Enables version retention.</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={bucketForm.versioning}
-                    onChange={(e) => setBucketForm((prev) => ({ ...prev, versioning: e.target.checked }))}
-                    className="h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600"
-                  />
-                </label>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <div className="ui-caption text-slate-500 dark:text-slate-400">
-                S3Account: {accountLabel}
-              </div>
-              <div className="flex items-center gap-3">
-                {wizardStep > 0 && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setWizardStep((prev) => Math.max(prev - 1, 0));
-                    }}
-                    className="rounded-md border border-slate-200 px-4 py-2 ui-body font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-                  >
-                    Previous
-                  </button>
-                )}
-                {wizardStep < stepTitles.length - 1 ? (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      if (!bucketForm.name.trim()) {
-                        setActionError("Bucket name is required.");
-                        return;
-                      }
-                      if (!isBucketNameValid) {
-                        setActionError(invalidBucketNameMessage);
-                        return;
-                      }
-                      setActionError(null);
-                      setWizardStep((prev) => Math.min(prev + 1, stepTitles.length - 1));
-                    }}
-                    disabled={!bucketForm.name.trim() || !isBucketNameValid}
-                    className={cx(uiButtonBaseClass, uiButtonVariants.primary, "rounded-md px-4 py-2 ui-body")}
-                  >
-                    Continue
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={creating}
-                    className={cx(uiButtonBaseClass, uiButtonVariants.primary, "rounded-md px-4 py-2 ui-body")}
-                  >
-                    {creating ? "Creating..." : "Create bucket"}
-                  </button>
-                )}
-              </div>
-            </div>
-          </form>
-          {wizardCloseGuard.confirmationDialog}
-        </WorkflowPage>
+      {showCreateForm && (
+        <BucketCreateWorkflow contextLabel={accountLabel} needsContext={needsS3AccountSelection}
+          busy={creating} error={actionError} onCreate={performCreate} onClose={() => setShowCreateForm(false)} />
       )}
     </div>
   );

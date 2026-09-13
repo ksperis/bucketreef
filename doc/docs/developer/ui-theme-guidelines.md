@@ -298,6 +298,20 @@ close/route/reload guards; feature handlers retain IAM documents, attachments,
 validation and one-time access-key presentation. Errors appear once inside the
 active form. Do not reintroduce local close guards around these forms.
 
+Manager bucket creation follows the same `SettingsWorkflowForm` contract with
+General and Protection sections on one page. Keep the execution context visible,
+associate labels with the bucket name and optional LocationConstraint, and use
+the shared switches and action footer. The feature layer retains S3 name
+normalization, endpoint-default placement and versioning payloads. Failed
+creation retains the draft; pending creation and list refresh lock resubmission,
+closing and context navigation.
+
+Feature-rule inspection retains the specialized grouped `FeatureRulesTable`.
+Its JSON opens in a `SettingsDialog` with a labelled, read-only `UiTextarea`,
+using theme colors and wrapping long values for narrow screens. Context or
+feature changes clear the previous inspection and rows; failed inventory loads
+use the error state rather than the filtered-empty state.
+
 `useSettingsRemoteDraft` is shared by SNS and IAM role editing. Mount it for one
 resource and execution context, provide a stable load callback, and disable
 editing/submission until the remote baseline is available. Its retry control

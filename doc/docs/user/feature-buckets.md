@@ -18,6 +18,11 @@ Confirm the workspace and execution context first. Bucket names can repeat acros
 
 1. Open bucket list in Manager (`/manager/buckets`) or Ceph Admin (`/ceph-admin/buckets`).
 2. Create or select a bucket.
+   In Manager, **Create bucket** opens one form with **General** and
+   **Protection** settings. Check the displayed context, enter the bucket name,
+   optionally enable **Custom LocationConstraint** for a region or placement,
+   and choose **Versioning** before creating. Leaving a modified form asks
+   whether to discard the draft; a failed request keeps the entered values.
 3. Configure relevant settings based on endpoint support:
    - Versioning
    - Object Lock
@@ -30,6 +35,8 @@ Confirm the workspace and execution context first. Bucket names can repeat acros
 5. In Manager, open **Tools > Feature rules** (`/manager/feature-rules`) to
    audit lifecycle, bucket policy, CORS, notifications, or bucket tags across
    every bucket in the active context.
+   Use **JSON** to inspect a rule in a read-only field. Long values wrap to fit
+   the dialog; close it to return to the inventory without changing the rule.
 6. On Ceph Admin and Storage Ops bucket workbenches, select rows and open
    **Actions… > S3 API > Configure selected buckets…** to preview and apply
    lifecycle, notification, versioning, access, CORS, or policy changes. Ceph
