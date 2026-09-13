@@ -2,9 +2,9 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton, ListBadge } from "../../components/list/ListControls";
-import Modal from "../../components/Modal";
-import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import { ListActionButton, ListActions, ListBadge } from "../../components/list/ListControls";
+import ListDialog from "../../components/list/ListDialog";
+import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import {
   formatDownloadTimestamp,
   triggerDownload,
@@ -98,103 +98,62 @@ export default function BrowserPrefixVersionsModal({
     triggerDownload(`${baseName}-${timestamp}.csv`, csv, "text/csv;charset=utf-8");
   };
 
-  return (
-    <Modal
-      title={`Prefix versions${normalizedPrefix ? ` · ${normalizedPrefix}` : ""}`}
-      onClose={onClose}
-      maxWidthClass="max-w-4xl"
-    >
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 ui-caption text-slate-600 dark:text-slate-300">
-          <span className="font-semibold">
-            Prefix {normalizedPrefix ? normalizedPrefix : "/"}
-          </span>
-          <div className="flex items-center gap-2 ui-caption text-slate-500 dark:text-slate-400">
-            {prefixVersionsLoading && <span>Loading...</span>}
-            <ListActionButton
-              type="button"
-              onClick={handleExportCsv}
-              disabled={prefixVersionsLoading || prefixVersionRows.length === 0}
-            >
-              Export CSV
-            </ListActionButton>
-            <ListActionButton
-              type="button"
-              onClick={handleExportJson}
-              disabled={prefixVersionsLoading || prefixVersionRows.length === 0}
-            >
-              Export JSON
-            </ListActionButton>
-            <ListActionButton
-              type="button"
-              onClick={onRefresh}
-              disabled={!bucketName || prefixVersionsLoading}
-            >
-              Refresh
-            </ListActionButton>
-          </div>
+  const columns: Array<DataTableColumn<BrowserObjectVersion>> = [
+    {
+      id: "key", label: "Object", primary: true,
+      cellClassName: "max-w-[260px] whitespace-pre-wrap [overflow-wrap:anywhere]",
+      render: (version) => <>
+        <span>{version.key}</span>
+        <div className="flex flex-wrap gap-1">
+          {version.is_delete_marker && <ListBadge tone="warning">delete marker</ListBadge>}
+          {version.is_latest && <ListBadge tone="success">latest</ListBadge>}
         </div>
-        {prefixVersionsError && <UiInlineMessage tone="error">{prefixVersionsError}</UiInlineMessage>}
-        <div className="max-h-[60vh] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800">
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {prefixVersionRows.length === 0 && !prefixVersionsLoading && (
-              <div className="px-3 py-3 ui-caption text-slate-500 dark:text-slate-300">No versions found.</div>
-            )}
-            {prefixVersionRows.map((ver) => (
-              <div
-                key={`${ver.key}-${ver.version_id ?? "none"}-${ver.is_delete_marker ? "marker" : "version"}`}
-                className="flex flex-wrap items-start justify-between gap-3 px-3 py-2 ui-caption"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate font-semibold text-slate-800 dark:text-slate-100">{ver.key}</span>
-                    {ver.is_delete_marker && (
-                      <ListBadge tone="warning">delete marker</ListBadge>
-                    )}
-                    {ver.is_latest && (
-                      <ListBadge tone="success">latest</ListBadge>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-3 ui-caption text-slate-500 dark:text-slate-300">
-                    {ver.version_id && <span>v: {ver.version_id}</span>}
-                    {ver.last_modified && <span>{formatDateTime(ver.last_modified)}</span>}
-                    {ver.size != null && <span>{formatBytes(ver.size)}</span>}
-                    {ver.etag && <span>ETag {ver.etag}</span>}
-                    {ver.storage_class && <span>{ver.storage_class}</span>}
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {!ver.is_delete_marker && !ver.is_latest && (
-                    <ListActionButton
-                      type="button"
-                      onClick={() => onRestoreVersion(ver)}
-                    >
-                      Restore
-                    </ListActionButton>
-                  )}
-                  <ListActionButton variant="danger"
-                    type="button"
-                    onClick={() => onDeleteVersion(ver)}
-                  >
-                    {ver.is_delete_marker ? "Delete marker" : "Delete version"}
-                  </ListActionButton>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        {canLoadMore && (
-          <div className="text-right">
-            <ListActionButton
-              type="button"
-              onClick={onLoadMore}
-              disabled={prefixVersionsLoading}
-            >
-              Load more versions
-            </ListActionButton>
-          </div>
+      </>,
+    },
+    {
+      id: "version", label: "Version", cellClassName: "max-w-[240px] [overflow-wrap:anywhere]",
+      render: (version) => <div>
+        <p>{version.version_id ?? "-"}</p>
+        {version.etag && <p>ETag {version.etag}</p>}
+      </div>,
+    },
+    {
+      id: "details", label: "Details",
+      render: (version) => <div>
+        {version.last_modified && <p>{formatDateTime(version.last_modified)}</p>}
+        {version.size != null && <p>{formatBytes(version.size)}</p>}
+        {version.storage_class && <p>{version.storage_class}</p>}
+      </div>,
+    },
+    {
+      id: "actions", label: "Actions", align: "right", mobileRole: "actions",
+      render: (version) => <ListActions>
+        {!version.is_delete_marker && !version.is_latest && (
+          <ListActionButton onClick={() => onRestoreVersion(version)}>Restore</ListActionButton>
         )}
-      </div>
-    </Modal>
+        <ListActionButton variant="danger" onClick={() => onDeleteVersion(version)}>
+          {version.is_delete_marker ? "Delete marker" : "Delete version"}
+        </ListActionButton>
+      </ListActions>,
+    },
+  ];
+
+  return (
+    <ListDialog title="Prefix versions" onClose={onClose} maxWidthClass="max-w-4xl"
+      description={`Bucket ${bucketName} · Prefix ${normalizedPrefix || "(bucket root)"}`}
+      rowCount={prefixVersionRows.length} countLabel={`${prefixVersionRows.length} loaded`}
+      loading={prefixVersionsLoading} loadingMessage="Loading prefix versions..." error={prefixVersionsError}
+      emptyMessage="No versions found." onRefresh={onRefresh} refreshDisabled={!bucketName}
+      actions={<>
+        <ListActionButton onClick={handleExportCsv} disabled={prefixVersionsLoading || !prefixVersionRows.length}>Export CSV</ListActionButton>
+        <ListActionButton onClick={handleExportJson} disabled={prefixVersionsLoading || !prefixVersionRows.length}>Export JSON</ListActionButton>
+      </>}
+      loadMore={{ available: canLoadMore, onClick: onLoadMore, label: "Load more versions" }}>
+      <DataTableShell columns={columns} rows={prefixVersionRows}
+        rowKey={(version) => `${version.key}-${version.version_id ?? "none"}-${version.is_delete_marker ? "marker" : "version"}`}
+        status="ready" loadingMessage="Loading prefix versions..." errorMessage="Unable to load prefix versions."
+        emptyMessage="No versions found." responsiveCards
+        containerClassName="rounded-lg border border-[var(--ui-border)]" />
+    </ListDialog>
   );
 }

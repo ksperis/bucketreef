@@ -3,16 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { Fragment, useMemo } from "react";
-import Modal from "../../components/Modal";
+import ListDialog from "../../components/list/ListDialog";
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { formatBytes } from "../../utils/format";
-import {
-  countBadgeClasses,
-  DEFAULT_QUEUED_VISIBLE_COUNT,
-  filterChipActiveClasses,
-  filterChipClasses,
-  operationSecondaryClasses,
-  operationStopClasses,
-} from "./browserConstants";
+import { DEFAULT_QUEUED_VISIBLE_COUNT } from "./browserConstants";
 import { DownloadIcon } from "./browserIcons";
 import {
   BrowserOperationCard,
@@ -69,6 +63,7 @@ type BrowserOperationsModalProps = {
 
 export default function BrowserOperationsModal(props: BrowserOperationsModalProps) {
   const {
+    totalOperationsCount,
     activeOperationsCount,
     queuedOperationsCount,
     completedOperationsCount,
@@ -103,46 +98,30 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
     onClearFinishedOperations,
     onClose,
   } = props;
-  const operationsPanelHeightClasses = "max-h-[min(70vh,520px)]";
-  const operationsListAreaClasses = "min-h-[12rem] flex-1 overflow-y-auto pr-1";
 
   const showAllOperations = filtersAllInactive;
   const showActiveSection = showAllOperations || showActiveOperations;
   const showQueuedSection = showAllOperations || showQueuedOperations;
   const showCompletedSection = showAllOperations || showCompletedOperations;
   const showFailedSection = showAllOperations || showFailedOperations;
-  const hasVisibleOperations =
-    visibleUploadGroups.length > 0 ||
-    visibleDownloadGroups.length > 0 ||
-    visibleDeleteGroups.length > 0 ||
-    visibleCopyGroups.length > 0 ||
-    visibleOtherOperations.length > 0;
-
-  const failedFilterChipActiveClasses =
-    "border-rose-200 bg-rose-100 text-rose-700 dark:border-rose-500/50 dark:bg-rose-900/30 dark:text-rose-100";
-  const failedBadgeClasses = `${countBadgeClasses} ${showFailedOperations ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-100" : ""}`;
-  const detailsIconButtonClasses =
-    "inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200/70 text-slate-500 transition hover:border-slate-300 hover:text-slate-700 dark:border-slate-700/80 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-200";
-
   const renderDetailsAction = (kind: OperationDetailsKind, operationId: string) => (
-    <button
+    <ListActionButton
       type="button"
-      className={detailsIconButtonClasses}
+      iconOnly
       onClick={() => onDownloadOperationDetails(kind, operationId)}
       title="Export details (JSON)"
       aria-label="Export operation details (JSON)"
     >
       <DownloadIcon className="h-3.5 w-3.5" />
-    </button>
+    </ListActionButton>
   );
   const renderDetailsTextAction = (kind: OperationDetailsKind, operationId: string) => (
-    <button
+    <ListActionButton
       type="button"
-      className={operationSecondaryClasses}
       onClick={() => onDownloadOperationDetails(kind, operationId)}
     >
       Download details (JSON)
-    </button>
+    </ListActionButton>
   );
 
   const timelineEntries = useMemo(
@@ -201,17 +180,17 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
     const subtitle = group.totalBytes > 0 ? `${formatBytes(group.totalBytes)} total` : undefined;
     const actions = (
       <>
-        <button
+        <ListActionButton
           type="button"
-          className={operationSecondaryClasses}
+          aria-expanded={isGroupExpanded(group.id)}
           onClick={() => toggleGroupExpanded(group.id)}
         >
           {isGroupExpanded(group.id) ? "Hide files" : "Show files"}
-        </button>
+        </ListActionButton>
         {(activeCount > 0 || queuedCount > 0) && (
-          <button type="button" className={operationStopClasses} onClick={() => cancelUploadGroup(group.id)}>
+          <ListActionButton type="button" variant="danger" onClick={() => cancelUploadGroup(group.id)}>
             Stop all
-          </button>
+          </ListActionButton>
         )}
       </>
     );
@@ -221,42 +200,41 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
           group.activeItems.map((op) => (
             <div key={op.id} className="flex items-center justify-between gap-3 ui-caption">
               <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{op.itemLabel ?? op.path}</p>
-                <p className="ui-caption text-slate-400">
+                <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">{op.itemLabel ?? op.path}</p>
+                <p className="ui-caption text-[var(--ui-text-muted)]">
                   Uploading · {op.progress > 0 ? `${op.progress}%` : "In progress"}
                 </p>
               </div>
-              <button
+              <ListActionButton
                 type="button"
-                className={operationStopClasses}
+                variant="danger"
                 onClick={() => cancelUploadOperation(op.id)}
                 disabled={!op.cancelable}
               >
                 Stop
-              </button>
+              </ListActionButton>
             </div>
           ))}
         {showQueuedSection &&
           visibleQueuedItems.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-3 ui-caption">
               <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{item.itemLabel || item.key}</p>
-                <p className="ui-caption text-slate-400">Queued · {formatBytes(item.file.size)}</p>
+                <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">{item.itemLabel || item.key}</p>
+                <p className="ui-caption text-[var(--ui-text-muted)]">Queued · {formatBytes(item.file.size)}</p>
               </div>
-              <button type="button" className={operationStopClasses} onClick={() => removeQueuedUpload(item.id)}>
+              <ListActionButton type="button" variant="danger" onClick={() => removeQueuedUpload(item.id)}>
                 Stop
-              </button>
+              </ListActionButton>
             </div>
           ))}
         {showQueuedSection && hasMoreQueued && (
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <ListActionButton
               type="button"
-              className={operationSecondaryClasses}
               onClick={() => showMoreSection(group.id, "queued")}
             >
               Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
-            </button>
+            </ListActionButton>
             {renderDetailsTextAction("upload", group.id)}
           </div>
         )}
@@ -264,10 +242,10 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
           visibleCompletedItems.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-3 ui-caption">
               <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-800 dark:text-slate-100">
+                <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">
                   {item.itemLabel ?? item.path}
                 </p>
-                <p className="ui-caption text-slate-400">
+                <p className="ui-caption text-[var(--ui-text-muted)]">
                   {operationCompletionLabel(item.completionStatus)}
                   {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes)}` : ""}
                 </p>
@@ -276,13 +254,12 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
           ))}
         {showCompletedSection && hasMoreCompleted && (
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <ListActionButton
               type="button"
-              className={operationSecondaryClasses}
               onClick={() => showMoreSection(group.id, "completed")}
             >
               Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
-            </button>
+            </ListActionButton>
             {renderDetailsTextAction("upload", group.id)}
           </div>
         )}
@@ -290,26 +267,25 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
           visibleFailedItems.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-3 ui-caption">
               <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{item.itemLabel ?? item.path}</p>
-                <p className="ui-caption text-slate-400">
+                <p className="whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold text-[var(--ui-text)]">{item.itemLabel ?? item.path}</p>
+                <p className="ui-caption text-[var(--ui-text-muted)]">
                   Failed
                   {item.sizeBytes != null ? ` · ${formatBytes(item.sizeBytes)}` : ""}
                 </p>
                 {item.errorMessage && (
-                  <p className="ui-caption text-rose-600 dark:text-rose-200">{item.errorMessage}</p>
+                  <p className="ui-caption [overflow-wrap:anywhere] text-[var(--list-danger-text)]">{item.errorMessage}</p>
                 )}
               </div>
             </div>
           ))}
         {showFailedSection && hasMoreFailed && (
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <ListActionButton
               type="button"
-              className={operationSecondaryClasses}
               onClick={() => showMoreSection(group.id, "failed")}
             >
               Show next {DEFAULT_QUEUED_VISIBLE_COUNT}
-            </button>
+            </ListActionButton>
             {renderDetailsTextAction("upload", group.id)}
           </div>
         )}
@@ -353,9 +329,9 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
       <>
         {renderDetailsAction("other", op.id)}
         {!isCompleted && op.cancelable && (
-          <button type="button" className={operationStopClasses} onClick={() => cancelOperation(op.id)}>
+          <ListActionButton type="button" variant="danger" onClick={() => cancelOperation(op.id)}>
             Stop
-          </button>
+          </ListActionButton>
         )}
       </>
     );
@@ -370,96 +346,41 @@ export default function BrowserOperationsModal(props: BrowserOperationsModalProp
         actions={actions}
       >
         {op.completionStatus === "failed" && op.errorMessage ? (
-          <p className="ui-caption text-rose-600 dark:text-rose-200">{op.errorMessage}</p>
+          <p className="ui-caption [overflow-wrap:anywhere] text-[var(--list-danger-text)]">{op.errorMessage}</p>
         ) : null}
       </BrowserOperationCard>
     );
   };
 
+  const filters = [
+    { label: "Active", count: activeOperationsCount, selected: showActiveOperations, toggle: onToggleActive },
+    { label: "Queue", count: queuedOperationsCount, selected: showQueuedOperations, toggle: onToggleQueued },
+    { label: "Completed", count: completedOperationsCount, selected: showCompletedOperations, toggle: onToggleCompleted },
+    { label: "Failed", count: failedOperationsCount, selected: showFailedOperations, toggle: onToggleFailed },
+  ];
+
   return (
-    <Modal title="Operations overview" onClose={onClose} maxWidthClass="max-w-4xl">
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={onToggleActive}
-            className={`${filterChipClasses} ui-caption ${showActiveOperations ? filterChipActiveClasses : ""}`}
-          >
-            Active
-            <span className={countBadgeClasses}>{formatBadgeCount(activeOperationsCount)}</span>
-          </button>
-          <button
-            type="button"
-            onClick={onToggleQueued}
-            className={`${filterChipClasses} ui-caption ${showQueuedOperations ? filterChipActiveClasses : ""}`}
-          >
-            Queue
-            <span className={countBadgeClasses}>{formatBadgeCount(queuedOperationsCount)}</span>
-          </button>
-          <button
-            type="button"
-            onClick={onToggleCompleted}
-            className={`${filterChipClasses} ui-caption ${showCompletedOperations ? filterChipActiveClasses : ""}`}
-          >
-            Completed
-            <span className={countBadgeClasses}>{formatBadgeCount(completedOperationsCount)}</span>
-          </button>
-          <button
-            type="button"
-            onClick={onToggleFailed}
-            className={`${filterChipClasses} ui-caption ${showFailedOperations ? failedFilterChipActiveClasses : ""}`}
-          >
-            Failed
-            <span className={failedBadgeClasses}>{formatBadgeCount(failedOperationsCount)}</span>
-          </button>
-          <button
-            type="button"
-            onClick={onClearFinishedOperations}
-            className={`${operationSecondaryClasses} ui-caption sm:ml-auto`}
-            disabled={!hasFinishedOperations}
-          >
-            Clear completed/failed
-          </button>
-        </div>
-        <div className={operationsPanelHeightClasses}>
-          <div className={operationsListAreaClasses}>
-            {!hasVisibleOperations ? (
-              <div className="flex h-full items-center justify-center ui-caption text-slate-500 dark:text-slate-400">
-                No operations to show.
-              </div>
-            ) : (
-              <div>
-                {timelineEntries.map((entry) => {
-                  if (
-                    entry.type === "download" ||
-                    entry.type === "delete" ||
-                    entry.type === "copy"
-                  ) {
-                    return (
-                      <BrowserTransferOperationGroupCard
-                        key={entry.key}
-                        kind={entry.type}
-                        group={entry.group}
-                        expanded={isGroupExpanded(entry.group.op.id)}
-                        sections={operationSections}
-                        getSectionVisibleCount={getSectionVisibleCount}
-                        onToggleExpanded={toggleGroupExpanded}
-                        onShowMore={showMoreSection}
-                        onCancel={cancelOperation}
-                        onDownloadDetails={onDownloadOperationDetails}
-                      />
-                    );
-                  }
-                  if (entry.type === "upload") {
-                    return <Fragment key={entry.key}>{renderUploadGroup(entry.group)}</Fragment>;
-                  }
-                  return <Fragment key={entry.key}>{renderOtherOperation(entry.op)}</Fragment>;
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+    <ListDialog title="Operations overview" onClose={onClose} maxWidthClass="max-w-4xl"
+      rowCount={timelineEntries.length} countLabel={`${formatBadgeCount(totalOperationsCount)} operation${totalOperationsCount === 1 ? "" : "s"}`}
+      emptyMessage="No operations to show."
+      filters={filters.map((filter) => (
+        <ListActionButton key={filter.label} aria-pressed={filter.selected} onClick={filter.toggle}>
+          {filter.label}{" "}<ListBadge tone={filter.label === "Failed" ? "danger" : "neutral"}>{formatBadgeCount(filter.count)}</ListBadge>
+        </ListActionButton>
+      ))}
+      actions={<ListActionButton onClick={onClearFinishedOperations} disabled={!hasFinishedOperations}>Clear completed/failed</ListActionButton>}>
+      <div>
+        {timelineEntries.map((entry) => {
+          if (entry.type === "download" || entry.type === "delete" || entry.type === "copy") {
+            return <BrowserTransferOperationGroupCard key={entry.key} kind={entry.type} group={entry.group}
+              expanded={isGroupExpanded(entry.group.op.id)} sections={operationSections}
+              getSectionVisibleCount={getSectionVisibleCount} onToggleExpanded={toggleGroupExpanded}
+              onShowMore={showMoreSection} onCancel={cancelOperation} onDownloadDetails={onDownloadOperationDetails} />;
+          }
+          if (entry.type === "upload") return <Fragment key={entry.key}>{renderUploadGroup(entry.group)}</Fragment>;
+          return <Fragment key={entry.key}>{renderOtherOperation(entry.op)}</Fragment>;
+        })}
       </div>
-    </Modal>
+    </ListDialog>
   );
 }
