@@ -5,9 +5,8 @@
 import ModalActions from "../../components/ModalActions";
 import { useEffect, useRef, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
-import Modal from "../../components/Modal";
-import { formInputClasses } from "./browserConstants";
-import UiButton from "../../components/ui/UiButton";
+import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
+import UiTextarea from "../../components/ui/UiTextarea";
 
 type BrowserConfirmModalProps = {
   title: string;
@@ -59,6 +58,8 @@ export function BrowserCopyValueModal({
 }: BrowserCopyValueModalProps) {
   const valueRef = useRef<HTMLTextAreaElement | null>(null);
   const [copyHint, setCopyHint] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
+  const pending = useRef(false);
 
   useEffect(() => {
     valueRef.current?.focus();
@@ -66,45 +67,42 @@ export function BrowserCopyValueModal({
   }, []);
 
   const handleCopy = async () => {
-    if (!value) return;
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(value);
-        setCopyHint("Copied to clipboard.");
-        onCopySuccess?.();
-        return;
-      } catch {
-        // Fall back to manual copy instructions.
+    if (!value || pending.current) return;
+    pending.current = true;
+    setCopying(true);
+    try {
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopyHint("Copied to clipboard.");
+          onCopySuccess?.();
+          return;
+        } catch {
+          // Fall back to manual copy instructions.
+        }
       }
+      valueRef.current?.focus();
+      valueRef.current?.select();
+      setCopyHint("Select and copy manually.");
+    } finally {
+      pending.current = false;
+      setCopying(false);
     }
-    valueRef.current?.focus();
-    valueRef.current?.select();
-    setCopyHint("Select and copy manually.");
   };
 
   return (
-    <Modal title={title} onClose={onClose} maxWidthClass="max-w-2xl" initialFocusRef={valueRef}>
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <p className="ui-caption font-semibold text-slate-600 dark:text-slate-300">{label}</p>
-          <textarea
-            ref={valueRef}
-            className={`${formInputClasses} h-32 font-mono`}
-            readOnly
-            value={value}
-            spellCheck={false}
-          />
-        </div>
-        {copyHint && <p className="ui-caption text-slate-500 dark:text-slate-400">{copyHint}</p>}
+    <SettingsDialog title={title} onClose={onClose} maxWidthClass="max-w-2xl" initialFocusRef={valueRef}>
+      <div className="settings-stack settings-fields">
+        <UiTextarea label={label} ref={valueRef} className="font-mono" rows={4}
+          readOnly value={value} spellCheck={false} />
+        {copyHint && <p role="status" className="settings-description">{copyHint}</p>}
         <ModalActions>
-          <UiButton variant="secondary" onClick={onClose}>
-            Close
-          </UiButton>
-          <UiButton onClick={() => void handleCopy()}>
-            Copy
-          </UiButton>
+          <SettingsButton variant="secondary" onClick={onClose}>Close</SettingsButton>
+          <SettingsButton disabled={copying || !value} onClick={() => void handleCopy()}>
+            {copying ? "Copying..." : "Copy"}
+          </SettingsButton>
         </ModalActions>
       </div>
-    </Modal>
+    </SettingsDialog>
   );
 }

@@ -32,6 +32,19 @@ export function useBrowserCopyActions({
   presignObject,
   sseActive,
 }: UseBrowserCopyActionsOptions) {
+  const copyValue = useCallback(async (dialog: BrowserCopyDialogState) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(dialog.value);
+        if (dialog.successMessage) onStatus(dialog.successMessage);
+        return;
+      }
+    } catch {
+      // Permission denial uses the same manual handoff as a missing clipboard API.
+    }
+    onFallback(dialog);
+  }, [onFallback, onStatus]);
+
   const copyUrl = useCallback(
     async (item: BrowserItem | null) => {
       if (
@@ -58,17 +71,12 @@ export function useBrowserCopyActions({
           operation: "get_object",
           expires_in: 900,
         });
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(presign.url);
-          onStatus("URL copied to clipboard.");
-        } else {
-          onFallback({
-            title: "Copy URL",
-            label: "Object URL",
-            value: presign.url,
-            successMessage: "URL copied to clipboard.",
-          });
-        }
+        await copyValue({
+          title: "Copy URL",
+          label: "Object URL",
+          value: presign.url,
+          successMessage: "URL copied to clipboard.",
+        });
       } catch {
         onStatus("Unable to copy URL.");
       }
@@ -76,7 +84,7 @@ export function useBrowserCopyActions({
     [
       bucketName,
       enabled,
-      onFallback,
+      copyValue,
       onStatus,
       onWarning,
       presignObject,
@@ -87,23 +95,14 @@ export function useBrowserCopyActions({
   const copyPath = useCallback(
     async (path: string) => {
       if (!path) return;
-      try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(path);
-          onStatus("Path copied to clipboard.");
-        } else {
-          onFallback({
-            title: "Copy path",
-            label: "Object path",
-            value: path,
-            successMessage: "Path copied to clipboard.",
-          });
-        }
-      } catch {
-        onStatus("Unable to copy path.");
-      }
+      await copyValue({
+        title: "Copy path",
+        label: "Object path",
+        value: path,
+        successMessage: "Path copied to clipboard.",
+      });
     },
-    [onFallback, onStatus],
+    [copyValue],
   );
 
   return { copyPath, copyUrl };

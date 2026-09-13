@@ -712,8 +712,8 @@ export default function BrowserPage({
     generate: generateSseCustomerKey,
     clear: clearSseCustomerKey,
     activate: activateSseCustomerKey,
-    requestClose: requestSseCustomerModalClose,
-    confirmationDialog: sseCustomerConfirmationDialog,
+    close: closeSseCustomerModal,
+    dirty: sseCustomerDraftDirty,
   } = useBrowserSseCustomerKeys({
     accountIdForApi,
     bucketName,
@@ -1779,8 +1779,7 @@ export default function BrowserPage({
     updateName: updateCreateBucketName,
     setVersioning: setCreateBucketVersioning,
     submit: submitCreateBucket,
-    requestClose: requestCreateBucketClose,
-    confirmationDialog: createBucketConfirmationDialog,
+    close: closeCreateBucket,
   } = useBrowserCreateBucket({
     accountIdForApi,
     currentBucketName: bucketName,
@@ -1920,15 +1919,13 @@ export default function BrowserPage({
   };
   const {
     showModal: showNewFolderModal,
-    inputRef: newFolderInputRef,
     name: newFolderName,
     loading: newFolderLoading,
     error: newFolderError,
     open: handleNewFolder,
     setName: setNewFolderName,
     submit: submitNewFolder,
-    requestClose: requestNewFolderClose,
-    confirmationDialog: newFolderConfirmationDialog,
+    close: closeNewFolder,
   } = useBrowserCreateFolder({
     accountIdForApi,
     bucketName,
@@ -2988,11 +2985,10 @@ export default function BrowserPage({
           isNameValid={isCreateBucketNameValid}
           invalidNameMessage={invalidBucketNameMessage}
           hasS3AccountContext={hasS3AccountContext}
-          confirmationDialog={createBucketConfirmationDialog}
           onNameChange={updateCreateBucketName}
           onVersioningChange={setCreateBucketVersioning}
-          onSubmit={() => void submitCreateBucket()}
-          onClose={requestCreateBucketClose}
+          onSubmit={submitCreateBucket}
+          onClose={closeCreateBucket}
         />
       )}
       {showSseCustomerModal && (
@@ -3003,13 +2999,13 @@ export default function BrowserPage({
           notice={sseCustomerKeyNotice}
           active={sseActive}
           canGenerate={canGenerateSseCustomerKey}
-          confirmationDialog={sseCustomerConfirmationDialog}
+          dirty={sseCustomerDraftDirty}
           onValueChange={updateSseCustomerKeyInput}
           onToggleVisibility={toggleSseCustomerKeyVisibility}
-          onGenerate={() => void generateSseCustomerKey()}
+          onGenerate={generateSseCustomerKey}
           onClear={clearSseCustomerKey}
           onActivate={activateSseCustomerKey}
-          onClose={requestSseCustomerModalClose}
+          onClose={closeSseCustomerModal}
         />
       )}
       {showMultipartUploadsModal && bucketName && hasS3AccountContext && (
@@ -3084,17 +3080,15 @@ export default function BrowserPage({
       )}
       {showNewFolderModal && (
         <BrowserCreateFolderModal
-          inputRef={newFolderInputRef}
           name={newFolderName}
           loading={newFolderLoading}
           error={newFolderError}
           currentPath={currentPath}
           bucketName={bucketName}
           hasS3AccountContext={hasS3AccountContext}
-          confirmationDialog={newFolderConfirmationDialog}
           onNameChange={setNewFolderName}
-          onSubmit={() => void submitNewFolder()}
-          onClose={requestNewFolderClose}
+          onSubmit={submitNewFolder}
+          onClose={closeNewFolder}
         />
       )}
       {confirmDialog && (

@@ -211,6 +211,24 @@ Callers retain API payloads, permission checks, field validation and resource
 context; membership identity/reason fields are shared in `PortalRequestFields`.
 Page-history load errors stay outside these dialogs; submission errors stay
 inside, alongside the retained draft so the user can retry.
+Browser bucket/folder creation uses the same dialog composition. Creation hooks
+own validation, S3 requests and post-create refresh; presentation owns close
+confirmation, focus and navigation guards. Pass the submit promise through
+without `void` wrappers. Preserve bucket-name normalization and literal parent
+prefixes, spaces and repeated separators in folder keys.
+
+The SSE-C editor has multiple actions and composes `SettingsForm` with
+`useSettingsFormController`. Secondary actions use `runAction` so Generate,
+Clear and Enable share the pending lock and cannot overlap. Its hook owns the
+accepted draft baseline because generation immediately activates a key. Keep
+Show/Hide, memory-only scope, key validation and the manual-copy handoff; do not
+change signing or encryption semantics to match presentation.
+
+Manual Browser copy uses `SettingsDialog`, a labelled read-only `UiTextarea`,
+selected text, shared actions and an announced result. A missing clipboard API
+and a rejected clipboard permission both open the same fallback for paths and
+presigned URLs. A failed presign must not open a copy dialog with no URL.
+
 Browser bulk attributes, restore-to-date and old-version cleanup also use
 `SettingsFormDialog` because their targets belong to the current selection or
 prefix. Keep the target summary visible and use `UiInput`, `UiSelect` and

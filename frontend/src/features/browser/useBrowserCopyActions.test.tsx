@@ -97,6 +97,26 @@ describe("useBrowserCopyActions", () => {
     expect(options.onStatus).not.toHaveBeenCalled();
   });
 
+  it.each(["path", "url"] as const)("keeps a manual %s handoff when clipboard permission is denied", async (kind) => {
+    setClipboard({ writeText: vi.fn().mockRejectedValue(new Error("Clipboard denied")) });
+    const options = createOptions();
+    const { result } = renderHook(() => useBrowserCopyActions(options));
+    await act(async () => kind === "path" ? result.current.copyPath("bucket/ spaced//key ") : result.current.copyUrl(item()));
+    expect(options.onFallback).toHaveBeenCalledWith(expect.objectContaining({
+      value: kind === "path" ? "bucket/ spaced//key " : "https://objects.example.test/report.txt",
+    }));
+    expect(options.onStatus).not.toHaveBeenCalled();
+  });
+
+  it("reports a presign failure without opening an empty copy dialog", async () => {
+    const options = createOptions();
+    options.presignObject.mockRejectedValue(new Error("Storage unavailable"));
+    const { result } = renderHook(() => useBrowserCopyActions(options));
+    await act(async () => result.current.copyUrl(item()));
+    expect(options.onFallback).not.toHaveBeenCalled();
+    expect(options.onStatus).toHaveBeenCalledWith("Unable to copy URL.");
+  });
+
   it("rejects deleted objects and SSE-C URLs before presigning", async () => {
     const options = createOptions();
     const { result, rerender } = renderHook(
