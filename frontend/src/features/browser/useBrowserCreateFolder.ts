@@ -2,16 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3AccountSelector } from "../../api/accountParams";
 import { createFolder } from "../../api/browserObjects";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
-import { stableSignature } from "../../utils/stableSignature";
-
-function createFolderSignature(name: string): string {
-  return stableSignature({ newFolderName: name });
-}
 
 type CreatedFolder = {
   name: string;
@@ -37,16 +31,11 @@ export function useBrowserCreateFolder({
 }: UseBrowserCreateFolderOptions) {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
-  const [initialSignature, setInitialSignature] = useState(() =>
-    createFolderSignature(""),
-  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = useCallback(() => {
     setName("");
-    setInitialSignature(createFolderSignature(""));
     setError(null);
   }, []);
 
@@ -62,16 +51,6 @@ export function useBrowserCreateFolder({
     setShowModal(false);
     reset();
   }, [loading, reset]);
-
-  const currentSignature = useMemo(
-    () => createFolderSignature(name),
-    [name],
-  );
-  const closeGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showModal && currentSignature !== initialSignature,
-    onClose: close,
-    disabled: loading,
-  });
 
   const submit = async () => {
     if (!bucketName || !hasContext || loading) return;
@@ -102,14 +81,12 @@ export function useBrowserCreateFolder({
 
   return {
     showModal,
-    inputRef,
     name,
     loading,
     error,
     open,
     setName,
     submit,
-    requestClose: closeGuard.requestClose,
-    confirmationDialog: closeGuard.confirmationDialog,
+    close,
   };
 }

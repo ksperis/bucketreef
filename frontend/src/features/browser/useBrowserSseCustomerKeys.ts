@@ -7,7 +7,6 @@ import {
   normalizeS3AccountSelectorId,
   type S3AccountSelector,
 } from "../../api/accountParams";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { stableSignature } from "../../utils/stableSignature";
 import {
   activateSseCustomerKeyForScope,
@@ -93,10 +92,6 @@ export function useBrowserSseCustomerKeys({
     () => createInputSignature(input),
     [input],
   );
-  const closeGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showModal && currentSignature !== initialSignature,
-    onClose: close,
-  });
 
   const updateInput = (value: string) => {
     setInput(value);
@@ -209,7 +204,7 @@ export function useBrowserSseCustomerKeys({
     generate,
     clear,
     activate,
-    requestClose: closeGuard.requestClose,
-    confirmationDialog: closeGuard.confirmationDialog,
+    close,
+    dirty: showModal && currentSignature !== initialSignature,
   };
 }

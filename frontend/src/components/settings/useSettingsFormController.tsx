@@ -40,21 +40,25 @@ export function useSettingsFormController({
     hasUnsavedChanges: unsaved, disabled: locked, onClose: close, ...guardLabels,
   });
   const requestClose = () => { if (!submitting.current) guard.requestClose(); };
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const runAction = async (action: () => void | Promise<void>) => {
     if (locked || disabled || completed || submitting.current) return;
     submitting.current = true;
     setPending(true);
     try {
-      await onSubmit(event);
+      await action();
     } finally {
       submitting.current = false;
       setPending(false);
     }
   };
 
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    return runAction(() => onSubmit(event));
+  };
+
   return {
-    t, labels, locked, requestClose, submit,
+    t, labels, locked, requestClose, submit, runAction,
     confirmationDialog: guard.confirmationDialog,
     navigationGuard: (<SettingsNavigationGuard dirty={unsaved || locked} discardDisabled={locked}
       onDiscard={() => onClose("navigation")} {...guardLabels}
