@@ -102,6 +102,13 @@ subject to your existing rights. Save or cancel history edits before running
 these operations. Current files are retained by history cleanup; permanent
 space deletion keeps its existing empty-space requirement and confirmation.
 
+Manual history cleanup keeps its progress and result visible on a dedicated
+page. While the scan is still discovering candidates, the total is provisional
+and no percentage is shown. Wait for completion or choose **Stop cleanup**
+before navigating away. Stopping does not restore history already removed;
+a failed or interrupted operation requires an explicit restart. Partial results
+remain visible and are not reported as a successful cleanup.
+
 On an imported bucket, Portal preserves every lifecycle rule it does not own.
 Disabling automatic cleanup removes only `ExpireDeleteMarkers` and `ExpireOldVersions`.
 

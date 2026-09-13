@@ -1332,7 +1332,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(await screen.findByRole("progressbar", { name: "Storage Space history cleanup progress" })).toBeInTheDocument();
     expect(await screen.findByText("1.5 KB")).toBeInTheDocument();
     expect(screen.getByText("Versions deleted")).toBeInTheDocument();
-    expect(screen.getByText("Markers removed")).toBeInTheDocument();
+    expect(screen.getByText("Deletion records removed")).toBeInTheDocument();
     expect(mocks.hookResult.refreshWorkspaceData).toHaveBeenCalledTimes(1);
   });
 

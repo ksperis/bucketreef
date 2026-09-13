@@ -1343,8 +1343,8 @@ function StorageSpaceDetail() {
           enabled={canCleanHistory}
           onClose={closeHistoryCleanupDialog}
           onStart={() => setMessage(null)}
+          onRefresh={refreshWorkspaceData}
           onCompleted={(bytesFreed) => {
-            refreshWorkspaceData();
             setMessage(
               t({
                 en: `History cleanup completed. Estimated space gained: ${formatBytes(bytesFreed)}.`,

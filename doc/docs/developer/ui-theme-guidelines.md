@@ -348,6 +348,21 @@ later page's unsaved-change blocker, including after leaving the embedded
 Portal file explorer. Preserve literal prefixes and let the router own exits
 from the explorer.
 
+Portal folder restoration and history cleanup use `PortalOperationLayout`: a
+plain `WorkflowPage`, compact metadata, the shared sticky action bar and a
+pending-operation navigation guard. Progress uses `UiProgressBar` with no
+percentage until the candidate total is final. Results use `InlineSummary`,
+retain partial counts and disclose truncated failure details; avoid nested
+metric cards or local progress animations. Stopping is an operation control,
+not a destructive action, and does not undo work already completed.
+
+`usePortalStreamOperation` owns one stream per mounted space, rejects duplicate
+starts, aborts on unmount and ignores late responses. Defer automatic cleanup
+start past React's mount probe to avoid a start followed by immediate abort.
+Keep manual cleanup behind its existing confirmation; do not automatically
+retry interrupted or failed operations. Only completed cleanup results announce
+success; canceled or failed results remain visible with their partial counts.
+
 `useSettingsRemoteDraft` is shared by SNS and IAM role editing. Mount it for one
 resource and execution context, provide a stable load callback, and disable
 editing/submission until the remote baseline is available. Its retry control
