@@ -10,7 +10,7 @@ import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { createUiDraftId } from "../../utils/uiDraftId";
 import { extractApiError } from "../../utils/apiError";
-import { useTopicEditorDraft } from "./useTopicEditorDraft";
+import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
 import { equalSettings } from "../../components/settings/useSettingsDraft";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 
@@ -102,7 +102,7 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
 }) {
   const sslHintId = useId();
   const load = useCallback(async () => configurationDraft((await getTopicConfiguration(accountId, topic.arn)).configuration ?? {}), [accountId, topic.arn]);
-  const { draft, baseline, setDraft, accept, loading, loadError, retry } = useTopicEditorDraft(() => configurationDraft(topic.configuration), load);
+  const { draft, baseline, setDraft, accept, loading, loadError, retry } = useSettingsRemoteDraft(() => configurationDraft(topic.configuration), load, "Unable to load topic settings.");
   const dirty = !equalSettings(editableValues(baseline), editableValues(draft));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

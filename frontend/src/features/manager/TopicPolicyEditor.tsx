@@ -8,7 +8,7 @@ import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiTextarea from "../../components/ui/UiTextarea";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
-import { useTopicEditorDraft } from "./useTopicEditorDraft";
+import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 
 const defaultPolicy = JSON.stringify({ Version: "2012-10-17", Statement: [] }, null, 2);
@@ -24,7 +24,7 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
     const { policy } = await getTopicPolicy(accountId, topic.arn);
     return policy && Object.keys(policy).length ? JSON.stringify(policy, null, 2) : defaultPolicy;
   }, [accountId, topic.arn]);
-  const { draft, setDraft, setBaseline, dirty, loading, loadError, retry } = useTopicEditorDraft(() => defaultPolicy, load);
+  const { draft, setDraft, setBaseline, dirty, loading, loadError, retry } = useSettingsRemoteDraft(() => defaultPolicy, load, "Unable to load topic settings.");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);

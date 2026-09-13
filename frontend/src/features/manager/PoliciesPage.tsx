@@ -11,13 +11,12 @@ import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
+import { workflowPageHostClass } from "../../components/WorkflowPage";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
-import SettingsForm from "../../components/settings/SettingsForm";
+import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
@@ -57,7 +56,7 @@ export default function PoliciesPage() {
   } = useManagerIamCollection(listIamPolicies);
   const [advancedName, setAdvancedName] = useState("");
   const [documentText, setDocumentText] = useState(DEFAULT_POLICY_DOCUMENT);
-  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
   let parsedDocument: Record<string, unknown> | undefined;
@@ -96,7 +95,7 @@ export default function PoliciesPage() {
       await createIamPolicy(accountIdForApi, advancedName.trim(), parsedDocument!);
       setAdvancedName("");
       setDocumentText(DEFAULT_POLICY_DOCUMENT);
-      setShowAdvancedModal(false);
+      setShowCreateForm(false);
       setActionMessage("Policy created");
       await load(accountIdForApi);
     } catch (err) {
@@ -106,15 +105,15 @@ export default function PoliciesPage() {
     }
   };
 
-  const openAdvancedModal = () => {
+  const openCreateForm = () => {
     setError(null);
     setValidationAttempted(false);
     setAdvancedInitialSignature(stableSignature({ advancedName, documentText }));
-    setShowAdvancedModal(true);
+    setShowCreateForm(true);
   };
 
-  const closeAdvancedModal = () => {
-    setShowAdvancedModal(false);
+  const closeCreateForm = () => {
+    setShowCreateForm(false);
     setAdvancedName("");
     setDocumentText(DEFAULT_POLICY_DOCUMENT);
     setAdvancedInitialSignature(stableSignature({ advancedName: "", documentText: DEFAULT_POLICY_DOCUMENT }));
@@ -124,11 +123,6 @@ export default function PoliciesPage() {
     () => stableSignature({ advancedName, documentText }),
     [advancedName, documentText]
   );
-  const advancedCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showAdvancedModal && advancedCurrentSignature !== advancedInitialSignature,
-    onClose: closeAdvancedModal,
-    disabled: creating,
-  });
 
   const filteredPolicies = policies.filter((policy) => {
     const needle = policyFilter.trim().toLowerCase();
@@ -142,7 +136,7 @@ export default function PoliciesPage() {
   });
 
   return (
-    <div className={workflowPageHostClass(showAdvancedModal)}>
+    <div className={workflowPageHostClass(showCreateForm)}>
       <PageHeader actionPresentation="listing"
         title="IAM Policies"
         description="List and create Ceph IAM policies for the selected account."
@@ -152,7 +146,7 @@ export default function PoliciesPage() {
             ? [
                 {
                   label: "Create policy",
-                  onClick: openAdvancedModal,
+                  onClick: openCreateForm,
                 },
               ]
             : []
@@ -160,7 +154,7 @@ export default function PoliciesPage() {
       />
 
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
 
       {needsS3AccountSelection ? (
         <PageEmptyState
@@ -202,36 +196,33 @@ export default function PoliciesPage() {
         </ListPageSection>
       )}
 
-      {showAdvancedModal && (
-        <WorkflowPage
+      {showCreateForm && (
+        <SettingsWorkflowForm
           title="Create IAM policy"
-          description="Name the policy and edit its complete JSON document with page-level space."
+          description="Create a reusable IAM policy from its JSON document."
           breadcrumbs={managerPageBreadcrumbs("policies", { label: "Create" })}
           backLabel="Back to policies"
-          onBack={advancedCloseGuard.requestClose}
-          width="standard"
+          onClose={closeCreateForm}
           contentVariant="plain"
+          dirty={advancedCurrentSignature !== advancedInitialSignature}
+          error={error} onSubmit={handleAdvancedCreate}
+          busy={creating} disabled={needsS3AccountSelection || isS3User}
+          submitLabel="Create policy" busyLabel="Creating..."
         >
-          {error && <PageBanner tone="error">{error}</PageBanner>}
-          <SettingsForm label="Create IAM policy" onSubmit={handleAdvancedCreate}
-            busy={creating} disabled={needsS3AccountSelection || isS3User} onCancel={advancedCloseGuard.requestClose}
-            submitLabel="Create policy" busyLabel="Creating...">
-            <SettingsSection title="Identity" presentation="compact">
-              <div className="settings-fields">
-                <UiInput label="Policy name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
-                  placeholder="Policy name" error={validationAttempted && !advancedName.trim() ? "Policy name is required." : undefined} />
-              </div>
-            </SettingsSection>
-            <SettingsSection title="Policy document" presentation="compact">
-              <div className="settings-fields">
-                <UiTextarea label="Policy document (JSON)" value={documentText} onChange={(event) => setDocumentText(event.target.value)}
-                  className="font-mono" rows={10} spellCheck={false} error={validationAttempted ? documentError : undefined}
-                  hint="Provide a valid IAM policy JSON document. You can start from the default template and customize statements." />
-              </div>
-            </SettingsSection>
-          </SettingsForm>
-          {advancedCloseGuard.confirmationDialog}
-        </WorkflowPage>
+          <SettingsSection title="Identity" presentation="compact">
+            <div className="settings-fields">
+              <UiInput label="Policy name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+                placeholder="Policy name" error={validationAttempted && !advancedName.trim() ? "Policy name is required." : undefined} />
+            </div>
+          </SettingsSection>
+          <SettingsSection title="Policy document" presentation="compact">
+            <div className="settings-fields">
+              <UiTextarea label="Policy document (JSON)" value={documentText} onChange={(event) => setDocumentText(event.target.value)}
+                className="font-mono" rows={10} spellCheck={false} error={validationAttempted ? documentError : undefined}
+                hint="Provide a valid IAM policy JSON document. You can start from the default template and customize statements." />
+            </div>
+          </SettingsSection>
+        </SettingsWorkflowForm>
       )}
     </div>
   );

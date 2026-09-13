@@ -236,6 +236,20 @@ changes. Topic deletion uses a controlled
 and navigation locked during the request. Keep native SNS attributes, policy
 JSON and executor parameters in the feature layer.
 
+Manager IAM user, group, role and policy creation, plus role trust-policy editing,
+use `SettingsWorkflowForm` with a plain surface. Their identity, managed-policy
+selection and inline-policy fields retain the same compact section layout.
+The shared wrapper owns the native submit, pending caption, sticky footer and
+close/route/reload guards; feature handlers retain IAM documents, attachments,
+validation and one-time access-key presentation. Errors appear once inside the
+active form. Do not reintroduce local close guards around these forms.
+
+`useSettingsRemoteDraft` is shared by SNS and IAM role editing. Mount it for one
+resource and execution context, provide a stable load callback, and disable
+editing/submission until the remote baseline is available. Its retry control
+must remain operable after a read failure. A closed editor ignores late load
+responses. Role names and paths remain read-only during trust-policy editing.
+
 Bucket selection dialogs in Ceph Admin and Storage Ops use `SettingsDialog`,
 `ModalOptions` and `ModalActions` for the same compact geometry. Configuration
 backups use `SettingsFormDialog`: selected features survive capability-list

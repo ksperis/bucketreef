@@ -13,9 +13,7 @@ import {
   attachRolePolicy,
   createIamRole,
   deleteIamRole,
-  getIamRole,
   listIamRoles,
-  updateIamRole,
 } from "../../api/managerIamRoles";
 import { IamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -23,10 +21,9 @@ import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
+import { workflowPageHostClass } from "../../components/WorkflowPage";
 
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
@@ -36,26 +33,11 @@ import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagerIamCollection } from "./useManagerIamCollection";
-import SettingsForm from "../../components/settings/SettingsForm";
+import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
-import { parseIamRolePolicy } from "./iamRoleForm";
-
-const DEFAULT_ASSUME_ROLE_DOCUMENT = JSON.stringify(
-  {
-    Version: "2012-10-17",
-    Statement: [
-      {
-        Effect: "Allow",
-        Principal: { AWS: "*" },
-        Action: "sts:AssumeRole",
-      },
-    ],
-  },
-  null,
-  2
-);
-const DEFAULT_ROLE_PATH = "/";
+import ManagerRoleEditor from "./ManagerRoleEditor";
+import { DEFAULT_ASSUME_ROLE_DOCUMENT, DEFAULT_ROLE_PATH, parseIamRolePolicy } from "./iamRoleForm";
 
 const extractError = (err: unknown): string => extractApiError(err, "Unexpected error");
 
@@ -102,7 +84,7 @@ export default function ManagerRolesPage() {
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
   const [policySearch, setPolicySearch] = useState("");
   const [showPolicyOptions, setShowPolicyOptions] = useState(false);
-  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
     stableSignature({
       advancedName: "",
@@ -114,18 +96,8 @@ export default function ManagerRolesPage() {
       inlinePolicyText: "",
     })
   );
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingRole, setEditingRole] = useState<IAMRole | null>(null);
-  const [editPath, setEditPath] = useState(DEFAULT_ROLE_PATH);
-  const [editAssumeRolePolicyText, setEditAssumeRolePolicyText] = useState(DEFAULT_ASSUME_ROLE_DOCUMENT);
-  const [editInitialSignature, setEditInitialSignature] = useState(() =>
-    stableSignature({ editPath: DEFAULT_ROLE_PATH, editAssumeRolePolicyText: DEFAULT_ASSUME_ROLE_DOCUMENT })
-  );
-  const [loadingRoleDetails, setLoadingRoleDetails] = useState(false);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [editValidationAttempted, setEditValidationAttempted] = useState(false);
+  const [editingRoleName, setEditingRoleName] = useState<string | null>(null);
   const advancedPolicy = parseIamRolePolicy(assumeRolePolicyText);
-  const editPolicy = parseIamRolePolicy(editAssumeRolePolicyText);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const loadPolicies = useCallback(
@@ -173,11 +145,6 @@ export default function ManagerRolesPage() {
       selectedPolicies,
     ]
   );
-  const editCurrentSignature = useMemo(
-    () => stableSignature({ editPath, editAssumeRolePolicyText }),
-    [editAssumeRolePolicyText, editPath]
-  );
-
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (needsS3AccountSelection || creating) return;
@@ -213,7 +180,7 @@ export default function ManagerRolesPage() {
       setPolicySearch("");
       setShowPolicyOptions(false);
       resetInlinePolicyDraftEditor();
-      setShowAdvancedModal(false);
+      setShowCreateForm(false);
       setActionMessage("Role created");
       await load(accountIdForApi);
     } catch (err) {
@@ -251,7 +218,7 @@ export default function ManagerRolesPage() {
     });
   };
 
-  const openAdvancedModal = () => {
+  const openCreateForm = () => {
     setError(null);
     setAdvancedValidationAttempted(false);
     setAdvancedName("");
@@ -261,7 +228,7 @@ export default function ManagerRolesPage() {
     setPolicySearch("");
     setShowPolicyOptions(false);
     resetInlinePolicyDraftEditor();
-    setShowAdvancedModal(true);
+    setShowCreateForm(true);
     setAdvancedInitialSignature(
       stableSignature({
         advancedName: "",
@@ -275,8 +242,8 @@ export default function ManagerRolesPage() {
     );
   };
 
-  const closeAdvancedModal = () => {
-    setShowAdvancedModal(false);
+  const closeCreateForm = () => {
+    setShowCreateForm(false);
     setAdvancedName("");
     setAdvancedPath(DEFAULT_ROLE_PATH);
     setAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
@@ -284,92 +251,6 @@ export default function ManagerRolesPage() {
     setPolicySearch("");
     setShowPolicyOptions(false);
     resetInlinePolicyDraftEditor();
-  };
-
-  const formatAssumePolicyText = (document: unknown) => {
-    if (!document) return DEFAULT_ASSUME_ROLE_DOCUMENT;
-    if (typeof document === "string") {
-      try {
-        return JSON.stringify(JSON.parse(document), null, 2);
-      } catch {
-        return document;
-      }
-    }
-    try {
-      return JSON.stringify(document, null, 2);
-    } catch {
-      return DEFAULT_ASSUME_ROLE_DOCUMENT;
-    }
-  };
-
-  const openEditModal = async (roleName: string) => {
-    if (needsS3AccountSelection) return;
-    setShowEditModal(true);
-    setEditValidationAttempted(false);
-    setEditingRole({ name: roleName });
-    setLoadingRoleDetails(true);
-    setError(null);
-    setActionMessage(null);
-    try {
-      const role = await getIamRole(accountIdForApi, roleName);
-      const nextEditPath = role.path ?? DEFAULT_ROLE_PATH;
-      const nextAssumeRolePolicyText = formatAssumePolicyText(role.assume_role_policy_document);
-      setEditingRole(role);
-      setEditPath(nextEditPath);
-      setEditAssumeRolePolicyText(nextAssumeRolePolicyText);
-      setEditInitialSignature(stableSignature({ editPath: nextEditPath, editAssumeRolePolicyText: nextAssumeRolePolicyText }));
-    } catch (err) {
-      setError(extractError(err));
-      setShowEditModal(false);
-      setEditingRole(null);
-    } finally {
-      setLoadingRoleDetails(false);
-    }
-  };
-
-  const closeEditModal = () => {
-    setShowEditModal(false);
-    setEditingRole(null);
-    setEditAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
-    setEditPath(DEFAULT_ROLE_PATH);
-    setEditInitialSignature(stableSignature({ editPath: DEFAULT_ROLE_PATH, editAssumeRolePolicyText: DEFAULT_ASSUME_ROLE_DOCUMENT }));
-  };
-
-  const advancedCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showAdvancedModal && advancedCurrentSignature !== advancedInitialSignature,
-    onClose: closeAdvancedModal,
-    disabled: creating,
-  });
-
-  const editCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showEditModal && !loadingRoleDetails && editCurrentSignature !== editInitialSignature,
-    onClose: closeEditModal,
-    disabled: savingEdit,
-  });
-
-  const handleSaveEdit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (needsS3AccountSelection || !editingRole || loadingRoleDetails || savingEdit) return;
-    setEditValidationAttempted(true);
-    if (editPolicy.error) {
-      focusFirstInvalidField(e.currentTarget as HTMLFormElement);
-      return;
-    }
-    setSavingEdit(true);
-    setError(null);
-    setActionMessage(null);
-    try {
-      await updateIamRole(accountIdForApi, editingRole.name, {
-        assume_role_policy_document: editPolicy.document,
-      });
-      setActionMessage("Role updated");
-      closeEditModal();
-      await load(accountIdForApi);
-    } catch (err) {
-      setError(extractError(err));
-    } finally {
-      setSavingEdit(false);
-    }
   };
 
   const filteredRoles = roles.filter((role) => {
@@ -419,8 +300,7 @@ export default function ManagerRolesPage() {
       render: (role) => (
         <ListActions>
           <ListActionButton
-            onClick={() => openEditModal(role.name)}
-            disabled={loadingRoleDetails && editingRole?.name === role.name}
+            onClick={() => { setError(null); setEditingRoleName(role.name); }}
           >
             Edit
           </ListActionButton>
@@ -440,7 +320,7 @@ export default function ManagerRolesPage() {
   ];
 
   return (
-    <div className={workflowPageHostClass(showAdvancedModal || showEditModal)}>
+    <div className={workflowPageHostClass(showCreateForm || Boolean(editingRoleName))}>
       <PageHeader actionPresentation="listing"
         title="IAM Roles"
         description="Manage roles using the account root keys."
@@ -450,14 +330,14 @@ export default function ManagerRolesPage() {
             ? [
                 {
                   label: "Create role",
-                  onClick: openAdvancedModal,
+                  onClick: openCreateForm,
                 },
               ]
             : []
         }
       />
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {needsS3AccountSelection ? (
@@ -500,89 +380,69 @@ export default function ManagerRolesPage() {
         </ListPageSection>
       )}
 
-      {showAdvancedModal && (
-        <WorkflowPage
+      {showCreateForm && (
+        <SettingsWorkflowForm
           title="Create IAM role"
-          description="Configure the trust policy, path and attached policies without compressing the workflow into an overlay."
+          description="Configure the role path, trust policy and assigned permissions."
           breadcrumbs={managerPageBreadcrumbs("roles", { label: "Create" })}
           backLabel="Back to roles"
-          onBack={advancedCloseGuard.requestClose}
-          width="standard"
+          onClose={closeCreateForm}
           contentVariant="plain"
+          dirty={advancedCurrentSignature !== advancedInitialSignature}
+          error={error} onSubmit={handleAdvancedCreate}
+          busy={creating} disabled={needsS3AccountSelection}
+          submitLabel="Create role" busyLabel="Creating..."
         >
-          {error && <PageBanner tone="error">{error}</PageBanner>}
-          <SettingsForm label="Create IAM role" onSubmit={handleAdvancedCreate}
-            busy={creating} disabled={needsS3AccountSelection} onCancel={advancedCloseGuard.requestClose}
-            submitLabel="Create role" busyLabel="Creating...">
-            <ManagerRoleFormFields name={advancedName} path={advancedPath} policy={assumeRolePolicyText}
-              onNameChange={setAdvancedName} onPathChange={setAdvancedPath} onPolicyChange={setAssumeRolePolicyText}
-              nameError={advancedValidationAttempted && !advancedName.trim() ? "Role name is required." : undefined}
-              policyError={advancedValidationAttempted ? advancedPolicy.error : undefined} />
-            <ManagedPolicySelectionPanel
-              title="Attach policies"
-              description="Select managed policies to grant permissions immediately."
-              emptyMessage="No policies available. Create them first."
-              footer="Policies can also be attached later from the role page."
-              policies={policies}
-              selectedPolicyArns={selectedPolicies}
-              search={policySearch}
-              expanded={showPolicyOptions}
-              onSearchChange={setPolicySearch}
-              onExpandedChange={setShowPolicyOptions}
-              onSelectionChange={setSelectedPolicies}
-            />
-            <InlinePolicyDraftEditor
-              drafts={inlineDrafts}
-              selectedDraftName={selectedInlineDraftName}
-              draftName={inlineDraftName}
-              draftText={inlinePolicyText}
-              entityLabel="role"
-              mode={inlineDraftMode}
-              expanded={showInlinePolicyOptions}
-              onCreateDraft={handleCreateInlineDraft}
-              onSelectDraft={handleSelectInlineDraft}
-              onDraftNameChange={(value) => {
-                setInlineDraftName(value);
-                setError(null);
-              }}
-              onDraftTextChange={(value) => {
-                setInlinePolicyText(value);
-                setError(null);
-              }}
-              onSaveDraft={handleAddInlineDraft}
-              onRemoveDraft={handleRemoveInlineDraft}
-              onClearDrafts={handleClearInlineDrafts}
-              onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
-              onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
-            />
-          </SettingsForm>
-          {advancedCloseGuard.confirmationDialog}
-        </WorkflowPage>
+          <ManagerRoleFormFields name={advancedName} path={advancedPath} policy={assumeRolePolicyText}
+            onNameChange={setAdvancedName} onPathChange={setAdvancedPath} onPolicyChange={setAssumeRolePolicyText}
+            nameError={advancedValidationAttempted && !advancedName.trim() ? "Role name is required." : undefined}
+            policyError={advancedValidationAttempted ? advancedPolicy.error : undefined} />
+          <ManagedPolicySelectionPanel
+            title="Attach policies"
+            description="Select managed policies to grant permissions immediately."
+            emptyMessage="No policies available. Create them first."
+            footer="Policies can also be attached later from the role page."
+            policies={policies}
+            selectedPolicyArns={selectedPolicies}
+            search={policySearch}
+            expanded={showPolicyOptions}
+            onSearchChange={setPolicySearch}
+            onExpandedChange={setShowPolicyOptions}
+            onSelectionChange={setSelectedPolicies}
+          />
+          <InlinePolicyDraftEditor
+            drafts={inlineDrafts}
+            selectedDraftName={selectedInlineDraftName}
+            draftName={inlineDraftName}
+            draftText={inlinePolicyText}
+            entityLabel="role"
+            mode={inlineDraftMode}
+            expanded={showInlinePolicyOptions}
+            onCreateDraft={handleCreateInlineDraft}
+            onSelectDraft={handleSelectInlineDraft}
+            onDraftNameChange={(value) => {
+              setInlineDraftName(value);
+              setError(null);
+            }}
+            onDraftTextChange={(value) => {
+              setInlinePolicyText(value);
+              setError(null);
+            }}
+            onSaveDraft={handleAddInlineDraft}
+            onRemoveDraft={handleRemoveInlineDraft}
+            onClearDrafts={handleClearInlineDrafts}
+            onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
+            onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
+          />
+        </SettingsWorkflowForm>
       )}
-      {showEditModal && (
-        <WorkflowPage
-          title={editingRole ? `Edit IAM role: ${editingRole.name}` : "Edit IAM role"}
-          description="Review the immutable identity and update the role trust policy in a dedicated page."
-          breadcrumbs={managerPageBreadcrumbs("roles", { label: "Edit" })}
-          backLabel="Back to roles"
-          onBack={editCloseGuard.requestClose}
-          width="standard"
-          contentVariant="plain"
-        >
-          {error && <PageBanner tone="error">{error}</PageBanner>}
-          {loadingRoleDetails ? (
-            <p className="ui-body text-slate-500 dark:text-slate-300">Loading role details...</p>
-          ) : (
-            <SettingsForm label="Edit IAM role" onSubmit={handleSaveEdit} busy={savingEdit}
-              disabled={needsS3AccountSelection || !editingRole} onCancel={editCloseGuard.requestClose}
-              submitLabel="Save changes" busyLabel="Saving...">
-              <ManagerRoleFormFields editing name={editingRole?.name ?? ""} path={editPath} policy={editAssumeRolePolicyText}
-                onPolicyChange={setEditAssumeRolePolicyText} policyError={editValidationAttempted ? editPolicy.error : undefined} />
-            </SettingsForm>
-          )}
-          {editCloseGuard.confirmationDialog}
-        </WorkflowPage>
-      )}
+      {editingRoleName && <ManagerRoleEditor
+        key={`${accountIdForApi}:${editingRoleName}`} accountId={accountIdForApi} roleName={editingRoleName}
+        onClose={() => setEditingRoleName(null)} onSaved={() => {
+          setEditingRoleName(null);
+          setActionMessage("Role updated");
+          void load(accountIdForApi);
+        }} />}
       {deleteConfirmation.confirmationDialog}
     </div>
   );
