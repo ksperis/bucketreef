@@ -105,32 +105,23 @@ The frontend theme is anchored by the shared shell and UI tokens in
 
 ## Documentation Theme
 
-The published MkDocs theme should feel like the application shell and workspace
-surfaces, not like a separate marketing site.
+The published MkDocs theme prioritizes reading and a simple documentation tree.
+It retains the BucketReef logo and blue accent, with its own neutral surfaces
+and spacing rather than mirroring the application's workspace density.
 
-- `doc/docs/assets/stylesheets/docs-theme.css` mirrors the app tokens from
-  `frontend/src/index.css`. Keep the same `--ui-*` and `--shell-*` token names
-  when changing documentation colors, borders, text, shadows, or active states.
-- Documentation content surfaces should follow app workspace primitives:
-  8px radius (`0.5rem`), `--ui-surface`, `--ui-surface-muted`,
-  `--ui-border`, `--ui-border-soft`, `--ui-text`, `--ui-text-muted`,
-  `--ui-hover`, `--ui-selected-bg`, and soft/no shadows.
-- Documentation density should also follow the app workspace posture: compact
-  headings, tight vertical rhythm, dense tables, compact primary navigation,
-  compact table of contents, and screenshot chrome that leaves as much room as
-  possible for the actual capture.
-- Documentation chrome should follow app shell primitives:
-  `--shell-topbar-bg`, `--shell-sidebar-bg`, `--shell-border`,
-  `--shell-text`, `--shell-muted`, `--shell-hover`, and
-  `--shell-selected-bg`.
-- Do not introduce one-off documentation palettes such as separate blue,
-  purple, teal, or gradient systems. If the app primary color changes, update
-  the mirrored docs token scale in the same pass.
-- Changing the default does not rewrite already persisted Admin branding
-  values. Resetting settings loads the current default palette.
-- Validate meaningful documentation theme changes with a strict MkDocs build,
-  the screenshot reference check, and at least one desktop/mobile render smoke
-  of a table-heavy docs page.
+- `doc/docs/assets/stylesheets/docs-theme.css` owns shared `--docs-*` tokens
+  for the main theme and screenshot controls, with light and dark palettes.
+- Use white article surfaces, light gray navigation, fine borders, 4px radii,
+  and no decorative shadows. Callouts retain their semantic colors.
+- Use Arial/Helvetica without external font loading, readable body text,
+  moderate heading weights, and a wider, plainly indented navigation tree.
+- Keep Material's responsive navigation and search. Tables and code must scroll
+  locally when needed, with visible keyboard focus on interactive controls.
+- Documentation styling does not alter the application theme or persisted
+  Admin branding settings.
+- Follow [Docs Maintenance](docs-maintenance.md#visual-theme-maintenance) for
+  exact typography/layout defaults and the required build, screenshot, and
+  desktop/mobile interaction checks.
 
 ## Compact settings tokens
 

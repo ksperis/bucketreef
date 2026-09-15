@@ -90,7 +90,7 @@
   }
 
   function getActiveThemeVariant() {
-    return document.documentElement?.dataset.mdColorScheme === "slate" ? "dark" : "light";
+    return document.body?.dataset.mdColorScheme === "slate" ? "dark" : "light";
   }
 
   function isThemedShot(element) {
@@ -642,10 +642,12 @@
   function getPageTitle(contentRoot) {
     const heading = contentRoot?.querySelector("h1");
     if (heading && heading.textContent) {
-      return heading.textContent.trim();
+      const title = heading.cloneNode(true);
+      title.querySelectorAll(".headerlink").forEach((link) => link.remove());
+      return title.textContent.trim();
     }
 
-    const title = document.title.replace(/\s*-\s*bucketreef Documentation\s*$/u, "").trim();
+    const title = document.title.replace(/\s*-\s*BucketReef Documentation\s*$/u, "").trim();
     return title || "Documentation screenshot";
   }
 
@@ -731,7 +733,7 @@
   }
 
   function observeThemeChanges() {
-    if (themeObserver || !document.documentElement) return;
+    if (themeObserver || !document.body) return;
 
     themeObserver = new MutationObserver((mutations) => {
       if (mutations.some((mutation) => mutation.attributeName === "data-md-color-scheme")) {
@@ -739,7 +741,7 @@
       }
     });
 
-    themeObserver.observe(document.documentElement, {
+    themeObserver.observe(document.body, {
       attributes: true,
       attributeFilter: ["data-md-color-scheme"],
     });
