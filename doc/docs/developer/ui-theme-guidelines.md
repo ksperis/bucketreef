@@ -474,3 +474,12 @@ points or semantic distribution colors. Navigation cards, health cards and
 data-type cards retain their original defaults outside this explicit adoption.
 Use dashboard action links for buttons and `WorkspaceDashboardLinkRow` for
 rich shortcuts; retain plain identity links and their accessible touch areas.
+
+Manager/Portal rows opt into `ui-dashboard-equal-row` for stretching their
+cards to the tallest content in each actual grid row. Apply
+`ui-dashboard-equal-cell` to intermediate grid cells and unavailable frames
+to carry the stretch through to the panel, including the data-type card.
+These classes set no fixed height and do not stretch panel contents. Keep
+the incident heading inside its panel so its content stays at the top.
+KPI minimum heights and chart drawing areas stay unchanged; other dashboard
+consumers retain their defaults.
