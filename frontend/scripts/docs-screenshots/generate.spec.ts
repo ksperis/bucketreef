@@ -114,7 +114,7 @@ async function captureScenarioVariant(
       }
 
       await page.waitForTimeout(250);
-      if (scenario.id === "workspace-manager") await waitForStableDashboardDonut(page);
+      if (scenario.route === "/manager") await waitForStableDashboardDonut(page);
 
       const outputPath = path.join(SCREENSHOT_DIR, `${scenario.outputBasename}.${variant}.png`);
       await page.screenshot({ path: outputPath, fullPage: false });
