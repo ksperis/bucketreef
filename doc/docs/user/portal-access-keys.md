@@ -27,6 +27,9 @@ workflow.
    uses your existing Portal grants.
 5. For external access, select **Read only** unless the tool must upload, replace,
    or delete files. Use **Read/write** only for tools that need those changes.
+   The shared form keeps these settings together and asks before discarding
+   edited values. During creation, wait for the request to finish before leaving
+   or switching projects. A failed creation keeps the draft for retry.
 6. Copy the secret immediately from the panel above the access list. It is
    shown only once; opening and closing the configurator keeps that panel available.
 7. Select **Configure a tool** in the page header to open the configurator
@@ -72,6 +75,8 @@ workflow.
   generated remote. Keep that value out of the `.conf` file.
 - If no active access or no space is available, **Connect a tool** provides the
   next action instead of showing an unusable form.
+- Space-loading failures offer **Retry**. Copy and download feedback appears
+  inside the configurator; reopening it retains the selected access and space.
 
 ## You are done when
 

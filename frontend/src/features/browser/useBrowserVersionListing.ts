@@ -149,6 +149,7 @@ export function useBrowserVersionListing({
         setDeleteMarkers(boundedDeleteMarkers);
         setKeyMarker(nextKeyMarker);
         setVersionIdMarker(nextVersionIdMarker);
+        setError(null);
         setLoaded(true);
         if (limitReached) {
           onHardLimitRef.current?.();

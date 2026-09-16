@@ -583,7 +583,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           createdLink={createdLink}
           onExpirationChange={setExpiration}
           onClose={closeCreate}
-          onCreate={() => void createLink()}
+          onCreate={createLink}
           onCopy={() => void copyCreatedLink()}
         />
       ) : null}

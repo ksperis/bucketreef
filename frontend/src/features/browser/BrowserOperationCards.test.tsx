@@ -82,6 +82,8 @@ describe("BrowserTransferOperationGroupCard", () => {
     expect(screen.getByText("Downloading · 1.0 KB")).toBeInTheDocument();
     expect(screen.getByText("Network failure")).toBeInTheDocument();
     expect(screen.queryByText("queued-2.txt")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide files" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("progressbar", { name: "Transfer reports" })).toHaveAttribute("aria-valuenow", "40");
 
     fireEvent.click(screen.getByRole("button", { name: "Hide files" }));
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));

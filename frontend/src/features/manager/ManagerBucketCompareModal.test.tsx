@@ -325,7 +325,10 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     await user.click(await screen.findByRole("button", { name: "Sync all missing" }));
 
     expect(await screen.findByText("Confirm sync missing objects")).toBeInTheDocument();
-    expect(screen.getByText(/Objects impacted:/i)).toHaveTextContent("2");
+    const dialog = screen.getByRole("dialog", { name: "Confirm sync missing objects" });
+    expect(within(dialog).getByText("Objects impacted").nextElementSibling).toHaveTextContent("2");
+    expect(within(dialog).getByRole("list", { name: "Exact object keys" })).toHaveTextContent("source-only-1");
+    expect(runManagerBucketCompareActionMock).not.toHaveBeenCalled();
     expect(screen.getAllByText("source-only-1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("source-only-2").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();

@@ -23,10 +23,9 @@ import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageBanner from "../../components/PageBanner";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
+import { workflowPageHostClass } from "../../components/WorkflowPage";
 
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { extractApiError } from "../../utils/apiError";
@@ -39,7 +38,7 @@ import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagerIamCollection } from "./useManagerIamCollection";
-import SettingsForm from "../../components/settings/SettingsForm";
+import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
@@ -105,7 +104,7 @@ export default function ManagerUsersPage() {
   const groupOptionsId = useId();
   const [showGroupOptions, setShowGroupOptions] = useState(false);
   const [showPolicyOptions, setShowPolicyOptions] = useState(false);
-  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
     stableSignature({
       advancedName: "",
@@ -250,7 +249,7 @@ export default function ManagerUsersPage() {
       setShowGroupOptions(false);
       setShowPolicyOptions(false);
       resetInlinePolicyDraftEditor();
-      setShowAdvancedModal(false);
+      setShowCreateForm(false);
       if (createKey && created.access_key) {
         setCreatedKey(created.access_key);
         setCreatedForUser(created.name);
@@ -292,7 +291,7 @@ export default function ManagerUsersPage() {
     });
   };
 
-  const openAdvancedModal = () => {
+  const openCreateForm = () => {
     setError(null);
     setAdvancedValidationAttempted(false);
     setAdvancedName("");
@@ -303,7 +302,7 @@ export default function ManagerUsersPage() {
     setShowGroupOptions(false);
     setShowPolicyOptions(false);
     resetInlinePolicyDraftEditor();
-    setShowAdvancedModal(true);
+    setShowCreateForm(true);
     setAdvancedInitialSignature(
       stableSignature({
         advancedName: "",
@@ -317,8 +316,8 @@ export default function ManagerUsersPage() {
     );
   };
 
-  const closeAdvancedModal = () => {
-    setShowAdvancedModal(false);
+  const closeCreateForm = () => {
+    setShowCreateForm(false);
     setAdvancedName("");
     setCreateKey(true);
     setSelectedGroups([]);
@@ -329,11 +328,6 @@ export default function ManagerUsersPage() {
     resetInlinePolicyDraftEditor();
   };
 
-  const advancedCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showAdvancedModal && advancedCurrentSignature !== advancedInitialSignature,
-    onClose: closeAdvancedModal,
-    disabled: busy !== null,
-  });
 
   const userTableColumns: Array<DataTableColumn<IAMUser, SortField>> = [
     {
@@ -463,7 +457,7 @@ export default function ManagerUsersPage() {
   ];
 
   return (
-    <div className={workflowPageHostClass(showAdvancedModal)}>
+    <div className={workflowPageHostClass(showCreateForm)}>
       <PageHeader actionPresentation="listing"
         title="Users"
         description="Create/delete via the account root credentials. Optionally generate an access key on creation."
@@ -472,7 +466,7 @@ export default function ManagerUsersPage() {
           ? [
               {
                 label: "Create user",
-                onClick: openAdvancedModal,
+                onClick: openCreateForm,
               },
               ...(managerPrivateAccessEnabled
                 ? [{ label: "Create my private access", onClick: () => setShowPrivateAccessModal(true), variant: "primary" as const }]
@@ -481,7 +475,7 @@ export default function ManagerUsersPage() {
           : []}
       />
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {!showCreateForm && error && <PageBanner tone="error">{error}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && createdForUser && (
@@ -550,93 +544,90 @@ export default function ManagerUsersPage() {
         </ListPageSection>
       )}
 
-      {showAdvancedModal && (
-        <WorkflowPage
+      {showCreateForm && (
+        <SettingsWorkflowForm
           title="Create IAM user"
           description="Create the identity, attach managed or inline policies, and optionally generate its first access key."
           breadcrumbs={managerPageBreadcrumbs("users", { label: "Create" })}
           backLabel="Back to users"
-          onBack={advancedCloseGuard.requestClose}
-          width="standard"
+          onClose={closeCreateForm}
           contentVariant="plain"
+          dirty={advancedCurrentSignature !== advancedInitialSignature}
+          error={error} onSubmit={handleAdvancedCreate}
+          busy={busy !== null} disabled={needsS3AccountSelection}
+          submitLabel="Create user" busyLabel="Creating..."
         >
-          {error && <PageBanner tone="error">{error}</PageBanner>}
-          <SettingsForm label="Create IAM user" onSubmit={handleAdvancedCreate}
-            busy={busy !== null} disabled={needsS3AccountSelection} onCancel={advancedCloseGuard.requestClose}
-            submitLabel="Create user" busyLabel="Creating...">
-            <SettingsSection title="Identity" presentation="compact">
-              <div className="settings-fields">
-                <UiInput label="User name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
-                  placeholder="User name" error={advancedValidationAttempted && !advancedName.trim() ? "User name is required." : undefined} />
-                <UiCheckboxField checked={createKey} onChange={(event) => setCreateKey(event.target.checked)} className="settings-choice settings-body">
-                  Auto-generate an access key (shown only once)
-                </UiCheckboxField>
+          <SettingsSection title="Identity" presentation="compact">
+            <div className="settings-fields">
+              <UiInput label="User name" required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+                placeholder="User name" error={advancedValidationAttempted && !advancedName.trim() ? "User name is required." : undefined} />
+              <UiCheckboxField checked={createKey} onChange={(event) => setCreateKey(event.target.checked)} className="settings-choice settings-body">
+                Auto-generate an access key (shown only once)
+              </UiCheckboxField>
+            </div>
+          </SettingsSection>
+          <SettingsSection title="Add to groups (optional)" description="Launch permissions by linking groups before creation." presentation="compact">
+            <div className="settings-stack">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {selectedGroups.length > 0 && <span className="settings-description">{selectedGroups.length} selected</span>}
+                <SettingsButton variant="secondary" onClick={() => setShowGroupOptions((prev) => !prev)}
+                  aria-expanded={showGroupOptions} aria-controls={groupOptionsId}>
+                  {showGroupOptions ? "Hide" : "Show"}
+                </SettingsButton>
               </div>
-            </SettingsSection>
-            <SettingsSection title="Add to groups (optional)" description="Launch permissions by linking groups before creation." presentation="compact">
-              <div className="settings-stack">
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {selectedGroups.length > 0 && <span className="settings-description">{selectedGroups.length} selected</span>}
-                  <SettingsButton variant="secondary" onClick={() => setShowGroupOptions((prev) => !prev)}
-                    aria-expanded={showGroupOptions} aria-controls={groupOptionsId}>
-                    {showGroupOptions ? "Hide" : "Show"}
-                  </SettingsButton>
-                </div>
-                <div id={groupOptionsId} hidden={!showGroupOptions} className={showGroupOptions ? "settings-fields" : undefined}>
-                  {groups.length === 0 && <p className="settings-description">No groups available.</p>}
-                  <div className="grid gap-x-4 sm:grid-cols-2">
-                    {groups.map((group) => (
-                      <UiCheckboxField key={group.name} checked={selectedGroups.includes(group.name)}
-                        onChange={(event) => setSelectedGroups((current) => event.target.checked
-                          ? [...current, group.name] : current.filter((name) => name !== group.name))}
-                        className="settings-choice min-w-0 settings-body">
-                        <span className="min-w-0 [overflow-wrap:anywhere]">{group.name}</span>
-                      </UiCheckboxField>
-                    ))}
-                  </div>
+              <div id={groupOptionsId} hidden={!showGroupOptions} className={showGroupOptions ? "settings-fields" : undefined}>
+                {groups.length === 0 && <p className="settings-description">No groups available.</p>}
+                <div className="grid gap-x-4 sm:grid-cols-2">
+                  {groups.map((group) => (
+                    <UiCheckboxField key={group.name} checked={selectedGroups.includes(group.name)}
+                      onChange={(event) => setSelectedGroups((current) => event.target.checked
+                        ? [...current, group.name] : current.filter((name) => name !== group.name))}
+                      className="settings-choice min-w-0 settings-body">
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{group.name}</span>
+                    </UiCheckboxField>
+                  ))}
                 </div>
               </div>
-            </SettingsSection>
-            <ManagedPolicySelectionPanel
-              title="Attach policies (optional)"
-              description="Bind JSON policies now or skip and attach later."
-              emptyMessage="No policies available. Create them in the Policies tab."
-              footer="Policies must be created first in the Policies tab."
-              policies={policies}
-              selectedPolicyArns={selectedPolicies}
-              search={policySearch}
-              expanded={showPolicyOptions}
-              onSearchChange={setPolicySearch}
-              onExpandedChange={setShowPolicyOptions}
-              onSelectionChange={setSelectedPolicies}
-            />
-            <InlinePolicyDraftEditor
-              drafts={inlineDrafts}
-              selectedDraftName={selectedInlineDraftName}
-              draftName={inlineDraftName}
-              draftText={inlinePolicyText}
-              entityLabel="user"
-              mode={inlineDraftMode}
-              expanded={showInlinePolicyOptions}
-              onCreateDraft={handleCreateInlineDraft}
-              onSelectDraft={handleSelectInlineDraft}
-              onDraftNameChange={(value) => {
-                setInlineDraftName(value);
-                setError(null);
-              }}
-              onDraftTextChange={(value) => {
-                setInlinePolicyText(value);
-                setError(null);
-              }}
-              onSaveDraft={handleAddInlineDraft}
-              onRemoveDraft={handleRemoveInlineDraft}
-              onClearDrafts={handleClearInlineDrafts}
-              onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
-              onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
-            />
-          </SettingsForm>
-          {advancedCloseGuard.confirmationDialog}
-        </WorkflowPage>
+            </div>
+          </SettingsSection>
+          <ManagedPolicySelectionPanel
+            title="Attach policies (optional)"
+            description="Bind JSON policies now or skip and attach later."
+            emptyMessage="No policies available. Create them in the Policies tab."
+            footer="Policies must be created first in the Policies tab."
+            policies={policies}
+            selectedPolicyArns={selectedPolicies}
+            search={policySearch}
+            expanded={showPolicyOptions}
+            onSearchChange={setPolicySearch}
+            onExpandedChange={setShowPolicyOptions}
+            onSelectionChange={setSelectedPolicies}
+          />
+          <InlinePolicyDraftEditor
+            drafts={inlineDrafts}
+            selectedDraftName={selectedInlineDraftName}
+            draftName={inlineDraftName}
+            draftText={inlinePolicyText}
+            entityLabel="user"
+            mode={inlineDraftMode}
+            expanded={showInlinePolicyOptions}
+            onCreateDraft={handleCreateInlineDraft}
+            onSelectDraft={handleSelectInlineDraft}
+            onDraftNameChange={(value) => {
+              setInlineDraftName(value);
+              setError(null);
+            }}
+            onDraftTextChange={(value) => {
+              setInlinePolicyText(value);
+              setError(null);
+            }}
+            onSaveDraft={handleAddInlineDraft}
+            onRemoveDraft={handleRemoveInlineDraft}
+            onClearDrafts={handleClearInlineDrafts}
+            onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
+            onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
+          />
+        </SettingsWorkflowForm>
       )}
 
       {showPrivateAccessModal && (

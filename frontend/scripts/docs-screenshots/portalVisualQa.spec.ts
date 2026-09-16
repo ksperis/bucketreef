@@ -99,6 +99,57 @@ const viewports = [
 
 const themes = ["light", "dark"] as const;
 
+for (const width of [1440, 390]) {
+  test(`Simplified Chinese profile and Portal workflows ${width}`, async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
+    let user = { ...portalUser, ui_language: "en" as "en" | "zh" };
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
+    const registry = await registerApiMocks(page, [
+      { id: "chinese-profile-read", method: "GET", path: /^\/users\/me$/, body: () => user },
+      { id: "chinese-profile-save", method: "PUT", path: /^\/users\/me$/, body: ({ requestBodyText }) => {
+        const payload = JSON.parse(requestBodyText);
+        expect(payload.ui_language).toBe("zh");
+        user = { ...user, ...payload };
+        return user;
+      } },
+      ...buildBaseRules(),
+    ], "chinese-workflows", user);
+    await page.setViewportSize({ width, height: 900 });
+    await seedUiPreferences(page, { selectedWorkspace: "portal", selectedPortalAccountId: "101", theme: "light" });
+    await page.goto("/portal/profile");
+    await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("zh");
+    await page.getByRole("button", { name: "Save preferences", exact: true }).click();
+    await expect(page.getByRole("combobox", { name: "语言", exact: true })).toHaveValue("zh");
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "语言", exact: true })).toHaveValue("zh");
+    await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans");
+    await page.screenshot({ path: testInfo.outputPath("chinese-profile.png"), fullPage: true });
+
+    await page.goto("/portal/access-keys");
+    await page.getByRole("button", { name: "配置工具", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "连接工具", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("chinese-tool-dialog.png"), fullPage: true });
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "新建工具访问凭据", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "创建 S3 工具访问凭据", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("chinese-tool-workflow.png"), fullPage: true });
+
+    await page.goto("/portal/storage-spaces/genomics-2026?tab=collaborators");
+    await page.getByRole("button", { name: "添加人员", exact: true }).click();
+    await expect(page.locator(".workflow-page").getByRole("heading", { name: "添加人员", exact: true })).toBeVisible();
+    await expect(page.getByText("查看者：浏览和下载。编辑者：还可上传、创建文件夹和删除文件。", { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("chinese-invitation.png"), fullPage: true });
+    await page.goto("/portal/history");
+    await expect(page.locator("main").getByRole("heading", { name: "历史记录", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("chinese-history.png"), fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+    registry.assertNoUnmatched();
+    expect(errors).toEqual([]);
+  });
+}
+
 const locales: PortalVisualLocale[] = ["en", "fr", "de"];
 
 const connectToolLabels = {

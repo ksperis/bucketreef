@@ -68,6 +68,10 @@ an owner; Portal managers administer them for the project.
 
 When a Portal manager creates or imports a Selected people space, selected collaborators are saved with the space. If a searched person is not already available in the current project, ask an admin to add that external collaborator first.
 
+Creation, import and **Add people** use the same people selector. Its count
+includes your current selection across searches. The default team role is shown
+only for Team access; Selected people spaces use each person's chosen role.
+
 ## Version history settings
 
 Open the Space **Settings** tab. **Identity** shows its name, description and
@@ -97,6 +101,13 @@ name appears there, while the rest of Portal uses the space name.
 subject to your existing rights. Save or cancel history edits before running
 these operations. Current files are retained by history cleanup; permanent
 space deletion keeps its existing empty-space requirement and confirmation.
+
+Manual history cleanup keeps its progress and result visible on a dedicated
+page. While the scan is still discovering candidates, the total is provisional
+and no percentage is shown. Wait for completion or choose **Stop cleanup**
+before navigating away. Stopping does not restore history already removed;
+a failed or interrupted operation requires an explicit restart. Partial results
+remain visible and are not reported as a successful cleanup.
 
 On an imported bucket, Portal preserves every lifecycle rule it does not own.
 Disabling automatic cleanup removes only `ExpireDeleteMarkers` and `ExpireOldVersions`.

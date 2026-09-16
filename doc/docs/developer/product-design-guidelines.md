@@ -557,3 +557,10 @@ callers own calculations, formatting, chart points and unavailable states.
 `wrapHeading` permits action/title wrapping on adopting cards without changing
 other compact panels. Navigation, health and data-type cards opt in separately.
 Portal retains its existing three languages; other dashboards remain English.
+
+Manager and Portal align card heights within each responsive row. The tallest
+card defines that row's height; separate rows remain independent and single
+column cards keep their natural height. Preserve content, order, widths and
+chart sizes. Keep content at the top and leave extra space below it rather
+than distributing rows or actions vertically. This opt-in does not change
+Admin, Ceph Admin or Storage Ops dashboard geometry.

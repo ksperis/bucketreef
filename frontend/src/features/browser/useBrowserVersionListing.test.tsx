@@ -145,4 +145,24 @@ describe("useBrowserVersionListing", () => {
       "docs/new.txt",
     ]);
   });
+
+  it("retains the page and cursor after an append failure and clears the error on successful retry", async () => {
+    apiMocks.listObjectVersions
+      .mockResolvedValueOnce(response([version("docs/report.txt", "v3")], { key: "docs/report.txt", versionId: "v3" }))
+      .mockRejectedValueOnce(new Error("Next page unavailable"))
+      .mockResolvedValueOnce(response([version("docs/report.txt", "v2")]));
+    const { result } = renderHook(() => useBrowserVersionListing({
+      accountId: "acc-1", bucketName: "bucket-a", enabled: true, prefix: "docs/",
+    }));
+    await act(async () => { await result.current.load(); });
+    await act(async () => { await result.current.load({ append: true }); });
+    expect(result.current.error).toBe("Next page unavailable");
+    expect(result.current.rows.map(row => row.version_id)).toEqual(["v3"]);
+    expect(result.current.canLoadMore).toBe(true);
+    await act(async () => { await result.current.load({ append: true }); });
+    expect(apiMocks.listObjectVersions.mock.calls[2]).toEqual(apiMocks.listObjectVersions.mock.calls[1]);
+    expect(result.current.rows.map(row => row.version_id)).toEqual(["v3", "v2"]);
+    expect(result.current.error).toBeNull();
+    expect(result.current.canLoadMore).toBe(false);
+  });
 });

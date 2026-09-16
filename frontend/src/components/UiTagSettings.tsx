@@ -5,6 +5,7 @@
 import {
   type ReactNode,
   type RefObject,
+  useEffect,
   useRef,
 } from "react";
 
@@ -12,8 +13,11 @@ import type { TagColorKey, TagScope } from "../api/tags";
 import { getTagColorOption, TAG_COLOR_OPTIONS } from "../utils/tagPalette";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import UiRemoveIcon from "./ui/UiRemoveIcon";
-import { cx, uiBadgeShapeClass, uiLabelClass } from "./ui/styles";
+import UiButton from "./ui/UiButton";
+import { cx, uiBadgeShapeClass, uiLabelClass, uiMenuClass } from "./ui/styles";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
+import { getFocusableElements, trapFocusWithin } from "./ui/focusTrap";
+import "./settings/compactSettings.css";
 
 type UiTagVisibility = "private" | "shared";
 type UiTagSelectionState = "selected" | "available";
@@ -251,10 +255,19 @@ export function UiTagSettingsPopover({
   footer,
 }: UiTagSettingsPopoverProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const returnFocus = () => anchorRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  useEffect(() => {
+    if (open && panelRef.current) getFocusableElements(panelRef.current)[0]?.focus();
+  }, [open]);
   useDismissibleLayer({
     open,
     insideRefs: [anchorRef, panelRef],
-    onDismiss,
+    preventEscapeDefault: true,
+    stopEscapePropagation: true,
+    onDismiss: (reason) => {
+      onDismiss();
+      if (reason === "escape") returnFocus();
+    },
   });
   return (
     <AnchoredPortalMenu
@@ -269,7 +282,12 @@ export function UiTagSettingsPopover({
         ref={panelRef}
         role="group"
         aria-label={`Tag settings for ${label}`}
-        className="w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        onKeyDown={(event) => {
+          if (event.key !== "Tab") return;
+          trapFocusWithin(event.currentTarget, event.nativeEvent);
+          event.stopPropagation();
+        }}
+        className={cx(uiMenuClass, "settings-dialog w-72 max-w-full max-h-[calc(100dvh-16px)] overflow-y-auto p-3")}
       >
         <div className="space-y-3">
           <div className="space-y-2">
@@ -280,16 +298,18 @@ export function UiTagSettingsPopover({
                 colorKey={colorKey}
                 visibility={visibility}
               />
-              <button
+              <UiButton
                 type="button"
-                onClick={onDismiss}
-                className="ui-caption font-semibold text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200"
+                variant="ghost"
+                size="sm"
+                onClick={() => { onDismiss(); returnFocus(); }}
+                className="shrink-0"
                 aria-label="Close tag settings"
               >
-                ×
-              </button>
+                <UiRemoveIcon />
+              </UiButton>
             </div>
-            <p className="ui-caption text-slate-500 dark:text-slate-400">
+            <p className="settings-help">
               {description}
             </p>
           </div>

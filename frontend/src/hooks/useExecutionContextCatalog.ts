@@ -160,21 +160,6 @@ export function useExecutionContextCatalog({
     storageKey,
   ]);
 
-  const setSelectedContextId = (id: string | null) => {
-    if (!requiresSelection) return;
-    setAccessError(null);
-    setSelectedContextIdState(id);
-    const nextParams = new URLSearchParams(searchParams);
-    if (id === null) {
-      removeClientStorage(storageKey);
-      nextParams.delete(EXECUTION_CONTEXT_URL_PARAM);
-    } else {
-      writeClientStorage(storageKey, id);
-      nextParams.set(EXECUTION_CONTEXT_URL_PARAM, id);
-    }
-    setSearchParams(nextParams, { replace: true });
-  };
-
   const selectedContext = useMemo(
     () => contexts.find((context) => context.id === selectedContextId) ?? null,
     [contexts, selectedContextId],
@@ -185,7 +170,6 @@ export function useExecutionContextCatalog({
     contextsLoaded,
     selectedContextId,
     selectedContext,
-    setSelectedContextId,
     requiresSelection,
     accessError,
     sessionAccountName: sessionInfo.accountName,

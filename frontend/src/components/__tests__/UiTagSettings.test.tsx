@@ -1,7 +1,39 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { UiTagBadge } from "../UiTagSettings";
+import { UiTagBadge, UiTagSettingsPopover } from "../UiTagSettings";
+import Modal from "../Modal";
+
+it("keeps keyboard focus and Escape in a tag popover above its parent dialog", async () => {
+  const onClose = vi.fn();
+  function NestedPopover() {
+    const [open, setOpen] = useState(false);
+    const anchor = useRef<HTMLSpanElement>(null);
+    return <Modal title="Parent" onClose={onClose}>
+      <span ref={anchor}><button onClick={() => setOpen(true)}>Edit tag</button></span>
+      <UiTagSettingsPopover open={open} anchorRef={anchor} label="Draft" colorKey="blue"
+        description="Draft tag" onDismiss={() => setOpen(false)}>
+        <button>Last option</button>
+      </UiTagSettingsPopover>
+    </Modal>;
+  }
+  render(<NestedPopover />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Edit tag" }));
+  expect(screen.getByRole("button", { name: "Close tag settings" })).toHaveFocus();
+  await user.tab();
+  expect(screen.getByRole("button", { name: "Last option" })).toHaveFocus();
+  await user.tab();
+  expect(screen.getByRole("button", { name: "Close tag settings" })).toHaveFocus();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("group", { name: "Tag settings for Draft" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Edit tag" })).toHaveFocus();
+  expect(onClose).not.toHaveBeenCalled();
+  await user.keyboard("{Escape}");
+  expect(onClose).toHaveBeenCalledOnce();
+});
 
 describe("UiTagBadge filter states", () => {
   it("renders available tags as ghost actions with an accessible add label", () => {

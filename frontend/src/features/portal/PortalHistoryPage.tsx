@@ -6,8 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import Modal from "../../components/Modal";
-import ModalActions from "../../components/ModalActions";
+import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import PageShell from "../../components/PageShell";
 import PageBanner from "../../components/PageBanner";
 import UiButton from "../../components/ui/UiButton";
@@ -1038,62 +1037,44 @@ export default function PortalHistoryPage() {
       </PortalTabPanel>
 
       {rawLogsModalOpen ? (
-        <Modal
+        <SettingsFormDialog
           title={t({ en: "Export raw access logs", fr: "Exporter les logs d'accès bruts", de: "Rohe Zugriffslogs exportieren", zh: "导出原始访问日志" })}
-          closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" })}
-          closeAriaLabel={t({ en: "Close export", fr: "Fermer l'export", de: "Export schließen", zh: "关闭导出" })}
-          onClose={() => {
-            if (!rawLogsLoading) setRawLogsModalOpen(false);
-          }}
-          maxWidthClass="max-w-xl"
+          onClose={() => setRawLogsModalOpen(false)}
+          draftKey={JSON.stringify([rawLogsDateFrom, rawLogsDateTo, rawLogsSpaceId])}
+          busy={rawLogsLoading}
+          error={rawLogsError}
+          disabled={!accountIdForApi}
+          onSubmit={handleDownloadRawLogs}
+          submitLabel={t({ en: "Download export", fr: "Télécharger l'export", de: "Export herunterladen", zh: "下载导出文件" })}
         >
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleDownloadRawLogs();
-            }}
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <UiInput
-                label={t({ en: "From", fr: "Du", de: "Von", zh: "开始" })}
-                size="compact"
-                type="date"
-                value={rawLogsDateFrom}
-                onChange={(event) => setRawLogsDateFrom(event.target.value)}
-              />
-              <UiInput
-                label={t({ en: "To", fr: "Au", de: "Bis", zh: "结束" })}
-                size="compact"
-                type="date"
-                value={rawLogsDateTo}
-                onChange={(event) => setRawLogsDateTo(event.target.value)}
-              />
-            </div>
-            <UiSelect
-              label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich", zh: "存储空间" })}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <UiInput
+              label={t({ en: "From", fr: "Du", de: "Von", zh: "开始" })}
               size="compact"
-              value={rawLogsSpaceId}
-              onChange={(event) => setRawLogsSpaceId(event.target.value)}
-            >
-              <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche", zh: "所有可见空间" })}</option>
-              {storageSpaces.map((space) => (
-                <option key={space.id} value={space.id}>{space.name}</option>
-              ))}
-            </UiSelect>
-            {rawLogsError ? <PageBanner tone="error">{rawLogsError}</PageBanner> : null}
-            <ModalActions>
-              <UiButton type="button" variant="secondary" onClick={() => setRawLogsModalOpen(false)} disabled={rawLogsLoading}>
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
-              </UiButton>
-              <UiButton type="submit" loading={rawLogsLoading}>
-                {rawLogsLoading
-                  ? t({ en: "Retrieving...", fr: "Récupération...", de: "Wird abgerufen...", zh: "正在获取…" })
-                  : t({ en: "Download export", fr: "Télécharger l'export", de: "Export herunterladen", zh: "下载导出文件" })}
-              </UiButton>
-            </ModalActions>
-          </form>
-        </Modal>
+              type="date"
+              value={rawLogsDateFrom}
+              onChange={(event) => setRawLogsDateFrom(event.target.value)}
+            />
+            <UiInput
+              label={t({ en: "To", fr: "Au", de: "Bis", zh: "结束" })}
+              size="compact"
+              type="date"
+              value={rawLogsDateTo}
+              onChange={(event) => setRawLogsDateTo(event.target.value)}
+            />
+          </div>
+          <UiSelect
+            label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich", zh: "存储空间" })}
+            size="compact"
+            value={rawLogsSpaceId}
+            onChange={(event) => setRawLogsSpaceId(event.target.value)}
+          >
+            <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche", zh: "所有可见空间" })}</option>
+            {storageSpaces.map((space) => (
+              <option key={space.id} value={space.id}>{space.name}</option>
+            ))}
+          </UiSelect>
+        </SettingsFormDialog>
       ) : null}
     </PageShell>
   );

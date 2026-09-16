@@ -1184,8 +1184,8 @@ describe("PortalStorageSpaceDetailPage", () => {
     await screen.findAllByRole("heading", { name: "Add people" });
     const dialog = document.querySelector(".workflow-page");
     if (!dialog) throw new Error("Add people workflow page not found");
-    expect(within(dialog).getByLabelText("People")).toHaveClass("ui-control");
-    expect(within(dialog).getByText("Editor User")).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "People" })).toHaveClass("ui-control");
+    expect(await within(dialog).findByText("Editor User")).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByLabelText(/Editor User/i));
     fireEvent.change(within(dialog).getByRole("combobox", { name: "Access for editor@example.com" }), {
@@ -1332,7 +1332,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(await screen.findByRole("progressbar", { name: "Storage Space history cleanup progress" })).toBeInTheDocument();
     expect(await screen.findByText("1.5 KB")).toBeInTheDocument();
     expect(screen.getByText("Versions deleted")).toBeInTheDocument();
-    expect(screen.getByText("Markers removed")).toBeInTheDocument();
+    expect(screen.getByText("Deletion records removed")).toBeInTheDocument();
     expect(mocks.hookResult.refreshWorkspaceData).toHaveBeenCalledTimes(1);
   });
 

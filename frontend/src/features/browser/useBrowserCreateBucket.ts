@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3AccountSelector } from "../../api/accountParams";
 import {
@@ -10,23 +10,14 @@ import {
   ensureBrowserBucketCors,
 } from "../../api/browserBuckets";
 import type { BucketCorsStatus } from "../../api/browserContracts";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { extractApiError } from "../../utils/apiError";
 import {
   isValidS3BucketName,
   normalizeS3BucketName,
 } from "../../utils/s3BucketName";
-import { stableSignature } from "../../utils/stableSignature";
 
 const INVALID_BUCKET_NAME_MESSAGE =
   "Invalid name. 3-63 characters, lowercase letters, numbers, dots or hyphens.";
-
-function createBucketSignature(name: string, versioning: boolean): string {
-  return stableSignature({
-    createBucketNameValue: name,
-    createBucketVersioning: versioning,
-  });
-}
 
 type UseBrowserCreateBucketOptions = {
   accountIdForApi: S3AccountSelector;
@@ -56,16 +47,12 @@ export function useBrowserCreateBucket({
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
   const [versioning, setVersioning] = useState(false);
-  const [initialSignature, setInitialSignature] = useState(() =>
-    createBucketSignature("", false),
-  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     setName("");
     setVersioning(false);
-    setInitialSignature(createBucketSignature("", false));
     setError(null);
   }, []);
 
@@ -80,16 +67,6 @@ export function useBrowserCreateBucket({
     setShowModal(false);
     reset();
   }, [loading, reset]);
-
-  const currentSignature = useMemo(
-    () => createBucketSignature(name, versioning),
-    [name, versioning],
-  );
-  const closeGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showModal && currentSignature !== initialSignature,
-    onClose: close,
-    disabled: loading,
-  });
 
   const updateName = (value: string) => {
     setName(value);
@@ -164,7 +141,6 @@ export function useBrowserCreateBucket({
     updateName,
     setVersioning,
     submit,
-    requestClose: closeGuard.requestClose,
-    confirmationDialog: closeGuard.confirmationDialog,
+    close,
   };
 }

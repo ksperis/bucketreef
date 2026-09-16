@@ -1,154 +1,33 @@
-/*
- * Copyright (c) 2026 Laurent Barbe
- * Licensed under the Apache License, Version 2.0
- */
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  portalStorageSpaceVersionCleanupConfirmationPhrase,
-  streamPortalStorageSpaceVersionCleanup,
-  type PortalStorageSpaceVersionCleanupProgress,
-  type PortalStorageSpaceVersionCleanupResult,
-} from "../../api/portal";
-import PageBanner from "../../components/PageBanner";
-import WorkflowPage, { WorkflowActions } from "../../components/WorkflowPage";
-import UiButton from "../../components/ui/UiButton";
-import UiProgressBar from "../../components/ui/UiProgressBar";
-import {
-  cx,
-  uiMutedTextClass,
-  uiTitleTextClass,
-} from "../../components/ui/styles";
+/* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { portalStorageSpaceVersionCleanupConfirmationPhrase, streamPortalStorageSpaceVersionCleanup, type PortalStorageSpaceVersionCleanupProgress, type PortalStorageSpaceVersionCleanupResult } from "../../api/portal";
+import InlineSummary from "../../components/InlineSummary";
+import { WorkflowSection } from "../../components/WorkflowPage";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
-import PortalWorkflowMetricCard from "./PortalWorkflowMetricCard";
+import PortalOperationLayout, { PortalOperationProgress } from "./PortalOperationLayout";
+import { usePortalStreamOperation } from "./usePortalStreamOperation";
 
-type PortalStorageSpaceHistoryCleanupWorkflowProps = {
-  accountId: string | number;
-  spaceId: string;
-  spaceName: string;
-  usedBytes?: number | null;
-  enabled: boolean;
-  onClose: () => void;
-  onStart: () => void;
-  onCompleted: (bytesFreed: number) => void;
-};
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
-}
-
-export default function PortalStorageSpaceHistoryCleanupWorkflow({
-  accountId,
-  spaceId,
-  spaceName,
-  usedBytes,
-  enabled,
-  onClose,
-  onStart,
-  onCompleted,
-}: PortalStorageSpaceHistoryCleanupWorkflowProps) {
+export default function PortalStorageSpaceHistoryCleanupWorkflow({ accountId, spaceId, spaceName, usedBytes, enabled, onClose, onStart, onCompleted, onRefresh }: {
+  accountId: string | number; spaceId: string; spaceName: string; usedBytes?: number | null; enabled: boolean;
+  onClose: () => void; onStart: () => void; onCompleted: (bytesFreed: number) => void; onRefresh: () => void;
+}) {
   const { t } = useI18n();
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] =
-    useState<PortalStorageSpaceVersionCleanupProgress | null>(null);
-  const [result, setResult] =
-    useState<PortalStorageSpaceVersionCleanupResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const runningRef = useRef(false);
-  const startedRef = useRef(false);
-
-  useEffect(
-    () => () => {
-      abortRef.current?.abort();
-    },
-    [],
-  );
-
-  const runCleanup = useCallback(async () => {
-    if (!enabled || runningRef.current) return;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    runningRef.current = true;
-    setRunning(true);
-    setProgress(null);
-    setResult(null);
-    setError(null);
-    onStart();
-    try {
-      const cleanupResult = await streamPortalStorageSpaceVersionCleanup(
-        accountId,
-        spaceId,
-        {
-          confirmation:
-            portalStorageSpaceVersionCleanupConfirmationPhrase(spaceName),
-        },
-        {
-          signal: controller.signal,
-          onProgress: setProgress,
-        },
-      );
-      setResult(cleanupResult);
-      onCompleted(cleanupResult.bytes_freed);
-    } catch (cleanupError) {
-      if (isAbortError(cleanupError)) {
-        setError(
-          t({
-            en: "Cleanup canceled.",
-            fr: "Nettoyage annulé.",
-            de: "Bereinigung abgebrochen.",
-            zh: "清理已取消。",
-          }),
-        );
-      } else {
-        setError(
-          extractApiError(
-            cleanupError,
-            t({
-              en: "Unable to clean up this Storage Space history.",
-              fr: "Impossible de nettoyer l'historique de cet espace.",
-              de: "Der Verlauf dieses Bereichs kann nicht bereinigt werden.",
-              zh: "无法清理此存储空间的历史记录。",
-            }),
-          ),
-        );
-      }
-    } finally {
-      runningRef.current = false;
-      setRunning(false);
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-      }
-    }
-  }, [accountId, enabled, onCompleted, onStart, spaceId, spaceName, t]);
-
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    void runCleanup();
-  }, [runCleanup]);
-
-  const deletedEntries =
-    (progress?.deleted_versions ?? 0) +
-    (progress?.deleted_delete_markers ?? 0);
-  const progressPercent = progress
-    ? progress.delete_candidates > 0
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            Math.round((deletedEntries / progress.delete_candidates) * 100),
-          ),
-        )
-      : progress.stage === "completed"
-        ? 100
-        : null
-    : null;
-
-  return (
-    <WorkflowPage
+  const { running, progress, result, error, start, stop } = usePortalStreamOperation<PortalStorageSpaceVersionCleanupProgress, PortalStorageSpaceVersionCleanupResult>({
+    enabled, autoStart: true, onStart, onStopped: onRefresh,
+    execute: options => streamPortalStorageSpaceVersionCleanup(accountId, spaceId, { confirmation: portalStorageSpaceVersionCleanupConfirmationPhrase(spaceName) }, options),
+    onResult: value => { onRefresh(); if (value.status === "completed") onCompleted(value.bytes_freed); },
+    stoppedMessage: t({ en: "Cleanup stopped. History already removed cannot be restored.", fr: "Nettoyage arrêté. L'historique déjà supprimé ne peut pas être restauré.", de: "Bereinigung gestoppt. Bereits gelöschte Historie kann nicht wiederhergestellt werden.", zh: "清理已停止。已删除的历史无法恢复。" }),
+    errorMessage: cause => extractApiError(cause, t({ en: "Unable to clean up this Storage Space history.", fr: "Impossible de nettoyer l'historique de cet espace.", de: "Der Verlauf dieses Bereichs kann nicht bereinigt werden.", zh: "无法清理此存储空间的历史记录。" })),
+  });
+  const counts = result ?? progress;
+  const deleted = (counts?.deleted_versions ?? 0) + (counts?.deleted_delete_markers ?? 0);
+  const percent = result?.status === "completed" ? 100 : !result && progress?.total_candidates_final && progress.delete_candidates > 0
+    ? Math.min(100, Math.round(deleted / progress.delete_candidates * 100)) : null;
+  return <PortalOperationLayout
       title={t({
         en: "Clean up history",
         fr: "Nettoyer l'historique",
@@ -182,186 +61,43 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({
         de: "Zurück zum Bereich",
         zh: "返回空间",
       })}
-      onBack={running ? undefined : onClose}
-      width="standard"
-    >
-      <div className="space-y-4">
-        {error ? <PageBanner tone="warning">{error}</PageBanner> : null}
-        <PageBanner tone="warning">
-          {t({
-            en: "This scans the entire space, deletes older file versions, then removes leftover deletion records. Current files are kept, but deleted history cannot be restored from Portal.",
-            fr: "Cette opération parcourt tout l'espace, supprime les anciennes versions de fichiers, puis retire les traces de suppression restantes. Les fichiers courants sont conservés, mais l'historique supprimé ne pourra pas être restauré depuis Portal.",
-            de: "Diese Aktion durchsucht den gesamten Bereich, löscht ältere Dateiversionen und entfernt verbliebene Löschvermerke. Aktuelle Dateien bleiben erhalten, gelöschte Historie kann in Portal aber nicht wiederhergestellt werden.",
-            zh: "此操作会扫描整个空间，删除旧文件版本，再移除残留删除记录。当前文件会保留，但删除的历史记录无法从 Portal 恢复。",
-          })}
-        </PageBanner>
-
-        <dl className="grid gap-3 text-xs sm:grid-cols-2">
-          <div>
-            <dt className={cx("font-semibold uppercase", uiMutedTextClass)}>
-              {t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" })}
-            </dt>
-            <dd className={cx("mt-1 break-all font-bold", uiTitleTextClass)}>
-              {spaceName}
-            </dd>
-          </div>
-          <div>
-            <dt className={cx("font-semibold uppercase", uiMutedTextClass)}>
-              {t({
-                en: "Current storage",
-                fr: "Stockage courant",
-                de: "Aktueller Speicher",
-                zh: "当前存储用量",
-              })}
-            </dt>
-            <dd className={cx("mt-1 font-bold", uiTitleTextClass)}>
-              {formatBytes(usedBytes)}
-            </dd>
-          </div>
-        </dl>
-
-        {progress ? (
-          <div className="rounded-md border border-[color:var(--ui-border)] p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className={cx("ui-caption font-semibold", uiTitleTextClass)}>
-                {progress.message ?? progress.stage}
-              </p>
-              <p className={cx("ui-caption", uiMutedTextClass)}>
-                {formatCompactNumber(deletedEntries)} /{" "}
-                {progress.total_candidates_final
-                  ? formatCompactNumber(progress.delete_candidates)
-                  : progress.delete_candidates > 0
-                    ? t({
-                        en: `at least ${formatCompactNumber(progress.delete_candidates)}`,
-                        fr: `au moins ${formatCompactNumber(progress.delete_candidates)}`,
-                        de: `mindestens ${formatCompactNumber(progress.delete_candidates)}`,
-                        zh: `至少 ${formatCompactNumber(progress.delete_candidates)}`,
-                      })
-                    : t({
-                        en: "discovering",
-                        fr: "détection",
-                        de: "wird ermittelt",
-                        zh: "正在查找",
-                      })}
-              </p>
-            </div>
-            {progressPercent === null ? (
-              <div
-                className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--ui-surface-muted)]"
-                role="progressbar"
-                aria-label={t({
-                  en: "Storage Space history cleanup progress",
-                  fr: "Progression du nettoyage de l'historique",
-                  de: "Fortschritt der Historienbereinigung",
-                  zh: "存储空间历史记录清理进度",
-                })}
-              >
-                <div className="h-full w-full animate-pulse rounded-full bg-rose-500/70" />
-              </div>
-            ) : (
-              <UiProgressBar
-                value={progressPercent}
-                label={t({
-                  en: "Storage Space history cleanup progress",
-                  fr: "Progression du nettoyage de l'historique",
-                  de: "Fortschritt der Historienbereinigung",
-                  zh: "存储空间历史记录清理进度",
-                })}
-                className="mt-2 h-2 bg-[var(--ui-surface-muted)]"
-                barClassName="bg-rose-600 transition-[width] duration-150 ease-out"
-              />
-            )}
-            <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>
-              {t({
-                en: `${formatCompactNumber(progress.scanned_versions)} versions scanned, ${formatCompactNumber(progress.scanned_delete_markers)} delete markers scanned, ${formatBytes(progress.bytes_freed)} gained so far.`,
-                fr: `${formatCompactNumber(progress.scanned_versions)} versions scannées, ${formatCompactNumber(progress.scanned_delete_markers)} delete markers scannés, ${formatBytes(progress.bytes_freed)} gagnés pour l'instant.`,
-                de: `${formatCompactNumber(progress.scanned_versions)} Versionen geprüft, ${formatCompactNumber(progress.scanned_delete_markers)} Delete Marker geprüft, bisher ${formatBytes(progress.bytes_freed)} frei geworden.`,
-                zh: `已扫描 ${formatCompactNumber(progress.scanned_versions)} 个版本、${formatCompactNumber(progress.scanned_delete_markers)} 个删除标记，目前已释放 ${formatBytes(progress.bytes_freed)}。`,
-              })}
-            </p>
-          </div>
-        ) : null}
-
-        {result ? (
-          <div className="grid gap-2 sm:grid-cols-3">
-            <PortalWorkflowMetricCard
-              label={t({
-                en: "Space gained",
-                fr: "Espace gagné",
-                de: "Frei geworden",
-                zh: "已释放空间",
-              })}
-              value={formatBytes(result.bytes_freed)}
-              detail={t({ en: "estimated", fr: "estimé", de: "geschätzt", zh: "估算值" })}
-            />
-            <PortalWorkflowMetricCard
-              label={t({
-                en: "Versions deleted",
-                fr: "Versions supprimées",
-                de: "Versionen gelöscht",
-                zh: "已删除版本",
-              })}
-              value={formatCompactNumber(result.deleted_versions)}
-              detail={t({
-                en: "historical",
-                fr: "historiques",
-                de: "historisch",
-                zh: "历史版本",
-              })}
-            />
-            <PortalWorkflowMetricCard
-              label={t({
-                en: "Markers removed",
-                fr: "Markers retirés",
-                de: "Marker entfernt",
-                zh: "已移除标记",
-              })}
-              value={formatCompactNumber(result.deleted_delete_markers)}
-              detail={t({
-                en: "orphan delete markers",
-                fr: "delete markers orphelins",
-                de: "verwaiste Delete Marker",
-                zh: "孤立删除标记",
-              })}
-            />
-          </div>
-        ) : null}
-
-        <WorkflowActions>
-          <UiButton
-            variant="secondary"
-            onClick={onClose}
-            disabled={running}
-          >
-            {result
-              ? t({ en: "Done", fr: "Terminer", de: "Fertig", zh: "完成" })
-              : t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
-          </UiButton>
-          {running ? (
-            <UiButton variant="danger" onClick={() => abortRef.current?.abort()}>
-              {t({
-                en: "Stop cleanup",
-                fr: "Arrêter le nettoyage",
-                de: "Bereinigung stoppen",
-                zh: "停止清理",
-              })}
-            </UiButton>
-          ) : (
-            <UiButton
-              variant="danger"
-              onClick={() => void runCleanup()}
-              disabled={Boolean(result) || !enabled}
-            >
-              {t({
-                en: "Start cleanup",
-                fr: "Démarrer le nettoyage",
-                de: "Bereinigung starten",
-                zh: "开始清理",
-              })}
-            </UiButton>
-          )}
-        </WorkflowActions>
-      </div>
-    </WorkflowPage>
-  );
+      running={running} onClose={onClose}
+      metadata={[{ label: t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" }), value: spaceName },
+        { label: t({ en: "Current storage", fr: "Stockage courant", de: "Aktueller Speicher", zh: "当前存储用量" }), value: formatBytes(usedBytes) }]}
+      actions={running ? <SettingsButton variant="secondary" onClick={stop}>{t({ en: "Stop cleanup", fr: "Arrêter le nettoyage", de: "Bereinigung stoppen", zh: "停止清理" })}</SettingsButton>
+        : result ? <SettingsButton onClick={onClose}>{t({ en: "Done", fr: "Terminer", de: "Fertig", zh: "完成" })}</SettingsButton>
+        : <><SettingsButton variant="secondary" onClick={onClose}>{t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}</SettingsButton>
+          <SettingsButton variant="danger" disabled={!enabled} onClick={() => void start()}>{t({ en: "Start cleanup", fr: "Démarrer le nettoyage", de: "Bereinigung starten", zh: "开始清理" })}</SettingsButton></>}>
+    <UiInlineMessage tone="warning">{t({
+      en: "This scans the entire space, deletes older file versions, then removes leftover deletion records. Current files are kept, but deleted history cannot be restored from Portal.",
+      fr: "Cette opération parcourt tout l'espace, supprime les anciennes versions de fichiers, puis retire les traces de suppression restantes. Les fichiers courants sont conservés, mais l'historique supprimé ne pourra pas être restauré depuis Portal.",
+      de: "Diese Aktion durchsucht den gesamten Bereich, löscht ältere Dateiversionen und entfernt verbliebene Löschvermerke. Aktuelle Dateien bleiben erhalten, gelöschte Historie kann in Portal aber nicht wiederhergestellt werden.",
+      zh: "此操作会扫描整个空间，删除旧文件版本，再移除残留删除记录。当前文件会保留，但删除的历史记录无法从 Portal 恢复。",
+    })}</UiInlineMessage>
+    {error && <UiInlineMessage tone="warning" role="alert">{error}</UiInlineMessage>}
+    {(running || counts) && <PortalOperationProgress running={running}
+      label={t({ en: "Storage Space history cleanup progress", fr: "Progression du nettoyage de l'historique", de: "Fortschritt der Historienbereinigung", zh: "存储空间历史记录清理进度" })}
+      message={result ? t({ en: "Cleanup finished", fr: "Nettoyage terminé", de: "Bereinigung beendet", zh: "清理已完成" }) : !running ? t({ en: "Last reported progress", fr: "Dernier état reçu", de: "Zuletzt gemeldeter Fortschritt", zh: "最新报告的进度" }) : progress?.message || t({ en: "Preparing cleanup...", fr: "Préparation du nettoyage...", de: "Bereinigung wird vorbereitet...", zh: "正在准备清理…" })}
+      count={result ? t({ en: `${formatCompactNumber(deleted)} removed`, fr: `${formatCompactNumber(deleted)} supprimés`, de: `${formatCompactNumber(deleted)} entfernt`, zh: `已删除 ${formatCompactNumber(deleted)} 项` }) : <>{formatCompactNumber(deleted)} / {progress?.total_candidates_final
+        ? formatCompactNumber(progress.delete_candidates)
+        : progress && progress.delete_candidates > 0 ? t({ en: `at least ${formatCompactNumber(progress.delete_candidates)}`, fr: `au moins ${formatCompactNumber(progress.delete_candidates)}`, de: `mindestens ${formatCompactNumber(progress.delete_candidates)}`, zh: `至少 ${formatCompactNumber(progress.delete_candidates)}` })
+        : t({ en: "discovering", fr: "détection", de: "wird ermittelt", zh: "正在查找" })}</>}
+      value={percent} detail={t({
+        en: `${formatCompactNumber(counts?.scanned_versions ?? 0)} versions and ${formatCompactNumber(counts?.scanned_delete_markers ?? 0)} deletion records scanned.`,
+        fr: `${formatCompactNumber(counts?.scanned_versions ?? 0)} versions et ${formatCompactNumber(counts?.scanned_delete_markers ?? 0)} traces de suppression analysées.`,
+        de: `${formatCompactNumber(counts?.scanned_versions ?? 0)} Versionen und ${formatCompactNumber(counts?.scanned_delete_markers ?? 0)} Löschvermerke geprüft.`,
+        zh: `已扫描 ${formatCompactNumber(counts?.scanned_versions ?? 0)} 个版本和 ${formatCompactNumber(counts?.scanned_delete_markers ?? 0)} 条删除记录。`,
+      })} />}
+    {progress && !result && <InlineSummary items={[{ label: t({ en: "Space gained so far", fr: "Espace gagné pour l'instant", de: "Bisher frei geworden", zh: "目前已释放的空间" }), value: formatBytes(progress.bytes_freed) }]} />}
+    {result && <WorkflowSection title={t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" })}>
+      {result.status !== "completed" && <UiInlineMessage tone="warning" role="status">{result.status === "canceled"
+        ? t({ en: "Cleanup stopped before completion.", fr: "Nettoyage arrêté avant la fin.", de: "Bereinigung vorzeitig gestoppt.", zh: "清理在完成前已停止。" })
+        : t({ en: "Cleanup failed. Review the partial result below.", fr: "Le nettoyage a échoué. Consultez le résultat partiel ci-dessous.", de: "Bereinigung fehlgeschlagen. Prüfen Sie das Teilergebnis unten.", zh: "清理失败。请查看下方的部分结果。" })}</UiInlineMessage>}
+      <InlineSummary items={[
+        { label: t({ en: "Space gained", fr: "Espace gagné", de: "Frei geworden", zh: "已释放空间" }), value: formatBytes(result.bytes_freed), hint: t({ en: "estimated", fr: "estimé", de: "geschätzt", zh: "估算值" }) },
+        { label: t({ en: "Versions deleted", fr: "Versions supprimées", de: "Versionen gelöscht", zh: "已删除版本" }), value: formatCompactNumber(result.deleted_versions), hint: t({ en: "historical", fr: "historiques", de: "historisch", zh: "历史版本" }) },
+        { label: t({ en: "Deletion records removed", fr: "Traces de suppression retirées", de: "Löschvermerke entfernt", zh: "已删除的删除记录" }), value: formatCompactNumber(result.deleted_delete_markers) },
+      ]} />
+    </WorkflowSection>}
+  </PortalOperationLayout>;
 }

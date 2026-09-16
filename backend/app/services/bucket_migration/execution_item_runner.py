@@ -413,7 +413,6 @@ class BucketMigrationItemRunnerMixin:
 
     def _sample_version_probe_candidate(
         self,
-        source_bucket: str,
         *,
         source_profile: Optional[dict[str, Any]] = None,
     ) -> Optional[tuple[str, str]]:
@@ -425,9 +424,9 @@ class BucketMigrationItemRunnerMixin:
         sample_version = version_scan.get("sample_version")
         if not isinstance(sample_version, dict):
             return None
-        key = str(sample_version.get("key") or "").strip()
-        version_id = str(sample_version.get("version_id") or "").strip()
-        if not key or not version_id:
+        key = sample_version.get("key")
+        version_id = sample_version.get("version_id")
+        if not isinstance(key, str) or not key or not isinstance(version_id, str) or not version_id:
             return None
         return key, version_id
 
@@ -438,7 +437,6 @@ class BucketMigrationItemRunnerMixin:
         source_profile: Optional[dict[str, Any]],
     ) -> None:
         candidate = self._sample_version_probe_candidate(
-            source_bucket,
             source_profile=source_profile,
         )
         if candidate is None:
@@ -515,7 +513,7 @@ class BucketMigrationItemRunnerMixin:
         sample_key: Optional[str] = None
         sample_version_id: Optional[str] = None
         if strategy == "version_aware":
-            candidate = self._sample_version_probe_candidate(source_bucket, source_profile=source_profile)
+            candidate = self._sample_version_probe_candidate(source_profile=source_profile)
             if candidate is not None:
                 sample_key, sample_version_id = candidate
 
