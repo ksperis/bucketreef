@@ -10,6 +10,11 @@
   min-width: 0;
 }
 .ui-dashboard-panel { min-width: 0; padding: 12px 16px; }
+/* Manager/Portal opt in per row. Nested cells carry stretch through wrappers
+ * without setting a fixed height or stretching the content inside each panel. */
+.ui-dashboard-equal-row { align-items: stretch; }
+.ui-dashboard-equal-cell { display: grid; min-width: 0; }
+.ui-dashboard-equal-cell > .ui-dashboard-panel { align-self: stretch; }
 .ui-dashboard-panel-body { margin-top: 10px; }
 .ui-dashboard-title { font-size: var(--dashboard-title-size, 14px); line-height: 20px; font-weight: 600; color: var(--ui-text); }
 .ui-dashboard-label, .ui-dashboard-note, .ui-dashboard-endpoint-row {

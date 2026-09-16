@@ -1,0 +1,9 @@
+/* Collection dialogs reuse settings spacing and the shared listing controls. */
+.ui-list-dialog { --list-control-height: var(--settings-control-height); }
+.ui-list-dialog .ui-list-toolbar {
+  --list-toolbar-padding: 0;
+  border: 0;
+}
+.ui-list-dialog .ui-list-toolbar[data-list-variant] .ui-list-toolbar-body { flex-wrap: wrap; }
+.ui-list-dialog .ui-list-toolbar-count { white-space: normal; }
+.ui-list-dialog .ui-list-action { max-width: 100%; }

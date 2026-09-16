@@ -89,4 +89,21 @@ describe("BrowserMultipartUploadsModal", () => {
 
     expect(withLoadMore.props.onLoadMore).toHaveBeenCalledTimes(1);
   });
+
+  it("retains rows during pagination and announces errors without showing a misleading empty state", () => {
+    const { props, rerender } = renderModal({ uploads: [uploadA], loadingMore: true, canLoadMore: true,
+      abortingUploadIds: new Set([`${uploadA.key}::${uploadA.upload_id}`]) });
+    expect(screen.getByRole("status")).toHaveTextContent("Loading multipart uploads...");
+    expect(screen.getByText(uploadA.key)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Load more" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Aborting..." })).toBeDisabled();
+    rerender(<BrowserMultipartUploadsModal {...props} loadingMore={false} error="Next page unavailable" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Next page unavailable");
+    expect(screen.getByText(uploadA.key)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Load more" })).toBeEnabled();
+    rerender(<BrowserMultipartUploadsModal {...props} uploads={[]} loadingMore={false} error="List unavailable" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("List unavailable");
+    expect(screen.queryByText("No multipart uploads in progress.")).not.toBeInTheDocument();
+  });
 });

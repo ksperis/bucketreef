@@ -1,4 +1,4 @@
-site_name: BucketReef - S3-compatible object storage management
+site_name: BucketReef Documentation
 site_description: BucketReef - S3-compatible object storage management
 site_author: BucketReef contributors
 repo_name: BucketReef
@@ -9,6 +9,7 @@ site_url: https://ksperis.github.io/bucketreef/
 theme:
   name: material
   language: en
+  font: false
   logo: assets/brand/bucketreef-mark-256.png
   favicon: assets/brand/bucketreef-mark-256.png
   features:

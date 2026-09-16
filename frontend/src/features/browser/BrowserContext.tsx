@@ -15,7 +15,6 @@ type BrowserContextState = {
   contextsLoaded: boolean;
   selectedContextId: string | null;
   selectedContext: ExecutionContext | null;
-  setSelectedContextId: (id: string | null) => void;
   requiresContextSelection: boolean;
   hasContext: boolean;
   selectorForApi: S3AccountSelector;
@@ -29,7 +28,6 @@ const Ctx = createContext<BrowserContextState>({
   contextsLoaded: false,
   selectedContextId: null,
   selectedContext: null,
-  setSelectedContextId: () => {},
   requiresContextSelection: true,
   hasContext: false,
   selectorForApi: null,
@@ -44,7 +42,6 @@ export function BrowserContextProvider({ children }: { children: ReactNode }) {
     contextsLoaded,
     selectedContextId,
     selectedContext,
-    setSelectedContextId,
     requiresSelection: requiresContextSelection,
     accessError,
     sessionAccountName,
@@ -67,7 +64,6 @@ export function BrowserContextProvider({ children }: { children: ReactNode }) {
         contextsLoaded,
         selectedContextId,
         selectedContext,
-        setSelectedContextId,
         requiresContextSelection,
         hasContext,
         selectorForApi,

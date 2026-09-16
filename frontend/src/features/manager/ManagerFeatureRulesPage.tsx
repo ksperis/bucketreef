@@ -2,9 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ListPageSection from "../../components/list/ListPageSection";
-import Modal from "../../components/Modal";
+import { SettingsDialog } from "../../components/settings/SettingsControls";
+import UiTextarea from "../../components/ui/UiTextarea";
 import PageBanner from "../../components/PageBanner";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageShell from "../../components/PageShell";
@@ -71,6 +72,7 @@ export default function ManagerFeatureRulesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRule, setSelectedRule] = useState<SelectedRule | null>(null);
+  const ruleJsonRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedS3Account = useMemo(
     () => accounts.find((account) => account.id === selectedS3AccountId),
@@ -87,6 +89,8 @@ export default function ManagerFeatureRulesPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setSelectedRule(null);
+    setItems([]);
     async function load(accountId: S3AccountSelector) {
       setLoading(true);
       setError(null);
@@ -129,6 +133,7 @@ export default function ManagerFeatureRulesPage() {
   }, [filter, items, statusFilterValue]);
   const tableStatus = resolveListTableStatus({
     loading,
+    error,
     rowCount: filteredItems.length,
   });
 
@@ -212,16 +217,18 @@ export default function ManagerFeatureRulesPage() {
       )}
 
       {selectedRule && (
-        <Modal
-          title={`${selectedRule.bucketName} / ${selectedRule.rule.title}`}
+        <SettingsDialog
+          title="Rule details"
           onClose={() => setSelectedRule(null)}
-          maxWidthClass="max-w-4xl"
-          maxBodyHeightClass="max-h-[80vh]"
+          initialFocusRef={ruleJsonRef}
         >
-          <pre className="overflow-x-auto rounded-md bg-slate-950 px-4 py-3 font-mono text-[12px] leading-5 text-slate-100">
-            {JSON.stringify(selectedRule.rule.raw, null, 2)}
-          </pre>
-        </Modal>
+          <div className="settings-stack settings-fields">
+            <p className="settings-description [overflow-wrap:anywhere]">{selectedRule.bucketName} · {selectedRule.rule.title}</p>
+            <UiTextarea ref={ruleJsonRef} label="Rule JSON" readOnly rows={16}
+              value={JSON.stringify(selectedRule.rule.raw, null, 2)}
+              className="font-mono [overflow-wrap:anywhere]" spellCheck={false} />
+          </div>
+        </SettingsDialog>
       )}
     </PageShell>
   );

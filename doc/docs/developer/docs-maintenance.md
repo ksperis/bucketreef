@@ -74,21 +74,35 @@ npm --prefix frontend run docs:screenshots:check
 
 ## Visual theme maintenance
 
-The documentation theme intentionally mirrors the application UI language.
-Before changing documentation styling:
+The documentation uses a classic reading layout with a white article, a light
+gray navigation panel, and restrained BucketReef blue accents. Its density and
+neutral surfaces are independent of the application workspace theme.
 
-1. Start from `frontend/src/index.css` and
-   `doc/docs/developer/ui-theme-guidelines.md`.
-2. Keep MkDocs colors, borders, radii, shadows, active navigation, tables, and
-   screenshot components on the mirrored `--ui-*` and `--shell-*` tokens in
-   `doc/docs/assets/stylesheets/docs-theme.css`.
-3. Preserve the compact application posture: restrained headings, reduced
-   vertical gaps, dense tables, compact primary navigation, compact table of
-   contents, and screenshot controls that do not crowd the actual capture.
-4. Avoid documentation-only palettes or decorative effects that do not exist in
-   the application workspace surfaces.
-5. Validate the rendered result on desktop and mobile, especially pages with
-   wide tables and screenshot galleries.
+1. Use the shared `--docs-*` tokens in
+   `doc/docs/assets/stylesheets/docs-theme.css` for the theme and screenshot
+   controls. Keep both the default and slate palettes coherent.
+2. Keep Arial/Helvetica system fonts without remote font requests, 16px body
+   text with 24px line height, 32/24/20px headings, and 14px navigation at the
+   standard browser font size. Use regular text and restrained heading weights.
+3. Keep desktop navigation at 288px, the right table of contents at 208px,
+   and the overall layout at most 1440px. Preserve Material's mobile drawers,
+   nested navigation, search, and anchor behavior.
+4. Use subtle borders, 4px corner radii, and no decorative shadows. Preserve
+   semantic callout colors and visible keyboard focus. Wide tables and code
+   scroll within their own regions instead of scrolling the whole article.
+5. After a theme change, compare Home, Start Here, Configuration, Quickstart,
+   and the screenshot gallery at 1440, 1280, 768, and 390px. Check both themes,
+   contrast, search results, instant navigation, anchors, mobile menus, and
+   keyboard opening/closing of screenshots. Fix visible defects and repeat
+   affected checks before committing.
+
+Material stores `data-md-color-scheme` on `body`. Both screenshot CSS and the
+gallery observer must read that same element so inline images, thumbnails, and
+the fullscreen viewer use the selected light/dark variant.
+
+Run the strict build and screenshot reference check above. Keep temporary
+browser captures and reports outside the repository; a docs-only theme change
+does not require regenerating the application screenshots.
 
 ## User screenshot workflow
 

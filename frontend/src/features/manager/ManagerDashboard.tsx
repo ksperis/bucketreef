@@ -263,7 +263,7 @@ function StorageOverviewCard({
   const growthLabel = trendBaseline?.label ? `Growth (${trendBaseline.label})` : "Growth";
   const projectedFull = formatWorkspaceProjectedFull(usedBytes, quotaBytes, trendBaseline);
   return (
-    <DashboardUnavailable reason={unavailableReason}>
+    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       <WorkspaceDashboardStorageOverview
         title={<span className="flex items-center gap-1.5">Storage overview<InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /></span>}
         action={<WorkspaceDashboardActionLink to="/manager/metrics">Usage analytics<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
@@ -326,7 +326,7 @@ function TopBucketsCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason}>
+    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       {content}
     </DashboardUnavailable>
   );
@@ -381,7 +381,7 @@ function RecentActivityCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason}>
+    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       {content}
     </DashboardUnavailable>
   );
@@ -509,7 +509,7 @@ function QuotaStatusCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason}>
+    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       {content}
     </DashboardUnavailable>
   );
@@ -575,7 +575,7 @@ function AccessManagementCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason}>
+    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       {content}
     </DashboardUnavailable>
   );
@@ -623,7 +623,7 @@ function BackendHealthCard({
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason}>
+    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       {content}
     </DashboardUnavailable>
   );
@@ -657,38 +657,40 @@ function IncidentStrip({
   const incident = incidents.find((item) => item.ongoing) ?? incidents[0] ?? null;
   const hasRealIncident = incidents.length > 0 && !unavailableReason;
   const content = (
-    <section className={cx(uiCardClass, "ui-dashboard-panel ui-dashboard-panel-heading")}>
-      <div className="min-w-0">
-        <h2 className="ui-dashboard-title">Ongoing / Recent incidents</h2>
-        <div className="mt-2 flex flex-wrap items-center gap-4">
-          {hasRealIncident && incident ? (
-            <>
-              <span className="flex items-center gap-2 ui-dashboard-label">
-                <span className={cx("h-2.5 w-2.5 rounded-full", incident.ongoing ? "bg-amber-500" : "bg-emerald-500")} />
-                {incident.endpoint_name}
-              </span>
-              <UiBadge tone={incident.ongoing ? "warning" : "success"} className="ui-dashboard-badge">
-                {incident.ongoing ? "In progress" : "Resolved"}
-              </UiBadge>
-              <span className={cx("ui-caption", uiMutedTextClass)}>
-                {incident.ongoing ? "Ongoing since" : "Resolved"} {formatLocalDateTime(incident.start)}
-              </span>
-            </>
-          ) : !unavailableReason ? (
-            <span className={cx("ui-caption", uiMutedTextClass)}>No ongoing or recent incidents.</span>
-          ) : (
-            <span className="min-h-4" aria-hidden="true" />
-          )}
+    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
+      <div className="ui-dashboard-panel-heading">
+        <div className="min-w-0">
+          <h2 className="ui-dashboard-title">Ongoing / Recent incidents</h2>
+          <div className="mt-2 flex flex-wrap items-center gap-4">
+            {hasRealIncident && incident ? (
+              <>
+                <span className="flex items-center gap-2 ui-dashboard-label">
+                  <span className={cx("h-2.5 w-2.5 rounded-full", incident.ongoing ? "bg-amber-500" : "bg-emerald-500")} />
+                  {incident.endpoint_name}
+                </span>
+                <UiBadge tone={incident.ongoing ? "warning" : "success"} className="ui-dashboard-badge">
+                  {incident.ongoing ? "In progress" : "Resolved"}
+                </UiBadge>
+                <span className={cx("ui-caption", uiMutedTextClass)}>
+                  {incident.ongoing ? "Ongoing since" : "Resolved"} {formatLocalDateTime(incident.start)}
+                </span>
+              </>
+            ) : !unavailableReason ? (
+              <span className={cx("ui-caption", uiMutedTextClass)}>No ongoing or recent incidents.</span>
+            ) : (
+              <span className="min-h-4" aria-hidden="true" />
+            )}
+          </div>
         </div>
+        <WorkspaceDashboardActionLink to="/manager/metrics">
+          View all incidents
+          <OpenIcon className="h-3.5 w-3.5" />
+        </WorkspaceDashboardActionLink>
       </div>
-      <WorkspaceDashboardActionLink to="/manager/metrics">
-        View all incidents
-        <OpenIcon className="h-3.5 w-3.5" />
-      </WorkspaceDashboardActionLink>
     </section>
   );
   return (
-    <DashboardUnavailable reason={unavailableReason}>
+    <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       {content}
     </DashboardUnavailable>
   );
@@ -1171,8 +1173,8 @@ export default function ManagerDashboard() {
 
       <KpiRow presentation="compact" metrics={metrics} />
 
-      <div data-testid="manager-dashboard-overview-grid" className="grid items-start gap-3 lg:grid-cols-2 xl:grid-cols-12">
-        <div className="min-w-0 xl:col-span-4">
+      <div data-testid="manager-dashboard-overview-grid" className="grid ui-dashboard-equal-row gap-3 lg:grid-cols-2 xl:grid-cols-12">
+        <div className="ui-dashboard-equal-cell xl:col-span-4">
           <StorageOverviewCard
             usedBytes={storageUsedBytes}
             quotaBytes={storageQuotaBytes}
@@ -1182,13 +1184,13 @@ export default function ManagerDashboard() {
           />
         </div>
         <div
-          className={cx("min-w-0", canLoadUsageStatsDataTypes ? "xl:col-span-5" : "xl:col-span-8")}
+          className={cx("ui-dashboard-equal-cell", canLoadUsageStatsDataTypes ? "xl:col-span-5" : "xl:col-span-8")}
           data-testid="manager-dashboard-top-buckets-card"
         >
           <TopBucketsCard rows={bucketRows} unavailableReason={topBucketsUnavailableReason} />
         </div>
         {canLoadUsageStatsDataTypes && (
-          <div className="min-w-0 xl:col-span-3">
+          <div className="ui-dashboard-equal-cell xl:col-span-3">
             <BucketUsageStatsDataTypesCard presentation="compact"
               aggregate={usageStatsAggregate}
               loading={usageStatsLoading}
@@ -1199,7 +1201,7 @@ export default function ManagerDashboard() {
       </div>
 
       <div
-        className="grid items-start gap-3 lg:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)] 2xl:grid-cols-[minmax(0,1.44fr)_minmax(0,0.72fr)_minmax(0,0.9fr)_minmax(280px,1fr)]"
+        className="grid ui-dashboard-equal-row gap-3 lg:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)] 2xl:grid-cols-[minmax(0,1.44fr)_minmax(0,0.72fr)_minmax(0,0.9fr)_minmax(280px,1fr)]"
         data-testid="manager-dashboard-resource-grid"
       >
         <QuotaStatusCard
@@ -1224,8 +1226,8 @@ export default function ManagerDashboard() {
         <BackendHealthCard endpoint={healthEndpoint} unavailableReason={endpointUnavailableReason} />
       </div>
 
-      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" data-testid="manager-dashboard-activity-incidents-row">
-        <div className="min-w-0" data-testid="manager-dashboard-recent-activity-card">
+      <div className="grid ui-dashboard-equal-row gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" data-testid="manager-dashboard-activity-incidents-row">
+        <div className="ui-dashboard-equal-cell" data-testid="manager-dashboard-recent-activity-card">
           <RecentActivityCard rows={activityRows} loading={activityLoading} unavailableReason={activityUnavailableReason} />
         </div>
         <IncidentStrip

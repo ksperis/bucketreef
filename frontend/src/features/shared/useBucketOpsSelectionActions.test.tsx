@@ -64,6 +64,24 @@ function createOptions() {
 }
 
 describe("useBucketOpsSelectionActions", () => {
+  it("returns tag failures to the dialog and retries with the same resolved targets", async () => {
+    const options = createOptions();
+    options.persistUiTagChanges.mockRejectedValueOnce(new Error("Tag service unavailable"));
+    const { result } = renderHook(() => useBucketOpsSelectionActions(options));
+    await act(async () => {
+      expect(await result.current.applyUiTagToSelection(tag, "add")).toBe("Tag service unavailable");
+    });
+    expect(options.setError).toHaveBeenCalledWith("Tag service unavailable");
+    expect(result.current.selectionTagActionLoading).toBeNull();
+    await act(async () => {
+      expect(await result.current.applyUiTagToSelection(tag, "add")).toBeNull();
+    });
+    expect(options.persistUiTagChanges).toHaveBeenCalledTimes(2);
+    expect(options.persistUiTagChanges.mock.calls[0].slice(0, 3)).toEqual(
+      options.persistUiTagChanges.mock.calls[1].slice(0, 3),
+    );
+  });
+
   it("resolves canonical targets before opening an RGW index check", async () => {
     const options = createOptions();
     const { result } = renderHook(() => useBucketOpsSelectionActions(options));
@@ -114,7 +132,7 @@ describe("useBucketOpsSelectionActions", () => {
       { initialProps: { scopeId: 7, scopeKey: "ceph-admin:7" } },
     );
 
-    let pending!: Promise<void>;
+    let pending!: Promise<string | null>;
     act(() => {
       pending = result.current.applyUiTagToSelection(tag, "add");
     });
@@ -162,7 +180,7 @@ describe("useBucketOpsSelectionActions", () => {
     options.listBuckets.mockReturnValueOnce(deferred.promise);
     const { result } = renderHook(() => useBucketOpsSelectionActions(options));
 
-    let tagUpdate!: Promise<void>;
+    let tagUpdate!: Promise<string | null>;
     act(() => {
       tagUpdate = result.current.applyUiTagToSelection(tag, "add");
     });

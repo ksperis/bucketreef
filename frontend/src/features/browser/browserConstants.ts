@@ -21,8 +21,6 @@ export const toolbarIconButtonClasses =
   cx(uiIconButtonClass, "h-7 w-7");
 export const filterChipClasses =
   cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5");
-export const filterChipActiveClasses =
-  "border-primary-200 bg-primary-100 text-primary-800 dark:border-primary-600 dark:bg-primary-500/20 dark:text-primary-100";
 export const countBadgeClasses =
   "inline-flex w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 px-1 ui-caption font-semibold text-slate-600 tabular-nums dark:bg-slate-800 dark:text-slate-200";
 export const operationStopClasses =

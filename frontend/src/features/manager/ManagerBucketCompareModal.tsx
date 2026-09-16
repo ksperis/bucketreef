@@ -3,14 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Modal from "../../components/Modal";
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
 import { BucketCompareResult, BucketCompareResultFilters, BucketCompareSection } from "../shared/BucketCompareResults";
-import ModalActions from "../../components/ModalActions";
 import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { UiTone } from "../../components/ui/styles";
@@ -1220,80 +1219,37 @@ export default function ManagerBucketCompareModal({
         )}
       </div>
       {pendingAction && pendingActionItem && (
-        <Modal
+        <ConfirmActionDialog
           title={remediationActionTitle[pendingAction.action]}
-          onClose={() => setPendingAction(null)}
+          description={<>This will run <strong>{pendingAction.objectKeys.length === 1
+            ? remediationSingleActionLabel[pendingAction.action]
+            : pendingAction.visibleOnly
+              ? remediationVisibleActionLabel[pendingAction.action]
+              : remediationActionLabel[pendingAction.action]}</strong> for the exact object keys from the current diff.</>}
+          details={[
+            { label: "Source context", value: pendingActionSourceContextName },
+            { label: "Target context", value: pendingActionTargetContextName },
+            { label: "Source bucket", value: pendingActionItem.sourceBucket },
+            { label: "Target bucket", value: pendingActionItem.targetBucket },
+            { label: "Objects impacted", value: pendingAction.objectKeys.length },
+            ...((lastRunOptions?.ignoreModifiedAfterIso ?? ignoreModifiedAfterIso)
+              ? [{ label: "Cutoff", value: lastRunOptions?.ignoreModifiedAfterIso ?? ignoreModifiedAfterIso }]
+              : []),
+            { label: "Object keys", mono: true, value: <ul className="max-h-48 space-y-1 overflow-auto" aria-label="Exact object keys">
+              {pendingAction.objectKeys.map((key) => <li key={key}>{key}</li>)}
+            </ul> },
+          ]}
+          impacts={[
+            ...(pendingAction.visibleOnly ? ["This diff section is truncated; only displayed keys will be remediated."] : []),
+            ...(pendingAction.action === "delete_target_only" ? ["This action is destructive and removes extra objects from the target bucket."] : []),
+          ]}
+          confirmLabel="Confirm"
+          tone={pendingAction.action === "delete_target_only" ? "danger" : "primary"}
           maxWidthClass="max-w-2xl"
-          maxBodyHeightClass="max-h-[70vh]"
           zIndexClass="z-[60]"
-        >
-          <div className="space-y-3">
-            <p className="ui-body text-slate-700 dark:text-slate-200">
-              This will run{" "}
-              <span className="break-all font-semibold">
-                {pendingAction.objectKeys.length === 1
-                  ? remediationSingleActionLabel[pendingAction.action]
-                  : pendingAction.visibleOnly
-                    ? remediationVisibleActionLabel[pendingAction.action]
-                  : remediationActionLabel[pendingAction.action]}
-              </span>{" "}
-              for the exact object keys from the current diff.
-            </p>
-            {pendingAction.visibleOnly && (
-              <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-                This diff section is truncated; only displayed keys will be remediated.
-              </p>
-            )}
-            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/40">
-              <p className="ui-caption text-slate-700 dark:text-slate-200">
-                Source context: <span className="break-all font-semibold">{pendingActionSourceContextName}</span>
-              </p>
-              <p className="ui-caption text-slate-700 dark:text-slate-200">
-                Target context: <span className="break-all font-semibold">{pendingActionTargetContextName}</span>
-              </p>
-              <p className="ui-caption text-slate-700 dark:text-slate-200">
-                Source bucket: <span className="break-all font-semibold">{pendingActionItem.sourceBucket}</span>
-              </p>
-              <p className="ui-caption text-slate-700 dark:text-slate-200">
-                Target bucket: <span className="break-all font-semibold">{pendingActionItem.targetBucket}</span>
-              </p>
-              <p className="ui-caption text-slate-700 dark:text-slate-200">
-                Objects impacted: <span className="break-all font-semibold">{pendingAction.objectKeys.length}</span>
-              </p>
-              {(lastRunOptions?.ignoreModifiedAfterIso ?? ignoreModifiedAfterIso) && (
-                <p className="ui-caption text-slate-700 dark:text-slate-200">
-                  Cutoff:{" "}
-                  <span className="break-all font-semibold">{lastRunOptions?.ignoreModifiedAfterIso ?? ignoreModifiedAfterIso}</span>
-                </p>
-              )}
-              <div className="mt-2 max-h-48 overflow-auto rounded-md border border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-950">
-                {pendingAction.objectKeys.map((key) => (
-                  <p key={key} className="break-all font-mono text-[11px] leading-relaxed text-slate-700 dark:text-slate-100">
-                    {key}
-                  </p>
-                ))}
-              </div>
-            </div>
-            {pendingAction.action === "delete_target_only" && (
-              <p className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 ui-caption font-semibold text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-100">
-                This action is destructive and removes extra objects from the target bucket.
-              </p>
-            )}
-            <ModalActions>
-              <UiButton variant="secondary" onClick={() => setPendingAction(null)}>
-                Cancel
-              </UiButton>
-              <UiButton
-                variant={pendingAction.action === "delete_target_only" ? "danger" : "primary"}
-                onClick={() => {
-                  void confirmRemediationAction();
-                }}
-              >
-                Confirm
-              </UiButton>
-            </ModalActions>
-          </div>
-        </Modal>
+          onCancel={() => setPendingAction(null)}
+          onConfirm={() => void confirmRemediationAction()}
+        />
       )}
     </WorkflowPage>
   );

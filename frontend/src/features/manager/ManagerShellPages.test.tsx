@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ApiError } from "../../api/client";
@@ -13,6 +14,7 @@ const useS3AccountContextMock = vi.fn();
 const useManagerStatsMock = vi.fn();
 const useIamOverviewMock = vi.fn();
 const listBucketsMock = vi.fn();
+const createBucketMock = vi.fn();
 const getBucketPropertiesMock = vi.fn();
 const listManagerActivityMock = vi.fn();
 const fetchManagerTrafficMock = vi.fn();
@@ -104,7 +106,7 @@ vi.mock("../../api/managerBuckets", async () => {
   return {
     ...actual,
     listBuckets: (...args: unknown[]) => listBucketsMock(...args),
-    createBucket: vi.fn(),
+    createBucket: (...args: unknown[]) => createBucketMock(...args),
     deleteBucket: vi.fn(),
   };
 });
@@ -292,6 +294,7 @@ describe("manager shell pages", () => {
       error: null,
     });
     listBucketsMock.mockResolvedValue([]);
+    createBucketMock.mockReset();
     getBucketPropertiesMock.mockResolvedValue({
       lifecycle_rules: [],
       cors_rules: [],
@@ -1259,6 +1262,37 @@ describe("manager shell pages", () => {
 
     expect(screen.getByText("Select an account before managing buckets")).toBeInTheDocument();
     expect(screen.queryByText("Execution context")).not.toBeInTheDocument();
+  });
+
+  it("retains a failed bucket draft and closes after the successful context-bound create and refresh", async () => {
+    const user = userEvent.setup();
+    setSelectedManagerAccountContext();
+    createBucketMock.mockRejectedValueOnce(new Error("Create unavailable")).mockResolvedValueOnce({});
+    render(<MemoryRouter><BucketsPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create bucket" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Create bucket" }));
+    const form = within(screen.getByRole("form", { name: "Create bucket" }));
+    await user.type(form.getByRole("textbox", { name: "Bucket name" }), "NEW-BUCKET");
+    await user.click(form.getByRole("switch", { name: "Custom LocationConstraint" }));
+    await user.type(form.getByRole("textbox", { name: "LocationConstraint" }), " eu-west-1 ");
+    await user.click(form.getByRole("switch", { name: "Versioning" }));
+    await user.click(form.getByRole("button", { name: "Create bucket" }));
+    expect(await form.findByRole("alert")).toHaveTextContent("Create unavailable");
+    expect(form.getByRole("textbox", { name: "Bucket name" })).toHaveValue("new-bucket");
+    expect(form.getByRole("switch", { name: "Versioning" })).toBeChecked();
+    let refresh!: (rows: Array<{ name: string }>) => void;
+    listBucketsMock.mockImplementationOnce(() => new Promise(resolve => { refresh = resolve; }));
+    await user.click(form.getByRole("button", { name: "Create bucket" }));
+    expect(createBucketMock).toHaveBeenCalledTimes(2);
+    expect(createBucketMock).toHaveBeenLastCalledWith("new-bucket", "account-1", { versioning: true, locationConstraint: "eu-west-1" });
+    expect(form.getByRole("button", { name: "Creating..." })).toBeDisabled();
+    expect(form.getByRole("textbox", { name: "Bucket name" })).toBeDisabled();
+    expect(form.queryByRole("alert")).not.toBeInTheDocument();
+    listBucketsMock.mockResolvedValue([{ name: "new-bucket" }]);
+    await act(async () => refresh([{ name: "new-bucket" }]));
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Create bucket" })).not.toBeInTheDocument());
+    expect(await screen.findByText("new-bucket")).toBeVisible();
+    expect(screen.getByText("Bucket created")).toBeVisible();
   });
 
   it("keeps the last bucket list visible when a refresh times out", async () => {

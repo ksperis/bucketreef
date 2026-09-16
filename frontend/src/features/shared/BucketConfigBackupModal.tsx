@@ -2,14 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import Modal from "../../components/Modal";
-import ModalActions from "../../components/ModalActions";
+import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import ModalOptions from "../../components/ModalOptions";
-import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
-import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { uiLabelClass, uiMutedTextClass } from "../../components/ui/styles";
 import type { CephAdminBucketConfigBackupFeature } from "../../api/cephAdminBuckets";
 import { extractApiError } from "../../utils/apiError";
@@ -34,21 +31,14 @@ export default function BucketConfigBackupModal({
   onClose,
   onCreate,
 }: BucketConfigBackupModalProps) {
-  const defaultSelected = useMemo(
-    () => featureOptions.filter((feature) => feature.available).map((feature) => feature.key),
-    [featureOptions]
+  const [selected, setSelected] = useState<Set<CephAdminBucketConfigBackupFeature>>(
+    () => new Set(featureOptions.filter((feature) => feature.available).map((feature) => feature.key))
   );
-  const [selected, setSelected] = useState<Set<CephAdminBucketConfigBackupFeature>>(() => new Set(defaultSelected));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setSelected(new Set(defaultSelected));
-    setError(null);
-  }, [defaultSelected]);
-
   const selectedFeatures = useMemo(
-    () => featureOptions.filter((feature) => selected.has(feature.key)).map((feature) => feature.key),
+    () => featureOptions.filter((feature) => feature.available && selected.has(feature.key)).map((feature) => feature.key),
     [featureOptions, selected]
   );
 
@@ -80,47 +70,35 @@ export default function BucketConfigBackupModal({
   };
 
   return (
-    <Modal title="Backup bucket configs" onClose={onClose} maxWidthClass="max-w-xl">
-      <div className="space-y-4">
-        <p className={`ui-caption ${uiMutedTextClass}`}>
-          {bucketCount} bucket{bucketCount > 1 ? "s" : ""} selected.
-        </p>
-        <fieldset className="min-w-0 space-y-2">
-          <legend className={uiLabelClass}>
-            Configurations
-          </legend>
-          <ModalOptions className="sm:grid-cols-2">
-            {featureOptions.map((feature) => (
-              <UiCheckboxField
-                key={feature.key}
-                checked={selected.has(feature.key) && feature.available}
-                disabled={!feature.available || loading}
-                onChange={(event) => toggleFeature(feature, event.target.checked)}
-              >
-                <span className="modal-option-copy">
-                  <span>{feature.label}</span>
-                  {!feature.available && feature.unavailableReason && (
-                    <span className="modal-option-description">{feature.unavailableReason}</span>
-                  )}
-                </span>
-              </UiCheckboxField>
-            ))}
-          </ModalOptions>
-        </fieldset>
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
-        <ModalActions>
-          <UiButton type="button" variant="secondary" onClick={onClose} disabled={loading}>
-            Cancel
-          </UiButton>
-          <UiButton
-            type="button"
-            onClick={() => void submit()}
-            disabled={loading || selectedFeatures.length === 0}
-          >
-            {loading ? "Preparing..." : "Download JSON"}
-          </UiButton>
-        </ModalActions>
-      </div>
-    </Modal>
+    <SettingsFormDialog title="Backup bucket configs" onClose={onClose} maxWidthClass="max-w-xl"
+      draftKey={JSON.stringify([...selected].sort())} busy={loading} error={error}
+      disabled={selectedFeatures.length === 0} submitLabel="Download JSON" onSubmit={submit}>
+      <p className={`ui-caption ${uiMutedTextClass}`}>
+        {bucketCount} bucket{bucketCount > 1 ? "s" : ""} selected.
+      </p>
+      <fieldset className="min-w-0 space-y-2">
+        <legend className={uiLabelClass}>
+          Configurations
+        </legend>
+        <ModalOptions className="sm:grid-cols-2">
+          {featureOptions.map((feature) => (
+            <UiCheckboxField
+              key={feature.key}
+              className="settings-choice"
+              checked={selected.has(feature.key) && feature.available}
+              disabled={!feature.available || loading}
+              onChange={(event) => toggleFeature(feature, event.target.checked)}
+            >
+              <span className="modal-option-copy">
+                <span>{feature.label}</span>
+                {!feature.available && feature.unavailableReason && (
+                  <span className="modal-option-description">{feature.unavailableReason}</span>
+                )}
+              </span>
+            </UiCheckboxField>
+          ))}
+        </ModalOptions>
+      </fieldset>
+    </SettingsFormDialog>
   );
 }

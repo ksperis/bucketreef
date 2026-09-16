@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import PortalAddPeopleWorkflow from "./PortalAddPeopleWorkflow";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -14,21 +15,17 @@ import {
 } from "../../api/portal";
 import {
   fetchPortalStorageSpaceAccessSummary,
-  grantPortalStorageSpaceShare,
   listPortalStorageSpacePublicLinks,
-  listPortalStorageSpaceShareCandidates,
   revokePortalStorageSpaceShare,
   updatePortalStorageSpaceShare,
   type PortalPublicLink,
   type PortalStorageSpaceAccessSummary,
   type PortalStorageSpaceShare,
-  type PortalStorageSpaceShareCandidate,
 } from "../../api/portalSharing";
-import { createPortalRequest } from "../../api/portalRequests";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import WorkflowPage, { WorkflowActions, workflowPageHostClass } from "../../components/WorkflowPage";
+import { workflowPageHostClass } from "../../components/WorkflowPage";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
 import UiBadge from "../../components/ui/UiBadge";
@@ -63,12 +60,10 @@ import type {
 import {
   PortalAccessModeFields,
   PortalRoleBadge,
-  PortalShareCandidatePicker,
   portalAccessModeFromParts,
   portalAccessPayloadFromMode,
   portalAccessModeDescription,
   portalAccessModeSummary,
-  selectedPortalShares,
   type PortalAccessMode,
 } from "./PortalAccessControls";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
@@ -150,13 +145,8 @@ function StorageSpaceDetail() {
   const [accessError, setAccessError] = useState<string | null>(null);
   const [accessMode, setAccessMode] = useState<PortalAccessMode>("private");
   const [accessAccountMemberRole, setAccessAccountMemberRole] = useState<PortalStorageSpaceAccountMemberRole>("Editor");
-  const [accessCandidates, setAccessCandidates] = useState<PortalStorageSpaceShareCandidate[]>([]);
-  const [accessCandidateQuery, setAccessCandidateQuery] = useState("");
-  const [accessRolesByUserId, setAccessRolesByUserId] = useState<Record<number, PortalStorageSpaceGrantRole>>({});
-  const [accessCandidatesLoading, setAccessCandidatesLoading] = useState(false);
   const [accessBusy, setAccessBusy] = useState(false);
   const [accessPeopleDialogOpen, setAccessPeopleDialogOpen] = useState(false);
-  const [accessRequestMessage, setAccessRequestMessage] = useState<string | null>(null);
   const [pendingAccessChange, setPendingAccessChange] = useState<PendingAccessChange | null>(null);
   const [pendingAccessRoleChange, setPendingAccessRoleChange] = useState<PendingAccessRoleChange | null>(null);
   const [pendingAccessRevoke, setPendingAccessRevoke] = useState<PortalStorageSpaceShare | null>(null);
@@ -212,7 +202,6 @@ function StorageSpaceDetail() {
     : spaceAccessMode;
   const savedAccountMemberRole = accessSummary?.default_account_member_role ?? space?.accountMemberRole ?? "Editor";
   const accessChanged = accessMode !== savedAccessMode || (accessMode === "account" && accessAccountMemberRole !== savedAccountMemberRole);
-  const selectedAccessShareEntries = selectedPortalShares(accessRolesByUserId);
   const existingAccessRolesByUserId = useMemo(
     () =>
       Object.fromEntries(
@@ -375,33 +364,6 @@ function StorageSpaceDetail() {
     void loadAccessSummary();
   }, [loadAccessSummary]);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!accessPeopleDialogOpen || !space || !accountIdForApi || !accessSummary?.can_manage_access || savedAccessMode !== "restricted" || accessChanged) {
-      setAccessCandidates([]);
-      setAccessCandidatesLoading(false);
-      setAccessRolesByUserId({});
-      return () => {
-        cancelled = true;
-      };
-    }
-    setAccessCandidatesLoading(true);
-    listPortalStorageSpaceShareCandidates(accountIdForApi, space.id)
-      .then((candidates) => {
-        if (!cancelled) setAccessCandidates(candidates);
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) setAccessCandidates([]);
-      })
-      .finally(() => {
-        if (!cancelled) setAccessCandidatesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accessPeopleDialogOpen, accountIdForApi, accessChanged, accessSummary?.can_manage_access, savedAccessMode, space]);
-
   const handleArchive = () => {
     if (!space || !accountIdForApi) return;
     setArchiveDialogOpen(true);
@@ -410,14 +372,6 @@ function StorageSpaceDetail() {
   const handleRequestSaveAccess = () => {
     if (!space || !accountIdForApi || !accessChanged) return;
     setPendingAccessChange({ mode: accessMode, accountMemberRole: accessAccountMemberRole });
-  };
-
-  const closeAccessPeopleDialog = () => {
-    if (accessBusy) return;
-    setAccessPeopleDialogOpen(false);
-    setAccessRolesByUserId({});
-    setAccessCandidateQuery("");
-    setAccessRequestMessage(null);
   };
 
   const confirmAccessChange = async (change: PendingAccessChange) => {
@@ -436,38 +390,6 @@ function StorageSpaceDetail() {
       console.error(err);
       setMessage(extractApiError(err, t({ en: "Unable to update access.", fr: "Impossible de mettre à jour l'accès.", de: "Zugriff kann nicht aktualisiert werden.", zh: "无法更新访问权限。" })));
       setPendingAccessChange(null);
-    } finally {
-      setAccessBusy(false);
-    }
-  };
-
-  const handleAddAccessPeople = async () => {
-    if (!space || !accountIdForApi || selectedAccessShareEntries.length === 0) return;
-    setAccessBusy(true);
-    setMessage(null);
-    try {
-      await Promise.all(
-        selectedAccessShareEntries.map((entry) =>
-          grantPortalStorageSpaceShare(accountIdForApi, space.id, {
-            user_id: entry.user_id,
-            role: entry.role,
-          })
-        )
-      );
-      setAccessRolesByUserId({});
-      setAccessCandidateQuery("");
-      setAccessPeopleDialogOpen(false);
-      await loadAccessSummary();
-      const addedCount = selectedAccessShareEntries.length;
-      setMessage(t({
-        en: `${addedCount} ${addedCount === 1 ? "person" : "people"} added to ${space.name}.`,
-        fr: `${addedCount} personne${addedCount > 1 ? "s" : ""} ajoutée${addedCount > 1 ? "s" : ""} à ${space.name}.`,
-        de: `${addedCount} ${addedCount === 1 ? "Person" : "Personen"} zu ${space.name} hinzugefügt.`,
-        zh: `已向 ${space.name} 添加 ${addedCount} 人。`,
-      }));
-    } catch (err) {
-      console.error(err);
-      setMessage(extractApiError(err, t({ en: "Unable to add people.", fr: "Impossible d'ajouter ces personnes.", de: "Personen können nicht hinzugefügt werden.", zh: "无法添加人员。" })));
     } finally {
       setAccessBusy(false);
     }
@@ -501,43 +423,6 @@ function StorageSpaceDetail() {
     }
   };
 
-  const handleRequestCollaboratorAccess = async ({
-    targetName,
-    targetEmail,
-  }: {
-    targetName: string;
-    targetEmail: string;
-  }) => {
-    if (!accountIdForApi) return;
-    try {
-      await createPortalRequest(accountIdForApi, {
-        request_type: "portal_user_access",
-        target_name: targetName,
-        target_email: targetEmail,
-      });
-      setAccessRequestMessage(
-        t({
-          en: `Request sent. Track it in Help requests, then return to ${space?.name ?? "this space"} to finish the invitation.`,
-          fr: `Demande envoyée. Suivez-la dans Demandes d'aide, puis revenez dans ${space?.name ?? "cet espace"} pour terminer l'invitation.`,
-          de: `Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen und kehren Sie danach zu ${space?.name ?? "diesem Bereich"} zurück, um die Einladung abzuschließen.`,
-          zh: `请求已发送。请在“帮助请求”中查看进度，然后返回 ${space?.name ?? "此空间"} 完成邀请。`,
-        }),
-      );
-    } catch (err) {
-      console.error(err);
-      throw new Error(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to send this request.",
-            fr: "Impossible d'envoyer cette demande.",
-            de: "Diese Anfrage kann nicht gesendet werden.",
-            zh: "无法发送此请求。",
-          }),
-        ),
-      );
-    }
-  };
 
   const confirmAccessRevoke = async (share: PortalStorageSpaceShare) => {
     if (!space || !accountIdForApi || share.user_id == null) return;
@@ -1407,112 +1292,19 @@ function StorageSpaceDetail() {
         />
       ) : null}
 
-      {accessPeopleDialogOpen && accessSummary?.can_manage_access && savedAccessMode === "restricted" ? (
-        <WorkflowPage
-          title={t({ en: "Add people", fr: "Ajouter des personnes", de: "Personen hinzufügen", zh: "添加人员" })}
-          description={t({
-            en: "Choose collaborators and assign the role they need for this space.",
-            fr: "Choisissez les collaborateurs et attribuez-leur le rôle nécessaire pour cet espace.",
-            de: "Wählen Sie Mitwirkende aus und vergeben Sie die passende Rolle für diesen Bereich.",
-            zh: "选择协作者，并为其分配在此空间中所需的角色。",
-          })}
-          breadcrumbs={portalBreadcrumbs(
-            { label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche", zh: "空间" }), to: "/portal/storage-spaces" },
-            { label: space.name },
-            { label: t({ en: "Add people", fr: "Ajouter", de: "Hinzufügen", zh: "添加人员" }) },
-          )}
-          backLabel={t({ en: "Back to the space", fr: "Retour à l'espace", de: "Zurück zum Bereich", zh: "返回空间" })}
-          onBack={accessBusy ? undefined : closeAccessPeopleDialog}
-          width="wide"
-        >
-          <div className="space-y-4">
-            {accessError ? <PageBanner tone="error">{accessError}</PageBanner> : null}
-            {accessRequestMessage ? (
-              <PageBanner tone="success">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span>{accessRequestMessage}</span>
-                  <Link
-                    to="/portal/requests"
-                    className="text-xs font-bold text-primary hover:underline dark:text-primary-200"
-                  >
-                    {t({
-                      en: "Open Help requests",
-                      fr: "Ouvrir les demandes d'aide",
-                      de: "Hilfeanfragen öffnen",
-                      zh: "打开帮助请求",
-                    })}
-                  </Link>
-                </div>
-              </PageBanner>
-            ) : null}
-            <div className={cx(uiPanelMutedClass, "grid gap-3 p-3 sm:grid-cols-2")}>
-              <div>
-                <div className={cx("text-xs font-bold", uiTitleTextClass)}>
-                  {portalRoleLabel("Viewer", t)}
-                </div>
-                <p className={cx("mt-1 text-xs leading-5", uiMutedTextClass)}>
-                  {t({
-                    en: "Can browse and download files in this space.",
-                    fr: "Peut consulter et télécharger les fichiers de cet espace.",
-                    de: "Kann Dateien in diesem Bereich ansehen und herunterladen.",
-                    zh: "可以浏览和下载此空间中的文件。",
-                  })}
-                </p>
-              </div>
-              <div>
-                <div className={cx("text-xs font-bold", uiTitleTextClass)}>
-                  {portalRoleLabel("Editor", t)}
-                </div>
-                <p className={cx("mt-1 text-xs leading-5", uiMutedTextClass)}>
-                  {t({
-                    en: "Can also upload, create folders, and remove files.",
-                    fr: "Peut aussi ajouter des fichiers, créer des dossiers et supprimer des fichiers.",
-                    de: "Kann außerdem Dateien hochladen, Ordner erstellen und Dateien entfernen.",
-                    zh: "还可以上传文件、创建文件夹和移除文件。",
-                  })}
-                </p>
-              </div>
-            </div>
-            <PortalShareCandidatePicker
-              candidates={accessCandidates}
-              selectedRolesByUserId={accessRolesByUserId}
-              existingRolesByUserId={existingAccessRolesByUserId}
-              query={accessCandidateQuery}
-              loading={accessCandidatesLoading}
-              error={null}
-              includeAlreadyShared
-              onQueryChange={setAccessCandidateQuery}
-              onRoleChange={(userId, role) => {
-                setAccessRolesByUserId((current) => {
-                  const next = { ...current };
-                  if (role) {
-                    next[userId] = role;
-                  } else {
-                    delete next[userId];
-                  }
-                  return next;
-                });
-              }}
-              onRequestPerson={handleRequestCollaboratorAccess}
-            />
-            <WorkflowActions>
-              <UiButton
-                variant="secondary"
-                disabled={accessBusy}
-                onClick={closeAccessPeopleDialog}
-              >
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
-              </UiButton>
-              <UiButton
-                loading={accessBusy}
-                disabled={accessBusy || accessChanged || selectedAccessShareEntries.length === 0 || isArchived}
-                onClick={handleAddAccessPeople}
-              >
-                {t({ en: "Add people", fr: "Ajouter", de: "Hinzufügen", zh: "添加人员" })}
-              </UiButton>
-            </WorkflowActions>
-          </div>
-        </WorkflowPage>
+      {accessPeopleDialogOpen && accountIdForApi && accessSummary?.can_manage_access && savedAccessMode === "restricted" ? (
+        <PortalAddPeopleWorkflow accountId={accountIdForApi} spaceId={space.id} spaceName={space.name}
+          existingRoles={existingAccessRolesByUserId} disabled={accessChanged || isArchived}
+          onClose={() => setAccessPeopleDialogOpen(false)} onAdded={async (count) => {
+            setAccessPeopleDialogOpen(false);
+            await loadAccessSummary();
+            setMessage(t({
+              en: `${count} ${count === 1 ? "person" : "people"} added to ${space.name}.`,
+              fr: `${count} personne${count > 1 ? "s" : ""} ajoutée${count > 1 ? "s" : ""} à ${space.name}.`,
+              de: `${count} ${count === 1 ? "Person" : "Personen"} zu ${space.name} hinzugefügt.`,
+              zh: `已将 ${count} 人添加到 ${space.name}。`,
+            }));
+          }} />
       ) : null}
 
       {historyCleanupConfirmOpen ? (
@@ -1581,8 +1373,8 @@ function StorageSpaceDetail() {
           enabled={canCleanHistory}
           onClose={closeHistoryCleanupDialog}
           onStart={() => setMessage(null)}
+          onRefresh={refreshWorkspaceData}
           onCompleted={(bytesFreed) => {
-            refreshWorkspaceData();
             setMessage(
               t({
                 en: `History cleanup completed. Estimated space gained: ${formatBytes(bytesFreed)}.`,

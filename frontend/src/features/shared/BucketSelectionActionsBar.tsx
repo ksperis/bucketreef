@@ -4,18 +4,20 @@
  */
 import { useRef, useState } from "react";
 
-import Modal from "../../components/Modal";
+import { SettingsDialog, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import ModalActions from "../../components/ModalActions";
 import ModalOptions from "../../components/ModalOptions";
 import UiActionMenu, { type UiActionMenuSection } from "../../components/ui/UiActionMenu";
 import UiButton from "../../components/ui/UiButton";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import { extractApiError } from "../../utils/apiError";
 import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import {
   cx,
   uiButtonBaseClass,
   uiButtonVariants,
   uiInputClass,
-  uiMenuItemClass,
   uiMutedTextClass,
   uiTitleTextClass,
 } from "../../components/ui/styles";
@@ -48,7 +50,7 @@ type BucketSelectionActionsBarProps = {
   applyUiTagToSelection: (
     tag: BucketUiTagDefinition | BucketUiTagDraft[],
     action: SelectionTagAction
-  ) => Promise<void> | void;
+  ) => Promise<string | null | void> | void;
   updateUiTagDefinition: (
     tag: BucketUiTagDefinition,
     changes: BucketUiTagDefinitionPatch
@@ -66,11 +68,6 @@ type BucketSelectionActionsBarProps = {
   onShowUsageStatsModal: () => void;
   openBulkUpdateModal: () => void;
 };
-
-const dialogActionClass = cx(
-  uiMenuItemClass,
-  "flex w-full items-center justify-between px-3 py-2 text-left ui-caption font-semibold"
-);
 
 export default function BucketSelectionActionsBar({
   selectedCount,
@@ -100,7 +97,58 @@ export default function BucketSelectionActionsBar({
   const [dialog, setDialog] = useState<"tags" | "export" | null>(null);
   const [tagMode, setTagMode] = useState<SelectionTagAction>("add");
   const [customTagDrafts, setCustomTagDrafts] = useState<BucketUiTagDraft[]>([]);
+  const [tagError, setTagError] = useState<string | null>(null);
+  const [tagPending, setTagPending] = useState(false);
+  const tagSubmittingRef = useRef(false);
+  const tagBusy = tagPending || selectionTagActionLoading !== null;
   const customTagDraftSequenceRef = useRef(0);
+
+  const hasTagDraft = customTagDrafts.length > 0 || selectionTagAddInput.trim().length > 0;
+  const closeTagDialog = () => {
+    setDialog(null);
+    setTagError(null);
+    setCustomTagDrafts([]);
+    setSelectionTagAddInput("");
+  };
+  const tagCloseGuard = useSettingsCloseGuard({
+    hasUnsavedChanges: hasTagDraft,
+    disabled: tagBusy,
+    onClose: closeTagDialog,
+  });
+  const configureNewTags = () => {
+    if (parsedSelectionTagAddInput.length === 0 || tagBusy) return;
+    customTagDraftSequenceRef.current += 1;
+    setCustomTagDrafts((current) => [
+      ...current,
+      ...createBucketUiTagDrafts(parsedSelectionTagAddInput, customTagDraftSequenceRef.current),
+    ]);
+    setSelectionTagAddInput("");
+  };
+
+  const applyTags = async (tag: BucketUiTagDefinition | BucketUiTagDraft[], action: SelectionTagAction) => {
+    if (tagBusy || tagSubmittingRef.current) return;
+    tagSubmittingRef.current = true;
+    setTagPending(true);
+    setTagError(null);
+    try {
+      const error = await applyUiTagToSelection(tag, action);
+      if (error) {
+        setTagError(error);
+        return;
+      }
+      if (Array.isArray(tag)) {
+        setCustomTagDrafts([]);
+        if (!selectionTagAddInput.trim()) setDialog(null);
+      } else if (!hasTagDraft) {
+        setDialog(null);
+      }
+    } catch (error) {
+      setTagError(extractApiError(error, "Unable to update UI tags."));
+    } finally {
+      tagSubmittingRef.current = false;
+      setTagPending(false);
+    }
+  };
 
   if (selectedCount <= 0) return null;
 
@@ -191,8 +239,9 @@ export default function BucketSelectionActionsBar({
       {selectionActionProgress && <ActionProgressCard progress={selectionActionProgress} busy className="mt-3" />}
 
       {dialog === "tags" && (
-        <Modal title="Manage UI tags" onClose={() => setDialog(null)} maxWidthClass="max-w-lg">
-          <div className="space-y-4">
+        <SettingsDialog title="Manage UI tags" onClose={tagCloseGuard.requestClose}
+          closeDisabled={tagBusy} closeOnEscape={!tagBusy} closeOnBackdropClick={!tagBusy} maxWidthClass="max-w-lg">
+          <div className="settings-stack">
             <p className={cx("ui-caption", uiMutedTextClass)}>
               Update UI-only labels for {selectedCount} selected bucket{selectedCount > 1 ? "s" : ""} in {surface === "storage-ops" ? "Storage Ops" : "Ceph Admin"}.
             </p>
@@ -201,8 +250,8 @@ export default function BucketSelectionActionsBar({
               value={tagMode}
               onChange={setTagMode}
               options={[
-                { value: "add", label: "Add tags" },
-                { value: "remove", label: "Remove tags" },
+                { value: "add", label: "Add tags", disabled: tagBusy },
+                { value: "remove", label: "Remove tags", disabled: tagBusy },
               ]}
             />
             <div className="max-h-56 space-y-1 overflow-auto rounded-md border border-[color:var(--ui-border-soft)] p-2">
@@ -219,26 +268,26 @@ export default function BucketSelectionActionsBar({
                     <BucketUiTagSettingsBadge
                       tag={tag}
                       isStorageOps={isStorageOps}
-                      disabled={updatingDefinitionIds.has(tag.id)}
+                      disabled={tagBusy || updatingDefinitionIds.has(tag.id)}
                       onChange={(changes) => updateUiTagDefinition(tag, changes)}
                     />
-                    <button
-                      type="button"
-                      className={cx(dialogActionClass, "w-auto px-2")}
-                      disabled={selectionTagActionLoading !== null}
+                    <UiButton
+                      type="button" variant="secondary" size="sm"
+                      disabled={tagBusy}
                       aria-label={`${tagMode === "add" ? "Add" : "Remove"} UI tag ${tag.label}`}
-                      onClick={() =>
-                        runAndClose(() => void applyUiTagToSelection(tag, tagMode))
-                      }
+                      onClick={() => void applyTags(tag, tagMode)}
                     >
-                      <span aria-hidden="true">{tagMode === "add" ? "+" : "−"}</span>
-                    </button>
+                      {tagMode === "add" ? "Add" : "Remove"}
+                    </UiButton>
                   </div>
                 ))
               )}
             </div>
             {tagMode === "add" && (
-              <div className="space-y-3">
+              <form className="settings-stack" aria-label="New UI tags" onSubmit={(event) => {
+                event.preventDefault();
+                configureNewTags();
+              }}>
                 <label htmlFor="bucket-selection-custom-tag" className={cx("ui-caption font-semibold", uiTitleTextClass)}>
                   New UI tags
                 </label>
@@ -250,6 +299,7 @@ export default function BucketSelectionActionsBar({
                         tag={draft}
                         isStorageOps={isStorageOps}
                         initiallyOpen={index === customTagDrafts.length - 1}
+                        disabled={tagBusy}
                         onChange={(changes) =>
                           setCustomTagDrafts((current) =>
                             current.map((item) =>
@@ -272,26 +322,16 @@ export default function BucketSelectionActionsBar({
                   <input
                     id="bucket-selection-custom-tag"
                     type="text"
+                    disabled={tagBusy}
                     value={selectionTagAddInput}
                     onChange={(event) => setSelectionTagAddInput(event.target.value)}
                     placeholder="new-tag"
                     className={cx(uiInputClass, "min-w-0 flex-1 px-2 py-1.5 ui-caption")}
                   />
                   <UiButton
-                    type="button"
+                    type="submit"
                     size="sm"
-                    disabled={parsedSelectionTagAddInput.length === 0 || selectionTagActionLoading !== null}
-                    onClick={() => {
-                      customTagDraftSequenceRef.current += 1;
-                      setCustomTagDrafts((current) => [
-                        ...current,
-                        ...createBucketUiTagDrafts(
-                          parsedSelectionTagAddInput,
-                          customTagDraftSequenceRef.current,
-                        ),
-                      ]);
-                      setSelectionTagAddInput("");
-                    }}
+                    disabled={parsedSelectionTagAddInput.length === 0 || tagBusy}
                   >
                     Configure
                   </UiButton>
@@ -301,28 +341,32 @@ export default function BucketSelectionActionsBar({
                     <UiButton
                       type="button"
                       size="sm"
-                      disabled={selectionTagActionLoading !== null}
-                      loading={selectionTagActionLoading === "add"}
-                      onClick={() =>
-                        runAndClose(() =>
-                          void applyUiTagToSelection(customTagDrafts, "add")
-                        )
-                      }
+                      disabled={tagBusy}
+                      loading={tagBusy}
+                      onClick={() => void applyTags(customTagDrafts, "add")}
                     >
                       Add {customTagDrafts.length} tag
                       {customTagDrafts.length > 1 ? "s" : ""}
                     </UiButton>
                   </div>
                 )}
-              </div>
+              </form>
             )}
+            {selectionActionProgress && <ActionProgressCard progress={selectionActionProgress} busy />}
+            {tagError && <UiInlineMessage tone="error" role="alert">{tagError}</UiInlineMessage>}
+            <ModalActions>
+              <UiButton variant="secondary" onClick={tagCloseGuard.requestClose} disabled={tagBusy}>Close</UiButton>
+            </ModalActions>
           </div>
-        </Modal>
+        </SettingsDialog>
       )}
 
+      {tagCloseGuard.confirmationDialog}
+      <SettingsNavigationGuard dirty={dialog === "tags" && (hasTagDraft || tagBusy)} discardDisabled={tagBusy} onDiscard={closeTagDialog} />
+
       {dialog === "export" && (
-        <Modal title="Export selection" onClose={() => setDialog(null)} maxWidthClass="max-w-md">
-          <div className="space-y-3">
+        <SettingsDialog title="Export selection" onClose={() => setDialog(null)} maxWidthClass="max-w-md">
+          <div className="settings-stack">
             <p className={cx("ui-caption", uiMutedTextClass)}>
               Choose the output for {selectedCount} selected bucket{selectedCount > 1 ? "s" : ""}.
             </p>
@@ -350,7 +394,7 @@ export default function BucketSelectionActionsBar({
               <UiButton variant="secondary" onClick={() => setDialog(null)}>Cancel</UiButton>
             </ModalActions>
           </div>
-        </Modal>
+        </SettingsDialog>
       )}
     </div>
   );

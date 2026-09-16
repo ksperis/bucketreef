@@ -143,6 +143,22 @@ of that batch. Repeated errors for the same key count once. Malformed responses
 or errors identifying an unrequested key fail explicitly instead of reporting
 success or attributing failure to a different object.
 
+## Bucket migration object identity
+
+Version prechecks pass the scanned object key and version ID unchanged to the
+source read and target CopySource-read probes. Only non-empty strings identify
+an available sample; do not trim them or coerce other JSON types into names.
+The same sample selector is used by temporary copy grants during version replay.
+
+Streamed copies and version-aware comparison share the exact object-tag reader.
+It requires a `TagSet` list with unique non-empty string keys and string values;
+an empty list or value is valid. Malformed responses fail explicitly instead of
+silently dropping tags or fabricating values. Spaces, Unicode, and URL encoding
+characters remain literal data; sorting ignores tag order, not tag identity.
+This applies to cross-endpoint copies and the existing authorized stream-copy
+fallback after CopyObject denial. Deploying this correction does not change
+permissions or automatically rewrite stored snapshots or remote objects.
+
 ## S3 deletion outcomes
 
 `s3_delete_response.parse_delete_objects_failures` is the shared response

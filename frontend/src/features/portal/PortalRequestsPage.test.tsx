@@ -220,6 +220,34 @@ describe("PortalRequestsPage", () => {
     });
   });
 
+  it("keeps a failed request inside the dialog, retries the same draft and resets after discard", async () => {
+    const user = userEvent.setup();
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.createPortalRequest.mockRejectedValueOnce(new Error("Request service unavailable"));
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "Manage membership" }));
+    const dialog = screen.getByRole("dialog", { name: "Update project membership" });
+    await user.type(within(dialog).getByLabelText("Name"), "Jane Viewer");
+    await user.type(within(dialog).getByLabelText("Email"), "jane@example.org");
+    await user.click(within(dialog).getByRole("button", { name: "Send request" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Request service unavailable");
+    expect(within(dialog).getByLabelText("Name")).toHaveValue("Jane Viewer");
+    await user.click(within(dialog).getByRole("button", { name: "Send request" }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(mocks.createPortalRequest).toHaveBeenCalledTimes(2);
+    expect(mocks.createPortalRequest.mock.calls[0]).toEqual(mocks.createPortalRequest.mock.calls[1]);
+    await user.click(screen.getByRole("tab", { name: "Request help" }));
+    await user.click(screen.getByRole("button", { name: "Manage membership" }));
+    expect(screen.getByLabelText("Name")).toHaveValue("");
+    await user.type(screen.getByLabelText("Name"), "Unsaved person");
+    await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Change limit" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("New limit")).toHaveValue(null);
+    errorLog.mockRestore();
+  });
+
   it("blocks storage-limit requests below current usage", async () => {
     const user = userEvent.setup();
     renderPage();

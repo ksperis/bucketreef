@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -167,11 +168,46 @@ describe("ManagerFeatureRulesPage", () => {
     expect(table).not.toBeNull();
     const jsonButton = within(table as HTMLTableElement).getByRole("button", { name: "JSON" });
     expect(jsonButton).toHaveClass("ui-list-action");
-    fireEvent.click(jsonButton);
+    await userEvent.setup().click(jsonButton);
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(/"ID": "expire-logs"/)).toBeInTheDocument();
-    expect(screen.getByText(/"Days": 30/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Rule details" })).toBeVisible();
+    const json = screen.getByRole("textbox", { name: "Rule JSON" });
+    expect(json).toHaveValue(JSON.stringify({ ID: "expire-logs", Expiration: { Days: 30 } }, null, 2));
+    expect(json).toHaveAttribute("readonly");
+    await waitFor(() => expect(json).toHaveFocus());
+    await userEvent.setup().keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(jsonButton).toHaveFocus());
+  });
+
+  it("reports a failed inventory without claiming that no buckets match", async () => {
+    listFeatureRuleInventoryMock.mockRejectedValue(new Error("Inventory unavailable"));
+    renderPage();
+    expect(await screen.findByText("Inventory unavailable")).toBeVisible();
+    expect(screen.getByText("Unable to load buckets.")).toBeVisible();
+    expect(screen.queryByText("No buckets match the current filters.")).not.toBeInTheDocument();
+  });
+
+  it("clears old rule details and rows when context changes, ignoring a late response", async () => {
+    const inventory = [{ bucket_name: "old-bucket", feature: "lifecycle", status: "configured",
+      rules: [{ id: "old-rule", type: "lifecycle", title: "old-rule", summary: "old", chips: [], raw: {} }] }];
+    listFeatureRuleInventoryMock.mockResolvedValueOnce(inventory);
+    const view = renderPage();
+    await userEvent.setup().click(await screen.findByRole("button", { name: "JSON", exact: true }));
+    expect(screen.getByRole("dialog")).toBeVisible();
+    let finish!: (value: unknown) => void;
+    listFeatureRuleInventoryMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    useS3AccountContextMock.mockReturnValue({ accounts: [], selectedS3AccountId: "account-2",
+      requiresS3AccountSelection: false, accountIdForApi: "account-2" });
+    view.rerender(<MemoryRouter><ManagerFeatureRulesPage /></MemoryRouter>);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("old-bucket")).not.toBeInTheDocument();
+    expect(screen.getByText("Loading lifecycle...")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Feature"), { target: { value: "policy" } });
+    await waitFor(() => expect(listFeatureRuleInventoryMock).toHaveBeenCalledWith("account-2", "policy"));
+    await act(async () => finish(inventory));
+    expect(screen.queryByText("old-bucket")).not.toBeInTheDocument();
+    expect(screen.getByText("No buckets match the current filters.")).toBeVisible();
   });
 
   it("filters buckets by status", async () => {

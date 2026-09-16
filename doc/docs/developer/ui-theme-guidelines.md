@@ -105,32 +105,23 @@ The frontend theme is anchored by the shared shell and UI tokens in
 
 ## Documentation Theme
 
-The published MkDocs theme should feel like the application shell and workspace
-surfaces, not like a separate marketing site.
+The published MkDocs theme prioritizes reading and a simple documentation tree.
+It retains the BucketReef logo and blue accent, with its own neutral surfaces
+and spacing rather than mirroring the application's workspace density.
 
-- `doc/docs/assets/stylesheets/docs-theme.css` mirrors the app tokens from
-  `frontend/src/index.css`. Keep the same `--ui-*` and `--shell-*` token names
-  when changing documentation colors, borders, text, shadows, or active states.
-- Documentation content surfaces should follow app workspace primitives:
-  8px radius (`0.5rem`), `--ui-surface`, `--ui-surface-muted`,
-  `--ui-border`, `--ui-border-soft`, `--ui-text`, `--ui-text-muted`,
-  `--ui-hover`, `--ui-selected-bg`, and soft/no shadows.
-- Documentation density should also follow the app workspace posture: compact
-  headings, tight vertical rhythm, dense tables, compact primary navigation,
-  compact table of contents, and screenshot chrome that leaves as much room as
-  possible for the actual capture.
-- Documentation chrome should follow app shell primitives:
-  `--shell-topbar-bg`, `--shell-sidebar-bg`, `--shell-border`,
-  `--shell-text`, `--shell-muted`, `--shell-hover`, and
-  `--shell-selected-bg`.
-- Do not introduce one-off documentation palettes such as separate blue,
-  purple, teal, or gradient systems. If the app primary color changes, update
-  the mirrored docs token scale in the same pass.
-- Changing the default does not rewrite already persisted Admin branding
-  values. Resetting settings loads the current default palette.
-- Validate meaningful documentation theme changes with a strict MkDocs build,
-  the screenshot reference check, and at least one desktop/mobile render smoke
-  of a table-heavy docs page.
+- `doc/docs/assets/stylesheets/docs-theme.css` owns shared `--docs-*` tokens
+  for the main theme and screenshot controls, with light and dark palettes.
+- Use white article surfaces, light gray navigation, fine borders, 4px radii,
+  and no decorative shadows. Callouts retain their semantic colors.
+- Use Arial/Helvetica without external font loading, readable body text,
+  moderate heading weights, and a wider, plainly indented navigation tree.
+- Keep Material's responsive navigation and search. Tables and code must scroll
+  locally when needed, with visible keyboard focus on interactive controls.
+- Documentation styling does not alter the application theme or persisted
+  Admin branding settings.
+- Follow [Docs Maintenance](docs-maintenance.md#visual-theme-maintenance) for
+  exact typography/layout defaults and the required build, screenshot, and
+  desktop/mobile interaction checks.
 
 ## Compact settings tokens
 
@@ -191,6 +182,206 @@ close paths during creation, including explicit passkey verification. Keep the
 one-time secret panel and use shared `SettingsButton` actions for copying or
 hiding the newly created token. Copied examples resolve the configured API base
 against the current origin rather than assuming a local backend address.
+
+Short editable dialogs can compose `SettingsFormDialog`, which reuses
+`SettingsDialog`, `SettingsForm` and `ModalActions`. Portal membership and quota
+requests, space creation/import, public links and raw-log exports use this
+composition. It owns the 12px field spacing, native form validation, translated
+Cancel/Done controls, first-field focus, inline submission errors and pending
+fieldset/close locks. The async submit callback must return its promise so the
+dialog can suppress repeated submissions until it settles.
+
+Mount one instance per draft and supply a stable `draftKey` containing only
+editable values. Closing a changed draft uses the shared discard confirmation;
+route departures and reloads are protected too. `onClose("navigation")` must
+clear local state without rewriting the destination URL. After a successful
+save that navigates, unmount the dialog before navigation so the saved draft
+does not trigger a discard prompt. A completed public-link dialog keeps its
+copy action and Done control, clears its dirty state and hides creation.
+Callers retain API payloads, permission checks, field validation and resource
+context; membership identity/reason fields are shared in `PortalRequestFields`.
+Page-history load errors stay outside these dialogs; submission errors stay
+inside, alongside the retained draft so the user can retry.
+Browser bucket/folder creation uses the same dialog composition. Creation hooks
+own validation, S3 requests and post-create refresh; presentation owns close
+confirmation, focus and navigation guards. Pass the submit promise through
+without `void` wrappers. Preserve bucket-name normalization and literal parent
+prefixes, spaces and repeated separators in folder keys.
+
+The SSE-C editor has multiple actions and composes `SettingsForm` with
+`useSettingsFormController`. Secondary actions use `runAction` so Generate,
+Clear and Enable share the pending lock and cannot overlap. Its hook owns the
+accepted draft baseline because generation immediately activates a key. Keep
+Show/Hide, memory-only scope, key validation and the manual-copy handoff; do not
+change signing or encryption semantics to match presentation.
+
+Manual Browser copy uses `SettingsDialog`, a labelled read-only `UiTextarea`,
+selected text, shared actions and an announced result. A missing clipboard API
+and a rejected clipboard permission both open the same fallback for paths and
+presigned URLs. A failed presign must not open a copy dialog with no URL.
+
+Read-only collection dialogs compose `ListDialog`: it shares `SettingsDialog`
+geometry, an unframed `ListToolbar`, loaded counts, refresh/pagination controls,
+and announced loading, error and empty states. Retain existing rows while
+loading or after pagination failures; an initial failure must not look like an empty
+collection. The modal body owns vertical scrolling, with no extra height-limited
+list nested inside it. Descriptions and long identifiers wrap within the dialog.
+Browser prefix versions and multipart uploads use responsive `DataTableShell`
+rows with this composition. Counts describe loaded rows, not a server total;
+exports retain the exact keys, versions and prefix. Keep row-action confirmation
+and execution in the existing callers.
+
+The Browser operations overview uses the same collection chrome while retaining
+its timeline cards, group pagination and operation-specific actions. Use shared
+listing buttons and badges, `aria-pressed` for filters, `aria-expanded` for file
+groups and a named progress bar. Closing this read-only view never cancels work.
+
+Browser bulk attributes, restore-to-date and old-version cleanup also use
+`SettingsFormDialog` because their targets belong to the current selection or
+prefix. Keep the target summary visible and use `UiInput`, `UiSelect` and
+`UiTextarea` with associated labels. Conditional attribute groups share the
+same 12px field rhythm and soft separators; metadata fields use two columns
+when space allows. Restore preview keys wrap without normalizing or truncating
+the object key. Operation hooks retain S3 payloads, version rules, cancellation
+and partial-result summaries. Return their apply promise to lock fields, close
+paths and repeated submissions while an operation runs. A dry-run result does
+not complete the draft: the user can review it and run the restore.
+
+Browser context changes, like Manager context changes, navigate through `ctx`
+before changing provider state or stored preferences. The catalogue derives the
+executor after navigation is accepted, so a keyed outlet cannot erase a draft
+before its route guard runs. Do not expose an eager context-state setter.
+Native bucket/prefix history entries may keep the same URL. While any modal
+owns the Browser interaction, reject those local history transitions too;
+otherwise Back can silently change the targets beneath a pending operation.
+The modal's Close/Cancel controls keep their existing draft confirmation.
+
+Contextual drawers yield Escape and focus trapping whenever `hasOpenModal()` is
+true, including pending dialogs with Escape disabled. A covered drawer must not
+close or rewrite its object URL while the user operates a child dialog.
+
+Editable workflow pages use `SettingsWorkflowForm`, combining `WorkflowPage`,
+compact settings sections and the shared sticky `SettingsForm` footer.
+`useSettingsFormController` gives these pages and `SettingsFormDialog` the same
+native submission, pending lock, discard and navigation contract. A loading
+page freezes fields and submission but permits leaving; read failures expose a
+retry action and must not make a fallback draft writable.
+
+Manager SNS creation uses `SettingsFormDialog`; attributes and policy use
+`SettingsWorkflowForm`. Each editor owns its load and draft, ignores late
+responses after unmount, and accepts a new baseline only after loading or
+saving succeeds. Submission errors retain the current draft. Capture the topic
+ARN and execution context when opening an action: a context-selector update
+must not retarget an existing draft or remove it before navigation confirmation.
+Manager's context selector navigates to the new `ctx` before the provider changes
+the executor; eager selection must not remount its keyed outlet before a draft
+or pending-operation guard can decide. Clean editors close when the context
+changes. Topic deletion uses a controlled
+`ConfirmActionDialog` so failures remain visible and retryable, with dismissal
+and navigation locked during the request. Keep native SNS attributes, policy
+JSON and executor parameters in the feature layer.
+
+Manager IAM user, group, role and policy creation, plus role trust-policy editing,
+use `SettingsWorkflowForm` with a plain surface. Their identity, managed-policy
+selection and inline-policy fields retain the same compact section layout.
+The shared wrapper owns the native submit, pending caption, sticky footer and
+close/route/reload guards; feature handlers retain IAM documents, attachments,
+validation and one-time access-key presentation. Errors appear once inside the
+active form. Do not reintroduce local close guards around these forms.
+
+Manager bucket creation follows the same `SettingsWorkflowForm` contract with
+General and Protection sections on one page. Keep the execution context visible,
+associate labels with the bucket name and optional LocationConstraint, and use
+the shared switches and action footer. The feature layer retains S3 name
+normalization, endpoint-default placement and versioning payloads. Failed
+creation retains the draft; pending creation and list refresh lock resubmission,
+closing and context navigation.
+
+Feature-rule inspection retains the specialized grouped `FeatureRulesTable`.
+Its JSON opens in a `SettingsDialog` with a labelled, read-only `UiTextarea`,
+using theme colors and wrapping long values for narrow screens. Context or
+feature changes clear the previous inspection and rows; failed inventory loads
+use the error state rather than the filtered-empty state.
+
+Portal external-tool access creation uses `SettingsWorkflowForm` with compact
+Recipient and Access sections. `SettingsChoiceRow` supports named native radio
+groups as well as independent checkboxes; keep the input's native keyboard
+behavior and the same row presentation. Creation retains the personal IAM key
+limit, owner/manager space eligibility, external scope and one-time secret panel.
+The form guards dirty drafts and pending creation; retries keep the recipient,
+space and permission. A tools page is mounted for one project so late reads
+cannot replace another project's keys or expose the previous creation result.
+
+`PortalToolConnectionDialog` owns its space load and ignores results after it
+closes. It uses `SettingsDialog`, shared controls and compact application rows.
+Load spaces only when the configurator is needed; retain selection on reopening
+and show copy/download feedback inside the dialog. Keep existing-key scope,
+endpoint addressing and secret-free download generation in feature helpers.
+
+Portal space creation, import and collaborator invitation reuse
+`PortalAccessModeFields` and `PortalShareCandidatePicker`. The team default role
+appears only for Team access. The picker uses a named `ListToolbar`, shared
+checkboxes and settings controls; keep one selection count and wrap identities
+instead of truncating them. Existing grants remain disabled and show their role.
+`PortalAddPeopleWorkflow` owns the space-scoped catalogue and selected roles,
+with explicit loading failures, retry and the shared draft/pending guard.
+
+`PortalCollaboratorRequestDialog` reuses the membership identity fields and
+settings form controller. Render its form in a DOM portal and stop settings
+form submit propagation so it cannot submit the enclosing invitation. The
+enclosing workflow aggregates the child dirty/busy state into one navigation
+guard; explicit dialog cancellation guards only the membership request draft.
+Keep Admin membership requests distinct from space invitations.
+
+Browser bucket/prefix history must use router navigation and router user state.
+Raw `history.pushState` entries duplicate the router index and can bypass a
+later page's unsaved-change blocker, including after leaving the embedded
+Portal file explorer. Preserve literal prefixes and let the router own exits
+from the explorer.
+
+Portal folder restoration and history cleanup use `PortalOperationLayout`: a
+plain `WorkflowPage`, compact metadata, the shared sticky action bar and a
+pending-operation navigation guard. Progress uses `UiProgressBar` with no
+percentage until the candidate total is final. Results use `InlineSummary`,
+retain partial counts and disclose truncated failure details; avoid nested
+metric cards or local progress animations. Stopping is an operation control,
+not a destructive action, and does not undo work already completed.
+
+`usePortalStreamOperation` owns one stream per mounted space, rejects duplicate
+starts, aborts on unmount and ignores late responses. Defer automatic cleanup
+start past React's mount probe to avoid a start followed by immediate abort.
+Keep manual cleanup behind its existing confirmation; do not automatically
+retry interrupted or failed operations. Only completed cleanup results announce
+success; canceled or failed results remain visible with their partial counts.
+
+`useSettingsRemoteDraft` is shared by SNS and IAM role editing. Mount it for one
+resource and execution context, provide a stable load callback, and disable
+editing/submission until the remote baseline is available. Its retry control
+must remain operable after a read failure. A closed editor ignores late load
+responses. Role names and paths remain read-only during trust-policy editing.
+
+Bucket selection dialogs in Ceph Admin and Storage Ops use `SettingsDialog`,
+`ModalOptions` and `ModalActions` for the same compact geometry. Configuration
+backups use `SettingsFormDialog`: selected features survive capability-list
+refreshes, unavailable features cannot be submitted, and pending downloads
+freeze both the form and closing. Selection exports remain immediate format
+actions with progress in the workbench.
+
+UI tag operations retain custom drafts until the operation succeeds, show
+submission errors inside the dialog and guard closing/navigation. Existing-tag
+actions do not discard a separate new-tag draft. The selection-action hook
+returns an error message on failure and `null` on success so the dialog can
+retain its draft without changing tag API payloads or target resolution.
+Tag settings popovers share the menu surface and compact settings controls;
+they own Tab and Escape until closed and return focus to their tag trigger.
+Hide a tag popover while its visibility confirmation is open so the topmost
+confirmation owns Escape.
+
+Comparison confirmations use `ConfirmActionDialog` and its detail/impact
+slots. Manager remediation must retain the source and target execution
+contexts, exact object keys, cutoff and destructive/truncation warnings.
+Ceph Admin navigation confirmations retain the full object key. Confirmation
+only starts the existing workflow; its execution and progress stay in the page.
 
 `OneTimeSecretPanel` owns the compact handoff presentation for generated API
 tokens and S3 keys across Admin, Manager, Ceph Admin and Portal. Reuse its warning
@@ -274,3 +465,12 @@ points or semantic distribution colors. Navigation cards, health cards and
 data-type cards retain their original defaults outside this explicit adoption.
 Use dashboard action links for buttons and `WorkspaceDashboardLinkRow` for
 rich shortcuts; retain plain identity links and their accessible touch areas.
+
+Manager/Portal rows opt into `ui-dashboard-equal-row` for stretching their
+cards to the tallest content in each actual grid row. Apply
+`ui-dashboard-equal-cell` to intermediate grid cells and unavailable frames
+to carry the stretch through to the panel, including the data-type card.
+These classes set no fixed height and do not stretch panel contents. Keep
+the incident heading inside its panel so its content stays at the top.
+KPI minimum heights and chart drawing areas stay unchanged; other dashboard
+consumers retain their defaults.

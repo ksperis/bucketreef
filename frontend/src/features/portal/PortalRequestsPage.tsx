@@ -23,7 +23,8 @@ import DataTableShell, {
 } from "../../components/list/DataTableShell";
 import ListPageSection from "../../components/list/ListPageSection";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import Modal from "../../components/Modal";
+import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
+import { PortalMemberRequestFields, PortalRequestReason } from "./PortalRequestFields";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
 import UiButton from "../../components/ui/UiButton";
@@ -33,7 +34,6 @@ import UiSelect from "../../components/ui/UiSelect";
 import {
   cx,
   uiDividerClass,
-  uiInputClass,
   uiLabelClass,
   uiMutedTextClass,
   uiTitleTextClass,
@@ -89,6 +89,7 @@ export default function PortalRequestsPage() {
   const [requests, setRequests] = useState<PortalAdminRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
   const [requestDialog, setRequestDialog] = useState<RequestDialog>(null);
@@ -299,7 +300,7 @@ export default function PortalRequestsPage() {
     if (!cleanName || !cleanEmail) return;
     setBusy("collaborator");
     setNotice(null);
-    setError(null);
+    setRequestError(null);
     try {
       await createPortalRequest(
         accountIdForApi,
@@ -333,7 +334,7 @@ export default function PortalRequestsPage() {
       await loadRequests();
     } catch (err) {
       console.error(err);
-      setError(
+      setRequestError(
         extractApiError(
           err,
           t({
@@ -388,6 +389,7 @@ export default function PortalRequestsPage() {
     setTargetName("");
     setTargetEmail("");
     setTargetReason("");
+    setRequestError(null);
     setRequestDialog("collaborator");
   };
 
@@ -415,7 +417,7 @@ export default function PortalRequestsPage() {
     if (!accountIdForApi) return;
     const parsedQuota = Number(quotaValue);
     if (!Number.isFinite(parsedQuota) || parsedQuota <= 0) {
-      setError(
+      setRequestError(
         t({
           en: "Storage limit must be greater than zero.",
           fr: "La limite de stockage doit être supérieure à zéro.",
@@ -426,7 +428,7 @@ export default function PortalRequestsPage() {
       return;
     }
     if (quotaBelowUsed) {
-      setError(
+      setRequestError(
         t({
           en: "The requested storage limit is lower than the space already used.",
           fr: "La limite demandée est inférieure à l'espace déjà utilisé.",
@@ -437,7 +439,7 @@ export default function PortalRequestsPage() {
       return;
     }
     if (quotaDirectionMismatch) {
-      setError(
+      setRequestError(
         quotaDirection === "increase"
           ? t({
               en: "A raise must target a limit higher than the current limit.",
@@ -456,7 +458,7 @@ export default function PortalRequestsPage() {
     }
     setBusy("quota");
     setNotice(null);
-    setError(null);
+    setRequestError(null);
     try {
       await createPortalRequest(accountIdForApi, {
         request_type: "account_quota_change",
@@ -480,7 +482,7 @@ export default function PortalRequestsPage() {
       await loadRequests();
     } catch (err) {
       console.error(err);
-      setError(
+      setRequestError(
         extractApiError(
           err,
           t({
@@ -549,6 +551,14 @@ export default function PortalRequestsPage() {
   const closeRequestDialog = () => {
     if (busy) return;
     setRequestDialog(null);
+    setTargetName("");
+    setTargetEmail("");
+    setTargetReason("");
+    setQuotaDirection("increase");
+    setQuotaValue("");
+    setQuotaUnit("GiB");
+    setQuotaReason("");
+    setRequestError(null);
   };
 
   return (
@@ -703,7 +713,7 @@ export default function PortalRequestsPage() {
               <UiButton
                 size="sm"
                 variant="secondary"
-                onClick={() => setRequestDialog("storage-limit")}
+                onClick={() => { setRequestError(null); setRequestDialog("storage-limit"); }}
                 disabled={requestsDisabled || !canRequestManagedChanges}
               >
                 {t({
@@ -786,40 +796,32 @@ export default function PortalRequestsPage() {
       ) : null}
 
       {requestDialog === "collaborator" ? (
-        <Modal
-          title={t({
-            en: "Update project membership",
-            fr: "Mettre à jour les membres du projet",
-            de: "Projektmitglieder aktualisieren",
-            zh: "更新项目成员",
-          })}
+        <SettingsFormDialog
+          title={t({ en: "Update project membership", fr: "Mettre à jour les membres du projet", de: "Projektmitglieder aktualisieren", zh: "更新项目成员" })}
+          draftKey={JSON.stringify([collaboratorAction, targetName, targetEmail, targetReason])}
+          busy={busy === "collaborator"}
+          disabled={collaboratorSubmitDisabled}
+          error={requestError}
+          danger={collaboratorAction === "remove"}
+          submitLabel={collaboratorAction === "remove"
+            ? t({ en: "Send removal request", fr: "Envoyer la demande de retrait", de: "Entfernungsanfrage senden", zh: "发送移除请求" })
+            : t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden", zh: "发送请求" })}
           onClose={closeRequestDialog}
+          onSubmit={handleCollaboratorRequest}
         >
-          <form className="grid gap-3" onSubmit={handleCollaboratorRequest}>
-            <UiSelect
-              label={t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" })}
-              value={collaboratorAction}
-              onChange={(event) =>
-                handleCollaboratorActionChange(
-                  event.target.value as CollaboratorAction,
-                )
-              }
-              disabled={
-                requestsDisabled ||
-                !canRequestManagedChanges ||
-                busy === "collaborator"
-              }
-            >
-              <option value="add">
-                {t({ en: "Add", fr: "Ajouter", de: "Hinzufugen", zh: "添加" })}
-              </option>
-              <option value="remove">
-                {t({ en: "Remove", fr: "Retirer", de: "Entfernen", zh: "移除" })}
-              </option>
-            </UiSelect>
-            {collaboratorAction === "remove" ? (
+          <UiSelect label={t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" })}
+            value={collaboratorAction} onChange={(event) => handleCollaboratorActionChange(event.target.value as CollaboratorAction)}
+            disabled={requestsDisabled || !canRequestManagedChanges || busy === "collaborator"}>
+            <option value="add">{t({ en: "Add", fr: "Ajouter", de: "Hinzufügen", zh: "添加" })}</option>
+            <option value="remove">{t({ en: "Remove", fr: "Retirer", de: "Entfernen", zh: "移除" })}</option>
+          </UiSelect>
+          <PortalMemberRequestFields name={targetName} email={targetEmail} reason={targetReason}
+            onNameChange={setTargetName} onEmailChange={setTargetEmail} onReasonChange={setTargetReason}
+            disabled={requestsDisabled || !canRequestManagedChanges || busy === "collaborator"}
+            nameDisabled={collaboratorAction === "remove"}
+            emailControl={collaboratorAction === "remove" ? (
               <UiSelect
-                label={t({ en: "Email", fr: "Mail", de: "E-Mail", zh: "邮箱" })}
+                label={t({ en: "Email", fr: "E-mail", de: "E-Mail", zh: "邮箱" })}
                 value={targetEmail}
                 onChange={(event) =>
                   applyRemovalCollaborator(event.target.value)
@@ -849,95 +851,21 @@ export default function PortalRequestsPage() {
                   </option>
                 ))}
               </UiSelect>
-            ) : (
-              <UiInput
-                label={t({ en: "Email", fr: "Mail", de: "E-Mail", zh: "邮箱" })}
-                type="email"
-                value={targetEmail}
-                onChange={(event) => setTargetEmail(event.target.value)}
-                disabled={
-                  requestsDisabled ||
-                  !canRequestManagedChanges ||
-                  busy === "collaborator"
-                }
-                required
-              />
-            )}
-            <UiInput
-              label={t({ en: "Name", fr: "Nom", de: "Name", zh: "姓名" })}
-              value={targetName}
-              onChange={(event) => setTargetName(event.target.value)}
-              disabled={
-                requestsDisabled ||
-                !canRequestManagedChanges ||
-                busy === "collaborator" ||
-                collaboratorAction === "remove"
-              }
-              required
-            />
-            {collaboratorAction === "remove" &&
-            !collaboratorsLoading &&
-            removableCollaborators.length === 0 ? (
-              <PageBanner tone="info">
-                {t({
-                  en: "No direct Portal collaborators can be removed from this project.",
-                  fr: "Aucun collaborateur Portal direct ne peut être retiré de ce projet.",
-                  de: "Keine direkten Portal-Mitwirkenden konnen aus diesem Projekt entfernt werden.",
-                  zh: "此项目中没有可移除的直接 Portal 协作者。",
-                })}
-              </PageBanner>
-            ) : null}
-            <label className="grid gap-1">
-              <span className={uiLabelClass}>
-                {t({
-                  en: "Reason (optional)",
-                  fr: "Motif (optionnel)",
-                  de: "Grund (optional)",
-                  zh: "原因（可选）",
-                })}
-              </span>
-              <textarea
-                className={cx(uiInputClass, "min-h-[72px] px-3 py-2 ui-body")}
-                value={targetReason}
-                onChange={(event) => setTargetReason(event.target.value)}
-                disabled={
-                  requestsDisabled ||
-                  !canRequestManagedChanges ||
-                  busy === "collaborator"
-                }
-              />
-            </label>
-            <div className="flex justify-end">
-              <UiButton
-                type="submit"
-                size="sm"
-                variant={
-                  collaboratorAction === "remove" ? "danger" : undefined
-                }
-                disabled={collaboratorSubmitDisabled}
-                loading={busy === "collaborator"}
-              >
-                {collaboratorAction === "remove"
-                  ? t({
-                      en: "Send removal request",
-                      fr: "Envoyer la demande de retrait",
-                      de: "Entfernungsanfrage senden",
-                      zh: "发送移除请求",
-                    })
-                  : t({
-                      en: "Send request",
-                      fr: "Envoyer la demande",
-                      de: "Anfrage senden",
-                      zh: "发送请求",
-                    })}
-              </UiButton>
-            </div>
-          </form>
-        </Modal>
+            ) : undefined}
+          />
+          {collaboratorAction === "remove" && !collaboratorsLoading && removableCollaborators.length === 0 ? (
+            <PageBanner tone="info">{t({
+              en: "No direct Portal collaborators can be removed from this project.",
+              fr: "Aucun collaborateur Portal direct ne peut être retiré de ce projet.",
+              de: "Keine direkten Portal-Mitwirkenden können aus diesem Projekt entfernt werden.",
+              zh: "此项目中没有可移除的直接 Portal 协作者。",
+            })}</PageBanner>
+          ) : null}
+        </SettingsFormDialog>
       ) : null}
 
       {requestDialog === "storage-limit" ? (
-        <Modal
+        <SettingsFormDialog
           title={t({
             en: "Change project storage limit",
             fr: "Modifier la limite de stockage du projet",
@@ -945,140 +873,111 @@ export default function PortalRequestsPage() {
             zh: "更改项目存储上限",
           })}
           onClose={closeRequestDialog}
-          maxWidthClass="max-w-3xl"
+          maxWidthClass="max-w-xl"
+          draftKey={JSON.stringify([quotaDirection, quotaValue, quotaUnit, quotaReason])}
+          busy={busy === "quota"}
+          disabled={quotaSubmitDisabled}
+          error={requestError}
+          submitLabel={t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden", zh: "发送请求" })}
+          onSubmit={handleQuotaRequest}
         >
-          <form className="grid gap-3" onSubmit={handleQuotaRequest}>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_96px]">
-              <UiSelect
-                label={t({ en: "Change", fr: "Changement", de: "Änderung", zh: "变更" })}
-                value={quotaDirection}
-                onChange={(event) =>
-                  setQuotaDirection(event.target.value as PortalQuotaDirection)
-                }
-                disabled={
-                  requestsDisabled ||
-                  !canRequestManagedChanges ||
-                  busy === "quota"
-                }
-              >
-                <option value="increase">
-                  {t({ en: "Raise", fr: "Augmenter", de: "Erhöhen", zh: "提高" })}
-                </option>
-                <option value="decrease">
-                  {t({ en: "Lower", fr: "Réduire", de: "Senken", zh: "降低" })}
-                </option>
-              </UiSelect>
-              <UiInput
-                label={t({
-                  en: "New limit",
-                  fr: "Nouvelle limite",
-                  de: "Neue Grenze",
-                  zh: "新上限",
-                })}
-                type="number"
-                min="0"
-                step="0.01"
-                value={quotaValue}
-                onChange={(event) => setQuotaValue(event.target.value)}
-                disabled={
-                  requestsDisabled ||
-                  !canRequestManagedChanges ||
-                  busy === "quota"
-                }
-                required
-              />
-              <UiSelect
-                label={t({ en: "Unit", fr: "Unité", de: "Einheit", zh: "单位" })}
-                value={quotaUnit}
-                onChange={(event) =>
-                  setQuotaUnit(event.target.value as PortalQuotaUnit)
-                }
-                disabled={
-                  requestsDisabled ||
-                  !canRequestManagedChanges ||
-                  busy === "quota"
-                }
-              >
-                {quotaUnits.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
-              </UiSelect>
-            </div>
-            <QuotaChangePreview
-              usedBytes={usedBytes}
-              currentQuotaBytes={currentQuotaBytes}
-              targetQuotaBytes={targetQuotaBytes}
-              loading={usageLoading}
-              belowUsed={quotaBelowUsed}
-              directionMismatch={quotaDirectionMismatch}
-              direction={quotaDirection}
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_96px]">
+            <UiSelect
+              label={t({ en: "Change", fr: "Changement", de: "Änderung", zh: "变更" })}
+              value={quotaDirection}
+              onChange={(event) =>
+                setQuotaDirection(event.target.value as PortalQuotaDirection)
+              }
+              disabled={
+                requestsDisabled ||
+                !canRequestManagedChanges ||
+                busy === "quota"
+              }
+            >
+              <option value="increase">
+                {t({ en: "Raise", fr: "Augmenter", de: "Erhöhen", zh: "提高" })}
+              </option>
+              <option value="decrease">
+                {t({ en: "Lower", fr: "Réduire", de: "Senken", zh: "降低" })}
+              </option>
+            </UiSelect>
+            <UiInput
+              label={t({
+                en: "New limit",
+                fr: "Nouvelle limite",
+                de: "Neue Grenze",
+                zh: "新上限",
+              })}
+              type="number"
+              min="0"
+              step="0.01"
+              value={quotaValue}
+              onChange={(event) => setQuotaValue(event.target.value)}
+              disabled={
+                requestsDisabled ||
+                !canRequestManagedChanges ||
+                busy === "quota"
+              }
+              required
             />
-            {quotaBelowUsed ? (
-              <PageBanner tone="error">
-                {t({
-                  en: "The new limit must stay above the space already used.",
-                  fr: "La nouvelle limite doit rester au-dessus de l'espace déjà utilisé.",
-                  de: "Die neue Grenze muss über der bereits genutzten Kapazität bleiben.",
-                  zh: "新上限必须高于当前已用空间。",
-                })}
-              </PageBanner>
-            ) : null}
-            {!quotaBelowUsed && quotaDirectionMismatch ? (
-              <PageBanner tone="warning">
-                {quotaDirection === "increase"
-                  ? t({
-                      en: "The new limit is not higher than the current limit.",
-                      fr: "La nouvelle limite n'est pas supérieure à la limite actuelle.",
-                      de: "Die neue Grenze liegt nicht über der aktuellen Grenze.",
-                      zh: "新上限未高于当前上限。",
-                    })
-                  : t({
-                      en: "The new limit is not lower than the current limit.",
-                      fr: "La nouvelle limite n'est pas inférieure à la limite actuelle.",
-                      de: "Die neue Grenze liegt nicht unter der aktuellen Grenze.",
-                      zh: "新上限未低于当前上限。",
-                    })}
-              </PageBanner>
-            ) : null}
-            <label className="grid gap-1">
-              <span className={uiLabelClass}>
-                {t({
-                  en: "Reason (optional)",
-                  fr: "Motif (optionnel)",
-                  de: "Grund (optional)",
-                  zh: "原因（可选）",
-                })}
-              </span>
-              <textarea
-                className={cx(uiInputClass, "min-h-[88px] px-3 py-2 ui-body")}
-                value={quotaReason}
-                onChange={(event) => setQuotaReason(event.target.value)}
-                disabled={
-                  requestsDisabled ||
-                  !canRequestManagedChanges ||
-                  busy === "quota"
-                }
-              />
-            </label>
-            <div className="flex justify-end">
-              <UiButton
-                type="submit"
-                size="sm"
-                disabled={quotaSubmitDisabled}
-                loading={busy === "quota"}
-              >
-                {t({
-                  en: "Send request",
-                  fr: "Envoyer la demande",
-                  de: "Anfrage senden",
-                  zh: "发送请求",
-                })}
-              </UiButton>
-            </div>
-          </form>
-        </Modal>
+            <UiSelect
+              label={t({ en: "Unit", fr: "Unité", de: "Einheit", zh: "单位" })}
+              value={quotaUnit}
+              onChange={(event) =>
+                setQuotaUnit(event.target.value as PortalQuotaUnit)
+              }
+              disabled={
+                requestsDisabled ||
+                !canRequestManagedChanges ||
+                busy === "quota"
+              }
+            >
+              {quotaUnits.map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              ))}
+            </UiSelect>
+          </div>
+          <QuotaChangePreview
+            usedBytes={usedBytes}
+            currentQuotaBytes={currentQuotaBytes}
+            targetQuotaBytes={targetQuotaBytes}
+            loading={usageLoading}
+            belowUsed={quotaBelowUsed}
+            directionMismatch={quotaDirectionMismatch}
+            direction={quotaDirection}
+          />
+          {quotaBelowUsed ? (
+            <PageBanner tone="error">
+              {t({
+                en: "The new limit must stay above the space already used.",
+                fr: "La nouvelle limite doit rester au-dessus de l'espace déjà utilisé.",
+                de: "Die neue Grenze muss über der bereits genutzten Kapazität bleiben.",
+                zh: "新上限必须高于当前已用空间。",
+              })}
+            </PageBanner>
+          ) : null}
+          {!quotaBelowUsed && quotaDirectionMismatch ? (
+            <PageBanner tone="warning">
+              {quotaDirection === "increase"
+                ? t({
+                    en: "The new limit is not higher than the current limit.",
+                    fr: "La nouvelle limite n'est pas supérieure à la limite actuelle.",
+                    de: "Die neue Grenze liegt nicht über der aktuellen Grenze.",
+                    zh: "新上限未高于当前上限。",
+                  })
+                : t({
+                    en: "The new limit is not lower than the current limit.",
+                    fr: "La nouvelle limite n'est pas inférieure à la limite actuelle.",
+                    de: "Die neue Grenze liegt nicht unter der aktuellen Grenze.",
+                    zh: "新上限未低于当前上限。",
+                  })}
+            </PageBanner>
+          ) : null}
+          <PortalRequestReason value={quotaReason} onChange={setQuotaReason}
+            disabled={requestsDisabled || !canRequestManagedChanges || busy === "quota"} />
+        </SettingsFormDialog>
       ) : null}
     </PageShell>
   );

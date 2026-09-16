@@ -38,6 +38,12 @@ Files larger than 50 MiB, files whose size cannot be determined, and unsupported
 
 The **History** tab appears on a file when history is available. Deleted files remain recoverable while their history is retained. Use **Show deleted files** in the normal file browser to see them without leaving the current folder. Historical folders remain navigable even when they no longer contain active files. Results load page by page directly from storage; if more history remains, use **Continue loading deleted files**. A history cleanup can permanently remove these recovery points, so restore anything needed before an owner or manager runs that cleanup.
 
+Folder restoration opens a focused page with the exact folder path, progress
+and a result summary. Wait for completion or choose **Stop** before leaving;
+files already restored remain available. Failed files and any limit on the
+visible failure details are shown with the result. A failed stream can be
+retried explicitly from the same folder.
+
 ## Related pages
 
 - [Portal: Storage Spaces](portal-storage-spaces.md)

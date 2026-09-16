@@ -31,15 +31,13 @@ import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
 } from "../../components/list/DataTableShell";
-import Modal from "../../components/Modal";
+import { flushSync } from "react-dom";
+import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import PageShell from "../../components/PageShell";
 import StorageSpaceIcon from "../../components/StorageSpaceIcon";
-import { WorkflowActions } from "../../components/WorkflowPage";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 
 import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
-import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { UserAvatarStack } from "../../components/UserAvatar";
@@ -186,8 +184,6 @@ export default function PortalStorageSpacesPage() {
     useState<PortalStorageSpaceAccountMemberRole>("Editor");
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const [createInitialSignature, setCreateInitialSignature] = useState("");
-  const [importInitialSignature, setImportInitialSignature] = useState("");
   const createFocusReturnRef = useRef<HTMLElement | null>(null);
   const importFocusReturnRef = useRef<HTMLElement | null>(null);
   const activeSpaces = useMemo(
@@ -447,13 +443,12 @@ export default function PortalStorageSpacesPage() {
     ],
   );
 
-  const closeCreate = useCallback(() => {
+  const closeCreate = useCallback((reason?: "navigation") => {
     const focusTarget = createFocusReturnRef.current;
     createFocusReturnRef.current = null;
     setShowCreate(false);
     setCreateError(null);
-    setCreateInitialSignature("");
-    if (searchParams.get("create") === "1") {
+    if (reason !== "navigation" && searchParams.get("create") === "1") {
       const next = new URLSearchParams(searchParams);
       next.delete("create");
       setSearchParams(next, { replace: true });
@@ -477,16 +472,6 @@ export default function PortalStorageSpacesPage() {
     setRestrictedRolesByUserId({});
     setShareCandidateQuery("");
     setCreateError(null);
-    setCreateInitialSignature(
-      stableSignature({
-        name: "",
-        description: "",
-        namingMode: "generic_uuid",
-        accessMode: initialAccessMode,
-        accountMemberRole: "Editor",
-        restrictedRolesByUserId: {},
-      }),
-    );
     setShowCreate(true);
   }, [createAccessModes]);
 
@@ -495,7 +480,6 @@ export default function PortalStorageSpacesPage() {
     importFocusReturnRef.current = null;
     setShowImport(false);
     setImportError(null);
-    setImportInitialSignature("");
     window.requestAnimationFrame(() => {
       if (focusTarget?.isConnected) focusTarget.focus();
     });
@@ -514,15 +498,6 @@ export default function PortalStorageSpacesPage() {
     setImportRestrictedRolesByUserId({});
     setImportShareCandidateQuery("");
     setImportError(null);
-    setImportInitialSignature(
-      stableSignature({
-        bucketName: "",
-        description: "",
-        accessMode: initialAccessMode,
-        accountMemberRole: "Editor",
-        restrictedRolesByUserId: {},
-      }),
-    );
     setShowImport(true);
   }, [importAccessModes]);
 
@@ -638,6 +613,7 @@ export default function PortalStorageSpacesPage() {
             ? selectedRestrictedEntries
             : [],
       });
+      flushSync(() => setShowCreate(false));
       navigate(storageSpacePath({ id: created.id }), {
         state: { portalSpaceCreated: true },
       });
@@ -673,6 +649,7 @@ export default function PortalStorageSpacesPage() {
             ? selectedImportRestrictedEntries
             : [],
       });
+      flushSync(() => setShowImport(false));
       navigate(storageSpacePath({ id: imported.id }), {
         state: { portalSpaceImported: true },
       });
@@ -693,47 +670,6 @@ export default function PortalStorageSpacesPage() {
       setImportBusy(false);
     }
   };
-
-  const createCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges:
-      Boolean(createInitialSignature) && createFormSignature !== createInitialSignature,
-    disabled: createBusy,
-    onClose: closeCreate,
-    title: t({
-      en: "Discard changes?",
-      fr: "Abandonner les modifications ?",
-      de: "Änderungen verwerfen?",
-      zh: "放弃更改？",
-    }),
-    description: t({
-      en: "You have unapplied changes. Closing this dialog will discard them.",
-      fr: "Vous avez des modifications non appliquées. Fermer cette fenêtre les abandonnera.",
-      de: "Sie haben nicht angewendete Änderungen. Beim Schließen werden sie verworfen.",
-      zh: "你有尚未应用的更改。关闭此对话框将放弃这些更改。",
-    }),
-    cancelLabel: t({ en: "Keep editing", fr: "Continuer la modification", de: "Weiter bearbeiten", zh: "继续编辑" }),
-    confirmLabel: t({ en: "Discard changes", fr: "Abandonner", de: "Änderungen verwerfen", zh: "放弃更改" }),
-  });
-  const importCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges:
-      Boolean(importInitialSignature) && importFormSignature !== importInitialSignature,
-    disabled: importBusy,
-    onClose: closeImport,
-    title: t({
-      en: "Discard changes?",
-      fr: "Abandonner les modifications ?",
-      de: "Änderungen verwerfen?",
-      zh: "放弃更改？",
-    }),
-    description: t({
-      en: "You have unapplied changes. Closing this dialog will discard them.",
-      fr: "Vous avez des modifications non appliquées. Fermer cette fenêtre les abandonnera.",
-      de: "Sie haben nicht angewendete Änderungen. Beim Schließen werden sie verworfen.",
-      zh: "你有尚未应用的更改。关闭此对话框将放弃这些更改。",
-    }),
-    cancelLabel: t({ en: "Keep editing", fr: "Continuer la modification", de: "Weiter bearbeiten", zh: "继续编辑" }),
-    confirmLabel: t({ en: "Discard changes", fr: "Abandonner", de: "Änderungen verwerfen", zh: "放弃更改" }),
-  });
 
   const dismissStartGuide = () => {
     writeClientStorageKey(startGuideStorageKey, "1");
@@ -1056,268 +992,134 @@ export default function PortalStorageSpacesPage() {
       ) : null}
 
       {showCreate ? (
-        <Modal
+        <SettingsFormDialog
           title={t({
             en: "Create a space",
             fr: "Créer un espace",
             de: "Bereich erstellen",
             zh: "创建空间",
           })}
-          onClose={createCloseGuard.requestClose}
+          onClose={closeCreate}
+          draftKey={createFormSignature}
+          busy={createBusy}
+          disabled={!canCreate || !newName.trim()}
+          error={createError}
+          onSubmit={handleCreate}
+          submitLabel={t({ en: "Create", fr: "Créer", de: "Erstellen", zh: "创建" })}
           maxWidthClass="max-w-3xl"
           maxBodyHeightClass="max-h-[80vh]"
         >
-          <div className="space-y-4">
-            <p className={cx("ui-caption", uiMutedTextClass)}>
-              {t({
-                en: "Name the place first. You can upload files and invite collaborators right after it opens.",
-                fr: "Nommez d'abord l'espace. Vous pourrez ajouter des fichiers et inviter des collaborateurs dès son ouverture.",
-                de: "Benennen Sie zuerst den Bereich. Danach können Sie Dateien hochladen und Mitwirkende einladen.",
-                zh: "先为空间命名。打开后即可上传文件并邀请协作者。",
-              })}
-            </p>
-            <div
-              className={cx(
-                "grid gap-3",
-                canUseNamedBucket
-                  ? "lg:grid-cols-[180px_1fr_1.5fr]"
-                  : "lg:grid-cols-[1fr_1.5fr]",
-              )}
-            >
-              {canUseNamedBucket ? (
-                <UiSelect
-                  label={t({
-                    en: "Space setup",
-                    fr: "Configuration de l'espace",
-                    de: "Bereich einrichten",
-                    zh: "空间设置",
-                  })}
-                  size="compact"
-                  className="ui-list-control"
-                  value={newNamingMode}
-                  onChange={(event) =>
-                    setNewNamingMode(
-                      event.target.value as "generic_uuid" | "named_bucket",
-                    )
-                  }
-                >
-                  <option value="generic_uuid">
-                    {t({
-                      en: "Let Portal choose the ID",
-                      fr: "Laisser Portal choisir l'identifiant",
-                      de: "Portal wählt die ID",
-                      zh: "由 Portal 选择 ID",
-                    })}
-                  </option>
-                  <option value="named_bucket">
-                    {t({
-                      en: "Use a custom tool ID",
-                      fr: "Utiliser un identifiant d'outil",
-                      de: "Eigene Werkzeug-ID nutzen",
-                      zh: "使用自定义工具 ID",
-                    })}
-                  </option>
-                </UiSelect>
-              ) : null}
-              <UiInput
-                label={
-                  effectiveNamingMode === "named_bucket"
-                    ? t({
-                        en: "Space name and tool ID",
-                        fr: "Nom de l'espace et identifiant d'outil",
-                        de: "Bereichsname und Werkzeug-ID",
-                        zh: "空间名称和工具 ID",
-                      })
-                    : t({
-                        en: "Space name",
-                        fr: "Nom de l'espace",
-                        de: "Name des Bereichs",
-                        zh: "空间名称",
-                      })
-                }
-                size="compact"
-                className="ui-list-control"
-                value={newName}
-                onChange={(event) => setNewName(event.target.value)}
-                placeholder={
-                  effectiveNamingMode === "named_bucket"
-                    ? t({
-                        en: "Project or dataset ID",
-                        fr: "Identifiant du projet ou du jeu de données",
-                        de: "Projekt- oder Datensatz-ID",
-                        zh: "项目或数据集 ID",
-                      })
-                    : t({
-                        en: "Project, team, or dataset name",
-                        fr: "Nom du projet, de l'équipe ou du jeu de données",
-                        de: "Projekt-, Team- oder Datensatzname",
-                        zh: "项目、团队或数据集名称",
-                      })
-                }
-              />
-              <UiInput
+          <p className={cx("ui-caption", uiMutedTextClass)}>
+            {t({
+              en: "Name the place first. You can upload files and invite collaborators right after it opens.",
+              fr: "Nommez d'abord l'espace. Vous pourrez ajouter des fichiers et inviter des collaborateurs dès son ouverture.",
+              de: "Benennen Sie zuerst den Bereich. Danach können Sie Dateien hochladen und Mitwirkende einladen.",
+              zh: "先为空间命名。打开后即可上传文件并邀请协作者。",
+            })}
+          </p>
+          <div
+            className={cx(
+              "grid gap-3",
+              canUseNamedBucket
+                ? "lg:grid-cols-[180px_1fr_1.5fr]"
+                : "lg:grid-cols-[1fr_1.5fr]",
+            )}
+          >
+            {canUseNamedBucket ? (
+              <UiSelect
                 label={t({
-                  en: "Description",
-                  fr: "Description",
-                  de: "Beschreibung",
-                  zh: "描述",
+                  en: "Space setup",
+                  fr: "Configuration de l'espace",
+                  de: "Bereich einrichten",
+                  zh: "空间设置",
                 })}
                 size="compact"
-                className="ui-list-control"
-                value={newDescription}
-                onChange={(event) => setNewDescription(event.target.value)}
-                placeholder={t({
-                  en: "Description",
-                  fr: "Description",
-                  de: "Beschreibung",
-                  zh: "描述",
-                })}
-              />
-            </div>
-            <div className="space-y-3">
-              {createAccessModes.length > 1 ? (
-                <PortalAccessModeFields
-                  mode={newAccessMode}
-                  onModeChange={setNewAccessMode}
-                  accountMemberRole={newAccountMemberRole}
-                  onAccountMemberRoleChange={setNewAccountMemberRole}
-                  allowedModes={createAccessModes}
-                  modeLabel={t({
-                    en: "Who can access this space?",
-                    fr: "Qui peut accéder à cet espace ?",
-                    de: "Wer kann auf diesen Bereich zugreifen?",
-                    zh: "谁可以访问此空间？",
-                  })}
-                  roleLabel={t({
-                    en: "Default role for team members",
-                    fr: "Rôle par défaut des membres",
-                    de: "Standardrolle für Teammitglieder",
-                    zh: "团队成员默认角色",
-                  })}
-                />
-              ) : (
-                <div className={cx("text-xs font-medium", uiMutedTextClass)}>
-                  {portalAccessModeDescription("private", t)}
-                </div>
-              )}
-              <div
-                className={cx("text-[11px] font-semibold", uiMutedTextClass)}
-              >
-                {portalAccessModeSummary(
-                  effectiveNewAccessMode,
-                  selectedRestrictedEntries.length,
-                  portalMemberCount,
-                  t,
-                )}
-              </div>
-            </div>
-            {effectiveNewAccessMode === "restricted" ? (
-              <PortalShareCandidatePicker
-                candidates={shareCandidates}
-                selectedRolesByUserId={restrictedRolesByUserId}
-                query={shareCandidateQuery}
-                loading={shareCandidatesLoading}
-                error={shareCandidatesError}
-                onQueryChange={setShareCandidateQuery}
-                onRoleChange={(userId, role) =>
-                  updateRestrictedRoles(
-                    setRestrictedRolesByUserId,
-                    userId,
-                    role,
+                value={newNamingMode}
+                onChange={(event) =>
+                  setNewNamingMode(
+                    event.target.value as "generic_uuid" | "named_bucket",
                   )
                 }
-              />
-            ) : null}
-            {createError ? (
-              <UiInlineMessage tone="error">{createError}</UiInlineMessage>
-            ) : null}
-            <WorkflowActions>
-              <UiButton
-                variant="secondary"
-                onClick={createCloseGuard.requestClose}
-                disabled={createBusy}
               >
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
-              </UiButton>
-              <UiButton
-                disabled={!newName.trim() || createBusy}
-                loading={createBusy}
-                onClick={handleCreate}
-              >
-                {t({ en: "Create", fr: "Créer", de: "Erstellen", zh: "创建" })}
-              </UiButton>
-            </WorkflowActions>
-            {createCloseGuard.confirmationDialog}
-          </div>
-        </Modal>
-      ) : null}
-
-      {showImport ? (
-        <Modal
-          title={t({
-            en: "Add existing space",
-            fr: "Ajouter un espace existant",
-            de: "Vorhandenen Bereich hinzufügen",
-            zh: "添加现有空间",
-          })}
-          onClose={importCloseGuard.requestClose}
-          maxWidthClass="max-w-3xl"
-          maxBodyHeightClass="max-h-[80vh]"
-        >
-          <div className="space-y-4">
-            <p className={cx("ui-caption", uiMutedTextClass)}>
-              {t({
-                en: "Attach existing storage to Portal and define its initial access.",
-                fr: "Rattachez un stockage existant à Portal et définissez ses accès initiaux.",
-                de: "Binden Sie vorhandenen Speicher an Portal an und legen Sie den anfänglichen Zugriff fest.",
-                zh: "将现有存储接入 Portal，并定义其初始访问权限。",
+                <option value="generic_uuid">
+                  {t({
+                    en: "Let Portal choose the ID",
+                    fr: "Laisser Portal choisir l'identifiant",
+                    de: "Portal wählt die ID",
+                    zh: "由 Portal 选择 ID",
+                  })}
+                </option>
+                <option value="named_bucket">
+                  {t({
+                    en: "Use a custom tool ID",
+                    fr: "Utiliser un identifiant d'outil",
+                    de: "Eigene Werkzeug-ID nutzen",
+                    zh: "使用自定义工具 ID",
+                  })}
+                </option>
+              </UiSelect>
+            ) : null}
+            <UiInput
+              label={
+                effectiveNamingMode === "named_bucket"
+                  ? t({
+                      en: "Space name and tool ID",
+                      fr: "Nom de l'espace et identifiant d'outil",
+                      de: "Bereichsname und Werkzeug-ID",
+                      zh: "空间名称和工具 ID",
+                    })
+                  : t({
+                      en: "Space name",
+                      fr: "Nom de l'espace",
+                      de: "Name des Bereichs",
+                      zh: "空间名称",
+                    })
+              }
+              size="compact"
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              placeholder={
+                effectiveNamingMode === "named_bucket"
+                  ? t({
+                      en: "Project or dataset ID",
+                      fr: "Identifiant du projet ou du jeu de données",
+                      de: "Projekt- oder Datensatz-ID",
+                      zh: "项目或数据集 ID",
+                    })
+                  : t({
+                      en: "Project, team, or dataset name",
+                      fr: "Nom du projet, de l'équipe ou du jeu de données",
+                      de: "Projekt-, Team- oder Datensatzname",
+                      zh: "项目、团队或数据集名称",
+                    })
+              }
+            />
+            <UiInput
+              label={t({
+                en: "Description",
+                fr: "Description",
+                de: "Beschreibung",
+                zh: "描述",
               })}
-            </p>
-            <div className="grid gap-3 lg:grid-cols-[1fr_1.5fr]">
-              <UiInput
-                label={t({
-                  en: "Existing technical ID",
-                  fr: "Identifiant technique existant",
-                  de: "Vorhandene technische ID",
-                  zh: "现有技术 ID",
-                })}
-                size="compact"
-                className="ui-list-control"
-                value={importBucketName}
-                onChange={(event) => setImportBucketName(event.target.value)}
-                placeholder={t({
-                  en: "Existing technical ID",
-                  fr: "Identifiant technique existant",
-                  de: "Vorhandene technische ID",
-                  zh: "现有技术 ID",
-                })}
-              />
-              <UiInput
-                label={t({
-                  en: "Description",
-                  fr: "Description",
-                  de: "Beschreibung",
-                  zh: "描述",
-                })}
-                size="compact"
-                className="ui-list-control"
-                value={importDescription}
-                onChange={(event) => setImportDescription(event.target.value)}
-                placeholder={t({
-                  en: "Description",
-                  fr: "Description",
-                  de: "Beschreibung",
-                  zh: "描述",
-                })}
-              />
-            </div>
-            <div className="space-y-3">
+              size="compact"
+              value={newDescription}
+              onChange={(event) => setNewDescription(event.target.value)}
+              placeholder={t({
+                en: "Description",
+                fr: "Description",
+                de: "Beschreibung",
+                zh: "描述",
+              })}
+            />
+          </div>
+          <div className="space-y-3">
+            {createAccessModes.length > 1 ? (
               <PortalAccessModeFields
-                mode={importAccessMode}
-                onModeChange={setImportAccessMode}
-                accountMemberRole={importAccountMemberRole}
-                onAccountMemberRoleChange={setImportAccountMemberRole}
-                allowedModes={importAccessModes}
+                mode={newAccessMode}
+                onModeChange={setNewAccessMode}
+                accountMemberRole={newAccountMemberRole}
+                onAccountMemberRoleChange={setNewAccountMemberRole}
+                allowedModes={createAccessModes}
                 modeLabel={t({
                   en: "Who can access this space?",
                   fr: "Qui peut accéder à cet espace ?",
@@ -1331,56 +1133,153 @@ export default function PortalStorageSpacesPage() {
                   zh: "团队成员默认角色",
                 })}
               />
-              <div
-                className={cx("text-[11px] font-semibold", uiMutedTextClass)}
-              >
-                {portalAccessModeSummary(
-                  importAccessMode,
-                  selectedImportRestrictedEntries.length,
-                  portalMemberCount,
-                  t,
-                )}
+            ) : (
+              <div className={cx("text-xs font-medium", uiMutedTextClass)}>
+                {portalAccessModeDescription("private", t)}
               </div>
-            </div>
-            {importAccessMode === "restricted" ? (
-              <PortalShareCandidatePicker
-                candidates={shareCandidates}
-                selectedRolesByUserId={importRestrictedRolesByUserId}
-                query={importShareCandidateQuery}
-                loading={shareCandidatesLoading}
-                error={shareCandidatesError}
-                onQueryChange={setImportShareCandidateQuery}
-                onRoleChange={(userId, role) =>
-                  updateRestrictedRoles(
-                    setImportRestrictedRolesByUserId,
-                    userId,
-                    role,
-                  )
-                }
-              />
-            ) : null}
-            {importError ? (
-              <UiInlineMessage tone="error">{importError}</UiInlineMessage>
-            ) : null}
-            <WorkflowActions>
-              <UiButton
-                variant="secondary"
-                onClick={importCloseGuard.requestClose}
-                disabled={importBusy}
-              >
-                {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
-              </UiButton>
-              <UiButton
-                disabled={!importBucketName.trim() || importBusy}
-                loading={importBusy}
-                onClick={handleImport}
-              >
-                {t({ en: "Add", fr: "Ajouter", de: "Hinzufügen", zh: "添加" })}
-              </UiButton>
-            </WorkflowActions>
-            {importCloseGuard.confirmationDialog}
+            )}
+            {effectiveNewAccessMode !== "restricted" && <div
+              className={cx("text-[11px] font-semibold", uiMutedTextClass)}
+            >
+              {portalAccessModeSummary(
+                effectiveNewAccessMode,
+                selectedRestrictedEntries.length,
+                portalMemberCount,
+                t,
+              )}
+            </div>}
           </div>
-        </Modal>
+          {effectiveNewAccessMode === "restricted" ? (
+            <PortalShareCandidatePicker
+              candidates={shareCandidates}
+              selectedRolesByUserId={restrictedRolesByUserId}
+              query={shareCandidateQuery}
+              loading={shareCandidatesLoading}
+              error={shareCandidatesError}
+              onQueryChange={setShareCandidateQuery}
+              onRoleChange={(userId, role) =>
+                updateRestrictedRoles(
+                  setRestrictedRolesByUserId,
+                  userId,
+                  role,
+                )
+              }
+            />
+          ) : null}
+        </SettingsFormDialog>
+      ) : null}
+
+      {showImport ? (
+        <SettingsFormDialog
+          title={t({
+            en: "Add existing space",
+            fr: "Ajouter un espace existant",
+            de: "Vorhandenen Bereich hinzufügen",
+            zh: "添加现有空间",
+          })}
+          onClose={closeImport}
+          draftKey={importFormSignature}
+          busy={importBusy}
+          disabled={!canImport || !importBucketName.trim()}
+          error={importError}
+          onSubmit={handleImport}
+          submitLabel={t({ en: "Add", fr: "Ajouter", de: "Hinzufügen", zh: "添加" })}
+          maxWidthClass="max-w-3xl"
+          maxBodyHeightClass="max-h-[80vh]"
+        >
+          <p className={cx("ui-caption", uiMutedTextClass)}>
+            {t({
+              en: "Attach existing storage to Portal and define its initial access.",
+              fr: "Rattachez un stockage existant à Portal et définissez ses accès initiaux.",
+              de: "Binden Sie vorhandenen Speicher an Portal an und legen Sie den anfänglichen Zugriff fest.",
+              zh: "将现有存储接入 Portal，并定义其初始访问权限。",
+            })}
+          </p>
+          <div className="grid gap-3 lg:grid-cols-[1fr_1.5fr]">
+            <UiInput
+              label={t({
+                en: "Existing technical ID",
+                fr: "Identifiant technique existant",
+                de: "Vorhandene technische ID",
+                zh: "现有技术 ID",
+              })}
+              size="compact"
+              value={importBucketName}
+              onChange={(event) => setImportBucketName(event.target.value)}
+              placeholder={t({
+                en: "Existing technical ID",
+                fr: "Identifiant technique existant",
+                de: "Vorhandene technische ID",
+                zh: "现有技术 ID",
+              })}
+            />
+            <UiInput
+              label={t({
+                en: "Description",
+                fr: "Description",
+                de: "Beschreibung",
+                zh: "描述",
+              })}
+              size="compact"
+              value={importDescription}
+              onChange={(event) => setImportDescription(event.target.value)}
+              placeholder={t({
+                en: "Description",
+                fr: "Description",
+                de: "Beschreibung",
+                zh: "描述",
+              })}
+            />
+          </div>
+          <div className="space-y-3">
+            <PortalAccessModeFields
+              mode={importAccessMode}
+              onModeChange={setImportAccessMode}
+              accountMemberRole={importAccountMemberRole}
+              onAccountMemberRoleChange={setImportAccountMemberRole}
+              allowedModes={importAccessModes}
+              modeLabel={t({
+                en: "Who can access this space?",
+                fr: "Qui peut accéder à cet espace ?",
+                de: "Wer kann auf diesen Bereich zugreifen?",
+                zh: "谁可以访问此空间？",
+              })}
+              roleLabel={t({
+                en: "Default role for team members",
+                fr: "Rôle par défaut des membres",
+                de: "Standardrolle für Teammitglieder",
+                zh: "团队成员默认角色",
+              })}
+            />
+            {importAccessMode !== "restricted" && <div
+              className={cx("text-[11px] font-semibold", uiMutedTextClass)}
+            >
+              {portalAccessModeSummary(
+                importAccessMode,
+                selectedImportRestrictedEntries.length,
+                portalMemberCount,
+                t,
+              )}
+            </div>}
+          </div>
+          {importAccessMode === "restricted" ? (
+            <PortalShareCandidatePicker
+              candidates={shareCandidates}
+              selectedRolesByUserId={importRestrictedRolesByUserId}
+              query={importShareCandidateQuery}
+              loading={shareCandidatesLoading}
+              error={shareCandidatesError}
+              onQueryChange={setImportShareCandidateQuery}
+              onRoleChange={(userId, role) =>
+                updateRestrictedRoles(
+                  setImportRestrictedRolesByUserId,
+                  userId,
+                  role,
+                )
+              }
+            />
+          ) : null}
+        </SettingsFormDialog>
       ) : null}
 
       <PortalPageTabs

@@ -244,7 +244,7 @@ describe("Admin principal editor navigation", () => {
     expect(unloadBlocked()).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Set password" }));
     await waitFor(() => expect(screen.getByLabelText("New password")).toHaveValue(""));
-    expect(unloadBlocked()).toBe(false);
+    await waitFor(() => expect(unloadBlocked()).toBe(false));
     fireEvent.click(screen.getByRole("link", { name: "Other page" }));
     await screen.findByRole("heading", { name: "Other page" });
     expect(fixtures.updateUser).not.toHaveBeenCalled();

@@ -9,6 +9,7 @@ import {
   uiCheckboxClass,
   uiDividerClass,
   uiInputClass,
+  uiRadioClass,
   uiMutedTextClass,
   uiTitleTextClass,
 } from "../ui/styles";
@@ -58,6 +59,9 @@ type SettingsToggleActionProps = SettingsSwitchProps & {
 
 type SettingsChoiceRowProps = {
   title: string;
+  type?: "checkbox" | "radio";
+  name?: string;
+  ariaLabel?: string;
   description?: ReactNode;
   checked: boolean;
   disabled?: boolean;
@@ -186,6 +190,9 @@ export const SettingsItem = ({
 
 export const SettingsChoiceRow = ({
   title,
+  type = "checkbox",
+  name,
+  ariaLabel,
   description,
   checked,
   disabled,
@@ -195,7 +202,7 @@ export const SettingsChoiceRow = ({
 }: SettingsChoiceRowProps) => (
   <label
     className={cx(
-      "flex items-start gap-3 border-t py-3 ui-caption first:border-t-0 first:pt-0 last:pb-0",
+      "settings-choice flex items-start gap-3 border-t py-3 ui-caption first:border-t-0 first:pt-0 last:pb-0",
       uiDividerClass,
       disabled
         ? "cursor-not-allowed text-[var(--ui-text-muted)] opacity-70"
@@ -204,11 +211,13 @@ export const SettingsChoiceRow = ({
     )}
   >
     <input
-      type="checkbox"
+      type={type}
+      name={name}
+      aria-label={ariaLabel}
       checked={checked}
       disabled={disabled}
       onChange={(event) => onChange(event.target.checked)}
-      className={`mt-0.5 ${settingsCheckboxClassName}`}
+      className={`mt-0.5 ${type === "radio" ? uiRadioClass : settingsCheckboxClassName}`}
     />
     <span className="min-w-0 flex-1">
       <span
