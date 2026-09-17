@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import sqlite3
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.interfaces import DBAPIConnection
@@ -59,6 +61,16 @@ def sqlite_integrity_status(engine: Engine) -> tuple[bool, str]:
         with engine.connect() as connection:
             result = connection.exec_driver_sql("PRAGMA quick_check;").scalar()
     except DatabaseError as exc:
+        error_code = getattr(exc.orig, "sqlite_errorcode", None)
+        if isinstance(error_code, int) and error_code & 0xFF == sqlite3.SQLITE_READONLY:
+            raise RuntimeError(
+                "SQLite database is read-only; the integrity check could not complete. "
+                "Ensure the database file, its parent directory, and any journal/WAL files "
+                "are writable by the backend user and the data volume is mounted read-write. "
+                "For Docker upgrades from root containers, stop the backend, back up the "
+                "data volume, and migrate its ownership to UID/GID 10001:10001. "
+                "This access error does not establish database corruption."
+            ) from exc
         return False, sanitized_error_log_detail(exc)
     text = str(result or "").strip() or "unknown"
     return text.lower() == "ok", text

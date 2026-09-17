@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 
-from sqlalchemy import create_engine
+import pytest
+from sqlalchemy import create_engine, event
 from sqlalchemy.exc import DatabaseError
 from starlette.requests import Request
 
@@ -107,3 +108,18 @@ def test_sqlite_integrity_status_reports_corrupted_file(tmp_path):
 
     assert ok is False
     assert details
+
+
+def test_sqlite_integrity_status_reports_readonly_access_before_wal_setup(tmp_path):
+    db_path = tmp_path / "readonly.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE existing_data (id INTEGER)")
+    engine = create_engine(f"sqlite:///file:{db_path}?mode=ro&uri=true")
+    event.listen(engine, "connect", _configure_sqlite_connection)
+    try:
+        with pytest.raises(RuntimeError, match="SQLite database is read-only") as raised:
+            sqlite_integrity_status(engine)
+        assert "10001:10001" in str(raised.value)
+        assert "restore or rebuild" not in str(raised.value)
+    finally:
+        engine.dispose()
