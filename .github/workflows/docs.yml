@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # Revision and creation dates require the complete Git history.
+          fetch-depth: 0
 
       - name: Setup Pages
         id: pages
