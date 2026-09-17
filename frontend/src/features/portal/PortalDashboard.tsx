@@ -118,10 +118,10 @@ function workspaceHealthStatus(
 type TFunction = (message: I18nMessage) => string;
 
 function workspaceHealthLabel(status: HealthCheckStatus, t: TFunction): string {
-  if (status === "up") return t({ en: "Storage services operational", fr: "Services de stockage opérationnels", de: "Speicherdienste betriebsbereit" });
-  if (status === "degraded") return t({ en: "Storage services degraded", fr: "Services de stockage dégradés", de: "Speicherdienste beeinträchtigt" });
-  if (status === "down") return t({ en: "Storage service availability issue", fr: "Problème de disponibilité du service de stockage", de: "Verfügbarkeitsproblem des Speicherdienstes" });
-  return t({ en: "Storage service status unavailable", fr: "Statut du service de stockage indisponible", de: "Status des Speicherdienstes nicht verfügbar" });
+  if (status === "up") return t({ en: "Storage services operational", fr: "Services de stockage opérationnels", de: "Speicherdienste betriebsbereit", zh: "存储服务运行正常" });
+  if (status === "degraded") return t({ en: "Storage services degraded", fr: "Services de stockage dégradés", de: "Speicherdienste beeinträchtigt", zh: "存储服务性能下降" });
+  if (status === "down") return t({ en: "Storage service availability issue", fr: "Problème de disponibilité du service de stockage", de: "Verfügbarkeitsproblem des Speicherdienstes", zh: "存储服务可用性异常" });
+  return t({ en: "Storage service status unavailable", fr: "Statut du service de stockage indisponible", de: "Status des Speicherdienstes nicht verfügbar", zh: "无法获取存储服务状态" });
 }
 
 function localizeTrendBaseline<T extends ManagerUsageTrendBaseline | null | undefined>(baseline: T, t: TFunction): T {
@@ -138,6 +138,7 @@ function externalToolAccessDetail(count: number | null | undefined, t: TFunction
     en: `${count} active external tool access${count === 1 ? "" : "es"}`,
     fr: `${count} accès outil externe actif${count > 1 ? "s" : ""}`,
     de: `${count} aktive${count === 1 ? "r" : ""} externe${count === 1 ? "r" : ""} Werkzeugzugriff${count === 1 ? "" : "e"}`,
+    zh: `${count} 项已启用的外部工具访问凭据`,
   });
 }
 
@@ -187,7 +188,7 @@ function buildActivityRows(workspaceActivity: ReturnType<typeof usePortalWorkspa
     const isShare = action.includes("share") || action.includes("partage") || action.includes("freigabe") || action.includes("link");
     return {
       id: item.id,
-      label: t({ en: `${item.actor} ${action} ${item.target}`, fr: `${item.actor} ${action} ${item.target}`, de: `${item.actor} ${action} ${item.target}` }),
+      label: t({ en: `${item.actor} ${action} ${item.target}`, fr: `${item.actor} ${action} ${item.target}`, de: `${item.actor} ${action} ${item.target}`, zh: `${item.actor} ${action} ${item.target}` }),
       detail: item.spaceName ?? item.ipAddress,
       time: item.timeLabel,
       tone: isShare ? "violet" : "blue",
@@ -221,33 +222,33 @@ function StorageOverviewCard({
         ? "text-emerald-600 dark:text-emerald-300"
         : "text-rose-600 dark:text-rose-300";
   const growthLabel = trendBaseline?.label
-    ? t({ en: `Growth (${trendBaseline.label})`, fr: `Croissance (${trendBaseline.label})`, de: `Wachstum (${trendBaseline.label})` })
-    : t({ en: "Growth", fr: "Croissance", de: "Wachstum" });
+    ? t({ en: `Growth (${trendBaseline.label})`, fr: `Croissance (${trendBaseline.label})`, de: `Wachstum (${trendBaseline.label})`, zh: `增长（${trendBaseline.label}）` })
+    : t({ en: "Growth", fr: "Croissance", de: "Wachstum", zh: "增长" });
   const projectedFull = formatWorkspaceProjectedFull(usedBytes, quotaBytes, trendBaseline, {
-    full: t({ en: "Full", fr: "Plein", de: "Voll" }),
-    stable: t({ en: "Stable", fr: "Stable", de: "Stabil" }),
-    days: (value) => t({ en: `~${value} days`, fr: `~${value} jours`, de: `~${value} Tage` }),
-    months: (value) => t({ en: `~${value} months`, fr: `~${value} mois`, de: `~${value} Monate` }),
-    years: (value) => t({ en: `~${value} years`, fr: `~${value} ans`, de: `~${value} Jahre` }),
+    full: t({ en: "Full", fr: "Plein", de: "Voll", zh: "已满" }),
+    stable: t({ en: "Stable", fr: "Stable", de: "Stabil", zh: "稳定" }),
+    days: (value) => t({ en: `~${value} days`, fr: `~${value} jours`, de: `~${value} Tage`, zh: `约 ${value} 天` }),
+    months: (value) => t({ en: `~${value} months`, fr: `~${value} mois`, de: `~${value} Monate`, zh: `约 ${value} 个月` }),
+    years: (value) => t({ en: `~${value} years`, fr: `~${value} ans`, de: `~${value} Jahre`, zh: `约 ${value} 年` }),
   });
   return (
     <WorkspaceDashboardStorageOverview
-      title={t({ en: "Storage overview", fr: "Vue du stockage", de: "Speicherübersicht" })}
-      action={<WorkspaceDashboardActionLink to="/portal/usage">{t({ en: "Usage analytics", fr: "Analyse d'utilisation", de: "Nutzungsanalyse" })}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
-      usedLabel={t({ en: "Storage Used", fr: "Stockage utilisé", de: "Genutzter Speicher" })}
+      title={t({ en: "Storage overview", fr: "Vue du stockage", de: "Speicherübersicht", zh: "存储概览" })}
+      action={<WorkspaceDashboardActionLink to="/portal/usage">{t({ en: "Usage analytics", fr: "Analyse d'utilisation", de: "Nutzungsanalyse", zh: "用量分析" })}<OpenIcon className="h-3.5 w-3.5" /></WorkspaceDashboardActionLink>}
+      usedLabel={t({ en: "Storage Used", fr: "Stockage utilisé", de: "Genutzter Speicher", zh: "已用存储" })}
       usedValue={formatBytes(usedBytes)}
       quotaValue={quotaBytes != null ? formatBytes(quotaBytes) : undefined}
       percentage={usagePercent}
       percentageLabel={usagePercent == null ? "" : formatPercentage(usagePercent)}
-      progressLabel={t({ en: "Portal storage quota usage", fr: "Utilisation du quota de stockage Portal", de: "Portal-Speicherquotennutzung" })}
-      quotaFallback={<p className="mt-3 ui-dashboard-note">{t({ en: "Quota unavailable", fr: "Quota indisponible", de: "Quote nicht verfügbar" })}</p>}
+      progressLabel={t({ en: "Portal storage quota usage", fr: "Utilisation du quota de stockage Portal", de: "Portal-Speicherquotennutzung", zh: "Portal 存储配额使用量" })}
+      quotaFallback={<p className="mt-3 ui-dashboard-note">{t({ en: "Quota unavailable", fr: "Quota indisponible", de: "Quote nicht verfügbar", zh: "无法获取配额" })}</p>}
       chart={{
         points: storageTrendPoints,
-        emptyLabel: t({ en: "Storage usage unavailable.", fr: "Utilisation du stockage indisponible.", de: "Speichernutzung nicht verfügbar." }),
-        chartLabel: t({ en: "Storage evolution chart", fr: "Graphique d'évolution du stockage", de: "Diagramm zur Speicherentwicklung" }),
+        emptyLabel: t({ en: "Storage usage unavailable.", fr: "Utilisation du stockage indisponible.", de: "Speichernutzung nicht verfügbar.", zh: "无法获取存储用量。" }),
+        chartLabel: t({ en: "Storage evolution chart", fr: "Graphique d'évolution du stockage", de: "Diagramm zur Speicherentwicklung", zh: "存储变化趋势图" }),
       }}
       growth={{ label: growthLabel, value: formatWorkspaceSignedBytesDelta(growthDelta), className: growthToneClass }}
-      projection={{ label: t({ en: "Projected full", fr: "Saturation estimée", de: "Voraussichtlich voll" }), value: projectedFull, adornment: <InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /> }}
+      projection={{ label: t({ en: "Projected full", fr: "Saturation estimée", de: "Voraussichtlich voll", zh: "预计用满时间" }), value: projectedFull, adornment: <InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /> }}
     />
   );
 }
@@ -256,22 +257,22 @@ function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
   const { t } = useI18n();
   return (
     <WorkspaceDashboardCard presentation="compact" wrapHeading
-      title={t({ en: "Top storage spaces", fr: "Principaux espaces de stockage", de: "Größte Speicherbereiche" })}
+      title={t({ en: "Top storage spaces", fr: "Principaux espaces de stockage", de: "Größte Speicherbereiche", zh: "用量最多的存储空间" })}
       action={
         <WorkspaceDashboardActionLink to="/portal/storage-spaces">
-          {t({ en: "View all spaces", fr: "Voir tous les espaces", de: "Alle Bereiche anzeigen" })}
+          {t({ en: "View all spaces", fr: "Voir tous les espaces", de: "Alle Bereiche anzeigen", zh: "查看所有空间" })}
           <OpenIcon className="h-3.5 w-3.5" />
         </WorkspaceDashboardActionLink>
       }
     >
       {rows.length === 0 ? (
-        <WorkspaceDashboardEmptyState>{t({ en: "No Storage Spaces to display.", fr: "Aucun espace de stockage à afficher.", de: "Keine Speicherbereiche zum Anzeigen." })}</WorkspaceDashboardEmptyState>
+        <WorkspaceDashboardEmptyState>{t({ en: "No Storage Spaces to display.", fr: "Aucun espace de stockage à afficher.", de: "Keine Speicherbereiche zum Anzeigen.", zh: "没有可显示的存储空间。" })}</WorkspaceDashboardEmptyState>
       ) : (
         <div className="space-y-2">
           <div className="ui-dashboard-ranking-row ui-dashboard-note">
-            <span>{t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich" })}</span>
-            <span>{t({ en: "Storage", fr: "Stockage", de: "Speicher" })}</span>
-            <span className="text-right">{t({ en: "Files", fr: "Fichiers", de: "Dateien" })}</span>
+            <span>{t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich", zh: "存储空间" })}</span>
+            <span>{t({ en: "Storage", fr: "Stockage", de: "Speicher", zh: "存储" })}</span>
+            <span className="text-right">{t({ en: "Files", fr: "Fichiers", de: "Dateien", zh: "文件" })}</span>
           </div>
           {rows.map((row) => (
             <div
@@ -316,11 +317,11 @@ function RecentActivityCard({ rows }: { rows: ActivityRow[] }) {
   const { t } = useI18n();
   return (
     <WorkspaceDashboardCard presentation="compact" wrapHeading
-      title={t({ en: "Recent activity", fr: "Activité récente", de: "Letzte Aktivität" })}
-      action={<WorkspaceDashboardActionLink to="/portal/history">{t({ en: "View all", fr: "Tout voir", de: "Alle anzeigen" })}</WorkspaceDashboardActionLink>}
+      title={t({ en: "Recent activity", fr: "Activité récente", de: "Letzte Aktivität", zh: "近期活动" })}
+      action={<WorkspaceDashboardActionLink to="/portal/history">{t({ en: "View all", fr: "Tout voir", de: "Alle anzeigen", zh: "查看全部" })}</WorkspaceDashboardActionLink>}
     >
       {rows.length === 0 ? (
-        <WorkspaceDashboardEmptyState>{t({ en: "No recent activity.", fr: "Aucune activité récente.", de: "Keine letzte Aktivität." })}</WorkspaceDashboardEmptyState>
+        <WorkspaceDashboardEmptyState>{t({ en: "No recent activity.", fr: "Aucune activité récente.", de: "Keine letzte Aktivität.", zh: "近期没有活动。" })}</WorkspaceDashboardEmptyState>
       ) : (
         <div className="space-y-2">
           {rows.map((activity) => (
@@ -352,7 +353,7 @@ function AlertsCard({
 }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard presentation="compact" wrapHeading title={t({ en: "Alerts & service status", fr: "Alertes et statut du service", de: "Warnungen und Dienststatus" })}>
+    <WorkspaceDashboardCard presentation="compact" wrapHeading title={t({ en: "Alerts & service status", fr: "Alertes et statut du service", de: "Warnungen und Dienststatus", zh: "告警与服务状态" })}>
       <div className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5">
         <div className="ui-dashboard-panel-heading">
           <p className="flex min-w-0 items-center gap-2 ui-dashboard-label">
@@ -364,18 +365,18 @@ function AlertsCard({
             className="ui-dashboard-badge"
           >
             {healthStatus === "up"
-              ? t({ en: "Operational", fr: "Opérationnel", de: "Betriebsbereit" })
+              ? t({ en: "Operational", fr: "Opérationnel", de: "Betriebsbereit", zh: "正常" })
               : healthStatus === "degraded"
-                ? t({ en: "Degraded", fr: "Dégradé", de: "Beeinträchtigt" })
+                ? t({ en: "Degraded", fr: "Dégradé", de: "Beeinträchtigt", zh: "性能下降" })
                 : healthStatus === "down"
-                  ? t({ en: "Issue", fr: "Incident", de: "Problem" })
-                  : t({ en: "Unknown", fr: "Inconnu", de: "Unbekannt" })}
+                  ? t({ en: "Issue", fr: "Incident", de: "Problem", zh: "异常" })
+                  : t({ en: "Unknown", fr: "Inconnu", de: "Unbekannt", zh: "未知" })}
           </UiBadge>
         </div>
       </div>
       <div className="mt-3 space-y-2">
         {alerts.length === 0 ? (
-          <WorkspaceDashboardEmptyState>{t({ en: "No alerts to display.", fr: "Aucune alerte à afficher.", de: "Keine Warnungen zum Anzeigen." })}</WorkspaceDashboardEmptyState>
+          <WorkspaceDashboardEmptyState>{t({ en: "No alerts to display.", fr: "Aucune alerte à afficher.", de: "Keine Warnungen zum Anzeigen.", zh: "没有可显示的告警。" })}</WorkspaceDashboardEmptyState>
         ) : (
           alerts.slice(0, 4).map((alert) => (
             <div key={alert.id} className="flex items-center justify-between gap-3 rounded-md border border-[color:var(--ui-border-soft)] px-3 py-2">
@@ -384,7 +385,7 @@ function AlertsCard({
                 <p className={cx("mt-0.5 ui-dashboard-note", uiMutedTextClass)}>{alert.description}</p>
               </div>
               <UiBadge tone={alertTone(alert.tone)} className="ui-dashboard-badge">
-                {alert.severityLabel ?? t({ en: "Info", fr: "Info", de: "Info" })}
+                {alert.severityLabel ?? t({ en: "Info", fr: "Info", de: "Info", zh: "信息" })}
               </UiBadge>
             </div>
           ))
@@ -397,7 +398,7 @@ function AlertsCard({
 function QuickLinksCard({ links }: { links: QuickLink[] }) {
   const { t } = useI18n();
   return (
-    <WorkspaceDashboardCard presentation="compact" wrapHeading title={t({ en: "Quick links", fr: "Raccourcis", de: "Schnellzugriffe" })}>
+    <WorkspaceDashboardCard presentation="compact" wrapHeading title={t({ en: "Quick links", fr: "Raccourcis", de: "Schnellzugriffe", zh: "快捷链接" })}>
       <div className="grid gap-2">
         {links.map((link) => (
           <WorkspaceDashboardLinkRow
@@ -426,24 +427,26 @@ function PortalOnboardingDashboard() {
   return (
     <div className="space-y-3" data-testid="portal-dashboard-onboarding">
       <PageHeader
-        title={t({ en: "Portal dashboard", fr: "Tableau de bord Portal", de: "Portal-Dashboard" })}
+        title={t({ en: "Portal dashboard", fr: "Tableau de bord Portal", de: "Portal-Dashboard", zh: "Portal 仪表盘" })}
         description={t({
           en: "Start by creating a Storage Space, then add files from that space.",
           fr: "Commencez par créer un espace de stockage, puis ajoutez des fichiers depuis cet espace.",
           de: "Erstellen Sie zuerst einen Speicherbereich und fügen Sie dann Dateien aus diesem Bereich hinzu.",
+          zh: "先创建存储空间，再从该空间添加文件。",
         })}
-        breadcrumbs={portalBreadcrumbs({ label: t({ en: "Dashboard", fr: "Tableau de bord", de: "Dashboard" }) })}
+        breadcrumbs={portalBreadcrumbs({ label: t({ en: "Dashboard", fr: "Tableau de bord", de: "Dashboard", zh: "仪表盘" }) })}
       />
       <PageEmptyState
-        eyebrow={t({ en: "Start here", fr: "Commencer ici", de: "Hier starten" })}
-        title={t({ en: "Set up your first space", fr: "Configurez votre premier espace", de: "Richten Sie Ihren ersten Bereich ein" })}
+        eyebrow={t({ en: "Start here", fr: "Commencer ici", de: "Hier starten", zh: "从这里开始" })}
+        title={t({ en: "Set up your first space", fr: "Configurez votre premier espace", de: "Richten Sie Ihren ersten Bereich ein", zh: "设置你的第一个空间" })}
         description={t({
           en: "A space keeps files, folders, and collaborators together. After it exists, open it to upload files.",
           fr: "Un espace regroupe les fichiers, dossiers et collaborateurs. Une fois créé, ouvrez-le pour ajouter des fichiers.",
           de: "Ein Bereich hält Dateien, Ordner und Mitwirkende zusammen. Danach öffnen Sie ihn, um Dateien hochzuladen.",
+          zh: "空间用于组织文件、文件夹和协作者。创建后，打开空间即可上传文件。",
         })}
         primaryAction={{
-          label: t({ en: "Open Storage Spaces", fr: "Ouvrir les espaces de stockage", de: "Speicherbereiche öffnen" }),
+          label: t({ en: "Open Storage Spaces", fr: "Ouvrir les espaces de stockage", de: "Speicherbereiche öffnen", zh: "打开存储空间" }),
           to: "/portal/storage-spaces",
         }}
       />
@@ -501,15 +504,15 @@ export default function PortalDashboard() {
   const alerts = (workspace.alerts.length > 0 ? workspace.alerts : healthAlerts).slice(0, 4);
   const activeSpaces = workspace.spaces.filter((space) => space.status !== "Archived").length;
   const transferBytes = currentTraffic ? workspaceTrafficTotalBytes(currentTraffic) : null;
-  const quotaOfLabel = t({ en: "of", fr: "sur", de: "von" });
-  const trendComparisonLabel = t({ en: "vs", fr: "par rapport à", de: "gegenüber" });
+  const quotaOfLabel = t({ en: "of", fr: "sur", de: "von", zh: "总计" });
+  const trendComparisonLabel = t({ en: "vs", fr: "par rapport à", de: "gegenüber", zh: "对比" });
   const baseMetrics = buildWorkspaceDashboardKpis({
     storage: {
-      label: t({ en: "Storage used", fr: "Stockage utilisé", de: "Genutzter Speicher" }),
+      label: t({ en: "Storage used", fr: "Stockage utilisé", de: "Genutzter Speicher", zh: "已用存储" }),
       usedBytes: workspace.usedBytes,
       quotaBytes: workspace.quotaBytes,
-      quotaUnavailableDetail: t({ en: "Quota unavailable", fr: "Quota indisponible", de: "Quote nicht verfügbar" }),
-      progressLabel: t({ en: "Portal storage quota usage", fr: "Utilisation du quota de stockage Portal", de: "Portal-Speicherquotennutzung" }),
+      quotaUnavailableDetail: t({ en: "Quota unavailable", fr: "Quota indisponible", de: "Quote nicht verfügbar", zh: "无法获取配额" }),
+      progressLabel: t({ en: "Portal storage quota usage", fr: "Utilisation du quota de stockage Portal", de: "Portal-Speicherquotennutzung", zh: "Portal 存储配额使用量" }),
       trendBaseline: storageTrendBaseline,
       quotaOfLabel,
       trendComparisonLabel,
@@ -517,13 +520,13 @@ export default function PortalDashboard() {
       to: "/portal/usage",
     },
     spaces: {
-      label: t({ en: "Storage spaces", fr: "Espaces de stockage", de: "Speicherbereiche" }),
+      label: t({ en: "Storage spaces", fr: "Espaces de stockage", de: "Speicherbereiche", zh: "存储空间" }),
       value: workspace.spaces.length,
       quota: workspace.maxBuckets,
-      unitLabel: t({ en: "spaces", fr: "espaces", de: "Bereiche" }),
+      unitLabel: t({ en: "spaces", fr: "espaces", de: "Bereiche", zh: "个空间" }),
       activeValue: activeSpaces,
-      activeLabel: t({ en: "active", fr: "actifs", de: "aktiv" }),
-      progressLabel: t({ en: "Storage spaces quota usage", fr: "Utilisation du quota d'espaces de stockage", de: "Speicherbereich-Quotennutzung" }),
+      activeLabel: t({ en: "active", fr: "actifs", de: "aktiv", zh: "活跃" }),
+      progressLabel: t({ en: "Storage spaces quota usage", fr: "Utilisation du quota d'espaces de stockage", de: "Speicherbereich-Quotennutzung", zh: "存储空间配额使用量" }),
       trendBaseline: bucketsTrendBaseline,
       trendBaselineValue: bucketsTrendBaseline?.bucket_count,
       quotaOfLabel,
@@ -533,12 +536,12 @@ export default function PortalDashboard() {
       to: "/portal/storage-spaces",
     },
     objects: {
-      label: t({ en: "Files", fr: "Fichiers", de: "Dateien" }),
+      label: t({ en: "Files", fr: "Fichiers", de: "Dateien", zh: "文件" }),
       value: workspace.usedObjects,
       quota: workspace.quotaObjects,
-      unitLabel: t({ en: "files", fr: "fichiers", de: "Dateien" }),
-      knownDetail: t({ en: "Tracked files", fr: "Fichiers suivis", de: "Erfasste Dateien" }),
-      progressLabel: t({ en: "Portal file quota usage", fr: "Utilisation du quota de fichiers Portal", de: "Portal-Dateiquotennutzung" }),
+      unitLabel: t({ en: "files", fr: "fichiers", de: "Dateien", zh: "个文件" }),
+      knownDetail: t({ en: "Tracked files", fr: "Fichiers suivis", de: "Erfasste Dateien", zh: "已统计文件" }),
+      progressLabel: t({ en: "Portal file quota usage", fr: "Utilisation du quota de fichiers Portal", de: "Portal-Dateiquotennutzung", zh: "Portal 文件配额使用量" }),
       trendBaseline: objectsTrendBaseline,
       trendBaselineValue: objectsTrendBaseline?.used_objects,
       quotaOfLabel,
@@ -548,11 +551,11 @@ export default function PortalDashboard() {
       to: "/portal/usage",
     },
     transfer: {
-      label: t({ en: "Transfer", fr: "Transfert", de: "Übertragung" }),
+      label: t({ en: "Transfer", fr: "Transfert", de: "Übertragung", zh: "传输量" }),
       bytes: transferBytes,
       loading: trafficLoading,
       trendSelection: trafficError ? null : trafficTrend,
-      detailLabel: t({ en: "Last 24h", fr: "Dernières 24 h", de: "Letzte 24 Std." }),
+      detailLabel: t({ en: "Last 24h", fr: "Dernières 24 h", de: "Letzte 24 Std.", zh: "最近 24 小时" }),
       trendComparisonLabel,
       icon: <TransferIcon className="h-7 w-7" />,
       to: "/portal/usage",
@@ -560,7 +563,7 @@ export default function PortalDashboard() {
     },
   });
   const collaboratorsMetric: WorkspaceDashboardMetric = {
-    label: t({ en: "Collaborators", fr: "Collaborateurs", de: "Mitwirkende" }),
+    label: t({ en: "Collaborators", fr: "Collaborateurs", de: "Mitwirkende", zh: "协作者" }),
     value: formatSpacedCompactNumber(collaborators?.summary.collaborator_count),
     detail: externalToolAccessDetail(collaborators?.summary.external_access_key_count, t),
     trend: collaboratorsError
@@ -580,22 +583,22 @@ export default function PortalDashboard() {
   const metrics = [...baseMetrics, collaboratorsMetric];
   const quickLinks: QuickLink[] = [
     {
-      label: t({ en: "Storage spaces", fr: "Espaces de stockage", de: "Speicherbereiche" }),
-      detail: t({ en: "Open workspace storage", fr: "Ouvrir le stockage de l'espace de travail", de: "Arbeitsbereichspeicher öffnen" }),
+      label: t({ en: "Storage spaces", fr: "Espaces de stockage", de: "Speicherbereiche", zh: "存储空间" }),
+      detail: t({ en: "Open workspace storage", fr: "Ouvrir le stockage de l'espace de travail", de: "Arbeitsbereichspeicher öffnen", zh: "打开工作区存储" }),
       to: "/portal/storage-spaces",
       tone: "emerald",
       icon: <BucketCollectionIcon className="h-4 w-4" />,
     },
     {
-      label: t({ en: "Shares", fr: "Partages", de: "Freigaben" }),
-      detail: t({ en: "Review shared access", fr: "Voir les accès partagés", de: "Freigegebene Zugriffe prüfen" }),
+      label: t({ en: "Shares", fr: "Partages", de: "Freigaben", zh: "共享" }),
+      detail: t({ en: "Review shared access", fr: "Voir les accès partagés", de: "Freigegebene Zugriffe prüfen", zh: "审查共享访问权限" }),
       to: "/portal/shares",
       tone: "violet",
       icon: <LinkIcon className="h-4 w-4" />,
     },
     {
-      label: t({ en: "Usage analytics", fr: "Analyse d'utilisation", de: "Nutzungsanalyse" }),
-      detail: t({ en: "Inspect usage and traffic", fr: "Consulter l'utilisation et le trafic", de: "Nutzung und Traffic prüfen" }),
+      label: t({ en: "Usage analytics", fr: "Analyse d'utilisation", de: "Nutzungsanalyse", zh: "用量分析" }),
+      detail: t({ en: "Inspect usage and traffic", fr: "Consulter l'utilisation et le trafic", de: "Nutzung und Traffic prüfen", zh: "查看用量与流量" }),
       to: "/portal/usage",
       tone: "blue",
       icon: <HistoryIcon className="h-4 w-4" />,
@@ -608,8 +611,8 @@ export default function PortalDashboard() {
     accountError,
     error: null,
     hasAccountContext,
-    loadingMessage: t({ en: "Loading dashboard...", fr: "Chargement du tableau de bord...", de: "Dashboard wird geladen..." }),
-    noAccountMessage: t({ en: "Select an account to open the dashboard.", fr: "Sélectionnez un compte pour ouvrir le tableau de bord.", de: "Wählen Sie ein Konto aus, um das Dashboard zu öffnen." }),
+    loadingMessage: t({ en: "Loading dashboard...", fr: "Chargement du tableau de bord...", de: "Dashboard wird geladen...", zh: "正在加载仪表盘…" }),
+    noAccountMessage: t({ en: "Select an account to open the dashboard.", fr: "Sélectionnez un compte pour ouvrir le tableau de bord.", de: "Wählen Sie ein Konto aus, um das Dashboard zu öffnen.", zh: "请选择账户以打开仪表盘。" }),
   });
   if (pageState) return pageState;
 
@@ -620,9 +623,9 @@ export default function PortalDashboard() {
   return (
     <div className="ui-dashboard-compact" data-testid="portal-dashboard">
       <PageHeader
-        title={t({ en: "Portal dashboard", fr: "Tableau de bord Portal", de: "Portal-Dashboard" })}
-        description={t({ en: `Workspace overview for ${workspace.accountName}.`, fr: `Vue de l'espace de travail ${workspace.accountName}.`, de: `Arbeitsbereichsübersicht für ${workspace.accountName}.` })}
-        breadcrumbs={portalBreadcrumbs({ label: t({ en: "Dashboard", fr: "Tableau de bord", de: "Dashboard" }) })}
+        title={t({ en: "Portal dashboard", fr: "Tableau de bord Portal", de: "Portal-Dashboard", zh: "Portal 仪表盘" })}
+        description={t({ en: `Workspace overview for ${workspace.accountName}.`, fr: `Vue de l'espace de travail ${workspace.accountName}.`, de: `Arbeitsbereichsübersicht für ${workspace.accountName}.`, zh: `${workspace.accountName} 的工作区概览。` })}
+        breadcrumbs={portalBreadcrumbs({ label: t({ en: "Dashboard", fr: "Tableau de bord", de: "Dashboard", zh: "仪表盘" }) })}
       />
 
       {(stateError || storageSpacesError) && (
@@ -634,7 +637,7 @@ export default function PortalDashboard() {
               onClick={refreshWorkspaceData}
               variant="secondary"
             >
-              {t({ en: "Retry", fr: "Réessayer", de: "Erneut versuchen" })}
+              {t({ en: "Retry", fr: "Réessayer", de: "Erneut versuchen", zh: "重试" })}
             </WorkspaceDashboardAction>
           </div>
         </PageBanner>
@@ -646,6 +649,7 @@ export default function PortalDashboard() {
             en: "Some dashboard data is still loading. Available sections remain usable.",
             fr: "Certaines données sont encore en cours de chargement. Les sections disponibles restent utilisables.",
             de: "Einige Dashboard-Daten werden noch geladen. Verfügbare Bereiche bleiben nutzbar.",
+            zh: "部分仪表盘数据仍在加载。已加载的部分可继续使用。",
           })}
         </PageBanner>
       )}

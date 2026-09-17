@@ -35,6 +35,7 @@ function usePortalNavSections(): SidebarSection[] {
           en: "Workspace",
           fr: "Espace de travail",
           de: "Arbeitsbereich",
+          zh: "工作区",
         }),
         links: [
           {
@@ -43,13 +44,14 @@ function usePortalNavSections(): SidebarSection[] {
               en: "Dashboard",
               fr: "Tableau de bord",
               de: "Dashboard",
+              zh: "仪表盘",
             }),
             end: true,
             icon: <HomeIcon />,
           },
           {
             to: "/portal/storage-spaces",
-            label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche" }),
+            label: t({ en: "Spaces", fr: "Espaces", de: "Bereiche", zh: "空间" }),
             icon: <StorageIcon />,
           },
           {
@@ -58,6 +60,7 @@ function usePortalNavSections(): SidebarSection[] {
               en: "Collaborators",
               fr: "Collaborateurs",
               de: "Mitwirkende",
+              zh: "协作者",
             }),
             icon: <ShareIcon />,
           },
@@ -67,12 +70,13 @@ function usePortalNavSections(): SidebarSection[] {
               en: "External tools",
               fr: "Outils externes",
               de: "Externe Werkzeuge",
+              zh: "外部工具",
             }),
             icon: <KeyIcon />,
           },
           {
             to: "/portal/history",
-            label: t({ en: "History", fr: "Historique", de: "Verlauf" }),
+            label: t({ en: "History", fr: "Historique", de: "Verlauf", zh: "历史记录" }),
             icon: <ActivityIcon />,
           },
           {
@@ -81,6 +85,7 @@ function usePortalNavSections(): SidebarSection[] {
               en: "Storage health",
               fr: "État du stockage",
               de: "Speicherstatus",
+              zh: "存储健康状况",
             }),
             icon: <ChartIcon />,
           },
@@ -90,12 +95,13 @@ function usePortalNavSections(): SidebarSection[] {
               en: "Help requests",
               fr: "Demandes d'aide",
               de: "Hilfeanfragen",
+              zh: "帮助请求",
             }),
             icon: <RequestIcon />,
           },
           {
             to: "/portal/settings",
-            label: t({ en: "Settings", fr: "Paramètres", de: "Einstellungen" }),
+            label: t({ en: "Settings", fr: "Paramètres", de: "Einstellungen", zh: "设置" }),
             icon: <SettingsIcon />,
           },
         ],
@@ -121,11 +127,12 @@ function PortalAccountTopbarSelector({
   const selectedLabel = selectedAccount
     ? formatAccountLabel(selectedAccount, false)
     : loading
-      ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen..." })
+      ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen...", zh: "正在加载…" })
       : t({
           en: "No project selected",
           fr: "Aucun projet sélectionné",
           de: "Kein Projekt ausgewählt",
+          zh: "未选择项目",
         });
   const options: TopbarDropdownOption[] = accounts.map((account) => ({
     value: String(account.id),
@@ -150,8 +157,9 @@ function PortalAccountTopbarSelector({
           en: "Select project",
           fr: "Sélectionner un projet",
           de: "Projekt auswählen",
+          zh: "选择项目",
         })}
-        triggerLabel={t({ en: "Project", fr: "Projet", de: "Projekt" })}
+        triggerLabel={t({ en: "Project", fr: "Projet", de: "Projekt", zh: "项目" })}
         placeholder={selectedLabel}
         widthClassName={
           mode === "icon"
@@ -165,16 +173,19 @@ function PortalAccountTopbarSelector({
             en: "Search projects",
             fr: "Rechercher des projets",
             de: "Projekte durchsuchen",
+            zh: "搜索项目",
           }),
           placeholder: t({
             en: "Search project...",
             fr: "Rechercher un projet...",
             de: "Projekt durchsuchen...",
+            zh: "搜索项目…",
           }),
           emptyMessage: t({
             en: "No project matches your search.",
             fr: "Aucun projet ne correspond à votre recherche.",
             de: "Kein Projekt entspricht Ihrer Suche.",
+            zh: "没有符合搜索条件的项目。",
           }),
         }}
         icon={<AccountControlIcon className="h-4 w-4" />}
@@ -188,13 +199,14 @@ function PortalAccountTopbarSelector({
     return (
       <TopbarStaticControl
         mode="icon"
-        label={t({ en: "Project", fr: "Projet", de: "Projekt" })}
+        label={t({ en: "Project", fr: "Projet", de: "Projekt", zh: "项目" })}
         value={selectedLabel}
         icon={<AccountControlIcon className="h-4 w-4" />}
         ariaLabel={t({
           en: `Project ${selectedLabel}`,
           fr: `Projet ${selectedLabel}`,
           de: `Projekt ${selectedLabel}`,
+          zh: `项目 ${selectedLabel}`,
         })}
         title={selectedLabel}
       />
@@ -203,13 +215,14 @@ function PortalAccountTopbarSelector({
   return (
     <TopbarStaticControl
       mode="icon_label"
-      label={t({ en: "Project", fr: "Projet", de: "Projekt" })}
+      label={t({ en: "Project", fr: "Projet", de: "Projekt", zh: "项目" })}
       value={selectedLabel}
       icon={<AccountControlIcon className="h-4 w-4" />}
       ariaLabel={t({
         en: `Project ${selectedLabel}`,
         fr: `Projet ${selectedLabel}`,
         de: `Projekt ${selectedLabel}`,
+        zh: `项目 ${selectedLabel}`,
       })}
       title={selectedLabel}
       className={TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS}
@@ -224,11 +237,12 @@ function PortalShell() {
   const selectedLabel = selectedAccount
     ? formatAccountLabel(selectedAccount, false)
     : loading
-      ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen..." })
+      ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen...", zh: "正在加载…" })
       : t({
           en: "No project selected",
           fr: "Aucun projet sélectionné",
           de: "Kein Projekt ausgewählt",
+          zh: "未选择项目",
         });
   const topbarControlDescriptors: TopbarControlDescriptor[] = [
     {

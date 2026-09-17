@@ -45,7 +45,7 @@ export default function SettingsFormDialog({
         }}
         actions={<>
           <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>
-            {completed ? t({ en: "Done", fr: "Terminer", de: "Fertig" }) : labels.cancel}
+            {completed ? t({ en: "Done", fr: "Terminer", de: "Fertig", zh: "完成" }) : labels.cancel}
           </SettingsButton>
           {!completed && <SettingsButton type="submit" variant={danger ? "danger" : "primary"}
             disabled={locked || disabled} loading={locked}>{submitLabel}</SettingsButton>}

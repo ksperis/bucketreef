@@ -20,11 +20,11 @@ export default function PortalOperationLayout({ running, onClose, metadata, acti
       <SettingsActionBar>{actions}</SettingsActionBar>
     </WorkflowPage>
     <SettingsNavigationGuard dirty={running} discardDisabled={running}
-      title={t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft" })}
-      description={t({ en: "Wait for the operation to finish, or stop it before leaving this page.", fr: "Attendez la fin de l'opération ou arrêtez-la avant de quitter cette page.", de: "Warten Sie auf das Ende des Vorgangs oder stoppen Sie ihn, bevor Sie diese Seite verlassen." })}
-      confirmLabel={t({ en: "Leave page", fr: "Quitter la page", de: "Seite verlassen" })}
-      cancelLabel={t({ en: "Stay here", fr: "Rester ici", de: "Hier bleiben" })}
-      closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen" })} />
+      title={t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft", zh: "操作正在进行" })}
+      description={t({ en: "Wait for the operation to finish, or stop it before leaving this page.", fr: "Attendez la fin de l'opération ou arrêtez-la avant de quitter cette page.", de: "Warten Sie auf das Ende des Vorgangs oder stoppen Sie ihn, bevor Sie diese Seite verlassen.", zh: "请等待操作完成，或先停止操作再离开此页面。" })}
+      confirmLabel={t({ en: "Leave page", fr: "Quitter la page", de: "Seite verlassen", zh: "离开页面" })}
+      cancelLabel={t({ en: "Stay here", fr: "Rester ici", de: "Hier bleiben", zh: "留在此页" })}
+      closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" })} />
   </>;
 }
 

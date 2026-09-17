@@ -63,6 +63,7 @@ export function useStorageSpaceObjectData({
               en: "Unable to load file details.",
               fr: "Impossible de charger les détails du fichier.",
               de: "Dateidetails können nicht geladen werden.",
+              zh: "无法加载文件详情。",
             }),
           ),
         );
@@ -115,6 +116,7 @@ export function useStorageSpaceObjectData({
                 en: "Unable to load file history.",
                 fr: "Impossible de charger l’historique du fichier.",
                 de: "Der Dateiverlauf kann nicht geladen werden.",
+                zh: "无法加载文件历史。",
               }),
             ),
           );

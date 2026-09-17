@@ -173,6 +173,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           en: `${response.filename} downloaded.`,
           fr: `${response.filename} téléchargé.`,
           de: `${response.filename} heruntergeladen.`,
+          zh: `已下载 ${response.filename}。`,
         }),
       );
     } catch (error) {
@@ -184,6 +185,7 @@ export default function StorageSpaceObjectDetailsDrawer({
             en: "Unable to download this file.",
             fr: "Impossible de télécharger ce fichier.",
             de: "Diese Datei kann nicht heruntergeladen werden.",
+            zh: "无法下载此文件。",
           }),
         ),
       );
@@ -200,6 +202,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           en: "File location copied.",
           fr: "Emplacement du fichier copié.",
           de: "Dateispeicherort kopiert.",
+          zh: "文件位置已复制。",
         }),
       );
     } catch {
@@ -208,6 +211,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           en: "Clipboard is unavailable in this browser.",
           fr: "Le presse-papiers est indisponible dans ce navigateur.",
           de: "Die Zwischenablage ist in diesem Browser nicht verfügbar.",
+          zh: "此浏览器无法使用剪贴板。",
         }),
       );
     }
@@ -224,6 +228,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           en: `${resolvedName} removed from the file list.`,
           fr: `${resolvedName} retiré de la liste des fichiers.`,
           de: `${resolvedName} wurde aus der Dateiliste entfernt.`,
+          zh: `已从文件列表移除 ${resolvedName}。`,
         }),
       );
       onRefreshObjects();
@@ -238,6 +243,7 @@ export default function StorageSpaceObjectDetailsDrawer({
             en: "Unable to delete this file.",
             fr: "Impossible de supprimer ce fichier.",
             de: "Diese Datei kann nicht gelöscht werden.",
+            zh: "无法删除此文件。",
           }),
         ),
       );
@@ -259,6 +265,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           en: "Version restored. It is now the current version.",
           fr: "Version restaurée. Elle est maintenant la version actuelle.",
           de: "Version wiederhergestellt. Sie ist jetzt die aktuelle Version.",
+          zh: "版本已恢复，并成为当前版本。",
         }),
       );
       if (isDeleted) onClose();
@@ -272,6 +279,7 @@ export default function StorageSpaceObjectDetailsDrawer({
             en: "Unable to restore this version.",
             fr: "Impossible de restaurer cette version.",
             de: "Diese Version kann nicht wiederhergestellt werden.",
+            zh: "无法恢复此版本。",
           }),
         ),
       );
@@ -286,32 +294,36 @@ export default function StorageSpaceObjectDetailsDrawer({
           en: "Public links are unavailable while this space is archived.",
           fr: "Les liens publics sont indisponibles tant que cet espace est archivé.",
           de: "Öffentliche Links sind für archivierte Bereiche nicht verfügbar.",
+          zh: "此空间归档期间无法使用公开链接。",
         })
       : space.role !== "Manager"
         ? t({
             en: "Only project managers can manage public links.",
             fr: "Seuls les gestionnaires du projet peuvent gérer les liens publics.",
             de: "Nur Projektmanager können öffentliche Links verwalten.",
+            zh: "只有项目管理员可以管理公开链接。",
           })
         : t({
             en: "Public links are available only for shared spaces.",
             fr: "Les liens publics sont disponibles uniquement pour les espaces partagés.",
             de: "Öffentliche Links sind nur für geteilte Bereiche verfügbar.",
+            zh: "公开链接仅适用于共享空间。",
           })
     : !canCreatePublicLinks
       ? t({
           en: "Your current access does not allow creating public links.",
           fr: "Votre accès actuel ne permet pas de créer de liens publics.",
           de: "Ihr aktueller Zugriff erlaubt keine öffentlichen Links.",
+          zh: "你当前的访问权限不允许创建公开链接。",
         })
       : null;
 
   const tabs = useMemo(
     () => [
-      { id: "preview", label: t({ en: "Preview", fr: "Aperçu", de: "Vorschau" }) },
-      { id: "history", label: t({ en: "History", fr: "Historique", de: "Verlauf" }) },
-      { id: "sharing", label: t({ en: "Sharing", fr: "Partage", de: "Freigabe" }) },
-      { id: "details", label: t({ en: "Details", fr: "Détails", de: "Details" }) },
+      { id: "preview", label: t({ en: "Preview", fr: "Aperçu", de: "Vorschau", zh: "预览" }) },
+      { id: "history", label: t({ en: "History", fr: "Historique", de: "Verlauf", zh: "历史记录" }) },
+      { id: "sharing", label: t({ en: "Sharing", fr: "Partage", de: "Freigabe", zh: "共享" }) },
+      { id: "details", label: t({ en: "Details", fr: "Détails", de: "Details", zh: "详情" }) },
     ],
     [t],
   );
@@ -321,13 +333,13 @@ export default function StorageSpaceObjectDetailsDrawer({
       <ObjectDetailsDrawer
         name={resolvedName}
         path={resolvedKey}
-        copyPathLabel={t({ en: "Copy path", fr: "Copier le chemin", de: "Pfad kopieren" })}
-        moreLabel={t({ en: "More", fr: "Plus", de: "Mehr" })}
+        copyPathLabel={t({ en: "Copy path", fr: "Copier le chemin", de: "Pfad kopieren", zh: "复制路径" })}
+        moreLabel={t({ en: "More", fr: "Plus", de: "Mehr", zh: "更多" })}
         onCopyPath={() => void handleCopyPath()}
         primaryAction={
           !isDeleted
             ? {
-                label: t({ en: "Download", fr: "Télécharger", de: "Herunterladen" }),
+                label: t({ en: "Download", fr: "Télécharger", de: "Herunterladen", zh: "下载" }),
                 loading: downloading,
                 onSelect: () => void handleDownload(),
               }
@@ -337,7 +349,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           !isDeleted && canModify
             ? [{
                 id: "delete",
-                label: t({ en: "Delete", fr: "Supprimer", de: "Löschen" }),
+                label: t({ en: "Delete", fr: "Supprimer", de: "Löschen", zh: "删除" }),
                 tone: "danger",
                 onSelect: () => setPendingAction({ type: "delete" }),
               }]
@@ -349,6 +361,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           en: "File detail views",
           fr: "Vues du détail du fichier",
           de: "Dateidetailansichten",
+          zh: "文件详情视图",
         })}
         notice={
           isDeleted ? (
@@ -357,6 +370,7 @@ export default function StorageSpaceObjectDetailsDrawer({
                 en: "This file is in the trash. Review History to restore a version.",
                 fr: "Ce fichier est dans la corbeille. Consultez l’historique pour restaurer une version.",
                 de: "Diese Datei befindet sich im Papierkorb. Stellen Sie eine Version im Verlauf wieder her.",
+                zh: "此文件在回收站中。查看“历史记录”以恢复版本。",
               })}
             </PageBanner>
           ) : detailError ? <PageBanner tone="warning">{detailError}</PageBanner> : null
@@ -367,7 +381,7 @@ export default function StorageSpaceObjectDetailsDrawer({
         {activeView === "preview" ? (
           detailLoading && !detail ? (
             <div className={cx("py-10 text-center text-sm font-semibold", uiMutedTextClass)}>
-              {t({ en: "Loading preview...", fr: "Chargement de l’aperçu...", de: "Vorschau wird geladen..." })}
+              {t({ en: "Loading preview...", fr: "Chargement de l’aperçu...", de: "Vorschau wird geladen...", zh: "正在加载预览…" })}
             </div>
           ) : detail && !isDeleted ? (
             <ObjectPreview
@@ -378,19 +392,19 @@ export default function StorageSpaceObjectDetailsDrawer({
               loadBlob={loadPreview}
               variant="card"
               labels={{
-                loading: t({ en: "Loading preview...", fr: "Chargement de l’aperçu...", de: "Vorschau wird geladen..." }),
-                unavailable: t({ en: "Preview is unavailable for this file type.", fr: "L’aperçu n’est pas disponible pour ce type de fichier.", de: "Für diesen Dateityp ist keine Vorschau verfügbar." }),
-                tooLarge: t({ en: "Preview is limited to files of 50 MiB or less. Download the file to open it.", fr: "L’aperçu est limité aux fichiers de 50 Mio maximum. Téléchargez le fichier pour l’ouvrir.", de: "Die Vorschau ist auf Dateien bis 50 MiB begrenzt. Laden Sie die Datei herunter, um sie zu öffnen." }),
-                unknownSize: t({ en: "Preview is unavailable because the file size could not be determined.", fr: "L’aperçu est indisponible car la taille du fichier n’a pas pu être déterminée.", de: "Die Vorschau ist nicht verfügbar, da die Dateigröße nicht ermittelt werden konnte." }),
-                truncated: t({ en: "Preview truncated to the first 64 KiB.", fr: "Aperçu limité aux 64 premiers Kio.", de: "Vorschau auf die ersten 64 KiB gekürzt." }),
-                error: t({ en: "Unable to load preview.", fr: "Impossible de charger l’aperçu.", de: "Vorschau kann nicht geladen werden." }),
-                frameTitle: t({ en: "File preview", fr: "Aperçu du fichier", de: "Dateivorschau" }),
+                loading: t({ en: "Loading preview...", fr: "Chargement de l’aperçu...", de: "Vorschau wird geladen...", zh: "正在加载预览…" }),
+                unavailable: t({ en: "Preview is unavailable for this file type.", fr: "L’aperçu n’est pas disponible pour ce type de fichier.", de: "Für diesen Dateityp ist keine Vorschau verfügbar.", zh: "此文件类型不支持预览。" }),
+                tooLarge: t({ en: "Preview is limited to files of 50 MiB or less. Download the file to open it.", fr: "L’aperçu est limité aux fichiers de 50 Mio maximum. Téléchargez le fichier pour l’ouvrir.", de: "Die Vorschau ist auf Dateien bis 50 MiB begrenzt. Laden Sie die Datei herunter, um sie zu öffnen.", zh: "仅支持预览不超过 50 MiB 的文件。请下载后打开。" }),
+                unknownSize: t({ en: "Preview is unavailable because the file size could not be determined.", fr: "L’aperçu est indisponible car la taille du fichier n’a pas pu être déterminée.", de: "Die Vorschau ist nicht verfügbar, da die Dateigröße nicht ermittelt werden konnte.", zh: "无法确定文件大小，因此无法预览。" }),
+                truncated: t({ en: "Preview truncated to the first 64 KiB.", fr: "Aperçu limité aux 64 premiers Kio.", de: "Vorschau auf die ersten 64 KiB gekürzt.", zh: "预览仅显示前 64 KiB 内容。" }),
+                error: t({ en: "Unable to load preview.", fr: "Impossible de charger l’aperçu.", de: "Vorschau kann nicht geladen werden.", zh: "无法加载预览。" }),
+                frameTitle: t({ en: "File preview", fr: "Aperçu du fichier", de: "Dateivorschau", zh: "文件预览" }),
               }}
-              formatError={(error) => extractApiError(error, t({ en: "Unable to load preview.", fr: "Impossible de charger l’aperçu.", de: "Vorschau kann nicht geladen werden." }))}
+              formatError={(error) => extractApiError(error, t({ en: "Unable to load preview.", fr: "Impossible de charger l’aperçu.", de: "Vorschau kann nicht geladen werden.", zh: "无法加载预览。" }))}
             />
           ) : (
             <PageBanner tone="info">
-              {t({ en: "Preview is unavailable for this file.", fr: "L’aperçu est indisponible pour ce fichier.", de: "Für diese Datei ist keine Vorschau verfügbar." })}
+              {t({ en: "Preview is unavailable for this file.", fr: "L’aperçu est indisponible pour ce fichier.", de: "Für diese Datei ist keine Vorschau verfügbar.", zh: "此文件无法预览。" })}
             </PageBanner>
           )
         ) : null}
@@ -401,6 +415,7 @@ export default function StorageSpaceObjectDetailsDrawer({
               en: "Version history is disabled for this space, so there are no earlier versions to show.",
               fr: "L’historique des versions est désactivé pour cet espace : aucune version antérieure n’est disponible.",
               de: "Der Versionsverlauf ist für diesen Bereich deaktiviert. Es sind keine früheren Versionen verfügbar.",
+              zh: "此空间已禁用版本历史，因此没有可显示的旧版本。",
             })}
           </PageBanner>
         ) : activeView === "history" ? (
@@ -417,11 +432,12 @@ export default function StorageSpaceObjectDetailsDrawer({
 
         {activeView === "sharing" ? (
           <UiCard
-            title={t({ en: "Public links", fr: "Liens publics", de: "Öffentliche Links" })}
+            title={t({ en: "Public links", fr: "Liens publics", de: "Öffentliche Links", zh: "公开链接" })}
             description={t({
               en: "Share this file outside the workspace only when anyone with the link should have access.",
               fr: "Partagez ce fichier hors de l’espace uniquement lorsque toute personne avec le lien peut y accéder.",
               de: "Geben Sie diese Datei außerhalb des Workspace nur frei, wenn alle mit dem Link Zugriff haben dürfen.",
+              zh: "仅当允许任何持有链接的人访问时，才将此文件共享到工作区之外。",
             })}
             actions={
               <UiButton
@@ -430,7 +446,7 @@ export default function StorageSpaceObjectDetailsDrawer({
                 disabled={!canCreatePublicLinks}
                 onClick={openCreate}
               >
-                {t({ en: "Create link", fr: "Créer un lien", de: "Link erstellen" })}
+                {t({ en: "Create link", fr: "Créer un lien", de: "Link erstellen", zh: "创建链接" })}
               </UiButton>
             }
           >
@@ -440,7 +456,7 @@ export default function StorageSpaceObjectDetailsDrawer({
                 links={links}
                 status={resolveListTableStatus({ loading: linksLoading, error: linksError, rowCount: links.length })}
                 errorMessage={linksError ?? undefined}
-                emptyMessage={t({ en: "No public links for this file.", fr: "Aucun lien public pour ce fichier.", de: "Keine öffentlichen Links für diese Datei." })}
+                emptyMessage={t({ en: "No public links for this file.", fr: "Aucun lien public pour ce fichier.", de: "Keine öffentlichen Links für diese Datei.", zh: "此文件没有公开链接。" })}
                 busyLinkId={busyLinkId}
                 fitContainer
                 onCopy={(link) => void copyLink(link)}
@@ -451,15 +467,15 @@ export default function StorageSpaceObjectDetailsDrawer({
         ) : null}
 
         {activeView === "details" ? (
-          <UiCard title={t({ en: "General information", fr: "Informations générales", de: "Allgemeine Informationen" })}>
+          <UiCard title={t({ en: "General information", fr: "Informations générales", de: "Allgemeine Informationen", zh: "基本信息" })}>
             <DetailsList
               items={[
                 {
-                  label: t({ en: "Space", fr: "Espace", de: "Bereich" }),
+                  label: t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" }),
                   value: space.name,
                 },
                 {
-                  label: t({ en: "Size", fr: "Taille", de: "Größe" }),
+                  label: t({ en: "Size", fr: "Taille", de: "Größe", zh: "大小" }),
                   value: formatBytes(detail?.size ?? null),
                 },
                 {
@@ -467,6 +483,7 @@ export default function StorageSpaceObjectDetailsDrawer({
                     en: "Content type",
                     fr: "Type de contenu",
                     de: "Inhaltstyp",
+                    zh: "内容类型",
                   }),
                   value: detail?.content_type ?? "-",
                 },
@@ -475,18 +492,19 @@ export default function StorageSpaceObjectDetailsDrawer({
                     en: "Last modified",
                     fr: "Dernière modification",
                     de: "Zuletzt geändert",
+                    zh: "最后修改时间",
                   }),
                   value: portalDateTimeLabel(detail?.last_modified, locale),
                 },
                 {
-                  label: t({ en: "Path", fr: "Chemin", de: "Pfad" }),
+                  label: t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }),
                   value: resolvedKey,
                   mono: true,
                 },
               ]}
             />
             <details className={cx("mt-4 rounded-md border border-[color:var(--ui-border)] px-3 py-2 text-xs", uiMutedTextClass)}>
-              <summary className={cx("cursor-pointer font-bold", uiTitleTextClass)}>{t({ en: "Technical details", fr: "Détails techniques", de: "Technische Details" })}</summary>
+              <summary className={cx("cursor-pointer font-bold", uiTitleTextClass)}>{t({ en: "Technical details", fr: "Détails techniques", de: "Technische Details", zh: "技术详情" })}</summary>
               <div className="mt-3">
                 <DetailsList
                   items={[
@@ -495,6 +513,7 @@ export default function StorageSpaceObjectDetailsDrawer({
                         en: "Storage class",
                         fr: "Classe de stockage",
                         de: "Speicherklasse",
+                        zh: "存储类别",
                       }),
                       value: detail?.storage_class ?? "STANDARD",
                     },
@@ -503,6 +522,7 @@ export default function StorageSpaceObjectDetailsDrawer({
                         en: "Encryption",
                         fr: "Chiffrement",
                         de: "Verschlüsselung",
+                        zh: "加密",
                       }),
                       value: detail?.encryption ?? "-",
                     },
@@ -510,20 +530,20 @@ export default function StorageSpaceObjectDetailsDrawer({
                 />
               </div>
             </details>
-            {detailLoading ? <p className={cx("mt-4 text-xs font-semibold", uiMutedTextClass)}>{t({ en: "Loading metadata...", fr: "Chargement des métadonnées...", de: "Metadaten werden geladen..." })}</p> : null}
+            {detailLoading ? <p className={cx("mt-4 text-xs font-semibold", uiMutedTextClass)}>{t({ en: "Loading metadata...", fr: "Chargement des métadonnées...", de: "Metadaten werden geladen...", zh: "正在加载元数据…" })}</p> : null}
           </UiCard>
         ) : null}
       </ObjectDetailsDrawer>
 
       {pendingAction?.type === "delete" ? (
         <ConfirmActionDialog
-          title={t({ en: "Delete this file?", fr: "Supprimer ce fichier ?", de: "Diese Datei löschen?" })}
-          description={t({ en: "The file will be removed from the current list. Its recovery depends on this space's version history settings.", fr: "Le fichier sera retiré de la liste actuelle. Sa récupération dépend des paramètres d’historique de cet espace.", de: "Die Datei wird aus der aktuellen Liste entfernt. Ihre Wiederherstellung hängt von den Verlaufseinstellungen ab." })}
-          confirmLabel={t({ en: "Delete file", fr: "Supprimer le fichier", de: "Datei löschen" })}
+          title={t({ en: "Delete this file?", fr: "Supprimer ce fichier ?", de: "Diese Datei löschen?", zh: "删除此文件？" })}
+          description={t({ en: "The file will be removed from the current list. Its recovery depends on this space's version history settings.", fr: "Le fichier sera retiré de la liste actuelle. Sa récupération dépend des paramètres d’historique de cet espace.", de: "Die Datei wird aus der aktuellen Liste entfernt. Ihre Wiederherstellung hängt von den Verlaufseinstellungen ab.", zh: "文件将从当前列表移除。能否恢复取决于此空间的版本历史设置。" })}
+          confirmLabel={t({ en: "Delete file", fr: "Supprimer le fichier", de: "Datei löschen", zh: "删除文件" })}
           loading={deleteBusy}
           details={[
-            { label: t({ en: "File", fr: "Fichier", de: "Datei" }), value: resolvedName },
-            { label: t({ en: "Path", fr: "Chemin", de: "Pfad" }), value: resolvedKey, mono: true },
+            { label: t({ en: "File", fr: "Fichier", de: "Datei", zh: "文件" }), value: resolvedName },
+            { label: t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), value: resolvedKey, mono: true },
           ]}
           onCancel={() => setPendingAction(null)}
           onConfirm={() => void confirmDelete()}
@@ -532,9 +552,9 @@ export default function StorageSpaceObjectDetailsDrawer({
 
       {pendingAction?.type === "restore" ? (
         <ConfirmActionDialog
-          title={t({ en: "Restore this version?", fr: "Restaurer cette version ?", de: "Diese Version wiederherstellen?" })}
-          description={t({ en: "This version will become the file's new current state.", fr: "Cette version deviendra le nouvel état actuel du fichier.", de: "Diese Version wird zum neuen aktuellen Stand der Datei." })}
-          confirmLabel={t({ en: "Restore version", fr: "Restaurer la version", de: "Version wiederherstellen" })}
+          title={t({ en: "Restore this version?", fr: "Restaurer cette version ?", de: "Diese Version wiederherstellen?", zh: "恢复此版本？" })}
+          description={t({ en: "This version will become the file's new current state.", fr: "Cette version deviendra le nouvel état actuel du fichier.", de: "Diese Version wird zum neuen aktuellen Stand der Datei.", zh: "此版本将成为文件新的当前状态。" })}
+          confirmLabel={t({ en: "Restore version", fr: "Restaurer la version", de: "Version wiederherstellen", zh: "恢复版本" })}
           loading={restoringVersionId === pendingAction.version.version_id}
           onCancel={() => setPendingAction(null)}
           onConfirm={() => void confirmRestore(pendingAction.version)}

@@ -92,7 +92,7 @@ export type User = {
   can_provision_managed_private_connections?: boolean;
   manager_tool_access?: ManagerToolAccess | null;
   browser_advanced_features_enabled?: boolean;
-  ui_language?: "en" | "fr" | "de" | null;
+  ui_language?: "en" | "fr" | "de" | "zh" | null;
   quota_alerts_enabled?: boolean;
   quota_alerts_global_watch?: boolean;
   ui_preferences?: UiPreferences | null;
@@ -135,7 +135,7 @@ export type UpdateUserPayload = {
   email?: string;
   full_name?: string | null;
   avatar_preference?: UserAvatarPreference;
-  ui_language?: "en" | "fr" | "de" | null;
+  ui_language?: "en" | "fr" | "de" | "zh" | null;
   quota_alerts_enabled?: boolean;
   quota_alerts_global_watch?: boolean;
   password?: string;
@@ -156,7 +156,7 @@ export type UpdateUserPayload = {
 type UpdateCurrentUserPayload = {
   full_name?: string | null;
   avatar_preference?: UserAvatarPreference;
-  ui_language?: "en" | "fr" | "de" | null;
+  ui_language?: "en" | "fr" | "de" | "zh" | null;
   quota_alerts_enabled?: boolean;
   quota_alerts_global_watch?: boolean;
   ui_preferences?: UiPreferences | null;
