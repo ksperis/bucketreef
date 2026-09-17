@@ -58,6 +58,41 @@ dedicated in-memory `/tmp`. Keep `/data` as the backend's only persistent
 writable location. The host frontend port remains `8080`; nginx now listens on
 `8080` inside the container as well.
 
+### Upgrading an existing SQLite volume
+
+Old containers may have created `/data` and its files as root. Building the new
+image does not change ownership inside an existing volume. A startup error
+containing `attempt to write a readonly database` therefore requires checking
+volume permissions, not rebuilding the database. SQLite also needs write access
+to the parent directory and its journal/WAL files.
+
+Stop the deployment and back up the complete volume before changing ownership.
+Use the same Compose options as your deployment (including its env file,
+overrides, project name, and profiles) for every command below. For example:
+
+```bash
+compose=(docker compose --env-file .env.bucketreef-local \
+  -f docker-compose.build.yml -f .env.bucketreef-local.override.yml \
+  --profile operations)
+"${compose[@]}" stop
+backend_id=$("${compose[@]}" ps -aq backend)
+docker inspect "$backend_id" --format '{{json .Mounts}}'
+# Confirm the existing /data volume and its RW=true mount before proceeding.
+umask 077
+"${compose[@]}" run --rm --no-deps --user 0:0 --cap-add DAC_READ_SEARCH \
+  --entrypoint tar backend -C /data -cpf - . > bucketreef-data-before-ownership.tar
+# Continue only after the backup succeeds and its contents are verified.
+tar -tf bucketreef-data-before-ownership.tar
+"${compose[@]}" run --rm --no-deps --user 0:0 --cap-add CHOWN \
+  --entrypoint chown backend -R --no-dereference 10001:10001 /data
+"${compose[@]}" up -d --build --wait
+```
+
+The array syntax above requires Bash or Zsh. Keep the backup outside version
+control in a secure location. The one-time helper runs as root only to migrate
+the existing volume ownership; the backend continues running as `10001:10001`.
+Do not remove the volume or disable the backend's runtime security controls.
+
 ## Default endpoints
 
 - Frontend: `http://localhost:8080`
