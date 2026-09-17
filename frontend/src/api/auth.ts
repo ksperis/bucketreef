@@ -26,7 +26,7 @@ export type AuthUser = {
     can_provision_managed_private_connections?: boolean;
     manager_tool_access?: ManagerToolAccess | null;
     browser_advanced_features_enabled?: boolean;
-    ui_language?: "en" | "fr" | "de" | null;
+    ui_language?: "en" | "fr" | "de" | "zh" | null;
     ui_preferences?: UiPreferences | null;
     account_links?: (AccountAccessGrant & {
       account_id: number;

@@ -77,6 +77,7 @@ export function useStorageSpaceObjectSharing({
               en: "Unable to load public links.",
               fr: "Impossible de charger les liens publics.",
               de: "Öffentliche Links können nicht geladen werden.",
+              zh: "无法加载公开链接。",
             }),
           ),
         );
@@ -144,6 +145,7 @@ export function useStorageSpaceObjectSharing({
             en: "Choose a valid expiration date.",
             fr: "Choisissez une date d'expiration valide.",
             de: "Wählen Sie ein gültiges Ablaufdatum.",
+            zh: "请选择有效的过期日期。",
           }),
         );
         return;
@@ -166,6 +168,7 @@ export function useStorageSpaceObjectSharing({
           en: "Public link created.",
           fr: "Lien public créé.",
           de: "Öffentlicher Link erstellt.",
+          zh: "公开链接已创建。",
         }),
       );
       await loadLinks();
@@ -178,6 +181,7 @@ export function useStorageSpaceObjectSharing({
             en: "Unable to create public link.",
             fr: "Impossible de créer le lien public.",
             de: "Öffentlicher Link kann nicht erstellt werden.",
+            zh: "无法创建公开链接。",
           }),
         ),
       );
@@ -203,7 +207,7 @@ export function useStorageSpaceObjectSharing({
     try {
       await copyTextToClipboard(createdLink.url);
       setCreateMessage(
-        t({ en: "Link copied.", fr: "Lien copié.", de: "Link kopiert." }),
+        t({ en: "Link copied.", fr: "Lien copié.", de: "Link kopiert.", zh: "链接已复制。" }),
       );
     } catch {
       setCreateMessage(
@@ -211,6 +215,7 @@ export function useStorageSpaceObjectSharing({
           en: "Clipboard is unavailable in this browser.",
           fr: "Le presse-papiers est indisponible dans ce navigateur.",
           de: "Die Zwischenablage ist in diesem Browser nicht verfügbar.",
+          zh: "此浏览器无法使用剪贴板。",
         }),
       );
     }

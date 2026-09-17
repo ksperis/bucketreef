@@ -179,17 +179,21 @@ def test_user_avatar_requires_a_shared_portal_account(client, db_session):
     assert client.get(f"/api/users/{target.id}/avatar").status_code == 404
 
 
-def test_update_users_me_updates_ui_language(client, db_session):
+@pytest.mark.parametrize("language", ["en", "fr", "de", "zh"])
+def test_update_users_me_updates_ui_language(client, db_session, language):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put("/api/users/me", json={"ui_language": "de"})
+    response = client.put("/api/users/me", json={"ui_language": language})
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert payload["ui_language"] == "de"
+    assert payload["ui_language"] == language
 
     db_session.refresh(user)
-    assert user.ui_language == "de"
+    assert user.ui_language == language
+    reloaded = client.get("/api/users/me")
+    assert reloaded.status_code == 200, reloaded.text
+    assert reloaded.json()["ui_language"] == language
 
 
 def test_update_users_me_clears_ui_language(client, db_session):

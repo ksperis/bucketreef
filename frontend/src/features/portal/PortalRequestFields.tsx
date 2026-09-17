@@ -8,7 +8,7 @@ export function PortalRequestReason({ value, onChange, disabled }: {
   value: string; onChange: (value: string) => void; disabled?: boolean;
 }) {
   const { t } = useI18n();
-  return <UiTextarea label={t({ en: "Reason (optional)", fr: "Motif (optionnel)", de: "Grund (optional)" })}
+  return <UiTextarea label={t({ en: "Reason (optional)", fr: "Motif (optionnel)", de: "Grund (optional)", zh: "原因（可选）" })}
     rows={3} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} />;
 }
 
@@ -33,9 +33,9 @@ export function PortalMemberIdentityFields({ name, email, onNameChange, onEmailC
 }) {
   const { t } = useI18n();
   return <>
-    <UiInput label={t({ en: "Name", fr: "Nom", de: "Name" })} value={name}
+    <UiInput label={t({ en: "Name", fr: "Nom", de: "Name", zh: "姓名" })} value={name}
       onChange={(event) => onNameChange(event.target.value)} disabled={disabled || nameDisabled} required />
-    {emailControl ?? <UiInput label={t({ en: "Email", fr: "E-mail", de: "E-Mail" })} type="email" value={email}
+    {emailControl ?? <UiInput label={t({ en: "Email", fr: "E-mail", de: "E-Mail", zh: "邮箱" })} type="email" value={email}
       onChange={(event) => onEmailChange(event.target.value)} disabled={disabled} required />}
   </>;
 }

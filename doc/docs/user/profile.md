@@ -24,7 +24,7 @@ Use this page when you need to adjust personal UI preferences, manage your sign-
    The name and profile image each open a short **Edit** dialog. Image source
    and file selections stay in draft until **Save**. Unsaved edits are protected
    when closing dialogs, changing tabs, leaving the route or using browser history.
-   English, French and German are available; **Automatic (browser)** follows your
+   English, French, German and Simplified Chinese are available; **Automatic (browser)** follows your
    browser language. If saving server preferences fails, the choices remain in
    the form and local theme changes are not applied.
 

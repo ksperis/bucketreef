@@ -79,6 +79,21 @@ describe("compact profile preferences", () => {
     expect(screen.queryByRole("button", { name: "Save preferences" })).not.toBeInTheDocument();
   });
 
+  it("saves Simplified Chinese and restores it when the profile is mounted again", async () => {
+    const user = userEvent.setup();
+    const view = renderPage();
+    await screen.findByText("Test Person");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Language" }), "zh");
+    await user.click(screen.getByRole("button", { name: "Save preferences" }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ ui_language: "zh" })));
+    expect(await screen.findByRole("combobox", { name: "语言" })).toHaveValue("zh");
+    view.unmount();
+    mocks.fetch.mockResolvedValue({ ...profile, ui_language: "zh" });
+    renderPage();
+    expect(await screen.findByRole("combobox", { name: "语言" })).toHaveValue("zh");
+    expect(document.documentElement.lang).toBe("zh-Hans");
+  });
+
   it("keeps name edits through Escape and saves the trimmed name", async () => {
     const user = userEvent.setup();
     renderPage();
@@ -134,15 +149,15 @@ describe("compact profile preferences", () => {
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Default workspace" })).toHaveValue("browser"));
   });
 
-  it.each(["en", "fr", "de"] as const)("has translated accessible controls and no a11y violations in %s", async language => {
+  it.each(["en", "fr", "de", "zh"] as const)("has translated accessible controls and no a11y violations in %s", async language => {
     mocks.fetch.mockResolvedValue({ ...profile, ui_language: language });
     setSessionUserCache({ role: "ui_admin", authType: "password", ui_language: language });
     const { container } = renderPage();
     await screen.findByText("Test Person");
-    const names = { en: "Language", fr: "Langue", de: "Sprache" };
+    const names = { en: "Language", fr: "Langue", de: "Sprache", zh: "语言" };
     expect(screen.getByRole("combobox", { name: names[language] })).toBeInTheDocument();
     expect(await axe(container)).toHaveNoViolations();
-    const edit = { en: "Edit name", fr: "Modifier le nom", de: "Namen bearbeiten" };
+    const edit = { en: "Edit name", fr: "Modifier le nom", de: "Namen bearbeiten", zh: "编辑姓名" };
     fireEvent.click(screen.getByRole("button", { name: edit[language] }));
     expect(within(screen.getByRole("dialog")).getByRole("textbox")).toHaveAccessibleName();
   });

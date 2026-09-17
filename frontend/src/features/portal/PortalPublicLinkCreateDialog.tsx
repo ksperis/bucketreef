@@ -48,6 +48,7 @@ export default function PortalPublicLinkCreateDialog({
         en: "Create public link",
         fr: "Créer un lien public",
         de: "Öffentlichen Link erstellen",
+        zh: "创建公开链接",
       })}
       onClose={onClose}
       draftKey={expiration}
@@ -56,14 +57,14 @@ export default function PortalPublicLinkCreateDialog({
       completed={Boolean(createdLink)}
       error={error}
       onSubmit={onCreate}
-      submitLabel={t({ en: "Create link", fr: "Créer le lien", de: "Link erstellen" })}
+      submitLabel={t({ en: "Create link", fr: "Créer le lien", de: "Link erstellen", zh: "创建链接" })}
     >
       {message ? <PageBanner tone="info">{message}</PageBanner> : null}
       <dl className="grid gap-3 text-xs">
         {[
-          [t({ en: "File", fr: "Fichier", de: "Datei" }), fileName, false],
-          [t({ en: "Path", fr: "Chemin", de: "Pfad" }), path, true],
-          [t({ en: "Space", fr: "Espace", de: "Bereich" }), spaceName, false],
+          [t({ en: "File", fr: "Fichier", de: "Datei", zh: "文件" }), fileName, false],
+          [t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), path, true],
+          [t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" }), spaceName, false],
         ].map(([label, value, mono]) => (
           <div key={label as string} className="grid gap-1 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3">
             <dt className={cx("font-semibold", uiMutedTextClass)}>{label}</dt>
@@ -81,7 +82,7 @@ export default function PortalPublicLinkCreateDialog({
       </dl>
       <UiInput
         type="datetime-local"
-        label={t({ en: "Expiration", fr: "Expiration", de: "Ablauf" })}
+        label={t({ en: "Expiration", fr: "Expiration", de: "Ablauf", zh: "过期时间" })}
         size="compact"
         value={expiration}
         disabled={busy || Boolean(createdLink)}
@@ -90,12 +91,13 @@ export default function PortalPublicLinkCreateDialog({
           en: "Public link expiration",
           fr: "Expiration du lien public",
           de: "Ablauf des öffentlichen Links",
+          zh: "公开链接过期时间",
         })}
       />
       {createdLink ? (
         <div className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
           <div className={cx("text-[11px] font-semibold uppercase", uiMutedTextClass)}>
-            {t({ en: "Public link", fr: "Lien public", de: "Öffentlicher Link" })}
+            {t({ en: "Public link", fr: "Lien public", de: "Öffentlicher Link", zh: "公开链接" })}
           </div>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <code className="min-w-0 flex-1 break-all rounded-md bg-[var(--ui-surface)] px-2 py-1 text-[11px]">
@@ -103,7 +105,7 @@ export default function PortalPublicLinkCreateDialog({
             </code>
             {onCopy ? (
               <UiButton size="sm" variant="secondary" onClick={onCopy}>
-                {t({ en: "Copy link", fr: "Copier le lien", de: "Link kopieren" })}
+                {t({ en: "Copy link", fr: "Copier le lien", de: "Link kopieren", zh: "复制链接" })}
               </UiButton>
             ) : null}
           </div>

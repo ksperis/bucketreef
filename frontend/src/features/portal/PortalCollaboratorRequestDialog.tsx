@@ -34,7 +34,7 @@ export default function PortalCollaboratorRequestDialog({ initialName, initialEm
         await onSubmit({ targetName: name.trim(), targetEmail: email.trim() });
         close();
       } catch (cause) {
-        setError(extractApiError(cause, controller.t({ en: "Unable to send the request.", fr: "Impossible d'envoyer la demande.", de: "Anfrage kann nicht gesendet werden." })));
+        setError(extractApiError(cause, controller.t({ en: "Unable to send the request.", fr: "Impossible d'envoyer la demande.", de: "Anfrage kann nicht gesendet werden.", zh: "无法发送请求。" })));
       }
     },
   });
@@ -43,7 +43,7 @@ export default function PortalCollaboratorRequestDialog({ initialName, initialEm
     onDraftStateChange?.({ dirty, busy: locked });
   }, [dirty, locked, onDraftStateChange]);
   useEffect(() => () => onDraftStateChange?.({ dirty: false, busy: false }), [onDraftStateChange]);
-  const title = t({ en: "Request collaborator access", fr: "Demander l'ajout d'un collaborateur", de: "Mitwirkenden-Zugriff anfragen" });
+  const title = t({ en: "Request collaborator access", fr: "Demander l'ajout d'un collaborateur", de: "Mitwirkenden-Zugriff anfragen", zh: "申请添加协作者" });
   return createPortal(<>
     <SettingsDialog title={title} onClose={requestClose} closeDisabled={locked}
       initialFocusRef={initialFocus}
@@ -51,18 +51,19 @@ export default function PortalCollaboratorRequestDialog({ initialName, initialEm
       <SettingsForm label={title} presentation="dialog" busy={locked} submitDisabled={disabled}
         formRef={node => { initialFocus.current = node?.querySelector("input:not(:disabled)") ?? null; }}
         onSubmit={submit} onCancel={requestClose} noValidate={false}
-        submitLabel={t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden" })}
-        busyLabel={t({ en: "Sending...", fr: "Envoi...", de: "Wird gesendet..." })}
+        submitLabel={t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden", zh: "发送请求" })}
+        busyLabel={t({ en: "Sending...", fr: "Envoi...", de: "Wird gesendet...", zh: "正在发送…" })}
         actions={<>
           <SettingsButton variant="secondary" disabled={locked} onClick={requestClose}>{labels.cancel}</SettingsButton>
           <SettingsButton type="submit" disabled={locked || disabled} loading={locked}>{locked
-            ? t({ en: "Sending...", fr: "Envoi...", de: "Wird gesendet..." })
-            : t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden" })}</SettingsButton>
+            ? t({ en: "Sending...", fr: "Envoi...", de: "Wird gesendet...", zh: "正在发送…" })
+            : t({ en: "Send request", fr: "Envoyer la demande", de: "Anfrage senden", zh: "发送请求" })}</SettingsButton>
         </>}>
         <p className="settings-description">{t({
           en: "Ask an admin to add this person to the project. Once they are added, you can invite them to the space.",
           fr: "Demandez à un admin d'ajouter cette personne au projet. Une fois ajoutée, vous pourrez l'inviter dans l'espace.",
           de: "Bitten Sie einen Admin, diese Person zum Projekt hinzuzufügen. Danach können Sie sie in den Bereich einladen.",
+          zh: "请让管理员将此人添加到项目。添加后，你就可以邀请其加入空间。",
         })}</p>
         <PortalMemberIdentityFields name={name} email={email} onNameChange={setName} onEmailChange={setEmail} />
         {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}

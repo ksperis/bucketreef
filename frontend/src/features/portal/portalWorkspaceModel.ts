@@ -190,7 +190,7 @@ export function buildPortalWorkspaceModel({
       internalName: storageSpace.internal_bucket_name ?? null,
       origin: storageSpace.origin ?? "imported",
       nameEditable: Boolean(storageSpace.name_editable),
-      description: storageSpace.description ?? t({ en: `${name} storage space`, fr: `Espace de stockage ${name}`, de: `Speicherbereich ${name}` }),
+      description: storageSpace.description ?? t({ en: `${name} storage space`, fr: `Espace de stockage ${name}`, de: `Speicherbereich ${name}`, zh: `${name} 存储空间` }),
       ownerLabel: storageSpace.owner_label ?? null,
       ownerUserId: storageSpace.owner_user_id ?? null,
       collaborators: storageSpace.collaborators ?? [],

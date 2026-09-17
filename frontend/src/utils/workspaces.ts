@@ -43,7 +43,7 @@ export type SessionUser = {
   avatar?: UserAvatarDescriptor | null;
   has_local_password?: boolean | null;
   role?: UiRole | null;
-  ui_language?: "en" | "fr" | "de" | null;
+  ui_language?: "en" | "fr" | "de" | "zh" | null;
   ui_preferences?: UiPreferences | null;
   can_access_ceph_admin?: boolean | null;
   can_access_storage_ops?: boolean | null;

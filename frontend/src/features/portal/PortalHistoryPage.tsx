@@ -182,15 +182,15 @@ function compactUserAgent(value?: string | null): string | null {
 function serverLogIdentityKindLabel(kind: PortalServerAccessRequesterIdentity["kind"], t: ReturnType<typeof useI18n>["t"]): string {
   switch (kind) {
     case "portal_user":
-      return t({ en: "Portal user", fr: "Utilisateur portail", de: "Portal-Benutzer" });
+      return t({ en: "Portal user", fr: "Utilisateur portail", de: "Portal-Benutzer", zh: "Portal 用户" });
     case "external_access":
-      return t({ en: "External access", fr: "Accès externe", de: "Externer Zugriff" });
+      return t({ en: "External access", fr: "Accès externe", de: "Externer Zugriff", zh: "外部访问" });
     case "rgw_user":
-      return t({ en: "Storage user", fr: "Utilisateur stockage", de: "Speicherbenutzer" });
+      return t({ en: "Storage user", fr: "Utilisateur stockage", de: "Speicherbenutzer", zh: "存储用户" });
     case "rgw_account":
-      return t({ en: "Storage account", fr: "Compte stockage", de: "Speicherkonto" });
+      return t({ en: "Storage account", fr: "Compte stockage", de: "Speicherkonto", zh: "存储账户" });
     default:
-      return t({ en: "Unknown", fr: "Inconnu", de: "Unbekannt" });
+      return t({ en: "Unknown", fr: "Inconnu", de: "Unbekannt", zh: "未知" });
   }
 }
 
@@ -204,17 +204,17 @@ function serverLogIdentityTone(kind: PortalServerAccessRequesterIdentity["kind"]
 function serverLogOperationLabel(entry: PortalServerAccessLogEntry, t: ReturnType<typeof useI18n>["t"]): string {
   switch (entry.operation_category) {
     case "upload":
-      return t({ en: "Added a file", fr: "Fichier ajouté", de: "Datei hinzugefügt" });
+      return t({ en: "Added a file", fr: "Fichier ajouté", de: "Datei hinzugefügt", zh: "添加了文件" });
     case "download":
-      return t({ en: "Downloaded a file", fr: "Fichier téléchargé", de: "Datei heruntergeladen" });
+      return t({ en: "Downloaded a file", fr: "Fichier téléchargé", de: "Datei heruntergeladen", zh: "下载了文件" });
     case "delete":
-      return t({ en: "Deleted a file", fr: "Fichier supprimé", de: "Datei gelöscht" });
+      return t({ en: "Deleted a file", fr: "Fichier supprimé", de: "Datei gelöscht", zh: "删除了文件" });
     case "list":
-      return t({ en: "Listed content", fr: "Contenu listé", de: "Inhalt aufgelistet" });
+      return t({ en: "Listed content", fr: "Contenu listé", de: "Inhalt aufgelistet", zh: "列出了内容" });
     case "metadata":
-      return t({ en: "Read or changed settings", fr: "Paramètres consultés ou modifiés", de: "Einstellungen gelesen oder geändert" });
+      return t({ en: "Read or changed settings", fr: "Paramètres consultés ou modifiés", de: "Einstellungen gelesen oder geändert", zh: "读取或更改了设置" });
     default:
-      return t({ en: "Recorded an access event", fr: "Événement d'accès enregistré", de: "Zugriffsereignis aufgezeichnet" });
+      return t({ en: "Recorded an access event", fr: "Événement d'accès enregistré", de: "Zugriffsereignis aufgezeichnet", zh: "记录了访问事件" });
   }
 }
 
@@ -224,6 +224,7 @@ function serverLogOperationDetail(entry: PortalServerAccessLogEntry, objectLabel
       en: `Listed ${entry.storage_space_name || entry.bucket_name}`,
       fr: `Consultation de ${entry.storage_space_name || entry.bucket_name}`,
       de: `${entry.storage_space_name || entry.bucket_name} aufgelistet`,
+      zh: `列出了 ${entry.storage_space_name || entry.bucket_name}`,
     });
   }
   if (objectLabel === "-") {
@@ -231,27 +232,27 @@ function serverLogOperationDetail(entry: PortalServerAccessLogEntry, objectLabel
   }
   switch (entry.operation_category) {
     case "upload":
-      return t({ en: `Added ${objectLabel}`, fr: `Ajout de ${objectLabel}`, de: `${objectLabel} hinzugefügt` });
+      return t({ en: `Added ${objectLabel}`, fr: `Ajout de ${objectLabel}`, de: `${objectLabel} hinzugefügt`, zh: `添加了 ${objectLabel}` });
     case "download":
-      return t({ en: `Downloaded ${objectLabel}`, fr: `Téléchargement de ${objectLabel}`, de: `${objectLabel} heruntergeladen` });
+      return t({ en: `Downloaded ${objectLabel}`, fr: `Téléchargement de ${objectLabel}`, de: `${objectLabel} heruntergeladen`, zh: `下载了 ${objectLabel}` });
     case "delete":
-      return t({ en: `Deleted ${objectLabel}`, fr: `Suppression de ${objectLabel}`, de: `${objectLabel} gelöscht` });
+      return t({ en: `Deleted ${objectLabel}`, fr: `Suppression de ${objectLabel}`, de: `${objectLabel} gelöscht`, zh: `删除了 ${objectLabel}` });
     case "metadata":
-      return t({ en: `Checked or changed ${objectLabel}`, fr: `Consultation ou modification de ${objectLabel}`, de: `${objectLabel} geprüft oder geändert` });
+      return t({ en: `Checked or changed ${objectLabel}`, fr: `Consultation ou modification de ${objectLabel}`, de: `${objectLabel} geprüft oder geändert`, zh: `检查或更改了 ${objectLabel}` });
     default:
-      return t({ en: `Access event for ${objectLabel}`, fr: `Événement d'accès pour ${objectLabel}`, de: `Zugriffsereignis für ${objectLabel}` });
+      return t({ en: `Access event for ${objectLabel}`, fr: `Événement d'accès pour ${objectLabel}`, de: `Zugriffsereignis für ${objectLabel}`, zh: `${objectLabel} 的访问事件` });
   }
 }
 
 function serverLogStatusLabel(entry: PortalServerAccessLogEntry, t: ReturnType<typeof useI18n>["t"]): string {
   if (entry.status_code == null) return entry.error_code || "-";
   if (entry.status_code >= 400) {
-    return t({ en: `Failed (${entry.status_code})`, fr: `Échec (${entry.status_code})`, de: `Fehlgeschlagen (${entry.status_code})` });
+    return t({ en: `Failed (${entry.status_code})`, fr: `Échec (${entry.status_code})`, de: `Fehlgeschlagen (${entry.status_code})`, zh: `失败（${entry.status_code}）` });
   }
   if (entry.status_code >= 300) {
-    return t({ en: `Redirected (${entry.status_code})`, fr: `Redirection (${entry.status_code})`, de: `Weitergeleitet (${entry.status_code})` });
+    return t({ en: `Redirected (${entry.status_code})`, fr: `Redirection (${entry.status_code})`, de: `Weitergeleitet (${entry.status_code})`, zh: `重定向（${entry.status_code}）` });
   }
-  return t({ en: `Succeeded (${entry.status_code})`, fr: `Réussi (${entry.status_code})`, de: `Erfolgreich (${entry.status_code})` });
+  return t({ en: `Succeeded (${entry.status_code})`, fr: `Réussi (${entry.status_code})`, de: `Erfolgreich (${entry.status_code})`, zh: `成功（${entry.status_code}）` });
 }
 
 function historyTabFromSearch(value: string | null): HistoryTab {
@@ -310,11 +311,11 @@ export default function PortalHistoryPage() {
     const tabs: Array<{ id: HistoryTab; label: string }> = [
       {
         id: "activity",
-        label: t({ en: "Activity", fr: "Activité", de: "Aktivität" }),
+        label: t({ en: "Activity", fr: "Activité", de: "Aktivität", zh: "活动" }),
       },
     ];
     if (serverAccessLoggingEnabled && canViewServerAccessLogs) {
-      tabs.push({ id: "access", label: t({ en: "Access logs", fr: "Journaux d'accès", de: "Zugriffsprotokolle" }) });
+      tabs.push({ id: "access", label: t({ en: "Access logs", fr: "Journaux d'accès", de: "Zugriffsprotokolle", zh: "访问日志" }) });
     }
     return tabs;
   }, [canViewServerAccessLogs, serverAccessLoggingEnabled, t]);
@@ -364,13 +365,13 @@ export default function PortalHistoryPage() {
 
   const serverLogActionOptions = useMemo(
     () => [
-      { value: "", label: t({ en: "Any action", fr: "Toutes les actions", de: "Jede Aktion" }) },
-      { value: "upload", label: t({ en: "Uploads", fr: "Envois", de: "Uploads" }) },
-      { value: "download", label: t({ en: "Downloads", fr: "Téléchargements", de: "Downloads" }) },
-      { value: "delete", label: t({ en: "Deletes", fr: "Suppressions", de: "Löschungen" }) },
-      { value: "list", label: t({ en: "Listings", fr: "Listages", de: "Auflistungen" }) },
-      { value: "metadata", label: t({ en: "Metadata/settings", fr: "Métadonnées/paramètres", de: "Metadaten/Einstellungen" }) },
-      { value: "other", label: t({ en: "Other access events", fr: "Autres événements d'accès", de: "Andere Zugriffsereignisse" }) },
+      { value: "", label: t({ en: "Any action", fr: "Toutes les actions", de: "Jede Aktion", zh: "任意操作" }) },
+      { value: "upload", label: t({ en: "Uploads", fr: "Envois", de: "Uploads", zh: "上传" }) },
+      { value: "download", label: t({ en: "Downloads", fr: "Téléchargements", de: "Downloads", zh: "下载" }) },
+      { value: "delete", label: t({ en: "Deletes", fr: "Suppressions", de: "Löschungen", zh: "删除" }) },
+      { value: "list", label: t({ en: "Listings", fr: "Listages", de: "Auflistungen", zh: "列举" }) },
+      { value: "metadata", label: t({ en: "Metadata/settings", fr: "Métadonnées/paramètres", de: "Metadaten/Einstellungen", zh: "元数据/设置" }) },
+      { value: "other", label: t({ en: "Other access events", fr: "Autres événements d'accès", de: "Andere Zugriffsereignisse", zh: "其他访问事件" }) },
     ],
     [t]
   ) as Array<{ value: ServerLogActionFilter; label: string }>;
@@ -380,9 +381,9 @@ export default function PortalHistoryPage() {
   );
   const serverLogResultOptions = useMemo(
     () => [
-      { value: "", label: t({ en: "Any result", fr: "Tous les résultats", de: "Jedes Ergebnis" }) },
-      { value: "success", label: t({ en: "Succeeded", fr: "Réussi", de: "Erfolgreich" }) },
-      { value: "failure", label: t({ en: "Failed", fr: "Échec", de: "Fehlgeschlagen" }) },
+      { value: "", label: t({ en: "Any result", fr: "Tous les résultats", de: "Jedes Ergebnis", zh: "任意结果" }) },
+      { value: "success", label: t({ en: "Succeeded", fr: "Réussi", de: "Erfolgreich", zh: "成功" }) },
+      { value: "failure", label: t({ en: "Failed", fr: "Échec", de: "Fehlgeschlagen", zh: "失败" }) },
     ] as Array<{ value: ServerLogResultFilter; label: string }>,
     [t]
   );
@@ -470,23 +471,23 @@ export default function PortalHistoryPage() {
     if (serverLogAdvancedApplied?.action) {
       items.push({
         id: "action",
-        label: `${t({ en: "Action", fr: "Action", de: "Aktion" })}: ${serverLogActionLabel(serverLogAdvancedApplied.action)}`,
+        label: `${t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" })}: ${serverLogActionLabel(serverLogAdvancedApplied.action)}`,
         remove: { type: "advanced", field: "action" },
       });
     }
     if (serverLogAdvancedApplied?.result) {
       items.push({
         id: "result",
-        label: `${t({ en: "Result", fr: "Résultat", de: "Ergebnis" })}: ${serverLogResultLabel(serverLogAdvancedApplied.result)}`,
+        label: `${t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" })}: ${serverLogResultLabel(serverLogAdvancedApplied.result)}`,
         remove: { type: "advanced", field: "result" },
       });
     }
     const pathLabel = serverLogAdvancedApplied
-      ? formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad" }), serverLogAdvancedApplied.path, pathAppliedMode)
+      ? formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedApplied.path, pathAppliedMode)
       : null;
     if (pathLabel) items.push({ id: "path", label: pathLabel, remove: { type: "advanced", field: "path" } });
     const identityLabel = serverLogAdvancedApplied
-      ? formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel" }), serverLogAdvancedApplied.identity, identityAppliedMode)
+      ? formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedApplied.identity, identityAppliedMode)
       : null;
     if (identityLabel) items.push({ id: "identity", label: identityLabel, remove: { type: "advanced", field: "identity" } });
     return items;
@@ -497,18 +498,18 @@ export default function PortalHistoryPage() {
     if (serverLogAdvancedDraft.action) {
       items.push({
         id: "action",
-        label: `${t({ en: "Action", fr: "Action", de: "Aktion" })}: ${serverLogActionLabel(serverLogAdvancedDraft.action)}`,
+        label: `${t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" })}: ${serverLogActionLabel(serverLogAdvancedDraft.action)}`,
       });
     }
     if (serverLogAdvancedDraft.result) {
       items.push({
         id: "result",
-        label: `${t({ en: "Result", fr: "Résultat", de: "Ergebnis" })}: ${serverLogResultLabel(serverLogAdvancedDraft.result)}`,
+        label: `${t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" })}: ${serverLogResultLabel(serverLogAdvancedDraft.result)}`,
       });
     }
-    const pathLabel = formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad" }), serverLogAdvancedDraft.path, pathDraftMode);
+    const pathLabel = formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedDraft.path, pathDraftMode);
     if (pathLabel) items.push({ id: "path", label: pathLabel });
-    const identityLabel = formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel" }), serverLogAdvancedDraft.identity, identityDraftMode);
+    const identityLabel = formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedDraft.identity, identityDraftMode);
     if (identityLabel) items.push({ id: "identity", label: identityLabel });
     return items;
   }, [identityDraftMode, pathDraftMode, serverLogActionLabel, serverLogAdvancedDraft, serverLogResultLabel, t]);
@@ -567,6 +568,7 @@ export default function PortalHistoryPage() {
               en: "Unable to retrieve access history.",
               fr: "Impossible de récupérer l'historique d'accès.",
               de: "Zugriffsverlauf kann nicht abgerufen werden.",
+              zh: "无法获取访问历史。",
             })
           )
         );
@@ -590,11 +592,11 @@ export default function PortalHistoryPage() {
   const handleDownloadRawLogs = useCallback(async () => {
     if (!accountIdForApi) return;
     if (!rawLogsDateFrom || !rawLogsDateTo) {
-      setRawLogsError(t({ en: "Select a start and end date.", fr: "Sélectionnez une date de début et de fin.", de: "Wählen Sie ein Start- und Enddatum." }));
+      setRawLogsError(t({ en: "Select a start and end date.", fr: "Sélectionnez une date de début et de fin.", de: "Wählen Sie ein Start- und Enddatum.", zh: "请选择开始和结束日期。" }));
       return;
     }
     if (rawLogsDateTo < rawLogsDateFrom) {
-      setRawLogsError(t({ en: "The end date must be after the start date.", fr: "La date de fin doit être après la date de début.", de: "Das Enddatum muss nach dem Startdatum liegen." }));
+      setRawLogsError(t({ en: "The end date must be after the start date.", fr: "La date de fin doit être après la date de début.", de: "Das Enddatum muss nach dem Startdatum liegen.", zh: "结束日期必须晚于开始日期。" }));
       return;
     }
     setRawLogsLoading(true);
@@ -617,6 +619,7 @@ export default function PortalHistoryPage() {
             en: "Unable to export raw access logs.",
             fr: "Impossible d'exporter les logs d'accès bruts.",
             de: "Rohe Zugriffslogs können nicht exportiert werden.",
+            zh: "无法导出原始访问日志。",
           })
         )
       );
@@ -660,8 +663,8 @@ export default function PortalHistoryPage() {
           statusTone: serverLogStatusTone(entry.status_code),
           identityLabel: identity?.resolved
             ? identity.label
-            : t({ en: "Unknown identity", fr: "Identité inconnue", de: "Unbekannte Identität" }),
-          identityDetail: identity?.detail || t({ en: "Requester was not resolved", fr: "Le demandeur n'a pas été résolu", de: "Requester wurde nicht aufgelöst" }),
+            : t({ en: "Unknown identity", fr: "Identité inconnue", de: "Unbekannte Identität", zh: "未知身份" }),
+          identityDetail: identity?.detail || t({ en: "Requester was not resolved", fr: "Le demandeur n'a pas été résolu", de: "Requester wurde nicht aufgelöst", zh: "无法识别请求者" }),
           identityKeyLabel: identityKeyParts.join(" · ") || "-",
           identityKindLabel: serverLogIdentityKindLabel(identityKind, t),
           identityTone: serverLogIdentityTone(identityKind, Boolean(identity?.resolved)),
@@ -677,7 +680,7 @@ export default function PortalHistoryPage() {
     () => [
       {
         id: "operation",
-        label: t({ en: "Action", fr: "Action", de: "Aktion" }),
+        label: t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" }),
         primary: true,
         cellClassName: "min-w-[16rem] break-words",
         render: (entry) => (
@@ -690,7 +693,7 @@ export default function PortalHistoryPage() {
       },
       {
         id: "target",
-        label: t({ en: "Space / file", fr: "Espace / fichier", de: "Bereich / Datei" }),
+        label: t({ en: "Space / file", fr: "Espace / fichier", de: "Bereich / Datei", zh: "空间 / 文件" }),
         cellClassName: "min-w-[14rem] break-words",
         render: (entry) => (
           <div className="min-w-0">
@@ -701,7 +704,7 @@ export default function PortalHistoryPage() {
       },
       {
         id: "identity",
-        label: t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel" }),
+        label: t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }),
         cellClassName: "min-w-[14rem] break-words",
         render: (entry) => (
           <div className="min-w-0">
@@ -716,7 +719,7 @@ export default function PortalHistoryPage() {
       },
       {
         id: "status",
-        label: t({ en: "Result", fr: "Résultat", de: "Ergebnis" }),
+        label: t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" }),
         render: (entry) => (
           <div className="min-w-0">
             <UiBadge tone={entry.statusTone}>{entry.statusLabel}</UiBadge>
@@ -726,7 +729,7 @@ export default function PortalHistoryPage() {
       },
       {
         id: "source",
-        label: t({ en: "Date / source", fr: "Date / source", de: "Datum / Quelle" }),
+        label: t({ en: "Date / source", fr: "Date / source", de: "Datum / Quelle", zh: "日期 / 来源" }),
         cellClassName: "min-w-[14rem] break-words",
         render: (entry) => (
           <div className="min-w-0">
@@ -754,21 +757,22 @@ export default function PortalHistoryPage() {
     accountError,
     error,
     hasAccountContext,
-    loadingMessage: t({ en: "Loading history...", fr: "Chargement de l'historique...", de: "Verlauf wird geladen..." }),
-    noAccountMessage: t({ en: "Select a project to view history.", fr: "Sélectionnez un projet pour voir l'historique.", de: "Wählen Sie ein Projekt aus, um den Verlauf anzuzeigen." }),
+    loadingMessage: t({ en: "Loading history...", fr: "Chargement de l'historique...", de: "Verlauf wird geladen...", zh: "正在加载历史记录…" }),
+    noAccountMessage: t({ en: "Select a project to view history.", fr: "Sélectionnez un projet pour voir l'historique.", de: "Wählen Sie ein Projekt aus, um den Verlauf anzuzeigen.", zh: "选择项目以查看历史记录。" }),
   });
   if (pageState) return pageState;
 
   return (
     <PageShell actionPresentation="listing"
-        title={t({ en: "History", fr: "Historique", de: "Verlauf" })}
+        title={t({ en: "History", fr: "Historique", de: "Verlauf", zh: "历史记录" })}
         description={t({
           en: "Review governance activity in your visible spaces and, for project managers, provider S3 access logs.",
           fr: "Consultez l'activité de gouvernance de vos espaces visibles et, pour les gestionnaires de projet, les journaux d'accès S3 du fournisseur.",
           de: "Prüfen Sie Governance-Aktivitäten in Ihren sichtbaren Bereichen und als Projektmanager die S3-Zugriffsprotokolle des Anbieters.",
+          zh: "查看你可见空间的管理活动；项目管理员还可以查看存储服务提供方的 S3 访问日志。",
         })}
-        breadcrumbs={portalBreadcrumbs({ label: t({ en: "History", fr: "Historique", de: "Verlauf" }) })}
-        actions={[{ label: t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen" }), to: "/portal/storage-spaces", variant: "secondary" }]}
+        breadcrumbs={portalBreadcrumbs({ label: t({ en: "History", fr: "Historique", de: "Verlauf", zh: "历史记录" }) })}
+        actions={[{ label: t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen", zh: "打开空间列表" }), to: "/portal/storage-spaces", variant: "secondary" }]}
     >
 
       {historyTabs.length > 1 ? (
@@ -776,7 +780,7 @@ export default function PortalHistoryPage() {
           tabs={historyTabs}
           activeTab={activeHistoryTab}
           onChange={(tab) => selectHistoryTab(tab as HistoryTab)}
-          ariaLabel={t({ en: "History views", fr: "Vues de l'historique", de: "Verlaufsansichten" })}
+          ariaLabel={t({ en: "History views", fr: "Vues de l'historique", de: "Verlaufsansichten", zh: "历史记录视图" })}
           idPrefix="portal-history"
         />
       ) : null}
@@ -786,44 +790,45 @@ export default function PortalHistoryPage() {
         <PortalActivityPanel workspace={workspace} />
       ) : activeHistoryTab === "access" && serverAccessLoggingEnabled && canViewServerAccessLogs ? (
         <ListPageSection variant="page"
-          title={t({ en: "Technical access logs", fr: "Journaux d'accès techniques", de: "Technische Zugriffsprotokolle" })}
+          title={t({ en: "Technical access logs", fr: "Journaux d'accès techniques", de: "Technische Zugriffsprotokolle", zh: "技术访问日志" })}
           countLabel={serverLogsLoaded
                 ? t({
                     en: `${serverLogRows.length} of ${serverLogsTotal} access events shown`,
                     fr: `${serverLogRows.length} sur ${serverLogsTotal} événements d'accès affichés`,
                     de: `${serverLogRows.length} von ${serverLogsTotal} Zugriffsereignissen angezeigt`,
+                    zh: `已显示 ${serverLogsTotal} 条访问事件中的 ${serverLogRows.length} 条`,
                   })
                 : serverLogsError
-                  ? t({ en: "Logs unavailable", fr: "Journaux indisponibles", de: "Protokolle nicht verfügbar" })
-                  : t({ en: "Loading…", fr: "Chargement…", de: "Wird geladen…" })}
+                  ? t({ en: "Logs unavailable", fr: "Journaux indisponibles", de: "Protokolle nicht verfügbar", zh: "日志不可用" })
+                  : t({ en: "Loading…", fr: "Chargement…", de: "Wird geladen…", zh: "正在加载…" })}
           filters={<>
-            <UiInput label={t({ en: "Go to date", fr: "Aller à la date", de: "Zum Datum" })}
+            <UiInput label={t({ en: "Go to date", fr: "Aller à la date", de: "Zum Datum", zh: "跳转到日期" })}
               type="date" size="compact" value={serverLogDate} onChange={(event) => setServerDateAndReset(event.target.value)} />
-            <UiSelect label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich" })}
+            <UiSelect label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich", zh: "存储空间" })}
               size="compact" value={serverLogSpaceId} onChange={(event) => { setServerLogSpaceId(event.target.value); resetServerLogResults(); }}>
-              <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche" })}</option>
+              <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche", zh: "所有可见空间" })}</option>
               {storageSpaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
             </UiSelect>
           </>}
           actions={<>
               <ListActionButton variant="secondary" onClick={() => setServerDateAndReset(shiftDateInputValue(serverLogDate, -1))}>
-                {t({ en: "Previous day", fr: "Jour précédent", de: "Vortag" })}
+                {t({ en: "Previous day", fr: "Jour précédent", de: "Vortag", zh: "前一天" })}
               </ListActionButton>
               <ListActionButton variant="secondary" onClick={() => setServerDateAndReset(todayDateInputValue())}>
-                {t({ en: "Today", fr: "Aujourd'hui", de: "Heute" })}
+                {t({ en: "Today", fr: "Aujourd'hui", de: "Heute", zh: "今天" })}
               </ListActionButton>
               <ListActionButton variant="secondary" onClick={() => setServerDateAndReset(shiftDateInputValue(serverLogDate, 1))}>
-                {t({ en: "Next day", fr: "Jour suivant", de: "Nächster Tag" })}
+                {t({ en: "Next day", fr: "Jour suivant", de: "Nächster Tag", zh: "后一天" })}
               </ListActionButton>
               <ListActionButton variant="secondary" onClick={openRawLogsModal} disabled={!accountIdForApi}>
-                {t({ en: "Export logs", fr: "Exporter les logs", de: "Logs exportieren" })}
+                {t({ en: "Export logs", fr: "Exporter les logs", de: "Logs exportieren", zh: "导出日志" })}
               </ListActionButton>
               <ListActionButton
                 variant="secondary"
                 onClick={() => setShowServerLogAdvancedFilter(true)}
                 className={advancedFilterToolbarButtonClass(showServerLogAdvancedFilter || serverLogAdvancedFilterActive)}
               >
-                {t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter" })}
+                {t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter", zh: "高级筛选" })}
                 {serverLogAdvancedFilterActive ? " · Active" : ""}
               </ListActionButton>
           </>}
@@ -831,16 +836,17 @@ export default function PortalHistoryPage() {
             en: "Use these manager-only provider logs to investigate S3 requests. Delivery may be delayed and depends on logging activation and retention.",
             fr: "Utilisez ces journaux fournisseur réservés aux managers pour examiner les requêtes S3. Leur livraison peut être différée et dépend de l'activation et de la rétention.",
             de: "Untersuchen Sie mit diesen nur für Manager sichtbaren Anbieterprotokollen S3-Anfragen. Die Bereitstellung kann verzögert sein und hängt von Aktivierung und Aufbewahrung ab.",
+            zh: "这些来自存储服务提供方的日志仅供管理员排查 S3 请求。日志可能延迟送达，且取决于日志启用状态及保留策略。",
           })}</p>{activeServerLogFilterSummaryItems.length > 0 ? (
             <ActiveFiltersBar
               className="mt-3"
-              label={t({ en: "Active filters:", fr: "Filtres actifs :", de: "Aktive Filter:" })}
-              clearLabel={t({ en: "Clear all", fr: "Tout effacer", de: "Alle löschen" })}
+              label={t({ en: "Active filters:", fr: "Filtres actifs :", de: "Aktive Filter:", zh: "当前筛选：" })}
+              clearLabel={t({ en: "Clear all", fr: "Tout effacer", de: "Alle löschen", zh: "清除全部" })}
               items={activeServerLogFilterSummaryItems.map((item) => ({
                 id: item.id,
                 label: item.label,
                 onRemove: () => removeServerLogActiveFilterItem(item.remove),
-                removeLabel: t({ en: "Remove filter", fr: "Retirer le filtre", de: "Filter entfernen" }),
+                removeLabel: t({ en: "Remove filter", fr: "Retirer le filtre", de: "Filter entfernen", zh: "移除筛选" }),
               }))}
               onClearAll={resetServerLogAdvancedFilter}
             />
@@ -852,14 +858,14 @@ export default function PortalHistoryPage() {
                 type="button"
                 onClick={serverLogAdvancedFilterCloseGuard.requestClose}
                 className={advancedFilterBackdropClass}
-                aria-label={t({ en: "Close advanced filter drawer", fr: "Fermer le panneau de filtre avancé", de: "Erweiterten Filter schließen" })}
+                aria-label={t({ en: "Close advanced filter drawer", fr: "Fermer le panneau de filtre avancé", de: "Erweiterten Filter schließen", zh: "关闭高级筛选面板" })}
               />
               <div className={advancedFilterDrawerClass}>
                 <div className={advancedFilterHeaderClass}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">
-                        {t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter" })}
+                        {t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter", zh: "高级筛选" })}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {renderAdvancedFilterRuleCountBadge(serverLogAdvancedDraftActiveCount)}
@@ -869,7 +875,7 @@ export default function PortalHistoryPage() {
                       </div>
                     </div>
                     <UiButton variant="secondary" size="sm" onClick={serverLogAdvancedFilterCloseGuard.requestClose}>
-                      {t({ en: "Close", fr: "Fermer", de: "Schließen" })}
+                      {t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" })}
                     </UiButton>
                   </div>
                 </div>
@@ -880,7 +886,7 @@ export default function PortalHistoryPage() {
                       <div className="grid gap-3 md:grid-cols-4">
                         <div className={advancedFilterFieldCardClass()}>
                           <label className={cx(uiLabelClass, actionFieldState.labelClass)} htmlFor="portal-server-log-action-filter">
-                            {t({ en: "Action", fr: "Action", de: "Aktion" })}
+                            {t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" })}
                           </label>
                           <select
                             id="portal-server-log-action-filter"
@@ -897,7 +903,7 @@ export default function PortalHistoryPage() {
                         </div>
                         <div className={advancedFilterFieldCardClass()}>
                           <label className={cx(uiLabelClass, resultFieldState.labelClass)} htmlFor="portal-server-log-result-filter">
-                            {t({ en: "Result", fr: "Résultat", de: "Ergebnis" })}
+                            {t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" })}
                           </label>
                           <select
                             id="portal-server-log-result-filter"
@@ -915,7 +921,7 @@ export default function PortalHistoryPage() {
                         <div className={advancedFilterFieldCardClass("md:col-span-2")}>
                           <div className="flex items-center justify-between gap-2">
                             <label className={cx(uiLabelClass, pathFieldState.labelClass)} htmlFor="portal-server-log-path-filter">
-                              {t({ en: "Path", fr: "Chemin", de: "Pfad" })}
+                              {t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" })}
                             </label>
                             <div className="flex gap-1">
                               <button
@@ -947,7 +953,7 @@ export default function PortalHistoryPage() {
                         <div className={advancedFilterFieldCardClass("md:col-span-4")}>
                           <div className="flex items-center justify-between gap-2">
                             <label className={cx(uiLabelClass, identityFieldState.labelClass)} htmlFor="portal-server-log-identity-filter">
-                              {t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel" })}
+                              {t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" })}
                             </label>
                             <div className="flex gap-1">
                               <button
@@ -983,10 +989,10 @@ export default function PortalHistoryPage() {
                 <div className={advancedFilterFooterClass}>
                   <div className="flex flex-wrap justify-end gap-2">
                     <UiButton variant="secondary" size="sm" onClick={resetServerLogAdvancedFilter} disabled={!hasAnyServerLogAdvancedToClear}>
-                      {t({ en: "Reset", fr: "Réinitialiser", de: "Zurücksetzen" })}
+                      {t({ en: "Reset", fr: "Réinitialiser", de: "Zurücksetzen", zh: "重置" })}
                     </UiButton>
                     <UiButton size="sm" onClick={applyServerLogAdvancedFilter}>
-                      {t({ en: "Apply filter", fr: "Appliquer le filtre", de: "Filter anwenden" })}
+                      {t({ en: "Apply filter", fr: "Appliquer le filtre", de: "Filter anwenden", zh: "应用筛选" })}
                     </UiButton>
                   </div>
                 </div>
@@ -1001,12 +1007,12 @@ export default function PortalHistoryPage() {
               rows={serverLogRows}
               rowKey={(entry) => entry.id}
               status={serverLogsTableStatus}
-              loadingMessage={t({ en: "Retrieving access history...", fr: "Récupération de l'historique d'accès...", de: "Zugriffsverlauf wird abgerufen..." })}
-              errorMessage={serverLogsError ?? t({ en: "Unable to retrieve access history.", fr: "Impossible de récupérer l'historique d'accès.", de: "Zugriffsverlauf kann nicht abgerufen werden." })}
+              loadingMessage={t({ en: "Retrieving access history...", fr: "Récupération de l'historique d'accès...", de: "Zugriffsverlauf wird abgerufen...", zh: "正在获取访问历史…" })}
+              errorMessage={serverLogsError ?? t({ en: "Unable to retrieve access history.", fr: "Impossible de récupérer l'historique d'accès.", de: "Zugriffsverlauf kann nicht abgerufen werden.", zh: "无法获取访问历史。" })}
               emptyMessage={
                 serverLogsLoaded
-                  ? t({ en: "No access event for this selection.", fr: "Aucun événement d'accès pour cette sélection.", de: "Kein Zugriffsereignis für diese Auswahl." })
-                  : t({ en: "Access history loads automatically for the selected date.", fr: "L'historique d'accès se charge automatiquement pour la date sélectionnée.", de: "Der Zugriffsverlauf wird automatisch für das ausgewählte Datum geladen." })
+                  ? t({ en: "No access event for this selection.", fr: "Aucun événement d'accès pour cette sélection.", de: "Kein Zugriffsereignis für diese Auswahl.", zh: "所选条件下没有访问事件。" })
+                  : t({ en: "Access history loads automatically for the selected date.", fr: "L'historique d'accès se charge automatiquement pour la date sélectionnée.", de: "Der Zugriffsverlauf wird automatisch für das ausgewählte Datum geladen.", zh: "将自动加载所选日期的访问历史。" })
               }
               pagination={{
                 page: safeServerLogPage,
@@ -1032,25 +1038,25 @@ export default function PortalHistoryPage() {
 
       {rawLogsModalOpen ? (
         <SettingsFormDialog
-          title={t({ en: "Export raw access logs", fr: "Exporter les logs d'accès bruts", de: "Rohe Zugriffslogs exportieren" })}
+          title={t({ en: "Export raw access logs", fr: "Exporter les logs d'accès bruts", de: "Rohe Zugriffslogs exportieren", zh: "导出原始访问日志" })}
           onClose={() => setRawLogsModalOpen(false)}
           draftKey={JSON.stringify([rawLogsDateFrom, rawLogsDateTo, rawLogsSpaceId])}
           busy={rawLogsLoading}
           error={rawLogsError}
           disabled={!accountIdForApi}
           onSubmit={handleDownloadRawLogs}
-          submitLabel={t({ en: "Download export", fr: "Télécharger l'export", de: "Export herunterladen" })}
+          submitLabel={t({ en: "Download export", fr: "Télécharger l'export", de: "Export herunterladen", zh: "下载导出文件" })}
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <UiInput
-              label={t({ en: "From", fr: "Du", de: "Von" })}
+              label={t({ en: "From", fr: "Du", de: "Von", zh: "开始" })}
               size="compact"
               type="date"
               value={rawLogsDateFrom}
               onChange={(event) => setRawLogsDateFrom(event.target.value)}
             />
             <UiInput
-              label={t({ en: "To", fr: "Au", de: "Bis" })}
+              label={t({ en: "To", fr: "Au", de: "Bis", zh: "结束" })}
               size="compact"
               type="date"
               value={rawLogsDateTo}
@@ -1058,12 +1064,12 @@ export default function PortalHistoryPage() {
             />
           </div>
           <UiSelect
-            label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich" })}
+            label={t({ en: "Storage space", fr: "Espace de stockage", de: "Speicherbereich", zh: "存储空间" })}
             size="compact"
             value={rawLogsSpaceId}
             onChange={(event) => setRawLogsSpaceId(event.target.value)}
           >
-            <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche" })}</option>
+            <option value="">{t({ en: "All visible spaces", fr: "Tous les espaces visibles", de: "Alle sichtbaren Bereiche", zh: "所有可见空间" })}</option>
             {storageSpaces.map((space) => (
               <option key={space.id} value={space.id}>{space.name}</option>
             ))}
