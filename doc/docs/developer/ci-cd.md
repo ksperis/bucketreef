@@ -100,6 +100,9 @@ The dependency lockfile remains authoritative for the browser payload.
 Image builds read the index digest from Buildx's JSON manifest output, supported
 by the pinned Docker 27 CLI. Missing or invalid digests stop the job before runtime
 checks or publication of the immutable SHA tag.
+Runtime checks pull each architecture by its platform manifest digest from that
+index. This supports Docker's classic image store while qualification and SHA tags
+continue to identify the complete multiarchitecture index, including attestations.
 
 Only npm/pip downloads are cached, keyed by dependencies and tool versions. Public
 GitHub caches and protected GitLab caches are separate; do not share runner caches
