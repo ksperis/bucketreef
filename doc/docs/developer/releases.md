@@ -79,6 +79,16 @@ there is no second bundle upload or stored GitLab personal token. If GitLab fail
 after GitHub succeeds, retry that job: an identical existing release is accepted.
 Manage and renew the dedicated GitHub token before its configured expiration.
 
+Tag verification uses Git transport because older GitLab versions, including
+18.1, do not grant job tokens access to the Tags API. If publication code itself
+needs a fix after the public tag exists, commit the fix on the protected default
+branch and run its manual `recover-gitlab-release` job. It defaults to the current
+application version; set `GITLAB_RELEASE_RECOVERY_VERSION` to recover an older
+version. The job reads the changelog and previous tag from the released commit,
+checks matching remote tags, public GitHub notes and all four asset digests and
+checksums, then publishes only GitLab metadata with `CI_JOB_TOKEN`. It does not
+move tags or rebuild artifacts. Retrying identical metadata is read-only.
+
 ## Gates and outputs
 
 Builds create manifest lists for `linux/amd64` and `linux/arm64` under the commit

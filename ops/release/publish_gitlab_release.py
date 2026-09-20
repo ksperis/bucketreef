@@ -7,13 +7,30 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import urllib.error
-import urllib.parse
 import urllib.request
 
 from publish_github_release import ASSETS, REPOSITORY
-from release_notes import version_tuple
+from release_notes import ROOT, version_tuple
+
+
+def resolve_git_tag(version: str, *, root=ROOT, remote="origin") -> str:
+    """GitLab 18.1 job tokens support Git transport, but not the Tags API."""
+    version_tuple(version)
+    ref = f"refs/tags/v{version}"
+    result = subprocess.run(
+        ["git", "ls-remote", "--exit-code", remote, ref, ref + "^{}"],
+        cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
+    if result.returncode:
+        raise RuntimeError("Unable to verify the existing GitLab release tag")
+    refs = dict(line.split()[::-1] for line in result.stdout.splitlines())
+    sha = refs.get(ref + "^{}", refs.get(ref, ""))
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise RuntimeError("GitLab release tag does not resolve to a full SHA")
+    return sha
 
 
 class GitLab:
@@ -34,17 +51,13 @@ class GitLab:
             raise RuntimeError(f"GitLab {method} failed with HTTP {error.code}") from None
 
 
-def publish(api, version: str, sha: str, notes: str):
+def publish(api, version: str, sha: str, notes: str, *, root=ROOT, remote="origin"):
     version_tuple(version)
     if not re.fullmatch(r"[0-9a-f]{40}", sha) or not notes.strip():
         raise ValueError("Expected full commit SHA and non-empty release notes")
     tag = f"v{version}"
     # Do not let release creation implicitly create a tag at a different ref.
-    # GitLab before 18.8 permits job tokens to list tags, but not get one tag.
-    query = urllib.parse.urlencode({"search": f"^{tag}$"})
-    tags = api.request(f"repository/tags?{query}")
-    matching = [item for item in tags if item["name"] == tag]
-    if len(matching) != 1 or matching[0]["commit"]["id"] != sha:
+    if resolve_git_tag(version, root=root, remote=remote) != sha:
         raise RuntimeError("GitLab tag SHA differs from the validated commit")
     links = [{"name": name, "url": f"https://github.com/{REPOSITORY}/releases/download/{tag}/{name}", "link_type": "package"} for name in ASSETS]
     release = api.request(f"releases/{tag}", missing_ok=True)
