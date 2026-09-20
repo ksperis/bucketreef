@@ -13,7 +13,7 @@ import yaml
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-QUICKSTART = REPOSITORY_ROOT / "quickstart"
+QUICKSTART = REPOSITORY_ROOT / "deploy/quickstart/bucketreef-quickstart"
 CONFIG_KEYS = (
     "BUCKETREEF_BIND_ADDRESS",
     "BUCKETREEF_BACKEND_PORT",
@@ -56,7 +56,8 @@ def quickstart_runtime(tmp_path: Path) -> tuple[Path, dict[str, str], Path]:
         directory.mkdir()
     shutil.copy2(QUICKSTART, workdir / "quickstart")
     (workdir / "quickstart").chmod(0o755)
-    (workdir / "docker-compose.build.yml").write_text("services: {}\n", encoding="utf-8")
+    (workdir / "VERSION").write_text("1.2.3\n")
+    (workdir / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
     (volume_source / "app.db").write_bytes(b"sqlite fixture")
 
     docker = bin_dir / "docker"
@@ -68,13 +69,15 @@ if [ "${1:-}" = "info" ]; then
   exit 0
 fi
 if [ "${1:-}" = "volume" ] && [ "${2:-}" = "ls" ]; then
-  printf '%s\n' 'bucketreef-quickstart_backend-data'
+  [ \"${FAKE_HAS_VOLUME:-1}\" = 0 ] || printf '%s\n' 'bucketreef-quickstart_backend-data'
   exit 0
 fi
 if [ "${1:-}" = "volume" ] && [ "${2:-}" = "rm" ]; then
   exit 0
 fi
+if [ "${1:-}" = "ps" ]; then exit 0; fi
 if [ "${1:-}" = "run" ]; then
+  [ "${FAKE_BACKUP_FAILURE:-0}" = "0" ] || exit 1
   backup_dir=''
   for argument in "$@"; do
     case "$argument" in
@@ -86,6 +89,11 @@ if [ "${1:-}" = "run" ]; then
   exit 0
 fi
 if [ "${1:-}" = "compose" ]; then
+  if [ "${CHECK_CALLER_OVERRIDES:-0}" = 1 ] && [ "${2:-}" != version ]; then
+    [ -z "${UI_JWT_KEYS:-}" ] && [ -z "${CREDENTIAL_KEYS:-}" ] || exit 1
+    [ -z "${BUCKETREEF_FRONTEND_PORT:-}" ] || exit 1
+    [ "${BUCKETREEF_TAG:-}" = 1.2.3 ] || exit 1
+  fi
   case " $* " in
     *" version "*) exit 0 ;;
     *" ps --status running --quiet backend "*)
@@ -217,7 +225,7 @@ def _run(
     )
 
 
-def test_start_builds_checkout_and_refuses_token_when_frontend_stops(quickstart_runtime):
+def test_start_uses_bundle_and_refuses_token_when_frontend_stops(quickstart_runtime):
     workdir, environment, docker_log = quickstart_runtime
     _write_environment(workdir)
     environment["FAKE_FRONTEND_RUNNING"] = "0"
@@ -227,7 +235,7 @@ def test_start_builds_checkout_and_refuses_token_when_frontend_stops(quickstart_
     assert result.returncode == 1
     assert "Backend or frontend stopped before becoming ready" in result.stderr
     log = docker_log.read_text(encoding="utf-8")
-    assert "--file docker-compose.build.yml up --detach --build backend frontend" in log
+    assert "--file docker-compose.yml up --detach --no-build backend frontend" in log
     assert "issue_first_admin_bootstrap" not in log
 
 
@@ -252,7 +260,7 @@ def test_rerun_is_idempotent_and_uses_public_origin_for_login(quickstart_runtime
 
     assert result.returncode == 0
     assert "Sign in at https://bucketreef.example/login" in result.stdout
-    assert "up --detach --build backend frontend" in docker_log.read_text(encoding="utf-8")
+    assert "up --detach --no-build backend frontend" in docker_log.read_text(encoding="utf-8")
 
 
 def test_status_reports_backend_frontend_and_bootstrap_separately(quickstart_runtime):
@@ -325,7 +333,7 @@ def test_reset_preserves_network_config_rotates_secrets_and_verifies_backup(quic
 
 
 def test_compose_defaults_are_safe_and_services_have_healthchecks():
-    for filename in ("docker-compose.yml", "docker-compose.build.yml"):
+    for filename in ("docker-compose.yml", "deploy/compose/docker-compose.yml"):
         payload = yaml.safe_load((REPOSITORY_ROOT / filename).read_text(encoding="utf-8"))
         services = payload["services"]
 
@@ -347,6 +355,75 @@ def test_quickstart_runtime_material_is_ignored():
     gitignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8")
     assert ".env.*" in gitignore
     assert ".bucketreef-backups/" in gitignore
+
+
+def test_existing_volume_without_keys_is_never_initialized(quickstart_runtime):
+    workdir, environment, docker_log = quickstart_runtime
+    result = _run(workdir, environment)
+    assert result.returncode == 1
+    assert "resources already exist" in result.stderr
+    assert not (workdir / ".env.quickstart").exists()
+    assert "up --detach" not in docker_log.read_text()
+
+
+def test_new_install_generates_secrets_once_and_preserves_version(quickstart_runtime):
+    workdir, environment, docker_log = quickstart_runtime
+    environment["FAKE_HAS_VOLUME"] = "0"
+    result = _run(workdir, environment)
+    assert result.returncode == 0, result.stderr
+    previous = (workdir / ".env.quickstart").read_bytes()
+    assert len(set(_parse_env(workdir / ".env.quickstart")[key] for key in SECRET_KEYS)) == 4
+    assert (workdir / ".env.quickstart").stat().st_mode & 0o777 == 0o600
+    assert _run(workdir, environment).returncode == 0
+    assert (workdir / ".env.quickstart").read_bytes() == previous
+    assert "1.2.3" in _run(workdir, environment, "version").stdout
+    assert "--build" not in docker_log.read_text()
+
+
+def test_command_uses_bundle_directory_from_any_cwd(quickstart_runtime, tmp_path):
+    workdir, environment, _docker_log = quickstart_runtime
+    _write_environment(workdir)
+    result = subprocess.run([str(workdir / "quickstart"), "status"], cwd=tmp_path, env=environment, text=True, capture_output=True)
+    assert result.returncode == 0
+    assert "Backend health: healthy" in result.stdout
+
+
+def test_caller_environment_cannot_replace_installed_keys_ports_or_version(quickstart_runtime):
+    workdir, environment, _docker_log = quickstart_runtime
+    _write_environment(workdir)
+    previous = (workdir / ".env.quickstart").read_bytes()
+    environment.update({
+        "CHECK_CALLER_OVERRIDES": "1", "UI_JWT_KEYS": '["unrelated"]',
+        "CREDENTIAL_KEYS": '["unrelated"]', "BUCKETREEF_FRONTEND_PORT": "9999",
+        "BUCKETREEF_TAG": "9.9.9",
+    })
+    result = _run(workdir, environment)
+    assert result.returncode == 0, result.stderr
+    assert (workdir / ".env.quickstart").read_bytes() == previous
+
+
+def test_port_conflict_prevents_start(quickstart_runtime):
+    workdir, environment, docker_log = quickstart_runtime
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        _write_environment(workdir, BUCKETREEF_BACKEND_PORT=str(listener.getsockname()[1]))
+        environment["FAKE_BACKEND_RUNNING"] = "0"
+        result = _run(workdir, environment)
+    assert result.returncode == 1
+    assert "already occupied" in result.stderr
+    assert "up --detach" not in docker_log.read_text()
+
+
+def test_failed_backup_prevents_volume_removal_and_key_rotation(quickstart_runtime):
+    workdir, environment, docker_log = quickstart_runtime
+    _write_environment(workdir)
+    previous = (workdir / ".env.quickstart").read_bytes()
+    environment["FAKE_BACKUP_FAILURE"] = "1"
+    result = _run(workdir, environment, "reset", input_text="RESET BUCKETREEF QUICKSTART\n")
+    assert result.returncode != 0
+    assert (workdir / ".env.quickstart").read_bytes() == previous
+    assert "volume rm" not in docker_log.read_text()
 
 
 def test_kind_checksum_uses_busybox_compatible_check_flag():

@@ -3,8 +3,10 @@
 # Licensed under the Apache License, Version 2.0
 set -euo pipefail
 
+# Every path is relative to the installed bundle, never the caller's checkout.
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 readonly PROJECT_NAME="bucketreef-quickstart"
-readonly COMPOSE_FILE="docker-compose.build.yml"
+readonly COMPOSE_FILE="docker-compose.yml"
 readonly ENV_FILE=".env.quickstart"
 readonly BACKUP_ROOT=".bucketreef-backups"
 readonly RESET_CONFIRMATION="RESET BUCKETREEF QUICKSTART"
@@ -14,17 +16,29 @@ die() {
   exit 1
 }
 
+[[ -f VERSION ]] || die "VERSION is missing; install the QuickStart release bundle."
+BUCKETREEF_TAG="$(cat VERSION)"
+[[ "$BUCKETREEF_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "Invalid bundle VERSION."
+readonly BUCKETREEF_TAG
+export BUCKETREEF_TAG
+
 require_command() {
   command -v "$1" >/dev/null 2>&1 || die "Required command '$1' was not found."
 }
 
-compose() {
+compose() (
+  # Compose normally lets the invoking shell override --env-file. These values
+  # belong to the installation once generated; a caller's development shell
+  # must not replace persisted encryption keys or change the checked ports.
+  unset APP_ENV UI_JWT_KEYS API_JWT_KEYS CREDENTIAL_KEYS INTERNAL_CRON_TOKEN
+  unset BUCKETREEF_BIND_ADDRESS BUCKETREEF_BACKEND_PORT BUCKETREEF_FRONTEND_PORT
+  unset PUBLIC_ORIGIN WEBAUTHN_ORIGIN WEBAUTHN_RP_ID CORS_ORIGINS ALLOWED_HOSTS
   docker compose \
     --project-name "$PROJECT_NAME" \
     --env-file "$ENV_FILE" \
     --file "$COMPOSE_FILE" \
     "$@"
-}
+)
 
 read_env_value() {
   local file="$1"
@@ -175,13 +189,21 @@ print_bootstrap_or_login() {
 
 start_quickstart() {
   check_prerequisites
+  [[ ! -L "$ENV_FILE" ]] || die "$ENV_FILE must not be a symbolic link."
   if [[ ! -f "$ENV_FILE" ]]; then
+    # Creating fresh keys against an existing SQLite volume loses access to
+    # encrypted credentials. Import the matching environment explicitly.
+    if [[ -n "$(resolve_backend_volume)" ]] \
+      || docker volume inspect "${PROJECT_NAME}_backend-data" >/dev/null 2>&1 \
+      || [[ -n "$(docker ps --all --quiet --filter "label=com.docker.compose.project=${PROJECT_NAME}")" ]]; then
+      die "QuickStart resources already exist without $ENV_FILE. Restore their matching environment before starting; see the migration guide."
+    fi
     write_environment
     printf 'Created %s with mode 0600.\n' "$ENV_FILE"
   fi
   chmod 0600 "$ENV_FILE"
   check_ports
-  compose up --detach --build backend frontend
+  compose up --detach --no-build backend frontend
   wait_for_services
   print_bootstrap_or_login
 }
@@ -189,7 +211,7 @@ start_quickstart() {
 show_status() {
   check_prerequisites
   if [[ ! -f "$ENV_FILE" ]]; then
-    printf 'Quickstart has not been initialized. Run ./quickstart first.\n'
+    printf 'QuickStart has not been initialized. Run bucketreef-quickstart start first.\n'
     return
   fi
   compose ps
@@ -285,14 +307,16 @@ reset_quickstart() {
 }
 
 usage() {
-  printf 'Usage: ./quickstart [start|status|stop|reset]\n'
+  printf 'Usage: bucketreef-quickstart [start|status|stop|reset|version]\n'
 }
 
+[[ $# -le 1 ]] || { usage >&2; exit 2; }
 case "${1:-start}" in
   start) start_quickstart ;;
   status) show_status ;;
   stop) stop_quickstart ;;
   reset) reset_quickstart ;;
+  version) printf 'BucketReef QuickStart %s\n' "$BUCKETREEF_TAG" ;;
   -h|--help|help) usage ;;
   *) usage >&2; exit 2 ;;
 esac

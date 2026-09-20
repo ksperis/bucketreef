@@ -1,32 +1,32 @@
-{{- if .Values.notificationRetentionCronJob.enabled }}
+{{- if .Values.healthcheckCronJob.enabled }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "bucketreef.fullname" . }}-notification-retention
+  name: {{ include "bucketreef.fullname" . }}-healthcheck
   labels:
     {{- include "bucketreef.labels" . | nindent 4 }}
-    app.kubernetes.io/component: notification-retention-cron
+    app.kubernetes.io/component: healthcheck-cron
 spec:
-  schedule: {{ .Values.notificationRetentionCronJob.schedule | quote }}
+  schedule: {{ .Values.healthcheckCronJob.schedule | quote }}
   concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: {{ .Values.notificationRetentionCronJob.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ .Values.notificationRetentionCronJob.failedJobsHistoryLimit }}
+  successfulJobsHistoryLimit: {{ .Values.healthcheckCronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.healthcheckCronJob.failedJobsHistoryLimit }}
   jobTemplate:
     spec:
-      backoffLimit: {{ .Values.notificationRetentionCronJob.backoffLimit }}
+      backoffLimit: {{ .Values.healthcheckCronJob.backoffLimit }}
       template:
         metadata:
           labels:
             {{- include "bucketreef.labels" . | nindent 12 }}
-            app.kubernetes.io/component: notification-retention-cron
+            app.kubernetes.io/component: healthcheck-cron
         spec:
           restartPolicy: OnFailure
           automountServiceAccountToken: false
           securityContext:
             {{- toYaml .Values.cronJobs.podSecurityContext | nindent 12 }}
           containers:
-            - name: notification-retention-runner
-              image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+            - name: healthcheck-runner
+              image: "{{ .Values.image.backend.repository }}:{{ default .Chart.AppVersion .Values.image.backend.tag }}"
               imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
               securityContext:
                 {{- toYaml .Values.cronJobs.containerSecurityContext | nindent 16 }}
@@ -36,14 +36,14 @@ spec:
                 - name: tmp
                   mountPath: /tmp
               env:
-                - name: NOTIFICATION_RETENTION_API_BASE
+                - name: HEALTHCHECK_API_BASE
                   value: {{ printf "http://%s-backend:%d" (include "bucketreef.fullname" .) (.Values.service.backend.port | int) | quote }}
                 - name: INTERNAL_CRON_TOKEN
                   valueFrom:
                     secretKeyRef:
                       name: {{ .Values.backend.existingSecret | quote }}
                       key: {{ .Values.backend.secretKeys.internalCronToken | quote }}
-                {{- range .Values.notificationRetentionCronJob.extraEnv }}
+                {{- range .Values.healthcheckCronJob.extraEnv }}
                 - name: {{ .name }}
                   value: {{ .value | quote }}
                 {{- end }}
@@ -55,20 +55,15 @@ spec:
                   import sys
                   import requests
 
-                  base = os.environ.get("NOTIFICATION_RETENTION_API_BASE")
+                  base = os.environ.get("HEALTHCHECK_API_BASE")
                   token = os.environ.get("INTERNAL_CRON_TOKEN")
                   if not base or not token:
-                      print("Missing NOTIFICATION_RETENTION_API_BASE or INTERNAL_CRON_TOKEN", file=sys.stderr)
+                      print("Missing HEALTHCHECK_API_BASE or INTERNAL_CRON_TOKEN", file=sys.stderr)
                       sys.exit(1)
-                  url = f"{base}/api/internal/notifications/purge"
+                  url = f"{base}/api/internal/healthchecks/run"
                   resp = requests.post(url, headers={"X-Internal-Token": token}, timeout=30)
+                  print(f"Healthcheck returned HTTP {resp.status_code}")
                   resp.raise_for_status()
-                  payload = resp.json()
-                  deleted = payload.get("user_notifications", {}).get("deleted", 0)
-                  print(
-                      f"Notification retention {payload.get('status', 'unknown')}; "
-                      f"deleted {deleted} rows"
-                  )
                   PY
           volumes:
             - name: tmp

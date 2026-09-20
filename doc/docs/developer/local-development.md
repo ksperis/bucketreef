@@ -36,10 +36,18 @@ npm install
 The backend reads `backend/.env` when present. For a simple local setup, the
 default SQLite configuration is sufficient.
 
-For a Docker-based check of the exact working tree, run `./quickstart` from the
-repository root. It builds `docker-compose.build.yml`, so the first run can be
-slower than the direct development servers but cannot silently test stale
-published images.
+For a Docker-based check of the exact working tree, configure a root `.env`
+with distinct UI/API JWT rings, credential-encryption keys and an internal Cron
+token (use `deploy/compose/.env.example` as the configuration reference), then run:
+
+```sh
+docker compose build
+docker compose up -d --build --wait backend frontend
+docker compose exec backend python -m app.scripts.issue_first_admin_bootstrap
+```
+
+The root Compose builds local sources. The standalone `bucketreef-quickstart`
+command downloads release images and cannot validate unpublished checkout changes.
 
 ## Equivalent terminal commands
 

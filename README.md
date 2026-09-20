@@ -62,38 +62,52 @@ It can also be used solely through the integrated S3 browser for direct object a
 - Access is explicit per account with `portal_user` or `portal_manager`.
 - `/manager` access remains separate and still requires account admin/root links.
 
-## Quick Start (Docker Compose)
+## QuickStart
 
-For a local evaluation from a clean machine:
+Install a small release bundle and start the published GHCR images:
 
-```bash
-git clone https://github.com/ksperis/bucketreef.git
-cd bucketreef
-./quickstart
+```sh
+curl -fsSL https://bucketreef.ksperis.com/quickstart.sh | sh
 ```
 
-The script generates strong local secrets in `.env.quickstart`, builds the
-backend and frontend from the current checkout, waits for both services, then
-prints a 15-minute one-time URL. The first build can take several minutes.
-Open the URL to create the first administrator and enroll a passkey. Re-running
-the script is safe and prints either a fresh setup URL or the sign-in URL.
+Requirements: Docker Compose v2, Bash, OpenSSL, curl and tar on Linux or macOS
+(AMD64 or ARM64). No clone or source build is needed. QuickStart generates
+strong secrets, starts backend/frontend on loopback with SQLite, then prints a
+15-minute URL to create the first administrator and enroll a passkey.
 
-This quickstart is intentionally limited to loopback, SQLite and local
-evaluation. It includes no MinIO, no simulated or preconfigured storage, and no
-scheduler. Connect an existing S3-compatible or Ceph RGW endpoint later from
-Admin if you want to exercise storage workflows. A complete deployment enables
-the `operations` Compose profile and uses a reverse proxy with TLS.
+The bundle lives in `~/.local/share/bucketreef-quickstart`; the command is in
+`~/.local/bin`. Re-running it preserves the installed version, data and keys.
 
-Useful commands:
-
-```bash
-./quickstart status
-./quickstart stop
-./quickstart reset
+```sh
+bucketreef-quickstart status
+bucketreef-quickstart stop
+bucketreef-quickstart start
+bucketreef-quickstart version
 ```
 
-See the [Quickstart guide](https://docs.bucketreef.ksperis.com/ops/quickstart/)
-for reset backups, restore steps, expired links and deployment boundaries.
+See the [QuickStart guide](https://docs.bucketreef.ksperis.com/ops/quickstart/)
+for explicit versions, script inspection, custom ports, reset backups and
+migration from the previous source-checkout QuickStart. This evaluation setup
+does not configure storage or enable the scheduler.
+
+## Deploy a release
+
+- **Docker Compose:** download and verify the Compose bundle from
+  [GitHub Releases](https://github.com/ksperis/bucketreef/releases), configure
+  `.env` and follow the [deployment guide](https://docs.bucketreef.ksperis.com/ops/deploy-docker-compose/).
+- **Kubernetes:** install `oci://ghcr.io/ksperis/charts/bucketreef` with an explicit
+  `--version X.Y.Z` and the required security values and existing Secret from
+  the [Helm guide](https://docs.bucketreef.ksperis.com/ops/deploy-helm/).
+
+The chart and bundles follow application releases. Each release pins the
+backend, frontend and scheduler images to the same version.
+
+## Build from source
+
+Clone this repository for development, configure your root `.env`, then run
+`docker compose build` and `docker compose up --build`. The root Compose builds
+from the working tree; release deployment files live under `deploy/`.
+See [Local development](https://docs.bucketreef.ksperis.com/developer/local-development/).
 
 ## Full Documentation
 

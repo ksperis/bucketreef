@@ -22,7 +22,7 @@ spec:
         {{- toYaml .Values.frontend.podSecurityContext | nindent 8 }}
       containers:
         - name: frontend
-          image: "{{ .Values.image.frontend.repository }}:{{ .Values.image.frontend.tag }}"
+          image: "{{ .Values.image.frontend.repository }}:{{ default .Chart.AppVersion .Values.image.frontend.tag }}"
           imagePullPolicy: {{ .Values.image.frontend.pullPolicy }}
           securityContext:
             {{- toYaml .Values.frontend.containerSecurityContext | nindent 12 }}

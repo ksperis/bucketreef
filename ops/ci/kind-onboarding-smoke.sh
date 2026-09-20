@@ -136,7 +136,7 @@ kubectl --namespace "$NAMESPACE" create secret generic "${RELEASE}-auth" \
   --from-literal=credential-keys="[\"${credential_key}\"]" \
   --from-literal=internal-cron-token="$cron_token"
 
-helm upgrade --install "$RELEASE" helm/bucketreef \
+helm upgrade --install "$RELEASE" deploy/helm/bucketreef \
   --namespace "$NAMESPACE" \
   --set-string backend.existingSecret="${RELEASE}-auth" \
   --set-json 'backend.trustedProxyCidrs=["10.244.0.0/16"]' \
@@ -226,4 +226,13 @@ status_after="$(
 )"
 [[ "$(printf '%s' "$status_after" | jq -r '.available')" == "false" ]]
 
-printf 'Kind onboarding smoke test passed.\n'
+helm upgrade "$RELEASE" deploy/helm/bucketreef \
+  --namespace "$NAMESPACE" --reuse-values --set frontend.replicas=2 \
+  --wait --timeout 5m
+[[ "$(helm status "$RELEASE" --namespace "$NAMESPACE" --output json | jq -r '.version')" == "2" ]]
+[[ "$(kubectl --namespace "$NAMESPACE" get deployment/${RELEASE}-frontend -o jsonpath='{.status.readyReplicas}')" == "2" ]]
+status_after_upgrade="$(curl --fail --silent --header "Host: ${PUBLIC_HOST}" \
+  "http://127.0.0.1:${FRONTEND_PORT}/api/auth/bootstrap/first-admin/status")"
+[[ "$(printf '%s' "$status_after_upgrade" | jq -r '.available')" == "false" ]]
+
+printf 'Kind install, onboarding and upgrade smoke test passed.\n'

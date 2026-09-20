@@ -33,7 +33,7 @@ def test_runtime_images_are_fixed_non_root_and_read_only_compatible():
 
 
 def test_compose_services_drop_privileges_and_keep_public_port():
-    for filename in ("docker-compose.yml", "docker-compose.build.yml"):
+    for filename in ("docker-compose.yml", "deploy/compose/docker-compose.yml"):
         compose = yaml.safe_load(_read(filename))
         services = compose["services"]
         for name in ("backend", "frontend", "scheduler"):
@@ -64,13 +64,13 @@ def test_helm_workloads_apply_least_privilege_contract():
         "notification-retention-cronjob.yaml",
     ]
     for filename in templates:
-        template = _read(f"helm/bucketreef/templates/{filename}")
+        template = _read(f"deploy/helm/bucketreef/templates/{filename}")
         assert "automountServiceAccountToken: false" in template
         assert "securityContext:" in template
         assert "resources:" in template
         assert "mountPath: /tmp" in template
 
-    values = yaml.safe_load(_read("helm/bucketreef/values.yaml"))
+    values = yaml.safe_load(_read("deploy/helm/bucketreef/values.yaml"))
     for section in ("backend", "frontend", "postgresql"):
         assert values[section]["podSecurityContext"]["runAsNonRoot"] is True
         assert values[section]["podSecurityContext"]["seccompProfile"]["type"] == "RuntimeDefault"
@@ -81,13 +81,13 @@ def test_helm_workloads_apply_least_privilege_contract():
 
 
 def test_strict_network_policies_are_fail_closed_and_cover_all_workloads():
-    values = yaml.safe_load(_read("helm/bucketreef/values.yaml"))
+    values = yaml.safe_load(_read("deploy/helm/bucketreef/values.yaml"))
     network = values["networkPolicy"]
     assert network["strict"] is True
     assert network["publicHttpsEgress"] == []
     assert network["privateEgress"] == []
 
-    template = _read("helm/bucketreef/templates/networkpolicies.yaml")
+    template = _read("deploy/helm/bucketreef/templates/networkpolicies.yaml")
     for component in ("frontend", "backend", "cronjobs", "postgresql"):
         assert f'}}-{component}' in template
     assert "publicHttpsEgress is required" in template
@@ -105,4 +105,5 @@ def test_ci_builds_scans_and_promotes_scheduler_image():
         "promote-scheduler-release:",
     ):
         assert job in pipeline
-    assert "scheduler-image-sbom.cdx.json" in pipeline
+    assert "IMAGE_ARCH: [amd64, arm64]" in pipeline
+    assert "-sbom.cdx.json" in _read("ops/ci/scan-image.sh")

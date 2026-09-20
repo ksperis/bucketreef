@@ -10,9 +10,9 @@ runbooks.
    Start with [Docker Compose](deploy-docker-compose.md) for a local or
    single-host stack, or [Helm](deploy-helm.md) for Kubernetes.
    Keep the image tag, chart values, Compose `.env`, and release notes.
-   The local quickstart builds its checkout; the Helm defaults deliberately
-   remain on the stable release and require paired backend/frontend overrides
-   to validate unpublished code.
+   QuickStart and Helm install pinned releases. Use the root source-build
+   Compose, or paired backend/frontend chart image overrides, to validate
+   unpublished code.
 
 2. **Confirm the runtime contract.**
    Use [Configuration](configuration.md) to locate the database, secrets, CORS,

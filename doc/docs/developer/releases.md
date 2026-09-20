@@ -1,0 +1,127 @@
+# Release distribution
+
+GitLab CI builds and validates the application once, then promotes those exact
+images. Stable `vX.Y.Z` tags publish all three images to GHCR, the Helm chart
+to `oci://ghcr.io/ksperis/charts/bucketreef`, and two GitHub Release bundles.
+GitHub Actions does not rebuild or publish a second set of artifacts.
+
+## Prerequisites
+
+- Protected GitLab variables `GHCR_USERNAME` and `GHCR_TOKEN` with package
+  publication rights. Use masked/hidden values and password-stdin login.
+- A separate protected, masked/hidden `GITHUB_RELEASE_TOKEN`, restricted to
+  `ksperis/bucketreef` with repository Contents write permission. Its job creates
+  drafts, uploads assets and publishes releases; it does not push source branches.
+- The exact source commit and `vX.Y.Z` tag must already exist on the public
+  GitHub mirror. A missing tag or a different resolved SHA stops publication.
+- Docker-in-Docker runners support privileged binfmt registration. Builds use
+  Buildx and QEMU; ARM checks on an AMD64 runner are emulated, not native proof.
+- The `charts/bucketreef` GHCR package must be public. On the first publication,
+  set its visibility to public in GitHub Packages if necessary, then retry
+  `publish-helm-release`. That job deliberately fails until anonymous pull works.
+
+## Prepare a release
+
+1. Write one non-empty `## X.Y.Z - YYYY-MM-DD` section in `CHANGELOG.md`, then run
+   `backend/.venv/bin/python ops/release/prepare.py X.Y.Z` from the repository root.
+   This synchronizes the frontend package/lock, chart `version`/`appVersion`, and
+   Compose example. For `0.X.1` it also generates the schema reference snapshot.
+   Review and commit the complete diff. Chart image tags remain empty to inherit
+   `appVersion`; the bundle packager stamps its exact version into `.env.example`.
+2. Commit and synchronize the release source on GitLab and GitHub. Wait for
+   mandatory tests, AMD64/ARM64 builds, scans and the Kind onboarding smoke.
+3. Create the GitHub tag at that exact commit before pushing the same `vX.Y.Z`
+   tag to GitLab, which starts publication. Do not move an existing release tag.
+4. Wait for all release jobs, including both architecture smoke tests, Helm
+   anonymous pull and both GitHub and GitLab Release publication.
+
+The initial deployment reorganization does not republish `0.2.4`. It takes
+effect with the next new application version. For the first rollout, publish
+the distribution changes and release artifacts before deploying the updated
+user-facing documentation and website. Both deployments check that the public
+bundles and checksums exist before advertising the installer. Until the first
+new release is published, these deployment jobs fail without changing the live
+sites; retry them after release publication.
+
+## Database schema baselines
+
+Fresh databases already use the installed release's SQLAlchemy metadata followed
+by `alembic stamp head`. Versioned databases run `alembic upgrade head`; non-empty
+unversioned databases are rejected. Keep that distinction and all historical
+migrations. A baseline is a reference snapshot, not a second migration branch
+or a replacement for the current models at startup.
+
+For each new `0.X.1`, preparation writes deterministic `sqlite.sql`,
+`postgresql.sql`, and `manifest.json` under `backend/schema-baselines/X.Y.Z`.
+The manifest records the application version, Alembic head and file SHA-256s.
+Snapshots contain DDL only, never database rows or credentials. Existing snapshots
+cannot be overwritten with different content. Main tests and tag metadata checks
+reject a required snapshot that is missing or differs from the current schema.
+Patch releases do not regenerate previous snapshots. `0.2.5` creates none, and
+`0.2.1` is not backfilled. Fresh patch installations still create their current
+target schema directly without replaying an earlier snapshot.
+
+Use `backend/.venv/bin/python ops/release/schema_baseline.py X.Y.Z --check` to
+verify a required snapshot. Keep schema-parity and upgrade tests for SQLite and
+PostgreSQL; data transformations for existing installations remain in Alembic.
+
+## Release notes and platform metadata
+
+The tag job extracts the exact changelog section and appends a comparison link
+against the highest lower stable tag reachable from the release commit. Full Git
+history is required. Missing, empty or duplicate sections fail before promotion.
+The GitHub and GitLab notes share that section and use platform-specific compare
+URLs. Published notes and asset contents are immutable on retry.
+
+GitLab publishes its release only after GitHub has published the verified draft.
+It uses the built-in `CI_JOB_TOKEN` and links to the same four public GitHub assets;
+there is no second bundle upload or stored GitLab personal token. If GitLab fails
+after GitHub succeeds, retry that job: an identical existing release is accepted.
+Manage and renew the dedicated GitHub token before its configured expiration.
+
+## Gates and outputs
+
+Builds create manifest lists for `linux/amd64` and `linux/arm64` under the commit
+SHA. Each platform is smoke-tested and scanned, with separate vulnerability
+reports and CycloneDX SBOMs. Promotion copies all manifests with preserved
+digests. `X.Y.Z` image tags cannot be overwritten with different contents;
+minor and latest aliases retain the existing stable-tag policy.
+
+The Helm job packages the chart with `version == appVersion == X.Y.Z`, checks
+existing content on retry, pushes OCI and verifies an anonymous download.
+The chart keeps the required existing Secret, trusted proxies and NetworkPolicy
+configuration; publishing it does not provide deployment-specific security values.
+
+The standard-library packager emits deterministic archives containing only
+Compose, `.env.example`, `README.md`, `LICENSE`, `VERSION`, and (for QuickStart)
+the lifecycle command:
+
+```sh
+python3 ops/release/package_bundles.py --version X.Y.Z --output dist/release
+```
+
+The four GitHub assets have stable names within each release:
+
+- `bucketreef-compose.tar.gz` and `bucketreef-compose.tar.gz.sha256`;
+- `bucketreef-quickstart.tar.gz` and `bucketreef-quickstart.tar.gz.sha256`.
+
+Release smoke tests run the candidate QuickStart bundle from an isolated
+Docker-in-Docker daemon using public GHCR images, without a source checkout.
+They check readiness, bootstrap URL issuance, stop/restart and secret persistence.
+Only afterward does GitLab publish the GitHub draft. Existing identical assets
+are reused; conflicting or unverifiable assets stop publication. Published
+releases are never repaired by silently replacing assets.
+
+## Verify and recover
+
+Verify the chart can be pulled without credentials, all three image indexes
+contain both platforms, and the published archives match their checksums.
+Exercise the installer on a fresh home directory, then rerun it and confirm
+the installed version and secrets are unchanged. Record native and emulated
+architecture evidence separately.
+
+If a job fails, correct the cause and retry the same pipeline. A partial GitHub
+upload remains a draft. A failed chart visibility check can be retried after
+making the package public. Content conflicts require investigation and a new
+release rather than overwriting an immutable version. An application rollback
+may require restoring a verified database backup with its matching encryption keys.

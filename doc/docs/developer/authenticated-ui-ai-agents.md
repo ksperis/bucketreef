@@ -170,13 +170,15 @@ smoke test.
 ## Optional validation against the real local instance
 
 Use a real local instance only when the requested evidence depends on its
-actual data or storage configuration. From the current checkout, Quickstart is
-the preferred live path:
+actual data or storage configuration. Use the standalone QuickStart for a published release:
 
 ```bash
-./quickstart
-./quickstart status
+bucketreef-quickstart
+bucketreef-quickstart status
 ```
+
+To validate unpublished checkout changes, use the source Compose commands in
+[Local development](local-development.md) instead.
 
 Open its login URL in a distinct headed Playwright CLI session:
 
@@ -189,7 +191,7 @@ browser. Continue automation only in the same named session after the user has
 finished. Never request or record the password, passkey, recovery codes, or
 session cookies.
 
-Do not run `./quickstart reset`, issue a replacement administrator, reset MFA,
+Do not run `bucketreef-quickstart reset`, issue a replacement administrator, reset MFA,
 or reseed existing development data merely to obtain access. If authentication
 or a recent WebAuthn step-up is required, stop and ask the user to complete it.
 The isolated Admin and Browser state files are never valid evidence for the

@@ -115,7 +115,7 @@ as required, and update `DATABASE_URL` atomically.
 ## Helm cutover
 
 A Helm release and its generated PersistentVolumeClaim names cannot be renamed
-safely in place. Deploy a new release named `bucketreef` from `helm/bucketreef` and attach
+safely in place. Deploy a new release named `bucketreef` from `oci://ghcr.io/ksperis/charts/bucketreef` with an explicit chart version and attach
 or restore the data deliberately:
 
 1. Back up the database, application persistence, and the Secret referenced by

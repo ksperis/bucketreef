@@ -4,39 +4,52 @@ Use Docker Compose for single-host or production-like validation deployments.
 For a loopback-only evaluation with generated secrets, start with
 [Local quickstart](quickstart.md).
 
-## Prebuilt images
+## Download a release bundle
 
-```bash
-git clone https://github.com/ksperis/bucketreef.git
-cd bucketreef
-# Configure strong secrets and origins in .env first.
-export INTERNAL_CRON_TOKEN="$(openssl rand -hex 48)"
-BUCKETREEF_TAG=latest docker compose up -d backend frontend
+Select a published `vX.Y.Z` from [GitHub Releases](https://github.com/ksperis/bucketreef/releases).
+The bundle contains only Compose, an example environment, instructions,
+license and `VERSION`. No checkout is required. Images support Linux AMD64 and
+ARM64 and are pinned to the chosen release.
+
+```sh
+VERSION=X.Y.Z
+mkdir bucketreef && cd bucketreef
+curl -fsSLO "https://github.com/ksperis/bucketreef/releases/download/v${VERSION}/bucketreef-compose.tar.gz"
+curl -fsSLO "https://github.com/ksperis/bucketreef/releases/download/v${VERSION}/bucketreef-compose.tar.gz.sha256"
+sha256sum -c bucketreef-compose.tar.gz.sha256
+# On macOS: shasum -a 256 -c bucketreef-compose.tar.gz.sha256
+tar -xzf bucketreef-compose.tar.gz
+cp .env.example .env
+chmod 600 .env
 ```
 
-`latest` resolves to the latest stable release published from a Git tag.
+Replace each of the four secret placeholders in `.env` with a different value
+from `openssl rand -hex 48`. Configure your origins and proxy settings. Keep
+`BUCKETREEF_TAG` equal to the bundle's `VERSION`, then start:
 
-## Which image tag should I use?
+```sh
+docker compose up -d --wait backend frontend
+```
 
-| Use case | Tag |
-|---|---|
-| Quick stable validation | `latest` |
-| Reproducible validation | a plain semver tag such as `0.2.4` |
-| Internal rolling lab | `dev` from the internal GitLab registry |
-| Debugging a specific internal build | `dev-<short-sha>` from the internal GitLab registry |
+The source of this bundle is `deploy/compose` in the product repository. It
+contains no build contexts. Stop preserves data and keys. Before changing
+versions, stop services, back up the complete volume and matching `.env`, and
+review the target release's migration notes. Replace bundle files and deliberately
+update `BUCKETREEF_TAG`; do not overwrite `.env` with example secrets.
 
 ## Build from source
 
-From repository root:
+Developers use the sole root Compose, which builds backend, frontend and scheduler
+from the checkout. Configure a root `.env` with four distinct secrets and the
+same environment contract as the deployment example, then run:
 
-```bash
-export INTERNAL_CRON_TOKEN="$(openssl rand -hex 48)"
-docker compose -f docker-compose.build.yml up --build
+```sh
+docker compose build
+docker compose up -d --build --wait
 ```
 
-Unlike the local `./quickstart`, this command does not generate or persist the
-other required application secrets for you. Configure the complete `.env`
-contract before using it beyond an isolated development check.
+The standalone QuickStart runs released images and does not validate unpublished
+source changes. See [Local development](../developer/local-development.md).
 
 When `APP_ENV=production`, `TRUSTED_PROXY_CIDRS` must be a non-empty JSON list
 containing only the actual reverse proxy boundary. If an external proxy has the
@@ -72,7 +85,7 @@ overrides, project name, and profiles) for every command below. For example:
 
 ```bash
 compose=(docker compose --env-file .env.bucketreef-local \
-  -f docker-compose.build.yml -f .env.bucketreef-local.override.yml \
+  -f docker-compose.yml -f .env.bucketreef-local.override.yml \
   --profile operations)
 "${compose[@]}" stop
 backend_id=$("${compose[@]}" ps -aq backend)
