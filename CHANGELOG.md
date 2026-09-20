@@ -380,5 +380,5 @@
 
 ### Changes
 
-- Initial tagged S3 Manager version, before the BucketReef rename.
+- Initial tagged version, before the BucketReef rename.
 - Added Docker Compose deployment, a Helm chart and GHCR image publication.
