@@ -35,6 +35,11 @@ if [ "$reuse" = false ]; then
     --output type=image,push=true,oci-artifact=false "$@"
 fi
 
+# Freeze the exact index before executing either architecture. Never smoke a
+# mutable reference and subsequently claim a different digest was tested.
+docker buildx imagetools inspect --raw "$image" >"$temporary/tested-index.json"
+digest="sha256:$(sha256sum "$temporary/tested-index.json" | cut -d ' ' -f1)"
+image="$CI_REGISTRY_IMAGE/$IMAGE_COMPONENT@$digest"
 # Test both actual image variants, including their non-root runtime contract.
 for arch in amd64 arm64; do
   docker pull --platform "linux/$arch" "$image"
@@ -67,3 +72,5 @@ done
 if [ "$reuse" = false ]; then
   docker buildx imagetools create --tag "$validated_image" "$image"
 fi
+mkdir -p image-receipts
+printf '%s\n' "$digest" >"image-receipts/$IMAGE_COMPONENT.digest"

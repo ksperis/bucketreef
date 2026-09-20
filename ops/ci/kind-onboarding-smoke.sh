@@ -17,6 +17,7 @@ readonly KIND_API_HOST="${KIND_API_HOST:-}"
 
 readonly BACKEND_IMAGE="${BACKEND_IMAGE_REPOSITORY}:${IMAGE_TAG}"
 readonly FRONTEND_IMAGE="${FRONTEND_IMAGE_REPOSITORY}:${IMAGE_TAG}"
+readonly HELM_CHART_PATH="${HELM_CHART_PATH:-deploy/helm/bucketreef}"
 readonly POSTGRES_IMAGE="postgres:16-alpine"
 
 temporary_directory="$(mktemp -d)"
@@ -90,8 +91,12 @@ configure_kind_api_access() {
 if [[ "${KIND_SMOKE_USE_LOCAL_IMAGES:-false}" == "true" ]]; then
   docker image inspect "$BACKEND_IMAGE" "$FRONTEND_IMAGE" >/dev/null
 else
-  docker pull "$BACKEND_IMAGE"
-  docker pull "$FRONTEND_IMAGE"
+  backend_source=${BACKEND_IMAGE_DIGEST:+$BACKEND_IMAGE_REPOSITORY@$BACKEND_IMAGE_DIGEST}
+  frontend_source=${FRONTEND_IMAGE_DIGEST:+$FRONTEND_IMAGE_REPOSITORY@$FRONTEND_IMAGE_DIGEST}
+  docker pull "${backend_source:-$BACKEND_IMAGE}"
+  docker pull "${frontend_source:-$FRONTEND_IMAGE}"
+  if [[ -n "$backend_source" ]]; then docker tag "$backend_source" "$BACKEND_IMAGE"; fi
+  if [[ -n "$frontend_source" ]]; then docker tag "$frontend_source" "$FRONTEND_IMAGE"; fi
 fi
 docker pull "$POSTGRES_IMAGE"
 kind_config_args=()
@@ -136,7 +141,7 @@ kubectl --namespace "$NAMESPACE" create secret generic "${RELEASE}-auth" \
   --from-literal=credential-keys="[\"${credential_key}\"]" \
   --from-literal=internal-cron-token="$cron_token"
 
-helm upgrade --install "$RELEASE" deploy/helm/bucketreef \
+helm upgrade --install "$RELEASE" "$HELM_CHART_PATH" \
   --namespace "$NAMESPACE" \
   --set-string backend.existingSecret="${RELEASE}-auth" \
   --set-json 'backend.trustedProxyCidrs=["10.244.0.0/16"]' \
@@ -226,7 +231,7 @@ status_after="$(
 )"
 [[ "$(printf '%s' "$status_after" | jq -r '.available')" == "false" ]]
 
-helm upgrade "$RELEASE" deploy/helm/bucketreef \
+helm upgrade "$RELEASE" "$HELM_CHART_PATH" \
   --namespace "$NAMESPACE" --reuse-values --set frontend.replicas=2 \
   --wait --timeout 5m
 [[ "$(helm status "$RELEASE" --namespace "$NAMESPACE" --output json | jq -r '.version')" == "2" ]]

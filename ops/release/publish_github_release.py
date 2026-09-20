@@ -21,7 +21,9 @@ class GitHub:
 
     def request(self, path: str, *, method="GET", data=None, binary=False, missing_ok=False):
         url = path if path.startswith("https://uploads.github.com/") else f"https://api.github.com/repos/{REPOSITORY}/{path}"
-        headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+        headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
         if data is not None:
             headers["Content-Type"] = "application/octet-stream" if binary else "application/json"
             if not binary:
@@ -45,7 +47,7 @@ def resolve_tag(api, tag: str) -> str:
     return ref["sha"]
 
 
-def publish(api, version: str, sha: str, directory: Path, latest: bool, notes: str):
+def publish(api, version: str, sha: str, directory: Path, latest: bool, notes: str, *, finalize: bool = True):
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) or not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("Expected a stable version and full commit SHA")
     tag = f"v{version}"
@@ -91,7 +93,7 @@ def publish(api, version: str, sha: str, directory: Path, latest: bool, notes: s
         asset = api.request(release["upload_url"].split("{")[0] + "?name=" + name, method="POST", data=data, binary=True)
         if asset.get("digest") != digest or asset.get("size") != len(data) or asset.get("state") != "uploaded":
             raise RuntimeError(f"Uploaded asset could not be verified: {name}")
-    if release["draft"]:
+    if release["draft"] and finalize:
         # The pipeline's initial alias calculation can become stale while a
         # newer release finishes. Serialized publication must not regress latest.
         current = api.request("releases/latest", missing_ok=True) if latest else None

@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 
 from plan import ROOT, changes, classify, git, select, version_changed
 
@@ -41,6 +42,11 @@ def gitlab_plan(env, api=None):
         base = latest_baseline(api or GitLabAPI(), ref)
     paths = changes(base, sha)
     plan = select(profile, paths, ref=ref, version=profile == "integration" and version_changed(base, sha, paths))
+    if profile == "recover-release" and env.get("GITLAB_RELEASE_RECOVERY_VERSION"):
+        value = env["GITLAB_RELEASE_RECOVERY_VERSION"]
+        if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
+            raise ValueError("Invalid recovery version")
+        plan["recovery_version"] = value
     return {**plan, "base_sha": base, "head_sha": sha, "sha": sha,
             "parent_id": int(env["CI_PIPELINE_ID"]), "tag": env.get("CI_COMMIT_TAG", "")}
 

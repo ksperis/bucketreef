@@ -9,13 +9,14 @@ temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT
 export HELM_REGISTRY_CONFIG="$temporary/registry.json"
 printf '%s' "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GHCR_USERNAME" --password-stdin
-helm package deploy/helm/bucketreef --destination dist/release --version "$RELEASE_VERSION" --app-version "$RELEASE_VERSION"
+# Reuse the packaged, fingerprinted candidate; publication never repackages it.
+test -s "$archive"
 mkdir "$temporary/expected" "$temporary/existing"
 tar -xzf "$archive" -C "$temporary/expected"
 if helm pull "$chart" --version "$RELEASE_VERSION" --destination "$temporary/existing" 2>"$temporary/pull.err"; then
   tar -xzf "$temporary/existing/bucketreef-$RELEASE_VERSION.tgz" -C "$temporary/existing"
-  # Helm archives contain timestamps; compare unpacked chart contents on retry.
-  diff -r "$temporary/expected/bucketreef" "$temporary/existing/bucketreef"
+  # The candidate archive is deterministic: a different version is immutable.
+  cmp "$archive" "$temporary/existing/bucketreef-$RELEASE_VERSION.tgz"
 else
   if ! grep -Eiq 'not found|404|manifest unknown' "$temporary/pull.err"; then
     cat "$temporary/pull.err" >&2
@@ -34,4 +35,4 @@ if ! helm pull "$chart" --version "$RELEASE_VERSION" --destination "$temporary";
 fi
 mkdir "$temporary/public"
 tar -xzf "$temporary/bucketreef-$RELEASE_VERSION.tgz" -C "$temporary/public"
-diff -r "$temporary/expected/bucketreef" "$temporary/public/bucketreef"
+cmp "$archive" "$temporary/bucketreef-$RELEASE_VERSION.tgz"

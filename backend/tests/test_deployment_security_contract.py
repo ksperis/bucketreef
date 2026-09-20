@@ -102,7 +102,7 @@ def test_ci_builds_scans_and_promotes_scheduler_image():
         "build-scheduler:",
         "scheduler-image-vuln-scan:",
         "scheduler-release-image-vuln-scan:",
-        "promote-scheduler-release:",
+        "publish-candidate-images:",
     ):
         assert job in pipeline
     assert "- amd64" in pipeline and "- arm64" in pipeline
