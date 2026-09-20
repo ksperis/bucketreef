@@ -194,10 +194,12 @@ def _cleanup_account_before_user(
 
 def test_portal_storage_space_configures_server_access_logging_on_lab(
     ceph_test_settings: CephTestSettings,
-    provisioned_account,
+    account_factory,
     super_admin_session: BackendSession,
     resource_tracker: ResourceTracker,
 ) -> None:
+    # Manager administration alone does not grant access to Portal resources.
+    provisioned_account = account_factory(portal_role="portal_manager")
     manager_session: BackendSession = provisioned_account.manager_session
     account_id = provisioned_account.account_id
     log_bucket = _portal_log_bucket_name(

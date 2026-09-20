@@ -316,6 +316,7 @@ def _provision_account(
     storage_endpoint_id: int,
     *,
     account_payload: dict | None = None,
+    portal_role: str | None = None,
 ) -> S3AccountTestContext:
     default_payload = {
         "name": f"{ceph_test_settings.test_prefix}-acct-{_rand_suffix()}",
@@ -385,7 +386,7 @@ def _provision_account(
                 {
                     "account_id": account_id,
                     "manager_role": "account_administrator",
-                    "portal_role": None,
+                    "portal_role": portal_role,
                     "allow_manager_browser_data_access": True,
                 }
             ]
@@ -422,6 +423,7 @@ def account_factory(
             resource_tracker,
             storage_endpoint_id,
             account_payload=payload,
+            portal_role=kwargs.get("portal_role"),
         )
 
     return _factory
