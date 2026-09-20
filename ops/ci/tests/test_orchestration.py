@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from gitlab_api import expected_names, successful_jobs, latest_baseline
 from plan import ROOT, PUBLIC, select
 from render_gitlab import render
-from secret_report import summarize
+from secret_report import POSTGRES_FIXTURES, summarize
 from ceph_result import verify
 
 
@@ -54,6 +54,28 @@ def test_secret_findings_are_redacted_and_invalid_report_fails():
     report = {'scan':{'status':'success'},'vulnerabilities':[{'description':'SENSITIVE','raw_source_code_extract':'SECRET','location':{'file':'a.py','start_line':1},'identifiers':[{'type':'gitleaks','value':'SECRET'}]}]}
     assert 'SECRET' not in json.dumps(summarize(report))
     with pytest.raises(ValueError): summarize({})
+
+
+@pytest.mark.parametrize('path,extract', POSTGRES_FIXTURES.items())
+def test_only_exact_disposable_postgresql_findings_are_exempt(path, extract):
+    finding = {'location': {'file': path, 'start_line': 27},
+               'raw_source_code_extract': extract,
+               'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}]}
+    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
+    assert summarize(report) == []
+    for field, replacement in (
+        ('location', {'file': 'backend/app/config.py'}),
+        ('raw_source_code_extract', extract + '.example.com'),
+        ('raw_source_code_extract', extract.replace('bucketreef-test-password', 'unexpected-password')),
+        ('raw_source_code_extract', extract + '\nadditional sensitive content'),
+        ('identifiers', [{'type': 'gitleaks_rule_id', 'value': 'another-rule'}]),
+        ('identifiers', []),
+    ):
+        modified = copy.deepcopy(report)
+        modified['vulnerabilities'][0][field] = replacement
+        assert len(summarize(modified)) == 1
+    report['scan']['status'] = 'failure'
+    with pytest.raises(ValueError): summarize(report)
 
 
 @pytest.mark.parametrize('body', ['', '<skipped/>', '<failure/>', '<error/>'])

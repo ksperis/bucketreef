@@ -110,8 +110,11 @@ One Trivy JSON scan produces table and CycloneDX output, preserving HIGH/CRITICA
 ignore-unfixed and reviewed `.trivyignore` exceptions. Qualification records six
 architecture-specific scan receipts with job IDs, exact image inputs, report
 hashes, tool versions and timestamps. Release pipelines rescan the same digests.
-Secret detection requires a successful analyzer report and zero findings. Only
-redacted file/line/type diagnostics are uploaded; raw analyzer output is discarded.
+Secret detection requires a successful analyzer report and zero unresolved findings.
+The two public PostgreSQL CI fixture URLs are exempt only when the detector rule,
+file and complete extracted value match `ops/ci/secret_report.py`; changed hosts,
+passwords or paths still fail. The job reports the number of exempt fixture findings.
+Only redacted file/line/type diagnostics are uploaded; raw analyzer output is discarded.
 Normal scans use the explicit Git range, while historical maintenance scans all
 history. The scheduled image scan refuses old releases without qualification;
 qualify and publish a new version before enabling that schedule after migration.
