@@ -129,31 +129,52 @@ def test_release_gates_cover_all_architectures_and_artifacts():
 
 
 @pytest.mark.parametrize("failed", [False, True])
-def test_sha_tag_is_published_only_after_both_runtime_checks(tmp_path, failed):
+@pytest.mark.parametrize("existing", ["missing", "complete", "incomplete", "denied"])
+def test_sha_tag_is_published_only_after_both_runtime_checks(tmp_path, failed, existing):
     docker = tmp_path / "docker"
     log = tmp_path / "commands.log"
     docker.write_text('''#!/bin/sh
 printf '%s\\n' "$*" >> "$DOCKER_TEST_LOG"
 case "$*" in
+  'buildx imagetools inspect --raw '*)
+    case "$EXISTING_IMAGE" in
+      missing) echo 'manifest unknown' >&2; exit 1 ;;
+      denied) echo 'unauthorized' >&2; exit 1 ;;
+      *) echo '{"manifests":[]}' ;;
+    esac ;;
   *'--entrypoint python'*) [ "$FAIL_RUNTIME" = false ] || exit 1 ;;
 esac
 ''')
     docker.chmod(0o755)
+    # The external index validator reports whether both architectures exist.
+    jq = tmp_path / "jq"
+    jq.write_text('#!/bin/sh\n[ "$EXISTING_IMAGE" = complete ]\n')
+    jq.chmod(0o755)
     result = subprocess.run(["sh", str(ROOT / "ops/ci/build-image.sh")], env={
         **os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}", "DOCKER_TEST_LOG": str(log),
         "FAIL_RUNTIME": str(failed).lower(), "CI_REGISTRY_IMAGE": "registry.example/project",
+        "EXISTING_IMAGE": existing,
         "IMAGE_COMPONENT": "backend", "CI_COMMIT_SHA": "a" * 40, "CI_JOB_ID": "123",
         "BINFMT_IMAGE": "binfmt-test",
     }, capture_output=True, text=True)
     commands = log.read_text()
-    if failed:
+    if existing in ("incomplete", "denied"):
+        assert result.returncode != 0
+        assert "buildx build" not in commands
+        assert "imagetools create" not in commands
+        assert "--entrypoint python" not in commands
+    elif failed:
         assert result.returncode != 0
         assert "imagetools create" not in commands
     else:
         assert result.returncode == 0, result.stderr
         assert "--platform linux/amd64 --read-only" in commands
         assert "--platform linux/arm64 --read-only" in commands
-        assert commands.index("imagetools create") > commands.rindex("--entrypoint python")
+        if existing == "complete":
+            assert "buildx build" not in commands
+            assert "imagetools create" not in commands
+        else:
+            assert commands.index("imagetools create") > commands.rindex("--entrypoint python")
 
 
 @pytest.mark.parametrize("version, expected", [
