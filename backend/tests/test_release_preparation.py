@@ -99,11 +99,13 @@ class GitLabFixture:
     def __init__(self):
         self.release = None
         self.sha = "a" * 40
+        self.tag_name = "v0.2.5"
         self.writes = []
 
     def request(self, path, *, method="GET", data=None, **kwargs):
-        if path.startswith("repository/tags/"):
-            return {"commit": {"id": self.sha}}
+        if path == "repository/tags?search=%5Ev0.2.5%24":
+            return [{"name": self.tag_name, "commit": {"id": self.sha}}]
+        assert not path.startswith("repository/tags/")
         if method == "GET":
             return self.release
         self.writes.append(data)
@@ -123,3 +125,11 @@ def test_gitlab_release_retry_is_read_only_and_conflicts_fail():
     with pytest.raises(RuntimeError, match="SHA differs"):
         publish(api, "0.2.5", "a" * 40, "Notes\n")
     assert len(api.writes) == 1
+
+
+def test_gitlab_release_requires_the_exact_existing_tag():
+    api = GitLabFixture()
+    api.tag_name = "v0.2.50"
+    with pytest.raises(RuntimeError, match="SHA differs"):
+        publish(api, "0.2.5", "a" * 40, "Notes\n")
+    assert not api.writes

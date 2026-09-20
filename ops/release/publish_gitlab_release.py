@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from publish_github_release import ASSETS, REPOSITORY
@@ -39,7 +40,11 @@ def publish(api, version: str, sha: str, notes: str):
         raise ValueError("Expected full commit SHA and non-empty release notes")
     tag = f"v{version}"
     # Do not let release creation implicitly create a tag at a different ref.
-    if api.request(f"repository/tags/{tag}")["commit"]["id"] != sha:
+    # GitLab before 18.8 permits job tokens to list tags, but not get one tag.
+    query = urllib.parse.urlencode({"search": f"^{tag}$"})
+    tags = api.request(f"repository/tags?{query}")
+    matching = [item for item in tags if item["name"] == tag]
+    if len(matching) != 1 or matching[0]["commit"]["id"] != sha:
         raise RuntimeError("GitLab tag SHA differs from the validated commit")
     links = [{"name": name, "url": f"https://github.com/{REPOSITORY}/releases/download/{tag}/{name}", "link_type": "package"} for name in ASSETS]
     release = api.request(f"releases/{tag}", missing_ok=True)
