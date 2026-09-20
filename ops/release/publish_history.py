@@ -62,7 +62,8 @@ def publish_history(gh, gl, catalog, *, apply=False, root=ROOT, remote='origin')
         if operation=='create':
             data={'tag_name':tag,'name':tag}
             if platform=='github':
-                data.update(target_commitish=entry['sha'],body=expected,draft=False,prerelease=False,make_latest='false')
+                # Existing tags are verified above; no tag creation target is needed.
+                data.update(body=expected,draft=False,prerelease=False,make_latest='false')
             else:
                 data.update(description=expected,released_at=entry['date']+'T00:00:00Z')
             api.request('releases',method='POST',data=data)

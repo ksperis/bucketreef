@@ -63,6 +63,7 @@ def test_dry_run_and_retry_preserve_latest_and_assets(history):
     _,confirmed=run(history,gh,gl)
     assert all(e['confirmed'] for e in confirmed['releases'])
     assert gh.writes[0][2]['make_latest']=='false'
+    assert 'target_commitish' not in gh.writes[0][2]
     assert gl.writes[0][2]['released_at']=='2026-01-06T00:00:00Z'
     assert 'assets' not in gh.writes[0][2] and 'assets' not in gl.writes[0][2]
     run(history,gh,gl)
