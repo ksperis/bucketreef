@@ -18,9 +18,11 @@ def render(plan):
     names = set(plan["jobs"])
     profile = plan["profile"]
     if profile == "release":
-        names = {"release-tag-metadata", "release-source-images-ready", "release-bundles", "release-kind-onboarding-smoke", "release-bundle-smoke", "publish-helm-release", "publish-github-release", "publish-gitlab-release"}
-        names.update(f"{c}-release-image-vuln-scan" for c in ("backend", "frontend", "scheduler"))
-        names.update(f"promote-{c}-release" for c in ("backend", "frontend", "scheduler"))
+        # The same list is checked against real GitLab job results before release.
+        import sys
+        sys.path.insert(0, str(ROOT / "ops/release"))
+        from distribution import REQUIRED
+        names = {*REQUIRED, "release-ready", "finalize-release"}
     elif profile == "recover-release":
         names = {"recover-gitlab-release"}
     elif profile in {"integration", "qualify"}:
@@ -44,6 +46,8 @@ def render(plan):
         config[".kind-base"].pop("needs", None)
     for name in sorted(names):
         job = copy.deepcopy(source[name])
+        if name == "recover-gitlab-release" and plan.get("recovery_version"):
+            job.setdefault("variables", {})["GITLAB_RELEASE_RECOVERY_VERSION"] = plan["recovery_version"]
         if job.get("extends") == "helm-kind-onboarding-smoke":
             job["extends"] = ".kind-base"
         dependencies = job.get("needs", [])

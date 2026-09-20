@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 from gitlab_api import GitLabAPI, completed_records
+from qualification import validate
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "release"))
 from publish_github_release import resolve_tag
@@ -21,6 +22,7 @@ def scan():
     record = next(completed_records(GitLabAPI(), "main", "qualification.json", sha), None)
     if not record or record["plan"]["profile"] != "qualify":
         raise ValueError("Published distribution lacks qualification evidence; no mutable-tag fallback")
+    validate(record, sha)
     for component in ("backend", "frontend", "scheduler"):
         digest = record["images"][component]["digest"]
         for arch in ("amd64", "arm64"):

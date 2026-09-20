@@ -40,52 +40,12 @@ compose-contract:
   script:
   - sh ops/ci/tasks/run.sh compose-contract
 .promote-internal-image:
-  stage: promote
-  image:
-    name: $REGISTRY_TOOLS_IMAGE
-    entrypoint:
-    - ''
+  stage: finalize
+  image: python:3.12-alpine
   before_script:
-  - apk add --no-cache skopeo jq
+  - apk add --no-cache skopeo git
   script:
-  - test -n "$SOURCE_IMAGE"
-  - sh ops/ci/verify-image-platforms.sh "$SOURCE_IMAGE"
-  - test -n "$TARGET_GITLAB_IMAGE"
-  - "source_digest=$(skopeo inspect --creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" --format '{{.Digest}}' \"\
-    docker://$SOURCE_IMAGE\")\nfor tag in dev \"dev-$CI_COMMIT_SHORT_SHA\"; do\n  gitlab_target=\"docker://$TARGET_GITLAB_IMAGE:$tag\"\
-    \n\n  skopeo copy --all --preserve-digests \\\n    --src-creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" \\\
-    \n    --dest-creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" \\\n    \"docker://$SOURCE_IMAGE\" \\\n    \"\
-    $gitlab_target\"\n\n  gitlab_digest=$(skopeo inspect --creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" --format\
-    \ '{{.Digest}}' \"$gitlab_target\")\n  test \"$gitlab_digest\" = \"$source_digest\"\ndone\n"
-.promote-public-image:
-  stage: promote
-  image:
-    name: $REGISTRY_TOOLS_IMAGE
-    entrypoint:
-    - ''
-  before_script:
-  - apk add --no-cache skopeo jq git coreutils
-  script:
-  - test -n "$SOURCE_IMAGE"
-  - sh ops/ci/verify-image-platforms.sh "$SOURCE_IMAGE"
-  - test -n "$TARGET_GHCR_IMAGE"
-  - test -n "$GHCR_USERNAME"
-  - test -n "$GHCR_TOKEN"
-  - test -n "$RELEASE_GHCR_TAGS"
-  - "if [ \"$PROMOTION_KIND\" != \"release\" ]; then\n  echo \"Unsupported PROMOTION_KIND: $PROMOTION_KIND\"\n \
-    \ exit 1\nfi\ncurrent_tags=\"$(sh ops/release/image-tags.sh \"$RELEASE_VERSION\")\"\npromotion_tags=\"$(printf\
-    \ '%s' \"$current_tags\" | tr ',' ' ')\"\nif [ -z \"$promotion_tags\" ]; then\n  echo \"Release promotion requires\
-    \ at least one GHCR tag\"\n  exit 1\nfi\n"
-  - "source_digest=$(skopeo inspect --creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" --format '{{.Digest}}' \"\
-    docker://$SOURCE_IMAGE\")\nfor tag in $promotion_tags; do\n  ghcr_target=\"docker://$TARGET_GHCR_IMAGE:$tag\"\
-    \n\n  if [ \"$tag\" = \"$RELEASE_VERSION\" ]; then\n    if existing_digest=$(skopeo inspect --creds \"$GHCR_USERNAME:$GHCR_TOKEN\"\
-    \ --format '{{.Digest}}' \"$ghcr_target\" 2>/tmp/bucketreef-registry-error); then\n      if [ \"$existing_digest\"\
-    \ != \"$source_digest\" ]; then\n        echo \"Refusing to overwrite published release image $tag\"\n     \
-    \   exit 1\n      fi\n    elif ! grep -Eiq 'manifest unknown|name unknown|not found|404' /tmp/bucketreef-registry-error;\
-    \ then\n      cat /tmp/bucketreef-registry-error >&2\n      exit 1\n    fi\n  fi\n  skopeo copy --all --preserve-digests\
-    \ \\\n    --src-creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" \\\n    --dest-creds \"$GHCR_USERNAME:$GHCR_TOKEN\"\
-    \ \\\n    \"docker://$SOURCE_IMAGE\" \\\n    \"$ghcr_target\"\n\n  ghcr_digest=$(skopeo inspect --creds \"$GHCR_USERNAME:$GHCR_TOKEN\"\
-    \ --format '{{.Digest}}' \"$ghcr_target\")\n  test \"$ghcr_digest\" = \"$source_digest\"\ndone\n"
+  - python3 ops/ci/promote_dev.py
 release-tag-metadata:
   stage: test
   image: python:3.12-slim
@@ -101,13 +61,11 @@ release-tag-metadata:
     ${release_version%.*}\"\npython3 ops/release/check_version.py \"$release_version\"\npython3 ops/release/schema_baseline.py\
     \ \"$release_version\" --check\ngit fetch --quiet origin \"$CI_DEFAULT_BRANCH\"\nif ! git merge-base --is-ancestor\
     \ \"$CI_COMMIT_SHA\" FETCH_HEAD; then\n  echo \"Release tag must point to a commit included in $CI_DEFAULT_BRANCH\"\
-    \n  exit 1\nfi\n\nghcr_tags=\"$(sh ops/release/image-tags.sh \"$release_version\")\"\npython3 ops/release/release_notes.py\
-    \ --version \"$release_version\"\n\n{\n  printf 'RELEASE_VERSION=%s\\n' \"$release_version\"\n  printf 'RELEASE_MINOR=%s\\\
-    n' \"$release_minor\"\n  printf 'RELEASE_GHCR_TAGS=%s\\n' \"$ghcr_tags\"\n} > release-tags.env\necho \"Release\
-    \ GHCR tags: $(printf '%s' \"$ghcr_tags\" | tr ',' ' ')\"\n"
+    \n  exit 1\nfi\n\npython3 ops/release/release_notes.py --version \"$release_version\"\n\n{\n  printf 'RELEASE_VERSION=%s\\\
+    n' \"$release_version\"\n  printf 'RELEASE_MINOR=%s\\n' \"$release_minor\"\n} > release-tags.env"
   artifacts:
     when: always
-    expire_in: 1 week
+    expire_in: never
     paths:
     - release-tags.env
     - dist/release-notes/
@@ -313,24 +271,26 @@ helm-kind-onboarding-smoke:
   - echo "$(awk '{print $1}' /tmp/kind.sha256sum)  /tmp/kind" | sha256sum -c
   - install -m 0755 /tmp/kind /usr/local/bin/kind
   script:
+  - export BACKEND_IMAGE_DIGEST="$(cat image-receipts/backend.digest)"
+  - export FRONTEND_IMAGE_DIGEST="$(cat image-receipts/frontend.digest)"
   - bash ops/ci/kind-onboarding-smoke.sh
 release-source-images-ready:
   stage: build
-  image:
-    name: $REGISTRY_TOOLS_IMAGE
-    entrypoint:
-    - ''
-  needs:
-  - job: release-tag-metadata
-    artifacts: true
-  variables:
-    RELEASE_SOURCE_IMAGE_RETRIES: '60'
-    RELEASE_SOURCE_IMAGE_RETRY_SECONDS: '30'
+  image: python:3.12-alpine
   before_script:
-  - apk add --no-cache skopeo jq
+  - apk add --no-cache skopeo git
+  environment: &id004
+    name: ci-orchestration
+    action: verify
+  needs:
+  - release-tag-metadata
   script:
-  - echo "Release qualification migration is not installed" >&2
-  - exit 1
+  - python3 ops/release/distribution.py resolve
+  artifacts:
+    paths:
+    - qualification.json
+    - release-sources/
+    expire_in: never
 backend-image-vuln-scan:
   extends: .multiarch-image-scan
   stage: security
@@ -382,54 +342,15 @@ scheduler-release-image-vuln-scan:
 promote-backend-dev:
   extends: .promote-internal-image
   variables:
-    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA
-    TARGET_GITLAB_IMAGE: $CI_REGISTRY_IMAGE/backend
+    IMAGE_COMPONENT: backend
 promote-frontend-dev:
   extends: .promote-internal-image
   variables:
-    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA
-    TARGET_GITLAB_IMAGE: $CI_REGISTRY_IMAGE/frontend
+    IMAGE_COMPONENT: frontend
 promote-scheduler-dev:
   extends: .promote-internal-image
   variables:
-    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/scheduler:$CI_COMMIT_SHA
-    TARGET_GITLAB_IMAGE: $CI_REGISTRY_IMAGE/scheduler
-promote-backend-release:
-  extends: .promote-public-image
-  resource_group: public-backend-images
-  needs:
-  - job: release-tag-metadata
-    artifacts: true
-  - backend-release-image-vuln-scan
-  - release-kind-onboarding-smoke
-  variables:
-    PROMOTION_KIND: release
-    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA
-    TARGET_GHCR_IMAGE: $GHCR_BACKEND_IMAGE
-promote-frontend-release:
-  extends: .promote-public-image
-  resource_group: public-frontend-images
-  needs:
-  - job: release-tag-metadata
-    artifacts: true
-  - frontend-release-image-vuln-scan
-  - release-kind-onboarding-smoke
-  variables:
-    PROMOTION_KIND: release
-    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA
-    TARGET_GHCR_IMAGE: $GHCR_FRONTEND_IMAGE
-promote-scheduler-release:
-  extends: .promote-public-image
-  resource_group: public-scheduler-images
-  needs:
-  - job: release-tag-metadata
-    artifacts: true
-  - scheduler-release-image-vuln-scan
-  - release-kind-onboarding-smoke
-  variables:
-    PROMOTION_KIND: release
-    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/scheduler:$CI_COMMIT_SHA
-    TARGET_GHCR_IMAGE: $GHCR_SCHEDULER_IMAGE
+    IMAGE_COMPONENT: scheduler
 .multiarch-build:
   stage: build
   resource_group: build-$CI_COMMIT_SHA-$IMAGE_COMPONENT
@@ -437,10 +358,15 @@ promote-scheduler-release:
   services:
   - docker:27-dind
   before_script:
-  - apk add --no-cache jq
+  - apk add --no-cache jq python3 skopeo
   - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
   - sh ops/ci/build-image.sh
+  - python3 ops/ci/image_receipt.py
+  artifacts:
+    paths:
+    - image-receipts/
+    expire_in: 30 days
 .multiarch-image-scan:
   extends: .trivy-job
   stage: security
@@ -456,72 +382,54 @@ promote-scheduler-release:
     expire_in: 1 week
     paths:
     - gl-security-reports/
-.release-rules: {}
+  before_script:
+  - apk add --no-cache python3
+  - trivy --version
+  - mkdir -p gl-security-reports
 release-bundles:
   stage: build
-  image: python:3.12-alpine
-  needs:
-  - job: release-tag-metadata
-    artifacts: true
-  script:
-  - python3 ops/release/package_bundles.py --version "$RELEASE_VERSION"
-  artifacts:
-    expire_in: 30 days
-    paths:
-    - dist/release/
-publish-helm-release:
-  stage: deploy
   image:
     name: alpine/helm:3.18.6
     entrypoint:
     - ''
   needs:
-  - job: release-tag-metadata
-    artifacts: true
-  - job: release-bundles
-    artifacts: true
-  - promote-backend-release
-  - promote-frontend-release
-  - promote-scheduler-release
-  - release-bundle-smoke
+  - release-tag-metadata
+  before_script:
+  - apk add --no-cache python3
+  script:
+  - python3 ops/release/package_bundles.py --version "$RELEASE_VERSION"
+  - helm package deploy/helm/bucketreef --destination dist/release --version "$RELEASE_VERSION" --app-version "$RELEASE_VERSION"
+  - python3 ops/release/distribution.py normalize-chart
+  artifacts:
+    paths:
+    - dist/release/
+    expire_in: never
+publish-helm-release:
+  stage: promote
+  image:
+    name: alpine/helm:3.18.6
+    entrypoint:
+    - ''
+  needs:
+  - release-tag-metadata
+  - release-bundles
+  - publish-candidate-images
   resource_group: public-helm-release
   before_script:
   - apk add --no-cache diffutils
   script:
   - helm lint deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth
   - sh ops/release/publish-chart.sh
-publish-github-release:
-  stage: deploy
-  image: python:3.12-alpine
-  needs:
-  - job: release-tag-metadata
-    artifacts: true
-  - job: release-bundles
-    artifacts: true
-  - publish-helm-release
-  - release-bundle-smoke
-  resource_group: public-github-release
-  script:
-  - python3 ops/release/publish_github_release.py
-publish-gitlab-release:
-  stage: deploy
-  image: python:3.12-alpine
-  needs:
-  - job: release-tag-metadata
-    artifacts: true
-  - publish-github-release
-  resource_group: public-gitlab-release
-  before_script:
-  - apk add --no-cache git
-  script:
-  - python3 ops/release/publish_gitlab_release.py
+  environment:
+    name: release-public
+    action: prepare
 recover-gitlab-release:
   stage: deploy
   image: python:3.12-alpine
   needs: []
   variables:
     GIT_DEPTH: '0'
-  resource_group: public-gitlab-release
+  resource_group: public-release
   before_script:
   - apk add --no-cache git
   script:
@@ -537,18 +445,40 @@ release-bundle-smoke:
       - amd64
       - arm64
   needs:
-  - job: release-bundles
-    artifacts: true
-  - promote-backend-release
-  - promote-frontend-release
-  - promote-scheduler-release
+  - release-tag-metadata
+  - release-bundles
+  - release-public-images-check
+  - release-public-bundles-check
   script:
   - docker run --privileged --rm "$BINFMT_IMAGE" --install arm64,amd64
   - sh ops/ci/quickstart-bundle-smoke.sh
 release-kind-onboarding-smoke:
   extends: helm-kind-onboarding-smoke
   needs:
+  - release-tag-metadata
   - release-source-images-ready
+  - release-bundles
+  - publish-helm-release
+  - release-public-images-check
+  stage: deploy
+  variables:
+    BACKEND_IMAGE_REPOSITORY: $GHCR_BACKEND_IMAGE
+    FRONTEND_IMAGE_REPOSITORY: $GHCR_FRONTEND_IMAGE
+    IMAGE_TAG: $RELEASE_VERSION
+  before_script:
+  - apk add --no-cache bash curl helm jq kubectl openssl
+  - curl --fail --silent --show-error --location --output /tmp/kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+  - curl --fail --silent --show-error --location --output /tmp/kind.sha256sum "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64.sha256sum"
+  - echo "$(awk '{print $1}' /tmp/kind.sha256sum)  /tmp/kind" | sha256sum -c
+  - install -m 0755 /tmp/kind /usr/local/bin/kind
+  script:
+  - mkdir -p /tmp/public-chart
+  - helm pull oci://ghcr.io/ksperis/charts/bucketreef --version "$RELEASE_VERSION" --destination /tmp/public-chart
+  - cmp "dist/release/bucketreef-$RELEASE_VERSION.tgz" "/tmp/public-chart/bucketreef-$RELEASE_VERSION.tgz"
+  - export HELM_CHART_PATH="/tmp/public-chart/bucketreef-$RELEASE_VERSION.tgz"
+  - export BACKEND_IMAGE_DIGEST="${BACKEND_IMAGE_DIGEST:-$(sed 's/.*@//' release-sources/backend)}"
+  - export FRONTEND_IMAGE_DIGEST="${FRONTEND_IMAGE_DIGEST:-$(sed 's/.*@//' release-sources/frontend)}"
+  - bash ops/ci/kind-onboarding-smoke.sh
 docs-build:
   stage: build
   image: python:3.11-bookworm
@@ -631,7 +561,13 @@ integration-ready:
     paths:
     - integration.json
     - ci-plan.json
+    - qualification.json
+    - image-receipts/
+    - gl-security-reports/
+    - gl-test-reports/
     expire_in: never
+  before_script:
+  - apt-get update && apt-get install --yes --no-install-recommends skopeo
 scan-published-images:
   extends: .trivy-job
   stage: security
@@ -648,3 +584,123 @@ scan-published-images:
     paths:
     - gl-security-reports/
     expire_in: 30 days
+publish-candidate-images:
+  image: python:3.12-alpine
+  before_script: &id001
+  - apk add --no-cache skopeo git
+  environment: &id002
+    name: release-public
+    action: prepare
+  stage: promote
+  needs:
+  - release-tag-metadata
+  - release-source-images-ready
+  - backend-release-image-vuln-scan
+  - frontend-release-image-vuln-scan
+  - scheduler-release-image-vuln-scan
+  resource_group: public-release-candidates
+  script:
+  - python3 ops/release/distribution.py candidates
+prepare-github-release:
+  image: python:3.12-alpine
+  before_script: *id001
+  environment: *id002
+  stage: promote
+  needs:
+  - release-tag-metadata
+  - release-bundles
+  - publish-helm-release
+  resource_group: public-release
+  script:
+  - python3 ops/release/distribution.py draft
+release-public-images-check:
+  stage: deploy
+  image: python:3.12-alpine
+  before_script: &id003
+  - apk add --no-cache skopeo
+  environment:
+    name: ci-public-distribution
+    action: verify
+  needs:
+  - release-tag-metadata
+  - release-source-images-ready
+  - publish-candidate-images
+  script:
+  - python3 ops/release/distribution.py verify-public
+release-ready:
+  stage: evidence
+  image: python:3.12-alpine
+  before_script: *id003
+  environment: *id004
+  needs:
+  - release-tag-metadata
+  - release-source-images-ready
+  - release-bundles
+  - backend-release-image-vuln-scan
+  - frontend-release-image-vuln-scan
+  - scheduler-release-image-vuln-scan
+  - publish-candidate-images
+  - publish-helm-release
+  - prepare-github-release
+  - release-public-images-check
+  - release-kind-onboarding-smoke
+  - release-bundle-smoke
+  - publish-release-bundles
+  - release-public-bundles-check
+  script:
+  - python3 ops/release/distribution.py ready
+  artifacts:
+    paths:
+    - distribution-ready.json
+    - qualification.json
+    - gl-security-reports/
+    - bundle-distribution.json
+    expire_in: never
+finalize-release:
+  image: python:3.12-alpine
+  before_script: *id001
+  environment: *id002
+  stage: finalize
+  needs:
+  - release-ready
+  - release-tag-metadata
+  - release-source-images-ready
+  - release-bundles
+  - publish-release-bundles
+  resource_group: public-release
+  script:
+  - python3 ops/release/distribution.py finalize
+publish-release-bundles:
+  stage: promote
+  image: python:3.12-alpine
+  before_script:
+  - apk add --no-cache curl
+  - sh ops/ci/install-oras.sh
+  environment:
+    name: release-public
+    action: prepare
+  needs:
+  - release-tag-metadata
+  - release-bundles
+  resource_group: public-release
+  script:
+  - python3 ops/release/distribution.py publish-bundles
+  artifacts:
+    paths:
+    - bundle-distribution.json
+    expire_in: never
+release-public-bundles-check:
+  stage: deploy
+  image: python:3.12-alpine
+  before_script:
+  - apk add --no-cache curl
+  - sh ops/ci/install-oras.sh
+  needs:
+  - release-tag-metadata
+  - publish-release-bundles
+  script:
+  - python3 ops/release/distribution.py download-bundles
+  artifacts:
+    paths:
+    - public-bundles/
+    expire_in: never

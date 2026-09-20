@@ -115,17 +115,19 @@ def test_retry_of_an_older_release_does_not_regress_latest(tmp_path):
 
 
 def test_release_gates_cover_all_architectures_and_artifacts():
-    ci = yaml.safe_load((ROOT / "ops/ci/gitlab/jobs.yml").read_text())
+    sys.path.insert(0, str(ROOT / "ops/ci"))
+    from plan import select
+    from render_gitlab import render
+    from distribution import REQUIRED
+    ci = render({**select("release", []), "sha": "a" * 40})
     assert ci[".multiarch-image-scan"]["parallel"]["matrix"] == [{"IMAGE_ARCH": ["amd64", "arm64"]}]
+    assert set(REQUIRED) <= {need["job"] for need in ci["release-ready"]["needs"]}
+    assert "release-ready" in {need["job"] for need in ci["finalize-release"]["needs"]}
+    assert ci["finalize-release"]["resource_group"] == "public-release"
+    assert not any(name.startswith("build-") for name in ci)
     for component in ("backend", "frontend", "scheduler"):
         assert ci[f"{component}-release-image-vuln-scan"]["extends"] == ".multiarch-image-scan"
-        assert f"{component}-release-image-vuln-scan" in ci[f"promote-{component}-release"]["needs"]
-        assert "release-kind-onboarding-smoke" in ci[f"promote-{component}-release"]["needs"]
-        assert f"promote-{component}-release" in ci["publish-helm-release"]["needs"]
-    assert "publish-helm-release" in ci["publish-github-release"]["needs"]
-    assert "release-bundle-smoke" in ci["publish-github-release"]["needs"]
-    for template in (".promote-public-image", ".promote-internal-image"):
-        assert "skopeo copy --all --preserve-digests" in "\n".join(ci[template]["script"])
+        assert f"{component}-release-image-vuln-scan" in {n["job"] for n in ci["publish-candidate-images"]["needs"]}
 
 
 @pytest.mark.parametrize("failed", [False, True])
@@ -136,6 +138,7 @@ def test_sha_tag_is_published_only_after_both_runtime_checks(tmp_path, failed, e
     docker.write_text('''#!/bin/sh
 printf '%s\\n' "$*" >> "$DOCKER_TEST_LOG"
 case "$*" in
+  *':build-'*) echo '{"manifests":[]}' ;;
   'buildx imagetools inspect --raw '*)
     case "$EXISTING_IMAGE" in
       missing) echo 'manifest unknown' >&2; exit 1 ;;
@@ -156,7 +159,7 @@ esac
         "EXISTING_IMAGE": existing,
         "IMAGE_COMPONENT": "backend", "CI_COMMIT_SHA": "a" * 40, "CI_JOB_ID": "123",
         "BINFMT_IMAGE": "binfmt-test",
-    }, capture_output=True, text=True)
+    }, capture_output=True, text=True, cwd=tmp_path)
     commands = log.read_text()
     if existing in ("incomplete", "denied"):
         assert result.returncode != 0
@@ -178,20 +181,6 @@ esac
             assert commands.index("imagetools create") > commands.rindex("--entrypoint python")
 
 
-@pytest.mark.parametrize("version, expected", [
-    ("1.2.3", "1.2.3"),
-    ("1.2.10", "1.2.10,1.2"),
-    ("1.3.0", "1.3.0,1.3,latest"),
-])
-def test_aliases_do_not_regress_when_old_release_jobs_are_retried(tmp_path, version, expected):
-    git = tmp_path / "git"
-    git.write_text("#!/bin/sh\nprintf '%s\\n' 'a refs/tags/v1.2.3' 'b refs/tags/v1.2.10' 'c refs/tags/v1.3.0' 'd refs/tags/v2.0.0-rc1'\n")
-    git.chmod(0o755)
-    result = subprocess.run(["sh", str(ROOT / "ops/release/image-tags.sh"), version], env={
-        **os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}", "CI_REPOSITORY_URL": "fixture",
-    }, capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == expected
 
 
 def test_interrupted_asset_upload_resumes_before_publication(tmp_path):

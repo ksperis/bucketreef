@@ -20,3 +20,6 @@ if __name__ == "__main__":
     plan = json.loads(Path("ci-plan.json").read_text())
     record = integration_record(GitLabAPI(), plan, int(os.environ["CI_PIPELINE_ID"]))
     Path("integration.json").write_text(json.dumps(record, indent=2) + "\n")
+    if plan["profile"] == "qualify":
+        from qualification import complete
+        Path("qualification.json").write_text(json.dumps(complete(record), indent=2) + "\n")

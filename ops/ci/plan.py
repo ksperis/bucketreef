@@ -151,7 +151,7 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
         selected.update((f"build-{component}", f"{component}-image-vuln-scan"))
     if ceph:
         selected.add("ceph-functional-tests")
-    if profile in {"integration", "qualify", "docs"} and ref == "main" and DOCS <= selected:
+    if profile in {"integration", "docs"} and ref == "main" and DOCS <= selected:
         selected.add("docs-deploy")
     return {"schema": 1, "profile": profile, "ref": ref, "jobs": sorted(selected),
             "images": sorted(images), "reasons": reasons, "full": full}
