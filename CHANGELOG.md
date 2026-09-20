@@ -295,3 +295,90 @@
 
 - Documented Browser disablement options and updated release Helm examples for `0.1.8`.
 - Stabilized local test suites, added Portal storage-space naming-mode coverage, prepared Ceph logging target policy setup, and aligned Ceph usage stats functional route coverage.
+
+## 0.1.7 - 2026-05-13
+
+> Historical notes reconstructed from Git history; potentially incomplete.
+> Date source: commit date.
+
+### Changes
+
+- Added managed S3 user contexts in Storage Ops and AWS endpoint presets with regional defaults.
+- Added bucket integrity checks, comparison result downloads and key-copy actions, and listing-cache refresh controls.
+- Refined endpoint forms, bucket configuration and replication capability checks, and expanded Ceph replication tests.
+
+## 0.1.6 - 2026-04-27
+
+> Historical notes reconstructed from Git history; potentially incomplete.
+> Date source: commit date.
+
+### Changes
+
+- Hardened SQLite handling and bucket migration, and added cross-context Browser clipboard transfers.
+- Added browser end-to-end tests and expanded Ceph functional coverage.
+- Introduced resizable navigation panels, configurable object columns and unified object details.
+- Improved quota filters, partial quota updates, RGW usage accounting and special-character object-key handling; hardened user-supplied S3 endpoints.
+
+## 0.1.5 - 2026-04-05
+
+> Historical notes reconstructed from Git history; potentially incomplete.
+> Date source: commit date.
+
+### Changes
+
+- Moved validated image publication to GitLab CI and added vulnerability scans and blocking backend tests.
+- Published JUnit reports, corrected frontend quality checks and improved deployment documentation.
+- Fixed Admin account listings when no default endpoint is available.
+
+## 0.1.4 - 2026-03-29
+
+> Historical notes reconstructed from Git history; potentially incomplete.
+> Date source: tag date.
+
+### Changes
+
+- Added billing, endpoint health checks, API tokens, Ceph Admin and Storage Ops workflows.
+- Expanded bucket filtering, comparison, migration, quota monitoring and usage history; improved object search, multipart uploads and browser navigation.
+- Introduced shared resource tags and refined connection, IAM and workspace controls.
+- Reworked documentation and automated screenshots. Portal functionality was temporarily removed during this development period.
+
+## 0.1.3 - 2026-02-02
+
+> Historical notes reconstructed from Git history; potentially incomplete.
+> Date source: commit date.
+
+### Changes
+
+- Introduced S3 Connections and a shared execution context for Manager and Browser.
+- Expanded Portal management and object operations, including streaming ZIP downloads and SNS topics.
+- Added onboarding and documentation, refresh-token cookies with rotation, and separate encryption-key handling with key-rotation work.
+
+## 0.1.2 - 2026-01-09
+
+> Historical notes reconstructed from Git history; potentially incomplete.
+> Date source: commit date.
+
+### Changes
+
+- Reworked endpoint configuration, account and S3 user management, and user quota handling.
+- Added S3 user metrics and Admin dashboard statistics; refined Browser actions and Portal refresh behavior.
+- Adjusted Alembic initialization, application settings persistence and Docker image version configuration.
+
+## 0.1.1 - 2026-01-06
+
+> Historical notes reconstructed from Git history; potentially incomplete.
+> Date source: commit date.
+
+### Changes
+
+- Corrected the GitHub Actions workflow used by the initial release.
+
+## 0.1.0 - 2026-01-06
+
+> Historical notes reconstructed from Git history; potentially incomplete.
+> Date source: commit date.
+
+### Changes
+
+- Initial tagged S3 Manager version, before the BucketReef rename.
+- Added Docker Compose deployment, a Helm chart and GHCR image publication.

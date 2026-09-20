@@ -47,6 +47,11 @@ def gitlab_plan(env, api=None):
         if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
             raise ValueError("Invalid recovery version")
         plan["recovery_version"] = value
+    if profile == "release-history":
+        value = env.get("RELEASE_HISTORY_APPLY", "false")
+        if value not in {"true", "false"}:
+            raise ValueError("RELEASE_HISTORY_APPLY must be true or false")
+        plan["history_apply"] = value == "true"
     return {**plan, "base_sha": base, "head_sha": sha, "sha": sha,
             "parent_id": int(env["CI_PIPELINE_ID"]), "tag": env.get("CI_COMMIT_TAG", "")}
 

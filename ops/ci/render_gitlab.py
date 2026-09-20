@@ -26,6 +26,8 @@ def render(plan):
         names = {*REQUIRED, "release-ready", "finalize-release"}
     elif profile == "recover-release":
         names = {"recover-gitlab-release"}
+    elif profile == "release-history":
+        names = {"publish-release-history"}
     elif profile in {"integration", "qualify"}:
         names.add("integration-ready")
         if plan["ref"] == "dev":
@@ -51,6 +53,8 @@ def render(plan):
             job.setdefault("variables", {})["GITLAB_RELEASE_RECOVERY_VERSION"] = plan["recovery_version"]
         if job.get("extends") == "helm-kind-onboarding-smoke":
             job["extends"] = ".kind-base"
+        if name == "publish-release-history":
+            job.setdefault("variables", {})["RELEASE_HISTORY_APPLY"] = "true" if plan.get("history_apply") else "false"
         dependencies = job.get("needs", [])
         if name.startswith("build-"):
             dependencies = sorted(set(plan["jobs"]) & {"backend-tests", "backend-postgresql-tests", "backend-deadcode", "frontend-quality", "frontend-tests", "frontend-browser-e2e", "helm-contract", "compose-contract", "ci-contract", "project-naming", "secret-scan"})

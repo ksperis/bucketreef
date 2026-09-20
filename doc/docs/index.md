@@ -43,3 +43,7 @@
 - Deploy quickly with containers: [Ops / Deploy with Docker Compose](ops/deploy-docker-compose.md)
 - Prepare production-like rollout: [Ops / Production readiness](ops/production-readiness.md)
 - Understand architecture: [Developer / Architecture Overview](developer/architecture-overview.md)
+
+## Release history
+
+See [Releases](releases.md) for the version history, full release notes, and GitHub/GitLab comparison links.
