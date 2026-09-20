@@ -1,0 +1,12 @@
+# Require code-owner approval through external GitHub branch/ruleset settings.
+/.github/ @ksperis
+/.gitlab-ci.yml @ksperis
+/ops/ci/ @ksperis
+/ops/release/ @ksperis
+/deploy/ @ksperis
+/scheduler/ @ksperis
+/ops/cron/ @ksperis
+/frontend/package*.json @ksperis
+/frontend/Dockerfile @ksperis
+/backend/requirements*.txt @ksperis
+/backend/Dockerfile @ksperis

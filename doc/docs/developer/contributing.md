@@ -57,17 +57,17 @@ rather than parsing the full legacy history.
 
 ## CI test reports
 
-GitLab pipelines publish JUnit XML test reports for:
+GitHub PRs (including forks) expose the selected autonomous checks and artifacts
+in Actions. The stable `CI / required` gate blocks missing, failed, canceled or
+incorrectly skipped validations. GitLab revalidates integrated main/dev commits
+and runs private integrations; no label authorizes private execution of PR code.
+See [Public validation and private CI/CD](ci-cd.md) for selection, trust boundaries,
+maintenance profiles and external settings.
 
-- `backend-tests`
-- `frontend-tests`
-- `frontend-browser-e2e`
-- `ceph-functional-tests` when that job is enabled by CI variables
-
-These reports feed the pipeline **Tests** tab and merge request **Test summary** panel.
-They do not make jobs fail by themselves; the test command exit code remains the blocking signal
-for the required test jobs. `ceph-functional-tests` is advisory: its failures remain visible in
-the pipeline and JUnit report, but they do not block image builds or later pipeline stages.
+Both platforms retain JUnit and browser failure diagnostics. Ceph runs only in
+private CI after integration and is blocking whenever selected. Full release
+qualification requires Ceph, including its central account/bucket/object scenario;
+missing credentials cannot silently remove it from the pipeline.
 
 Useful local commands:
 
@@ -94,12 +94,12 @@ It builds once, scans the immutable `$CI_COMMIT_SHA` image, then promotes that e
 Registry/tag policy:
 
 - GitLab Container Registry:
-  - `dev` and `dev-<short-sha>` from branch `dev`
+  - `dev` and `dev-<full-sha>` from branch `dev`
 - GHCR:
   - `X.Y.Z` from Git tags `vX.Y.Z`
-  - `X.Y` from the highest `X.Y.Z` tag in that minor series
-  - `latest` from the highest stable Git tag
+  - `X.Y` from the highest validated and published release in that minor series
+  - `latest` from the highest validated and published stable release
 
 Use `X.Y.Z` when you need an immutable release, `X.Y` when you want the latest patch in a minor series, and `latest` when you want the latest stable release. The default branch validates and builds immutable internal SHA images, but it does not publish public GHCR tags directly.
 
-If a separate GitHub-side workflow still publishes images, disable it or restrict it to release metadata only. Do not rebuild official images in two CI systems.
+Official artifacts are built only by protected GitLab jobs. Public GitHub checks never publish them.

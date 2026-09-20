@@ -3,7 +3,8 @@
 GitLab CI builds and validates the application once, then promotes those exact
 images. Stable `vX.Y.Z` tags publish all three images to GHCR, the Helm chart
 to `oci://ghcr.io/ksperis/charts/bucketreef`, and two GitHub Release bundles.
-GitHub Actions does not rebuild or publish a second set of artifacts.
+GitHub Actions validates public PRs without secrets. See [CI/CD](ci-cd.md) for
+selection, tool locks and required external settings.
 
 ## Prerequisites
 
@@ -28,8 +29,12 @@ GitHub Actions does not rebuild or publish a second set of artifacts.
    Compose example. For `0.X.1` it also generates the schema reference snapshot.
    Review and commit the complete diff. Chart image tags remain empty to inherit
    `appVersion`; the bundle packager stamps its exact version into `.env.example`.
-2. Commit and synchronize the release source on GitLab and GitHub. Wait for
-   mandatory tests, AMD64/ARM64 builds, scans and the Kind onboarding smoke.
+2. Integrate and synchronize the release source on main in GitLab and GitHub.
+   A version metadata change selects complete qualification automatically. For
+   any other main SHA, launch a web pipeline with `CI_MODE=qualify`. Wait for
+   the successful parent and child: all autonomous tests, mandatory Ceph, three
+   AMD64/ARM64 images, runtime checks, six scans and Kind. `qualification.json`
+   binds their exact job IDs, digests and scan receipts to that SHA.
 3. Create the GitHub tag at that exact commit before pushing the same `vX.Y.Z`
    tag to GitLab, which starts publication. Do not move an existing release tag.
 4. Wait for all release jobs, including both architecture smoke tests, Helm
@@ -82,25 +87,58 @@ Manage and renew the dedicated GitHub token before its configured expiration.
 Tag verification uses Git transport because older GitLab versions, including
 18.1, do not grant job tokens access to the Tags API. If publication code itself
 needs a fix after the public tag exists, commit the fix on the protected default
-branch and run its manual `recover-gitlab-release` job. It defaults to the current
+branch and launch a web pipeline with `CI_MODE=recover-release`. It defaults to the current
 application version; set `GITLAB_RELEASE_RECOVERY_VERSION` to recover an older
 version. The job reads the changelog and previous tag from the released commit,
 checks matching remote tags, public GitHub notes and all four asset digests and
 checksums, then publishes only GitLab metadata with `CI_JOB_TOKEN`. It does not
-move tags or rebuild artifacts. Retrying identical metadata is read-only.
+move tags, build artifacts, change aliases or create retroactive qualification.
+Retrying identical metadata is read-only.
 
-## Gates and outputs
+## Qualification and distribution gates
 
-Builds create manifest lists for `linux/amd64` and `linux/arm64` under the commit
-SHA. Each platform is smoke-tested and scanned, with separate vulnerability
-reports and CycloneDX SBOMs. Promotion copies all manifests with preserved
-digests. `X.Y.Z` image tags cannot be overwritten with different contents;
-minor and latest aliases retain the existing stable-tag policy.
+A tag pipeline resolves the existing qualification for its exact SHA. It checks
+both remote tags, inclusion on main, successful parent/child pipelines and the
+real job results through the project read API. Missing, canceled, skipped or
+allowed-to-fail jobs, absent Ceph, incomplete architecture matrices, another SHA,
+a missing report, or changed index/platform digests stop the release. No mutable
+tag or reconstruction fallback is permitted.
 
-The Helm job packages the chart with `version == appVersion == X.Y.Z`, checks
-existing content on retry, pushes OCI and verifies an anonymous download.
-The chart keeps the required existing Secret, trusted proxies and NetworkPolicy
-configuration; publishing it does not provide deployment-specific security values.
+Distribution proceeds in this order:
+
+1. Fetch qualified images by digest and rescan both architectures without rebuild.
+2. Prepare deterministic bundles, chart and changelog notes once as durable
+   artifacts. Later jobs reuse those bytes and fingerprints.
+3. Copy only immutable `X.Y.Z` images with all manifests, preserved index digests
+   and attestations. Publish the versioned chart and OCI bundle artifact, and
+   upload matching assets to a GitHub draft. Different existing content fails;
+   identical partial publication resumes without replacement.
+4. Check anonymous GHCR pulls, exact index/platform digests, chart bytes and Kind
+   onboarding. Download bundles anonymously from `ghcr.io/ksperis/bucketreef-bundles`
+   and run both QuickStart and Compose/scheduler smoke tests on AMD64 and ARM64.
+5. `release-ready` verifies every real distribution job and records the complete
+   `distribution-ready.json`, including asset fingerprints. No alias moves here.
+6. `finalize-release` takes the shared `public-release` lock, rechecks jobs,
+   qualification and files, publishes GitHub, verifies its public downloads,
+   publishes GitLab metadata, then moves eligible minor/latest image aliases.
+
+GitHub draft assets are not anonymously downloadable. The OCI candidate supplies
+an anonymous distribution surface before finalization, and its checksummed bytes
+must equal the GitHub assets. Application images, the chart package and the new
+`bucketreef-bundles` package must all be public; first publication can require an
+administrator visibility change followed by a retry. ORAS is pinned in the tool
+lock. It stores bundles in the existing GHCR registry, not a new service.
+
+Alias decisions compare numeric versions under the publication lock, using
+stable releases that are actually published on both platforms. Merely creating a
+higher Git tag does not advance an alias. A replay of an older pipeline cannot
+regress minor/latest. A failure before the global gate leaves aliases unchanged
+and a newly prepared GitHub draft unpublished.
+
+Evidence artifacts, scan reports and qualified image digests must survive registry
+and artifact cleanup. Revalidating an existing SHA reuses and tests the immutable
+images; it never silently rebuilds a missing release source during distribution.
+The chart retains the existing Secret, proxy and NetworkPolicy contracts.
 
 The standard-library packager emits deterministic archives containing only
 Compose, `.env.example`, `README.md`, `LICENSE`, `VERSION`, and (for QuickStart)
@@ -115,10 +153,11 @@ The four GitHub assets have stable names within each release:
 - `bucketreef-compose.tar.gz` and `bucketreef-compose.tar.gz.sha256`;
 - `bucketreef-quickstart.tar.gz` and `bucketreef-quickstart.tar.gz.sha256`.
 
-Release smoke tests run the candidate QuickStart bundle from an isolated
-Docker-in-Docker daemon using public GHCR images, without a source checkout.
+Release smoke tests run anonymously downloaded QuickStart and Compose bundles
+from isolated Docker-in-Docker daemons using public GHCR images, without a source
+checkout.
 They check readiness, bootstrap URL issuance, stop/restart and secret persistence.
-Only afterward does GitLab publish the GitHub draft. Existing identical assets
+The global distribution gate precedes publication of the GitHub draft. Existing identical assets
 are reused; conflicting or unverifiable assets stop publication. Published
 releases are never repaired by silently replacing assets.
 
@@ -135,3 +174,12 @@ upload remains a draft. A failed chart visibility check can be retried after
 making the package public. Content conflicts require investigation and a new
 release rather than overwriting an immutable version. An application rollback
 may require restoring a verified database backup with its matching encryption keys.
+
+
+There is no cross-service atomic transaction. After global validation, interruption
+can leave GitHub published while GitLab metadata or some aliases remain pending.
+Retry `finalize-release` from the same pipeline: it revalidates evidence, accepts
+identical existing content and recomputes aliases under the lock. Do not delete or
+move immutable versions to repair a failure. Public GitHub download checks occur
+again after the draft is exposed; an outage there leaves aliases unchanged.
+Metadata-only recovery cannot finish aliases or substitute for qualification.

@@ -10,7 +10,8 @@ from registry import DIGEST, credentials, inspect
 
 
 def validate(record, sha):
-    if record.get("sha") != sha or record.get("ref") != "main" or record.get("plan", {}).get("profile") != "qualify":
+    if (record.get("schema") != 1 or record.get("sha") != sha or record.get("ref") != "main"
+        or record.get("plan", {}).get("profile") != "qualify" or record["plan"].get("sha") != sha):
         raise ValueError("A complete main qualification for this SHA is required")
     required = {*PUBLIC, "ceph-functional-tests", "helm-kind-onboarding-smoke"}
     required.update(f"{c}-image-vuln-scan" for c in COMPONENTS)
@@ -60,8 +61,10 @@ def complete(record):
     return record
 
 
-def find(api, sha):
+def find(api, sha, pipeline_id=None):
     for record in completed_records(api, "main", "qualification.json", sha):
+        if pipeline_id is not None and record["pipeline_id"] != pipeline_id:
+            continue
         validate(record, sha)
         for component, image in record["images"].items():
             ref = f"{os.environ['CI_REGISTRY_IMAGE']}/{component}@{image['digest']}"

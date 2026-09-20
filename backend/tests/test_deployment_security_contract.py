@@ -97,13 +97,15 @@ def test_strict_network_policies_are_fail_closed_and_cover_all_workloads():
 
 
 def test_ci_builds_scans_and_promotes_scheduler_image():
-    pipeline = _read("ops/ci/gitlab/jobs.yml")
-    for job in (
-        "build-scheduler:",
-        "scheduler-image-vuln-scan:",
-        "scheduler-release-image-vuln-scan:",
-        "publish-candidate-images:",
-    ):
-        assert job in pipeline
-    assert "- amd64" in pipeline and "- arm64" in pipeline
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ops/ci"))
+    from plan import select
+    from render_gitlab import render
+    qualification = render({**select("qualify", []), "sha": "a" * 40})
+    release = render({**select("release", []), "sha": "a" * 40})
+    assert "build-scheduler" in qualification
+    assert "scheduler-image-vuln-scan" in qualification
+    assert "scheduler-release-image-vuln-scan" in release
+    assert "publish-candidate-images" in release
+    assert release[".multiarch-image-scan"]["parallel"]["matrix"] == [{"IMAGE_ARCH": ["amd64", "arm64"]}]
     assert "-sbom.cdx.json" in _read("ops/ci/scan-image.sh")

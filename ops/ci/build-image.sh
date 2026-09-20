@@ -22,7 +22,7 @@ elif ! grep -Eiq 'manifest unknown|name unknown|not found|404' "$temporary/inspe
 fi
 docker run --privileged --rm "$BINFMT_IMAGE" --install arm64,amd64
 if [ "$reuse" = false ]; then
-  docker buildx create --name "$builder" --driver docker-container --use
+  docker buildx create --name "$builder" --driver docker-container --driver-opt "image=$BUILDKIT_IMAGE" --use
   case "$IMAGE_COMPONENT" in
     backend) set -- backend ;;
     frontend) set -- --build-arg "VITE_API_URL=${VITE_API_URL:-/api}" frontend ;;
@@ -32,13 +32,15 @@ if [ "$reuse" = false ]; then
   # GitLab rejects a new OCI-artifact subject before its image manifest exists.
   # Retain provenance using the legacy attestation format, without that race.
   docker buildx build --platform linux/amd64,linux/arm64 --tag "$image" \
+    --cache-from "type=registry,ref=$CI_REGISTRY_IMAGE/cache:$IMAGE_COMPONENT-$CI_COMMIT_REF_SLUG" \
+    --cache-to "type=registry,ref=$CI_REGISTRY_IMAGE/cache:$IMAGE_COMPONENT-$CI_COMMIT_REF_SLUG,mode=max" \
     --output type=image,push=true,oci-artifact=false "$@"
 fi
 
 # Freeze the exact index before executing either architecture. Never smoke a
 # mutable reference and subsequently claim a different digest was tested.
-docker buildx imagetools inspect --raw "$image" >"$temporary/tested-index.json"
-digest="sha256:$(sha256sum "$temporary/tested-index.json" | cut -d ' ' -f1)"
+digest=$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')
+printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
 image="$CI_REGISTRY_IMAGE/$IMAGE_COMPONENT@$digest"
 # Test both actual image variants, including their non-root runtime contract.
 for arch in amd64 arm64; do

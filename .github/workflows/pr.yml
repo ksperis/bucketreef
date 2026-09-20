@@ -149,6 +149,7 @@ jobs:
     - compose-contract
     - docs-build
     - docs-screenshots
+    - scheduler-contract
     runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -158,3 +159,10 @@ jobs:
       env:
         CI_NEEDS_JSON: ${{ toJSON(needs) }}
       run: python3 ops/ci/required.py
+  scheduler-contract:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'scheduler-contract') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: scheduler-contract

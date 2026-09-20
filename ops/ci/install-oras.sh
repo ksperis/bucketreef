@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-version=1.3.0
+version=$(python3 ops/ci/toolchain.py oras)
 temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT
 case "$(uname -m)" in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; *) exit 1 ;; esac

@@ -4,7 +4,12 @@ temporary=$(mktemp -d)
 trap 'rm -rf "$temporary" gl-secret-detection-report.json' EXIT
 SECRET_DETECTION_LOG_OPTIONS=$(python3 -c 'import json; p=json.load(open("ci-plan.json")); print((p["base_sha"]+".."+p["sha"]) if p.get("base_sha") else "--all")')
 export SECRET_DETECTION_LOG_OPTIONS
-export SECRET_DETECTION_HISTORIC_SCAN=true
+SECRET_DETECTION_HISTORIC_SCAN=$(python3 -c 'import json; p=json.load(open("ci-plan.json")); print("true" if p["profile"] == "secrets-history" or not p.get("base_sha") else "false")')
+export SECRET_DETECTION_HISTORIC_SCAN
+# The same analyzer also runs outside GitLab on public hosted runners.
+CI_COMMIT_SHA=$(python3 -c 'import json; print(json.load(open("ci-plan.json"))["sha"])')
+CI_COMMIT_BRANCH=${CI_COMMIT_BRANCH:-public-validation}
+export CI_COMMIT_SHA CI_COMMIT_BRANCH
 # Analyzer output can include credentials. Only the redacted summary is emitted.
 if [ -x /analyzer ]; then
   /analyzer run >"$temporary/analyzer.log" 2>&1 || { echo 'Secret analyzer failed (raw output withheld)'; exit 1; }
