@@ -115,7 +115,7 @@ def test_retry_of_an_older_release_does_not_regress_latest(tmp_path):
 
 
 def test_release_gates_cover_all_architectures_and_artifacts():
-    ci = yaml.safe_load((ROOT / ".gitlab-ci.yml").read_text())
+    ci = yaml.safe_load((ROOT / "ops/ci/gitlab/jobs.yml").read_text())
     assert ci[".multiarch-image-scan"]["parallel"]["matrix"] == [{"IMAGE_ARCH": ["amd64", "arm64"]}]
     for component in ("backend", "frontend", "scheduler"):
         assert ci[f"{component}-release-image-vuln-scan"]["extends"] == ".multiarch-image-scan"

@@ -2,7 +2,7 @@
 set -eu
 : "${IMAGE_COMPONENT:?}"
 : "${IMAGE_ARCH:?}"
-image="$CI_REGISTRY_IMAGE/$IMAGE_COMPONENT:$CI_COMMIT_SHA"
+image="${SOURCE_IMAGE:-$CI_REGISTRY_IMAGE/$IMAGE_COMPONENT:$CI_COMMIT_SHA}"
 report="gl-security-reports/$IMAGE_COMPONENT-${SCAN_KIND:-image}-$IMAGE_ARCH"
 scan_exit=0
 trivy image --platform "linux/$IMAGE_ARCH" \

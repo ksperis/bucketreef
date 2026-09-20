@@ -1,0 +1,160 @@
+name: Public CI
+'on':
+  pull_request:
+    branches:
+    - main
+    - dev
+  merge_group:
+    types:
+    - checks_requested
+permissions:
+  contents: read
+concurrency:
+  group: public-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      jobs: ${{ steps.plan.outputs.jobs }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - id: plan
+      run: python3 ops/ci/events.py github
+  project-naming:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'project-naming') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: project-naming
+  ci-contract:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'ci-contract') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: ci-contract
+  secret-scan:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'secret-scan') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: secret-scan
+  backend-tests:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'backend-tests') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: backend-tests
+  backend-postgresql-tests:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'backend-postgresql-tests') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: backend-postgresql-tests
+  backend-deadcode:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'backend-deadcode') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: backend-deadcode
+  backend-vuln-scan:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'backend-vuln-scan') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: backend-vuln-scan
+  frontend-quality:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'frontend-quality') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: frontend-quality
+  frontend-tests:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'frontend-tests') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: frontend-tests
+  frontend-browser-e2e:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'frontend-browser-e2e') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: frontend-browser-e2e
+  frontend-vuln-scan:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'frontend-vuln-scan') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: frontend-vuln-scan
+  helm-contract:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'helm-contract') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: helm-contract
+  compose-contract:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'compose-contract') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: compose-contract
+  docs-build:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'docs-build') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: docs-build
+  docs-screenshots:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'docs-screenshots') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: docs-screenshots
+  required:
+    name: CI / required
+    if: ${{ always() }}
+    needs:
+    - plan
+    - project-naming
+    - ci-contract
+    - secret-scan
+    - backend-tests
+    - backend-postgresql-tests
+    - backend-deadcode
+    - backend-vuln-scan
+    - frontend-quality
+    - frontend-tests
+    - frontend-browser-e2e
+    - frontend-vuln-scan
+    - helm-contract
+    - compose-contract
+    - docs-build
+    - docs-screenshots
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Require every selected validation
+      env:
+        CI_NEEDS_JSON: ${{ toJSON(needs) }}
+      run: python3 ops/ci/required.py

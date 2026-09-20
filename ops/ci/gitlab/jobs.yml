@@ -1,0 +1,650 @@
+.trivy-job:
+  image:
+    name: $TRIVY_IMAGE
+    entrypoint:
+    - ''
+  cache:
+    key: trivy-cache
+    paths:
+    - .trivycache/
+  before_script:
+  - trivy --version
+  - mkdir -p gl-security-reports
+  artifacts:
+    when: always
+    expire_in: 1 week
+project-naming:
+  stage: test
+  image: python:3.12-slim
+  needs: []
+  before_script:
+  - apt-get update
+  - apt-get install --yes --no-install-recommends git
+  script:
+  - sh ops/ci/tasks/run.sh project-naming
+helm-contract:
+  stage: test
+  image:
+    name: alpine/helm:3.18.6
+    entrypoint:
+    - ''
+  needs: []
+  script:
+  - sh ops/ci/tasks/run.sh helm-contract
+compose-contract:
+  stage: test
+  image: docker:27-cli
+  needs: []
+  before_script:
+  - apk add --no-cache jq
+  script:
+  - sh ops/ci/tasks/run.sh compose-contract
+.promote-internal-image:
+  stage: promote
+  image:
+    name: $REGISTRY_TOOLS_IMAGE
+    entrypoint:
+    - ''
+  before_script:
+  - apk add --no-cache skopeo jq
+  script:
+  - test -n "$SOURCE_IMAGE"
+  - sh ops/ci/verify-image-platforms.sh "$SOURCE_IMAGE"
+  - test -n "$TARGET_GITLAB_IMAGE"
+  - "source_digest=$(skopeo inspect --creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" --format '{{.Digest}}' \"\
+    docker://$SOURCE_IMAGE\")\nfor tag in dev \"dev-$CI_COMMIT_SHORT_SHA\"; do\n  gitlab_target=\"docker://$TARGET_GITLAB_IMAGE:$tag\"\
+    \n\n  skopeo copy --all --preserve-digests \\\n    --src-creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" \\\
+    \n    --dest-creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" \\\n    \"docker://$SOURCE_IMAGE\" \\\n    \"\
+    $gitlab_target\"\n\n  gitlab_digest=$(skopeo inspect --creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" --format\
+    \ '{{.Digest}}' \"$gitlab_target\")\n  test \"$gitlab_digest\" = \"$source_digest\"\ndone\n"
+.promote-public-image:
+  stage: promote
+  image:
+    name: $REGISTRY_TOOLS_IMAGE
+    entrypoint:
+    - ''
+  before_script:
+  - apk add --no-cache skopeo jq git coreutils
+  script:
+  - test -n "$SOURCE_IMAGE"
+  - sh ops/ci/verify-image-platforms.sh "$SOURCE_IMAGE"
+  - test -n "$TARGET_GHCR_IMAGE"
+  - test -n "$GHCR_USERNAME"
+  - test -n "$GHCR_TOKEN"
+  - test -n "$RELEASE_GHCR_TAGS"
+  - "if [ \"$PROMOTION_KIND\" != \"release\" ]; then\n  echo \"Unsupported PROMOTION_KIND: $PROMOTION_KIND\"\n \
+    \ exit 1\nfi\ncurrent_tags=\"$(sh ops/release/image-tags.sh \"$RELEASE_VERSION\")\"\npromotion_tags=\"$(printf\
+    \ '%s' \"$current_tags\" | tr ',' ' ')\"\nif [ -z \"$promotion_tags\" ]; then\n  echo \"Release promotion requires\
+    \ at least one GHCR tag\"\n  exit 1\nfi\n"
+  - "source_digest=$(skopeo inspect --creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" --format '{{.Digest}}' \"\
+    docker://$SOURCE_IMAGE\")\nfor tag in $promotion_tags; do\n  ghcr_target=\"docker://$TARGET_GHCR_IMAGE:$tag\"\
+    \n\n  if [ \"$tag\" = \"$RELEASE_VERSION\" ]; then\n    if existing_digest=$(skopeo inspect --creds \"$GHCR_USERNAME:$GHCR_TOKEN\"\
+    \ --format '{{.Digest}}' \"$ghcr_target\" 2>/tmp/bucketreef-registry-error); then\n      if [ \"$existing_digest\"\
+    \ != \"$source_digest\" ]; then\n        echo \"Refusing to overwrite published release image $tag\"\n     \
+    \   exit 1\n      fi\n    elif ! grep -Eiq 'manifest unknown|name unknown|not found|404' /tmp/bucketreef-registry-error;\
+    \ then\n      cat /tmp/bucketreef-registry-error >&2\n      exit 1\n    fi\n  fi\n  skopeo copy --all --preserve-digests\
+    \ \\\n    --src-creds \"$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD\" \\\n    --dest-creds \"$GHCR_USERNAME:$GHCR_TOKEN\"\
+    \ \\\n    \"docker://$SOURCE_IMAGE\" \\\n    \"$ghcr_target\"\n\n  ghcr_digest=$(skopeo inspect --creds \"$GHCR_USERNAME:$GHCR_TOKEN\"\
+    \ --format '{{.Digest}}' \"$ghcr_target\")\n  test \"$ghcr_digest\" = \"$source_digest\"\ndone\n"
+release-tag-metadata:
+  stage: test
+  image: python:3.12-slim
+  needs: []
+  variables:
+    GIT_DEPTH: '0'
+  before_script:
+  - apt-get update && apt-get install --yes --no-install-recommends coreutils git
+  - case "$CI_COMMIT_TAG" in v0.*.1) python3 -m pip install -r backend/requirements.txt ;; esac
+  script:
+  - "release_tag=\"${CI_COMMIT_TAG:-}\"\nif ! printf '%s\\n' \"$release_tag\" | grep -Eq '^v[0-9]+\\.[0-9]+\\.[0-9]+$';\
+    \ then\n  echo \"Release tag must match vX.Y.Z\"\n  exit 1\nfi\n\nrelease_version=\"${release_tag#v}\"\nrelease_minor=\"\
+    ${release_version%.*}\"\npython3 ops/release/check_version.py \"$release_version\"\npython3 ops/release/schema_baseline.py\
+    \ \"$release_version\" --check\ngit fetch --quiet origin \"$CI_DEFAULT_BRANCH\"\nif ! git merge-base --is-ancestor\
+    \ \"$CI_COMMIT_SHA\" FETCH_HEAD; then\n  echo \"Release tag must point to a commit included in $CI_DEFAULT_BRANCH\"\
+    \n  exit 1\nfi\n\nghcr_tags=\"$(sh ops/release/image-tags.sh \"$release_version\")\"\npython3 ops/release/release_notes.py\
+    \ --version \"$release_version\"\n\n{\n  printf 'RELEASE_VERSION=%s\\n' \"$release_version\"\n  printf 'RELEASE_MINOR=%s\\\
+    n' \"$release_minor\"\n  printf 'RELEASE_GHCR_TAGS=%s\\n' \"$ghcr_tags\"\n} > release-tags.env\necho \"Release\
+    \ GHCR tags: $(printf '%s' \"$ghcr_tags\" | tr ',' ' ')\"\n"
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - release-tags.env
+    - dist/release-notes/
+    reports:
+      dotenv: release-tags.env
+backend-tests:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+  - apt-get update && apt-get install --yes --no-install-recommends git
+  - pip install -r backend/requirements-test.txt
+  - mkdir -p gl-test-reports
+  - for var in $(env | cut -d= -f1 | grep '^OIDC_PROVIDERS__' || true); do unset "$var"; done
+  - export OIDC_PROVIDERS="{}"
+  script:
+  - sh ops/ci/tasks/run.sh backend-tests
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - gl-test-reports/backend-junit.xml
+    reports:
+      junit: gl-test-reports/backend-junit.xml
+backend-postgresql-tests:
+  stage: test
+  image: python:3.12-slim
+  services:
+  - name: postgres:16-alpine
+    alias: postgres
+  needs: []
+  variables:
+    POSTGRES_DB: bucketreef_bootstrap_test
+    POSTGRES_USER: bucketreef
+    POSTGRES_PASSWORD: bucketreef-test-password
+    DATABASE_URL: postgresql://bucketreef:bucketreef-test-password@postgres:5432/bucketreef_bootstrap_test
+    POSTGRES_TEST_DATABASE_URL: postgresql://bucketreef:bucketreef-test-password@postgres:5432/bucketreef_bootstrap_test
+    APP_ENV: test
+    OIDC_PROVIDERS: '{}'
+    LDAP_PROVIDERS: '{}'
+  before_script:
+  - apt-get update
+  - apt-get install --yes --no-install-recommends postgresql-client
+  - pip install -r backend/requirements-test.txt
+  - mkdir -p gl-test-reports
+  - for var in $(env | cut -d= -f1 | grep '^OIDC_PROVIDERS__' || true); do unset "$var"; done
+  - for var in $(env | cut -d= -f1 | grep '^LDAP_PROVIDERS__' || true); do unset "$var"; done
+  - export OIDC_PROVIDERS="{}"
+  - export LDAP_PROVIDERS="{}"
+  script:
+  - sh ops/ci/tasks/run.sh backend-postgresql-tests
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - gl-test-reports/backend-postgresql-junit.xml
+    reports:
+      junit: gl-test-reports/backend-postgresql-junit.xml
+backend-deadcode:
+  stage: test
+  image: python:3.12-slim
+  needs: []
+  before_script:
+  - pip install -r backend/requirements-test.txt
+  script:
+  - sh ops/ci/tasks/run.sh backend-deadcode
+backend-vuln-scan:
+  extends: .trivy-job
+  stage: test
+  needs: []
+  script:
+  - sh ops/ci/tasks/run.sh backend-vuln-scan
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - gl-security-reports/backend-dependencies-trivy.json
+    - gl-security-reports/backend-sbom.cdx.json
+frontend-quality:
+  stage: test
+  image: node:24-bookworm
+  needs: []
+  script:
+  - sh ops/ci/tasks/run.sh frontend-quality
+  before_script:
+  - npm ci --prefix frontend --no-audit --no-fund
+frontend-tests:
+  stage: test
+  image: node:24-bookworm
+  needs: []
+  before_script:
+  - npm ci --prefix frontend --no-audit --no-fund
+  script:
+  - sh ops/ci/tasks/run.sh frontend-tests
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - gl-test-reports/frontend-junit.xml
+    reports:
+      junit: gl-test-reports/frontend-junit.xml
+frontend-browser-e2e:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.58.2-noble
+  needs: []
+  variables:
+    E2E_S3_ENDPOINT: http://localhost:5000
+    E2E_S3_ACCESS_KEY: minio
+    E2E_S3_SECRET_KEY: minio123
+    E2E_START_MOTO: 'true'
+    E2E_MOTO_COMMAND: ../backend/.venv/bin/moto_server -H 0.0.0.0 -p 5000
+    S3_IGNORE_SUBDOMAIN_BUCKETNAME: 'true'
+  before_script:
+  - mkdir -p gl-test-reports
+  - for var in $(env | cut -d= -f1 | grep '^OIDC_PROVIDERS__' || true); do unset "$var"; done
+  - export OIDC_PROVIDERS="{}"
+  - "if ! command -v python3 >/dev/null 2>&1; then\n  apt-get update\n  apt-get install -y python3\nfi\nif ! python3\
+    \ -m ensurepip --version >/dev/null 2>&1; then\n  apt-get update\n  PYTHON_VENV_PACKAGE=\"python$(python3 -c\
+    \ 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')-venv\"\n  apt-get install -y\
+    \ \"$PYTHON_VENV_PACKAGE\"\nfi\n"
+  - python3 -m venv backend/.venv
+  - backend/.venv/bin/python -m pip install -r backend/requirements-browser-e2e.txt
+  - npm ci --prefix frontend --no-audit --no-fund
+  script:
+  - sh ops/ci/tasks/run.sh frontend-browser-e2e
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - gl-test-reports/frontend-browser-e2e-junit.xml
+    - frontend/playwright-report/
+    - frontend/test-results/
+    reports:
+      junit: gl-test-reports/frontend-browser-e2e-junit.xml
+frontend-vuln-scan:
+  extends: .trivy-job
+  stage: test
+  needs: []
+  script:
+  - sh ops/ci/tasks/run.sh frontend-vuln-scan
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - gl-security-reports/frontend-dependencies-trivy.json
+    - gl-security-reports/frontend-sbom.cdx.json
+ceph-functional-tests:
+  stage: test
+  image: python:3.12-slim
+  needs: []
+  allow_failure: false
+  retry: 0
+  before_script:
+  - pip install -r backend/requirements-test.txt
+  - mkdir -p gl-test-reports
+  script:
+  - cd backend
+  - PYTHONPATH=. python tests_ceph_functional/run_ci.py -q -ra --junit-xml=../gl-test-reports/ceph-functional-junit.xml
+  - python ../ops/ci/ceph_result.py ../gl-test-reports/ceph-functional-junit.xml
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - gl-test-reports/ceph-functional-junit.xml
+    - gl-test-reports/ceph-functional-backend.log
+    reports:
+      junit: gl-test-reports/ceph-functional-junit.xml
+  environment:
+    name: ci-ceph
+    action: verify
+  resource_group: ceph-functional-lab
+build-backend:
+  extends: .multiarch-build
+  variables:
+    IMAGE_COMPONENT: backend
+build-frontend:
+  extends: .multiarch-build
+  variables:
+    IMAGE_COMPONENT: frontend
+build-scheduler:
+  extends: .multiarch-build
+  variables:
+    IMAGE_COMPONENT: scheduler
+helm-kind-onboarding-smoke:
+  stage: security
+  image: docker:27-cli
+  services:
+  - docker:27-dind
+  needs:
+  - build-backend
+  - build-frontend
+  variables:
+    KIND_VERSION: v0.27.0
+    KIND_API_HOST: docker
+    KIND_SMOKE_PRUNE_SOURCE_IMAGES: 'true'
+    BACKEND_IMAGE_REPOSITORY: $CI_REGISTRY_IMAGE/backend
+    FRONTEND_IMAGE_REPOSITORY: $CI_REGISTRY_IMAGE/frontend
+    IMAGE_TAG: $CI_COMMIT_SHA
+  before_script:
+  - apk add --no-cache bash curl helm jq kubectl openssl
+  - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  - curl --fail --silent --show-error --location --output /tmp/kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+  - curl --fail --silent --show-error --location --output /tmp/kind.sha256sum "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64.sha256sum"
+  - echo "$(awk '{print $1}' /tmp/kind.sha256sum)  /tmp/kind" | sha256sum -c
+  - install -m 0755 /tmp/kind /usr/local/bin/kind
+  script:
+  - bash ops/ci/kind-onboarding-smoke.sh
+release-source-images-ready:
+  stage: build
+  image:
+    name: $REGISTRY_TOOLS_IMAGE
+    entrypoint:
+    - ''
+  needs:
+  - job: release-tag-metadata
+    artifacts: true
+  variables:
+    RELEASE_SOURCE_IMAGE_RETRIES: '60'
+    RELEASE_SOURCE_IMAGE_RETRY_SECONDS: '30'
+  before_script:
+  - apk add --no-cache skopeo jq
+  script:
+  - echo "Release qualification migration is not installed" >&2
+  - exit 1
+backend-image-vuln-scan:
+  extends: .multiarch-image-scan
+  stage: security
+  needs:
+  - build-backend
+  variables:
+    IMAGE_COMPONENT: backend
+    SCAN_KIND: image
+frontend-image-vuln-scan:
+  extends: .multiarch-image-scan
+  stage: security
+  needs:
+  - build-frontend
+  variables:
+    IMAGE_COMPONENT: frontend
+    SCAN_KIND: image
+scheduler-image-vuln-scan:
+  extends: .multiarch-image-scan
+  stage: security
+  needs:
+  - build-scheduler
+  variables:
+    IMAGE_COMPONENT: scheduler
+    SCAN_KIND: image
+backend-release-image-vuln-scan:
+  extends: .multiarch-image-scan
+  stage: security
+  needs:
+  - release-source-images-ready
+  variables:
+    IMAGE_COMPONENT: backend
+    SCAN_KIND: release-image
+frontend-release-image-vuln-scan:
+  extends: .multiarch-image-scan
+  stage: security
+  needs:
+  - release-source-images-ready
+  variables:
+    IMAGE_COMPONENT: frontend
+    SCAN_KIND: release-image
+scheduler-release-image-vuln-scan:
+  extends: .multiarch-image-scan
+  stage: security
+  needs:
+  - release-source-images-ready
+  variables:
+    IMAGE_COMPONENT: scheduler
+    SCAN_KIND: release-image
+promote-backend-dev:
+  extends: .promote-internal-image
+  variables:
+    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA
+    TARGET_GITLAB_IMAGE: $CI_REGISTRY_IMAGE/backend
+promote-frontend-dev:
+  extends: .promote-internal-image
+  variables:
+    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA
+    TARGET_GITLAB_IMAGE: $CI_REGISTRY_IMAGE/frontend
+promote-scheduler-dev:
+  extends: .promote-internal-image
+  variables:
+    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/scheduler:$CI_COMMIT_SHA
+    TARGET_GITLAB_IMAGE: $CI_REGISTRY_IMAGE/scheduler
+promote-backend-release:
+  extends: .promote-public-image
+  resource_group: public-backend-images
+  needs:
+  - job: release-tag-metadata
+    artifacts: true
+  - backend-release-image-vuln-scan
+  - release-kind-onboarding-smoke
+  variables:
+    PROMOTION_KIND: release
+    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA
+    TARGET_GHCR_IMAGE: $GHCR_BACKEND_IMAGE
+promote-frontend-release:
+  extends: .promote-public-image
+  resource_group: public-frontend-images
+  needs:
+  - job: release-tag-metadata
+    artifacts: true
+  - frontend-release-image-vuln-scan
+  - release-kind-onboarding-smoke
+  variables:
+    PROMOTION_KIND: release
+    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA
+    TARGET_GHCR_IMAGE: $GHCR_FRONTEND_IMAGE
+promote-scheduler-release:
+  extends: .promote-public-image
+  resource_group: public-scheduler-images
+  needs:
+  - job: release-tag-metadata
+    artifacts: true
+  - scheduler-release-image-vuln-scan
+  - release-kind-onboarding-smoke
+  variables:
+    PROMOTION_KIND: release
+    SOURCE_IMAGE: $CI_REGISTRY_IMAGE/scheduler:$CI_COMMIT_SHA
+    TARGET_GHCR_IMAGE: $GHCR_SCHEDULER_IMAGE
+.multiarch-build:
+  stage: build
+  resource_group: build-$CI_COMMIT_SHA-$IMAGE_COMPONENT
+  image: docker:27-cli
+  services:
+  - docker:27-dind
+  before_script:
+  - apk add --no-cache jq
+  - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+  - sh ops/ci/build-image.sh
+.multiarch-image-scan:
+  extends: .trivy-job
+  stage: security
+  parallel:
+    matrix:
+    - IMAGE_ARCH:
+      - amd64
+      - arm64
+  script:
+  - sh ops/ci/scan-image.sh
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+    - gl-security-reports/
+.release-rules: {}
+release-bundles:
+  stage: build
+  image: python:3.12-alpine
+  needs:
+  - job: release-tag-metadata
+    artifacts: true
+  script:
+  - python3 ops/release/package_bundles.py --version "$RELEASE_VERSION"
+  artifacts:
+    expire_in: 30 days
+    paths:
+    - dist/release/
+publish-helm-release:
+  stage: deploy
+  image:
+    name: alpine/helm:3.18.6
+    entrypoint:
+    - ''
+  needs:
+  - job: release-tag-metadata
+    artifacts: true
+  - job: release-bundles
+    artifacts: true
+  - promote-backend-release
+  - promote-frontend-release
+  - promote-scheduler-release
+  - release-bundle-smoke
+  resource_group: public-helm-release
+  before_script:
+  - apk add --no-cache diffutils
+  script:
+  - helm lint deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth
+  - sh ops/release/publish-chart.sh
+publish-github-release:
+  stage: deploy
+  image: python:3.12-alpine
+  needs:
+  - job: release-tag-metadata
+    artifacts: true
+  - job: release-bundles
+    artifacts: true
+  - publish-helm-release
+  - release-bundle-smoke
+  resource_group: public-github-release
+  script:
+  - python3 ops/release/publish_github_release.py
+publish-gitlab-release:
+  stage: deploy
+  image: python:3.12-alpine
+  needs:
+  - job: release-tag-metadata
+    artifacts: true
+  - publish-github-release
+  resource_group: public-gitlab-release
+  before_script:
+  - apk add --no-cache git
+  script:
+  - python3 ops/release/publish_gitlab_release.py
+recover-gitlab-release:
+  stage: deploy
+  image: python:3.12-alpine
+  needs: []
+  variables:
+    GIT_DEPTH: '0'
+  resource_group: public-gitlab-release
+  before_script:
+  - apk add --no-cache git
+  script:
+  - python3 ops/release/recover_gitlab_release.py
+release-bundle-smoke:
+  stage: deploy
+  image: docker:27-cli
+  services:
+  - docker:27-dind
+  parallel:
+    matrix:
+    - IMAGE_ARCH:
+      - amd64
+      - arm64
+  needs:
+  - job: release-bundles
+    artifacts: true
+  - promote-backend-release
+  - promote-frontend-release
+  - promote-scheduler-release
+  script:
+  - docker run --privileged --rm "$BINFMT_IMAGE" --install arm64,amd64
+  - sh ops/ci/quickstart-bundle-smoke.sh
+release-kind-onboarding-smoke:
+  extends: helm-kind-onboarding-smoke
+  needs:
+  - release-source-images-ready
+docs-build:
+  stage: build
+  image: python:3.11-bookworm
+  needs: []
+  interruptible: true
+  variables:
+    GIT_DEPTH: '0'
+  before_script:
+  - python -m pip install -r doc/requirements.txt
+  script:
+  - sh ops/ci/tasks/run.sh docs-build
+  artifacts:
+    name: docs-$CI_COMMIT_SHA
+    paths:
+    - doc/site/
+    expire_in: 30 days
+docs-screenshots:
+  stage: test
+  image: node:24-bookworm
+  needs: []
+  interruptible: true
+  script:
+  - sh ops/ci/tasks/run.sh docs-screenshots
+docs-deploy:
+  stage: deploy
+  image: node:24-bookworm
+  needs:
+  - docs-build
+  - docs-screenshots
+  resource_group: cloudflare-docs-production
+  interruptible: false
+  environment:
+    name: docs-production
+    url: https://docs.bucketreef.ksperis.com
+    deployment_tier: production
+  before_script:
+  - npm ci --prefix ops/cloudflare --no-audit --no-fund
+  script:
+  - test -n "$CLOUDFLARE_ACCOUNT_ID"
+  - test -n "$CLOUDFLARE_API_TOKEN"
+  - "for asset in bucketreef-compose.tar.gz bucketreef-quickstart.tar.gz; do\n  curl --fail --silent --show-error\
+    \ --head --location \"https://github.com/ksperis/bucketreef/releases/latest/download/$asset\"\n  curl --fail\
+    \ --silent --show-error --head --location \"https://github.com/ksperis/bucketreef/releases/latest/download/$asset.sha256\"\
+    \ndone\n"
+  - "current_main=$(git ls-remote origin refs/heads/main | cut -f1)\nif [ \"$current_main\" != \"$CI_COMMIT_SHA\"\
+    \ ]; then\n  echo \"Refusing to deploy an outdated main commit.\"\n  exit 1\nfi\n"
+  - ops/cloudflare/node_modules/.bin/wrangler pages deploy doc/site --project-name=bucketreef-docs --branch=main
+    --commit-hash="$CI_COMMIT_SHA"
+ci-contract:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+  - python3 -m pip install -r ops/ci/requirements.txt
+  script:
+  - sh ops/ci/tasks/run.sh ci-contract
+secret-scan:
+  stage: test
+  image:
+    name: $SECRET_ANALYZER_IMAGE
+    entrypoint:
+    - ''
+  before_script:
+  - apk add --no-cache python3
+  script:
+  - sh ops/ci/tasks/secret-scan.sh
+  artifacts:
+    when: always
+    paths:
+    - gl-security-reports/secrets-redacted.json
+    expire_in: 1 week
+integration-ready:
+  stage: evidence
+  image: python:3.12-slim
+  environment:
+    name: ci-orchestration
+    action: verify
+  script:
+  - python3 ops/ci/evidence.py
+  artifacts:
+    paths:
+    - integration.json
+    - ci-plan.json
+    expire_in: never
+scan-published-images:
+  extends: .trivy-job
+  stage: security
+  environment:
+    name: ci-orchestration
+    action: verify
+  before_script:
+  - apk add --no-cache python3
+  - mkdir -p gl-security-reports
+  script:
+  - python3 ops/ci/scan_published.py
+  artifacts:
+    when: always
+    paths:
+    - gl-security-reports/
+    expire_in: 30 days

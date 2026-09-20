@@ -23,7 +23,7 @@ def test_helm_requires_and_serializes_structured_trusted_proxy_cidrs():
 
 def test_ci_covers_positive_and_negative_trusted_proxy_rendering():
     repository_root = Path(__file__).resolve().parents[2]
-    pipeline = repository_root.joinpath(".gitlab-ci.yml").read_text(encoding="utf-8")
+    pipeline = repository_root.joinpath("ops/ci/tasks/helm-contract.sh").read_text(encoding="utf-8")
 
     assert "expected missing trusted proxy CIDRs to fail" in pipeline
     assert pipeline.count("backend.trustedProxyCidrs") >= 2
