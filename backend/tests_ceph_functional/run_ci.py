@@ -348,6 +348,11 @@ def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str,
         "Ceph Functional CI Admin"
     )
     env["ACCESS_TOKEN_EXPIRE_MINUTES"] = "15"
+    # The suite creates one explicit WebAuthn-verified bootstrap session, then
+    # reuses it for the full functional run. Keep that proof recent for the
+    # isolated CI backend so long-running Ceph scenarios do not expire it
+    # before session-scoped cleanup executes.
+    env["MFA_RECENT_MINUTES"] = "60"
     env["ENV_STORAGE_ENDPOINTS"] = endpoint_payload
     app_settings_path.write_text(_build_app_settings_payload(), encoding="utf-8")
     env["APP_SETTINGS_PATH"] = app_settings_path.resolve().as_posix()

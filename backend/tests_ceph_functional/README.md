@@ -47,6 +47,11 @@ bootstrap service, using only `CEPH_TEST_SUPERADMIN_EMAIL`,
 ephemeral account the Ceph Admin, Storage Ops, and Manager tool access needed
 to exercise the complete functional suite.
 
+The bootstrap session is explicitly WebAuthn-verified. The isolated CI backend
+keeps that verification recent for up to 60 minutes, matching the job timeout,
+so long Ceph scenarios retain their step-up state through cleanup without
+changing the production default.
+
 The GitLab runner must be able to reach:
 
 - the lab S3 endpoint
