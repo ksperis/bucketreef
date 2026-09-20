@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from gitlab_api import expected_names, successful_jobs, latest_baseline
 from plan import ROOT, PUBLIC, select
 from render_gitlab import render
-from secret_report import POSTGRES_FIXTURES, summarize
+from secret_report import FIXTURE_LOCATIONS, summarize
 from ceph_result import verify
 
 
@@ -56,7 +56,7 @@ def test_secret_findings_are_redacted_and_invalid_report_fails():
     with pytest.raises(ValueError): summarize({})
 
 
-@pytest.mark.parametrize('path,extract', POSTGRES_FIXTURES.items())
+@pytest.mark.parametrize('path,extract', [(path, url) for path, urls in FIXTURE_LOCATIONS.items() for url in urls])
 def test_only_exact_disposable_postgresql_findings_are_exempt(path, extract):
     finding = {'location': {'file': path, 'start_line': 27},
                'raw_source_code_extract': extract,
