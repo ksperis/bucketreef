@@ -1,12 +1,9 @@
-# Defaults target promoted GHCR images.
-# For lab/dev, override BUCKETREEF_BACKEND_IMAGE and BUCKETREEF_FRONTEND_IMAGE
-# with GitLab Container Registry image names and set BUCKETREEF_TAG to dev or
-# dev-<short-sha>.
 name: bucketreef
 
 services:
   backend:
-    image: ${BUCKETREEF_BACKEND_IMAGE:-ghcr.io/ksperis/bucketreef-backend}:${BUCKETREEF_TAG:-latest}
+    build:
+      context: backend
     environment:
       APP_ENV: ${APP_ENV:-development}
       UI_JWT_KEYS: '${UI_JWT_KEYS:-["change-me"]}'
@@ -49,7 +46,10 @@ services:
       retries: 24
       start_period: 10s
   frontend:
-    image: ${BUCKETREEF_FRONTEND_IMAGE:-ghcr.io/ksperis/bucketreef-frontend}:${BUCKETREEF_TAG:-latest}
+    build:
+      context: frontend
+      args:
+        VITE_API_URL: /api
     ports:
       - "${BUCKETREEF_BIND_ADDRESS:-127.0.0.1}:${BUCKETREEF_FRONTEND_PORT:-8080}:8080"
     user: "101:101"
@@ -72,7 +72,9 @@ services:
       retries: 24
       start_period: 5s
   scheduler:
-    image: ${BUCKETREEF_SCHEDULER_IMAGE:-ghcr.io/ksperis/bucketreef-scheduler}:${BUCKETREEF_TAG:-latest}
+    build:
+      context: .
+      dockerfile: scheduler/Dockerfile
     profiles: ["operations"]
     depends_on:
       backend:

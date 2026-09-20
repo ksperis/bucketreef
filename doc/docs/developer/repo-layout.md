@@ -5,11 +5,10 @@
 - `backend/`: FastAPI code, migrations, scripts, tests.
 - `frontend/`: React UI, tests, build tooling.
 - `doc/`: MkDocs documentation.
-- `helm/`: Helm chart assets.
+- `deploy/`: Helm chart, image-based Compose and standalone QuickStart sources.
 - `ops/`: operational helper scripts (cron jobs, etc.).
 
 ## Key files
 
-- `docker-compose.yml`
-- `docker-compose.build.yml`
+- `docker-compose.yml`: source builds only.
 - `doc/mkdocs.yml`

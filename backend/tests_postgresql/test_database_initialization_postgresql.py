@@ -5,6 +5,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 import os
+from pathlib import Path
+import sys
 import uuid
 
 from alembic.autogenerate import compare_metadata
@@ -78,3 +80,22 @@ def test_postgresql_concurrent_startup_bootstraps_isolated_empty_schema(monkeypa
         with admin_engine.begin() as connection:
             connection.execute(sa.text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
         admin_engine.dispose()
+
+
+def test_postgresql_reference_snapshot_matches_current_metadata() -> None:
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "ops/release"))
+    from schema_baseline import baseline_files
+
+    engine = create_engine(_postgresql_url())
+    schema_name = f"bucketreef_baseline_{uuid.uuid4().hex}"
+    try:
+        with engine.begin() as connection:
+            connection.execute(sa.text(f'CREATE SCHEMA "{schema_name}"'))
+            connection.execute(sa.text(f'SET LOCAL search_path TO "{schema_name}"'))
+            connection.exec_driver_sql(baseline_files(root, "0.3.1")["postgresql.sql"].decode())
+            context = MigrationContext.configure(connection, opts={"compare_type": True})
+            assert compare_metadata(context, Base.metadata) == []
+            connection.execute(sa.text(f'DROP SCHEMA "{schema_name}" CASCADE'))
+    finally:
+        engine.dispose()

@@ -2,25 +2,26 @@
 
 Use Helm for Kubernetes deployments.
 
-## Chart location
+## Install the OCI chart
 
-- Chart: `helm/bucketreef`
-- Values: `helm/bucketreef/values.yaml`
+Published chart: `oci://ghcr.io/ksperis/charts/bucketreef`. No source checkout or
+Helm repository index is needed. Chart version and `appVersion` both match the
+application release. Backend, frontend and CronJob images default to `appVersion`
+and support AMD64 and ARM64; explicit image tag overrides remain supported.
 
-The chart defaults remain pinned to the latest stable application release
-(`0.2.4`). They do not automatically follow an unpublished source checkout.
-To validate checkout changes, override both backend and frontend repositories
-and give both images the exact same immutable `dev-<short-sha>` tag.
+Choose a published chart version (`X.Y.Z` below), create the required Secret and
+configure the security values described on this page:
 
-## Minimal install
-
-```bash
-helm install bucketreef helm/bucketreef \
+```sh
+helm show values oci://ghcr.io/ksperis/charts/bucketreef --version X.Y.Z > values.yaml
+helm upgrade --install bucketreef oci://ghcr.io/ksperis/charts/bucketreef \
+  --version X.Y.Z \
   --values production-security-values.yaml \
-  --set backend.existingSecret=bucketreef-auth \
-  --set image.backend.repository=ghcr.io/ksperis/bucketreef-backend \
-  --set image.frontend.repository=ghcr.io/ksperis/bucketreef-frontend
+  --set backend.existingSecret=bucketreef-auth
 ```
+
+Downloads are anonymous. Use Helm 3.8 or newer with OCI support. Source files
+remain in `deploy/helm/bucketreef` for chart development and CI validation.
 
 ## Current chart characteristics
 
@@ -211,36 +212,18 @@ Tag conventions:
 | Internal lab validation | `dev` from the GitLab Container Registry |
 | Reproduce one internal build | `dev-<short-sha>` from the GitLab Container Registry |
 
-Stable/public examples:
-
-```bash
-helm upgrade --install bucketreef helm/bucketreef \
-  --set image.backend.repository=ghcr.io/ksperis/bucketreef-backend \
-  --set image.backend.tag=latest \
-  --set image.frontend.repository=ghcr.io/ksperis/bucketreef-frontend \
-  --set image.frontend.tag=latest
-```
-
-```bash
-helm upgrade --install bucketreef helm/bucketreef \
-  --set image.backend.repository=ghcr.io/ksperis/bucketreef-backend \
-  --set image.backend.tag=0.2.4 \
-  --set image.frontend.repository=ghcr.io/ksperis/bucketreef-frontend \
-  --set image.frontend.tag=0.2.4
-```
-
-```bash
-helm upgrade --install bucketreef helm/bucketreef \
-  --set image.backend.repository=ghcr.io/ksperis/bucketreef-backend \
-  --set image.backend.tag=0.2 \
-  --set image.frontend.repository=ghcr.io/ksperis/bucketreef-frontend \
-  --set image.frontend.tag=0.2
-```
+For stable installations, pin the chart using `--version X.Y.Z` and keep the
+default image tags. Upgrades use the same OCI URL with a new explicit version;
+back up the database and review migration notes first. The historical `0.2.4`
+image release predates chart OCI publication; use a release that includes the
+published chart and bundles.
 
 Pinned checkout/lab example with GitLab Container Registry:
 
 ```bash
-helm upgrade --install bucketreef helm/bucketreef \
+helm upgrade --install bucketreef deploy/helm/bucketreef \
+  --values production-security-values.yaml \
+  --set backend.existingSecret=bucketreef-auth \
   --set image.backend.repository=<gitlab-registry>/<project>/backend \
   --set image.backend.tag=dev-<short-sha> \
   --set image.frontend.repository=<gitlab-registry>/<project>/frontend \

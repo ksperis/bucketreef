@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.2.5 - 2026-09-20
+
+### Added
+
+- Added standalone QuickStart and Compose release bundles with SHA-256 checksums, version-pinned GHCR images, and an installer available at `https://bucketreef.ksperis.com/quickstart.sh`.
+- Added AMD64 and ARM64 image builds, architecture-specific runtime checks, vulnerability reports and SBOMs, plus a public OCI Helm chart at `oci://ghcr.io/ksperis/charts/bucketreef`.
+- Added automatic GitHub and GitLab releases sourced from this changelog, previous-version comparison links, and reproducible schema-reference snapshots for future `0.X.1` versions. This patch creates no schema baseline.
+- Added Simplified Chinese translations for Portal and profile workflows.
+
+### Changed
+
+- Moved release deployments into `deploy/`; the root Compose now builds from source. The standalone QuickStart preserves its installed version, secrets and SQLite data across restarts.
+- Unified Browser and Manager operation dialogs, bucket creation, rule inspection, IAM and SNS forms, and Portal history, invitation and external-tool workflows.
+- Aligned Manager and Portal dashboard card heights and simplified the documentation theme. Documentation is now published through Cloudflare Pages.
+
+### Fixed/Security
+
+- Preserved literal object keys, version identifiers and tag values throughout bucket migrations and comparisons.
+- Refused QuickStart key generation when an existing volume lacks its matching environment, retained verified backups before reset, and protected installed keys and ports from unrelated shell variables.
+- Diagnosed read-only SQLite startup failures without incorrectly reporting database corruption.
+- Kept Ceph functional-test WebAuthn sessions recent and restored full Git history for strict documentation builds.
+
+### Upgrade notes
+
+- The root `quickstart` and `docker-compose.build.yml` files have been removed. Developers use `docker compose build` and `docker compose up --build`; release users use QuickStart, the Compose bundle or the versioned OCI chart.
+- Before migrating a source-checkout QuickStart, stop and back up its database and matching environment. Install with `--version 0.2.5 --no-start`, copy `.env.quickstart` with mode `0600`, and retain the existing `bucketreef-quickstart` project and volume. Follow the [migration guide](https://docs.bucketreef.ksperis.com/ops/quickstart/#migrate-a-source-checkout-quickstart); do not run reset during migration.
+- Helm chart versions now follow the application version and images default to `appVersion`. This is the first OCI/bundle release; historical `0.2.4` artifacts are unchanged.
+- No new database migration or baseline is introduced. Empty databases still use the current schema followed by `alembic stamp head`; existing databases retain their normal Alembic upgrade path.
+
+### Tests
+
+- Expanded installer, deployment, immutable-publication, changelog, schema-baseline and release-preparation coverage, including interrupted downloads/uploads and version-preserving retries.
+- Added release gates for both image architectures, standalone bundle startup, Helm installation and upgrade, and anonymous chart download.
+
 ## 0.2.4 - 2026-09-11
 
 ### Added

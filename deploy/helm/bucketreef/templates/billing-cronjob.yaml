@@ -26,7 +26,7 @@ spec:
             {{- toYaml .Values.cronJobs.podSecurityContext | nindent 12 }}
           containers:
             - name: billing-collector
-              image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+              image: "{{ .Values.image.backend.repository }}:{{ default .Chart.AppVersion .Values.image.backend.tag }}"
               imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
               securityContext:
                 {{- toYaml .Values.cronJobs.containerSecurityContext | nindent 16 }}

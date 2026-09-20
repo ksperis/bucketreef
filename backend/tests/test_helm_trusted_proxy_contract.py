@@ -8,10 +8,10 @@ import yaml
 def test_helm_requires_and_serializes_structured_trusted_proxy_cidrs():
     repository_root = Path(__file__).resolve().parents[2]
     values = yaml.safe_load(
-        repository_root.joinpath("helm/bucketreef/values.yaml").read_text(encoding="utf-8")
+        repository_root.joinpath("deploy/helm/bucketreef/values.yaml").read_text(encoding="utf-8")
     )
     template = repository_root.joinpath(
-        "helm/bucketreef/templates/backend-deployment.yaml"
+        "deploy/helm/bucketreef/templates/backend-deployment.yaml"
     ).read_text(encoding="utf-8")
 
     assert values["backend"]["trustedProxyCidrs"] == []

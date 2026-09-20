@@ -85,6 +85,9 @@ Playwright browser E2E notes:
 
 ## Container publishing
 
+See [Release distribution](releases.md) for multiarchitecture images, chart OCI
+publication, standalone bundles, CI credentials and the first-rollout order.
+
 GitLab CI is the single source of truth for official container images.
 It builds once, scans the immutable `$CI_COMMIT_SHA` image, then promotes that exact artifact to the appropriate target registry.
 
