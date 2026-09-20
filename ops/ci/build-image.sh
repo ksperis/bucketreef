@@ -28,7 +28,9 @@ for arch in amd64 arm64; do
         -c 'from pathlib import Path; import os, app.scripts.issue_first_admin_bootstrap; assert os.getuid() == 10001; assert Path("/app/alembic/versions/0119_first_admin_bootstrap.py").is_file()'
       ;;
     frontend)
-      container=$(docker run --detach --platform "linux/$arch" --read-only --tmpfs /tmp "$image")
+      # This isolated check serves the setup page without a backend container.
+      container=$(docker run --detach --platform "linux/$arch" --read-only --tmpfs /tmp \
+        --env BACKEND_UPSTREAM=127.0.0.1:8000 "$image")
       trap 'docker rm --force "$container" >/dev/null 2>&1 || true; docker buildx rm "$builder" >/dev/null 2>&1 || true' EXIT
       attempt=0
       until docker exec "$container" wget -q -O /dev/null http://127.0.0.1:8080/setup/first-admin; do
