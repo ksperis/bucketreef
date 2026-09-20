@@ -14,7 +14,7 @@ PUBLIC = (
     "backend-postgresql-tests", "backend-deadcode", "backend-vuln-scan",
     "frontend-quality", "frontend-tests", "frontend-browser-e2e",
     "frontend-vuln-scan", "helm-contract", "compose-contract", "docs-build",
-    "docs-screenshots",
+    "docs-screenshots", "scheduler-contract",
 )
 BACKEND = {"backend-tests", "backend-postgresql-tests", "backend-deadcode"}
 FRONTEND = {"frontend-quality", "frontend-tests"}
@@ -122,7 +122,7 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
             if path.startswith("deploy/") or path == "docker-compose.yml":
                 images.update(("backend", "frontend"))
         elif path.startswith(("ops/cron/", "scheduler/")):
-            add(DEPLOY, path)
+            add(DEPLOY | {"scheduler-contract"}, path)
             images.add("scheduler")
         elif path in {"AGENTS.md", "LICENSE", ".gitignore", ".gitmessage-ai.txt"} or path.startswith(".vscode/"):
             pass
@@ -153,6 +153,9 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
         selected.add("ceph-functional-tests")
     if profile in {"integration", "docs"} and ref == "main" and DOCS <= selected:
         selected.add("docs-deploy")
+    for job in selected:
+        reasons.setdefault(job, ["mandatory policy or dependency for " + profile])
+    reasons = {job: reasons[job] for job in sorted(selected)}
     return {"schema": 1, "profile": profile, "ref": ref, "jobs": sorted(selected),
             "images": sorted(images), "reasons": reasons, "full": full}
 

@@ -427,16 +427,18 @@ def test_failed_backup_prevents_volume_removal_and_key_rotation(quickstart_runti
 
 
 def test_kind_checksum_uses_busybox_compatible_check_flag():
-    gitlab_ci = (REPOSITORY_ROOT / "ops/ci/gitlab/jobs.yml").read_text(encoding="utf-8")
+    gitlab_ci = (REPOSITORY_ROOT / "ops/ci/install-kube-tools.sh").read_text(encoding="utf-8")
 
     assert "sha256sum -c" in gitlab_ci
     assert "sha256sum --check" not in gitlab_ci
 
 
 def test_kind_smoke_routes_the_api_through_the_dind_service():
-    gitlab_ci = yaml.safe_load(
-        (REPOSITORY_ROOT / "ops/ci/gitlab/jobs.yml").read_text(encoding="utf-8")
-    )
+    import sys
+    sys.path.insert(0, str(REPOSITORY_ROOT / "ops/ci"))
+    from plan import select
+    from render_gitlab import render
+    gitlab_ci = render({**select("qualify", []), "sha": "a" * 40})
     smoke_job = gitlab_ci["helm-kind-onboarding-smoke"]
     smoke_script = (
         REPOSITORY_ROOT / "ops" / "ci" / "kind-onboarding-smoke.sh"

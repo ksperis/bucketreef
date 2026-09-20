@@ -4,7 +4,7 @@
     entrypoint:
     - ''
   cache:
-    key: trivy-cache
+    key: trusted-trivy-0.69.3
     paths:
     - .trivycache/
   before_script:
@@ -56,13 +56,29 @@ release-tag-metadata:
   - apt-get update && apt-get install --yes --no-install-recommends coreutils git
   - case "$CI_COMMIT_TAG" in v0.*.1) python3 -m pip install -r backend/requirements.txt ;; esac
   script:
-  - "release_tag=\"${CI_COMMIT_TAG:-}\"\nif ! printf '%s\\n' \"$release_tag\" | grep -Eq '^v[0-9]+\\.[0-9]+\\.[0-9]+$';\
-    \ then\n  echo \"Release tag must match vX.Y.Z\"\n  exit 1\nfi\n\nrelease_version=\"${release_tag#v}\"\nrelease_minor=\"\
-    ${release_version%.*}\"\npython3 ops/release/check_version.py \"$release_version\"\npython3 ops/release/schema_baseline.py\
-    \ \"$release_version\" --check\ngit fetch --quiet origin \"$CI_DEFAULT_BRANCH\"\nif ! git merge-base --is-ancestor\
-    \ \"$CI_COMMIT_SHA\" FETCH_HEAD; then\n  echo \"Release tag must point to a commit included in $CI_DEFAULT_BRANCH\"\
-    \n  exit 1\nfi\n\npython3 ops/release/release_notes.py --version \"$release_version\"\n\n{\n  printf 'RELEASE_VERSION=%s\\\
-    n' \"$release_version\"\n  printf 'RELEASE_MINOR=%s\\n' \"$release_minor\"\n} > release-tags.env"
+  - |-
+    release_tag="${CI_COMMIT_TAG:-}"
+    if ! printf '%s\n' "$release_tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+      echo "Release tag must match vX.Y.Z"
+      exit 1
+    fi
+
+    release_version="${release_tag#v}"
+    release_minor="${release_version%.*}"
+    python3 ops/release/check_version.py "$release_version"
+    python3 ops/release/schema_baseline.py "$release_version" --check
+    git fetch --quiet origin "$CI_DEFAULT_BRANCH"
+    if ! git merge-base --is-ancestor "$CI_COMMIT_SHA" FETCH_HEAD; then
+      echo "Release tag must point to a commit included in $CI_DEFAULT_BRANCH"
+      exit 1
+    fi
+
+    python3 ops/release/release_notes.py --version "$release_version"
+
+    {
+      printf 'RELEASE_VERSION=%s\n' "$release_version"
+      printf 'RELEASE_MINOR=%s\n' "$release_minor"
+    } > release-tags.env
   artifacts:
     when: always
     expire_in: never
@@ -145,7 +161,7 @@ backend-vuln-scan:
     - gl-security-reports/backend-sbom.cdx.json
 frontend-quality:
   stage: test
-  image: node:24-bookworm
+  image: node:24.21.0-bookworm
   needs: []
   script:
   - sh ops/ci/tasks/run.sh frontend-quality
@@ -153,7 +169,7 @@ frontend-quality:
   - npm ci --prefix frontend --no-audit --no-fund
 frontend-tests:
   stage: test
-  image: node:24-bookworm
+  image: node:24.21.0-bookworm
   needs: []
   before_script:
   - npm ci --prefix frontend --no-audit --no-fund
@@ -181,13 +197,21 @@ frontend-browser-e2e:
   - mkdir -p gl-test-reports
   - for var in $(env | cut -d= -f1 | grep '^OIDC_PROVIDERS__' || true); do unset "$var"; done
   - export OIDC_PROVIDERS="{}"
-  - "if ! command -v python3 >/dev/null 2>&1; then\n  apt-get update\n  apt-get install -y python3\nfi\nif ! python3\
-    \ -m ensurepip --version >/dev/null 2>&1; then\n  apt-get update\n  PYTHON_VENV_PACKAGE=\"python$(python3 -c\
-    \ 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')-venv\"\n  apt-get install -y\
-    \ \"$PYTHON_VENV_PACKAGE\"\nfi\n"
+  - |
+    if ! command -v python3 >/dev/null 2>&1; then
+      apt-get update
+      apt-get install -y python3
+    fi
+    if ! python3 -m ensurepip --version >/dev/null 2>&1; then
+      apt-get update
+      PYTHON_VENV_PACKAGE="python$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-venv"
+      apt-get install -y "$PYTHON_VENV_PACKAGE"
+    fi
   - python3 -m venv backend/.venv
   - backend/.venv/bin/python -m pip install -r backend/requirements-browser-e2e.txt
+  - sh ops/ci/install-node.sh
   - npm ci --prefix frontend --no-audit --no-fund
+  - python3 ops/ci/toolchain.py check-node
   script:
   - sh ops/ci/tasks/run.sh frontend-browser-e2e
   artifacts:
@@ -257,19 +281,15 @@ helm-kind-onboarding-smoke:
   - build-backend
   - build-frontend
   variables:
-    KIND_VERSION: v0.27.0
     KIND_API_HOST: docker
     KIND_SMOKE_PRUNE_SOURCE_IMAGES: 'true'
     BACKEND_IMAGE_REPOSITORY: $CI_REGISTRY_IMAGE/backend
     FRONTEND_IMAGE_REPOSITORY: $CI_REGISTRY_IMAGE/frontend
     IMAGE_TAG: $CI_COMMIT_SHA
   before_script:
-  - apk add --no-cache bash curl helm jq kubectl openssl
-  - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-  - curl --fail --silent --show-error --location --output /tmp/kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
-  - curl --fail --silent --show-error --location --output /tmp/kind.sha256sum "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64.sha256sum"
-  - echo "$(awk '{print $1}' /tmp/kind.sha256sum)  /tmp/kind" | sha256sum -c
-  - install -m 0755 /tmp/kind /usr/local/bin/kind
+  - apk add --no-cache bash curl jq openssl python3
+  - sh ops/ci/install-kube-tools.sh
+  - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
   - export BACKEND_IMAGE_DIGEST="$(cat image-receipts/backend.digest)"
   - export FRONTEND_IMAGE_DIGEST="$(cat image-receipts/frontend.digest)"
@@ -279,7 +299,7 @@ release-source-images-ready:
   image: python:3.12-alpine
   before_script:
   - apk add --no-cache skopeo git
-  environment: &id004
+  environment:
     name: ci-orchestration
     action: verify
   needs:
@@ -434,6 +454,9 @@ recover-gitlab-release:
   - apk add --no-cache git
   script:
   - python3 ops/release/recover_gitlab_release.py
+  environment:
+    name: ci-orchestration
+    action: verify
 release-bundle-smoke:
   stage: deploy
   image: docker:27-cli
@@ -466,11 +489,8 @@ release-kind-onboarding-smoke:
     FRONTEND_IMAGE_REPOSITORY: $GHCR_FRONTEND_IMAGE
     IMAGE_TAG: $RELEASE_VERSION
   before_script:
-  - apk add --no-cache bash curl helm jq kubectl openssl
-  - curl --fail --silent --show-error --location --output /tmp/kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
-  - curl --fail --silent --show-error --location --output /tmp/kind.sha256sum "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64.sha256sum"
-  - echo "$(awk '{print $1}' /tmp/kind.sha256sum)  /tmp/kind" | sha256sum -c
-  - install -m 0755 /tmp/kind /usr/local/bin/kind
+  - apk add --no-cache bash curl jq openssl python3
+  - sh ops/ci/install-kube-tools.sh
   script:
   - mkdir -p /tmp/public-chart
   - helm pull oci://ghcr.io/ksperis/charts/bucketreef --version "$RELEASE_VERSION" --destination /tmp/public-chart
@@ -481,12 +501,13 @@ release-kind-onboarding-smoke:
   - bash ops/ci/kind-onboarding-smoke.sh
 docs-build:
   stage: build
-  image: python:3.11-bookworm
+  image: python:3.12-slim
   needs: []
   interruptible: true
   variables:
     GIT_DEPTH: '0'
   before_script:
+  - apt-get update && apt-get install --yes --no-install-recommends git
   - python -m pip install -r doc/requirements.txt
   script:
   - sh ops/ci/tasks/run.sh docs-build
@@ -497,14 +518,14 @@ docs-build:
     expire_in: 30 days
 docs-screenshots:
   stage: test
-  image: node:24-bookworm
+  image: node:24.21.0-bookworm
   needs: []
   interruptible: true
   script:
   - sh ops/ci/tasks/run.sh docs-screenshots
 docs-deploy:
   stage: deploy
-  image: node:24-bookworm
+  image: node:24.21.0-bookworm
   needs:
   - docs-build
   - docs-screenshots
@@ -519,12 +540,17 @@ docs-deploy:
   script:
   - test -n "$CLOUDFLARE_ACCOUNT_ID"
   - test -n "$CLOUDFLARE_API_TOKEN"
-  - "for asset in bucketreef-compose.tar.gz bucketreef-quickstart.tar.gz; do\n  curl --fail --silent --show-error\
-    \ --head --location \"https://github.com/ksperis/bucketreef/releases/latest/download/$asset\"\n  curl --fail\
-    \ --silent --show-error --head --location \"https://github.com/ksperis/bucketreef/releases/latest/download/$asset.sha256\"\
-    \ndone\n"
-  - "current_main=$(git ls-remote origin refs/heads/main | cut -f1)\nif [ \"$current_main\" != \"$CI_COMMIT_SHA\"\
-    \ ]; then\n  echo \"Refusing to deploy an outdated main commit.\"\n  exit 1\nfi\n"
+  - |
+    for asset in bucketreef-compose.tar.gz bucketreef-quickstart.tar.gz; do
+      curl --fail --silent --show-error --head --location "https://github.com/ksperis/bucketreef/releases/latest/download/$asset"
+      curl --fail --silent --show-error --head --location "https://github.com/ksperis/bucketreef/releases/latest/download/$asset.sha256"
+    done
+  - |
+    current_main=$(git ls-remote origin refs/heads/main | cut -f1)
+    if [ "$current_main" != "$CI_COMMIT_SHA" ]; then
+      echo "Refusing to deploy an outdated main commit."
+      exit 1
+    fi
   - ops/cloudflare/node_modules/.bin/wrangler pages deploy doc/site --project-name=bucketreef-docs --branch=main
     --commit-hash="$CI_COMMIT_SHA"
 ci-contract:
@@ -532,6 +558,8 @@ ci-contract:
   image: python:3.12-slim
   before_script:
   - python3 -m pip install -r ops/ci/requirements.txt
+  - apt-get update && apt-get install --yes --no-install-recommends curl git
+  - sh ops/ci/install-linters.sh
   script:
   - sh ops/ci/tasks/run.sh ci-contract
 secret-scan:
@@ -586,9 +614,9 @@ scan-published-images:
     expire_in: 30 days
 publish-candidate-images:
   image: python:3.12-alpine
-  before_script: &id001
+  before_script:
   - apk add --no-cache skopeo git
-  environment: &id002
+  environment:
     name: release-public
     action: prepare
   stage: promote
@@ -603,8 +631,11 @@ publish-candidate-images:
   - python3 ops/release/distribution.py candidates
 prepare-github-release:
   image: python:3.12-alpine
-  before_script: *id001
-  environment: *id002
+  before_script:
+  - apk add --no-cache skopeo git
+  environment:
+    name: release-public
+    action: prepare
   stage: promote
   needs:
   - release-tag-metadata
@@ -616,7 +647,7 @@ prepare-github-release:
 release-public-images-check:
   stage: deploy
   image: python:3.12-alpine
-  before_script: &id003
+  before_script:
   - apk add --no-cache skopeo
   environment:
     name: ci-public-distribution
@@ -630,8 +661,11 @@ release-public-images-check:
 release-ready:
   stage: evidence
   image: python:3.12-alpine
-  before_script: *id003
-  environment: *id004
+  before_script:
+  - apk add --no-cache skopeo
+  environment:
+    name: ci-orchestration
+    action: verify
   needs:
   - release-tag-metadata
   - release-source-images-ready
@@ -658,8 +692,11 @@ release-ready:
     expire_in: never
 finalize-release:
   image: python:3.12-alpine
-  before_script: *id001
-  environment: *id002
+  before_script:
+  - apk add --no-cache skopeo git
+  environment:
+    name: release-public
+    action: prepare
   stage: finalize
   needs:
   - release-ready
@@ -704,3 +741,10 @@ release-public-bundles-check:
     paths:
     - public-bundles/
     expire_in: never
+scheduler-contract:
+  stage: test
+  image: docker:27-cli
+  services:
+  - docker:27-dind
+  script:
+  - sh ops/ci/tasks/run.sh scheduler-contract

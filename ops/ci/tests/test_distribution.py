@@ -101,14 +101,17 @@ def test_finalization_rechecks_artifacts_before_any_public_mutation(monkeypatch,
 
 def test_interrupted_finalization_can_resume_and_older_retries_do_not_move_aliases(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    dist.write('distribution-ready.json', {'fixture': True})
+    proof = {'fixture':True, 'bundles':{'files':{}}}
+    dist.write('distribution-ready.json', proof)
     for name, value in {'RELEASE_VERSION':'1.2.3', 'CI_COMMIT_SHA':SHA, 'GITHUB_RELEASE_TOKEN':'fixture',
                         'CI_API_V4_URL':'fixture','CI_PROJECT_ID':'1','CI_JOB_TOKEN':'fixture'}.items():
         monkeypatch.setenv(name, value)
     Path('dist/release-notes').mkdir(parents=True)
     Path('dist/release-notes/gitlab.md').write_text('Notes')
+    Path('dist/release-notes/github.md').write_text('Notes')
     monkeypatch.setattr(dist, 'GitLabAPI', lambda: None)
-    monkeypatch.setattr(dist, 'ready', lambda _: {'fixture':True})
+    monkeypatch.setattr(dist, 'ready', lambda _: proof)
+    monkeypatch.setattr(dist, 'verify_public_release', lambda *args, **kwargs: None)
     calls = []
     monkeypatch.setattr(dist, 'github', lambda **kwargs: calls.append('github'))
     def fail(*args):
@@ -191,3 +194,69 @@ def test_anonymous_bundles_are_checked_against_exact_bytes(monkeypatch, tmp_path
     bundle_registry.download(record, tmp_path, version='1.2.3', sha=SHA)
     record['files'][bundle_registry.ASSETS[0]] = 'wrong'
     with pytest.raises(ValueError, match='differs'): bundle_registry.download(record, tmp_path, version='1.2.3', sha=SHA)
+
+
+def test_bundle_publication_resumes_identical_manifest_but_rejects_conflicts(monkeypatch, tmp_path):
+    monkeypatch.setenv('GHCR_USERNAME','fixture')
+    monkeypatch.setenv('GHCR_TOKEN','fixture')
+    for name in bundle_registry.ASSETS: (tmp_path/name).write_bytes(b'bundle')
+    state = {'remote':None, 'writes':0}
+    digest = 'sha256:'+hashlib.sha256(b'{}').hexdigest()
+    def run(args, **kwargs):
+        if args[0] == 'push':
+            Path(args[args.index('--export-manifest')+1]).write_bytes(b'{}')
+            assert 'org.opencontainers.image.created=1970-01-01T00:00:00Z' in args
+        elif args[0] == 'resolve': return state['remote']
+        elif args[0] == 'copy':
+            state['writes'] += 1
+            state['remote'] = digest.encode()
+        else: raise AssertionError(args)
+    monkeypatch.setattr(bundle_registry, 'run', run)
+    receipt = bundle_registry.publish('1.2.3', SHA, tmp_path)
+    assert receipt['digest'] == digest
+    assert bundle_registry.publish('1.2.3', SHA, tmp_path) == receipt
+    assert state['writes'] == 1
+    state['remote'] = b'sha256:conflicting'
+    with pytest.raises(ValueError, match='immutable'):
+        bundle_registry.publish('1.2.3', SHA, tmp_path)
+    assert state['writes'] == 1
+
+
+def test_global_gate_records_files_and_rechecks_original_qualification(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('RELEASE_VERSION','1.2.3')
+    monkeypatch.setenv('CI_COMMIT_SHA',SHA)
+    monkeypatch.setenv('CI_PIPELINE_ID','20')
+    record = qualified()
+    dist.write('qualification.json', record)
+    for path in dist.files():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('fixture')
+    bundles = {'schema':1,'sha':SHA,'version':'1.2.3','digest':DIGEST,'files':bundle_registry.hashes(Path('dist/release'))}
+    dist.write('bundle-distribution.json', bundles)
+    jobs = [{'id':i,'name':name,'status':'success','commit':{'id':SHA}} for i,name in enumerate(expected_names(dist.REQUIRED))]
+    api = SimpleNamespace(jobs=lambda _:jobs, get=lambda _: {'sha':SHA,'ref':'v1.2.3','source':'parent_pipeline'})
+    monkeypatch.setattr(dist, 'find', lambda api,sha,pipeline: copy.deepcopy(record))
+    monkeypatch.setattr(dist, 'inspect', lambda *args,**kwargs: IMAGE)
+    proof = dist.ready(api)
+    assert proof['files'] == dist.fingerprints()
+    assert len(proof['jobs']) == len(expected_names(dist.REQUIRED))
+    def invalid(*args): raise ValueError('qualification canceled')
+    monkeypatch.setattr(dist, 'find', invalid)
+    with pytest.raises(ValueError, match='canceled'): dist.ready(api)
+
+
+def test_chart_archive_is_reproducible(tmp_path):
+    import io
+    import tarfile
+    outputs = []
+    for date in (1, 99):
+        path = tmp_path / f'{date}.tgz'
+        with tarfile.open(path,'w:gz') as tar:
+            entry = tarfile.TarInfo('bucketreef/Chart.yaml')
+            data = b'version: 1.2.3\n'
+            entry.mtime, entry.size = date, len(data)
+            tar.addfile(entry, io.BytesIO(data))
+        dist.normalize_chart(path)
+        outputs.append(path.read_bytes())
+    assert outputs[0] == outputs[1]

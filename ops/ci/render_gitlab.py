@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 from plan import ROOT
+from toolchain import pin, TOOLS
 
 
 def templates():
@@ -66,5 +67,17 @@ def render(plan):
         job["needs"] = [{"job": "pipeline-plan", "artifacts": True}, *normalized]
         job.pop("rules", None)
         job["allow_failure"] = False
+        # Cache downloads only; never virtualenvs, node_modules or build outputs.
+        caches = []
+        if name in {"backend-tests", "backend-postgresql-tests", "backend-deadcode", "ceph-functional-tests", "frontend-browser-e2e", "docs-build", "ci-contract"}:
+            import hashlib
+            requirements = [*ROOT.glob("backend/requirements*.txt"), ROOT / "doc/requirements.txt", ROOT / "ops/ci/requirements.txt"]
+            digest = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(requirements))).hexdigest()[:20]
+            caches.append({"key": f"trusted-pip-{TOOLS['python']}-{digest}", "paths": [".cache/pip/"]})
+        if name in {"frontend-quality", "frontend-tests", "frontend-browser-e2e", "docs-deploy"}:
+            lock = "ops/cloudflare/package-lock.json" if name == "docs-deploy" else "frontend/package-lock.json"
+            caches.append({"key": {"prefix": f"trusted-npm-{TOOLS['node']}", "files": [lock]}, "paths": [".cache/npm/"]})
+        if caches:
+            job["cache"] = caches
         config[name] = job
-    return config
+    return pin(config)

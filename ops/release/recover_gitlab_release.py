@@ -24,7 +24,7 @@ class PublicGitHub:
         return json.loads(self.download(f"https://api.github.com/repos/{REPOSITORY}/{path}"))
 
 
-def verify_public_release(api, version, sha, notes):
+def verify_public_release(api, version, sha, notes, *, expected_files=None):
     tag = f"v{version}"
     if resolve_tag(api, tag) != sha:
         raise RuntimeError("GitHub and GitLab release tags differ")
@@ -40,6 +40,8 @@ def verify_public_release(api, version, sha, notes):
         if asset.get("browser_download_url") != url or asset.get("state") != "uploaded":
             raise RuntimeError(f"Missing public release asset: {name}")
         data = api.download(url)
+        if expected_files is not None and hashlib.sha256(data).hexdigest() != expected_files[name]:
+            raise RuntimeError(f"Public release asset differs from validated candidate: {name}")
         if (asset.get("digest") != "sha256:" + hashlib.sha256(data).hexdigest()
             or asset.get("size") != len(data)):
             raise RuntimeError(f"Public release asset differs: {name}")

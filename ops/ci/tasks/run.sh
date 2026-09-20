@@ -8,7 +8,7 @@ for variable in $(env | cut -d= -f1 | grep -E '^(OIDC|LDAP)_PROVIDERS__' || true
 export OIDC_PROVIDERS='{}' LDAP_PROVIDERS='{}' APP_ENV=test
 case "${1:?Validation name required}" in
   project-naming) python3 backend/scripts/check_project_naming.py ;;
-  ci-contract) python3 -m pytest ops/ci/tests -q ;;
+  ci-contract) python3 -m pytest ops/ci/tests -q; sh ops/ci/tasks/lint.sh ;;
   backend-tests)
     version=$(python3 -c 'import json; print(json.load(open("frontend/package.json"))["version"])')
     python3 ops/release/check_version.py "$version"
@@ -28,7 +28,7 @@ case "${1:?Validation name required}" in
     cd frontend; CI=1 npm run test:e2e:ci ;;
   docs-build) python3 -m mkdocs build -f doc/mkdocs.yml --strict ;;
   docs-screenshots) node frontend/scripts/docs-screenshots/check.mjs ;;
-  helm-contract|compose-contract) sh "ops/ci/tasks/$1.sh" ;;
+  helm-contract|compose-contract|scheduler-contract) sh "ops/ci/tasks/$1.sh" ;;
   backend-vuln-scan) sh ops/ci/tasks/dependency-scan.sh backend ;;
   frontend-vuln-scan) sh ops/ci/tasks/dependency-scan.sh frontend ;;
   *) echo "Unknown validation: $1" >&2; exit 1 ;;

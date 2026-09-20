@@ -9,6 +9,14 @@ Use this page when you are preparing your first code or documentation change.
 3. Keep `/admin`, `/manager`, `/portal`, `/browser`, `/ceph-admin`, and `/storage-ops` vocabulary separate.
 4. For UI changes, read [Product design guidelines](product-design-guidelines.md), [Workspace surface separation](workspace-surface-separation.md), and [UI theme guidelines](ui-theme-guidelines.md).
 
+## Pull request validation
+
+Open the PR checks on GitHub to follow validation, including from a fork. The
+`CI / required` result summarizes the expected checks; individual runs expose logs
+and downloadable reports. No access to private GitLab or Ceph credentials is
+needed. See [CI/CD](ci-cd.md) to understand selection and reproduce a command.
+Use the Node version in `frontend/.node-version`.
+
 ## Change checklist
 
 | Change type | Read first | Minimum validation |

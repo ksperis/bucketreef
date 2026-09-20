@@ -21,6 +21,7 @@ from registry import copy_image, credentials, inspect
 from publish_github_release import GitHub, ASSETS, publish as publish_github, resolve_tag
 from publish_gitlab_release import GitLab, publish as publish_gitlab, resolve_git_tag
 import bundle_registry
+from recover_gitlab_release import PublicGitHub, verify_public_release
 
 REQUIRED = ["release-tag-metadata", "release-source-images-ready", "release-bundles",
             "publish-candidate-images", "publish-helm-release", "publish-release-bundles", "prepare-github-release",
@@ -115,6 +116,8 @@ def ready(api):
     if pipeline["sha"] != record["sha"] or pipeline["ref"] != "v" + version() or pipeline["source"] != "parent_pipeline":
         raise ValueError("Unexpected release validation pipeline")
     jobs = successful_jobs(api.jobs(int(os.environ["CI_PIPELINE_ID"])), expected_names(REQUIRED), record["sha"])
+    if find(api, record["sha"], record["pipeline_id"]) != record:
+        raise ValueError("Qualification changed during distribution")
     verify_public()
     bundles = read("bundle-distribution.json")
     if bundles["files"] != bundle_registry.hashes(Path("dist/release")) or bundles["sha"] != record["sha"] or bundles["version"] != version():
@@ -164,6 +167,8 @@ def finalize():
     gh = GitHub(os.environ["GITHUB_RELEASE_TOKEN"])
     gl = GitLab(os.environ["CI_API_V4_URL"], os.environ["CI_PROJECT_ID"], os.environ["CI_JOB_TOKEN"])
     github(finalize=True, latest=True)
+    verify_public_release(PublicGitHub(), version(), os.environ["CI_COMMIT_SHA"],
+                          Path("dist/release-notes/github.md").read_text(), expected_files=expected["bundles"]["files"])
     publish_gitlab(gl, version(), os.environ["CI_COMMIT_SHA"], Path("dist/release-notes/gitlab.md").read_text())
     for alias in aliases(version(), published_versions(gh, gl)):
         for component, image in source_record()["images"].items():

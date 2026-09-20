@@ -14,7 +14,7 @@ trap cleanup EXIT
 docker run --detach --name "$runner" --network host \
   --env DOCKER_HOST=tcp://127.0.0.1:2375 \
   --env DOCKER_DEFAULT_PLATFORM="linux/$IMAGE_ARCH" \
-  docker:27-cli sleep 600
+  "$DOCKER_CLI_IMAGE" sleep 600
 docker cp public-bundles/bucketreef-quickstart.tar.gz "$runner:/tmp/bundle.tar.gz"
 docker cp public-bundles/bucketreef-compose.tar.gz "$runner:/tmp/compose.tar.gz"
 docker exec "$runner" sh -ec '

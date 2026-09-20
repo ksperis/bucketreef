@@ -73,7 +73,7 @@ def successful_jobs(jobs, expected, sha):
 def completed_records(api, ref, filename="integration.json", sha=None):
     query = urllib.parse.urlencode({"ref": ref, "status": "success", "order_by": "id", "sort": "desc", **({"sha": sha} if sha else {})})
     for parent in api.pages(f"pipelines?{query}"):
-        if parent.get("source") not in {"push", "web"} or parent["ref"] != ref or (sha and parent["sha"] != sha):
+        if parent.get("status") != "success" or parent.get("source") not in {"push", "web"} or parent["ref"] != ref or (sha and parent["sha"] != sha):
             continue
         for bridge in api.pages(f"pipelines/{parent['id']}/bridges"):
             child = bridge.get("downstream_pipeline")
@@ -83,7 +83,8 @@ def completed_records(api, ref, filename="integration.json", sha=None):
             if detail["status"] != "success" or detail["sha"] != parent["sha"] or detail["ref"] != ref or detail["source"] != "parent_pipeline":
                 continue
             jobs = api.jobs(child["id"])
-            ready = [job for job in jobs if job["name"] == "integration-ready" and job["status"] == "success" and not job.get("allow_failure")]
+            ready = [job for job in jobs if job["name"] == "integration-ready" and job["status"] == "success"
+                     and not job.get("allow_failure") and job["commit"]["id"] == parent["sha"]]
             if len(ready) != 1:
                 continue
             raw = api.artifact(ready[0]["id"], filename)

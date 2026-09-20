@@ -13,15 +13,16 @@ jobs:
     timeout-minutes: 45
     services:
       postgres:
-        image: ${{ inputs.task == 'backend-postgresql-tests' && 'postgres:16-alpine' || '' }}
+        image: ${{ inputs.task == 'backend-postgresql-tests' && 'postgres:16-alpine@sha256:3c5c8892d184f738f4fe282d14ddaa613a38f00f4189d2d94725ebe6f2909ddb'
+          || '' }}
         env:
           POSTGRES_DB: bucketreef_bootstrap_test
           POSTGRES_USER: bucketreef
           POSTGRES_PASSWORD: bucketreef-test-password
         ports:
         - 5432:5432
-        options: --health-cmd "pg_isready -U bucketreef -d bucketreef_bootstrap_test" --health-interval 5s --health-timeout 5s --health-retries
-          12
+        options: --health-cmd "pg_isready -U bucketreef -d bucketreef_bootstrap_test" --health-interval 5s --health-timeout
+          5s --health-retries 12
     env:
       DATABASE_URL: sqlite:///./test.db
       POSTGRES_TEST_DATABASE_URL: postgresql://bucketreef:bucketreef-test-password@127.0.0.1:5432/bucketreef_bootstrap_test
@@ -32,10 +33,18 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
       with:
-        python-version: '3.12'
+        python-version: 3.12.14
+        cache: pip
+        cache-dependency-path: |-
+          backend/requirements*.txt
+          doc/requirements.txt
+          ops/ci/requirements.txt
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
       with:
-        node-version: '24'
+        node-version: 24.21.0
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+        package-manager-cache: false
     - name: Resolve tested revision
       run: python3 ops/ci/events.py github
     - name: Install validation dependencies
@@ -51,12 +60,10 @@ jobs:
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: ${{ inputs.task }}-reports
-        path: 'gl-test-reports/
-
+        path: |-
+          gl-test-reports/
           gl-security-reports/
-
           frontend/playwright-report/
-
-          frontend/test-results/'
+          frontend/test-results/
         if-no-files-found: ignore
         retention-days: 7

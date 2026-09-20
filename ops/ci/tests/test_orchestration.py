@@ -68,9 +68,9 @@ def test_ceph_core_is_required(tmp_path, body):
 class BaselineAPI:
     def __init__(self):
         self.parents = [
-            {'id':30,'sha':'c'*40,'ref':'main','source':'push'},
-            {'id':20,'sha':'b'*40,'ref':'main','source':'web'},
-            {'id':10,'sha':'a'*40,'ref':'main','source':'push'},
+            {'id':30,'sha':'c'*40,'ref':'main','source':'push','status':'success'},
+            {'id':20,'sha':'b'*40,'ref':'main','source':'web','status':'success'},
+            {'id':10,'sha':'a'*40,'ref':'main','source':'push','status':'success'},
         ]
 
     def pages(self, path):
@@ -112,3 +112,64 @@ def test_job_api_read_never_accepts_allow_failure_or_wrong_sha():
     with pytest.raises(ValueError): successful_jobs([job],['ceph'],'a'*40)
     job['allow_failure']=False
     with pytest.raises(ValueError): successful_jobs([job],['ceph'],'b'*40)
+
+
+@pytest.mark.parametrize('status', ['canceled','failed','running'])
+def test_unsuccessful_parent_never_advances_baseline(status):
+    api = BaselineAPI()
+    api.parents[1]['status'] = status
+    assert latest_baseline(api, 'main') == 'a'*40
+
+
+def test_child_pipeline_must_be_finished_before_evidence_is_used():
+    api = BaselineAPI()
+    original = api.get
+    api.get = lambda path: {**original(path), 'status':'running'}
+    assert latest_baseline(api, 'main') is None
+
+
+def test_every_selected_job_explains_its_reason():
+    for profile in ('pr','qualify','docs','regression','security'):
+        plan = select(profile, ['ops/cron/run.sh'])
+        assert set(plan['reasons']) == set(plan['jobs'])
+        assert all(plan['reasons'].values())
+
+
+def test_node_browser_and_all_images_are_locked():
+    from toolchain import TOOLS
+    lock = json.loads((ROOT/'frontend/package-lock.json').read_text())
+    assert lock['packages']['node_modules/@playwright/test']['version'] == TOOLS['playwright']
+    assert (ROOT/'frontend/.node-version').read_text().strip() == TOOLS['node']
+    config = render({**select('qualify', []), 'sha':'a'*40, 'parent_id':1})
+    for name, job in config.items():
+        if not isinstance(job, dict) or 'image' not in job: continue
+        value = job['image']
+        image = value if isinstance(value,str) else value['name']
+        if image.startswith('$'): image = config['variables'][image[1:]]
+        assert '@sha256:' in image, (name,image)
+    assert 'script_failure' not in json.dumps(config['default']['retry'])
+    assert config['frontend-browser-e2e']['cache'][1]['key']['prefix'].startswith('trusted-npm-24.')
+
+
+def test_assembled_graphs_are_acyclic_and_dependencies_never_point_to_later_stages():
+    from render_gitlab import templates
+    for profile in ('integration','qualify','release','docs','security','regression','recover-release','secrets-history'):
+        for ref in ('main','dev') if profile == 'integration' else ('main',):
+            config = render({**select(profile,None,ref=ref),'sha':'a'*40,'parent_id':1})
+            stages = config['stages']
+            def resolve(name):
+                job = config[name]
+                parent = resolve(job['extends']) if 'extends' in job else {}
+                return {**parent, **job}
+            jobs = {name:resolve(name) for name in config if name not in {'stages','variables','default','workflow'} and not name.startswith('.')}
+            visited, active = set(), set()
+            def visit(name):
+                assert name not in active, ('cycle',name)
+                if name in visited: return
+                active.add(name)
+                for need in jobs[name].get('needs',[]):
+                    assert stages.index(jobs[need['job']]['stage']) <= stages.index(jobs[name]['stage'])
+                    visit(need['job'])
+                active.remove(name)
+                visited.add(name)
+            for name in jobs: visit(name)

@@ -138,6 +138,7 @@ def test_sha_tag_is_published_only_after_both_runtime_checks(tmp_path, failed, e
     docker.write_text('''#!/bin/sh
 printf '%s\\n' "$*" >> "$DOCKER_TEST_LOG"
 case "$*" in
+  *'--format'*) printf 'sha256:%064d\\n' 0 ;;
   *':build-'*) echo '{"manifests":[]}' ;;
   'buildx imagetools inspect --raw '*)
     case "$EXISTING_IMAGE" in
@@ -158,7 +159,7 @@ esac
         "FAIL_RUNTIME": str(failed).lower(), "CI_REGISTRY_IMAGE": "registry.example/project",
         "EXISTING_IMAGE": existing,
         "IMAGE_COMPONENT": "backend", "CI_COMMIT_SHA": "a" * 40, "CI_JOB_ID": "123",
-        "BINFMT_IMAGE": "binfmt-test",
+        "BINFMT_IMAGE": "binfmt-test", "BUILDKIT_IMAGE":"buildkit-test", "CI_COMMIT_REF_SLUG":"main",
     }, capture_output=True, text=True, cwd=tmp_path)
     commands = log.read_text()
     if existing in ("incomplete", "denied"):
