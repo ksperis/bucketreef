@@ -141,6 +141,7 @@ def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
     assert json.loads(env["CORS_ORIGINS"]) == ["http://127.0.0.1:8765"]
     assert env["CEPH_TEST_REQUEST_ORIGIN"] == "http://127.0.0.1:8765"
     assert env["ACCESS_TOKEN_EXPIRE_MINUTES"] == "15"
+    assert env["MFA_RECENT_MINUTES"] == "60"
 
 
 def test_bootstrap_super_admin_session_exports_cookie_material(monkeypatch, tmp_path):
