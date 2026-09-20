@@ -4,7 +4,7 @@ site_author: BucketReef contributors
 repo_name: BucketReef
 repo_url: https://github.com/ksperis/bucketreef
 edit_uri: edit/main/doc/docs/
-site_url: https://ksperis.github.io/bucketreef/
+site_url: https://docs.bucketreef.ksperis.com/
 
 theme:
   name: material

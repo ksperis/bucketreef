@@ -2,6 +2,39 @@
 
 This page defines coverage expectations for audience-oriented documentation.
 
+## Publication
+
+The public documentation lives at <https://docs.bucketreef.ksperis.com/>.
+Sources remain in this repository. GitLab CI builds MkDocs with Python 3.11
+and complete Git history (`GIT_DEPTH: 0`), checks screenshot references, and
+publishes `doc/site/` to the `bucketreef-docs` Cloudflare Pages Direct Upload
+project. Other branches and merge requests only validate. The separate product
+website lives at <https://bucketreef.ksperis.com/>.
+
+Publication runs for documentation or deployment changes pushed to protected
+`main`, or a pipeline started manually on `main`. Documentation jobs have their
+own validation dependencies; container image publishing remains separate.
+Site artifacts are retained for 30 days and the commit SHA is sent to Cloudflare.
+Record the Cloudflare deployment ID alongside each published revision.
+
+Configure protected `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` variables
+in GitLab, scoped to `docs-production`. Mask and hide the token, disable variable
+expansion, and restrict it to Cloudflare Pages Edit on the deployment account.
+Never commit or print credentials. Wrangler is locked in `ops/cloudflare/`.
+
+Create the Pages project with production branch `main`. Associate the custom
+domain in Cloudflare before configuring the `docs.bucketreef` CNAME at Gandi,
+using the actual Pages hostname and TTL 300. Gandi remains the DNS provider.
+Check certificate activation for the complete hostname, including the nested
+`docs` subdomain. GitHub Pages publication is retired.
+
+Deployments are serialized and refuse commits that are no longer the tip of
+`main`. Keep GitLab's Prevent outdated deployment jobs setting enabled.
+For immediate recovery, restore a previously successful production deployment
+in Cloudflare Pages, then commit the equivalent source revert before the next
+pipeline. A normal `git revert` and deployment is the preferred lasting
+rollback; no DNS change is needed.
+
 ## Coverage matrix (routes/features)
 
 | Route / Feature | Target doc page | Status |
