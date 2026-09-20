@@ -132,13 +132,22 @@ def test_release_gates_cover_all_architectures_and_artifacts():
 
 @pytest.mark.parametrize("failed", [False, True])
 @pytest.mark.parametrize("existing", ["missing", "complete", "incomplete", "denied"])
-def test_sha_tag_is_published_only_after_both_runtime_checks(tmp_path, failed, existing):
+@pytest.mark.parametrize("inspection", ["valid", "invalid-digest", "missing-digest", "malformed", "denied"])
+def test_sha_tag_is_published_only_after_both_runtime_checks(tmp_path, failed, existing, inspection):
     docker = tmp_path / "docker"
     log = tmp_path / "commands.log"
     docker.write_text('''#!/bin/sh
 printf '%s\\n' "$*" >> "$DOCKER_TEST_LOG"
 case "$*" in
-  *'--format'*) printf 'sha256:%064d\\n' 0 ;;
+  *'--format {{json .Manifest}}')
+    case "$INDEX_INSPECTION" in
+      valid) printf '{"digest":"sha256:%064d"}\\n' 0 ;;
+      invalid-digest) echo '{"digest":"not-a-digest"}' ;;
+      missing-digest) echo '{}' ;;
+      malformed) echo 'Name: registry.example/project/backend' ;;
+      denied) echo 'unauthorized' >&2; exit 1 ;;
+    esac ;;
+  *'--format'*) echo 'Name: registry.example/project/backend' ;;
   *':build-'*) echo '{"manifests":[]}' ;;
   'buildx imagetools inspect --raw '*)
     case "$EXISTING_IMAGE" in
@@ -157,7 +166,7 @@ esac
     result = subprocess.run(["sh", str(ROOT / "ops/ci/build-image.sh")], env={
         **os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}", "DOCKER_TEST_LOG": str(log),
         "FAIL_RUNTIME": str(failed).lower(), "CI_REGISTRY_IMAGE": "registry.example/project",
-        "EXISTING_IMAGE": existing,
+        "EXISTING_IMAGE": existing, "INDEX_INSPECTION": inspection,
         "IMAGE_COMPONENT": "backend", "CI_COMMIT_SHA": "a" * 40, "CI_JOB_ID": "123",
         "BINFMT_IMAGE": "binfmt-test", "BUILDKIT_IMAGE":"buildkit-test", "CI_COMMIT_REF_SLUG":"main",
     }, capture_output=True, text=True, cwd=tmp_path)
@@ -167,11 +176,17 @@ esac
         assert "buildx build" not in commands
         assert "imagetools create" not in commands
         assert "--entrypoint python" not in commands
+    elif inspection != "valid":
+        assert result.returncode != 0
+        assert "--entrypoint python" not in commands
+        assert "imagetools create" not in commands
+        assert not (tmp_path / "image-receipts/backend.digest").exists()
     elif failed:
         assert result.returncode != 0
         assert "imagetools create" not in commands
     else:
         assert result.returncode == 0, result.stderr
+        assert "--format {{json .Manifest}}" in commands
         assert "--platform linux/amd64 --read-only" in commands
         assert "--platform linux/arm64 --read-only" in commands
         if existing == "complete":
