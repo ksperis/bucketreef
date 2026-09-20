@@ -1,0 +1,21 @@
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ''
+  VITE_API_URL: /api
+  TRIVY_IMAGE: aquasec/trivy:0.69.3
+  REGISTRY_TOOLS_IMAGE: alpine:3.22
+  BINFMT_IMAGE: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+  TRIVY_CACHE_DIR: $CI_PROJECT_DIR/.trivycache
+  TRIVY_SEVERITY: HIGH,CRITICAL
+  TRIVY_TIMEOUT: 20m0s
+  TRIVY_NO_PROGRESS: --no-progress
+  TRIVY_USERNAME: $CI_REGISTRY_USER
+  TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  DEV_BRANCH: dev
+  GHCR_REGISTRY: ghcr.io
+  GHCR_NAMESPACE: ksperis
+  GHCR_BACKEND_IMAGE: ghcr.io/ksperis/bucketreef-backend
+  GHCR_FRONTEND_IMAGE: ghcr.io/ksperis/bucketreef-frontend
+  GHCR_SCHEDULER_IMAGE: ghcr.io/ksperis/bucketreef-scheduler
+  SECRET_ANALYZER_IMAGE: registry.gitlab.com/security-products/secrets:7
+  GIT_DEPTH: '0'

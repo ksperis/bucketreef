@@ -97,7 +97,7 @@ def test_strict_network_policies_are_fail_closed_and_cover_all_workloads():
 
 
 def test_ci_builds_scans_and_promotes_scheduler_image():
-    pipeline = _read(".gitlab-ci.yml")
+    pipeline = _read("ops/ci/gitlab/jobs.yml")
     for job in (
         "build-scheduler:",
         "scheduler-image-vuln-scan:",
@@ -105,5 +105,5 @@ def test_ci_builds_scans_and_promotes_scheduler_image():
         "promote-scheduler-release:",
     ):
         assert job in pipeline
-    assert "IMAGE_ARCH: [amd64, arm64]" in pipeline
+    assert "- amd64" in pipeline and "- arm64" in pipeline
     assert "-sbom.cdx.json" in _read("ops/ci/scan-image.sh")
