@@ -1,11 +1,41 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+
 from tests_ceph_functional.conftest import (
     _grant_account_access_to_user,
+    _provision_account,
     _select_storage_endpoint,
 )
 from tests_ceph_functional.test_browser_clipboard_flow import _grant_account_root_access
+
+
+@pytest.mark.parametrize("portal_role", [None, "portal_manager"])
+def test_account_fixture_grants_portal_only_when_requested_before_login(portal_role) -> None:
+    admin = Mock()
+    admin.post.side_effect = [{"id": 12, "rgw_account_id": "RGW-test"}, {"id": 7}]
+    admin.get.return_value = {"items": [{"id": 3, "email": "ci@example.test", "account_links": []}]}
+    authenticator = Mock()
+
+    def login(email, password):
+        links = admin.put.call_args.kwargs["json"]["account_links"]
+        assert admin.put.call_args.args == ("/admin/users/7",)
+        assert links == [{"account_id": 12, "manager_role": "account_administrator",
+                          "portal_role": portal_role, "allow_manager_browser_data_access": True}]
+        return "authenticated-session"
+
+    authenticator.login.side_effect = login
+    context = _provision_account(
+        admin, authenticator,
+        SimpleNamespace(test_prefix="ci", super_admin_email="ci@example.test"), Mock(), 1,
+        **({"portal_role": portal_role} if portal_role else {}),
+    )
+    assert context.manager_session == "authenticated-session"
+    assert admin.put.call_args_list[0].kwargs["json"]["account_links"][0]["portal_role"] is None
 
 
 def test_select_storage_endpoint_prefers_configured_name() -> None:
