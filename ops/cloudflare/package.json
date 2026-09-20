@@ -1,0 +1,7 @@
+{
+  "name": "bucketreef-docs-deploy",
+  "private": true,
+  "devDependencies": {
+    "wrangler": "4.135.0"
+  }
+}

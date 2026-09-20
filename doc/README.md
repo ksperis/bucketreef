@@ -3,6 +3,10 @@
 
 This folder contains the MkDocs documentation for **BucketReef**.
 
+Published at <https://docs.bucketreef.ksperis.com/> using Cloudflare Pages and
+GitLab CI. See [Docs maintenance](docs/developer/docs-maintenance.md#publication)
+for deployment variables, DNS configuration and rollback.
+
 ## Quickstart
 
 From repository root:

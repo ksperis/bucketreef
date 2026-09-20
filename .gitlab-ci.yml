@@ -1,11 +1,13 @@
 include:
   - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - local: ops/ci/docs.gitlab-ci.yml
 
 stages:
   - test
   - build
   - security
   - promote
+  - deploy
 
 default:
   retry:
