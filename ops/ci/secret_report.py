@@ -1,4 +1,5 @@
 """Validate the analyzer report without publishing any matched secret values."""
+import hashlib
 import json
 from pathlib import Path
 
@@ -13,14 +14,48 @@ POSTGRES_FIXTURES = {
 FIXTURE_LOCATIONS = {path: {url} for path, url in POSTGRES_FIXTURES.items()}
 # The same literals are recorded here to define the exception itself.
 FIXTURE_LOCATIONS["ops/ci/secret_report.py"] = set(POSTGRES_FIXTURES.values())
+# Before the templates were extracted, the same disposable service lived here.
+FIXTURE_LOCATIONS[".gitlab-ci.yml"] = {POSTGRES_FIXTURES["ops/ci/gitlab/jobs.yml"]}
+
+# Public synthetic identifiers used by redaction tests and screenshot fixtures.
+AWS_FIXTURES = {
+    "backend/tests/test_admin_stats_error_sanitization.py": {"AKIAIOSFODNN7EXAMPLE"},
+    "backend/tests/test_manager_stats_connection_metrics.py": {"AKIAIOSFODNN7EXAMPLE"},
+    "frontend/src/api/storageOps.stream.test.ts": {"AKIAIOSFODNN7EXAMPLE"},
+    "frontend/src/utils/apiError.test.ts": {"AKIAIOSFODNN7EXAMPLE"},
+    "frontend/src/utils/runtimeDiagnostics.test.ts": {"AKIAIOSFODNN7EXAMPLE"},
+    "backend/tests/test_s3_connection_api_contract.py": {"AKIAINVALIDOWNERTYPE"},
+    "frontend/scripts/docs-screenshots/fixtures/base.ts": {"AKIAHELIOSPORTALROOT"},
+}
+AWS_FIXTURES["ops/ci/secret_report.py"] = set().union(*AWS_FIXTURES.values())
+
+# Removed localhost PostgreSQL examples used the project name as user/password.
+# Bind each exception to its original commit and exact extract fingerprint, so
+# a reintroduction or changed example still requires review.
+HISTORICAL_ENV_EXAMPLES = {
+    "97df1e1e8bd66688d7c1a1313cc42b4d9f3756a8": "1411cd74bd00b0848b09c81f8355ee14b52b9b298733e58d4fc33b3fc6d308c4",
+    "0d471c7552f76702635cdd49f9862064f7855db1": "39b2693267f2b98d60b9b8d7a322bbdf60ab08c75694ceeb179d397489c606f3",
+    "6474d5df6762d042c2ed1b580d57e316a1d6d9cc": "66d665e329993237af528672abaed0799041da1bdc3ec4d8cf7635b98e1ed1b9",
+}
 
 
 def is_test_fixture(item):
-    expected = FIXTURE_LOCATIONS.get(item.get("location", {}).get("file"), set())
-    return (item.get("raw_source_code_extract") in expected
-            and any(identifier.get("type") == "gitleaks_rule_id"
-                    and identifier.get("value") == "Password in URL"
-                    for identifier in item.get("identifiers", [])))
+    location = item.get("location", {})
+    path = location.get("file")
+    extract = item.get("raw_source_code_extract")
+    if not isinstance(extract, str):
+        return False
+    rules = {identifier.get("value") for identifier in item.get("identifiers", [])
+             if identifier.get("type") == "gitleaks_rule_id"}
+    if "AWS" in rules and extract in AWS_FIXTURES.get(path, set()):
+        return True
+    if "Password in URL" not in rules:
+        return False
+    if extract in FIXTURE_LOCATIONS.get(path, set()):
+        return True
+    return (path == "backend/.env.example"
+            and HISTORICAL_ENV_EXAMPLES.get(location.get("commit", {}).get("sha"))
+            == hashlib.sha256(extract.encode()).hexdigest())
 
 
 def summarize(report):
@@ -38,6 +73,6 @@ if __name__ == "__main__":
     Path("gl-security-reports").mkdir(exist_ok=True)
     Path("gl-security-reports/secrets-redacted.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
-    print(f"Known disposable PostgreSQL fixture findings: {sum(is_test_fixture(item) for item in report['vulnerabilities'])}")
+    print(f"Known public fixture findings: {sum(is_test_fixture(item) for item in report['vulnerabilities'])}")
     if result:
         raise SystemExit("Secret detection found unresolved findings")

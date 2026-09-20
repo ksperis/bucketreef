@@ -111,10 +111,13 @@ ignore-unfixed and reviewed `.trivyignore` exceptions. Qualification records six
 architecture-specific scan receipts with job IDs, exact image inputs, report
 hashes, tool versions and timestamps. Release pipelines rescan the same digests.
 Secret detection requires a successful analyzer report and zero unresolved findings.
-The two public PostgreSQL CI fixture URLs are exempt only when the detector rule,
-file and complete extracted value match `ops/ci/secret_report.py` (the two CI
-templates and the exception definition itself); changed hosts,
-passwords or paths still fail. The job reports the number of exempt fixture findings.
+Public PostgreSQL CI URLs and synthetic AWS identifiers used in redaction tests
+and screenshots are exempt only when the detector rule, file and complete
+extracted value match `ops/ci/secret_report.py`. This includes the former root
+GitLab template and the exception definition itself. Removed localhost database
+examples additionally require their original commit and exact extract fingerprint;
+reintroducing one in a new commit still fails. Changed hosts, passwords, identifiers
+or paths remain blocking. The job reports the number of exempt fixture findings.
 Only redacted file/line/type diagnostics are uploaded; raw analyzer output is discarded.
 Normal scans use the explicit Git range, while historical maintenance scans all
 history. The scheduled image scan refuses old releases without qualification;
