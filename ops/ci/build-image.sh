@@ -39,8 +39,14 @@ fi
 
 # Freeze the exact index before executing either architecture. Never smoke a
 # mutable reference and subsequently claim a different digest was tested.
-digest=$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')
-printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
+# Buildx 0.20 (Docker 27) supports the JSON manifest formatter but silently
+# falls back to human-readable output for the scalar .Manifest.Digest template.
+docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' >"$temporary/index.json"
+digest=$(python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])' <"$temporary/index.json")
+if ! printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+  echo 'Registry inspection did not return a valid index digest' >&2
+  exit 1
+fi
 image="$CI_REGISTRY_IMAGE/$IMAGE_COMPONENT@$digest"
 # Test both actual image variants, including their non-root runtime contract.
 for arch in amd64 arm64; do

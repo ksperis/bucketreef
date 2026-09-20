@@ -97,6 +97,9 @@ to commit SHAs. Node 24.21.0 is shared by the workflow, frontend image and
 its job replaces the image's embedded Node with the checksummed Node 24 binary
 and verifies the installed package/version before running. Upgrade these together.
 The dependency lockfile remains authoritative for the browser payload.
+Image builds read the index digest from Buildx's JSON manifest output, supported
+by the pinned Docker 27 CLI. Missing or invalid digests stop the job before runtime
+checks or publication of the immutable SHA tag.
 
 Only npm/pip downloads are cached, keyed by dependencies and tool versions. Public
 GitHub caches and protected GitLab caches are separate; do not share runner caches
