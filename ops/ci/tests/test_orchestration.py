@@ -1,6 +1,8 @@
 import copy
 import json
 from pathlib import Path
+import re
+import subprocess
 import sys
 
 import pytest
@@ -10,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from gitlab_api import expected_names, successful_jobs, latest_baseline
 from plan import ROOT, PUBLIC, select
 from render_gitlab import render
-from secret_report import FIXTURE_LOCATIONS, summarize
+from secret_report import AWS_FIXTURES, FIXTURE_LOCATIONS, HISTORICAL_ENV_EXAMPLES, summarize
 from ceph_result import verify
 
 
@@ -76,6 +78,48 @@ def test_only_exact_disposable_postgresql_findings_are_exempt(path, extract):
         assert len(summarize(modified)) == 1
     report['scan']['status'] = 'failure'
     with pytest.raises(ValueError): summarize(report)
+
+
+@pytest.mark.parametrize('path,extract', [(path, value) for path, values in AWS_FIXTURES.items() for value in values])
+def test_synthetic_aws_identifiers_require_exact_value_rule_and_file(path, extract):
+    finding = {'location': {'file': path}, 'raw_source_code_extract': extract,
+               'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'AWS'}]}
+    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
+    assert summarize(report) == []
+    for field, value in (
+        ('location', {'file': 'backend/app/config.py'}),
+        ('raw_source_code_extract', extract[:-1] + 'X'),
+        ('raw_source_code_extract', extract + '\nextra'),
+        ('raw_source_code_extract', None),
+        ('identifiers', [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}]),
+        ('identifiers', [{'type': 'other', 'value': 'AWS'}]),
+    ):
+        changed = copy.deepcopy(report)
+        changed['vulnerabilities'][0][field] = value
+        assert len(summarize(changed)) == 1
+
+
+@pytest.mark.parametrize('commit', HISTORICAL_ENV_EXAMPLES)
+def test_removed_localhost_examples_are_bound_to_the_original_commit(commit):
+    # Exercise the actual historic example without copying retired identifiers
+    # or example credentials into current source files and scanner findings.
+    source = subprocess.check_output(['git', 'show', f'{commit}:backend/.env.example'], cwd=ROOT, text=True)
+    extract, = re.findall(r'postgresql\+psycopg://[^:\s]+:[^@\s]+@[^:/\s]+', source)
+    finding = {'location': {'file': 'backend/.env.example', 'commit': {'sha': commit}},
+               'raw_source_code_extract': extract,
+               'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}]}
+    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
+    assert summarize(report) == []
+    for field, value in (
+        ('location', {'file': 'backend/.env.example', 'commit': {'sha': 'a' * 40}}),
+        ('location', {'file': 'backend/.env.example'}),
+        ('location', {'file': 'backend/app/config.py', 'commit': {'sha': commit}}),
+        ('raw_source_code_extract', extract + '.example.com'),
+        ('identifiers', [{'type': 'gitleaks_rule_id', 'value': 'AWS'}]),
+    ):
+        changed = copy.deepcopy(report)
+        changed['vulnerabilities'][0][field] = value
+        assert len(summarize(changed)) == 1
 
 
 @pytest.mark.parametrize('body', ['', '<skipped/>', '<failure/>', '<error/>'])
