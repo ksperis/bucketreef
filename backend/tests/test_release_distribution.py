@@ -174,6 +174,7 @@ esac
             assert "buildx build" not in commands
             assert "imagetools create" not in commands
         else:
+            assert "--output type=image,push=true,oci-artifact=false" in commands
             assert commands.index("imagetools create") > commands.rindex("--entrypoint python")
 
 

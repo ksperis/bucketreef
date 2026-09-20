@@ -29,7 +29,10 @@ if [ "$reuse" = false ]; then
     scheduler) set -- --file scheduler/Dockerfile . ;;
     *) echo 'Unknown image component' >&2; exit 1 ;;
   esac
-  docker buildx build --platform linux/amd64,linux/arm64 --tag "$image" --push "$@"
+  # GitLab rejects a new OCI-artifact subject before its image manifest exists.
+  # Retain provenance using the legacy attestation format, without that race.
+  docker buildx build --platform linux/amd64,linux/arm64 --tag "$image" \
+    --output type=image,push=true,oci-artifact=false "$@"
 fi
 
 # Test both actual image variants, including their non-root runtime contract.
