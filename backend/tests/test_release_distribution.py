@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 from pathlib import Path
 import runpy
@@ -132,7 +133,10 @@ def test_release_gates_cover_all_architectures_and_artifacts():
 
 @pytest.mark.parametrize("failed", [False, True])
 @pytest.mark.parametrize("existing", ["missing", "complete", "incomplete", "denied"])
-@pytest.mark.parametrize("inspection", ["valid", "invalid-digest", "missing-digest", "malformed", "denied"])
+@pytest.mark.parametrize("inspection", [
+    "valid", "invalid-digest", "missing-digest", "malformed", "denied",
+    "missing-platform", "duplicate-platform", "invalid-platform-digest",
+])
 def test_sha_tag_is_published_only_after_both_runtime_checks(tmp_path, failed, existing, inspection):
     docker = tmp_path / "docker"
     log = tmp_path / "commands.log"
@@ -141,11 +145,9 @@ printf '%s\\n' "$*" >> "$DOCKER_TEST_LOG"
 case "$*" in
   *'--format {{json .Manifest}}')
     case "$INDEX_INSPECTION" in
-      valid) printf '{"digest":"sha256:%064d"}\\n' 0 ;;
-      invalid-digest) echo '{"digest":"not-a-digest"}' ;;
-      missing-digest) echo '{}' ;;
       malformed) echo 'Name: registry.example/project/backend' ;;
       denied) echo 'unauthorized' >&2; exit 1 ;;
+      *) printf '%s\\n' "$INDEX_JSON" ;;
     esac ;;
   *'--format'*) echo 'Name: registry.example/project/backend' ;;
   *':build-'*) echo '{"manifests":[]}' ;;
@@ -163,10 +165,26 @@ esac
     jq = tmp_path / "jq"
     jq.write_text('#!/bin/sh\n[ "$EXISTING_IMAGE" = complete ]\n')
     jq.chmod(0o755)
+    index = {"digest": "sha256:" + "0" * 64, "manifests": [
+        {"digest": "sha256:" + "1" * 64, "platform": {"os": "linux", "architecture": "amd64"}},
+        {"digest": "sha256:" + "2" * 64, "platform": {"os": "linux", "architecture": "arm64"}},
+        {"digest": "sha256:" + "3" * 64, "platform": {"os": "unknown", "architecture": "unknown"}},
+    ]}
+    if inspection == "invalid-digest":
+        index["digest"] = "not-a-digest"
+    elif inspection == "missing-digest":
+        index.pop("digest")
+    elif inspection == "missing-platform":
+        index["manifests"].pop(1)
+    elif inspection == "duplicate-platform":
+        index["manifests"].append(index["manifests"][1])
+    elif inspection == "invalid-platform-digest":
+        index["manifests"][1]["digest"] = "not-a-digest"
     result = subprocess.run(["sh", str(ROOT / "ops/ci/build-image.sh")], env={
         **os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}", "DOCKER_TEST_LOG": str(log),
         "FAIL_RUNTIME": str(failed).lower(), "CI_REGISTRY_IMAGE": "registry.example/project",
         "EXISTING_IMAGE": existing, "INDEX_INSPECTION": inspection,
+        "INDEX_JSON": json.dumps(index),
         "IMAGE_COMPONENT": "backend", "CI_COMMIT_SHA": "a" * 40, "CI_JOB_ID": "123",
         "BINFMT_IMAGE": "binfmt-test", "BUILDKIT_IMAGE":"buildkit-test", "CI_COMMIT_REF_SLUG":"main",
     }, capture_output=True, text=True, cwd=tmp_path)
@@ -189,12 +207,18 @@ esac
         assert "--format {{json .Manifest}}" in commands
         assert "--platform linux/amd64 --read-only" in commands
         assert "--platform linux/arm64 --read-only" in commands
+        for arch, digit in (("amd64", "1"), ("arm64", "2")):
+            reference = "registry.example/project/backend@sha256:" + digit * 64
+            assert f"pull --platform linux/{arch} {reference}" in commands
+            assert f"--entrypoint python {reference}" in commands
+        assert (tmp_path / "image-receipts/backend.digest").read_text().strip() == index["digest"]
         if existing == "complete":
             assert "buildx build" not in commands
             assert "imagetools create" not in commands
         else:
             assert "--output type=image,push=true,oci-artifact=false" in commands
             assert commands.index("imagetools create") > commands.rindex("--entrypoint python")
+            assert f"registry.example/project/backend@{index['digest']}" in commands.split("imagetools create")[1]
 
 
 

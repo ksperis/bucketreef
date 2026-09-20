@@ -42,24 +42,44 @@ fi
 # Buildx 0.20 (Docker 27) supports the JSON manifest formatter but silently
 # falls back to human-readable output for the scalar .Manifest.Digest template.
 docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' >"$temporary/index.json"
-digest=$(python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])' <"$temporary/index.json")
-if ! printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
-  echo 'Registry inspection did not return a valid index digest' >&2
-  exit 1
-fi
+python3 - "$temporary" <<'PY'
+import json
+from pathlib import Path
+import re
+import sys
+
+directory = Path(sys.argv[1])
+index = json.loads((directory / "index.json").read_text())
+digests = {"index": index["digest"]}
+for arch in ("amd64", "arm64"):
+    matches = [entry["digest"] for entry in index["manifests"]
+               if entry.get("platform", {}).get("os") == "linux"
+               and entry.get("platform", {}).get("architecture") == arch]
+    if len(matches) != 1:
+        raise ValueError(f"Expected exactly one linux/{arch} manifest")
+    digests[arch] = matches[0]
+for name, value in digests.items():
+    if not isinstance(value, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
+        raise ValueError(f"Invalid {name} digest")
+    (directory / f"{name}.digest").write_text(value)
+PY
+digest=$(cat "$temporary/index.digest")
 image="$CI_REGISTRY_IMAGE/$IMAGE_COMPONENT@$digest"
 # Test both actual image variants, including their non-root runtime contract.
+# Docker's classic image store cannot load two platforms under one index digest.
+# Each runtime reference therefore uses its own manifest from the frozen index.
 for arch in amd64 arm64; do
-  docker pull --platform "linux/$arch" "$image"
+  runtime_image="$CI_REGISTRY_IMAGE/$IMAGE_COMPONENT@$(cat "$temporary/$arch.digest")"
+  docker pull --platform "linux/$arch" "$runtime_image"
   case "$IMAGE_COMPONENT" in
     backend)
-      docker run --rm --platform "linux/$arch" --read-only --tmpfs /tmp --entrypoint python "$image" \
+      docker run --rm --platform "linux/$arch" --read-only --tmpfs /tmp --entrypoint python "$runtime_image" \
         -c 'from pathlib import Path; import os, app.scripts.issue_first_admin_bootstrap; assert os.getuid() == 10001; assert Path("/app/alembic/versions/0119_first_admin_bootstrap.py").is_file()'
       ;;
     frontend)
       # This isolated check serves the setup page without a backend container.
       container=$(docker run --detach --platform "linux/$arch" --read-only --tmpfs /tmp \
-        --env BACKEND_UPSTREAM=127.0.0.1:8000 "$image")
+        --env BACKEND_UPSTREAM=127.0.0.1:8000 "$runtime_image")
       trap 'rm -rf "$temporary"; docker rm --force "$container" >/dev/null 2>&1 || true; docker buildx rm "$builder" >/dev/null 2>&1 || true' EXIT
       attempt=0
       until docker exec "$container" wget -q -O /dev/null http://127.0.0.1:8080/setup/first-admin; do
@@ -72,8 +92,8 @@ for arch in amd64 arm64; do
       trap 'rm -rf "$temporary"; docker buildx rm "$builder" >/dev/null 2>&1 || true' EXIT
       ;;
     scheduler)
-      test "$(docker run --rm --platform "linux/$arch" --read-only --tmpfs /tmp --entrypoint id "$image" -u)" = 10001
-      docker run --rm --platform "linux/$arch" --read-only --tmpfs /tmp --entrypoint supercronic "$image" -version
+      test "$(docker run --rm --platform "linux/$arch" --read-only --tmpfs /tmp --entrypoint id "$runtime_image" -u)" = 10001
+      docker run --rm --platform "linux/$arch" --read-only --tmpfs /tmp --entrypoint supercronic "$runtime_image" -version
       ;;
   esac
 done
