@@ -4,7 +4,6 @@ import AdminDashboardMap, { type AdminDashboardMapMarker } from "./components/Ad
  * Licensed under the Apache License, Version 2.0
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { listAuditLogs, type AuditLogEntry } from "../../api/audit";
 import {
   fetchHealthOverview,
@@ -49,7 +48,6 @@ import UiBadge from "../../components/ui/UiBadge";
 import {
   cx,
   uiCardClass,
-  uiCardMutedClass,
   uiMutedTextClass,
 } from "../../components/ui/styles";
 import {
@@ -59,7 +57,8 @@ import {
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
-import setupIllustration from "./assets/admin-dashboard-setup.png";
+import { useI18n } from "../../i18n";
+import { onboardingCopy } from "./onboardingCopy";
 
 const ENDPOINT_STATUS_MAX_AGE_HOURS = 24;
 const ENDPOINT_STATUS_MAX_AGE_MS = ENDPOINT_STATUS_MAX_AGE_HOURS * 60 * 60 * 1000;
@@ -155,151 +154,21 @@ function OnboardingPanel({
   dismissBusy: boolean;
   onDismiss: () => void;
 }) {
-  const [reviewOpen, setReviewOpen] = useState(!onboarding.complete);
-
-  if (!reviewOpen) {
-    return (
-      <section className={cx(uiCardClass, "flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between")}>
-        <div className="min-w-0">
-          <h2 className="ui-body font-semibold text-[var(--ui-text)]">
-            {onboarding.complete ? "Storage setup complete" : "BucketReef is ready"}
-          </h2>
-          <p className={cx("mt-0.5 ui-caption", uiMutedTextClass)}>
-            {onboarding.complete
-              ? "A storage endpoint and an active storage access context are configured."
-              : "Administrator access is secured. Connect storage when you are ready."}
-          </p>
-          {error ? <p className="mt-2 ui-caption font-semibold text-rose-600 dark:text-rose-300">{error}</p> : null}
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <WorkspaceDashboardAction variant="secondary" size="sm" onClick={() => setReviewOpen(true)}>
-            Review
-          </WorkspaceDashboardAction>
-          <WorkspaceDashboardAction variant="ghost" size="sm" onClick={onDismiss} disabled={dismissBusy} loading={dismissBusy}>
-            Dismiss
-          </WorkspaceDashboardAction>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 w-full flex-1 flex-col gap-4 2xl:flex-row 2xl:items-center">
-          <img
-            src={setupIllustration}
-            alt=""
-            className="hidden h-24 w-24 shrink-0 object-contain 2xl:block"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div className="min-w-0">
-                <h2 className="ui-dashboard-title">
-                  Connect your storage when you&apos;re ready.
-                </h2>
-                <p className={cx("mt-1 ui-body", uiMutedTextClass)}>
-                  BucketReef is ready. These optional steps enable storage administration and browsing.
-                </p>
-              </div>
-            </div>
-            {error && <p className="mt-3 ui-caption font-semibold text-rose-600 dark:text-rose-300">{error}</p>}
-            <div className="mt-4 grid min-w-0 gap-3 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px]">
-              <SetupStep
-                index={1}
-                title="Configure a storage endpoint"
-                description="Add the S3 or Ceph endpoint that BucketReef should manage."
-                done={onboarding.endpoint_configured}
-                action={{ label: "Configure endpoints", to: "/admin/storage-endpoints" }}
-              />
-              <SetupStep
-                index={2}
-                title="Configure an S3 account"
-                description="Create an S3 account for storage administration and browsing."
-                done={onboarding.storage_access_configured}
-                action={{ label: "Configure S3 accounts", to: "/admin/s3-accounts" }}
-              />
-              <div className={cx(uiCardMutedClass, "px-4 py-3 xl:col-span-2 2xl:col-span-1")}>
-                <p className="ui-body font-semibold text-[var(--ui-text)]">Next steps</p>
-                <div className="mt-3 space-y-2">
-                  <Link to="/admin/users" className="flex items-center gap-2 ui-caption font-medium text-primary">
-                    <OpenIcon className="h-3.5 w-3.5" /> Add UI user
-                  </Link>
-                  <Link to="/admin/s3-accounts" className="flex items-center gap-2 ui-caption font-medium text-primary">
-                    <OpenIcon className="h-3.5 w-3.5" /> Create account
-                  </Link>
-                  <Link to="/admin/audit" className="flex items-center gap-2 ui-caption font-medium text-primary">
-                    <OpenIcon className="h-3.5 w-3.5" /> View audit trail
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="shrink-0 self-start lg:self-auto">
-          <div className="flex flex-wrap items-center gap-2">
-            <WorkspaceDashboardAction
-              type="button"
-              onClick={() => setReviewOpen(false)}
-              variant="secondary"
-            >
-              Collapse checklist
-            </WorkspaceDashboardAction>
-            <WorkspaceDashboardAction
-              type="button"
-              onClick={onDismiss}
-              disabled={dismissBusy}
-              variant="ghost"
-            >
-              {dismissBusy ? "Dismissing..." : "Dismiss checklist"}
-            </WorkspaceDashboardAction>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SetupStep({
-  index,
-  title,
-  description,
-  done,
-  action,
-}: {
-  index: number;
-  title: string;
-  description: string;
-  done: boolean;
-  action: { label: string; to: string };
-}) {
-  return (
-    <div className={cx(uiCardMutedClass, "flex min-h-[112px] min-w-0 flex-col justify-between gap-3 px-4 py-3")}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 gap-3">
-          <span
-            className={cx(
-              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ui-caption font-semibold",
-              done
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950 dark:text-emerald-100"
-                : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950 dark:text-amber-100"
-            )}
-          >
-            {index}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block break-words ui-body font-semibold text-[var(--ui-text)]">{title}</span>
-            <span className={cx("mt-1 block ui-caption", uiMutedTextClass)}>{description}</span>
-          </span>
-        </div>
-        <UiBadge tone={done ? "success" : "warning"} className="shrink-0">{done ? "Done" : "Pending"}</UiBadge>
-      </div>
-      <WorkspaceDashboardActionLink to={action.to} className="w-fit">
-        {action.label}
-        <OpenIcon className="h-3.5 w-3.5" />
-      </WorkspaceDashboardActionLink>
+  const { t } = useI18n();
+  const latest = onboarding.journeys?.[0];
+  const destination = latest ? `/admin/onboarding?journey=${encodeURIComponent(latest.id)}` : "/admin/onboarding";
+  return <section className={cx(uiCardClass, "flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between")}>
+    <div className="min-w-0">
+      <h2 className="ui-body font-semibold text-[var(--ui-text)]">{t(onboardingCopy.title)}</h2>
+      <p className={cx("mt-0.5 ui-caption", uiMutedTextClass)}>{t(onboardingCopy.description)}</p>
+      {latest && <p className={cx("mt-0.5 ui-caption", uiMutedTextClass)}>{latest.draft.name} · {latest.draft.workspace} · {t(latest.usage_validated ? onboardingCopy.verified : onboardingCopy.unverified)}</p>}
+      {error && <p role="alert" className="mt-2 ui-caption">{error}</p>}
     </div>
-  );
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <WorkspaceDashboardActionLink to={destination}>{t(latest ? onboardingCopy.resume : onboardingCopy.start)}</WorkspaceDashboardActionLink>
+      <WorkspaceDashboardAction variant="ghost" size="sm" onClick={onDismiss} disabled={dismissBusy} loading={dismissBusy}>{t(onboardingCopy.dismiss)}</WorkspaceDashboardAction>
+    </div>
+  </section>;
 }
 
 function EndpointHealthSection({ data, loading, unavailableReason, freshnessWarning }: {

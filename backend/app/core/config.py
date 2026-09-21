@@ -182,6 +182,9 @@ class Settings(BaseSettings):
 
     app_name: str = Field("BucketReef", description="Application name")
     app_env: AppEnvironment = Field("development", description="Runtime security profile")
+    onboarding_source: Literal["standard", "quickstart"] = Field(
+        "standard", description="Informational onboarding hint; never changes security or feature defaults"
+    )
     api_v1_prefix: str = "/api"
     jwt_keys: list[str] = Field(
         default_factory=lambda: ["change-me"],

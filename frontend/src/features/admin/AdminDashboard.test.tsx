@@ -310,7 +310,7 @@ describe("AdminDashboard feature summary", () => {
     });
   });
 
-  it("collapses a completed onboarding checklist until the user reviews it", async () => {
+  it("keeps setup compact and links to the optional guide even when storage exists", async () => {
     mocks.fetchOnboardingStatus.mockResolvedValue({
       dismissed: false,
       complete: true,
@@ -320,13 +320,10 @@ describe("AdminDashboard feature summary", () => {
 
     await renderDashboard();
 
-    expect(screen.getByRole("heading", { name: "Storage setup complete" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Getting started" })).toBeInTheDocument();
     expect(screen.queryByText("Configure an S3 account")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Review" }));
-    expect(screen.getByText("Configure an S3 account")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Configure S3 accounts" })).toHaveAttribute("href", "/admin/s3-accounts");
-    fireEvent.click(screen.getByRole("button", { name: "Collapse checklist" }));
-    expect(screen.queryByText("Configure an S3 account")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start setup" })).toHaveAttribute("href", "/admin/onboarding");
+    expect(screen.queryByText("Storage setup complete")).not.toBeInTheDocument();
   });
 
   it("renders two grouped feature summaries with enabled features only", async () => {
@@ -701,7 +698,7 @@ describe("AdminDashboard feature summary", () => {
     fireEvent.click(screen.getByRole("button", { name: "Dismiss", exact: true }));
     expect(await screen.findByText("Unable to dismiss setup")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dismiss", exact: true })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Review" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start setup" })).toBeInTheDocument();
   });
 
   it("has accessible dashboard regions and links (a11y)", async () => {

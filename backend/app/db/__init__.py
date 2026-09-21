@@ -54,6 +54,7 @@ from .portal import PortalExternalAccessCredential, PortalPublicLink, PortalStor
 from .portal_request import PortalAdminRequest, PortalAdminRequestMessage
 from .backend_coordination import AppSetting, BackendOperationLease
 from .first_admin_bootstrap import FirstAdminBootstrap
+from .onboarding import OnboardingJourney, OnboardingPreference
 
 __all__ = [
     "Base",
@@ -125,4 +126,6 @@ __all__ = [
     "AppSetting",
     "BackendOperationLease",
     "FirstAdminBootstrap",
+    "OnboardingJourney",
+    "OnboardingPreference",
 ]

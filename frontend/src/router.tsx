@@ -48,6 +48,7 @@ const UsersPage = lazy(() => import("./features/admin/UsersPage"));
 const GroupsPage = lazy(() => import("./features/admin/GroupsPage"));
 const IdentitySecurityPage = lazy(() => import("./features/admin/IdentitySecurityPage"));
 const AdminDashboard = lazy(() => import("./features/admin/AdminDashboard"));
+const OnboardingPage = lazy(() => import("./features/admin/OnboardingPage"));
 const AdminMetricsPage = lazy(() => import("./features/admin/AdminMetricsPage"));
 const AdminPortalRequestsPage = lazy(() => import("./features/admin/AdminPortalRequestsPage"));
 const BillingPage = lazy(() => import("./features/admin/BillingPage"));
@@ -167,7 +168,7 @@ export const buildAdminNav = (
   return [
     {
       label: "Overview",
-      links: [{ ...workspacePageLink(ADMIN_PAGE_CONTRACTS.dashboard), end: true }],
+      links: [{ ...workspacePageLink(ADMIN_PAGE_CONTRACTS.dashboard), end: true }, workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding)],
     },
     {
       label: "Identity & Access",
@@ -303,6 +304,7 @@ export function createAppRoutes() {
         <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE]} />}>
           <Route path="/admin" element={<AdminLayoutShell />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="onboarding" element={<OnboardingPage />} />
             <Route path="profile" element={<AccountProfilePage />} />
             <Route path="s3-accounts" element={<S3AccountsPage />} />
             <Route path="s3-users" element={<S3UsersPage />} />

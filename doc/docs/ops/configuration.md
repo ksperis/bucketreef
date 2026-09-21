@@ -178,6 +178,30 @@ LDAP only authenticates the UI identity. First LDAP login creates a user with
 
 ## App settings (persisted)
 
+### Guided setup
+
+`ONBOARDING_SOURCE` accepts `standard` (default) or `quickstart`. It only controls
+the evaluation recommendation in **Admin → Getting started**; it has no effect
+on authentication, permissions, enabled features, or the runtime security profile.
+
+Confirmed onboarding can enable the following minimal general settings:
+
+| Path | Required flags |
+|---|---|
+| Browser | `browser_enabled`, `browser_root_enabled` |
+| Manager | `manager_enabled` |
+| Portal | `portal_enabled`, `browser_enabled`, `browser_portal_enabled` |
+| Ceph Admin | `ceph_admin_enabled` |
+
+A forced-on ENV flag already satisfies a prerequisite; forced-off flags block
+configuration before creation or permission changes. Required endpoint
+capabilities are probed explicitly before enabling, and endpoints managed by
+`ENV_STORAGE_ENDPOINTS` are never edited. Independent features and security
+settings remain unchanged. Access assignments are separate explicit changes in
+the confirmation summary. See [guided application setup](sysadmin-onboarding.md#guided-application-setup).
+
+### Persistence and standard settings
+
 Primary model: `backend/app/models/app_settings.py`.
 Persistence source: the `app_settings` database table.
 

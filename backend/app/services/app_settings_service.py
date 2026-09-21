@@ -152,3 +152,50 @@ def save_app_settings(settings: AppSettings) -> AppSettings:
                 setattr(to_save.general, field_name, getattr(persisted.general, field_name))
         _save_persisted_settings_to_db(db, to_save)
         return _apply_general_feature_overrides(to_save)
+
+
+def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
+    """Patch only workspace prerequisites, respecting ENV and concurrent writes.
+
+    In particular, this entry point cannot modify authentication, connection
+    sharing, user permissions, or optional storage tools.
+    """
+    allowed = {
+        "manager_enabled", "portal_enabled", "ceph_admin_enabled",
+        "browser_enabled", "browser_root_enabled", "browser_portal_enabled",
+    }
+    if not set(fields) <= allowed:
+        raise ValueError("Unsupported onboarding feature")
+    for _attempt in range(3):
+        locks = get_general_feature_locks()
+        for field in fields:
+            lock = getattr(locks, field, None)
+            if lock and lock.forced and lock.value is False:
+                raise ValueError(f"Feature locked by {lock.source}")
+        _load_persisted_settings_from_db(db)
+        row = db.query(AppSetting).filter(AppSetting.key == APP_SETTINGS_DB_KEY).populate_existing().one()
+        previous = row.payload_json
+        settings = _parse_settings_payload(previous)
+        changed = []
+        for field in fields:
+            lock = getattr(locks, field, None)
+            if lock and lock.forced:
+                continue
+            if not getattr(settings.general, field):
+                setattr(settings.general, field, True)
+                changed.append(field)
+        if not changed:
+            return []
+        updated = db.query(AppSetting).filter(
+            AppSetting.key == APP_SETTINGS_DB_KEY,
+            AppSetting.payload_json == previous,
+        ).update({
+            AppSetting.payload_json: _settings_to_json(settings),
+            AppSetting.updated_at: utcnow(),
+        }, synchronize_session=False)
+        if updated:
+            db.commit()
+            db.expire(row)
+            return changed
+        db.rollback()
+    raise ValueError("Settings changed concurrently; refresh and retry")

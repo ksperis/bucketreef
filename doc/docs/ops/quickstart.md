@@ -79,6 +79,13 @@ If the link expires, run `bucketreef-quickstart start` again. Before initializat
 this replaces the previous token; after users exist it prints the login URL.
 Connecting storage is optional after setup.
 
+Open **Admin → Getting started** to choose an evaluation, personal-use or
+organizational-service goal. QuickStart highlights evaluation through the
+informational `ONBOARDING_SOURCE=quickstart` setting; it does not force that
+choice or alter security. The [guided setup](sysadmin-onboarding.md#guided-application-setup)
+reuses existing resources and enables only the selected path's required
+features after confirmation, while respecting deployment ENV locks.
+
 ## Manage the installation
 
 ```sh

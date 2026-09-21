@@ -33,6 +33,8 @@ compose() (
   unset APP_ENV UI_JWT_KEYS API_JWT_KEYS CREDENTIAL_KEYS INTERNAL_CRON_TOKEN
   unset BUCKETREEF_BIND_ADDRESS BUCKETREEF_BACKEND_PORT BUCKETREEF_FRONTEND_PORT
   unset PUBLIC_ORIGIN WEBAUTHN_ORIGIN WEBAUTHN_RP_ID CORS_ORIGINS ALLOWED_HOSTS
+  # Also identify upgraded bundles whose existing env file predates this hint.
+  export ONBOARDING_SOURCE=quickstart
   docker compose \
     --project-name "$PROJECT_NAME" \
     --env-file "$ENV_FILE" \
@@ -89,6 +91,7 @@ write_environment() {
   temporary="$(mktemp "${ENV_FILE}.tmp.XXXXXX")"
   {
     printf 'APP_ENV=development\n'
+    printf 'ONBOARDING_SOURCE=quickstart\n'
     printf 'UI_JWT_KEYS=["%s"]\n' "$(generate_secret)"
     printf 'API_JWT_KEYS=["%s"]\n' "$(generate_secret)"
     printf 'CREDENTIAL_KEYS=["%s"]\n' "$(generate_secret)"

@@ -260,13 +260,16 @@ class StorageEndpointsService:
         self.db.refresh(endpoint)
         return self._serialize(endpoint)
 
-    def _persist_endpoint(self, endpoint: StorageEndpoint) -> StorageEndpointSchema:
+    def _persist_endpoint(self, endpoint: StorageEndpoint, *, commit: bool = True) -> StorageEndpointSchema:
         self.db.add(endpoint)
-        self.db.commit()
-        self.db.refresh(endpoint)
+        if commit:
+            self.db.commit()
+            self.db.refresh(endpoint)
+        else:
+            self.db.flush()
         return self._serialize(endpoint)
 
-    def create_endpoint(self, payload: StorageEndpointCreate) -> StorageEndpointSchema:
+    def create_endpoint(self, payload: StorageEndpointCreate, *, commit: bool = True) -> StorageEndpointSchema:
         self._ensure_env_editable()
         state = normalize_storage_endpoint_state(payload)
         self._ensure_unique_name(state.name)
@@ -275,7 +278,7 @@ class StorageEndpointsService:
         self._apply_endpoint_state(endpoint, state)
         endpoint.is_default = False
         endpoint.is_editable = True
-        return self._persist_endpoint(endpoint)
+        return self._persist_endpoint(endpoint, commit=commit)
 
     def update_endpoint(self, endpoint_id: int, payload: StorageEndpointUpdate) -> StorageEndpointSchema:
         self._ensure_env_editable()
