@@ -74,8 +74,12 @@ Filters survive editor round trips and refreshes. A metadata failure keeps
 configuration changes unavailable until a successful retry.
 
 Its scoped presentation reuses shared table, badge, tag and compact button
-components. It does not redesign the endpoint form or change general table defaults.
-The remaining endpoint creation/edit UX is a separate pass.
+components without changing general table defaults. Endpoint creation, editing
+and consultation now also use compact settings sections and one guarded native
+form across the three tabs. Configuration and tags keep independent save
+baselines, including retry after a partial save. See
+[Admin storage endpoint editor](interface-convergence.md#admin-storage-endpoint-editor)
+for composition, access boundaries and validation.
 
 ## Deferred scope
 

@@ -79,6 +79,25 @@ environment-managed endpoints. If the management mode cannot be loaded,
 changes remain unavailable until **Retry** succeeds. Deletion requires
 confirmation and a failed operation is not retried automatically.
 
+### Endpoint configuration
+
+The three tabs share one draft and one save action. **Connection** contains
+identity, tags, provider, TLS and location; **Credentials** separates Admin Ops,
+Supervision Ops and dedicated Ceph Admin keys; **Capabilities & health** contains
+service configuration and probe settings. Required-field errors open the relevant
+tab and focus the first invalid field. Enter submits the form. Cancel, navigation
+and browser history protect unsaved changes; controls remain locked during saving.
+
+Existing secret values stay hidden. A blank secret during editing retains the
+stored value, and credential-check failures remain advisory. AWS addresses are
+derived from the region. Read-only configuration remains selectable, while
+superadmins can still save endpoint tags where allowed.
+
+Configuration and tags are saved separately. When configuration succeeds but
+tags fail, the page explains the partial result and keeps the tag draft. Retry
+uses the saved endpoint identity and does not repeat unchanged configuration or
+create a duplicate endpoint. A tag-only edit does not rewrite configuration.
+
 ## Compact identity associations
 
 The **Managed Tenants** RGW Accounts and RGW Users lists, together with

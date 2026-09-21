@@ -188,6 +188,13 @@ guards include pending association selections and image changes. The user
 Authentication tab keeps its immediate actions and Done footer: it must never
 submit the parent profile draft.
 
+Admin storage endpoint creation, editing and view use the same compact sections
+through `StorageEndpointEditor` and its three domain field components. Keep
+provider radio choices, binary switches, labelled inputs, visible command
+examples and credential statuses on the shared settings/UI primitives. One
+native form and action bar owns all tabs; configuration/tag API boundaries and
+read-only access remain explicit in the controller rather than in local styles.
+
 The Authentication tab uses the same compact sections for passkeys, passwords,
 external identities and sessions. Its native fieldsets submit their own immediate
 action on Enter and freeze both their fields and the parent editor navigation
