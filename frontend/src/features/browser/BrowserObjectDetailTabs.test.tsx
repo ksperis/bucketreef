@@ -144,8 +144,7 @@ describe("Browser object detail tabs", () => {
     await user.click(screen.getByRole("button", { name: "Refresh" }));
     await user.click(screen.getByRole("button", { name: "Save metadata" }));
 
-    const metadataCard = screen.getByText("Custom metadata").parentElement
-      ?.parentElement as HTMLElement;
+    const metadataCard = screen.getByRole("group", { name: "Custom metadata" });
     await user.click(
       within(metadataCard).getByRole("button", { name: "Add metadata" }),
     );
@@ -156,18 +155,17 @@ describe("Browser object detail tabs", () => {
       { target: { value: "owner" } },
     );
     await user.click(
-      within(metadataCard).getByRole("button", { name: "Remove" }),
+      within(metadataCard).getByRole("button", { name: "Remove custom metadata 1" }),
     );
 
-    const tagsCard = screen.getByText("Tags").parentElement
-      ?.parentElement as HTMLElement;
+    const tagsCard = screen.getByRole("form", { name: "Tags" });
     await user.click(within(tagsCard).getByRole("button", { name: "Add tag" }));
     fireEvent.change(
       within(tagsCard).getByRole("textbox", { name: "Tags value 1" }),
       { target: { value: "production" } },
     );
     await user.click(
-      within(tagsCard).getByRole("button", { name: "Remove" }),
+      within(tagsCard).getByRole("button", { name: "Remove tags 1" }),
     );
     await user.click(
       within(tagsCard).getByRole("button", { name: "Save tags" }),
@@ -206,10 +204,17 @@ describe("Browser object detail tabs", () => {
     expect(onSaveStorageClass).toHaveBeenCalledOnce();
   });
 
-  it("disables property editing in the read-only Browser profile", () => {
+  it.each([
+    ["read-only profile", { readOnly: true }],
+    ["loading", { loading: true }],
+    ["initial read failure", { loaded: false, error: "Read denied" }],
+    ["metadata save", { savingMetadata: true }],
+    ["tag save", { savingTags: true }],
+    ["storage class save", { savingStorageClass: true }],
+  ] as const)("locks property editing during %s", (_state, overrides) => {
     render(
       <BrowserObjectPropertiesTab
-        readOnly
+        readOnly={false}
         loading={false}
         loaded
         error={null}
@@ -232,13 +237,38 @@ describe("Browser object detail tabs", () => {
         savingStorageClass={false}
         onSaveStorageClass={vi.fn()}
         onRefresh={vi.fn()}
+        {...overrides}
       />,
     );
 
-    expect(screen.getByText(/Properties are read-only/)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Content type" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save metadata" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Add tag" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add metadata" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Storage class" })).toBeDisabled();
+    for (const form of screen.getAllByRole("form")) {
+      expect(within(form).getByRole("button", { name: /^(Save|Saving)/ })).toBeDisabled();
+    }
+    if ("error" in overrides) {
+      expect(screen.getByRole("alert")).toHaveTextContent("Read denied");
+      expect(screen.getByRole("button", { name: "Retry" })).toBeEnabled();
+    }
+    if ("readOnly" in overrides) expect(screen.getByRole("button", { name: "Refresh" })).toBeEnabled();
+  });
+
+  it("locks the archive draft until the request settles and permits retry with retained values", async () => {
+    const user = userEvent.setup();
+    const props = { days: "14", tier: "Bulk" as const, onDaysChange: vi.fn(), onTierChange: vi.fn(), onRestore: vi.fn() };
+    const { rerender } = render(<BrowserObjectArchiveTab {...props} saving />);
+    expect(screen.getByLabelText("Days")).toBeDisabled();
+    expect(screen.getByLabelText("Tier")).toBeDisabled();
+    fireEvent.submit(screen.getByRole("form", { name: "Archive restore" }));
+    expect(props.onRestore).not.toHaveBeenCalled();
+    rerender(<BrowserObjectArchiveTab {...props} saving={false} />);
+    expect(screen.getByLabelText("Days")).toHaveValue(14);
+    expect(screen.getByLabelText("Tier")).toHaveValue("Bulk");
+    await user.click(screen.getByLabelText("Days"));
+    await user.keyboard("{Enter}");
+    expect(props.onRestore).toHaveBeenCalledOnce();
   });
 
   it("forwards access controls and disables unavailable Object Lock actions", async () => {
@@ -279,7 +309,7 @@ describe("Browser object detail tabs", () => {
       savingRetention: false,
       sseCustomerKeyActive: true,
     };
-    render(<BrowserObjectProtectionTab {...baseProps} />);
+    const { rerender } = render(<BrowserObjectProtectionTab {...baseProps} />);
 
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Canned ACL" }),
@@ -301,10 +331,22 @@ describe("Browser object detail tabs", () => {
       screen.getByRole("button", { name: "Update retention" }),
     ).toBeDisabled();
     expect(screen.getByText(/SSE-C is active/)).toBeInTheDocument();
-    expect(
-      within(screen.getByText("Headers").parentElement as HTMLElement).getByText(
-        /customer-key/,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Required headers" })).toHaveValue(
+      JSON.stringify(baseProps.presignHeaders, null, 2),
+    );
+    expect(screen.getByRole("textbox", { name: "Signed URL" })).toHaveValue(baseProps.presignUrl);
+
+    rerender(<BrowserObjectProtectionTab {...baseProps} objectLockUnavailable={false}
+      savingAcl savingLegalHold savingRetention savingPresign />);
+    for (const name of ["Canned ACL", "Legal hold status", "Mode"]) {
+      expect(screen.getByRole("combobox", { name })).toBeDisabled();
+    }
+    expect(screen.getByLabelText("Retain until")).toBeDisabled();
+    expect(screen.getByLabelText("Expires at")).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "Bypass governance retention" })).toBeDisabled();
+    fireEvent.submit(screen.getByRole("form", { name: "Access" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Signed URL" }));
+    expect(onSaveAcl).toHaveBeenCalledOnce();
+    expect(onGeneratePresign).toHaveBeenCalledOnce();
   });
 });

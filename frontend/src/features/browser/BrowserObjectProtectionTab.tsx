@@ -1,16 +1,13 @@
-/*
- * Copyright (c) 2026 Laurent Barbe
- * Licensed under the Apache License, Version 2.0
- */
+/* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { PresignedUrl } from "../../api/browserTransfers";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import SettingsOperationSection from "../../components/settings/SettingsOperationSection";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
-import {
-  aclOptions,
-  browserPanelCardClasses,
-  formInputClasses,
-  toolbarButtonClasses,
-  toolbarPrimaryClasses,
-} from "./browserConstants";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import UiInput from "../../components/ui/UiInput";
+import UiSelect from "../../components/ui/UiSelect";
+import UiTextarea from "../../components/ui/UiTextarea";
+import { aclOptions } from "./browserConstants";
 import { OBJECT_LOCK_DISABLED_MESSAGE } from "./browserObjectDetailsModel";
 import type { ObjectRetentionMode } from "./useBrowserObjectProtection";
 
@@ -48,271 +45,67 @@ type BrowserObjectProtectionTabProps = {
 };
 
 export default function BrowserObjectProtectionTab({
-  aclValue,
-  legalHoldError,
-  legalHoldStatus,
-  objectLockUnavailable,
-  onAclChange,
-  onCopyPresign,
-  onGeneratePresign,
-  onLegalHoldStatusChange,
-  onPresignExpiresChange,
-  onRetentionBypassChange,
-  onRetentionDateChange,
-  onRetentionModeChange,
-  onSaveAcl,
-  onSaveLegalHold,
-  onSaveRetention,
-  presignError,
-  presignExpires,
-  presignHeaders,
-  presignMethod,
-  presignUrl,
-  protectionLoading,
-  retentionBypass,
-  retentionDate,
-  retentionError,
-  retentionMode,
-  savingAcl,
-  savingLegalHold,
-  savingPresign,
-  savingRetention,
-  sseCustomerKeyActive,
+  aclValue, legalHoldError, legalHoldStatus, objectLockUnavailable, onAclChange,
+  onCopyPresign, onGeneratePresign, onLegalHoldStatusChange, onPresignExpiresChange,
+  onRetentionBypassChange, onRetentionDateChange, onRetentionModeChange, onSaveAcl,
+  onSaveLegalHold, onSaveRetention, presignError, presignExpires, presignHeaders,
+  presignMethod, presignUrl, protectionLoading, retentionBypass, retentionDate,
+  retentionError, retentionMode, savingAcl, savingLegalHold, savingPresign,
+  savingRetention, sseCustomerKeyActive,
 }: BrowserObjectProtectionTabProps) {
+  const protectionDisabled = protectionLoading || objectLockUnavailable;
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      <div className={browserPanelCardClasses}>
-        <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">
-          Access
-        </p>
-        <label className="mt-3 block space-y-1 ui-caption font-semibold text-slate-600 dark:text-slate-300">
-          <span>Canned ACL</span>
-          <select
-            className={formInputClasses}
-            value={aclValue}
-            onChange={(event) => onAclChange(event.target.value)}
-          >
-            {aclOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
-          Updating the ACL overrides any custom grants currently applied.
-        </p>
-        <div className="mt-3 flex items-center justify-end">
-          <button
-            type="button"
-            className={toolbarPrimaryClasses}
-            onClick={() => void onSaveAcl()}
-            disabled={savingAcl}
-          >
-            {savingAcl ? "Saving..." : "Save ACL"}
-          </button>
+    <div className="settings-compact settings-form">
+      <SettingsOperationSection title="Access" description="Updating the ACL overrides any custom grants currently applied."
+        busy={savingAcl} submitLabel="Save ACL" onSubmit={onSaveAcl}>
+        <UiSelect label="Canned ACL" value={aclValue} onChange={(event) => onAclChange(event.target.value)}>
+          {aclOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </UiSelect>
+      </SettingsOperationSection>
+      <SettingsOperationSection title="Legal hold" busy={savingLegalHold} disabled={protectionDisabled}
+        submitLabel="Update legal hold" onSubmit={onSaveLegalHold}>
+        {protectionLoading && <p className="settings-description" role="status">Loading legal hold...</p>}
+        {legalHoldError && <UiInlineMessage tone="error" role="alert">{legalHoldError}</UiInlineMessage>}
+        {objectLockUnavailable && <UiInlineMessage tone="info">{OBJECT_LOCK_DISABLED_MESSAGE}</UiInlineMessage>}
+        <UiSelect label="Legal hold status" value={legalHoldStatus}
+          onChange={(event) => onLegalHoldStatusChange(event.target.value as "ON" | "OFF")}>
+          <option value="OFF">OFF</option><option value="ON">ON</option>
+        </UiSelect>
+      </SettingsOperationSection>
+      <SettingsOperationSection title="Retention" busy={savingRetention} disabled={protectionDisabled}
+        submitDisabled={!retentionMode || !retentionDate} submitLabel="Update retention" onSubmit={onSaveRetention}>
+        {protectionLoading && <p className="settings-description" role="status">Loading retention...</p>}
+        {retentionError && <UiInlineMessage tone="error" role="alert">{retentionError}</UiInlineMessage>}
+        {objectLockUnavailable && <UiInlineMessage tone="info">{OBJECT_LOCK_DISABLED_MESSAGE}</UiInlineMessage>}
+        <div className="settings-fields sm:grid-cols-2">
+          <UiSelect label="Mode" value={retentionMode}
+            onChange={(event) => onRetentionModeChange(event.target.value as ObjectRetentionMode)}>
+            <option value="">Select mode</option><option value="GOVERNANCE">GOVERNANCE</option><option value="COMPLIANCE">COMPLIANCE</option>
+          </UiSelect>
+          <UiInput label="Retain until" type="datetime-local" value={retentionDate}
+            onChange={(event) => onRetentionDateChange(event.target.value)} />
         </div>
-      </div>
-
-      <div
-        className={`${browserPanelCardClasses} ${objectLockUnavailable ? "opacity-60" : ""}`}
-      >
-        <div className="flex items-center justify-between">
-          <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">
-            Legal hold
-          </p>
-          {protectionLoading && (
-            <span className="ui-caption text-slate-500 dark:text-slate-400">
-              Loading...
-            </span>
+        <UiCheckboxField className="settings-choice" checked={retentionBypass}
+          onChange={(event) => onRetentionBypassChange(event.target.checked)}>Bypass governance retention</UiCheckboxField>
+      </SettingsOperationSection>
+      <SettingsOperationSection title="Signed URL" description="Generate a temporary signed URL for this object (valid for up to 12 hours)."
+        busy={savingPresign} submitLabel="Generate URL" busyLabel="Generating..." onSubmit={onGeneratePresign}>
+        {sseCustomerKeyActive && <UiInlineMessage tone="warning">
+          SSE-C is active: URL alone is insufficient without the required SSE-C headers.
+        </UiInlineMessage>}
+        <UiInput label="Expires at" type="datetime-local" value={presignExpires}
+          onChange={(event) => onPresignExpiresChange(event.target.value)} />
+        {presignError && <UiInlineMessage tone="error" role="alert">{presignError}</UiInlineMessage>}
+        {presignUrl && <div className="settings-stack">
+          <UiTextarea label="Signed URL" hint={`HTTP method: ${presignMethod || "GET"}`} rows={3}
+            readOnly value={presignUrl} spellCheck={false} className="font-mono" />
+          <div><SettingsButton variant="secondary" onClick={() => void onCopyPresign()}>Copy URL</SettingsButton></div>
+          {presignHeaders && Object.keys(presignHeaders).length > 0 && (
+            <UiTextarea label="Required headers" rows={3} readOnly value={JSON.stringify(presignHeaders, null, 2)}
+              spellCheck={false} className="font-mono" />
           )}
-        </div>
-        {legalHoldError && (
-          <p className="mt-2 ui-caption text-rose-600 dark:text-rose-200">
-            {legalHoldError}
-          </p>
-        )}
-        {objectLockUnavailable && (
-          <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
-            {OBJECT_LOCK_DISABLED_MESSAGE}
-          </p>
-        )}
-        <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
-          <select
-            className={formInputClasses}
-            value={legalHoldStatus}
-            onChange={(event) =>
-              onLegalHoldStatusChange(event.target.value as "ON" | "OFF")
-            }
-            disabled={objectLockUnavailable}
-          >
-            <option value="OFF">OFF</option>
-            <option value="ON">ON</option>
-          </select>
-          <button
-            type="button"
-            className={toolbarPrimaryClasses}
-            onClick={() => void onSaveLegalHold()}
-            disabled={
-              savingLegalHold || protectionLoading || objectLockUnavailable
-            }
-          >
-            {savingLegalHold ? "Saving..." : "Update legal hold"}
-          </button>
-        </div>
-      </div>
-
-      <div
-        className={`${browserPanelCardClasses} ${objectLockUnavailable ? "opacity-60" : ""}`}
-      >
-        <div className="flex items-center justify-between">
-          <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">
-            Retention
-          </p>
-          {protectionLoading && (
-            <span className="ui-caption text-slate-500 dark:text-slate-400">
-              Loading...
-            </span>
-          )}
-        </div>
-        {retentionError && (
-          <p className="mt-2 ui-caption text-rose-600 dark:text-rose-200">
-            {retentionError}
-          </p>
-        )}
-        {objectLockUnavailable && (
-          <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
-            {OBJECT_LOCK_DISABLED_MESSAGE}
-          </p>
-        )}
-        <div className="mt-2 grid gap-2 md:grid-cols-2">
-          <label className="space-y-1 ui-caption font-semibold text-slate-600 dark:text-slate-300">
-            <span>Mode</span>
-            <select
-              className={formInputClasses}
-              value={retentionMode}
-              onChange={(event) =>
-                onRetentionModeChange(
-                  event.target.value as ObjectRetentionMode,
-                )
-              }
-              disabled={objectLockUnavailable}
-            >
-              <option value="">Select mode</option>
-              <option value="GOVERNANCE">GOVERNANCE</option>
-              <option value="COMPLIANCE">COMPLIANCE</option>
-            </select>
-          </label>
-          <label className="space-y-1 ui-caption font-semibold text-slate-600 dark:text-slate-300">
-            <span>Retain until</span>
-            <input
-              type="datetime-local"
-              className={formInputClasses}
-              value={retentionDate}
-              onChange={(event) => onRetentionDateChange(event.target.value)}
-              disabled={objectLockUnavailable}
-            />
-          </label>
-        </div>
-        <UiCheckboxField
-          checked={retentionBypass}
-          onChange={(event) =>
-            onRetentionBypassChange(event.target.checked)
-          }
-          disabled={objectLockUnavailable}
-          className="mt-2 ui-caption text-slate-500 dark:text-slate-400"
-        >
-          Bypass governance retention
-        </UiCheckboxField>
-        <div className="mt-3 flex items-center justify-end">
-          <button
-            type="button"
-            className={toolbarPrimaryClasses}
-            onClick={() => void onSaveRetention()}
-            disabled={
-              savingRetention ||
-              protectionLoading ||
-              objectLockUnavailable ||
-              !retentionMode ||
-              !retentionDate
-            }
-          >
-            {savingRetention ? "Saving..." : "Update retention"}
-          </button>
-        </div>
-      </div>
-
-      <div className={browserPanelCardClasses}>
-        <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">
-          Signed URL
-        </p>
-        <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
-          Generate a temporary signed URL for this object (valid for up to 12
-          hours).
-        </p>
-        {sseCustomerKeyActive && (
-          <p className="mt-2 ui-caption font-semibold text-amber-600 dark:text-amber-200">
-            SSE-C is active: URL alone is insufficient without the required
-            SSE-C headers.
-          </p>
-        )}
-        <label className="mt-3 block space-y-1 ui-caption font-semibold text-slate-600 dark:text-slate-300">
-          <span>Expires at</span>
-          <input
-            type="datetime-local"
-            className={formInputClasses}
-            value={presignExpires}
-            onChange={(event) => onPresignExpiresChange(event.target.value)}
-          />
-        </label>
-        {presignError && (
-          <p className="mt-2 ui-caption font-semibold text-rose-600 dark:text-rose-200">
-            {presignError}
-          </p>
-        )}
-        <div className="mt-3 flex items-center justify-end">
-          <button
-            type="button"
-            className={toolbarPrimaryClasses}
-            onClick={() => void onGeneratePresign()}
-            disabled={savingPresign}
-          >
-            {savingPresign ? "Generating..." : "Generate URL"}
-          </button>
-        </div>
-        {presignUrl && (
-          <div className="mt-3 space-y-2 rounded-lg border border-slate-200/80 bg-white px-3 py-3 ui-caption dark:border-slate-700 dark:bg-slate-950/60">
-            <div className="flex items-center justify-between">
-              <span className="ui-caption font-semibold text-slate-600 dark:text-slate-300">
-                {presignMethod || "GET"}
-              </span>
-              <button
-                type="button"
-                className={toolbarButtonClasses}
-                onClick={() => void onCopyPresign()}
-              >
-                Copy URL
-              </button>
-            </div>
-            <textarea
-              className={`${formInputClasses} h-24 font-mono`}
-              readOnly
-              value={presignUrl}
-              spellCheck={false}
-            />
-            {presignHeaders && Object.keys(presignHeaders).length > 0 && (
-              <div className="space-y-1">
-                <p className="ui-caption font-semibold uppercase tracking-wide text-slate-400">
-                  Headers
-                </p>
-                <pre className="overflow-auto rounded-md bg-slate-900/90 p-2 ui-caption text-slate-100">
-                  {JSON.stringify(presignHeaders, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+        </div>}
+      </SettingsOperationSection>
     </div>
   );
 }

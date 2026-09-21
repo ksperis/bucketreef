@@ -4,8 +4,9 @@
  */
 import type { ObjectMetadata, ObjectTag } from "../../api/browserContracts";
 import PageBanner from "../../components/PageBanner";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { formatBytes } from "../../utils/format";
-import { browserPanelCardClasses, toolbarButtonClasses } from "./browserConstants";
 import type { BrowserItem } from "./browserTypes";
 import { formatDateTime } from "./browserUtils";
 import DetailsList from "../shared/DetailsList";
@@ -37,7 +38,7 @@ function PairList({ emptyLabel, items }: { emptyLabel: string; items: ObjectTag[
   );
 }
 
-export function BrowserObjectFactsCard({
+export function BrowserObjectFactsSection({
   bucketName,
   item,
   metadata,
@@ -58,14 +59,15 @@ export function BrowserObjectFactsCard({
   ];
 
   return (
-    <section className={browserPanelCardClasses}>
-      <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-400">Object facts</p>
+    <div className="settings-compact">
+      <SettingsSection title="Object facts" presentation="compact">
       <DetailsList
         compact
         valueAlign="end"
         items={facts.map(([label, value]) => ({ label, value, title: value }))}
       />
-    </section>
+      </SettingsSection>
+    </div>
   );
 }
 
@@ -90,7 +92,7 @@ export default function BrowserObjectReadOnlyDetailsTab({
   const customMetadata = Object.entries(metadata?.metadata ?? {}).map(([key, value]) => ({ key, value }));
 
   return (
-    <div className="space-y-4">
+    <div className="settings-compact">
       {loading && !loaded ? <p className="ui-caption text-[var(--ui-text-muted)]">Loading object details...</p> : null}
       {error ? (
         <PageBanner
@@ -98,26 +100,23 @@ export default function BrowserObjectReadOnlyDetailsTab({
           className="flex flex-wrap items-center justify-between gap-2 font-semibold"
         >
           <span>{error}</span>
-          <button type="button" className={toolbarButtonClasses} onClick={() => void onRefresh()} disabled={loading}>Retry</button>
+          <SettingsButton variant="secondary" onClick={() => void onRefresh()} disabled={loading}>Retry</SettingsButton>
         </PageBanner>
       ) : null}
-      <BrowserObjectFactsCard bucketName={bucketName} item={item} metadata={metadata} />
-      <section className={browserPanelCardClasses}>
-        <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-400">HTTP headers</p>
+      <BrowserObjectFactsSection bucketName={bucketName} item={item} metadata={metadata} />
+      <SettingsSection title="HTTP headers" presentation="compact">
         <DetailsList
           compact
           valueAlign="end"
           items={headers.map(([label, value]) => ({ label, value, title: value }))}
         />
-      </section>
-      <section className={browserPanelCardClasses}>
-        <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-400">Custom metadata</p>
+      </SettingsSection>
+      <SettingsSection title="Custom metadata" presentation="compact">
         <PairList items={customMetadata} emptyLabel="No custom metadata defined." />
-      </section>
-      <section className={browserPanelCardClasses}>
-        <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-400">Tags</p>
+      </SettingsSection>
+      <SettingsSection title="Tags" presentation="compact">
         <PairList items={tags} emptyLabel="No tags defined." />
-      </section>
+      </SettingsSection>
     </div>
   );
 }

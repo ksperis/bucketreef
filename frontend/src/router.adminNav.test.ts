@@ -158,7 +158,7 @@ describe("buildAdminNav", () => {
     const managedTenants = adminNav.find((section) => section.label === "Managed Tenants");
     const auditReporting = adminNav.find((section) => section.label === "Audit & Reporting");
 
-    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard", "Getting started"]);
     expect(managedTenants?.links.map((link) => link.label)).toEqual([
       "RGW Accounts",
       "RGW Users",

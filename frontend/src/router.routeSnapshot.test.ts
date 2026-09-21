@@ -24,6 +24,7 @@ describe("route snapshot", () => {
       "/profile",
       "/admin",
       "/admin#index",
+      "/admin/onboarding",
       "/admin/profile",
       "/admin/s3-accounts",
       "/admin/s3-users",
