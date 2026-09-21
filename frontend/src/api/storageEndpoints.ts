@@ -104,6 +104,26 @@ type StorageEndpointFeatureDetectionPayload = {
   admin_secret_key?: string | null;
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
+  ceph_admin_access_key?: string | null;
+  ceph_admin_secret_key?: string | null;
+};
+
+export type StorageEndpointCredentialCheckStatus =
+  | "valid"
+  | "denied"
+  | "unavailable"
+  | "incomplete"
+  | "not_configured";
+
+export type StorageEndpointCredentialCheck = {
+  status: StorageEndpointCredentialCheckStatus;
+  message?: string | null;
+};
+
+export type StorageEndpointCredentialChecks = {
+  admin: StorageEndpointCredentialCheck;
+  supervision: StorageEndpointCredentialCheck;
+  ceph_admin: StorageEndpointCredentialCheck;
 };
 
 type StorageEndpointFeatureDetectionResult = {
@@ -116,6 +136,7 @@ type StorageEndpointFeatureDetectionResult = {
   metrics_error?: string | null;
   usage_error?: string | null;
   warnings: string[];
+  credential_checks: StorageEndpointCredentialChecks;
 };
 
 type ListStorageEndpointsParams = {

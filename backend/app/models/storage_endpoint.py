@@ -168,6 +168,8 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
     admin_secret_key: Optional[str] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
+    ceph_admin_access_key: Optional[str] = None
+    ceph_admin_secret_key: Optional[str] = None
 
     normalize_string_fields = field_validator(
         "endpoint_url",
@@ -177,8 +179,33 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
         "admin_secret_key",
         "supervision_access_key",
         "supervision_secret_key",
+        "ceph_admin_access_key",
+        "ceph_admin_secret_key",
         mode="before",
     )(normalize_optional_string_field)
+
+
+class StorageEndpointCredentialCheck(ApiModel):
+    status: Literal[
+        "valid",
+        "denied",
+        "unavailable",
+        "incomplete",
+        "not_configured",
+    ] = "not_configured"
+    message: Optional[str] = None
+
+
+class StorageEndpointCredentialChecks(ApiModel):
+    admin: StorageEndpointCredentialCheck = Field(
+        default_factory=StorageEndpointCredentialCheck
+    )
+    supervision: StorageEndpointCredentialCheck = Field(
+        default_factory=StorageEndpointCredentialCheck
+    )
+    ceph_admin: StorageEndpointCredentialCheck = Field(
+        default_factory=StorageEndpointCredentialCheck
+    )
 
 
 class StorageEndpointFeatureDetectionResult(ApiModel):
@@ -191,3 +218,6 @@ class StorageEndpointFeatureDetectionResult(ApiModel):
     metrics_error: Optional[str] = None
     usage_error: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)
+    credential_checks: StorageEndpointCredentialChecks = Field(
+        default_factory=StorageEndpointCredentialChecks
+    )

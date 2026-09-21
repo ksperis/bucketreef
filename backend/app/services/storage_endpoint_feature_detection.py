@@ -8,10 +8,15 @@ from sqlalchemy.orm import Session
 
 from app.db import StorageEndpoint
 from app.models.storage_endpoint import (
+    StorageEndpointCredentialCheck,
     StorageEndpointFeatureDetectionRequest,
     StorageEndpointFeatureDetectionResult,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.rgw_admin_identity import (
+    classify_rgw_credential_failure,
+    extract_ceph_admin_flags,
+)
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_endpoint import normalize_s3_endpoint
 
@@ -39,6 +44,7 @@ class _FeatureDetectionContext:
     verify_tls: bool
     admin_credentials: _FeatureDetectionCredentials
     supervision_credentials: _FeatureDetectionCredentials
+    ceph_admin_credentials: _FeatureDetectionCredentials
 
 
 class StorageEndpointFeatureDetector:
@@ -120,12 +126,36 @@ class StorageEndpointFeatureDetector:
                 stored_endpoint.supervision_secret_key if stored_endpoint else None
             ),
         )
+        ceph_admin_credentials = self._credentials(
+            payload.ceph_admin_access_key,
+            payload.ceph_admin_secret_key,
+            stored_access_key=(
+                stored_endpoint.ceph_admin_access_key if stored_endpoint else None
+            ),
+            stored_secret_key=(
+                stored_endpoint.ceph_admin_secret_key if stored_endpoint else None
+            ),
+        )
         return _FeatureDetectionContext(
             admin_endpoint=admin_endpoint,
             region=region,
             verify_tls=verify_tls,
             admin_credentials=admin_credentials,
             supervision_credentials=supervision_credentials,
+            ceph_admin_credentials=ceph_admin_credentials,
+        )
+
+    @staticmethod
+    def _failed_check(
+        error: Exception,
+        *,
+        denied_message: str,
+        unavailable_message: str,
+    ) -> StorageEndpointCredentialCheck:
+        failure = classify_rgw_credential_failure(error)
+        return StorageEndpointCredentialCheck(
+            status=failure,
+            message=denied_message if failure == "denied" else unavailable_message,
         )
 
     def _client(
@@ -157,13 +187,33 @@ class StorageEndpointFeatureDetector:
                 )
                 if admin_payload:
                     result.admin = True
+                    result.credential_checks.admin = StorageEndpointCredentialCheck(
+                        status="valid",
+                        message="Admin Ops access was validated by RGW.",
+                    )
                 else:
                     result.admin_error = "Admin access key is not recognized by RGW."
+                    result.credential_checks.admin = StorageEndpointCredentialCheck(
+                        status="denied",
+                        message="Admin Ops access key is not recognized by RGW.",
+                    )
             except RGWAdminError as exc:
                 result.admin_error = str(exc)
+                result.credential_checks.admin = self._failed_check(
+                    exc,
+                    denied_message="Admin Ops credentials were denied by RGW.",
+                    unavailable_message=(
+                        "Admin Ops access could not be checked because the RGW "
+                        "endpoint is unavailable."
+                    ),
+                )
         elif credentials.partial:
             result.admin_error = (
                 "Admin detection requires both access key and secret key."
+            )
+            result.credential_checks.admin = StorageEndpointCredentialCheck(
+                status="incomplete",
+                message="Enter both the Admin Ops access key and secret key.",
             )
         return admin_client
 
@@ -197,6 +247,10 @@ class StorageEndpointFeatureDetector:
             message = "Supervision detection requires both access key and secret key."
             result.metrics_error = message
             result.usage_error = message
+            result.credential_checks.supervision = StorageEndpointCredentialCheck(
+                status="incomplete",
+                message="Enter both the Supervision Ops access key and secret key.",
+            )
             return
         if not credentials.complete:
             return
@@ -206,8 +260,20 @@ class StorageEndpointFeatureDetector:
             supervision_client = self._client(context, credentials)
             supervision_client.get_all_buckets(with_stats=False)
             result.metrics = True
+            result.credential_checks.supervision = StorageEndpointCredentialCheck(
+                status="valid",
+                message="Supervision Ops access was validated by RGW.",
+            )
         except RGWAdminError as exc:
             result.metrics_error = str(exc)
+            result.credential_checks.supervision = self._failed_check(
+                exc,
+                denied_message="Supervision Ops credentials were denied by RGW.",
+                unavailable_message=(
+                    "Supervision Ops access could not be checked because the RGW "
+                    "endpoint is unavailable."
+                ),
+            )
 
         if supervision_client is None:
             return
@@ -223,6 +289,59 @@ class StorageEndpointFeatureDetector:
         except RGWAdminError as exc:
             result.usage_error = str(exc)
 
+    def _detect_ceph_admin_credentials(
+        self,
+        context: _FeatureDetectionContext,
+        result: StorageEndpointFeatureDetectionResult,
+    ) -> None:
+        credentials = context.ceph_admin_credentials
+        if credentials.partial:
+            result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
+                status="incomplete",
+                message="Enter both the Ceph Admin access key and secret key.",
+            )
+            return
+        if not credentials.complete:
+            return
+
+        try:
+            client = self._client(context, credentials)
+            user_payload = client.get_user_by_access_key(
+                credentials.access_key,
+                allow_not_found=True,
+            )
+        except RGWAdminError as exc:
+            result.credential_checks.ceph_admin = self._failed_check(
+                exc,
+                denied_message="Ceph Admin credentials were denied by RGW.",
+                unavailable_message=(
+                    "Ceph Admin access could not be checked because the RGW "
+                    "endpoint is unavailable."
+                ),
+            )
+            return
+
+        if not isinstance(user_payload, dict) or not user_payload:
+            result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
+                status="denied",
+                message="Ceph Admin access key does not map to an RGW user.",
+            )
+            return
+        is_admin, is_system = extract_ceph_admin_flags(user_payload)
+        if not is_admin and not is_system:
+            result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
+                status="denied",
+                message=(
+                    "Ceph Admin access requires an RGW user created with --admin "
+                    "or --system."
+                ),
+            )
+            return
+        result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
+            status="valid",
+            message="Ceph Admin access and privileges were validated by RGW.",
+        )
+
     def detect(
         self,
         payload: StorageEndpointFeatureDetectionRequest,
@@ -232,6 +351,7 @@ class StorageEndpointFeatureDetector:
         admin_client = self._detect_admin_features(context, result)
         self._detect_account_feature(admin_client, result)
         self._detect_supervision_features(context, result)
+        self._detect_ceph_admin_credentials(context, result)
 
         if result.metrics and not result.usage:
             result.warnings.append(
