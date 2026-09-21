@@ -14,6 +14,10 @@ from app.db import StorageEndpoint, StorageProvider, User
 from app.routers.dependencies import get_current_ceph_admin
 from app.services.audit_service import AuditService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError, get_rgw_admin_client
+from app.services.rgw_admin_identity import (
+    classify_rgw_credential_failure,
+    extract_ceph_admin_flags,
+)
 from app.utils.normalize import normalize_storage_provider
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
@@ -41,27 +45,6 @@ class CephAdminIdentityProbe:
     user_payload: Optional[dict] = None
 
 
-def _to_bool(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        return normalized in {"1", "true", "yes", "y", "on"}
-    return False
-
-
-def _extract_ceph_admin_flags(user_payload: dict) -> tuple[bool, bool]:
-    candidates: list[dict] = [user_payload]
-    nested_user = user_payload.get("user")
-    if isinstance(nested_user, dict):
-        candidates.append(nested_user)
-    admin = any(_to_bool(candidate.get("admin")) for candidate in candidates)
-    system = any(_to_bool(candidate.get("system")) for candidate in candidates)
-    return admin, system
-
-
 def probe_ceph_admin_service_identity(endpoint: StorageEndpoint) -> CephAdminIdentityProbe:
     configuration_error = validate_ceph_admin_service_configuration(endpoint)
     if configuration_error:
@@ -81,12 +64,7 @@ def probe_ceph_admin_service_identity(endpoint: StorageEndpoint) -> CephAdminIde
         )
         user_payload = rgw_admin.get_user_by_access_key(access_key, allow_not_found=True)
     except RGWAdminError as exc:
-        error_text = str(exc).lower()
-        denied = any(
-            marker in error_text
-            for marker in ("401", "403", "accessdenied", "access denied", "invalidaccesskey", "signature")
-        )
-        if denied:
+        if classify_rgw_credential_failure(exc) == "denied":
             return CephAdminIdentityProbe(
                 status="denied",
                 warning=f"Ceph Admin credentials were denied for endpoint '{endpoint_label}'.",
@@ -100,7 +78,7 @@ def probe_ceph_admin_service_identity(endpoint: StorageEndpoint) -> CephAdminIde
             status="denied",
             warning=f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': access key does not map to an RGW user.",
         )
-    is_admin, is_system = _extract_ceph_admin_flags(user_payload)
+    is_admin, is_system = extract_ceph_admin_flags(user_payload)
     if not is_admin and not is_system:
         return CephAdminIdentityProbe(
             status="denied",

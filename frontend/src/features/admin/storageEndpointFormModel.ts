@@ -49,6 +49,7 @@ export type FormState = {
   ceph_admin_secret_key: string;
   has_admin_secret: boolean;
   has_supervision_secret: boolean;
+  has_ceph_admin_secret: boolean;
   features: FeaturesState;
 };
 
@@ -305,6 +306,7 @@ export function createEmptyForm(): FormState {
     ceph_admin_secret_key: "",
     has_admin_secret: false,
     has_supervision_secret: false,
+    has_ceph_admin_secret: false,
     features,
   };
 }
@@ -371,6 +373,7 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     ceph_admin_secret_key: "",
     has_admin_secret: Boolean(endpoint.has_admin_secret),
     has_supervision_secret: Boolean(endpoint.has_supervision_secret),
+    has_ceph_admin_secret: Boolean(endpoint.has_ceph_admin_secret),
     features: resolveFeatureState(endpoint, endpoint.provider),
   };
 }

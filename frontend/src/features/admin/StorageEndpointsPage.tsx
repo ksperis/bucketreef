@@ -15,6 +15,9 @@ import {
   updateStorageEndpoint,
   updateStorageEndpointTags,
   type StorageEndpoint,
+  type StorageEndpointCredentialCheck,
+  type StorageEndpointCredentialChecks,
+  type StorageEndpointCredentialCheckStatus,
   type StorageEndpointPayload,
   type StorageProvider,
 } from "../../api/storageEndpoints";
@@ -27,6 +30,7 @@ import PageBanner from "../../components/PageBanner";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiTagEditor from "../../components/UiTagEditor";
 import UiButton from "../../components/ui/UiButton";
+import UiBadge from "../../components/ui/UiBadge";
 import { ListActionButton } from "../../components/list/ListControls";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
@@ -58,6 +62,13 @@ import {
 import StorageEndpointList, { type EndpointListFilters } from "./StorageEndpointList";
 
 type EndpointEditorTab = "general" | "credentials" | "capabilities";
+type CredentialCheckViewStatus = StorageEndpointCredentialCheckStatus | "checking";
+
+const createEmptyCredentialChecks = (): StorageEndpointCredentialChecks => ({
+  admin: { status: "not_configured" },
+  supervision: { status: "not_configured" },
+  ceph_admin: { status: "not_configured" },
+});
 const endpointToggleCardClass =
   "flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 ui-caption font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 const endpointToggleCardDisabledClass = cx(endpointToggleCardClass, "opacity-70");
@@ -105,6 +116,77 @@ function StoredSecretStatus({ label, stored }: { label: string; stored: boolean 
   );
 }
 
+function CredentialStatusBadge({
+  status,
+  message,
+}: {
+  status: CredentialCheckViewStatus;
+  message?: string | null;
+}) {
+  const presentation = {
+    checking: { tone: "info" as const, label: "Checking access…", symbol: null },
+    valid: { tone: "success" as const, label: "Access validated", symbol: "✓" },
+    denied: { tone: "danger" as const, label: "Access rejected", symbol: "×" },
+    unavailable: { tone: "warning" as const, label: "Check unavailable", symbol: "!" },
+    incomplete: { tone: "warning" as const, label: "Complete both keys", symbol: "!" },
+    not_configured: { tone: "neutral" as const, label: "Not configured", symbol: null },
+  }[status];
+
+  return (
+    <UiBadge
+      tone={presentation.tone}
+      title={message ?? presentation.label}
+      role="status"
+      aria-label={message ? `${presentation.label}. ${message}` : presentation.label}
+      className="shrink-0 gap-1"
+    >
+      {status === "checking" ? (
+        <span aria-hidden="true" className="h-3 w-3 animate-spin rounded-full border border-current border-r-transparent" />
+      ) : presentation.symbol ? (
+        <span aria-hidden="true">{presentation.symbol}</span>
+      ) : null}
+      {presentation.label}
+    </UiBadge>
+  );
+}
+
+function resolveCredentialCheckView({
+  accessKey,
+  secretKey,
+  storedAccessKey,
+  hasStoredSecret,
+  endpointReady,
+  checking,
+  check,
+  incompleteMessage,
+}: {
+  accessKey: string;
+  secretKey: string;
+  storedAccessKey?: string | null;
+  hasStoredSecret: boolean;
+  endpointReady: boolean;
+  checking: boolean;
+  check: StorageEndpointCredentialCheck;
+  incompleteMessage: string;
+}): { status: CredentialCheckViewStatus; message?: string | null } | null {
+  const normalizedAccessKey = accessKey.trim();
+  const normalizedSecretKey = secretKey.trim();
+  if (!normalizedAccessKey && !normalizedSecretKey) return null;
+  const canReuseStoredSecret = Boolean(
+    hasStoredSecret && normalizedAccessKey && normalizedAccessKey === (storedAccessKey ?? "").trim()
+  );
+  if (!normalizedAccessKey || (!normalizedSecretKey && !canReuseStoredSecret)) {
+    return { status: "incomplete", message: incompleteMessage };
+  }
+  if (!endpointReady) {
+    return { status: "incomplete", message: "Enter the endpoint URL before checking access." };
+  }
+  if (checking || check.status === "not_configured") {
+    return { status: "checking", message: "BucketReef is checking these credentials against RGW." };
+  }
+  return check;
+}
+
 export default function StorageEndpointsPage() {
   const navigate = useNavigate();
   const { endpointId: endpointIdParam } = useParams();
@@ -135,11 +217,17 @@ export default function StorageEndpointsPage() {
   const [featureDetectBusy, setFeatureDetectBusy] = useState(false);
   const [featureDetectError, setFeatureDetectError] = useState<string | null>(null);
   const [featureDetectWarnings, setFeatureDetectWarnings] = useState<string[]>([]);
+  const [credentialChecks, setCredentialChecks] = useState<StorageEndpointCredentialChecks>(createEmptyCredentialChecks);
   const {
     catalog: endpointTagCatalog,
     loading: endpointTagCatalogLoading,
     error: endpointTagCatalogError,
   } = useTagCatalog({ kind: "admin", domain: "endpoint" }, Boolean(showForm && canEditEndpoints));
+
+  const invalidateCredentialChecks = useCallback(() => {
+    setFeatureDetectBusy(false);
+    setCredentialChecks(createEmptyCredentialChecks());
+  }, []);
 
   const resetForm = useCallback(() => {
     setForm(createEmptyForm());
@@ -149,6 +237,7 @@ export default function StorageEndpointsPage() {
     setFeatureDetectBusy(false);
     setFeatureDetectError(null);
     setFeatureDetectWarnings([]);
+    setCredentialChecks(createEmptyCredentialChecks());
     setEditingId(null);
   }, []);
 
@@ -192,6 +281,7 @@ export default function StorageEndpointsPage() {
       setFeatureDetectBusy(false);
       setFeatureDetectError(null);
       setFeatureDetectWarnings([]);
+      setCredentialChecks(createEmptyCredentialChecks());
       return;
     }
     const endpointUrl = form.endpoint_url.trim();
@@ -200,12 +290,27 @@ export default function StorageEndpointsPage() {
     const adminSecretKey = form.admin_secret_key.trim();
     const supervisionAccessKey = form.supervision_access_key.trim();
     const supervisionSecretKey = form.supervision_secret_key.trim();
-    const hasAdminCredentials = Boolean(adminAccessKey && (adminSecretKey || form.has_admin_secret));
+    const cephAdminAccessKey = form.ceph_admin_access_key.trim();
+    const cephAdminSecretKey = form.ceph_admin_secret_key.trim();
+    const hasAdminCredentials = Boolean(
+      adminAccessKey &&
+        (adminSecretKey ||
+          (form.has_admin_secret && adminAccessKey === (editingEndpoint?.admin_access_key ?? "").trim()))
+    );
     const hasSupervisionCredentials = Boolean(
-      supervisionAccessKey && (supervisionSecretKey || form.has_supervision_secret)
+      supervisionAccessKey &&
+        (supervisionSecretKey ||
+          (form.has_supervision_secret &&
+            supervisionAccessKey === (editingEndpoint?.supervision_access_key ?? "").trim()))
+    );
+    const hasCephAdminCredentials = Boolean(
+      cephAdminAccessKey &&
+        (cephAdminSecretKey ||
+          (form.has_ceph_admin_secret &&
+            cephAdminAccessKey === (editingEndpoint?.ceph_admin_access_key ?? "").trim()))
     );
 
-    if (!endpointUrl || (!hasAdminCredentials && !hasSupervisionCredentials)) {
+    if (!endpointUrl || (!hasAdminCredentials && !hasSupervisionCredentials && !hasCephAdminCredentials)) {
       setFeatureDetectBusy(false);
       setFeatureDetectError(null);
       setFeatureDetectWarnings([]);
@@ -235,8 +340,9 @@ export default function StorageEndpointsPage() {
     }
 
     let cancelled = false;
+    setFeatureDetectBusy(true);
+    setCredentialChecks(createEmptyCredentialChecks());
     const timer = window.setTimeout(async () => {
-      setFeatureDetectBusy(true);
       setFeatureDetectError(null);
       try {
         const detection = await detectStorageEndpointFeatures({
@@ -249,6 +355,8 @@ export default function StorageEndpointsPage() {
           admin_secret_key: adminSecretKey || null,
           supervision_access_key: supervisionAccessKey || null,
           supervision_secret_key: supervisionSecretKey || null,
+          ceph_admin_access_key: cephAdminAccessKey || null,
+          ceph_admin_secret_key: cephAdminSecretKey || null,
         });
         if (cancelled) return;
         const warnings: string[] = [];
@@ -274,6 +382,7 @@ export default function StorageEndpointsPage() {
         }
         setFeatureDetectWarnings(warnings);
         setFeatureDetectError(errorParts.length > 0 ? errorParts.join(" | ") : null);
+        setCredentialChecks(detection.credential_checks);
         setForm((prev) => {
           if (prev.provider !== "ceph") return prev;
           const next = applyFeatureConstraints(
@@ -300,6 +409,17 @@ export default function StorageEndpointsPage() {
         if (!cancelled) {
           setFeatureDetectWarnings([]);
           setFeatureDetectError(extractError(err));
+          setCredentialChecks({
+            admin: hasAdminCredentials
+              ? { status: "unavailable", message: "Admin Ops access could not be checked." }
+              : { status: "not_configured" },
+            supervision: hasSupervisionCredentials
+              ? { status: "unavailable", message: "Supervision Ops access could not be checked." }
+              : { status: "not_configured" },
+            ceph_admin: hasCephAdminCredentials
+              ? { status: "unavailable", message: "Ceph Admin access could not be checked." }
+              : { status: "not_configured" },
+          });
         }
       } finally {
         if (!cancelled) {
@@ -320,11 +440,17 @@ export default function StorageEndpointsPage() {
     form.endpoint_url,
     form.features.admin.endpoint,
     form.has_admin_secret,
+    form.has_ceph_admin_secret,
     form.has_supervision_secret,
     form.region,
     form.verify_tls,
     form.supervision_access_key,
     form.supervision_secret_key,
+    form.ceph_admin_access_key,
+    form.ceph_admin_secret_key,
+    editingEndpoint?.admin_access_key,
+    editingEndpoint?.ceph_admin_access_key,
+    editingEndpoint?.supervision_access_key,
     showForm,
     canEditEndpoints,
     configurationReadOnly,
@@ -353,6 +479,7 @@ export default function StorageEndpointsPage() {
   );
 
   const handleProviderChange = (provider: StorageProvider) => {
+    invalidateCredentialChecks();
     setForm((prev) => {
       const awsRegion = AWS_DEFAULT_REGION;
       const awsCoordinates = awsCoordinatesForRegion(awsRegion);
@@ -378,6 +505,7 @@ export default function StorageEndpointsPage() {
   };
 
   const handleRegionChange = (region: string) => {
+    invalidateCredentialChecks();
     setForm((prev) => {
       if (prev.provider !== "aws") {
         return { ...prev, region };
@@ -413,6 +541,7 @@ export default function StorageEndpointsPage() {
     setFeatureDetectBusy(false);
     setFeatureDetectError(null);
     setFeatureDetectWarnings([]);
+    setCredentialChecks(createEmptyCredentialChecks());
     setEditingId(null);
     setShowForm(true);
   };
@@ -424,6 +553,10 @@ export default function StorageEndpointsPage() {
     setForm(nextForm);
     setFormInitialSignature(stableSignature({ form: { ...nextForm, tags: normalizeUiTags(nextForm.tags) } }));
     setFormError(null);
+    setFeatureDetectBusy(false);
+    setFeatureDetectError(null);
+    setFeatureDetectWarnings([]);
+    setCredentialChecks(createEmptyCredentialChecks());
     setShowForm(true);
   }, []);
 
@@ -669,8 +802,48 @@ export default function StorageEndpointsPage() {
     Boolean(form.endpoint_url.trim()) &&
     Boolean(form.supervision_access_key.trim() || form.has_supervision_secret) &&
     !form.features.usage.enabled;
+  const endpointReadyForCredentialCheck = Boolean(form.endpoint_url.trim());
+  const adminCredentialCheck = configurationReadOnly
+    ? null
+    : resolveCredentialCheckView({
+        accessKey: form.admin_access_key,
+        secretKey: form.admin_secret_key,
+        storedAccessKey: editingEndpoint?.admin_access_key,
+        hasStoredSecret: form.has_admin_secret,
+        endpointReady: endpointReadyForCredentialCheck,
+        checking: featureDetectBusy,
+        check: credentialChecks.admin,
+        incompleteMessage: "Enter both the Admin Ops access key and secret key.",
+      });
+  const supervisionCredentialCheck = configurationReadOnly
+    ? null
+    : resolveCredentialCheckView({
+        accessKey: form.supervision_access_key,
+        secretKey: form.supervision_secret_key,
+        storedAccessKey: editingEndpoint?.supervision_access_key,
+        hasStoredSecret: form.has_supervision_secret,
+        endpointReady: endpointReadyForCredentialCheck,
+        checking: featureDetectBusy,
+        check: credentialChecks.supervision,
+        incompleteMessage: "Enter both the Supervision Ops access key and secret key.",
+      });
+  const cephAdminCredentialCheck = configurationReadOnly
+    ? null
+    : resolveCredentialCheckView({
+        accessKey: form.ceph_admin_access_key,
+        secretKey: form.ceph_admin_secret_key,
+        storedAccessKey: editingEndpoint?.ceph_admin_access_key,
+        hasStoredSecret: form.has_ceph_admin_secret,
+        endpointReady: endpointReadyForCredentialCheck,
+        checking: featureDetectBusy,
+        check: credentialChecks.ceph_admin,
+        incompleteMessage: "Enter both the Ceph Admin access key and secret key.",
+      });
   const hasSupervisionCredentialsForSignedProbe = Boolean(
-    form.supervision_access_key.trim() && (form.supervision_secret_key.trim() || form.has_supervision_secret)
+    form.supervision_access_key.trim() &&
+      (form.supervision_secret_key.trim() ||
+        (form.has_supervision_secret &&
+          form.supervision_access_key.trim() === (editingEndpoint?.supervision_access_key ?? "").trim()))
   );
   const editorTabs = [
     { id: "general", label: "Connection" },
@@ -876,6 +1049,7 @@ export default function StorageEndpointsPage() {
                 value={awsMode ? computedAwsS3Endpoint : form.endpoint_url}
                 onChange={(e) => {
                   if (!awsMode) {
+                    invalidateCredentialChecks();
                     setForm((prev) => ({ ...prev, endpoint_url: e.target.value }));
                   }
                 }}
@@ -937,7 +1111,10 @@ export default function StorageEndpointsPage() {
                 <input
                   type="checkbox"
                   checked={!form.verify_tls}
-                  onChange={(e) => setForm((prev) => ({ ...prev, verify_tls: !e.target.checked }))}
+                  onChange={(e) => {
+                    invalidateCredentialChecks();
+                    setForm((prev) => ({ ...prev, verify_tls: !e.target.checked }));
+                  }}
                   className={endpointToggleCheckboxClass}
                   disabled={configurationReadOnly}
                 />
@@ -971,12 +1148,18 @@ export default function StorageEndpointsPage() {
                   <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Management</p>
                   <div className="mt-3 grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1 ui-body font-semibold text-slate-700 dark:text-slate-100">
-                      <p>Administration (Admin Ops)</p>
+                      <div className="flex min-h-6 flex-wrap items-center justify-between gap-2">
+                        <p>Administration (Admin Ops)</p>
+                        {adminCredentialCheck ? <CredentialStatusBadge {...adminCredentialCheck} /> : null}
+                      </div>
                       <div className="grid gap-3">
                         <UiInput
                           label="Admin access key"
                           value={form.admin_access_key}
-                          onChange={(e) => setForm((prev) => ({ ...prev, admin_access_key: e.target.value }))}
+                          onChange={(e) => {
+                            invalidateCredentialChecks();
+                            setForm((prev) => ({ ...prev, admin_access_key: e.target.value }));
+                          }}
                           className={endpointReadOnlyInputClass}
                           readOnly={configurationReadOnly}
                           placeholder="Access key admin"
@@ -989,7 +1172,10 @@ export default function StorageEndpointsPage() {
                             label="Admin secret key"
                             type="password"
                             value={form.admin_secret_key}
-                            onChange={(e) => setForm((prev) => ({ ...prev, admin_secret_key: e.target.value }))}
+                            onChange={(e) => {
+                              invalidateCredentialChecks();
+                              setForm((prev) => ({ ...prev, admin_secret_key: e.target.value }));
+                            }}
                             placeholder={editingId ? "Secret key admin (leave blank to keep)" : "Secret key admin"}
                             required={!editingId && form.features.admin.enabled}
                           />
@@ -1000,12 +1186,18 @@ export default function StorageEndpointsPage() {
                       </p>}
                     </div>
                     <div className="space-y-1 ui-body font-semibold text-slate-700 dark:text-slate-100">
-                      <p>Monitoring (Supervision Ops)</p>
+                      <div className="flex min-h-6 flex-wrap items-center justify-between gap-2">
+                        <p>Monitoring (Supervision Ops)</p>
+                        {supervisionCredentialCheck ? <CredentialStatusBadge {...supervisionCredentialCheck} /> : null}
+                      </div>
                       <div className="grid gap-3">
                         <UiInput
                           label="Supervision access key"
                           value={form.supervision_access_key}
-                          onChange={(e) => setForm((prev) => ({ ...prev, supervision_access_key: e.target.value }))}
+                          onChange={(e) => {
+                            invalidateCredentialChecks();
+                            setForm((prev) => ({ ...prev, supervision_access_key: e.target.value }));
+                          }}
                           className={endpointReadOnlyInputClass}
                           readOnly={configurationReadOnly}
                           placeholder="Access key supervision"
@@ -1018,7 +1210,10 @@ export default function StorageEndpointsPage() {
                             label="Supervision secret key"
                             type="password"
                             value={form.supervision_secret_key}
-                            onChange={(e) => setForm((prev) => ({ ...prev, supervision_secret_key: e.target.value }))}
+                            onChange={(e) => {
+                              invalidateCredentialChecks();
+                              setForm((prev) => ({ ...prev, supervision_secret_key: e.target.value }));
+                            }}
                             placeholder="Secret key supervision"
                             required={!editingId && (form.features.usage.enabled || form.features.metrics.enabled)}
                           />
@@ -1062,7 +1257,10 @@ export default function StorageEndpointsPage() {
                 </div>
                 {cephAdminConfigEnabled && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 ui-caption text-amber-900 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/60 dark:text-amber-100">
-                    <p className="ui-body font-semibold">Ceph Admin dedicated credentials</p>
+                    <div className="flex min-h-6 flex-wrap items-center justify-between gap-2">
+                      <p className="ui-body font-semibold">Ceph Admin dedicated credentials</p>
+                      {cephAdminCredentialCheck ? <CredentialStatusBadge {...cephAdminCredentialCheck} /> : null}
+                    </div>
                     <p className="mt-2">
                       These credentials are used only by the <code>/ceph-admin</code> workspace (advanced
                       cluster-wide operations). They are isolated from Admin Ops credentials.
@@ -1075,7 +1273,10 @@ export default function StorageEndpointsPage() {
                       <UiInput
                         label="Ceph Admin access key"
                         value={form.ceph_admin_access_key}
-                        onChange={(e) => setForm((prev) => ({ ...prev, ceph_admin_access_key: e.target.value }))}
+                        onChange={(e) => {
+                          invalidateCredentialChecks();
+                          setForm((prev) => ({ ...prev, ceph_admin_access_key: e.target.value }));
+                        }}
                         className={endpointReadOnlyInputClass}
                         readOnly={configurationReadOnly}
                         placeholder="Ceph Admin access key"
@@ -1090,7 +1291,10 @@ export default function StorageEndpointsPage() {
                           label="Ceph Admin secret key"
                           type="password"
                           value={form.ceph_admin_secret_key}
-                          onChange={(e) => setForm((prev) => ({ ...prev, ceph_admin_secret_key: e.target.value }))}
+                          onChange={(e) => {
+                            invalidateCredentialChecks();
+                            setForm((prev) => ({ ...prev, ceph_admin_secret_key: e.target.value }));
+                          }}
                           placeholder={editingId ? "Ceph Admin secret key (leave blank to keep)" : "Ceph Admin secret key"}
                         />
                       )}
@@ -1255,12 +1459,13 @@ export default function StorageEndpointsPage() {
                         <UiInput
                           label="Ceph admin endpoint override (optional)"
                           value={form.features.admin.endpoint}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            invalidateCredentialChecks();
                             updateFeatures((current) => ({
                               ...current,
                               admin: { ...current.admin, endpoint: e.target.value },
-                            }))
-                          }
+                            }));
+                          }}
                           className={endpointReadOnlyInputClass}
                           readOnly={configurationReadOnly}
                           placeholder="http://rgw-admin.local"

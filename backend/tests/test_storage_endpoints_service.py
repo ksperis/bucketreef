@@ -816,8 +816,10 @@ def test_detect_features_warns_when_usage_log_endpoint_is_unavailable(db_session
             self.account_api_supported = None
 
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = False):
+            assert access_key == self.access_key
+            if self.access_key == "AKIA-CEPH-ADMIN":
+                return {"user": {"system": "true"}}
             assert self.access_key == "AKIA-ADMIN"
-            assert access_key == "AKIA-ADMIN"
             return {"user_id": "admin-user"}
 
         def get_all_buckets(self, with_stats: bool = False):
@@ -857,6 +859,8 @@ def test_detect_features_warns_when_usage_log_endpoint_is_unavailable(db_session
             admin_secret_key="SECRET-ADMIN",
             supervision_access_key="AKIA-SUPERVISION",
             supervision_secret_key="SECRET-SUPERVISION",
+            ceph_admin_access_key="AKIA-CEPH-ADMIN",
+            ceph_admin_secret_key="SECRET-CEPH-ADMIN",
         )
     )
 
@@ -865,6 +869,9 @@ def test_detect_features_warns_when_usage_log_endpoint_is_unavailable(db_session
     assert result.metrics is True
     assert result.usage is False
     assert result.usage_error == "RGW usage logs endpoint is unavailable."
+    assert result.credential_checks.admin.status == "valid"
+    assert result.credential_checks.supervision.status == "valid"
+    assert result.credential_checks.ceph_admin.status == "valid"
     assert len(result.warnings) == 1
     assert "Usage logs do not appear enabled" in result.warnings[0]
 
@@ -880,6 +887,7 @@ def test_detect_features_reports_incomplete_credential_pairs(db_session, monkeyp
             endpoint_url="https://ceph.example.test",
             admin_access_key="AKIA-ADMIN",
             supervision_secret_key="SECRET-SUPERVISION",
+            ceph_admin_access_key="AKIA-CEPH-ADMIN",
         )
     )
 
@@ -890,6 +898,52 @@ def test_detect_features_reports_incomplete_credential_pairs(db_session, monkeyp
     assert result.usage is False
     assert result.metrics_error == "Supervision detection requires both access key and secret key."
     assert result.usage_error == result.metrics_error
+    assert result.credential_checks.admin.status == "incomplete"
+    assert result.credential_checks.supervision.status == "incomplete"
+    assert result.credential_checks.ceph_admin.status == "incomplete"
+
+
+def test_detect_features_classifies_denied_unavailable_and_unprivileged_credentials(db_session, monkeypatch):
+    class FakeRGWClient:
+        def __init__(self, access_key: str):
+            self.access_key = access_key
+            self.account_api_supported = None
+
+        def get_user_by_access_key(self, *_args, **_kwargs):
+            if self.access_key == "AKIA-ADMIN":
+                raise RGWAdminError("RGW admin error 403: AccessDenied")
+            return {"admin": False, "system": False}
+
+        def get_account(self, *_args, **_kwargs):
+            raise RGWAdminError("RGW admin error 403: AccessDenied")
+
+        def get_all_buckets(self, **_kwargs):
+            raise RGWAdminError("connect timeout")
+
+        def get_usage(self, **_kwargs):
+            raise RGWAdminError("connect timeout")
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **kwargs: FakeRGWClient(kwargs["access_key"]),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            admin_access_key="AKIA-ADMIN",
+            admin_secret_key="SECRET-ADMIN",
+            supervision_access_key="AKIA-SUPERVISION",
+            supervision_secret_key="SECRET-SUPERVISION",
+            ceph_admin_access_key="AKIA-CEPH-ADMIN",
+            ceph_admin_secret_key="SECRET-CEPH-ADMIN",
+        )
+    )
+
+    assert result.credential_checks.admin.status == "denied"
+    assert result.credential_checks.supervision.status == "unavailable"
+    assert result.credential_checks.ceph_admin.status == "denied"
+    assert "--admin or --system" in (result.credential_checks.ceph_admin.message or "")
 
 
 def test_detect_features_keeps_account_and_usage_probes_independent(db_session, monkeypatch):
@@ -1145,8 +1199,10 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
             self.account_api_supported = None
 
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = False):
+            assert access_key == self.access_key
+            if self.access_key == endpoint.ceph_admin_access_key:
+                return {"admin": True}
             assert self.access_key == endpoint.admin_access_key
-            assert access_key == endpoint.admin_access_key
             return {"user_id": "admin-user"}
 
         def get_all_buckets(self, with_stats: bool = False):
@@ -1178,6 +1234,8 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
             assert kwargs["secret_key"] == endpoint.admin_secret_key
         if kwargs["access_key"] == endpoint.supervision_access_key:
             assert kwargs["secret_key"] == endpoint.supervision_secret_key
+        if kwargs["access_key"] == endpoint.ceph_admin_access_key:
+            assert kwargs["secret_key"] == endpoint.ceph_admin_secret_key
         assert kwargs["verify_tls"] is False
         return FakeRGWClient(kwargs["access_key"])
 
@@ -1193,6 +1251,7 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
             endpoint_url=endpoint.endpoint_url,
             admin_access_key=endpoint.admin_access_key,
             supervision_access_key=endpoint.supervision_access_key,
+            ceph_admin_access_key=endpoint.ceph_admin_access_key,
         )
     )
 
@@ -1203,3 +1262,6 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
     assert result.admin_error is None
     assert result.metrics_error is None
     assert result.usage_error is None
+    assert result.credential_checks.admin.status == "valid"
+    assert result.credential_checks.supervision.status == "valid"
+    assert result.credential_checks.ceph_admin.status == "valid"

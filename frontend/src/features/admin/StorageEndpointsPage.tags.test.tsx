@@ -6,6 +6,7 @@ import { setSessionUserCache } from "../../utils/workspaces";
 
 const listStorageEndpointsMock = vi.fn();
 const fetchStorageEndpointsMetaMock = vi.fn();
+const detectStorageEndpointFeaturesMock = vi.fn();
 const createStorageEndpointMock = vi.fn();
 const updateStorageEndpointMock = vi.fn();
 const updateStorageEndpointTagsMock = vi.fn();
@@ -47,7 +48,7 @@ vi.mock("../../api/storageEndpoints", () => ({
   listStorageEndpoints: () => listStorageEndpointsMock(),
   fetchStorageEndpointsMeta: () => fetchStorageEndpointsMetaMock(),
   updateStorageEndpointTags: (id: number, payload: unknown) => updateStorageEndpointTagsMock(id, payload),
-  detectStorageEndpointFeatures: vi.fn(),
+  detectStorageEndpointFeatures: (payload: unknown) => detectStorageEndpointFeaturesMock(payload),
   createStorageEndpoint: (payload: unknown) => createStorageEndpointMock(payload),
   deleteStorageEndpoint: (id: number) => deleteStorageEndpointMock(id),
   getStorageEndpoint: vi.fn(),
@@ -112,6 +113,20 @@ describe("StorageEndpointsPage tags", () => {
     vi.clearAllMocks();
     setSessionUserCache(null);
     fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: false });
+    detectStorageEndpointFeaturesMock.mockResolvedValue({
+      admin: true,
+      account: false,
+      usage: false,
+      metrics: true,
+      account_error: "RGW account API is unavailable.",
+      usage_error: "RGW usage logs endpoint is unavailable.",
+      warnings: ["Usage logs do not appear enabled on this RGW endpoint; activity traffic stats will not be available."],
+      credential_checks: {
+        admin: { status: "valid", message: "Admin Ops access was validated by RGW." },
+        supervision: { status: "valid", message: "Supervision Ops access was validated by RGW." },
+        ceph_admin: { status: "valid", message: "Ceph Admin access and privileges were validated by RGW." },
+      },
+    });
     listStorageEndpointsMock.mockResolvedValue([makeEndpoint()]);
     createStorageEndpointMock.mockResolvedValue(makeEndpoint({ id: 8, name: "AWS Regional", provider: "aws", endpoint_url: "https://s3.us-east-1.amazonaws.com" }));
     listAdminTagDefinitionsMock.mockResolvedValue([makeTag(801, "prod"), makeTag(802, "rgw-a")]);
@@ -204,6 +219,134 @@ describe("StorageEndpointsPage tags", () => {
     expect(within(opsHelp as HTMLElement).getByText(/keys let BucketReef create RGW accounts and S3 users/)).toBeVisible();
     expect(within(opsHelp as HTMLElement).getByText("Ceph (radosgw-admin) examples")).toBeVisible();
     expect(within(opsHelp as HTMLElement).queryByRole("button", { name: /show|hide/i })).not.toBeInTheDocument();
+  });
+
+  it("validates all operational credential pairs without blocking endpoint updates", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([
+      makeEndpoint({
+        admin_access_key: "admin-key",
+        has_admin_secret: true,
+        supervision_access_key: "supervision-key",
+        has_supervision_secret: true,
+        ceph_admin_access_key: "ceph-admin-key",
+        has_ceph_admin_secret: true,
+      }),
+    ]);
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+
+    expect(await screen.findAllByText("Access validated")).toHaveLength(3);
+    expect(detectStorageEndpointFeaturesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        admin_access_key: "admin-key",
+        admin_secret_key: null,
+        supervision_access_key: "supervision-key",
+        supervision_secret_key: null,
+        ceph_admin_access_key: "ceph-admin-key",
+        ceph_admin_secret_key: null,
+      })
+    );
+
+    fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-admin-key" } });
+    expect(screen.getByText("Complete both keys")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Update endpoint" })).toBeEnabled();
+  });
+
+  it("distinguishes rejected credentials from an unavailable validation endpoint", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([
+      makeEndpoint({
+        admin_access_key: "admin-key",
+        has_admin_secret: true,
+        supervision_access_key: "supervision-key",
+        has_supervision_secret: true,
+        ceph_admin_access_key: "ceph-admin-key",
+        has_ceph_admin_secret: true,
+      }),
+    ]);
+    detectStorageEndpointFeaturesMock.mockResolvedValueOnce({
+      admin: false,
+      account: false,
+      usage: false,
+      metrics: false,
+      admin_error: "AccessDenied",
+      metrics_error: "connect timeout",
+      usage_error: "connect timeout",
+      warnings: [],
+      credential_checks: {
+        admin: { status: "denied", message: "Admin Ops credentials were denied by RGW." },
+        supervision: {
+          status: "unavailable",
+          message: "Supervision Ops access could not be checked because the RGW endpoint is unavailable.",
+        },
+        ceph_admin: { status: "denied", message: "Ceph Admin access requires an RGW user created with --admin or --system." },
+      },
+    });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+
+    expect(await screen.findAllByText("Access rejected")).toHaveLength(2);
+    expect(screen.getByText("Check unavailable")).toBeInTheDocument();
+  });
+
+  it("ignores a stale credential validation response after the keys change", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([
+      makeEndpoint({
+        admin_access_key: "admin-key",
+        has_admin_secret: true,
+        supervision_access_key: "supervision-key",
+        has_supervision_secret: true,
+        ceph_admin_access_key: "ceph-admin-key",
+        has_ceph_admin_secret: true,
+      }),
+    ]);
+    let resolveStaleRequest: ((value: unknown) => void) | undefined;
+    const staleRequest = new Promise((resolve) => {
+      resolveStaleRequest = resolve;
+    });
+    detectStorageEndpointFeaturesMock.mockImplementationOnce(() => staleRequest).mockResolvedValueOnce({
+      admin: true,
+      account: true,
+      usage: true,
+      metrics: true,
+      warnings: [],
+      credential_checks: {
+        admin: { status: "valid" },
+        supervision: { status: "valid" },
+        ceph_admin: { status: "valid" },
+      },
+    });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    await waitFor(() => expect(detectStorageEndpointFeaturesMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText("Admin secret key"), { target: { value: "replacement-secret" } });
+    expect(await screen.findAllByText("Access validated")).toHaveLength(3);
+
+    resolveStaleRequest?.({
+      admin: false,
+      account: false,
+      usage: false,
+      metrics: false,
+      warnings: [],
+      credential_checks: {
+        admin: { status: "denied" },
+        supervision: { status: "denied" },
+        ceph_admin: { status: "denied" },
+      },
+    });
+    await act(async () => Promise.resolve());
+
+    expect(screen.getAllByText("Access validated")).toHaveLength(3);
+    expect(screen.queryByText("Access rejected")).not.toBeInTheDocument();
   });
 
   it("lets superadmin edit endpoint tags even when endpoints are env-managed", async () => {
