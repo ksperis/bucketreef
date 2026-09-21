@@ -1199,6 +1199,27 @@ describe("AccountsPage modal tabs", () => {
     await waitFor(() => expect(screen.queryByRole("form", {name: "Create RGW account"})).not.toBeInTheDocument());
   });
 
+  it.each([
+    ["tenant:account", "Account name must not contain ':'."],
+    ["tenant$account", "Account name must not contain '$'."],
+  ])("rejects an RGW account name containing reserved characters: %s", async (value, message) => {
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", {name: "Create account", exact: true}));
+    const form = await screen.findByRole("form", {name: "Create RGW account"});
+    const name = within(form).getByLabelText("Account name *");
+    const submit = within(form).getByRole("button", {name: "Create account", exact: true});
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.change(name, {target: {value}});
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(name).toHaveFocus());
+    expect(name).toHaveAccessibleDescription(message);
+    expect(createS3AccountMock).not.toHaveBeenCalled();
+
+    fireEvent.change(name, {target: {value: "tenant account"}});
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+  });
+
   it("validates import identifiers inline and freezes the same payload through a retry", async () => {
     render(<AccountsPage />);
     fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));

@@ -99,6 +99,24 @@ describe("CephAdminAccountCreateModal", () => {
     });
   });
 
+  it.each([
+    ["tenant:account", "Account name must not contain ':'."],
+    ["tenant$account", "Account name must not contain '$'."],
+  ])("rejects an RGW account name containing reserved characters: %s", async (value, message) => {
+    render(<CephAdminAccountCreateModal endpointId={7} onClose={vi.fn()} />);
+    const form = screen.getByRole("form", { name: "Create RGW account" });
+    const name = screen.getByLabelText("Account name");
+    fireEvent.change(name, { target: { value } });
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(name).toHaveFocus());
+    expect(name).toHaveAccessibleDescription(message);
+    expect(createCephAdminAccountMock).not.toHaveBeenCalled();
+
+    fireEvent.change(name, { target: { value: "tenant account" } });
+    expect(name).not.toHaveAttribute("aria-invalid", "true");
+  });
+
   it("keeps quota validation independent and clears errors when corrected or disabled", async () => {
     render(<CephAdminAccountCreateModal endpointId={7} onClose={vi.fn()} />);
     const form = screen.getByRole("form", { name: "Create RGW account" });

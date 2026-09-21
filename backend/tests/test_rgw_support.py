@@ -5,7 +5,11 @@ import pytest
 from app.db import StorageEndpoint, StorageProvider
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_supervision import get_supervision_rgw_client
-from app.utils.rgw_identifiers import is_rgw_account_id, resolve_account_scope
+from app.utils.rgw_identifiers import (
+    is_rgw_account_id,
+    resolve_account_scope,
+    validate_rgw_account_name,
+)
 from app.utils.rgw_payloads import extract_rgw_user_identity, extract_rgw_user_payload
 
 
@@ -23,6 +27,25 @@ def test_resolve_account_scope_with_tenant_name():
     assert resolved_account_id is None
     assert tenant == identifier
     assert not is_rgw_account_id(identifier)
+
+
+@pytest.mark.parametrize("name", ["Research Account", "Équipe données", " account with spaces "])
+def test_validate_rgw_account_name_accepts_ceph_supported_names(name):
+    assert validate_rgw_account_name(name) == name
+
+
+@pytest.mark.parametrize(
+    ("name", "message"),
+    [
+        ("   ", "Account name is required"),
+        ("tenant$account", r"must not contain '\$'"),
+        ("tenant:account", "must not contain ':'"),
+        ("invalid\ud800", "must be valid UTF-8"),
+    ],
+)
+def test_validate_rgw_account_name_rejects_names_refused_by_ceph(name, message):
+    with pytest.raises(ValueError, match=message):
+        validate_rgw_account_name(name)
 
 
 @pytest.mark.parametrize(

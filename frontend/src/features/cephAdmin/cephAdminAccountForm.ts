@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { parseOptionalNonNegativeInteger, validateCephAdminQuotaForm, type CephAdminQuotaFormValues } from "./quotaForm";
+import { rgwAccountNameFormatError } from "../../utils/rgwAccountName";
 
 export const ACCOUNT_LIMIT_FIELDS = [
   ["maxBuckets", "Max buckets"],
@@ -20,6 +21,10 @@ export function validateCephAdminAccountForm(
 ) {
   const profileErrors: CephAdminAccountProfileErrors = {};
   if (requireName && !profile.accountName.trim()) profileErrors.accountName = "Account name is required.";
+  else if (profile.accountName) {
+    const nameFormatError = rgwAccountNameFormatError(profile.accountName);
+    if (nameFormatError) profileErrors.accountName = nameFormatError;
+  }
   for (const [field, label] of ACCOUNT_LIMIT_FIELDS) {
     if (profile[field].trim() && parseOptionalNonNegativeInteger(profile[field]) == null) {
       profileErrors[field] = `${label} must be a non-negative integer.`;

@@ -7,6 +7,20 @@ import re
 _ACCOUNT_ID_PATTERN = re.compile(r"^RGW\d{17}$", re.IGNORECASE)
 
 
+def validate_rgw_account_name(name: str) -> str:
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Account name is required.")
+    if "$" in name:
+        raise ValueError("Account name must not contain '$'.")
+    if ":" in name:
+        raise ValueError("Account name must not contain ':'.")
+    try:
+        name.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as exc:
+        raise ValueError("Account name must be valid UTF-8.") from exc
+    return name
+
+
 def is_rgw_account_id(identifier: str | None) -> bool:
     if not identifier:
         return False

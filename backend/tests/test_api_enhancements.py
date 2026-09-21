@@ -70,6 +70,27 @@ def test_admin_create_account_delegates_to_service(client: TestClient):
     }
 
 
+@pytest.mark.parametrize("name", ["invalid:name", "invalid$name", "   "])
+def test_admin_create_account_rejects_invalid_rgw_name_before_service(client: TestClient, name: str):
+    called = False
+
+    class FakeService:
+        def create_account_with_manager(self, payload):  # noqa: ANN001
+            nonlocal called
+            called = True
+            raise AssertionError("service must not be called")
+
+    app.dependency_overrides[admin_accounts_router.get_admin_accounts_service] = lambda: FakeService()
+
+    response = client.post(
+        "/api/admin/accounts",
+        json={"name": name, "storage_endpoint_id": 1},
+    )
+
+    assert response.status_code == 422
+    assert called is False
+
+
 def test_admin_account_response_model_rejects_obsolete_fields():
     with pytest.raises(ValidationError, match="root_user_email"):
         S3AccountSchema(

@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useState } from "react";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { rgwAccountNameFormatError } from "../../utils/rgwAccountName";
 
 /** Bind native and RGW-specific validation to named fields, retaining failed drafts. */
 export function useAdminRgwFormValidation(values: Record<string, unknown>, fieldErrors: Record<string, string | undefined>) {
@@ -31,6 +32,10 @@ export function useAdminRgwFormValidation(values: Record<string, unknown>, field
 export function rgwCreateErrors(value: {name: string; storage_endpoint_id: string; quota_max_size_gb: string; quota_max_objects: string}): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!value.name.trim()) errors.name = "Enter a name.";
+  else {
+    const nameFormatError = rgwAccountNameFormatError(value.name);
+    if (nameFormatError) errors.name = nameFormatError;
+  }
   if (!value.storage_endpoint_id) errors.storage_endpoint_id = "Select a Ceph endpoint.";
   if (value.quota_max_size_gb && (!Number.isFinite(Number(value.quota_max_size_gb)) || Number(value.quota_max_size_gb) < 0)) errors.quota_max_size_gb = "Enter a non-negative storage quota.";
   if (value.quota_max_objects && (!Number.isSafeInteger(Number(value.quota_max_objects)) || Number(value.quota_max_objects) < 0)) errors.quota_max_objects = "Enter a non-negative whole number within the supported range.";
