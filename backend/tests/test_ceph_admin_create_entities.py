@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from app.models.ceph_admin import (
     CephAdminRgwAccountCreate,
@@ -124,6 +125,12 @@ def test_create_rgw_account_supports_quota():
     assert fake_rgw.create_account_calls[0]["account_id"] == "RGW12345678901234567"
     assert len(fake_rgw.set_account_quota_calls) == 1
     assert fake_rgw.set_account_quota_calls[0]["enabled"] is True
+
+
+@pytest.mark.parametrize("account_name", ["invalid:name", "invalid$name", "   ", "invalid\ud800"])
+def test_create_rgw_account_model_rejects_invalid_name(account_name: str):
+    with pytest.raises(ValidationError):
+        CephAdminRgwAccountCreate(account_name=account_name)
 
 
 def test_update_rgw_account_quota_omits_unset_object_limit():

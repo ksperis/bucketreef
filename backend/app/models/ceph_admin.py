@@ -14,6 +14,7 @@ from app.models.bucket_compare import (
 from app.models.bucket_listing import BucketListingSummary
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import TagDefinitionSummary
+from app.utils.rgw_identifiers import validate_rgw_account_name
 
 class CephAdminEndpoint(ApiModel):
     id: int
@@ -282,8 +283,7 @@ class CephAdminRgwAccountCreate(ApiModel):
 
     @model_validator(mode="after")
     def validate_name(self):
-        if not isinstance(self.account_name, str) or not self.account_name.strip():
-            raise ValueError("account_name is required.")
+        validate_rgw_account_name(self.account_name)
         if isinstance(self.account_id, str) and not self.account_id.strip():
             self.account_id = None
         return self

@@ -14,7 +14,11 @@ from app.models.tagging import (
 )
 from app.models.ui_group import UiGroupAvatar
 from app.models.user import UserAvatar
-from app.utils.rgw_identifiers import is_rgw_account_id, normalize_rgw_identifier
+from app.utils.rgw_identifiers import (
+    is_rgw_account_id,
+    normalize_rgw_identifier,
+    validate_rgw_account_name,
+)
 
 
 class AccountUserLink(AccountAccessGrant):
@@ -63,6 +67,11 @@ class S3AccountCreate(ApiModel):
     quota_max_objects: Optional[int] = None
     storage_endpoint_id: int
     tags: RequiredTagDefinitionList = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def validate_account_name(cls, value: str) -> str:
+        return validate_rgw_account_name(value)
 
 
 class S3AccountImport(ApiModel):
