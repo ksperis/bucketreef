@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.routers.billing_common import parse_billing_day
 from app.routers.dependencies import require_internal_cron_token
 from app.core.sensitive_data import sanitize_error_detail
+from app.services.app_settings_service import load_app_settings
 from app.services.billing_collection_service import BillingCollector
 from app.services.operation_lease_service import (
     OperationLeaseService,
@@ -27,6 +28,8 @@ def collect_daily(
 ) -> dict:
     parsed = parse_billing_day(day)
     operation_name = billing_daily_operation_name(parsed.isoformat())
+    if not load_app_settings().general.billing_enabled:
+        return {"status": "skipped", "reason": "feature_disabled", "operation": operation_name}
     lease_service = OperationLeaseService(db)
     lease = lease_service.acquire(
         operation_name,

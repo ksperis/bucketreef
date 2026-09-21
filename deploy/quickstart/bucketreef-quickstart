@@ -118,7 +118,7 @@ check_prerequisites() {
 
 service_is_running() {
   local service="$1"
-  [[ -n "$(compose ps --status running --quiet "$service" 2>/dev/null)" ]]
+  [[ -n "$(compose --profile operations ps --status running --quiet "$service" 2>/dev/null)" ]]
 }
 
 port_is_open() {
@@ -139,7 +139,7 @@ check_ports() {
 }
 
 show_service_logs() {
-  compose logs --tail 80 backend frontend >&2 || true
+  compose --profile operations logs --tail 80 backend frontend scheduler >&2 || true
 }
 
 wait_for_services() {
@@ -150,9 +150,9 @@ wait_for_services() {
   [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]] || die "QUICKSTART_HEALTH_TIMEOUT_SECONDS must be a positive integer."
   deadline=$((SECONDS + timeout_seconds))
   while true; do
-    if ! service_is_running backend || ! service_is_running frontend; then
+    if ! service_is_running backend || ! service_is_running frontend || ! service_is_running scheduler; then
       show_service_logs
-      die "Backend or frontend stopped before becoming ready."
+      die "Backend, frontend or scheduler stopped before becoming ready."
     fi
     if curl --fail --silent --show-error "http://127.0.0.1:${backend_port}/health" >/dev/null 2>&1 \
       && curl --fail --silent --show-error "http://127.0.0.1:${frontend_port}/setup/first-admin" >/dev/null 2>&1; then
@@ -203,7 +203,7 @@ start_quickstart() {
   fi
   chmod 0600 "$ENV_FILE"
   check_ports
-  compose up --detach --no-build backend frontend
+  compose --profile operations up --detach --no-build backend frontend scheduler
   wait_for_services
   print_bootstrap_or_login
 }
@@ -214,7 +214,7 @@ show_status() {
     printf 'QuickStart has not been initialized. Run bucketreef-quickstart start first.\n'
     return
   fi
-  compose ps
+  compose --profile operations ps --all
   local backend_port frontend_port
   backend_port="$(env_value BUCKETREEF_BACKEND_PORT 8000)"
   frontend_port="$(env_value BUCKETREEF_FRONTEND_PORT 8080)"
@@ -236,6 +236,17 @@ show_status() {
   else
     printf 'Frontend health: unavailable\n'
   fi
+  if service_is_running scheduler; then
+    printf 'Scheduler: running\n'
+  else
+    printf 'Scheduler: unavailable; scheduled operations will not run.\n'
+  fi
+}
+
+show_logs() {
+  check_prerequisites
+  [[ -f "$ENV_FILE" ]] || die "QuickStart has not been initialized."
+  compose --profile operations logs --tail 80 backend frontend scheduler
 }
 
 stop_quickstart() {
@@ -307,13 +318,14 @@ reset_quickstart() {
 }
 
 usage() {
-  printf 'Usage: bucketreef-quickstart [start|status|stop|reset|version]\n'
+  printf 'Usage: bucketreef-quickstart [start|status|logs|stop|reset|version]\n'
 }
 
 [[ $# -le 1 ]] || { usage >&2; exit 2; }
 case "${1:-start}" in
   start) start_quickstart ;;
   status) show_status ;;
+  logs) show_logs ;;
   stop) stop_quickstart ;;
   reset) reset_quickstart ;;
   version) printf 'BucketReef QuickStart %s\n' "$BUCKETREEF_TAG" ;;

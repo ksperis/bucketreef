@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,6 +18,7 @@ from app.models.storage_endpoint import (
 )
 from app.routers.dependencies import get_audit_service, get_current_super_admin, get_current_ui_superadmin
 from app.services.audit_service import AuditService
+from app.services.healthcheck_background_service import run_initial_healthchecks
 from app.services.storage_endpoints_service import (
     StorageEndpointsService,
     get_storage_endpoints_service,
@@ -78,6 +79,7 @@ def get_storage_endpoint(
 @router.post("", response_model=StorageEndpoint, status_code=status.HTTP_201_CREATED)
 def create_storage_endpoint(
     payload: StorageEndpointCreate,
+    background_tasks: BackgroundTasks,
     service: StorageEndpointsService = Depends(get_service),
     audit_service: AuditService = Depends(get_audit_service),
     current_user: User = Depends(get_current_ui_superadmin),
@@ -98,6 +100,7 @@ def create_storage_endpoint(
                 "verify_tls": created.verify_tls,
             },
         )
+        background_tasks.add_task(run_initial_healthchecks, endpoint_id=created.id)
         return created
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc

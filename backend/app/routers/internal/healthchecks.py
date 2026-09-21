@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.routers.dependencies import require_internal_cron_token
+from app.services.app_settings_service import load_app_settings
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import (
     HEALTHCHECK_RUN_OPERATION,
@@ -23,6 +24,8 @@ def run_healthchecks(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
 ) -> dict:
+    if not load_app_settings().general.endpoint_status_enabled:
+        return {"status": "skipped", "reason": "feature_disabled", "operation": HEALTHCHECK_RUN_OPERATION}
     lease_service = OperationLeaseService(db)
     lease = lease_service.acquire(
         HEALTHCHECK_RUN_OPERATION,
