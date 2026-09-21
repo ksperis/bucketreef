@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { transferableAbortController } from "node:util";
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import StorageEndpointsPage from "./StorageEndpointsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
@@ -34,6 +35,18 @@ function renderPage(initialEntry = "/admin/storage-endpoints") {
       </Routes>
     </MemoryRouter>
   );
+}
+
+function renderRoutedPage(initialEntries = ["/admin/storage-endpoints/7"]) {
+  // React Router uses Node's Request, which requires the matching AbortSignal.
+  vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
+  const router = createMemoryRouter([
+    { path: "/admin/storage-endpoints", element: <StorageEndpointsPage /> },
+    { path: "/admin/storage-endpoints/:endpointId", element: <StorageEndpointsPage /> },
+    { path: "/elsewhere", element: <h1>Another page</h1> },
+  ], { initialEntries });
+  render(<RouterProvider router={router} />);
+  return router;
 }
 
 vi.mock("../../components/GeneralSettingsContext", () => ({
@@ -137,8 +150,157 @@ describe("StorageEndpointsPage tags", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     setSessionUserCache(null);
     localStorage.clear();
+  });
+
+  it("reveals and focuses invalid connection fields when submitting from another tab", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+    fireEvent.change(screen.getByLabelText("Latitude (optional)"), { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Capabilities & health" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+    expect(await screen.findByText("Endpoint name is required.")).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Connection" })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(screen.getByLabelText("Endpoint name")).toHaveFocus());
+    expect(screen.getByLabelText("Latitude (optional)")).toHaveAttribute("aria-invalid", "true");
+    expect(createStorageEndpointMock).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Endpoint name"), { target: { value: "Corrected endpoint" } });
+    fireEvent.change(screen.getByLabelText("S3 endpoint URL"), { target: { value: "https://storage.example.test" } });
+    fireEvent.change(screen.getByLabelText("Latitude (optional)"), { target: { value: "45" } });
+    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+    await waitFor(() => expect(createStorageEndpointMock).toHaveBeenCalledOnce());
+    expect(createStorageEndpointMock).toHaveBeenCalledWith(expect.objectContaining({ name: "Corrected endpoint", latitude: 45 }));
+  });
+
+  it("locks the pending draft, tags, tabs and navigation, and preserves a rejected save for retry", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ provider: "other" })]);
+    let rejectSave!: (reason: Error) => void;
+    updateStorageEndpointMock.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSave = reject; }));
+    const router = renderRoutedPage();
+    await screen.findByLabelText("Endpoint name");
+    fireEvent.change(screen.getByLabelText("Endpoint name"), { target: { value: "Kept draft" } });
+    fireEvent.focus(screen.getByRole("textbox", { name: "Add a tag for this endpoint" }));
+    await screen.findByRole("button", { name: "Add tag rgw-a" });
+    const form = screen.getByRole("form", { name: "Storage endpoint configuration" });
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(updateStorageEndpointMock).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText("Endpoint name")).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Add a tag for this endpoint" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Add tag rgw-a" })).not.toBeInTheDocument();
+    for (const tab of screen.getAllByRole("tab")) expect(tab).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to endpoints" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
+    await act(async () => { await router.navigate("/elsewhere"); });
+    expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Discard changes" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    await act(async () => { rejectSave(new Error("Configuration temporarily unavailable")); });
+    expect(await screen.findByText("Configuration temporarily unavailable")).toBeVisible();
+    expect(screen.getByLabelText("Endpoint name")).toHaveValue("Kept draft");
+    expect(screen.getByLabelText("Endpoint name")).toBeEnabled();
+    expect(router.state.location.pathname).toBe("/admin/storage-endpoints/7");
+    expect(updateStorageEndpointTagsMock).not.toHaveBeenCalled();
+    fireEvent.submit(form);
+    await waitFor(() => expect(updateStorageEndpointMock).toHaveBeenCalledTimes(2));
+    await screen.findByRole("heading", { name: "S3 Endpoints" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the original endpoint until navigation is accepted, then opens the requested endpoint", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([
+      makeEndpoint({ provider: "other" }),
+      makeEndpoint({ id: 8, name: "Second endpoint", provider: "other" }),
+    ]);
+    const router = renderRoutedPage();
+    fireEvent.change(await screen.findByLabelText("Endpoint name"), { target: { value: "Original draft" } });
+    await act(async () => { await router.navigate("/admin/storage-endpoints/8"); });
+    expect(router.state.location.pathname).toBe("/admin/storage-endpoints/7");
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByLabelText("Endpoint name")).toHaveValue("Original draft");
+    await act(async () => { await router.navigate("/admin/storage-endpoints/8"); });
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    await waitFor(() => expect(screen.getByLabelText("Endpoint name")).toHaveValue("Second endpoint"));
+    expect(router.state.location.pathname).toBe("/admin/storage-endpoints/8");
+    await act(async () => { await router.navigate(-1); });
+    await waitFor(() => expect(screen.getByLabelText("Endpoint name")).toHaveValue("Ceph Endpoint"));
+    expect(router.state.location.pathname).toBe("/admin/storage-endpoints/7");
+    expect(updateStorageEndpointMock).not.toHaveBeenCalled();
+  });
+
+  it("protects browser history navigation and preserves its destination after discarding", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ provider: "other" })]);
+    const router = renderRoutedPage(["/elsewhere", "/admin/storage-endpoints/7"]);
+    fireEvent.change(await screen.findByLabelText("Endpoint name"), { target: { value: "History draft" } });
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    await act(async () => { await router.navigate(-1); });
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByLabelText("Endpoint name")).toHaveValue("History draft");
+    await act(async () => { await router.navigate(-1); });
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(await screen.findByRole("heading", { name: "Another page" })).toBeVisible();
+    expect(router.state.location.pathname).toBe("/elsewhere");
+    expect(updateStorageEndpointMock).not.toHaveBeenCalled();
+  });
+
+  it("retries failed tags on the created identity without creating or updating configuration again", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    createStorageEndpointMock.mockResolvedValue(makeEndpoint({ id: 18, name: "Created endpoint", provider: "other", tags: [] }));
+    updateStorageEndpointTagsMock.mockRejectedValueOnce(new Error("Tag service unavailable"));
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+    fireEvent.click(screen.getByLabelText("Other"));
+    fireEvent.change(screen.getByLabelText("Endpoint name"), { target: { value: "Created endpoint" } });
+    fireEvent.change(screen.getByLabelText("S3 endpoint URL"), { target: { value: "https://storage.example.test" } });
+    fireEvent.focus(screen.getByRole("textbox", { name: "Add a tag for this endpoint" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add tag rgw-a" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+    expect(await screen.findByText(/Endpoint created, but tags could not be saved/)).toBeVisible();
+    expect(screen.getByLabelText("Endpoint name")).toHaveValue("Created endpoint");
+    expect(screen.getByRole("button", { name: "Remove tag rgw-a" })).toBeVisible();
+    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+    await screen.findByRole("heading", { name: "S3 Endpoints" });
+    expect(createStorageEndpointMock).toHaveBeenCalledOnce();
+    expect(updateStorageEndpointMock).not.toHaveBeenCalled();
+    expect(updateStorageEndpointTagsMock).toHaveBeenCalledTimes(2);
+    expect(updateStorageEndpointTagsMock).toHaveBeenLastCalledWith(18, { tags: [expect.objectContaining({ label: "rgw-a" })] });
+  });
+
+  it("retries failed tags after an update without replaying the successful configuration write", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ provider: "other" })]);
+    updateStorageEndpointMock.mockResolvedValue(makeEndpoint({ provider: "other", name: "Saved configuration" }));
+    updateStorageEndpointTagsMock.mockRejectedValueOnce(new Error("Tag service unavailable"));
+    renderPage("/admin/storage-endpoints/7");
+    fireEvent.change(await screen.findByLabelText("Endpoint name"), { target: { value: "Saved configuration" } });
+    fireEvent.focus(screen.getByRole("textbox", { name: "Add a tag for this endpoint" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add tag rgw-a" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+    expect(await screen.findByText(/Endpoint updated, but tags could not be saved/)).toBeVisible();
+    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+    await screen.findByRole("heading", { name: "S3 Endpoints" });
+    expect(updateStorageEndpointMock).toHaveBeenCalledOnce();
+    expect(updateStorageEndpointTagsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("saves only tags for an editable endpoint whose configuration is unchanged", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ provider: "other" })]);
+    renderPage("/admin/storage-endpoints/7");
+    fireEvent.focus(await screen.findByRole("textbox", { name: "Add a tag for this endpoint" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add tag rgw-a" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+    await screen.findByRole("heading", { name: "S3 Endpoints" });
+    expect(updateStorageEndpointMock).not.toHaveBeenCalled();
+    expect(updateStorageEndpointTagsMock).toHaveBeenCalledOnce();
   });
 
   it("renders storage endpoints as a compact table listing", async () => {
@@ -214,7 +376,7 @@ describe("StorageEndpointsPage tags", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
-    const opsHelp = screen.getByText("What are Admin Ops and Supervision Ops?").parentElement;
+    const opsHelp = screen.getByRole("region", { name: "What are Admin Ops and Supervision Ops?" });
     expect(opsHelp).not.toBeNull();
     expect(within(opsHelp as HTMLElement).getByText(/keys let BucketReef create RGW accounts and S3 users/)).toBeVisible();
     expect(within(opsHelp as HTMLElement).getByText("Ceph (radosgw-admin) examples")).toBeVisible();

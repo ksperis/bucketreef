@@ -4,7 +4,7 @@
  */
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { cx, uiCheckboxClass } from "../../components/ui/styles";
+import { flushSync } from "react-dom";
 import {
   detectStorageEndpointFeatures,
   createStorageEndpoint,
@@ -18,28 +18,21 @@ import {
   type StorageEndpointCredentialCheck,
   type StorageEndpointCredentialChecks,
   type StorageEndpointCredentialCheckStatus,
-  type StorageEndpointPayload,
   type StorageProvider,
 } from "../../api/storageEndpoints";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
-import WorkflowPage, { WorkflowActions, WorkflowSection } from "../../components/WorkflowPage";
+import WorkflowPage from "../../components/WorkflowPage";
 import PageHeader from "../../components/PageHeader";
 import PageTabs from "../../components/PageTabs";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
-import UiTagBadgeList from "../../components/UiTagBadgeList";
-import UiTagEditor from "../../components/UiTagEditor";
-import UiButton from "../../components/ui/UiButton";
 import UiBadge from "../../components/ui/UiBadge";
 import { ListActionButton } from "../../components/list/ListControls";
-import UiInput from "../../components/ui/UiInput";
-import UiSelect from "../../components/ui/UiSelect";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
-import { buildUiTagItems, normalizeUiTags } from "../../utils/uiTags";
+import { normalizeUiTags } from "../../utils/uiTags";
 import { isSuperAdminRole, readStoredUser } from "../../utils/workspaces";
 import {
   applyFeatureConstraints,
@@ -48,17 +41,21 @@ import {
   awsS3EndpointForRegion,
   awsStsEndpointForRegion,
   AWS_DEFAULT_REGION,
-  buildFeaturesYaml,
   createEmptyForm,
   createFormFromEndpoint,
   defaultFeaturesForProvider,
   EMPTY_STORAGE_ENDPOINT_FORM,
   normalizeAwsRegion,
-  parseCoordinateInput,
   type FeaturesState,
   type FormState,
 } from "./storageEndpointFormModel";
 
+import StorageEndpointEditor from "./StorageEndpointEditor";
+import StorageEndpointConnectionFields from "./StorageEndpointConnectionFields";
+import StorageEndpointCredentialsFields from "./StorageEndpointCredentialsFields";
+import StorageEndpointCapabilitiesFields from "./StorageEndpointCapabilitiesFields";
+import { buildStorageEndpointSubmission } from "./storageEndpointSubmission";
+import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import StorageEndpointList, { type EndpointListFilters } from "./StorageEndpointList";
 
 type EndpointEditorTab = "general" | "credentials" | "capabilities";
@@ -69,32 +66,7 @@ const createEmptyCredentialChecks = (): StorageEndpointCredentialChecks => ({
   supervision: { status: "not_configured" },
   ceph_admin: { status: "not_configured" },
 });
-const endpointToggleCardClass =
-  "flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 ui-caption font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
-const endpointToggleCardDisabledClass = cx(endpointToggleCardClass, "opacity-70");
-const endpointToggleCheckboxClass = cx(uiCheckboxClass, "disabled:cursor-not-allowed disabled:opacity-50");
-const endpointReadOnlyInputClass =
-  "read-only:bg-slate-100 read-only:text-slate-600 dark:read-only:bg-slate-900 dark:read-only:text-slate-300";
-const ADMIN_OPS_COMMAND = [
-  "radosgw-admin user create \\",
-  '  --uid="bkr-admin" \\',
-  '  --display-name="BucketReef Admin Ops" \\',
-  '  --caps="users=read,write;accounts=read,write;buckets=write"',
-].join("\n");
-
-const SUPERVISION_OPS_COMMAND = [
-  "radosgw-admin user create \\",
-  '  --uid="bkr-supervision" \\',
-  '  --display-name="BucketReef Supervision Ops" \\',
-  '  --caps="usage=read;buckets=read"',
-].join("\n");
-const CEPH_ADMIN_COMMAND = [
-  "radosgw-admin user create \\",
-  '  --uid="bkr-ceph-admin" \\',
-  '  --display-name="BucketReef Ceph Admin" \\',
-  '  --admin',
-].join("\n");
-
+const configurationSignature = (form: FormState) => stableSignature({ ...form, tags: [] });
 function extractError(err: unknown): string {
   return extractApiError(err, "An error occurred.");
 }
@@ -103,17 +75,6 @@ function isMethodNotAllowedError(message?: string | null): boolean {
   if (!message) return false;
   const normalized = message.toLowerCase();
   return normalized.includes("405") || normalized.includes("methodnotallowed") || normalized.includes("method not allowed");
-}
-
-function StoredSecretStatus({ label, stored }: { label: string; stored: boolean }) {
-  return (
-    <div className="space-y-1">
-      <p className="ui-caption font-semibold text-[var(--ui-text-muted)]">{label}</p>
-      <div className="min-h-10 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2 ui-body text-[var(--ui-text)]">
-        {stored ? "Stored — value hidden" : "Not configured"}
-      </div>
-    </div>
-  );
 }
 
 function CredentialStatusBadge({
@@ -197,16 +158,17 @@ export default function StorageEndpointsPage() {
   const [envManaged, setEnvManaged] = useState(false);
   const [metadataReady, setMetadataReady] = useState(false);
   const mutationPending = useRef(false);
-  const closingForm = useRef(false);
+  const closingEndpointId = useRef<number | null>(null);
   const [listFilters, setListFilters] = useState<EndpointListFilters>({ query: "", mode: "contains", provider: "all" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<EndpointEditorTab>("general");
   const [form, setForm] = useState<FormState>(EMPTY_STORAGE_ENDPOINT_FORM);
-  const [formInitialSignature, setFormInitialSignature] = useState("");
+  const [formBaseline, setFormBaseline] = useState<FormState | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [validationShown, setValidationShown] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [defaultError, setDefaultError] = useState<string | null>(null);
@@ -232,8 +194,9 @@ export default function StorageEndpointsPage() {
   const resetForm = useCallback(() => {
     setForm(createEmptyForm());
     setActiveTab("general");
-    setFormInitialSignature("");
+    setFormBaseline(null);
     setFormError(null);
+    setValidationShown(false);
     setFeatureDetectBusy(false);
     setFeatureDetectError(null);
     setFeatureDetectWarnings([]);
@@ -277,6 +240,7 @@ export default function StorageEndpointsPage() {
     editingId != null && (!metadataReady || envManaged || editingEndpoint?.is_editable === false || !canEditEndpoints)
   );
   useEffect(() => {
+    if (saving) { setFeatureDetectBusy(false); return; }
     if (!showForm || !cephMode || !canEditEndpoints || configurationReadOnly) {
       setFeatureDetectBusy(false);
       setFeatureDetectError(null);
@@ -358,7 +322,7 @@ export default function StorageEndpointsPage() {
           ceph_admin_access_key: cephAdminAccessKey || null,
           ceph_admin_secret_key: cephAdminSecretKey || null,
         });
-        if (cancelled) return;
+        if (cancelled || mutationPending.current) return;
         const warnings: string[] = [];
         if (Array.isArray(detection.warnings)) {
           warnings.push(...detection.warnings.filter((item) => typeof item === "string" && item.trim()));
@@ -454,13 +418,8 @@ export default function StorageEndpointsPage() {
     showForm,
     canEditEndpoints,
     configurationReadOnly,
+    saving,
   ]);
-
-  const awsMode = form.provider === "aws";
-  const computedAwsRegion = normalizeAwsRegion(form.region);
-  const computedAwsS3Endpoint = awsS3EndpointForRegion(computedAwsRegion);
-  const computedAwsStsEndpoint = awsStsEndpointForRegion(computedAwsRegion);
-  const computedAwsIamEndpoint = awsIamEndpointForRegion(computedAwsRegion);
 
   const updateFeatures = useCallback(
     (updater: (current: FeaturesState) => FeaturesState, providerOverride?: StorageProvider) => {
@@ -536,8 +495,9 @@ export default function StorageEndpointsPage() {
     const nextForm = createEmptyForm();
     setForm(nextForm);
     setActiveTab("general");
-    setFormInitialSignature(stableSignature({ form: { ...nextForm, tags: normalizeUiTags(nextForm.tags) } }));
+    setFormBaseline(nextForm);
     setFormError(null);
+    setValidationShown(false);
     setFeatureDetectBusy(false);
     setFeatureDetectError(null);
     setFeatureDetectWarnings([]);
@@ -547,12 +507,14 @@ export default function StorageEndpointsPage() {
   };
 
   const openEndpointPage = useCallback((endpoint: StorageEndpoint) => {
+    closingEndpointId.current = null;
     const nextForm = createFormFromEndpoint(endpoint);
     setEditingId(endpoint.id);
     setActiveTab("general");
     setForm(nextForm);
-    setFormInitialSignature(stableSignature({ form: { ...nextForm, tags: normalizeUiTags(nextForm.tags) } }));
+    setFormBaseline(nextForm);
     setFormError(null);
+    setValidationShown(false);
     setFeatureDetectBusy(false);
     setFeatureDetectError(null);
     setFeatureDetectWarnings([]);
@@ -561,18 +523,18 @@ export default function StorageEndpointsPage() {
   }, []);
 
   const startEdit = (endpoint: StorageEndpoint) => {
-    closingForm.current = false;
+    closingEndpointId.current = null;
     openEndpointPage(endpoint);
     navigate(`/admin/storage-endpoints/${endpoint.id}`);
   };
 
   useEffect(() => {
     if (!hasEndpointRoute) {
-      closingForm.current = false;
+      closingEndpointId.current = null;
       return;
     }
     // Router transitions may commit after local state; do not reopen the closing form.
-    if (closingForm.current || loading || !hasValidEndpointRoute) return;
+    if (closingEndpointId.current === routeEndpointId || loading || !hasValidEndpointRoute) return;
     if (editingId === routeEndpointId && showForm) return;
     const endpoint = endpoints.find((candidate) => candidate.id === routeEndpointId);
     if (endpoint) {
@@ -589,24 +551,21 @@ export default function StorageEndpointsPage() {
     showForm,
   ]);
 
-  const onCloseForm = () => {
-    closingForm.current = true;
+  const onCloseForm = (reason?: "navigation") => {
+    closingEndpointId.current = routeEndpointId;
     setShowForm(false);
     resetForm();
-    if (hasEndpointRoute) {
+    if (hasEndpointRoute && reason !== "navigation") {
       navigate("/admin/storage-endpoints");
     }
   };
-  const formCurrentSignature = useMemo(
-    () => stableSignature({ form: { ...form, tags: normalizeUiTags(form.tags) } }),
-    [form]
-  );
-  const hasFormChanges = Boolean(formInitialSignature) && formCurrentSignature !== formInitialSignature;
-  const formCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: hasFormChanges,
-    disabled: saving,
-    onClose: onCloseForm,
-  });
+  const hasConfigurationChanges = !configurationReadOnly && formBaseline !== null
+    && configurationSignature(form) !== configurationSignature(formBaseline);
+  const hasTagChanges = formBaseline !== null
+    && stableSignature(normalizeUiTags(form.tags)) !== stableSignature(normalizeUiTags(formBaseline.tags));
+  const hasFormChanges = hasConfigurationChanges || hasTagChanges;
+  const fieldErrors = validationShown && !configurationReadOnly
+    ? buildStorageEndpointSubmission(form, editingId !== null).errors ?? {} : {};
 
   const handleDelete = async () => {
     if (!metadataReady || envManaged || !canEditEndpoints || mutationPending.current) return;
@@ -645,152 +604,56 @@ export default function StorageEndpointsPage() {
     }
   };
 
-  const buildPayload = (): StorageEndpointPayload | null => {
-    const trimmedName = form.name.trim();
-    const awsPayloadRegion = normalizeAwsRegion(form.region);
-    const trimmedEndpoint = form.provider === "aws" ? awsS3EndpointForRegion(awsPayloadRegion) : form.endpoint_url.trim();
-    const trimmedRegion = form.provider === "aws" ? awsPayloadRegion : form.region.trim();
-    const trimmedAdminAccess = form.admin_access_key.trim();
-    const trimmedAdminSecret = form.admin_secret_key.trim();
-    const trimmedSupervisionAccess = form.supervision_access_key.trim();
-    const trimmedSupervisionSecret = form.supervision_secret_key.trim();
-    const trimmedCephAdminAccess = form.ceph_admin_access_key.trim();
-    const trimmedCephAdminSecret = form.ceph_admin_secret_key.trim();
-    let latitude: number | null;
-    let longitude: number | null;
-    const featuresSource =
-      form.provider === "aws"
-        ? {
-            ...form.features,
-            sts: { ...form.features.sts, endpoint: awsStsEndpointForRegion(awsPayloadRegion) },
-            iam: { ...form.features.iam, endpoint: awsIamEndpointForRegion(awsPayloadRegion) },
-          }
-        : form.features;
-    const constrainedFeatures = applyFeatureConstraints(featuresSource, form.provider);
-    const featuresConfig = buildFeaturesYaml(constrainedFeatures);
-    const adminEnabled = constrainedFeatures.admin.enabled;
-    const usageMetricsEnabled = constrainedFeatures.usage.enabled || constrainedFeatures.metrics.enabled;
-
-    if (!trimmedName) {
-      setFormError("Endpoint name is required.");
-      return null;
-    }
-    if (!trimmedEndpoint) {
-      setFormError("Endpoint URL is required.");
-      return null;
-    }
-    try {
-      latitude = parseCoordinateInput(form.latitude, "Latitude", -90, 90);
-      longitude = parseCoordinateInput(form.longitude, "Longitude", -180, 180);
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Invalid coordinates.");
-      return null;
-    }
-
-    const payload: StorageEndpointPayload = {
-      name: trimmedName,
-      endpoint_url: trimmedEndpoint,
-      region: trimmedRegion || null,
-      force_path_style: Boolean(form.force_path_style),
-      verify_tls: Boolean(form.verify_tls),
-      latitude,
-      longitude,
-      provider: form.provider,
-      features_config: featuresConfig,
-    };
-
-    if (form.provider === "ceph") {
-      if (adminEnabled && !trimmedAdminAccess) {
-        setFormError("Admin access key is required when admin is enabled.");
-        return null;
-      }
-      if (usageMetricsEnabled && !trimmedSupervisionAccess) {
-        setFormError("Supervision access key is required when usage log or metrics is enabled.");
-        return null;
-      }
-      if (editingId) {
-        if (trimmedAdminAccess) {
-          payload.admin_access_key = trimmedAdminAccess;
-          if (trimmedAdminSecret) payload.admin_secret_key = trimmedAdminSecret;
-        } else {
-          payload.admin_access_key = null;
-          payload.admin_secret_key = null;
-        }
-        if (trimmedSupervisionAccess) {
-          payload.supervision_access_key = trimmedSupervisionAccess;
-          if (trimmedSupervisionSecret) payload.supervision_secret_key = trimmedSupervisionSecret;
-        } else {
-          payload.supervision_access_key = null;
-          payload.supervision_secret_key = null;
-        }
-        if (trimmedCephAdminAccess) {
-          payload.ceph_admin_access_key = trimmedCephAdminAccess;
-          if (trimmedCephAdminSecret) payload.ceph_admin_secret_key = trimmedCephAdminSecret;
-        } else {
-          payload.ceph_admin_access_key = null;
-          payload.ceph_admin_secret_key = null;
-        }
-      } else {
-        payload.admin_access_key = trimmedAdminAccess || null;
-        payload.admin_secret_key = trimmedAdminSecret || null;
-        payload.supervision_access_key = trimmedSupervisionAccess || null;
-        payload.supervision_secret_key = trimmedSupervisionSecret || null;
-        payload.ceph_admin_access_key = trimmedCephAdminAccess || null;
-        payload.ceph_admin_secret_key = trimmedCephAdminSecret || null;
-        if (adminEnabled && (!payload.admin_access_key || !payload.admin_secret_key)) {
-          setFormError("Admin credentials are required for a Ceph endpoint.");
-          return null;
-        }
-        if (usageMetricsEnabled && (!payload.supervision_access_key || !payload.supervision_secret_key)) {
-          setFormError("Supervision credentials are required for usage log/metrics on a Ceph endpoint.");
-          return null;
-        }
-      }
-    }
-
-    return payload;
-  };
-
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!metadataReady || !canEditEndpoints) return;
+    if (!metadataReady || !canEditEndpoints || mutationPending.current) return;
+    if (editingId === null && envManaged) return;
     setFormError(null);
+    const saveConfiguration = !configurationReadOnly && (editingId === null || hasConfigurationChanges);
+    const submission = saveConfiguration ? buildStorageEndpointSubmission(form, editingId !== null) : null;
+    if (submission?.errors) {
+      setValidationShown(true);
+      const connectionFields = ["name", "endpoint_url", "latitude", "longitude"];
+      setActiveTab(Object.keys(submission.errors).some(field => connectionFields.includes(field)) ? "general" : "credentials");
+      focusFirstInvalidField(event.currentTarget);
+      return;
+    }
+    mutationPending.current = true;
     setSaving(true);
+    let savedEndpoint: StorageEndpoint | null = null;
     try {
       const normalizedTags = normalizeUiTags(form.tags);
-      if (editingId) {
-        if (!configurationReadOnly) {
-          const payload = buildPayload();
-          if (!payload) {
-            setSaving(false);
-            return;
-          }
-          await updateStorageEndpoint(editingId, payload);
-        }
-        await updateStorageEndpointTags(editingId, { tags: normalizedTags });
-        setActionMessage(configurationReadOnly ? "Endpoint tags updated." : "Endpoint updated.");
-      } else {
-        if (envManaged) return;
-        const payload = buildPayload();
-        if (!payload) {
-          setSaving(false);
-          return;
-        }
-        const created = await createStorageEndpoint(payload);
-        if (normalizedTags.length > 0) {
-          await updateStorageEndpointTags(created.id, { tags: normalizedTags });
-        }
-        setActionMessage("Endpoint added.");
+      let targetId = editingId;
+      if (submission?.payload) {
+        savedEndpoint = targetId === null
+          ? await createStorageEndpoint(submission.payload)
+          : await updateStorageEndpoint(targetId, submission.payload);
+        targetId = savedEndpoint.id;
+        const savedForm = createFormFromEndpoint(savedEndpoint);
+        // Configuration and tags have separate API commits. Retain the saved identity
+        // and rebase the configuration before attempting tags, including on create.
+        const committedEndpoint = savedEndpoint;
+        setEndpoints(previous => [...previous.filter(endpoint => endpoint.id !== committedEndpoint.id), committedEndpoint]);
+        setEditingId(targetId);
+        setFormBaseline(savedForm);
+        setForm({ ...savedForm, tags: normalizedTags });
+        setValidationShown(false);
       }
-      setShowForm(false);
-      resetForm();
+      if (targetId === null) return;
+      if (hasTagChanges) await updateStorageEndpointTags(targetId, { tags: normalizedTags });
+      setActionMessage(editingId === null ? "Endpoint added." : saveConfiguration ? "Endpoint updated." : "Endpoint tags updated.");
+      closingEndpointId.current = routeEndpointId;
+      flushSync(() => { setShowForm(false); resetForm(); });
       await loadEndpoints();
       if (hasEndpointRoute) {
         navigate("/admin/storage-endpoints");
       }
     } catch (err) {
-      setFormError(extractError(err));
+      setFormError(savedEndpoint
+        ? `Endpoint ${editingId === null ? "created" : "updated"}, but tags could not be saved. Your tag changes are kept; retry to save them. ${extractError(err)}`
+        : extractError(err));
     } finally {
+      mutationPending.current = false;
       setSaving(false);
     }
   };
@@ -859,15 +722,8 @@ export default function StorageEndpointsPage() {
   const editorTitle = editingId
     ? `${configurationReadOnly ? "Storage endpoint" : "Edit storage endpoint"} · ${editorEndpointName}`
     : "New storage endpoint";
-  const providerOptionClass = cx(
-    "flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 ui-body font-semibold text-slate-700 shadow-sm transition dark:border-slate-700 dark:text-slate-100",
-    configurationReadOnly
-      ? "cursor-not-allowed opacity-70"
-      : "cursor-pointer hover:border-primary hover:text-primary dark:hover:border-primary-400 dark:hover:text-primary-100"
-  );
-
   useEffect(() => {
-    if (signedProbeBlockedReason && form.features.healthcheck.mode === "s3") {
+    if (!saving && !configurationReadOnly && signedProbeBlockedReason && form.features.healthcheck.mode === "s3") {
       updateFeatures((current) => ({
         ...current,
         healthcheck: {
@@ -876,7 +732,7 @@ export default function StorageEndpointsPage() {
         },
       }));
     }
-  }, [form.features.healthcheck.mode, signedProbeBlockedReason, updateFeatures]);
+  }, [form.features.healthcheck.mode, signedProbeBlockedReason, updateFeatures, saving, configurationReadOnly]);
 
   return (
     <div className="space-y-4 ui-caption leading-relaxed">
@@ -931,714 +787,38 @@ export default function StorageEndpointsPage() {
       ) : null}
 
       {showForm && (
-        <WorkflowPage
-          title={editorTitle}
-          description="Manage connection settings, operational credentials, capabilities, and health checks for this endpoint."
-          breadcrumbs={adminPageBreadcrumbs("storage-endpoints", {
-            label: editingId ? editingEndpoint?.name ?? "Endpoint" : "Create",
-          })}
-          backLabel="Back to endpoints"
-          onBack={formCloseGuard.requestClose}
-          contentVariant="plain"
-          width="wide"
-        >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {formError && <PageBanner tone="error">{formError}</PageBanner>}
-            {configurationReadOnly && (
-              <PageBanner tone="info">
-                Endpoint configuration is read-only. {!metadataReady
-                  ? "Management mode is unavailable. Return to endpoints and retry before making changes."
-                  : canEditEndpoints ? "You can still update the tags associated with this endpoint."
-                    : "All settings and tags are available for consultation only."}
-              </PageBanner>
-            )}
-            {endpointTagCatalogError && <PageBanner tone="warning">{endpointTagCatalogError}</PageBanner>}
-            <PageTabs
-              tabs={editorTabs}
-              activeTab={activeTab}
-              onChange={(tab) => setActiveTab(tab as EndpointEditorTab)}
-              variant="line"
-              ariaLabel="Endpoint configuration sections"
-              idPrefix="endpoint-editor"
-            />
-
-            {activeTab === "general" && (
-              <div
-                id="endpoint-editor-panel-general"
-                role="tabpanel"
-                aria-labelledby="endpoint-editor-tab-general"
-              >
-                <WorkflowSection
-                  title="Identity and connection"
-                  description="Name the backend, identify its provider and define how BucketReef reaches it."
-                >
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <UiInput
-                      label="Endpoint name"
-                      value={form.name}
-                      onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                      className={endpointReadOnlyInputClass}
-                      readOnly={configurationReadOnly}
-                      required
-                    />
-
-                    <div>
-                      <p className="mb-1 ui-caption font-semibold text-[var(--ui-text-muted)]">Endpoint tags</p>
-                      {canEditEndpoints ? (
-                        <UiTagEditor
-                          label="Endpoint tags"
-                          tags={form.tags}
-                          catalog={endpointTagCatalog}
-                          onChange={(tags) => setForm((prev) => ({ ...prev, tags }))}
-                          placeholder="Add a tag for this endpoint"
-                          hint={endpointTagCatalogLoading ? "Loading existing endpoint tags..." : undefined}
-                          hideLabel
-                          compact
-                        />
-                      ) : (
-                        <div className="min-h-10 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2">
-                          <UiTagBadgeList items={buildUiTagItems(form.tags)} emptyLabel="No tags" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-            <div className="space-y-2">
-              <span className="ui-body font-semibold text-slate-700 dark:text-slate-100">Provider</span>
-              <div className="flex gap-3">
-                <label className={providerOptionClass}>
-                  <input
-                    type="radio"
-                    name="provider"
-                    value="ceph"
-                    checked={form.provider === "ceph"}
-                    onChange={() => handleProviderChange("ceph")}
-                    disabled={configurationReadOnly}
-                  />
-                  <span>Ceph</span>
-                </label>
-                <label className={providerOptionClass}>
-                  <input
-                    type="radio"
-                    name="provider"
-                    value="aws"
-                    checked={form.provider === "aws"}
-                    onChange={() => handleProviderChange("aws")}
-                    disabled={configurationReadOnly}
-                  />
-                  <span>AWS</span>
-                </label>
-                <label className={providerOptionClass}>
-                  <input
-                    type="radio"
-                    name="provider"
-                    value="other"
-                    checked={form.provider === "other"}
-                    onChange={() => handleProviderChange("other")}
-                    disabled={configurationReadOnly}
-                  />
-                  <span>Other</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <UiInput
-                label="S3 endpoint URL"
-                value={awsMode ? computedAwsS3Endpoint : form.endpoint_url}
-                onChange={(e) => {
-                  if (!awsMode) {
-                    invalidateCredentialChecks();
-                    setForm((prev) => ({ ...prev, endpoint_url: e.target.value }));
-                  }
-                }}
-                className={endpointReadOnlyInputClass}
-                placeholder={awsMode ? computedAwsS3Endpoint : "https://s3.example.com"}
-                readOnly={configurationReadOnly || awsMode}
-                required
-              />
-              <UiInput
-                label="Region (optional)"
-                value={form.region}
-                onChange={(e) => handleRegionChange(e.target.value)}
-                className={endpointReadOnlyInputClass}
-                readOnly={configurationReadOnly}
-                placeholder="us-east-1"
-              />
-              <UiInput
-                label="Latitude (optional)"
-                type="number"
-                value={form.latitude}
-                onChange={(e) => setForm((prev) => ({ ...prev, latitude: e.target.value }))}
-                className={endpointReadOnlyInputClass}
-                readOnly={configurationReadOnly}
-                placeholder="48.8566"
-                min="-90"
-                max="90"
-                step="any"
-              />
-              <UiInput
-                label="Longitude (optional)"
-                type="number"
-                value={form.longitude}
-                onChange={(e) => setForm((prev) => ({ ...prev, longitude: e.target.value }))}
-                className={endpointReadOnlyInputClass}
-                readOnly={configurationReadOnly}
-                placeholder="2.3522"
-                min="-180"
-                max="180"
-                step="any"
-              />
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
-              <label className="flex items-center justify-between gap-4 ui-body font-semibold text-slate-700 dark:text-slate-100">
-                Force path style
-                <input
-                  type="checkbox"
-                  checked={form.force_path_style}
-                  onChange={(e) => setForm((prev) => ({ ...prev, force_path_style: e.target.checked }))}
-                  className={endpointToggleCheckboxClass}
-                  disabled={configurationReadOnly}
-                />
-              </label>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
-              <label className="flex items-center justify-between gap-4 ui-body font-semibold text-slate-700 dark:text-slate-100">
-                Insecure SSL (skip certificate validation)
-                <input
-                  type="checkbox"
-                  checked={!form.verify_tls}
-                  onChange={(e) => {
-                    invalidateCredentialChecks();
-                    setForm((prev) => ({ ...prev, verify_tls: !e.target.checked }));
-                  }}
-                  className={endpointToggleCheckboxClass}
-                  disabled={configurationReadOnly}
-                />
-              </label>
-              {!form.verify_tls && (
-                <p className="mt-2 ui-caption text-amber-700 dark:text-amber-300">
-                  TLS certificate validation is disabled for this endpoint. Use only in trusted environments.
-                </p>
-              )}
-            </div>
-
-                  </div>
-                </WorkflowSection>
-              </div>
-            )}
-
-            {activeTab === "credentials" && (
-              <div
-                id="endpoint-editor-panel-credentials"
-                role="tabpanel"
-                aria-labelledby="endpoint-editor-tab-credentials"
-              >
-                <WorkflowSection
-                  title="Operational credentials"
-                  description="Keep administrative, monitoring and cluster-wide identities isolated by purpose."
-                >
-                  <div className="space-y-4">
-            {cephMode ? (
-              <div className="space-y-4">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 ui-body text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-100">
-                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Management</p>
-                  <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1 ui-body font-semibold text-slate-700 dark:text-slate-100">
-                      <div className="flex min-h-6 flex-wrap items-center justify-between gap-2">
-                        <p>Administration (Admin Ops)</p>
-                        {adminCredentialCheck ? <CredentialStatusBadge {...adminCredentialCheck} /> : null}
-                      </div>
-                      <div className="grid gap-3">
-                        <UiInput
-                          label="Admin access key"
-                          value={form.admin_access_key}
-                          onChange={(e) => {
-                            invalidateCredentialChecks();
-                            setForm((prev) => ({ ...prev, admin_access_key: e.target.value }));
-                          }}
-                          className={endpointReadOnlyInputClass}
-                          readOnly={configurationReadOnly}
-                          placeholder="Access key admin"
-                          required={form.features.admin.enabled}
-                        />
-                        {configurationReadOnly ? (
-                          <StoredSecretStatus label="Admin secret key" stored={form.has_admin_secret} />
-                        ) : (
-                          <UiInput
-                            label="Admin secret key"
-                            type="password"
-                            value={form.admin_secret_key}
-                            onChange={(e) => {
-                              invalidateCredentialChecks();
-                              setForm((prev) => ({ ...prev, admin_secret_key: e.target.value }));
-                            }}
-                            placeholder={editingId ? "Secret key admin (leave blank to keep)" : "Secret key admin"}
-                            required={!editingId && form.features.admin.enabled}
-                          />
-                        )}
-                      </div>
-                      {!configurationReadOnly && <p className="ui-caption font-normal text-slate-500 dark:text-slate-400">
-                        {editingId ? "Leave the secret key empty to keep the current one." : "Required when admin is enabled."}
-                      </p>}
-                    </div>
-                    <div className="space-y-1 ui-body font-semibold text-slate-700 dark:text-slate-100">
-                      <div className="flex min-h-6 flex-wrap items-center justify-between gap-2">
-                        <p>Monitoring (Supervision Ops)</p>
-                        {supervisionCredentialCheck ? <CredentialStatusBadge {...supervisionCredentialCheck} /> : null}
-                      </div>
-                      <div className="grid gap-3">
-                        <UiInput
-                          label="Supervision access key"
-                          value={form.supervision_access_key}
-                          onChange={(e) => {
-                            invalidateCredentialChecks();
-                            setForm((prev) => ({ ...prev, supervision_access_key: e.target.value }));
-                          }}
-                          className={endpointReadOnlyInputClass}
-                          readOnly={configurationReadOnly}
-                          placeholder="Access key supervision"
-                          required={form.features.usage.enabled || form.features.metrics.enabled}
-                        />
-                        {configurationReadOnly ? (
-                          <StoredSecretStatus label="Supervision secret key" stored={form.has_supervision_secret} />
-                        ) : (
-                          <UiInput
-                            label="Supervision secret key"
-                            type="password"
-                            value={form.supervision_secret_key}
-                            onChange={(e) => {
-                              invalidateCredentialChecks();
-                              setForm((prev) => ({ ...prev, supervision_secret_key: e.target.value }));
-                            }}
-                            placeholder="Secret key supervision"
-                            required={!editingId && (form.features.usage.enabled || form.features.metrics.enabled)}
-                          />
-                        )}
-                      </div>
-                      <p className="ui-caption font-normal text-slate-500 dark:text-slate-400">
-                        Use these keys for read-only monitoring actions.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 ui-caption text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  <p className="ui-body font-semibold text-slate-700 dark:text-slate-100">
-                    What are Admin Ops and Supervision Ops?
-                  </p>
-                  <p className="mt-2">
-                    <span className="font-semibold">Admin Ops</span> keys let BucketReef create RGW accounts and S3 users, and apply
-                    explicitly delegated Manager bucket quota changes. Individual bucket quota changes require the
-                    <code> buckets=write</code> capability included in the example below. If you do not provide Admin Ops keys, you must
-                    create accounts/users outside of BucketReef and import them manually (or via the API).
-                  </p>
-                  <p className="mt-2">
-                    <span className="font-semibold">Supervision Ops</span> keys are read-only credentials used for usage logs and metrics
-                    collection.
-                  </p>
-                  <p className="mt-3 font-semibold text-slate-700 dark:text-slate-100">Ceph (radosgw-admin) examples</p>
-                  <div className="mt-2 space-y-3">
-                    <div>
-                      <p className="mb-1 font-semibold text-slate-600 dark:text-slate-300">Admin Ops</p>
-                      <pre className="overflow-x-auto whitespace-pre rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-100">
-                        {ADMIN_OPS_COMMAND}
-                      </pre>
-                    </div>
-                    <div>
-                      <p className="mb-1 font-semibold text-slate-600 dark:text-slate-300">Supervision Ops</p>
-                      <pre className="overflow-x-auto whitespace-pre rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-100">
-                        {SUPERVISION_OPS_COMMAND}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-                {cephAdminConfigEnabled && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 ui-caption text-amber-900 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/60 dark:text-amber-100">
-                    <div className="flex min-h-6 flex-wrap items-center justify-between gap-2">
-                      <p className="ui-body font-semibold">Ceph Admin dedicated credentials</p>
-                      {cephAdminCredentialCheck ? <CredentialStatusBadge {...cephAdminCredentialCheck} /> : null}
-                    </div>
-                    <p className="mt-2">
-                      These credentials are used only by the <code>/ceph-admin</code> workspace (advanced
-                      cluster-wide operations). They are isolated from Admin Ops credentials.
-                    </p>
-                    <p className="mt-1 ui-caption opacity-80">
-                      Note: access to <code>/ceph-admin</code> uses these dedicated credentials and does not depend on the
-                      <code> admin.enabled</code> endpoint feature flag.
-                    </p>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <UiInput
-                        label="Ceph Admin access key"
-                        value={form.ceph_admin_access_key}
-                        onChange={(e) => {
-                          invalidateCredentialChecks();
-                          setForm((prev) => ({ ...prev, ceph_admin_access_key: e.target.value }));
-                        }}
-                        className={endpointReadOnlyInputClass}
-                        readOnly={configurationReadOnly}
-                        placeholder="Ceph Admin access key"
-                      />
-                      {configurationReadOnly ? (
-                        <StoredSecretStatus
-                          label="Ceph Admin secret key"
-                          stored={Boolean(editingEndpoint?.has_ceph_admin_secret)}
-                        />
-                      ) : (
-                        <UiInput
-                          label="Ceph Admin secret key"
-                          type="password"
-                          value={form.ceph_admin_secret_key}
-                          onChange={(e) => {
-                            invalidateCredentialChecks();
-                            setForm((prev) => ({ ...prev, ceph_admin_secret_key: e.target.value }));
-                          }}
-                          placeholder={editingId ? "Ceph Admin secret key (leave blank to keep)" : "Ceph Admin secret key"}
-                        />
-                      )}
-                    </div>
-                    {!configurationReadOnly && <p className="mt-2">
-                      {editingId
-                        ? "Leave the secret key empty to keep the current one."
-                        : "Recommended: keep this account dedicated to ceph-admin only."}
-                    </p>}
-                    <p className="mt-3 font-semibold text-amber-900 dark:text-amber-100">Ceph (radosgw-admin) example</p>
-                    <pre className="mt-2 overflow-x-auto whitespace-pre rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-100">
-                      {CEPH_ADMIN_COMMAND}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <PageBanner tone="info">
-                {form.provider === "aws"
-                  ? "AWS endpoints use the active execution identity and do not require dedicated management credentials here."
-                  : "This provider does not use dedicated operational credentials in BucketReef."}
-              </PageBanner>
-            )}
-                  </div>
-                </WorkflowSection>
-              </div>
-            )}
-
-            {activeTab === "capabilities" && (
-              <div
-                id="endpoint-editor-panel-capabilities"
-                role="tabpanel"
-                aria-labelledby="endpoint-editor-tab-capabilities"
-              >
-                <WorkflowSection
-                  title="Capabilities and health"
-                  description="Review detected Ceph services, S3 capabilities and the probe used to monitor this endpoint."
-                >
-                  <div className="space-y-4">
-            <div className="space-y-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 ui-body text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
-                <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Features</p>
-                <div className="mt-3 space-y-4">
-                  {cephMode && (
-                    <div className="space-y-3">
-                      <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Ceph</p>
-                      {(featureDetectBusy ||
-                        featureDetectError ||
-                        featureDetectWarnings.length > 0 ||
-                        showUsageLogUnavailableWarning) && (
-                        <div className="space-y-2">
-                          {featureDetectBusy && (
-                            <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 ui-caption text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-100">
-                              Feature detection in progress from entered credentials.
-                            </p>
-                          )}
-                          {featureDetectError && (
-                            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 ui-caption text-red-900 dark:border-red-900/40 dark:bg-red-950/50 dark:text-red-100">
-                              {featureDetectError}
-                            </p>
-                          )}
-                          {featureDetectWarnings.map((warning, idx) => (
-                            <p
-                              key={`${warning}-${idx}`}
-                              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 ui-caption text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/60 dark:text-amber-100"
-                            >
-                              {warning}
-                            </p>
-                          ))}
-                          {showUsageLogUnavailableWarning && (
-                              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 ui-caption text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/60 dark:text-amber-100">
-                                Usage Log does not seem enabled on RGW (`rgw_enable_usage_log`), so activity stats will not be populated.
-                              </p>
-                            )}
-                        </div>
-                      )}
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label
-                          title="This option is automatically detected from credentials and cannot be manually changed."
-                          className={endpointToggleCardDisabledClass}
-                        >
-                          Admin enabled
-                          <input
-                            type="checkbox"
-                            checked={form.features.admin.enabled}
-                            readOnly
-                            className={endpointToggleCheckboxClass}
-                            disabled
-                          />
-                        </label>
-                        <label
-                          title="This option is automatically detected from credentials and cannot be manually changed."
-                          className={endpointToggleCardDisabledClass}
-                        >
-                          Accounts enabled
-                          <input
-                            type="checkbox"
-                            checked={form.features.account.enabled}
-                            readOnly
-                            className={endpointToggleCheckboxClass}
-                            disabled
-                          />
-                        </label>
-                        <label
-                          title="This option is automatically detected from credentials and cannot be manually changed."
-                          className={endpointToggleCardDisabledClass}
-                        >
-                          Usage Log enabled
-                          <input
-                            type="checkbox"
-                            checked={form.features.usage.enabled}
-                            readOnly
-                            className={endpointToggleCheckboxClass}
-                            disabled
-                          />
-                        </label>
-                        <label
-                          title="This option is automatically detected from credentials and cannot be manually changed."
-                          className={endpointToggleCardDisabledClass}
-                        >
-                          Metrics enabled
-                          <input
-                            type="checkbox"
-                            checked={form.features.metrics.enabled}
-                            readOnly
-                            className={endpointToggleCheckboxClass}
-                            disabled
-                          />
-                        </label>
-                        <label className={endpointToggleCardClass}>
-                          SNS topics enabled
-                          <input
-                            type="checkbox"
-                            checked={form.features.sns.enabled}
-                            onChange={(e) =>
-                              updateFeatures((current) => ({
-                                ...current,
-                                sns: { ...current.sns, enabled: e.target.checked },
-                              }))
-                            }
-                            className={endpointToggleCheckboxClass}
-                            disabled={configurationReadOnly || !cephMode}
-                          />
-                        </label>
-                        <label className={endpointToggleCardClass}>
-                          Bucket replication enabled
-                          <input
-                            type="checkbox"
-                            checked={form.features.replication.enabled}
-                            onChange={(e) =>
-                              updateFeatures((current) => ({
-                                ...current,
-                                replication: { ...current.replication, enabled: e.target.checked },
-                              }))
-                            }
-                            className={endpointToggleCheckboxClass}
-                            disabled={configurationReadOnly || !cephMode}
-                          />
-                        </label>
-                      </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <UiInput
-                          label="Ceph admin endpoint override (optional)"
-                          value={form.features.admin.endpoint}
-                          onChange={(e) => {
-                            invalidateCredentialChecks();
-                            updateFeatures((current) => ({
-                              ...current,
-                              admin: { ...current.admin, endpoint: e.target.value },
-                            }));
-                          }}
-                          className={endpointReadOnlyInputClass}
-                          readOnly={configurationReadOnly}
-                          placeholder="http://rgw-admin.local"
-                        />
-                      </div>
-                      <p className="ui-caption text-slate-500 dark:text-slate-400">
-                        Admin, account API, usage log, and metrics are auto-detected from credentials. Usage log/metrics require supervision credentials.
-                      </p>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">S3</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className={endpointToggleCardClass}>
-                        STS enabled
-                        <input
-                          type="checkbox"
-                          checked={form.features.sts.enabled}
-                          onChange={(e) =>
-                            updateFeatures((current) => ({
-                              ...current,
-                              sts: { ...current.sts, enabled: e.target.checked },
-                            }))
-                          }
-                          className={endpointToggleCheckboxClass}
-                          disabled={configurationReadOnly}
-                        />
-                      </label>
-                      <label className={endpointToggleCardClass}>
-                        Static website enabled
-                        <input
-                          type="checkbox"
-                          checked={form.features.static_website.enabled}
-                          onChange={(e) =>
-                            updateFeatures((current) => ({
-                              ...current,
-                              static_website: { ...current.static_website, enabled: e.target.checked },
-                            }))
-                          }
-                          className={endpointToggleCheckboxClass}
-                          disabled={configurationReadOnly}
-                        />
-                      </label>
-                      <label className={endpointToggleCardClass}>
-                        IAM enabled
-                        <input
-                          type="checkbox"
-                          checked={form.features.iam.enabled}
-                          onChange={(e) =>
-                            updateFeatures((current) => ({
-                              ...current,
-                              iam: { ...current.iam, enabled: e.target.checked },
-                            }))
-                          }
-                          className={endpointToggleCheckboxClass}
-                          disabled={configurationReadOnly}
-                        />
-                      </label>
-                      <label className={endpointToggleCardClass}>
-                        Server-Side Encryption (SSE) enabled
-                        <input
-                          type="checkbox"
-                          checked={form.features.sse.enabled}
-                          onChange={(e) =>
-                            updateFeatures((current) => ({
-                              ...current,
-                              sse: { ...current.sse, enabled: e.target.checked },
-                            }))
-                          }
-                          className={endpointToggleCheckboxClass}
-                          disabled={configurationReadOnly}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <UiInput
-                    label={awsMode ? "STS endpoint" : "STS endpoint override (optional)"}
-                    value={awsMode ? computedAwsStsEndpoint : form.features.sts.endpoint}
-                    onChange={(e) => {
-                      if (!awsMode) {
-                        updateFeatures((current) => ({
-                          ...current,
-                          sts: { ...current.sts, endpoint: e.target.value },
-                        }));
-                      }
-                    }}
-                    className={endpointReadOnlyInputClass}
-                    placeholder={awsMode ? computedAwsStsEndpoint : "https://sts.example.com"}
-                    disabled={!form.features.sts.enabled}
-                    readOnly={configurationReadOnly || awsMode}
-                    title={!form.features.sts.enabled ? "Enable STS first to define a dedicated STS endpoint." : undefined}
-                  />
-                  <UiInput
-                    label={awsMode ? "IAM endpoint" : "IAM endpoint override (optional)"}
-                    value={awsMode ? computedAwsIamEndpoint : form.features.iam.endpoint}
-                    onChange={(e) => {
-                      if (!awsMode) {
-                        updateFeatures((current) => ({
-                          ...current,
-                          iam: { ...current.iam, endpoint: e.target.value },
-                        }));
-                      }
-                    }}
-                    className={endpointReadOnlyInputClass}
-                    placeholder={awsMode ? computedAwsIamEndpoint : "https://iam.example.com"}
-                    disabled={!form.features.iam.enabled}
-                    readOnly={configurationReadOnly || awsMode}
-                    title={!form.features.iam.enabled ? "Enable IAM first to define a dedicated IAM endpoint." : undefined}
-                  />
-                  <UiSelect
-                    label="Healthcheck mode"
-                    value={form.features.healthcheck.mode ?? "http"}
-                    onChange={(e) =>
-                      updateFeatures((current) => ({
-                        ...current,
-                        healthcheck: {
-                          ...current.healthcheck,
-                          mode: e.target.value === "s3" ? "s3" : "http",
-                        },
-                      }))
-                    }
-                    disabled={configurationReadOnly || !cephMode}
-                    title={!cephMode ? "Healthcheck signed mode is available only for Ceph endpoints." : signedProbeBlockedReason ?? undefined}
-                  >
-                    <option value="http">HTTP probe</option>
-                    <option value="s3" disabled={Boolean(signedProbeBlockedReason)} title={signedProbeBlockedReason ?? undefined}>
-                      S3 signed probe{signedProbeBlockedReason ? " (requires supervision credentials)" : ""}
-                    </option>
-                  </UiSelect>
-                  <UiInput
-                    label="Healthcheck URL override (optional)"
-                    fieldClassName="sm:col-span-2"
-                    value={form.features.healthcheck.endpoint}
-                    onChange={(e) =>
-                      updateFeatures((current) => ({
-                        ...current,
-                        healthcheck: { ...current.healthcheck, endpoint: e.target.value },
-                      }))
-                    }
-                    className={endpointReadOnlyInputClass}
-                    readOnly={configurationReadOnly}
-                    placeholder="https://rgw.example.com/healthz"
-                    hint="Empty value uses the endpoint URL. S3 mode signs a lightweight request with endpoint credentials."
-                  />
-                </div>
-              </div>
-
-            </div>
-                  </div>
-                </WorkflowSection>
-              </div>
-            )}
-
-            {(!configurationReadOnly || canEditEndpoints) && (
-              <WorkflowActions className="ui-page-sticky-actions bg-[var(--ui-surface)] py-3 shadow-[0_-8px_18px_-16px_rgba(15,23,42,0.45)]">
-                <UiButton variant="secondary" size="sm" onClick={formCloseGuard.requestClose}>
-                  {configurationReadOnly ? "Back to endpoints" : "Cancel"}
-                </UiButton>
-                <UiButton
-                  type="submit"
-                  size="sm"
-                  disabled={!metadataReady || saving || !hasFormChanges}
-                  title={!metadataReady ? "Management mode is unavailable." : saving ? "Save in progress." : !hasFormChanges ? "No changes to save." : undefined}
-                >
-                  {saving ? "Saving..." : editingId ? (configurationReadOnly ? "Save tags" : "Update endpoint") : "Create endpoint"}
-                </UiButton>
-              </WorkflowActions>
-            )}
-            {formCloseGuard.confirmationDialog}
-          </form>
-        </WorkflowPage>
+        <StorageEndpointEditor key={editingId ?? "create"} title={editorTitle} name={editingEndpoint?.name ?? "Endpoint"}
+          editing={editingId !== null} readOnly={configurationReadOnly} canEdit={canEditEndpoints}
+          ready={metadataReady} dirty={hasFormChanges} busy={saving} onSubmit={handleSubmit} onClose={onCloseForm}>
+          {formError && <PageBanner tone="error">{formError}</PageBanner>}
+          {configurationReadOnly && <PageBanner tone="info">
+            Endpoint configuration is read-only. {!metadataReady
+              ? "Management mode is unavailable. Return to endpoints and retry before making changes."
+              : canEditEndpoints ? "You can still update the tags associated with this endpoint."
+                : "All settings and tags are available for consultation only."}
+          </PageBanner>}
+          {endpointTagCatalogError && <PageBanner tone="warning">{endpointTagCatalogError}</PageBanner>}
+          <PageTabs tabs={editorTabs.map(tab => ({ ...tab, disabled: saving }))} activeTab={activeTab}
+            onChange={tab => setActiveTab(tab as EndpointEditorTab)} variant="line"
+            ariaLabel="Endpoint configuration sections" idPrefix="endpoint-editor" />
+          <div id={`endpoint-editor-panel-${activeTab}`} role="tabpanel" aria-labelledby={`endpoint-editor-tab-${activeTab}`}>
+            {activeTab === "general" && <StorageEndpointConnectionFields form={form} setForm={setForm}
+              readOnly={configurationReadOnly} canEditTags={canEditEndpoints} busy={saving}
+              catalog={endpointTagCatalog} catalogLoading={endpointTagCatalogLoading} errors={fieldErrors}
+              onProviderChange={handleProviderChange} onRegionChange={handleRegionChange} invalidateChecks={invalidateCredentialChecks} />}
+            {activeTab === "credentials" && <StorageEndpointCredentialsFields form={form} setForm={setForm}
+              readOnly={configurationReadOnly} editing={editingId !== null} cephAdminEnabled={cephAdminConfigEnabled}
+              errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} statuses={{
+                admin: adminCredentialCheck && <CredentialStatusBadge {...adminCredentialCheck} />,
+                supervision: supervisionCredentialCheck && <CredentialStatusBadge {...supervisionCredentialCheck} />,
+                ceph_admin: cephAdminCredentialCheck && <CredentialStatusBadge {...cephAdminCredentialCheck} />,
+              }} />}
+            {activeTab === "capabilities" && <StorageEndpointCapabilitiesFields features={form.features} provider={form.provider}
+              region={form.region} readOnly={configurationReadOnly} updateFeatures={updateFeatures}
+              invalidateChecks={invalidateCredentialChecks} detecting={featureDetectBusy} detectionError={featureDetectError}
+              warnings={featureDetectWarnings} usageUnavailable={showUsageLogUnavailableWarning} signedProbeBlockedReason={signedProbeBlockedReason} />}
+          </div>
+        </StorageEndpointEditor>
       )}
 
       {deleteTarget && (

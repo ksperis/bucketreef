@@ -755,6 +755,40 @@ or competing section saves and ignores completion after a scope reset.
 keys/values (including whitespace-only keys) are preserved; missing keys with a
 value and exact duplicate keys are rejected before any request.
 
+## Admin storage endpoint editor
+
+Create, edit and view reuse `StorageEndpointEditor`, `SettingsForm` and
+`useSettingsFormController`. Connection, Credentials and Capabilities & health
+are domain-specific field compositions built from compact `SettingsSection`,
+`SettingsItem`, canonical fields, named provider choices and `SettingsSwitch`.
+Credential fields share presentation while retaining three separate purposes;
+operational command examples remain visible. Local card and toggle styling has
+been removed from the page.
+
+`buildStorageEndpointSubmission` owns field validation and existing payload
+normalization. Errors reveal the relevant tab and focus the first invalid field.
+One pending boundary locks native fields, tags and their portal menu, tabs,
+dismissal and router departures. Accepted navigation preserves its destination,
+including another endpoint and browser history. Opening the next endpoint uses
+a new controller instance; the old target is never changed before acceptance.
+
+Configuration and tag baselines are independent. After a successful configuration
+write the form accepts the returned endpoint, clears submitted secret values,
+and retains pending tags. A tag failure reports the partial result; retry only
+replays outstanding changes against the saved ID, including after creation.
+Unchanged tags/configuration do not cause redundant API writes. Environment and
+protected configurations remain read-only; only superadmins can edit their tags.
+Metadata failures still prevent mutation. Advisory Ceph detection ignores stale
+responses during saving; provider constraints and stored-secret semantics remain
+in the domain model.
+
+`StorageEndpointsPage.tags.test.tsx` covers provider and credential behavior,
+field focus across tabs, frozen pending drafts, failure/retry, tags-only and
+partial saves, router/history destinations and access modes. Browser validation
+must cover all tabs, mobile/desktop, both themes, keyboard submission and close
+confirmation. Isolated Moto proves authenticated UI/API flows; fixture Ceph
+responses do not prove live RGW access or capabilities.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
