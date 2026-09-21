@@ -2,9 +2,9 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 
-import UiButton from "../../../components/ui/UiButton";
+import { SettingsButton } from "../../../components/settings/SettingsControls";
 
 type BucketFeatureJsonExampleProps = {
   show: boolean;
@@ -23,34 +23,37 @@ export default function BucketFeatureJsonExample({
   helperText,
   disabled = false,
 }: BucketFeatureJsonExampleProps) {
+  const exampleId = useId();
   return (
-    <div className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2 ui-caption text-[var(--ui-text-muted)]">
+    <div className="space-y-2 settings-description">
       <div className="flex flex-wrap items-center gap-2">
-        <UiButton
+        <SettingsButton
           type="button"
           onClick={onToggle}
           disabled={disabled}
+          aria-expanded={show}
+          aria-controls={show ? exampleId : undefined}
           variant="ghost"
-          size="xs"
-          className="h-auto px-1.5 py-0.5"
         >
           {show ? "Hide example" : "Show example"}
-        </UiButton>
+        </SettingsButton>
         {onUseExample && (
-          <UiButton
+          <SettingsButton
             type="button"
             onClick={onUseExample}
             disabled={disabled}
             variant="secondary"
-            size="xs"
-            className="h-auto rounded-full px-2 py-0.5"
           >
             Use example
-          </UiButton>
+          </SettingsButton>
         )}
         {helperText}
       </div>
-      {show && <pre className="mt-2 whitespace-pre-wrap rounded bg-slate-900 px-3 py-2 ui-caption text-slate-100">{example}</pre>}
+      {show && (
+        <pre id={exampleId} className="whitespace-pre-wrap break-words rounded border border-[var(--ui-border-soft)] bg-[var(--ui-surface-muted)] p-3 font-mono text-[var(--ui-text)] [overflow-wrap:anywhere]">
+          {example}
+        </pre>
+      )}
     </div>
   );
 }

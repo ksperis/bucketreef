@@ -4,7 +4,6 @@
  */
 export type UiTone = "neutral" | "info" | "success" | "warning" | "danger" | "primary";
 export type UiFeatureStateTone = "neutral" | "configured" | "unsaved";
-type UiFeatureCardState = UiFeatureStateTone | "disabled";
 
 export function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -114,13 +113,4 @@ export const uiFeatureStateHighlightLabelClasses: Record<UiFeatureStateTone, str
   neutral: "",
   configured: "text-emerald-700 dark:text-emerald-200",
   unsaved: "text-amber-700 dark:text-amber-300",
-};
-
-export const uiFeatureCardStateClasses: Record<UiFeatureCardState, string> = {
-  neutral: "",
-  configured:
-    "border-emerald-400 bg-emerald-50/20 ring-2 ring-emerald-200/70 dark:border-emerald-400/70 dark:bg-emerald-500/10 dark:ring-emerald-500/25",
-  unsaved:
-    "border-amber-400 bg-amber-50/20 ring-2 ring-amber-300/70 dark:border-amber-400/70 dark:bg-amber-500/15 dark:ring-amber-500/25",
-  disabled: "opacity-60",
 };

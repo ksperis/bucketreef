@@ -3,14 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useId } from "react";
 import { useParams } from "react-router-dom";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiCardMutedClass,
-  uiCheckboxClass,
   uiDataTableClass,
   uiInputClass,
   uiTableContainerClass,
@@ -18,6 +15,9 @@ import {
 import type { BucketPublicAccessBlock } from "../../api/bucketContracts";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageHeader from "../../components/PageHeader";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import UiTextarea from "../../components/ui/UiTextarea";
+import UiBadge from "../../components/ui/UiBadge";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
 import SplitView from "../../components/SplitView";
@@ -31,10 +31,10 @@ import { useS3AccountContext } from "./S3AccountContext";
 import TrafficAnalytics from "./TrafficAnalytics";
 import BucketUsageStatsPanel from "../shared/BucketUsageStatsPanel";
 import PropertySummaryChip, { PropertySummaryTone } from "../../components/PropertySummaryChip";
-import { SettingsSwitch } from "../../components/settings/SettingsLayout";
+import { SettingsChoiceRow, SettingsItem, SettingsSwitch } from "../../components/settings/SettingsLayout";
 import { useCephAdminEndpoint } from "../cephAdmin/CephAdminEndpointContext";
 import {
-  BucketFeatureCard,
+  BucketFeatureSection,
   BucketFeatureJsonExample,
   BucketFeatureModeToggle,
   bucketAclOptions,
@@ -179,37 +179,22 @@ const publicAccessOptions: { key: keyof BucketPublicAccessBlock; label: string; 
   },
 ];
 
-const bucketFeaturePrimaryActionClass = cx(uiButtonBaseClass, uiButtonVariants.primary, "px-3 py-1");
-const bucketFeatureSecondaryActionClass = cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-3 py-1");
-const bucketFeatureDangerActionClass = cx(
-  uiButtonBaseClass,
-  "border border-rose-200 px-3 py-1 text-rose-700 hover:border-rose-400 hover:text-rose-800 dark:border-rose-900/50 dark:text-rose-200 dark:hover:border-rose-800",
-);
-const bucketFeatureInputClass = cx(uiInputClass, "px-2 py-1 ui-body");
-const bucketFeatureJsonInputClass = cx(uiInputClass, "px-3 py-2 font-mono ui-caption");
-const bucketFeatureLabelClass =
-  "flex flex-col gap-1 ui-caption font-medium text-slate-700 dark:text-slate-200";
-const bucketDetailHintClass = "ui-caption text-slate-500 dark:text-slate-400";
+const bucketFeatureInputClass = cx(uiInputClass, "settings-control");
+const bucketFeatureLabelClass = "settings-label flex flex-col gap-1";
+const bucketDetailHintClass = "settings-description";
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
-
-
-
 
 const bucketDetailCompactStackClass = "space-y-2";
 const bucketDetailDividerClass =
   "divide-y divide-slate-200 dark:divide-slate-800";
 const bucketDetailEndActionClass = "mt-2 flex justify-end";
-const bucketDetailFieldStackClass = "flex flex-col gap-1";
-const bucketDetailInlineActionsClass = "flex gap-2";
-const bucketDetailMutedBodyClass =
-  "ui-caption text-slate-600 dark:text-slate-300";
-const bucketDetailMutedTitleClass =
-  "ui-caption font-semibold text-slate-700 dark:text-slate-100";
+const bucketDetailFieldStackClass = "settings-label flex flex-col gap-1";
+const bucketDetailInlineActionsClass = "flex flex-wrap items-center gap-2";
+const bucketDetailMutedBodyClass = "settings-description";
+const bucketDetailMutedTitleClass = "settings-label";
 const bucketDetailSectionStackClass = "space-y-4";
 const bucketDetailStackClass = "space-y-3";
 
-const bucketDetailTextActionClass =
-  "ui-caption font-semibold text-primary hover:text-primary-600 disabled:opacity-60";
 const bucketDetailTightStackClass = "space-y-1";
 const bucketDetailWrapActionsClass = "flex flex-wrap gap-2";
 
@@ -317,6 +302,7 @@ function BucketDetailPageContent({
   routeBucketName,
   s3AccountContext,
 }: BucketDetailPageContentProps) {
+  const tabsId = useId();
   const bucketName = bucketNameOverride ?? routeBucketName;
   const isCephAdmin = mode === "ceph-admin";
   const {
@@ -1369,17 +1355,20 @@ function BucketDetailPageContent({
       {bucketError && <PageBanner tone="error">{bucketError}</PageBanner>}
 
       <PageTabs
+        variant="line"
+        ariaLabel="Bucket sections"
+        idPrefix={tabsId}
         activeTab={activeTab}
         onChange={(id) => onActiveTabChange(id as BucketDetailTabId)}
         headerActions={
-          <button
+          <SettingsButton
             type="button"
+            variant="secondary"
             onClick={refreshActiveTab}
             disabled={!canRefreshActiveTab || activeTabLoading}
-            className="rounded-md border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 hover:border-primary hover:text-primary disabled:opacity-60 dark:border-slate-700 dark:text-slate-100 dark:hover:border-primary-500 dark:hover:text-primary-100"
           >
             {activeTabLoading ? "Loading..." : "Refresh"}
-          </button>
+          </SettingsButton>
         }
         tabs={[
           {
@@ -1589,17 +1578,17 @@ function BucketDetailPageContent({
             id: "properties",
             label: "Properties",
             content: (
-              <div className={bucketDetailSectionStackClass}>
-                <div className={bucketDetailTwoColumnGridClass}>
-                  <BucketFeatureCard
+              <div className="settings-compact">
+                <div>
+                  <BucketFeatureSection
                     title="Versioning"
-                    description="Enable or disable S3 object versioning."
+                    description="Enable or suspend S3 object versioning."
                     mode="graphical"
                     visualState={versioningCardState}
+                    busy={updatingVersioning || versioningLoading}
                     testId="bucket-feature-versioning"
-                    className="md:col-start-1"
                     actions={
-                      <button
+                      <SettingsButton
                         type="button"
                         onClick={() => void saveVersioning(versioningDisableBlocked)}
                         disabled={
@@ -1610,10 +1599,10 @@ function BucketDetailPageContent({
                           !versioningDirty
                         }
                         title={versioningDisableBlocked ? "Disable Object Lock to change versioning." : undefined}
-                        className={bucketFeaturePrimaryActionClass}
+                        variant="primary"
                       >
                         {updatingVersioning ? "Saving..." : "Save"}
-                      </button>
+                      </SettingsButton>
                     }
                   >
                     <div className={bucketDetailCompactStackClass}>
@@ -1626,18 +1615,15 @@ function BucketDetailPageContent({
                       {versioningSaveError && (
                         <UiInlineMessage tone="error">{versioningSaveError}</UiInlineMessage>
                       )}
-                      <div className="flex items-start justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
-                        <div>
-                          <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Enable versioning</p>
-                          <p className={bucketDetailHintClass}>
-                            Keeps object history for restores and is required for Object Lock.
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
+                      <SettingsItem
+                        compact
+                        title="Enable versioning"
+                        description="Keeps object history for restores and is required for Object Lock."
+                        action={<div className="flex items-center gap-2">
                           {versioningIsSuspended && (
-                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 ui-caption font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/60 dark:text-amber-100">
+                            <UiBadge tone="warning">
                               Suspended
-                            </span>
+                            </UiBadge>
                           )}
                           <SettingsSwitch
                             checked={versioningDraftEnabled}
@@ -1645,40 +1631,40 @@ function BucketDetailPageContent({
                             ariaLabel="Enable versioning"
                             onChange={updateVersioningDraft}
                           />
-                        </div>
-                      </div>
+                        </div>}
+                      />
                     </div>
                     {versioningDisableBlocked && (
                       <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
                         Versioning cannot be disabled while Object Lock is enabled.
                       </p>
                     )}
-                  </BucketFeatureCard>
-                  <BucketFeatureCard
+                  </BucketFeatureSection>
+                  <BucketFeatureSection
                     title="Server-side encryption"
                     description="Bucket default encryption rules (S3 API Rules array)."
                     mode="json"
                     visualState={encryptionCardState}
+                    busy={savingEncryption || deletingEncryption || encryptionLoading}
                     testId="bucket-feature-encryption"
-                    className="md:col-start-2 md:row-start-1 md:row-span-2 space-y-3"
                     actions={
                       <div className={bucketDetailInlineActionsClass}>
-                        <button
+                        <SettingsButton
                           type="button"
                           onClick={() => setPendingConfigurationDelete("encryption")}
                           disabled={!sseFeatureEnabled || encryptionNotImplemented || deletingEncryption || !encryptionConfigured}
-                          className={bucketFeatureDangerActionClass}
+                          variant="danger"
                         >
                           {deletingEncryption ? "Disabling..." : "Disable"}
-                        </button>
-                        <button
+                        </SettingsButton>
+                        <SettingsButton
                           type="button"
                           onClick={saveEncryption}
                           disabled={!sseFeatureEnabled || encryptionNotImplemented || savingEncryption || encryptionLoading}
-                          className={bucketFeaturePrimaryActionClass}
+                          variant="primary"
                         >
                           {savingEncryption ? "Saving..." : "Save"}
-                        </button>
+                        </SettingsButton>
                       </div>
                     }
                   >
@@ -1689,7 +1675,7 @@ function BucketDetailPageContent({
                     {encryptionStatus && (
                       <UiInlineMessage tone="success">{encryptionStatus}</UiInlineMessage>
                     )}
-                    <textarea
+                    <UiTextarea label="Encryption rules (JSON)" rows={6}
                       value={encryptionText}
                       onChange={(e) => {
                         setEncryptionText(e.target.value);
@@ -1697,7 +1683,7 @@ function BucketDetailPageContent({
                           clearEncryptionStatus();
                         }
                       }}
-                      className={cx(bucketFeatureJsonInputClass, "h-40 w-full")}
+                      className="settings-control font-mono"
                       placeholder='[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]'
                       spellCheck={false}
                       disabled={!sseFeatureEnabled || encryptionNotImplemented || encryptionLoading || savingEncryption || deletingEncryption}
@@ -1714,32 +1700,32 @@ function BucketDetailPageContent({
                         </span>
                       }
                     />
-                  </BucketFeatureCard>
-                  <BucketFeatureCard
+                  </BucketFeatureSection>
+                  <BucketFeatureSection
                     title="Object Lock"
                     description="WORM / default retention."
                     mode="graphical"
                     visualState={objectLockCardState}
+                    busy={savingObjectLock || objectLockLoading}
                     testId="bucket-feature-object-lock"
-                    className="md:col-start-1 md:row-start-2"
                     actions={
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
+                        <SettingsButton
                           type="button"
                           onClick={resetObjectLock}
-                          className={bucketFeatureSecondaryActionClass}
+                          variant="secondary"
                           disabled={objectLockLoading || Boolean(objectLockLoadError) || savingObjectLock}
                         >
                           Reset
-                        </button>
-                        <button
+                        </SettingsButton>
+                        <SettingsButton
                           type="submit"
                           form={objectLockFormId}
                           disabled={savingObjectLock || objectLockLoading || Boolean(objectLockLoadError)}
-                          className={bucketFeaturePrimaryActionClass}
+                          variant="primary"
                         >
                           {savingObjectLock ? "Saving..." : "Save"}
-                        </button>
+                        </SettingsButton>
                       </div>
                     }
                   >
@@ -1764,14 +1750,11 @@ function BucketDetailPageContent({
                           void saveObjectLock();
                         }}
                       >
-                        <div className="flex items-start justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
-                          <div>
-                            <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Enable Object Lock</p>
-                            <p className={bucketDetailHintClass}>
-                              Write-once retention controls for bucket objects.
-                            </p>
-                          </div>
-                          <SettingsSwitch
+                        <SettingsItem
+                          compact
+                          title="Enable Object Lock"
+                          description="Write-once retention controls for bucket objects."
+                          action={<SettingsSwitch
                             checked={objectLockEnabled ?? false}
                             disabled={objectLockPersistentlyEnabled || objectLockLoading || Boolean(objectLockLoadError) || objectLockNotImplemented}
                             ariaLabel="Enable object lock"
@@ -1782,8 +1765,8 @@ function BucketDetailPageContent({
                                 updateVersioningDraft(true);
                               }
                             }}
-                          />
-                        </div>
+                          />}
+                        />
                         <p className={bucketDetailHintClass}>
                           Enabling Object Lock automatically enables bucket versioning.
                         </p>
@@ -1850,26 +1833,26 @@ function BucketDetailPageContent({
                     <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
                       Choose a mode plus days or years. Leave it empty to remove the default retention (Object Lock must already be enabled on the bucket).
                     </p>
-                  </BucketFeatureCard>
-                  <BucketFeatureCard
+                  </BucketFeatureSection>
+                  <BucketFeatureSection
                       title="Lifecycle rules"
                       description="S3-side expiration/clean-up."
                       mode="hybrid"
                       visualState={lifecycleCardState}
+                    busy={savingLifecycle || lifecycleLoading}
                       testId="bucket-feature-lifecycle"
-                      className="order-4 md:order-none md:col-span-2 md:col-start-1 md:row-start-3"
                       actions={
                         <div className="flex items-center gap-2">
                           <span className={bucketDetailHintClass}>{lifecycleRuleCount} rule(s)</span>
-                          <button
+                          <SettingsButton
                             type="button"
                             onClick={toggleLifecycleEditor}
-                            className={bucketFeatureSecondaryActionClass}
+                            variant="secondary"
                             disabled={lifecycleNotImplemented}
                           >
                             {showLifecycleEditor ? "Hide editor" : "Show editor"}
-                          </button>
-                          <button
+                          </SettingsButton>
+                          <SettingsButton
                             type="button"
                             onClick={saveLifecycle}
                             disabled={
@@ -1883,10 +1866,10 @@ function BucketDetailPageContent({
                                 ? "Quick add actions save immediately."
                                 : undefined
                             }
-                            className={bucketFeaturePrimaryActionClass}
+                            variant="primary"
                           >
                             {savingLifecycle ? "Saving..." : "Save"}
-                          </button>
+                          </SettingsButton>
                         </div>
                       }
                     >
@@ -2000,14 +1983,14 @@ function BucketDetailPageContent({
                                     Cleans noncurrent versions after 90d, removes incomplete multipart uploads after 30d, and deletes expired delete markers.
                                   </p>
                                   <div className={bucketDetailEndActionClass}>
-                                    <button
+                                    <SettingsButton
                                       type="button"
                                       onClick={() => void addLifecycleCleanupExample()}
-                                      className={bucketDetailTextActionClass}
+                                      variant="secondary"
                                       disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
                                     >
                                       Add
-                                    </button>
+                                    </SettingsButton>
                                   </div>
                                 </div>
 
@@ -2076,14 +2059,14 @@ function BucketDetailPageContent({
                                     </label>
                                   </div>
                                   <div className={bucketDetailEndActionClass}>
-                                    <button
+                                    <SettingsButton
                                       type="button"
                                       onClick={() => void addLifecycleTransitionExample()}
-                                      className={bucketDetailTextActionClass}
+                                      variant="secondary"
                                       disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
                                     >
                                       Add
-                                    </button>
+                                    </SettingsButton>
                                   </div>
                                 </div>
 
@@ -2137,14 +2120,14 @@ function BucketDetailPageContent({
                                     </label>
                                   </div>
                                   <div className={bucketDetailEndActionClass}>
-                                    <button
+                                    <SettingsButton
                                       type="button"
                                       onClick={() => void addLifecycleExpirationExample()}
-                                      className={bucketDetailTextActionClass}
+                                      variant="secondary"
                                       disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
                                     >
                                       Add
-                                    </button>
+                                    </SettingsButton>
                                   </div>
                                 </div>
                               </div>
@@ -2157,11 +2140,11 @@ function BucketDetailPageContent({
                               <p className={bucketDetailHintClass}>
                                 Paste a JSON array that matches the S3 API (<code>Rules</code>). Existing rules are listed above.
                               </p>
-                              <textarea
+                              <UiTextarea label="Lifecycle rules (JSON)"
                                 value={lifecycleText}
                                 onChange={(e) => updateLifecycleText(e.target.value)}
                                 rows={10}
-                                className={cx(bucketFeatureJsonInputClass, "w-full rounded-lg bg-slate-50 dark:bg-slate-900")}
+                                className="settings-control font-mono"
                                 disabled={lifecycleNotImplemented}
                               />
                               <BucketFeatureJsonExample
@@ -2175,32 +2158,32 @@ function BucketDetailPageContent({
                           )}
                         </>
                       )}
-                    </BucketFeatureCard>
-                    <BucketFeatureCard
+                    </BucketFeatureSection>
+                    <BucketFeatureSection
                       title="Bucket tags"
                       description="S3 key/value tags associated with this bucket."
                       mode="graphical"
                       visualState={tagsCardState}
+                      busy={savingBucketTags || deletingBucketTags || bucketTagsLoading}
                       testId="bucket-feature-tags"
-                      className="space-y-3 order-3 md:order-none md:col-start-1 md:row-start-4"
                       actions={
                         <div className={bucketDetailWrapActionsClass}>
-                          <button
+                          <SettingsButton
                             type="button"
                             onClick={() => setPendingConfigurationDelete("tags")}
-                            className={bucketFeatureDangerActionClass}
+                            variant="danger"
                             disabled={tagsNotImplemented || bucketTagsLoading || savingBucketTags || deletingBucketTags || bucketTags.length === 0}
                           >
                             {deletingBucketTags ? "Clearing..." : "Clear"}
-                          </button>
-                          <button
+                          </SettingsButton>
+                          <SettingsButton
                             type="button"
                             onClick={saveBucketTags}
-                            className={bucketFeaturePrimaryActionClass}
+                            variant="primary"
                             disabled={tagsNotImplemented || bucketTagsLoading || savingBucketTags || deletingBucketTags}
                           >
                             {savingBucketTags ? "Saving..." : "Save"}
-                          </button>
+                          </SettingsButton>
                         </div>
                       }
                     >
@@ -2225,6 +2208,7 @@ function BucketDetailPageContent({
                               <input
                                 type="text"
                                 value={tag.key}
+                                aria-label="Tag key"
                                 onChange={(e) => updateBucketTag(tag.uiId, { key: e.target.value })}
                                 className={bucketFeatureInputClass}
                                 placeholder="Tag key"
@@ -2233,37 +2217,38 @@ function BucketDetailPageContent({
                               <input
                                 type="text"
                                 value={tag.value}
+                                aria-label="Tag value"
                                 onChange={(e) => updateBucketTag(tag.uiId, { value: e.target.value })}
                                 className={bucketFeatureInputClass}
                                 placeholder="Tag value"
                                 disabled={tagsNotImplemented || savingBucketTags || deletingBucketTags}
                               />
-                              <button
+                              <SettingsButton
                                 type="button"
                                 onClick={() => removeBucketTag(tag.uiId)}
-                                className={bucketFeatureSecondaryActionClass}
+                                variant="secondary"
                                 disabled={tagsNotImplemented || savingBucketTags || deletingBucketTags}
                               >
                                 Remove
-                              </button>
+                              </SettingsButton>
                             </div>
                           ))}
                           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                            <button
+                            <SettingsButton
                               type="button"
                               onClick={addBucketTag}
-                              className={bucketFeatureSecondaryActionClass}
+                              variant="secondary"
                               disabled={tagsNotImplemented || savingBucketTags || deletingBucketTags}
                             >
                               Add tag
-                            </button>
+                            </SettingsButton>
                             <p className={bucketDetailHintClass}>
                               Tag keys must be unique and cannot be empty.
                             </p>
                           </div>
                         </div>
                       )}
-                    </BucketFeatureCard>
+                    </BucketFeatureSection>
                 </div>
               </div>
             ),
@@ -2272,23 +2257,23 @@ function BucketDetailPageContent({
             id: "permissions",
             label: "Permissions",
             content: (
-              <div className={bucketDetailSectionStackClass}>
-                <BucketFeatureCard
+              <div className="settings-compact">
+                <BucketFeatureSection
                   title="Block public access"
                   description="Manage the four S3 public access block flags. Configure each option below."
                   mode="graphical"
                   visualState={publicAccessCardState}
+                  busy={savingPublicAccess || publicAccessLoading}
                   testId="bucket-feature-block-public-access"
-                  className={bucketDetailStackClass}
                   actions={
-                    <button
+                    <SettingsButton
                       type="button"
                       onClick={savePublicAccessBlock}
                       disabled={publicAccessNotImplemented || publicAccessLoading || savingPublicAccess}
-                      className={bucketFeaturePrimaryActionClass}
+                      variant="primary"
                     >
                       {savingPublicAccess ? "Saving..." : "Save"}
-                    </button>
+                    </SettingsButton>
                   }
                 >
                   {publicAccessStatus && (
@@ -2297,44 +2282,40 @@ function BucketDetailPageContent({
                   {publicAccessError && (
                     <UiInlineMessage tone="error">{publicAccessError}</UiInlineMessage>
                   )}
-                  <div className={bucketDetailTwoColumnGridClass}>
+                  <div>
                     {publicAccessOptions.map((option) => (
-                      <label
+                      <SettingsItem
                         key={option.key}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 ui-body text-slate-700 hover:border-primary dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100"
-                      >
-                        <div>
-                          <p className="font-semibold text-slate-900 dark:text-slate-50">{option.label}</p>
-                          <p className={bucketDetailHintClass}>{option.description}</p>
-                        </div>
-                        <input
-                          type="checkbox"
+                        compact
+                        title={option.label}
+                        description={option.description}
+                        action={<SettingsSwitch
                           checked={Boolean(publicAccessBlock[option.key])}
-                          onChange={(e) => updatePublicAccessField(option.key, e.target.checked)}
+                          ariaLabel={option.label}
+                          onChange={(checked) => updatePublicAccessField(option.key, checked)}
                           disabled={publicAccessNotImplemented || publicAccessLoading || savingPublicAccess}
-                          className="h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-600"
-                        />
-                      </label>
+                        />}
+                      />
                     ))}
                   </div>
-                </BucketFeatureCard>
+                </BucketFeatureSection>
 
-                <BucketFeatureCard
+                <BucketFeatureSection
                   title="Access control list"
                   description="Configure a canned ACL and review resulting grants."
                   mode="graphical"
                   visualState={aclCardState}
+                  busy={savingBucketAcl || bucketAclLoading}
                   testId="bucket-feature-acl"
-                  className={bucketDetailStackClass}
                   actions={
-                    <button
+                    <SettingsButton
                       type="button"
                       onClick={saveBucketAcl}
-                      className={bucketFeaturePrimaryActionClass}
+                      variant="primary"
                       disabled={aclNotImplemented || savingBucketAcl || bucketAclLoading}
                     >
                       {savingBucketAcl ? "Saving..." : "Save"}
-                    </button>
+                    </SettingsButton>
                   }
                 >
                   {bucketAclError && (
@@ -2417,43 +2398,43 @@ function BucketDetailPageContent({
                       )}
                     </div>
                   )}
-                </BucketFeatureCard>
+                </BucketFeatureSection>
 
-                <BucketFeatureCard
+                <BucketFeatureSection
                   title="Bucket policy"
                   description="IAM-like JSON applied directly on the bucket."
                   mode="json"
                   visualState={policyCardState}
+                  busy={savingPolicy || deletingPolicy || policyLoading}
                   testId="bucket-feature-policy"
-                  className={bucketDetailSectionStackClass}
                   actions={
                     <div className={bucketDetailInlineActionsClass}>
-                      <button
+                      <SettingsButton
                         type="button"
                         onClick={() => setPendingConfigurationDelete("policy")}
                         disabled={policyNotImplemented || deletingPolicy || !policyConfigured}
-                        className={bucketFeatureDangerActionClass}
+                        variant="danger"
                       >
                         {deletingPolicy ? "Deleting..." : "Delete"}
-                      </button>
-                      <button
+                      </SettingsButton>
+                      <SettingsButton
                         type="button"
                         onClick={savePolicy}
                         disabled={policyNotImplemented || savingPolicy || policyLoading}
-                        className={bucketFeaturePrimaryActionClass}
+                        variant="primary"
                       >
                         {savingPolicy ? "Saving..." : "Save"}
-                      </button>
+                      </SettingsButton>
                     </div>
                   }
                 >
                   {policyError && (
                     <UiInlineMessage tone="error">{policyError}</UiInlineMessage>
                   )}
-                  <textarea
+                  <UiTextarea label="Bucket policy (JSON)" rows={12}
                     value={policyText}
                     onChange={(e) => setPolicyText(e.target.value)}
-                    className={cx(bucketFeatureJsonInputClass, "h-72 w-full")}
+                    className="settings-control font-mono"
                     placeholder='{"Version":"2012-10-17","Statement":[...]}'
                     spellCheck={false}
                     disabled={policyNotImplemented}
@@ -2465,43 +2446,43 @@ function BucketDetailPageContent({
                     onUseExample={() => setPolicyText(policyExample)}
                     disabled={policyNotImplemented}
                   />
-                </BucketFeatureCard>
+                </BucketFeatureSection>
 
-                <BucketFeatureCard
+                <BucketFeatureSection
                   title="CORS"
                   description="CORS rules in AWS format (CORSRules)."
                   mode="json"
                   visualState={corsCardState}
+                  busy={savingCors || deletingCors || corsLoading}
                   testId="bucket-feature-cors"
-                  className={bucketDetailStackClass}
                   actions={
                     <div className={bucketDetailInlineActionsClass}>
-                      <button
+                      <SettingsButton
                         type="button"
                         onClick={() => setPendingConfigurationDelete("cors")}
                         disabled={corsNotImplemented || deletingCors || !corsConfigured}
-                        className={bucketFeatureDangerActionClass}
+                        variant="danger"
                       >
                         {deletingCors ? "Deleting..." : "Delete"}
-                      </button>
-                      <button
+                      </SettingsButton>
+                      <SettingsButton
                         type="button"
                         onClick={saveCors}
                         disabled={corsNotImplemented || savingCors || corsLoading}
-                        className={bucketFeaturePrimaryActionClass}
+                        variant="primary"
                       >
                         {savingCors ? "Saving..." : "Save"}
-                      </button>
+                      </SettingsButton>
                     </div>
                   }
                 >
                   {corsError && (
                     <UiInlineMessage tone="error">{corsError}</UiInlineMessage>
                   )}
-                  <textarea
+                  <UiTextarea label="CORS rules (JSON)" rows={8}
                     value={corsText}
                     onChange={(e) => setCorsText(e.target.value)}
-                    className={cx(bucketFeatureJsonInputClass, "h-56 w-full")}
+                    className="settings-control font-mono"
                     placeholder='[{"AllowedMethods":["GET"],"AllowedOrigins":["*"]}]'
                     spellCheck={false}
                     disabled={corsNotImplemented}
@@ -2513,7 +2494,7 @@ function BucketDetailPageContent({
                     onUseExample={() => setCorsText(defaultCorsExample)}
                     disabled={corsNotImplemented}
                   />
-                </BucketFeatureCard>
+                </BucketFeatureSection>
 
               </div>
             ),
@@ -2522,32 +2503,32 @@ function BucketDetailPageContent({
             id: "advanced",
             label: "Advanced",
             content: (
-              <div className={bucketDetailStackClass}>
-                <BucketFeatureCard
+              <div className="settings-compact">
+                <BucketFeatureSection
                   title="Static website"
                   description="Host a static website from this bucket or redirect all requests."
                   mode="hybrid"
                   visualState={websiteCardState}
+                  busy={savingWebsite || clearingWebsite || websiteLoading}
                   testId="bucket-feature-website"
-                  className={bucketDetailStackClass}
                   actions={
                     <div className={bucketDetailWrapActionsClass}>
-                      <button
+                      <SettingsButton
                         type="button"
                         onClick={() => setPendingConfigurationDelete("website")}
                         disabled={websiteNotImplemented || clearingWebsite || staticWebsiteBlocked || !websiteConfigured}
-                        className={bucketFeatureDangerActionClass}
+                        variant="danger"
                       >
                         {clearingWebsite ? "Deleting..." : "Delete"}
-                      </button>
-                      <button
+                      </SettingsButton>
+                      <SettingsButton
                         type="button"
                         onClick={saveWebsite}
                         disabled={websiteNotImplemented || savingWebsite || websiteLoading || staticWebsiteBlocked}
-                        className={bucketFeaturePrimaryActionClass}
+                        variant="primary"
                       >
                         {savingWebsite ? "Saving..." : "Save"}
-                      </button>
+                      </SettingsButton>
                     </div>
                   }
                 >
@@ -2558,38 +2539,27 @@ function BucketDetailPageContent({
                   {websiteStatus && (
                     <UiInlineMessage tone="success">{websiteStatus}</UiInlineMessage>
                   )}
-                  <div className={bucketDetailTwoColumnGridClass}>
-                    <label className="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100">
-                      <input
+                  <fieldset className="space-y-2">
+                    <legend className="settings-label">Website mode</legend>
+                    <SettingsChoiceRow
                         type="radio"
+                        name={`website-mode-${bucketName}`}
+                        title="Host a website"
+                        description="Serve index and error documents from this bucket."
                         checked={websiteMode === "hosting"}
                         onChange={() => updateWebsiteMode("hosting")}
                         disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                        className="mt-0.5 h-4 w-4 text-primary focus:ring-primary"
-                      />
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-slate-100">Host a website</p>
-                        <p className={bucketDetailHintClass}>
-                          Serve index and error documents from this bucket.
-                        </p>
-                      </div>
-                    </label>
-                    <label className="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100">
-                      <input
+                    />
+                    <SettingsChoiceRow
                         type="radio"
+                        name={`website-mode-${bucketName}`}
+                        title="Redirect all requests"
+                        description="Point every request to another host or domain."
                         checked={websiteMode === "redirect"}
                         onChange={() => updateWebsiteMode("redirect")}
                         disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                        className="mt-0.5 h-4 w-4 text-primary focus:ring-primary"
-                      />
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-slate-100">Redirect all requests</p>
-                        <p className={bucketDetailHintClass}>
-                          Point every request to another host or domain.
-                        </p>
-                      </div>
-                    </label>
-                  </div>
+                    />
+                  </fieldset>
                   {websiteMode === "hosting" ? (
                     <div className={bucketDetailStackClass}>
                       <div className={bucketDetailTwoColumnGridClass}>
@@ -2617,14 +2587,11 @@ function BucketDetailPageContent({
                         </label>
                       </div>
                       <div className={bucketDetailCompactStackClass}>
-                        <label className="ui-caption font-medium text-slate-700 dark:text-slate-200">
-                          Routing rules (JSON array)
-                        </label>
-                        <textarea
+                        <UiTextarea label="Routing rules (JSON array)"
                           value={websiteRoutingRules}
                           onChange={(e) => updateWebsiteRoutingRules(e.target.value)}
                           rows={6}
-                          className={cx(bucketFeatureJsonInputClass, "w-full")}
+                          className="settings-control font-mono"
                           placeholder="[]"
                           spellCheck={false}
                           disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
@@ -2669,33 +2636,33 @@ function BucketDetailPageContent({
                       </p>
                     </div>
                   )}
-                </BucketFeatureCard>
+                </BucketFeatureSection>
                 {isCephEndpoint && (
-                  <BucketFeatureCard
+                  <BucketFeatureSection
                     title="Replication / multisite"
                     description="Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup."
                     mode="hybrid"
                     visualState={replicationCardState}
+                    busy={replicationBusy}
                     testId="bucket-feature-replication"
-                    className={bucketDetailStackClass}
                     actions={
                       <div className={bucketDetailWrapActionsClass}>
-                        <button
+                        <SettingsButton
                           type="button"
                           onClick={() => setPendingConfigurationDelete("replication")}
                           disabled={replicationBlocked || replicationNotImplemented || replicationBusy || !replicationConfigured}
-                          className={bucketFeatureDangerActionClass}
+                          variant="danger"
                         >
                           {clearingReplication ? "Clearing..." : "Clear"}
-                        </button>
-                        <button
+                        </SettingsButton>
+                        <SettingsButton
                           type="button"
                           onClick={saveReplication}
                           disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                          className={bucketFeaturePrimaryActionClass}
+                          variant="primary"
                         >
                           {savingReplication ? "Saving..." : "Save"}
-                        </button>
+                        </SettingsButton>
                       </div>
                     }
                   >
@@ -2741,14 +2708,14 @@ function BucketDetailPageContent({
                             >
                               <div className="flex items-center justify-between">
                                 <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Rule {index + 1}</p>
-                                <button
+                                <SettingsButton
                                   type="button"
                                   onClick={() => removeReplicationRule(rule.uiId)}
                                   disabled={replicationBlocked || replicationNotImplemented || replicationBusy || replicationRules.length <= 1}
-                                  className="rounded-md border border-rose-200 px-2 py-1 ui-caption font-semibold text-rose-700 hover:border-rose-400 hover:text-rose-800 disabled:opacity-60 dark:border-rose-900/50 dark:text-rose-200 dark:hover:border-rose-800"
+                                  variant="danger"
                                 >
                                   Remove
-                                </button>
+                                </SettingsButton>
                               </div>
                               <div className={bucketDetailTwoColumnGridClass}>
                                 <label className={bucketFeatureLabelClass}>
@@ -2830,23 +2797,23 @@ function BucketDetailPageContent({
                           ))}
                         </div>
                         <div>
-                          <button
+                          <SettingsButton
                             type="button"
                             onClick={addReplicationRule}
                             disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                            className="rounded-md border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:text-slate-200"
+                            variant="secondary"
                           >
                             Add rule
-                          </button>
+                          </SettingsButton>
                         </div>
                       </div>
                     ) : (
                       <div className={bucketDetailCompactStackClass}>
-                        <textarea
+                        <UiTextarea label="Replication configuration (JSON)"
                           value={replicationText}
                           onChange={(e) => updateReplicationText(e.target.value)}
                           rows={14}
-                          className={cx(bucketFeatureJsonInputClass, "w-full")}
+                          className="settings-control font-mono"
                           spellCheck={false}
                           disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
                         />
@@ -2864,33 +2831,33 @@ function BucketDetailPageContent({
                         />
                       </div>
                     )}
-                  </BucketFeatureCard>
+                  </BucketFeatureSection>
                 )}
-                <BucketFeatureCard
+                <BucketFeatureSection
                   title="Server access logging"
                   description="Deliver S3 server access logs to another bucket."
                   mode="graphical"
                   visualState={accessLoggingCardState}
+                  busy={savingAccessLogging || clearingAccessLogging || accessLoggingLoading}
                   testId="bucket-feature-access-logging"
-                  className={bucketDetailStackClass}
                   actions={
                     <div className={bucketDetailWrapActionsClass}>
-                      <button
+                      <SettingsButton
                         type="button"
                         onClick={() => setPendingConfigurationDelete("access-logging")}
                         disabled={accessLoggingNotImplemented || clearingAccessLogging || !accessLoggingConfigured}
-                        className={bucketFeatureDangerActionClass}
+                        variant="danger"
                       >
                         {clearingAccessLogging ? "Disabling..." : "Disable"}
-                      </button>
-                      <button
+                      </SettingsButton>
+                      <SettingsButton
                         type="button"
                         onClick={saveAccessLogging}
                         disabled={accessLoggingNotImplemented || savingAccessLogging || accessLoggingLoading}
-                        className={bucketFeaturePrimaryActionClass}
+                        variant="primary"
                       >
                         {savingAccessLogging ? "Saving..." : "Save"}
-                      </button>
+                      </SettingsButton>
                     </div>
                   }
                 >
@@ -2900,16 +2867,16 @@ function BucketDetailPageContent({
                   {accessLoggingStatus && (
                     <UiInlineMessage tone="success">{accessLoggingStatus}</UiInlineMessage>
                   )}
-                  <label className="flex items-center gap-2 ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                    <input
-                      type="checkbox"
+                  <SettingsItem
+                    compact
+                    title="Enable server access logging"
+                    action={<SettingsSwitch
+                      ariaLabel="Enable server access logging"
                       checked={accessLoggingEnabled}
-                      onChange={(e) => updateAccessLoggingEnabled(e.target.checked)}
+                      onChange={updateAccessLoggingEnabled}
                       disabled={accessLoggingNotImplemented || accessLoggingLoading || savingAccessLogging || clearingAccessLogging}
-                      className={uiCheckboxClass}
-                    />
-                    Enable server access logging
-                  </label>
+                    />}
+                  />
                   <div className={bucketDetailTwoColumnGridClass}>
                     <label className={bucketFeatureLabelClass}>
                       Target bucket
@@ -2938,34 +2905,34 @@ function BucketDetailPageContent({
                     The target bucket must allow log delivery (e.g., ACL <code className="font-mono ui-caption">log-delivery-write</code>
                     or an equivalent policy).
                   </p>
-                </BucketFeatureCard>
-                <BucketFeatureCard
+                </BucketFeatureSection>
+                <BucketFeatureSection
                   title="Notifications / SNS topics"
                   description={
-                    "JSON payload forwarded to put_bucket_notification_configuration."
+                    "Configure S3 events delivered to SNS topics."
                   }
                   mode="json"
                   visualState={notificationsCardState}
+                  busy={savingNotifications || clearingNotifications || notificationsLoading}
                   testId="bucket-feature-notifications"
-                  className={bucketDetailStackClass}
                   actions={
                     <div className={bucketDetailWrapActionsClass}>
-                      <button
+                      <SettingsButton
                         type="button"
                         onClick={() => setPendingConfigurationDelete("notifications")}
                         disabled={notificationsNotImplemented || clearingNotifications || !notificationsConfigured}
-                        className={bucketFeatureDangerActionClass}
+                        variant="danger"
                       >
                         {clearingNotifications ? "Clearing..." : "Clear"}
-                      </button>
-                      <button
+                      </SettingsButton>
+                      <SettingsButton
                         type="button"
                         onClick={saveNotifications}
                         disabled={notificationsNotImplemented || savingNotifications || notificationsLoading}
-                        className={bucketFeaturePrimaryActionClass}
+                        variant="primary"
                       >
                         {savingNotifications ? "Saving..." : "Save"}
-                      </button>
+                      </SettingsButton>
                     </div>
                   }
                 >
@@ -2975,10 +2942,10 @@ function BucketDetailPageContent({
                   {notificationsStatus && (
                     <UiInlineMessage tone="success">{notificationsStatus}</UiInlineMessage>
                   )}
-                  <textarea
+                  <UiTextarea label="Notification configuration (JSON)" rows={10}
                     value={notificationText}
                     onChange={(e) => updateNotificationText(e.target.value)}
-                    className={cx(bucketFeatureJsonInputClass, "h-64 w-full")}
+                    className="settings-control font-mono"
                     placeholder={defaultNotificationTemplate}
                     spellCheck={false}
                     disabled={notificationsNotImplemented}
@@ -3000,7 +2967,7 @@ function BucketDetailPageContent({
                     <code className="font-mono ui-caption">TopicArn</code>, <code className="font-mono ui-caption">Events</code>, and
                     an optional filter.
                   </p>
-                </BucketFeatureCard>
+                </BucketFeatureSection>
               </div>
             ),
           },
@@ -3077,12 +3044,13 @@ function BucketDetailPageContent({
                   id: "ceph",
                   label: isCephAdmin ? "Ceph Admin" : "Privileged Ceph",
                   content: (
-                    <div className={bucketDetailStackClass}>
-                      <BucketFeatureCard
+                    <div className="settings-compact">
+                      <BucketFeatureSection
                         title="Quota"
                         description="Allowed bucket size and object count."
                         mode="graphical"
                         visualState={quotaCardState}
+                        busy={updatingQuota || loadingBucket}
                         testId="bucket-feature-quota"
                         actions={
                           quotaSectionRestricted ? (
@@ -3090,11 +3058,11 @@ function BucketDetailPageContent({
                               Restricted
                             </ListBadge>
                           ) : canEditQuota ? (
-                            <button
+                            <SettingsButton
                               type="submit"
                               form={quotaFormId}
                               disabled={updatingQuota || !canEditQuota}
-                              className={bucketFeaturePrimaryActionClass}
+                              variant="primary"
                               title={
                                 !quotaFeatureEnabled
                                   ? "Unavailable on this endpoint"
@@ -3104,7 +3072,7 @@ function BucketDetailPageContent({
                               }
                             >
                               {updatingQuota ? "Saving..." : "Save"}
-                            </button>
+                            </SettingsButton>
                           ) : null
                         }
                       >
@@ -3130,6 +3098,7 @@ function BucketDetailPageContent({
                           />
                           <select
                             value={quotaSizeUnit}
+                            aria-label="Quota size unit"
                             onChange={(e) => updateQuotaSizeUnit(e.target.value as BucketQuotaUnit)}
                             className={cx(bucketFeatureInputClass, "w-20")}
                             disabled={!canEditQuota}
@@ -3166,7 +3135,7 @@ function BucketDetailPageContent({
                       ? `Leave empty to remove the quota. ${canEditQuota ? "" : "(Privileged Ceph access required.)"}`
                       : "Quota management is unavailable on this endpoint."}
                   </p>
-                      </BucketFeatureCard>
+                      </BucketFeatureSection>
                     </div>
                   ),
                 },

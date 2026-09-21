@@ -31,7 +31,16 @@ Confirm the workspace and execution context first. Bucket names can repeat acros
    - CORS
    - Policy and ACL options
    - Public access controls
-4. Validate changes from bucket detail views.
+4. Validate changes from bucket detail views. **Properties**, **Permissions**
+   and **Advanced** use the same compact settings layout in Manager and Ceph
+   Admin. Each section saves independently: **Unsaved changes** marks its draft,
+   and **Configured** describes a stored configuration, not service health.
+   JSON examples populate the editor and still require **Save**. During a read
+   or save, that section's controls are locked; failures remain visible beside
+   the retained draft. Disabling or removing a configuration keeps its explicit
+   impact confirmation.
+   Bucket tag keys and values retain their exact spaces and characters. A tag
+   with a value but no key is reported as an error rather than silently removed.
 5. In Manager, open **Tools > Feature rules** (`/manager/feature-rules`) to
    audit lifecycle, bucket policy, CORS, notifications, or bucket tags across
    every bucket in the active context.

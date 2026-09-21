@@ -152,10 +152,32 @@ booleans use an explicit three-state selector, with a separate Customize switch
 for numeric and list overrides.
 
 The compact presentation is explicit. Nonmigrated consumers keep the default
-`SettingsLayout` presentation, including bucket configuration. Account Portal
-overrides and Storage Space settings now use the compact presentation. The former
+`SettingsLayout` presentation. Account Portal overrides, Storage Space settings
+and Manager/Ceph Admin bucket configuration use the compact presentation. The former
 Portal alias facade and unused card/form helpers have been removed; import the
 canonical components directly.
+
+Manager and Ceph Admin bucket configuration share `BucketFeatureSection`, built
+on `SettingsSection presentation="compact"`. Properties, Permissions, Advanced
+and privileged quotas use the same left-aligned section layout. Do not restore
+per-feature card palettes, grid placement or action sizing. Use `SettingsButton`,
+`SettingsItem`, `SettingsSwitch` and named `SettingsChoiceRow` radio groups.
+The page uses the line variant of `PageTabs` with named tabs/panels and native
+arrow-key navigation; refresh uses the same settings action presentation.
+JSON editors use labelled `UiTextarea` fields; examples use the shared controls,
+explicit expanded state and wrapping theme-aware text.
+
+Each section keeps its own native S3 save boundary. An announced **Unsaved
+changes** badge identifies its draft; **Configured** describes configuration,
+not endpoint health. A neutral state must not imply a successful empty read.
+The section's native fieldset locks every field, save/delete action and example
+insertion while loading or mutating, and for unsupported features. Keep errors
+readable instead of fading the whole section. Feature controllers retain
+payloads, permission checks, literal tag values and confirmation behavior.
+Tag draft comparisons and the bucket metadata adapter preserve key/value
+whitespace. Only a completely empty new tag row is omitted from submission;
+a value without a key remains visible with an error, and duplicate literal keys
+are rejected. Do not normalize two distinct keys into the same tag.
 
 Admin UI User and UI Group editors also use the compact settings sections and
 `SettingsForm` footer. `AdminUserIdentityFields` owns the shared user identity
