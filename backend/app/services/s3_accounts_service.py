@@ -537,6 +537,39 @@ class S3AccountsService:
         self.db.commit()
         return created
 
+    def ensure_provisioned_account(self, payload: S3AccountCreate, rgw_account_id: str) -> S3AccountSchema:
+        """Resume a minimal account provisioning operation with a durable RGW ID.
+
+        The orchestrator owns the ID and records it before any remote mutation.
+        The existing import workflow reconciles a root user/key after an
+        interrupted request; it never creates another RGW account on retry.
+        """
+        source = S3AccountImport(
+            rgw_account_id=rgw_account_id, name=payload.name, email=payload.email,
+            storage_endpoint_id=payload.storage_endpoint_id,
+        )
+        existing = self.db.query(S3Account).filter(S3Account.rgw_account_id == rgw_account_id).first()
+        if existing:
+            if existing.storage_endpoint_id != payload.storage_endpoint_id or existing.name != payload.name:
+                raise ValueError("Provisioned account scope changed")
+            return self.get_account_detail(existing.id, include_usage=False)
+        if self.db.query(S3Account.id).filter(S3Account.name == payload.name).first():
+            raise ValueError("S3Account already exists")
+        endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
+        if not self._endpoint_capabilities(endpoint).get("account", False):
+            raise ValueError("Selected endpoint does not support RGW accounts")
+        admin = self._admin_for_endpoint(endpoint, allow_missing=False)
+        if admin is None:
+            raise ValueError("RGW administrative credentials are required")
+        remote = admin.get_account(rgw_account_id, allow_not_found=True)
+        if not remote or remote.get("not_found"):
+            admin.create_account(account_id=rgw_account_id, account_name=payload.name)
+        elif remote.get("name") != payload.name:
+            raise ValueError("Provisioned RGW account does not match the requested name")
+        self.import_accounts([source])
+        account = self.db.query(S3Account).filter(S3Account.rgw_account_id == rgw_account_id).one()
+        return self.get_account_detail(account.id, include_usage=False)
+
     def create_account_with_manager(self, payload: S3AccountCreate) -> S3AccountSchema:
         existing = self.db.query(S3Account).filter(S3Account.name == payload.name).first()
         if existing:

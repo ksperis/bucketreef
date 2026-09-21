@@ -36,6 +36,7 @@ export function resolveWorkspaceIdFromPath(
 
 export const ADMIN_PAGE_CONTRACTS = {
   dashboard: { label: "Dashboard", path: "/admin" },
+  onboarding: { label: "Getting started", path: "/admin/onboarding" },
   metrics: { label: "Usage & Metrics", path: "/admin/metrics" },
   users: { label: "UI Users", path: "/admin/users" },
   groups: { label: "UI Groups", path: "/admin/groups" },

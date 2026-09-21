@@ -1,16 +1,20 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from types import SimpleNamespace
+import pytest
+from fastapi import HTTPException
+from botocore.exceptions import ClientError
 
-from app.core.security import get_password_hash
-from app.db import S3Connection, User, UserRole
+from app.db import AppSetting, User, UserRole
+from app.main import app
+from app.models.app_settings import AppSettings
+from app.routers.dependencies import get_current_super_admin, get_current_ui_superadmin
 from app.routers.admin import onboarding
 
 
 def _admin(db_session) -> User:
     user = User(
         email="onboarding-admin@example.com",
-        hashed_password=get_password_hash("correct horse battery staple"),
+        hashed_password="test-only",
         role=UserRole.UI_SUPERADMIN.value,
         is_active=True,
     )
@@ -20,74 +24,50 @@ def _admin(db_session) -> User:
     return user
 
 
-def test_onboarding_tracks_endpoint_and_active_storage_access_independently(db_session, monkeypatch):
-    state = SimpleNamespace(endpoints=[])
-    settings = SimpleNamespace(onboarding=SimpleNamespace(dismissed=False))
-    monkeypatch.setattr(onboarding, "load_app_settings", lambda: settings)
-    monkeypatch.setattr(
-        onboarding,
-        "get_storage_endpoints_service",
-        lambda _db: SimpleNamespace(list_endpoints=lambda: state.endpoints),
-    )
-
-    initial = onboarding._build_status(db_session)
-    assert initial.model_dump() == {
-        "dismissed": False,
-        "complete": False,
-        "endpoint_configured": False,
-        "storage_access_configured": False,
-    }
-
-    state.endpoints = [SimpleNamespace(id=1)]
-    endpoint_only = onboarding._build_status(db_session)
-    assert endpoint_only.endpoint_configured is True
-    assert endpoint_only.storage_access_configured is False
-    assert endpoint_only.complete is False
-
+def test_status_and_dismiss_api_keep_legacy_fields_without_global_completion(db_session, client):
     user = _admin(db_session)
-    connection = S3Connection(
-        created_by_user_id=user.id,
-        name="Onboarding connection",
-        custom_endpoint_config='{"endpoint_url":"https://s3.example.test"}',
-        access_key_id="access-key",
-        secret_access_key="secret-key",
-        is_active=True,
-    )
-    db_session.add(connection)
+    db_session.add(AppSetting(key="default", payload_json=AppSettings().model_dump_json()))
     db_session.commit()
+    app.dependency_overrides[get_current_super_admin] = lambda: user
+    initial = client.get("/api/admin/onboarding")
+    assert initial.status_code == 200
+    assert initial.json()["complete"] is False
+    assert initial.json()["journeys"] == []
+    dismissed = client.post("/api/admin/onboarding/dismiss")
+    assert dismissed.status_code == 200 and dismissed.json()["dismissed"]
+    assert not AppSettings.model_validate_json(db_session.get(AppSetting, "default").payload_json).onboarding.dismissed
+    assert client.post("/api/admin/onboarding/resume").json()["dismissed"] is False
 
-    complete = onboarding._build_status(db_session)
-    assert complete.storage_access_configured is True
-    assert complete.complete is True
 
-    connection.is_active = False
-    db_session.commit()
-    inactive = onboarding._build_status(db_session)
-    assert inactive.storage_access_configured is False
-    assert inactive.complete is False
+@pytest.mark.parametrize("exception,code", [
+    (ValueError("secret_key=do-not-return"), "configuration_failed"),
+    (ClientError({"Error": {"Code": "AccessDenied", "Message": "secret_key=do-not-return"}}, "ListBuckets"), "storage_access_denied"),
+])
+def test_storage_errors_never_echo_credentials(exception, code):
+    def fail():
+        raise exception
+    with pytest.raises(HTTPException) as error:
+        onboarding._run(fail)
+    assert error.value.detail == {"code": code}
 
 
-def test_onboarding_can_be_dismissed_before_storage_setup(db_session, monkeypatch):
+@pytest.mark.parametrize("method,path,payload", [
+    ("post", "/preview", {"endpoint_url": "https://user:request-secret-canary@storage.example.test"}),
+    ("put", "/journeys/00000000-0000-4000-8000-000000000001", {
+        "draft": {"secret_key": "request-secret-canary"},
+    }),
+    ("post", "/journeys/00000000-0000-4000-8000-000000000001/apply", {
+        "revision": 1, "confirmed": True, "review_token": "0" * 64,
+        "access_key": {"value": "request-secret-canary"},
+        "secret_key": ["request-secret-canary"],
+    }),
+])
+def test_invalid_onboarding_requests_do_not_echo_input(db_session, client, caplog, method, path, payload):
     user = _admin(db_session)
-    settings = SimpleNamespace(onboarding=SimpleNamespace(dismissed=False))
-    saved = []
-    audit_calls = []
-    monkeypatch.setattr(onboarding, "load_app_settings", lambda: settings)
-    monkeypatch.setattr(onboarding, "save_app_settings", lambda value: saved.append(value))
-    monkeypatch.setattr(
-        onboarding,
-        "get_storage_endpoints_service",
-        lambda _db: SimpleNamespace(list_endpoints=lambda: []),
-    )
-    audit = SimpleNamespace(record_action=lambda **kwargs: audit_calls.append(kwargs))
-
-    status = onboarding.dismiss_onboarding(db_session, user, audit)
-
-    assert status.dismissed is True
-    assert status.complete is False
-    assert saved == [settings]
-    assert audit_calls[0]["metadata"] == {
-        "endpoint_configured": False,
-        "storage_access_configured": False,
-        "complete": False,
-    }
+    app.dependency_overrides[get_current_super_admin] = lambda: user
+    app.dependency_overrides[get_current_ui_superadmin] = lambda: user
+    response = getattr(client, method)("/api/admin/onboarding" + path, json=payload)
+    assert response.status_code == 422
+    assert "request-secret-canary" not in response.text
+    assert "request-secret-canary" not in caplog.text
+    assert response.json() == {"detail": {"code": "invalid_configuration"}}

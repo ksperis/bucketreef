@@ -242,7 +242,7 @@ class S3ConnectionsService:
             raise KeyError("S3Connection not found")
         return row
 
-    def create(self, user_id: int, payload: S3ConnectionCreate) -> S3Connection:
+    def create(self, user_id: int, payload: S3ConnectionCreate, *, commit: bool = True) -> S3Connection:
         storage_endpoint_id, custom_endpoint_config = (
             self.endpoint_planner.plan(
                 None,
@@ -274,8 +274,11 @@ class S3ConnectionsService:
         self.db.flush()
         self.tags.replace_connection_tags(row, payload.tags)
         self._refresh_detected_capabilities(row)
-        self.db.commit()
-        self.db.refresh(row)
+        if commit:
+            self.db.commit()
+            self.db.refresh(row)
+        else:
+            self.db.flush()
         return self._to_model(row)
 
     def update(self, user_id: int, connection_id: int, payload: S3ConnectionUpdate) -> S3Connection:

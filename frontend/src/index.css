@@ -549,11 +549,11 @@ body {
   }
 }
 
-a {
+a:not(.ui-button-base) {
   @apply text-primary-700 transition-colors dark:text-primary-200;
 }
 
-a:hover {
+a:not(.ui-button-base):hover {
   @apply text-primary-600 dark:text-primary-100;
 }
 

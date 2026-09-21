@@ -15,6 +15,7 @@ from app.models.account_capabilities import AccountCapabilities
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.services import app_settings_service
 from app.services.s3_execution_context import S3ExecutionContext
+from app.services.portal_access_service import portal_membership_capabilities
 from app.utils.normalize import normalize_storage_provider
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -24,20 +25,7 @@ from .auth_session import get_current_account_user, settings
 def _portal_membership_capabilities(
     link: Optional[UserS3Account | EffectiveAccountLink],
 ) -> tuple[Optional[str], AccountCapabilities]:
-    if not link:
-        return None, AccountCapabilities()
-    portal_role = link.portal_role
-    if portal_role is None:
-        return portal_role, AccountCapabilities()
-    can_manage_portal_users = portal_role == PortalAccountRole.PORTAL_MANAGER.value
-    can_manage_buckets = portal_role == PortalAccountRole.PORTAL_MANAGER.value
-    return portal_role, AccountCapabilities(
-        can_manage_buckets=can_manage_buckets,
-        can_manage_portal_users=can_manage_portal_users,
-        can_manage_iam=False,
-        can_view_root_key=False,
-        using_root_key=False,
-    )
+    return portal_membership_capabilities(link)
 
 
 def _validate_portal_account_surface(account: S3Account) -> None:
