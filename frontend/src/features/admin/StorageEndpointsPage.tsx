@@ -123,7 +123,6 @@ export default function StorageEndpointsPage() {
   const [activeTab, setActiveTab] = useState<EndpointEditorTab>("general");
   const [form, setForm] = useState<FormState>(EMPTY_STORAGE_ENDPOINT_FORM);
   const [formInitialSignature, setFormInitialSignature] = useState("");
-  const [showOpsHelp, setShowOpsHelp] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -146,7 +145,6 @@ export default function StorageEndpointsPage() {
     setForm(createEmptyForm());
     setActiveTab("general");
     setFormInitialSignature("");
-    setShowOpsHelp(false);
     setFormError(null);
     setFeatureDetectBusy(false);
     setFeatureDetectError(null);
@@ -411,7 +409,6 @@ export default function StorageEndpointsPage() {
     setForm(nextForm);
     setActiveTab("general");
     setFormInitialSignature(stableSignature({ form: { ...nextForm, tags: normalizeUiTags(nextForm.tags) } }));
-    setShowOpsHelp(false);
     setFormError(null);
     setFeatureDetectBusy(false);
     setFeatureDetectError(null);
@@ -1034,48 +1031,34 @@ export default function StorageEndpointsPage() {
                   </div>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 ui-caption text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="ui-body font-semibold text-slate-700 dark:text-slate-100">
-                      What are Admin Ops and Supervision Ops?
-                    </p>
-                    <UiButton
-                      size="xs"
-                      variant="secondary"
-                      onClick={() => setShowOpsHelp((prev) => !prev)}
-                      aria-expanded={showOpsHelp}
-                    >
-                      {showOpsHelp ? "Hide" : "Show"}
-                    </UiButton>
+                  <p className="ui-body font-semibold text-slate-700 dark:text-slate-100">
+                    What are Admin Ops and Supervision Ops?
+                  </p>
+                  <p className="mt-2">
+                    <span className="font-semibold">Admin Ops</span> keys let BucketReef create RGW accounts and S3 users, and apply
+                    explicitly delegated Manager bucket quota changes. Individual bucket quota changes require the
+                    <code> buckets=write</code> capability included in the example below. If you do not provide Admin Ops keys, you must
+                    create accounts/users outside of BucketReef and import them manually (or via the API).
+                  </p>
+                  <p className="mt-2">
+                    <span className="font-semibold">Supervision Ops</span> keys are read-only credentials used for usage logs and metrics
+                    collection.
+                  </p>
+                  <p className="mt-3 font-semibold text-slate-700 dark:text-slate-100">Ceph (radosgw-admin) examples</p>
+                  <div className="mt-2 space-y-3">
+                    <div>
+                      <p className="mb-1 font-semibold text-slate-600 dark:text-slate-300">Admin Ops</p>
+                      <pre className="overflow-x-auto whitespace-pre rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-100">
+                        {ADMIN_OPS_COMMAND}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="mb-1 font-semibold text-slate-600 dark:text-slate-300">Supervision Ops</p>
+                      <pre className="overflow-x-auto whitespace-pre rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-100">
+                        {SUPERVISION_OPS_COMMAND}
+                      </pre>
+                    </div>
                   </div>
-                  {showOpsHelp && (
-                    <>
-                      <p className="mt-2">
-                        <span className="font-semibold">Admin Ops</span> keys let BucketReef create RGW accounts and S3 users, and apply
-                        explicitly delegated Manager bucket quota changes. Individual bucket quota changes require the
-                        <code> buckets=write</code> capability included in the example below. If you do not provide Admin Ops keys, you must
-                        create accounts/users outside of BucketReef and import them manually (or via the API).
-                      </p>
-                      <p className="mt-2">
-                        <span className="font-semibold">Supervision Ops</span> keys are read-only credentials used for usage logs and metrics
-                        collection.
-                      </p>
-                      <p className="mt-3 font-semibold text-slate-700 dark:text-slate-100">Ceph (radosgw-admin) examples</p>
-                      <div className="mt-2 space-y-3">
-                        <div>
-                          <p className="mb-1 font-semibold text-slate-600 dark:text-slate-300">Admin Ops</p>
-                          <pre className="overflow-x-auto whitespace-pre rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-100">
-                            {ADMIN_OPS_COMMAND}
-                          </pre>
-                        </div>
-                        <div>
-                          <p className="mb-1 font-semibold text-slate-600 dark:text-slate-300">Supervision Ops</p>
-                          <pre className="overflow-x-auto whitespace-pre rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-100">
-                            {SUPERVISION_OPS_COMMAND}
-                          </pre>
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
                 {cephAdminConfigEnabled && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 ui-caption text-amber-900 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/60 dark:text-amber-100">
