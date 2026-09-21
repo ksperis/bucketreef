@@ -18,6 +18,7 @@ import type {
   ObjectTags,
 } from "../../api/browserContracts";
 import { extractApiError } from "../../utils/apiError";
+import { prepareS3Tags } from "../../utils/s3Tags";
 import { formatLocalDateTime, toIsoString } from "./browserUtils";
 import { normalizeObjectDetailPairs } from "./browserObjectDetailsModel";
 import { runBrowserScopedSave } from "./browserScopedSave";
@@ -34,6 +35,9 @@ export type BrowserObjectMetadataDraft = {
 
 export type BrowserObjectPropertyEntry = ObjectTag & { id: string };
 export type BrowserObjectPropertyEntryField = "key" | "value";
+type PropertySection = "metadata" | "tags" | "storageClass";
+export type BrowserObjectDirtySections = Record<PropertySection, boolean>;
+type SavedDraft = { section: PropertySection; signature: string };
 
 type UseBrowserObjectPropertiesOptions = {
   accountId: S3AccountSelector;
@@ -53,7 +57,16 @@ const emptyMetadataDraft = (): BrowserObjectMetadataDraft => ({
   expires: "",
 });
 
-const draftSignature = ({
+const metadataDraftFromResponse = (metadata: ObjectMetadata): BrowserObjectMetadataDraft => ({
+  contentType: metadata.content_type ?? "",
+  cacheControl: metadata.cache_control ?? "",
+  contentDisposition: metadata.content_disposition ?? "",
+  contentEncoding: metadata.content_encoding ?? "",
+  contentLanguage: metadata.content_language ?? "",
+  expires: formatLocalDateTime(metadata.expires),
+});
+
+const draftSignatures = ({
   metadataDraft,
   metadataItems,
   storageClass,
@@ -63,12 +76,13 @@ const draftSignature = ({
   metadataItems: Array<Pick<ObjectTag, "key" | "value">>;
   storageClass: string;
   tags: Array<Pick<ObjectTag, "key" | "value">>;
-}) =>
-  JSON.stringify({
-    metadataDraft,
-    metadataItems: metadataItems.map(({ key, value }) => ({ key, value })),
+}): Record<PropertySection, string> => ({
+    metadata: JSON.stringify({
+      metadataDraft,
+      metadataItems: metadataItems.map(({ key, value }) => ({ key, value })),
+    }),
     storageClass,
-    tags: tags.map(({ key, value }) => ({ key, value })),
+    tags: JSON.stringify(tags.map(({ key, value }) => ({ key, value }))),
   });
 
 export function useBrowserObjectProperties({
@@ -102,11 +116,19 @@ export function useBrowserObjectProperties({
   const [savingMetadata, setSavingMetadata] = useState(false);
   const [savingTags, setSavingTags] = useState(false);
   const [savingStorageClass, setSavingStorageClass] = useState(false);
-  const [baselineSignature, setBaselineSignature] = useState<string | null>(null);
+  const [baselineSignatures, setBaselineSignatures] = useState<Record<PropertySection, string> | null>(null);
+  const currentSignatures = useMemo(() => draftSignatures({
+    metadataDraft, metadataItems, storageClass, tags: tagsDraft,
+  }), [metadataDraft, metadataItems, storageClass, tagsDraft]);
+  const draftStateRef = useRef({ baselineSignatures, currentSignatures });
+  draftStateRef.current = { baselineSignatures, currentSignatures };
+  const acceptedDraftRef = useRef<SavedDraft | null>(null);
+  const activeSaveRef = useRef<symbol | null>(null);
   const tagIdRef = useRef(0);
   const metadataIdRef = useRef(0);
   const loadingRef = useRef(false);
   const loadedRef = useRef(false);
+  const readFailedRef = useRef(false);
   const requestIdRef = useRef(0);
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
@@ -183,29 +205,25 @@ export function useBrowserObjectProperties({
   }, []);
 
   const resetPropertiesDrafts = useCallback(
-    (nextMetadata: ObjectMetadata | null, baseItem: BrowserItem) => {
+    (nextMetadata: ObjectMetadata | null, baseItem: BrowserItem,
+      preserve: { metadata?: boolean; storageClass?: boolean } = {}) => {
       if (!nextMetadata) {
         setMetadataDraft(emptyMetadataDraft());
         setMetadataItems([]);
         setStorageClass(baseItem.storageClass ?? "");
         return;
       }
-      setMetadataDraft({
-        contentType: nextMetadata.content_type ?? "",
-        cacheControl: nextMetadata.cache_control ?? "",
-        contentDisposition: nextMetadata.content_disposition ?? "",
-        contentEncoding: nextMetadata.content_encoding ?? "",
-        contentLanguage: nextMetadata.content_language ?? "",
-        expires: formatLocalDateTime(nextMetadata.expires),
-      });
-      setMetadataItems(
-        Object.entries(nextMetadata.metadata || {}).map(([key, value]) => ({
-          id: nextMetadataId(),
-          key,
-          value,
-        })),
-      );
-      setStorageClass(nextMetadata.storage_class ?? baseItem.storageClass ?? "");
+      if (!preserve.metadata) {
+        setMetadataDraft(metadataDraftFromResponse(nextMetadata));
+        setMetadataItems(
+          Object.entries(nextMetadata.metadata || {}).map(([key, value]) => ({
+            id: nextMetadataId(), key, value,
+          })),
+        );
+      }
+      if (!preserve.storageClass) {
+        setStorageClass(nextMetadata.storage_class ?? baseItem.storageClass ?? "");
+      }
     },
     [nextMetadataId],
   );
@@ -228,6 +246,7 @@ export function useBrowserObjectProperties({
       requestIdRef.current += 1;
       loadingRef.current = false;
       loadedRef.current = false;
+      readFailedRef.current = false;
       setMetadata(null);
       setLoading(false);
       setLoaded(false);
@@ -236,7 +255,9 @@ export function useBrowserObjectProperties({
       setSavingMetadata(false);
       setSavingTags(false);
       setSavingStorageClass(false);
-      setBaselineSignature(null);
+      setBaselineSignatures(null);
+      acceptedDraftRef.current = null;
+      activeSaveRef.current = null;
       resetPropertiesDrafts(null, baseItem);
       resetTagsDraft([]);
     },
@@ -249,12 +270,13 @@ export function useBrowserObjectProperties({
   );
 
   const load = useCallback(
-    async (force = false) => {
+    async (force = false, acceptedDraft?: SavedDraft) => {
       if (scope !== scopeRef.current) return;
       if (!accountId || !bucketName || item.type !== "file" || isDeleted) {
         return;
       }
-      if (!force && (loadingRef.current || loadedRef.current)) return;
+      if (!force && (loadingRef.current || loadedRef.current || readFailedRef.current)) return;
+      if (acceptedDraft) acceptedDraftRef.current = acceptedDraft;
 
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
@@ -283,18 +305,22 @@ export function useBrowserObjectProperties({
         if (requestId !== requestIdRef.current) return;
         setMetadata(nextMetadata);
         setTagsVersionId(nextTags.version_id ?? null);
-        resetPropertiesDrafts(nextMetadata, item);
-        resetTagsDraft(nextTags.tags ?? []);
-        setBaselineSignature(
-          draftSignature({
-            metadataDraft: {
-              contentType: nextMetadata.content_type ?? "",
-              cacheControl: nextMetadata.cache_control ?? "",
-              contentDisposition: nextMetadata.content_disposition ?? "",
-              contentEncoding: nextMetadata.content_encoding ?? "",
-              contentLanguage: nextMetadata.content_language ?? "",
-              expires: formatLocalDateTime(nextMetadata.expires),
-            },
+        const draftState = draftStateRef.current;
+        const accepted = acceptedDraftRef.current;
+        // A refresh advances the remote baseline, never an unrelated dirty draft.
+        // Only the exact submitted section can be accepted after a successful write.
+        const preserve = (section: PropertySection) => Boolean(
+          draftState.baselineSignatures &&
+          draftState.currentSignatures[section] !== draftState.baselineSignatures[section] &&
+          !(accepted?.section === section && accepted.signature === draftState.currentSignatures[section]),
+        );
+        resetPropertiesDrafts(nextMetadata, item, {
+          metadata: preserve("metadata"), storageClass: preserve("storageClass"),
+        });
+        if (!preserve("tags")) resetTagsDraft(nextTags.tags ?? []);
+        setBaselineSignatures(
+          draftSignatures({
+            metadataDraft: metadataDraftFromResponse(nextMetadata),
             metadataItems: Object.entries(nextMetadata.metadata || {}).map(
               ([key, value]) => ({ key, value }),
             ),
@@ -303,17 +329,22 @@ export function useBrowserObjectProperties({
             tags: nextTags.tags ?? [],
           }),
         );
+        acceptedDraftRef.current = null;
         loadedRef.current = true;
+        readFailedRef.current = false;
         setLoaded(true);
+        return true;
       } catch (loadError) {
         if (requestId !== requestIdRef.current) return;
         setError(
           extractApiError(loadError, "Unable to load object details."),
         );
-        if (force) {
-          setMetadata(null);
-          setTagsVersionId(null);
-        }
+        // Keep the last known values and dirty guard, but require a successful
+        // retry before a mutation can reuse a potentially stale VersionId.
+        loadedRef.current = false;
+        readFailedRef.current = true;
+        setLoaded(false);
+        return false;
       } finally {
         if (requestId === requestIdRef.current) {
           loadingRef.current = false;
@@ -334,12 +365,34 @@ export function useBrowserObjectProperties({
     ],
   );
 
+  const runSectionSave = useCallback(async <T,>(
+    section: PropertySection,
+    signature: string,
+    setSaving: (value: boolean) => void,
+    operation: () => Promise<T>,
+  ): Promise<T | null> => {
+    if (!isCurrentScope() || !loadedRef.current || loadingRef.current || activeSaveRef.current) return null;
+    const operationId = Symbol(section);
+    activeSaveRef.current = operationId;
+    const ownsOperation = () => isCurrentScope() && activeSaveRef.current === operationId;
+    try {
+      return await runBrowserScopedSave(ownsOperation, setSaving, async () => {
+        const value = await operation();
+        if (!ownsOperation()) return null;
+        const refreshed = await load(true, { section, signature });
+        return refreshed ? value : null;
+      });
+    } finally {
+      if (activeSaveRef.current === operationId) activeSaveRef.current = null;
+    }
+  }, [isCurrentScope, load]);
+
   const saveMetadata = useCallback(async () => {
     if (!isCurrentScope() || !accountId || !bucketName || !item.key) {
       return false;
     }
     return (
-      (await runBrowserScopedSave(isCurrentScope, setSavingMetadata, async () => {
+      (await runSectionSave("metadata", currentSignatures.metadata, setSavingMetadata, async () => {
         const payload: ObjectMetadataUpdate = {
           key: item.key,
           version_id: metadata?.version_id ?? tagsVersionId ?? null,
@@ -358,7 +411,6 @@ export function useBrowserObjectProperties({
           undefined,
           requestOptions,
         );
-        await load(true);
         return true;
       })) ?? false
     );
@@ -367,7 +419,8 @@ export function useBrowserObjectProperties({
     bucketName,
     isCurrentScope,
     item.key,
-    load,
+    runSectionSave,
+    currentSignatures.metadata,
     metadata?.version_id,
     metadataDraft,
     metadataItems,
@@ -380,21 +433,18 @@ export function useBrowserObjectProperties({
       return false;
     }
     return (
-      (await runBrowserScopedSave(isCurrentScope, setSavingTags, async () => {
+      (await runSectionSave("tags", currentSignatures.tags, setSavingTags, async () => {
         await updateObjectTags(
           accountId,
           bucketName,
           {
             key: item.key,
             version_id: metadata?.version_id ?? tagsVersionId ?? null,
-            tags: tagsDraft
-              .filter((tag) => tag.key.trim().length > 0)
-              .map((tag) => ({ key: tag.key, value: tag.value })),
+            tags: prepareS3Tags(tagsDraft),
           } satisfies ObjectTags,
           undefined,
           requestOptions,
         );
-        await load(true);
         return true;
       })) ?? false
     );
@@ -403,7 +453,8 @@ export function useBrowserObjectProperties({
     bucketName,
     isCurrentScope,
     item.key,
-    load,
+    runSectionSave,
+    currentSignatures.tags,
     metadata?.version_id,
     requestOptions,
     tagsDraft,
@@ -420,7 +471,7 @@ export function useBrowserObjectProperties({
     ) {
       return null;
     }
-    return runBrowserScopedSave(isCurrentScope, setSavingStorageClass, async () => {
+    return runSectionSave("storageClass", currentSignatures.storageClass, setSavingStorageClass, async () => {
       await updateObjectMetadata(
         accountId,
         bucketName,
@@ -432,7 +483,6 @@ export function useBrowserObjectProperties({
         undefined,
         requestOptions,
       );
-      await load(true);
       return storageClass;
     });
   }, [
@@ -440,33 +490,20 @@ export function useBrowserObjectProperties({
     bucketName,
     isCurrentScope,
     item.key,
-    load,
+    runSectionSave,
+    currentSignatures.storageClass,
     metadata?.version_id,
     requestOptions,
     storageClass,
     tagsVersionId,
   ]);
 
-  const hasUnsavedChanges = useMemo(
-    () =>
-      loaded &&
-      baselineSignature !== null &&
-      baselineSignature !==
-        draftSignature({
-          metadataDraft,
-          metadataItems,
-          storageClass,
-          tags: tagsDraft,
-        }),
-    [
-      baselineSignature,
-      loaded,
-      metadataDraft,
-      metadataItems,
-      storageClass,
-      tagsDraft,
-    ],
-  );
+  const dirtySections: BrowserObjectDirtySections = {
+    metadata: baselineSignatures !== null && baselineSignatures.metadata !== currentSignatures.metadata,
+    tags: baselineSignatures !== null && baselineSignatures.tags !== currentSignatures.tags,
+    storageClass: baselineSignatures !== null && baselineSignatures.storageClass !== currentSignatures.storageClass,
+  };
+  const hasUnsavedChanges = Object.values(dirtySections).some(Boolean);
 
   return {
     metadata,
@@ -490,6 +527,7 @@ export function useBrowserObjectProperties({
     savingTags,
     savingStorageClass,
     hasUnsavedChanges,
+    dirtySections,
     load,
     reset,
     isCurrentScope,

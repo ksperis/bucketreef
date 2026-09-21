@@ -741,6 +741,20 @@ independent submission, pending controls, keyboard use and failed-read retry.
 Use isolated Moto for authenticated Browser navigation; fixture-only archive or
 Object Lock cases do not establish live provider behavior.
 
+Object property drafts now keep separate metadata, tag and storage-class
+baselines. Successful writes accept only the submitted section, while refresh
+updates clean sections and preserves unrelated or newer local edits. Each dirty
+section is marked with the shared unsaved badge. Subsequent saves use the latest
+observed VersionId and explicit workspace/account context.
+
+A failed post-write read retains the drafts and close guard, disables mutation
+against a stale version, and requires an explicit read retry. Retrying the read
+does not repeat the write. A shared pending-operation boundary rejects duplicate
+or competing section saves and ignores completion after a scope reset.
+`prepareS3Tags` is shared by object and Manager/Ceph Admin bucket editors: literal
+keys/values (including whitespace-only keys) are preserved; missing keys with a
+value and exact duplicate keys are rejected before any request.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.

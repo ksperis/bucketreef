@@ -118,6 +118,7 @@ describe("Browser object detail tabs", () => {
         error={null}
         metadataDraft={metadataDraft}
         onMetadataDraftChange={onMetadataDraftChange}
+        dirtySections={{ metadata: true, tags: false, storageClass: true }}
         savingMetadata={false}
         onSaveMetadata={onSaveMetadata}
         metadataItems={[{ id: "meta-1", key: "project", value: "reef" }]}
@@ -138,6 +139,9 @@ describe("Browser object detail tabs", () => {
       />,
     );
 
+    expect(within(screen.getByRole("form", { name: "Metadata" })).getByRole("status")).toHaveTextContent("Unsaved changes");
+    expect(within(screen.getByRole("form", { name: "Tags" })).queryByRole("status")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("form", { name: "Storage class" })).getByRole("status")).toHaveTextContent("Unsaved changes");
     fireEvent.change(screen.getByRole("textbox", { name: "Content type" }), {
       target: { value: "application/json" },
     });

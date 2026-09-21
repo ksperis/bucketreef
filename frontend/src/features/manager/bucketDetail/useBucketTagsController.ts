@@ -17,6 +17,7 @@ import {
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
 import { createUiDraftId } from "../../../utils/uiDraftId";
+import { prepareS3Tags } from "../../../utils/s3Tags";
 import { stableBucketJsonSignature } from "./bucketFeatureState";
 
 type BucketTagDraft = BucketTag & { uiId: string };
@@ -114,18 +115,7 @@ export function useBucketTagsController({
     setSaving(true);
     clearFeedback();
     try {
-      const submitted = tags.map(({ key, value }) => ({ key, value }));
-      if (submitted.some((tag) => !tag.key && tag.value.length > 0)) {
-        throw new Error("Tag key is required when a value is provided.");
-      }
-      const filtered = submitted.filter((tag) => tag.key.length > 0);
-      const seen = new Set<string>();
-      for (const tag of filtered) {
-        if (seen.has(tag.key)) {
-          throw new Error(`Duplicate tag key: ${tag.key}`);
-        }
-        seen.add(tag.key);
-      }
+      const filtered = prepareS3Tags(tags);
 
       if (filtered.length === 0) {
         if (cephAdmin) {

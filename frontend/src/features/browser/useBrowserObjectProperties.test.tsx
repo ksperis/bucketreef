@@ -69,6 +69,14 @@ function tags(key: string, versionId: string): ObjectTags {
   };
 }
 
+function renderProperties() {
+  const item = browserItem("docs/report.txt");
+  return renderHook(() => useBrowserObjectProperties({
+    accountId: "acc-1", bucketName: "bucket-a", isDeleted: false, item,
+    requestOptions: { workspaceSurface: "browser" },
+  }));
+}
+
 describe("useBrowserObjectProperties", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -306,5 +314,175 @@ describe("useBrowserObjectProperties", () => {
     });
     expect(result.current.metadata?.key).toBe("docs/current.txt");
     expect(result.current.versionId).toBe("current-v1");
+  });
+
+  it.each([
+    ["metadata", "saveMetadata"], ["tags", "saveTags"], ["storageClass", "saveStorageClass"],
+  ] as const)("accepts only the saved %s section and retains the other drafts", async (section, save) => {
+    const { result } = renderProperties();
+    await act(async () => { await result.current.load(); });
+    act(() => {
+      result.current.updateMetadataDraft("contentType", "application/json");
+      result.current.updateMetadataItem(result.current.metadataItems[0].id, "value", " metadata draft ");
+      result.current.updateTag(result.current.tagsDraft[0].id, "value", " tag draft ");
+      result.current.setStorageClass("GLACIER");
+    });
+    const nextMetadata = metadata("docs/report.txt", "v3");
+    if (section === "metadata") {
+      nextMetadata.content_type = "application/json";
+      nextMetadata.metadata = { project: " metadata draft " };
+    }
+    if (section === "storageClass") nextMetadata.storage_class = "GLACIER";
+    apiMocks.fetchObjectMetadata.mockResolvedValueOnce(nextMetadata);
+    apiMocks.getObjectTags.mockResolvedValueOnce({
+      ...tags("docs/report.txt", "v3"),
+      tags: [{ key: "environment", value: section === "tags" ? " tag draft " : "test" }],
+    });
+    await act(async () => { await result.current[save](); });
+    expect(result.current.metadataDraft.contentType).toBe("application/json");
+    expect(result.current.metadataItems[0].value).toBe(" metadata draft ");
+    expect(result.current.tagsDraft[0].value).toBe(" tag draft ");
+    expect(result.current.storageClass).toBe("GLACIER");
+    expect(result.current.dirtySections).toEqual({
+      metadata: section !== "metadata", tags: section !== "tags", storageClass: section !== "storageClass",
+    });
+    expect(result.current.hasUnsavedChanges).toBe(true);
+    expect(result.current.versionId).toBe("v3");
+
+    // A subsequent section uses the latest version without reusing stale context.
+    if (section === "tags") {
+      await act(async () => { await result.current.saveMetadata(); });
+      expect(apiMocks.updateObjectMetadata).toHaveBeenCalledWith(
+        "acc-1", "bucket-a", expect.objectContaining({ key: "docs/report.txt", version_id: "v3", content_type: "application/json" }),
+        undefined, { workspaceSurface: "browser" },
+      );
+    }
+  });
+
+  it("refreshes clean sections while retaining edits made before and during a pending read", async () => {
+    const { result } = renderProperties();
+    await act(async () => { await result.current.load(); });
+    act(() => result.current.updateMetadataDraft("cacheControl", "no-store"));
+    const pendingRead = deferred<ObjectMetadata>();
+    apiMocks.fetchObjectMetadata.mockReturnValueOnce(pendingRead.promise);
+    let request!: ReturnType<typeof result.current.load>;
+    act(() => { request = result.current.load(true); });
+    act(() => result.current.updateTag(result.current.tagsDraft[0].id, "value", " keep spaces "));
+    await act(async () => {
+      pendingRead.resolve({ ...metadata("docs/report.txt", "v3"), storage_class: "GLACIER" });
+      await request;
+    });
+    expect(result.current.metadataDraft.cacheControl).toBe("no-store");
+    expect(result.current.tagsDraft[0].value).toBe(" keep spaces ");
+    expect(result.current.storageClass).toBe("GLACIER");
+    expect(result.current.dirtySections).toEqual({ metadata: true, tags: true, storageClass: false });
+  });
+
+  it("preserves a newer draft in the submitted section when a write returns late", async () => {
+    const { result } = renderProperties();
+    await act(async () => { await result.current.load(); });
+    act(() => result.current.updateMetadataDraft("contentType", "application/json"));
+    const pendingWrite = deferred<void>();
+    apiMocks.updateObjectMetadata.mockReturnValueOnce(pendingWrite.promise);
+    apiMocks.fetchObjectMetadata.mockResolvedValueOnce({ ...metadata("docs/report.txt", "v3"), content_type: "application/json" });
+    let request!: Promise<boolean>;
+    act(() => { request = result.current.saveMetadata(); });
+    act(() => result.current.updateMetadataDraft("contentType", "text/csv"));
+    await act(async () => { pendingWrite.resolve(); await request; });
+    expect(result.current.metadataDraft.contentType).toBe("text/csv");
+    expect(result.current.dirtySections.metadata).toBe(true);
+  });
+
+  it("retains failed writes and permits a deliberate retry", async () => {
+    const { result } = renderProperties();
+    await act(async () => { await result.current.load(); });
+    act(() => result.current.updateTag(result.current.tagsDraft[0].id, "value", "changed"));
+    apiMocks.updateObjectTags.mockRejectedValueOnce(new Error("Write denied"));
+    await act(async () => { await expect(result.current.saveTags()).rejects.toThrow("Write denied"); });
+    expect(result.current.tagsDraft[0].value).toBe("changed");
+    expect(result.current.hasUnsavedChanges).toBe(true);
+    expect(result.current.savingTags).toBe(false);
+    expect(apiMocks.fetchObjectMetadata).toHaveBeenCalledTimes(1);
+    await act(async () => { await result.current.saveTags(); });
+    expect(apiMocks.updateObjectTags).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps drafts guarded after a post-write read failure and retries only the read", async () => {
+    const { result } = renderProperties();
+    await act(async () => { await result.current.load(); });
+    act(() => {
+      result.current.updateMetadataDraft("contentType", "application/json");
+      result.current.updateTag(result.current.tagsDraft[0].id, "value", "unsaved");
+    });
+    apiMocks.fetchObjectMetadata.mockRejectedValueOnce(new Error("Refresh unavailable"));
+    await act(async () => { expect(await result.current.saveMetadata()).toBe(false); });
+    expect(result.current.loaded).toBe(false);
+    expect(result.current.error).toBe("Refresh unavailable");
+    expect(result.current.metadataDraft.contentType).toBe("application/json");
+    expect(result.current.metadata).not.toBeNull();
+    expect(result.current.hasUnsavedChanges).toBe(true);
+    await act(async () => {
+      expect(await result.current.saveTags()).toBe(false);
+      await result.current.load();
+    });
+    expect(apiMocks.updateObjectTags).not.toHaveBeenCalled();
+    expect(apiMocks.fetchObjectMetadata).toHaveBeenCalledTimes(2);
+    apiMocks.fetchObjectMetadata.mockResolvedValueOnce({ ...metadata("docs/report.txt", "v3"), content_type: "application/json" });
+    await act(async () => { await result.current.load(true); });
+    expect(result.current.loaded).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(result.current.dirtySections).toEqual({ metadata: false, tags: true, storageClass: false });
+    expect(result.current.tagsDraft[0].value).toBe("unsaved");
+    expect(apiMocks.updateObjectMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects concurrent section saves before React publishes their busy state", async () => {
+    const { result } = renderProperties();
+    await act(async () => { await result.current.load(); });
+    const pendingWrite = deferred<void>();
+    apiMocks.updateObjectTags.mockReturnValueOnce(pendingWrite.promise);
+    let first!: Promise<boolean>;
+    await act(async () => {
+      first = result.current.saveTags();
+      expect(await result.current.saveTags()).toBe(false);
+      expect(await result.current.saveMetadata()).toBe(false);
+      expect(await result.current.saveStorageClass()).toBeNull();
+    });
+    expect(apiMocks.updateObjectTags).toHaveBeenCalledTimes(1);
+    expect(apiMocks.updateObjectMetadata).not.toHaveBeenCalled();
+    await act(async () => { pendingWrite.resolve(); await first; });
+    expect(result.current.savingTags).toBe(false);
+  });
+
+  it("preserves literal tag whitespace, including whitespace-only keys", async () => {
+    const { result } = renderProperties();
+    await act(async () => { await result.current.load(); });
+    act(() => {
+      result.current.updateTag(result.current.tagsDraft[0].id, "key", "   ");
+      result.current.updateTag(result.current.tagsDraft[0].id, "value", " value ");
+      result.current.addTag();
+    });
+    await act(async () => { await result.current.saveTags(); });
+    expect(apiMocks.updateObjectTags).toHaveBeenCalledWith("acc-1", "bucket-a", {
+      key: "docs/report.txt", version_id: "v2", tags: [{ key: "   ", value: " value " }],
+    }, undefined, { workspaceSurface: "browser" });
+  });
+
+  it.each([
+    ["", "Tag key is required when a value is provided."],
+    ["environment", "Duplicate tag key: environment"],
+  ])("rejects an invalid tag draft with key %j without losing it", async (key, error) => {
+    const { result } = renderProperties();
+    await act(async () => { await result.current.load(); });
+    act(() => result.current.addTag());
+    act(() => {
+      const tag = result.current.tagsDraft[1];
+      result.current.updateTag(tag.id, "key", key);
+      result.current.updateTag(tag.id, "value", "keep me");
+    });
+    await act(async () => { await expect(result.current.saveTags()).rejects.toThrow(error); });
+    expect(apiMocks.updateObjectTags).not.toHaveBeenCalled();
+    expect(result.current.tagsDraft[1].value).toBe("keep me");
+    expect(result.current.hasUnsavedChanges).toBe(true);
   });
 });

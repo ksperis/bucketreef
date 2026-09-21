@@ -153,6 +153,7 @@ export default function BrowserObjectDetailsDrawer({
     savingTags,
     savingStorageClass: savingStorage,
     hasUnsavedChanges,
+    dirtySections,
     load: loadProperties,
     reset: resetObjectProperties,
     isCurrentScope: isPropertiesScopeCurrent,
@@ -542,6 +543,7 @@ export default function BrowserObjectDetailsDrawer({
         loading={metadataLoading}
         loaded={metadataLoaded}
         error={metadataError}
+        dirtySections={dirtySections}
         metadataDraft={metadataDraft}
         onMetadataDraftChange={updateMetadataDraft}
         savingMetadata={savingMetadata}

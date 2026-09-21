@@ -271,6 +271,13 @@ but cannot race a pending save. An initial failed read cannot enable empty edits
 Signed URLs and required headers use labelled, read-only theme-aware textareas;
 preserve SSE-C warnings, exact values and memory-only handling.
 
+Independent object operations expose dirty state through the optional `dirty`
+property of `SettingsOperationSection`. Keep the draft baselines in the object
+controller: a shared visual primitive must not decide which fields a save owns.
+Refresh preserves dirty sections and updates clean values; only the submitted
+snapshot is accepted after a write. A read failure must not clear the dirty
+navigation guard or permit another write with an unverified VersionId.
+
 Browser bulk attributes, restore-to-date and old-version cleanup also use
 `SettingsFormDialog` because their targets belong to the current selection or
 prefix. Keep the target summary visible and use `UiInput`, `UiSelect` and
