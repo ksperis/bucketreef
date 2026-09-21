@@ -104,6 +104,10 @@ if [ "${1:-}" = "compose" ]; then
       [ "${FAKE_FRONTEND_RUNNING:-1}" = "1" ] && printf '%s\n' frontend-id
       exit 0
       ;;
+    *" ps --status running --quiet scheduler "*)
+      [ "${FAKE_SCHEDULER_RUNNING:-1}" = "1" ] && printf '%s\n' scheduler-id
+      exit 0
+      ;;
     *" exec --no-TTY backend python -m app.scripts.issue_first_admin_bootstrap "*)
       case "${FAKE_BOOTSTRAP_MODE:-issue}" in
         issue)
@@ -225,17 +229,19 @@ def _run(
     )
 
 
-def test_start_uses_bundle_and_refuses_token_when_frontend_stops(quickstart_runtime):
+@pytest.mark.parametrize("service", ["BACKEND", "FRONTEND", "SCHEDULER"])
+def test_start_uses_bundle_and_refuses_token_when_a_service_stops(quickstart_runtime, service):
     workdir, environment, docker_log = quickstart_runtime
     _write_environment(workdir)
-    environment["FAKE_FRONTEND_RUNNING"] = "0"
+    environment[f"FAKE_{service}_RUNNING"] = "0"
 
     result = _run(workdir, environment)
 
     assert result.returncode == 1
-    assert "Backend or frontend stopped before becoming ready" in result.stderr
+    assert "Backend, frontend or scheduler stopped before becoming ready" in result.stderr
     log = docker_log.read_text(encoding="utf-8")
-    assert "--file docker-compose.yml up --detach --no-build backend frontend" in log
+    assert "--profile operations up --detach --no-build backend frontend scheduler" in log
+    assert "logs --tail 80 backend frontend scheduler" in log
     assert "issue_first_admin_bootstrap" not in log
 
 
@@ -260,10 +266,10 @@ def test_rerun_is_idempotent_and_uses_public_origin_for_login(quickstart_runtime
 
     assert result.returncode == 0
     assert "Sign in at https://bucketreef.example/login" in result.stdout
-    assert "up --detach --no-build backend frontend" in docker_log.read_text(encoding="utf-8")
+    assert "--profile operations up --detach --no-build backend frontend scheduler" in docker_log.read_text(encoding="utf-8")
 
 
-def test_status_reports_backend_frontend_and_bootstrap_separately(quickstart_runtime):
+def test_status_reports_services_and_bootstrap_separately(quickstart_runtime):
     workdir, environment, _docker_log = quickstart_runtime
     _write_environment(workdir)
 
@@ -272,7 +278,31 @@ def test_status_reports_backend_frontend_and_bootstrap_separately(quickstart_run
     assert result.returncode == 0
     assert "Backend health: healthy" in result.stdout
     assert "Frontend health: healthy" in result.stdout
+    assert "Scheduler: running" in result.stdout
     assert "First-administrator bootstrap: issued and available" in result.stdout
+
+
+def test_status_reports_scheduler_failure_even_when_http_services_are_healthy(quickstart_runtime):
+    workdir, environment, _docker_log = quickstart_runtime
+    _write_environment(workdir)
+    environment["FAKE_SCHEDULER_RUNNING"] = "0"
+
+    result = _run(workdir, environment, "status")
+
+    assert result.returncode == 0
+    assert "Backend health: healthy" in result.stdout
+    assert "Frontend health: healthy" in result.stdout
+    assert "Scheduler: unavailable; scheduled operations will not run." in result.stdout
+
+
+def test_logs_include_the_scheduler(quickstart_runtime):
+    workdir, environment, docker_log = quickstart_runtime
+    _write_environment(workdir)
+
+    result = _run(workdir, environment, "logs")
+
+    assert result.returncode == 0
+    assert "--profile operations logs --tail 80 backend frontend scheduler" in docker_log.read_text()
 
 
 def test_stop_is_idempotent_and_preserves_data(quickstart_runtime):

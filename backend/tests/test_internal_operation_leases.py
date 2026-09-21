@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from app.routers import dependencies
+from app.models.app_settings import AppSettings
+from app.routers.internal import billing_collect
 from app.services.billing_collection_service import BillingCollector
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import (
@@ -22,6 +24,9 @@ def _set_token(monkeypatch) -> None:
 
 def test_internal_billing_collect_skips_when_lease_is_active(client, db_session, monkeypatch):
     _set_token(monkeypatch)
+    enabled_settings = AppSettings()
+    enabled_settings.general.billing_enabled = True
+    monkeypatch.setattr(billing_collect, "load_app_settings", lambda: enabled_settings)
     OperationLeaseService(db_session).acquire(
         billing_daily_operation_name("2026-07-03"),
         ttl_seconds=600,

@@ -44,12 +44,21 @@ You can also download the bundle from
 The isolated Compose project `bucketreef-quickstart` runs:
 
 - the backend with SQLite in its persistent `backend-data` volume;
-- the frontend at `http://localhost:8080`.
+- the frontend at `http://localhost:8080`;
+- the operations scheduler, including endpoint healthchecks every five minutes.
 
-Both services bind to `127.0.0.1` (backend port 8000) by default. QuickStart does
-not enable the scheduler, start a storage simulator, or configure an S3/Ceph
-endpoint. Images use the bundle's `VERSION`, never `latest`. For builds of your
-working tree, see [Local development](../developer/local-development.md).
+Backend and frontend bind to `127.0.0.1` (backend port 8000) by default. The
+scheduler exposes no host port. QuickStart does not start a storage simulator or
+configure an S3/Ceph endpoint. Images use the bundle's `VERSION`, never `latest`.
+For builds of your working tree, see [Local development](../developer/local-development.md).
+
+The scheduler also runs billing collection, quota monitoring, usage history and
+notification retention with the [standard schedules](deploy-docker-compose.md#scheduler-service).
+It reuses the generated `INTERNAL_CRON_TOKEN`; no host crontab is needed.
+Feature-dependent jobs skip their work when the corresponding feature is disabled.
+Enabling **Endpoint Status** in Admin settings or creating an endpoint in Admin
+also requests an initial check after the response, before the next scheduled run.
+See [Endpoint healthchecks](operations-healthchecks.md) for concurrency and failure behavior.
 
 First start generates four distinct high-entropy secrets in `.env.quickstart`,
 mode `0600`. Existing environments are preserved. Startup refuses to generate
@@ -57,8 +66,8 @@ replacement keys when a volume already exists without its environment.
 
 ## Create the first administrator
 
-After backend health and the frontend setup route are ready, the command prints
-an expiring, one-time URL:
+After backend health and the frontend setup route are ready and the scheduler is
+running, the command prints an expiring, one-time URL:
 
 ```text
 http://localhost:8080/setup/first-admin#token=...
@@ -74,6 +83,7 @@ Connecting storage is optional after setup.
 
 ```sh
 bucketreef-quickstart status
+bucketreef-quickstart logs
 bucketreef-quickstart stop
 bucketreef-quickstart start
 bucketreef-quickstart version
@@ -82,6 +92,11 @@ bucketreef-quickstart version
 Commands work from any directory. Stop, restart and re-running the installer
 preserve the installed version, database and keys. Requesting a different
 version is rejected with instructions for a manual upgrade.
+
+`status` reports backend/frontend health and scheduler process state separately.
+`logs` shows the last 80 log lines from each of the three services. A running
+scheduler does not by itself prove that each job succeeded; inspect its logs if
+endpoint statuses stop updating. Startup fails if any required service stops.
 
 ## Custom ports
 
@@ -157,5 +172,5 @@ backup and matching keys before resuming the previous release.
 Follow [Compose deployment](deploy-docker-compose.md),
 [Configuration](configuration.md), [Authentication security](authentication-hardening.md)
 and [Production readiness](production-readiness.md) for externally managed
-secrets, TLS, a suitable database and the operations scheduler. Do not reuse
+secrets, TLS, a suitable database and production scheduler configuration. Do not reuse
 evaluation secrets in production.

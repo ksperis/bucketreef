@@ -1,6 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -19,6 +19,7 @@ from app.services.app_settings_service import (
     save_app_settings,
 )
 from app.services.identity_security_policy import require_admin_sensitive_action
+from app.services.healthcheck_background_service import run_initial_healthchecks
 from app.services.ldap_provider_settings_service import (
     LDAPProviderAlreadyExistsError,
     LDAPProviderManagedByEnvironmentError,
@@ -78,6 +79,7 @@ def get_general_feature_locks_route(_: User = Depends(get_current_ui_superadmin)
 def update_settings(
     request: Request,
     payload: AppSettings,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_ui_superadmin),
     db: Session = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
@@ -101,6 +103,8 @@ def update_settings(
             "portal_server_access_logging": server_access_logging_summary,
         },
     )
+    if saved.general.endpoint_status_enabled and not current_settings.general.endpoint_status_enabled:
+        background_tasks.add_task(run_initial_healthchecks)
     return saved
 
 

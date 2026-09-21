@@ -45,11 +45,14 @@ class HealthCheckService:
         self.db = db
         self._persistence = HealthCheckPersistenceService(db)
 
-    def run_checks(self) -> dict:
+    def run_checks(self, *, endpoint_id: int | None = None) -> dict:
         app_settings = load_app_settings()
         if not app_settings.general.endpoint_status_enabled:
             raise ValueError("Endpoint Status feature is disabled")
-        endpoints = self.db.query(StorageEndpoint).order_by(*name_order_by(StorageEndpoint)).all()
+        query = self.db.query(StorageEndpoint)
+        if endpoint_id is not None:
+            query = query.filter(StorageEndpoint.id == endpoint_id)
+        endpoints = query.order_by(*name_order_by(StorageEndpoint)).all()
         run_started_at = utcnow()
         profiles = {endpoint.id: resolve_healthcheck_profile(endpoint) for endpoint in endpoints}
         baselines = {

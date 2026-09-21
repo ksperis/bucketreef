@@ -38,7 +38,12 @@ def db_session(test_engine):
 
 
 @pytest.fixture
-def client(db_session):
+def client(db_session, monkeypatch):
+    # Route tests must not start probes against the application's real database.
+    # Scheduling integration tests explicitly restore the task with a test factory.
+    monkeypatch.setattr("app.routers.admin.settings.run_initial_healthchecks", lambda **kwargs: None)
+    monkeypatch.setattr("app.routers.admin.storage_endpoints.run_initial_healthchecks", lambda **kwargs: None)
+
     def override_get_db():
         yield db_session
 

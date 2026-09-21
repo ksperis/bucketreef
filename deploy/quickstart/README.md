@@ -16,6 +16,7 @@ The command always uses the script's directory, regardless of your current one.
 ```sh
 bucketreef-quickstart start
 bucketreef-quickstart status
+bucketreef-quickstart logs
 bucketreef-quickstart stop
 bucketreef-quickstart version
 bucketreef-quickstart reset
@@ -25,10 +26,15 @@ If `~/.local/bin` is not on PATH, use the full command path. No shell startup
 file is edited. Repeat installs and starts preserve the same version and data.
 There is no automatic upgrade command.
 
-QuickStart runs backend and frontend with SQLite and loopback ports 8000/8080.
+QuickStart runs backend, frontend and the operations scheduler. The backend uses
+SQLite; backend/frontend ports 8000/8080 bind to loopback. The scheduler exposes
+no host port and checks endpoints every five minutes by default. Other jobs
+collect billing, quota alerts and usage history, and expire old notifications.
+Feature-dependent jobs skip their work when the feature is disabled.
 On first start, distinct secrets are generated in `.env.quickstart` (0600).
-The first-administrator URL appears only after both services are ready.
-Project name: `bucketreef-quickstart`. The scheduler remains disabled.
+The first-administrator URL appears only after the HTTP services are ready and
+the scheduler is running. `status` reports the scheduler separately; `logs`
+includes all three services. Project name: `bucketreef-quickstart`.
 
 Reset requires `RESET BUCKETREEF QUICKSTART`, stops the project, saves the
 environment and complete SQLite directory, verifies the archive, then removes

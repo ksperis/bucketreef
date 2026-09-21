@@ -24,10 +24,23 @@ healthcheck operation lease.
 ## Scheduler integration
 
 - Compose scheduler calls the internal endpoint periodically.
+- QuickStart starts the scheduler automatically; its default interval is five minutes.
 - Helm supports `healthcheckCronJob` values.
 
 The scheduler or CronJob must use the same `INTERNAL_CRON_TOKEN` as the backend.
 Keep the internal route on a trusted network.
+
+## Initial checks
+
+Saving Admin settings with **Endpoint Status** changing from disabled to enabled
+requests a check of all endpoints. Creating an endpoint through Admin requests a
+check of that endpoint only, provided the feature remains enabled.
+
+These checks run after the HTTP response with a separate database session and
+share the operation lease used by scheduled and manual checks. If another check
+is running, the initial check is deferred to the next scheduled run. Failures are
+logged without undoing successful configuration changes; the scheduler retries
+at its next interval. Environment feature locks continue to apply.
 
 ## Administrator notifications
 
@@ -69,7 +82,10 @@ Admin **Storage Backends** exposes:
 
 `Endpoint Status` pages and dashboard health widgets require
 `endpoint_status_enabled` in app settings. When the feature is disabled,
-scheduled runs fail fast instead of writing new healthcheck rows.
+the authenticated internal trigger returns HTTP 200 with `status: skipped` and
+`reason: feature_disabled`, without probing endpoints or writing healthcheck rows.
+The manual Admin trigger remains unavailable. Authentication failures and actual
+execution errors are not converted into successful skipped runs.
 
 ## Related pages
 

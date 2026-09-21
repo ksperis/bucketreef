@@ -114,8 +114,9 @@ Do not remove the volume or disable the backend's runtime security controls.
 
 ## Scheduler service
 
-The scheduler is in the opt-in `operations` profile. The local quickstart does
-not activate it. A complete deployment starts it explicitly:
+The scheduler is in the `operations` profile. QuickStart activates this profile
+automatically and starts all three services. For a standalone Compose deployment,
+start the scheduler explicitly:
 
 ```bash
 export INTERNAL_CRON_TOKEN="$(openssl rand -hex 48)"
@@ -135,6 +136,10 @@ The scheduler triggers:
 - quota monitoring for alerts (default every hour)
 - usage history collection for managed accounts and S3 users (default `03:00 UTC`)
 - user notification retention (default `03:15 UTC`)
+
+Feature-dependent jobs skip their work when disabled in effective app settings.
+In particular, disabled healthchecks and billing return `skipped / feature_disabled`
+to the scheduler rather than failing. Genuine execution errors remain visible in logs.
 
 Persist the same strong shared token in `.env` or your secret manager:
 
