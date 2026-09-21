@@ -197,6 +197,13 @@ describe("StorageEndpointsPage tags", () => {
         "Manage connection settings, operational credentials, capabilities, and health checks for this endpoint."
       )
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    const opsHelp = screen.getByText("What are Admin Ops and Supervision Ops?").parentElement;
+    expect(opsHelp).not.toBeNull();
+    expect(within(opsHelp as HTMLElement).getByText(/keys let BucketReef create RGW accounts and S3 users/)).toBeVisible();
+    expect(within(opsHelp as HTMLElement).getByText("Ceph (radosgw-admin) examples")).toBeVisible();
+    expect(within(opsHelp as HTMLElement).queryByRole("button", { name: /show|hide/i })).not.toBeInTheDocument();
   });
 
   it("lets superadmin edit endpoint tags even when endpoints are env-managed", async () => {
