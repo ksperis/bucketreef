@@ -321,11 +321,12 @@ describe("AdminDashboard feature summary", () => {
     await renderDashboard();
 
     expect(screen.getByRole("heading", { name: "Storage setup complete" })).toBeInTheDocument();
-    expect(screen.queryByText("Configure storage access")).not.toBeInTheDocument();
+    expect(screen.queryByText("Configure an S3 account")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
-    expect(screen.getByText("Configure storage access")).toBeInTheDocument();
+    expect(screen.getByText("Configure an S3 account")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Configure S3 accounts" })).toHaveAttribute("href", "/admin/s3-accounts");
     fireEvent.click(screen.getByRole("button", { name: "Collapse checklist" }));
-    expect(screen.queryByText("Configure storage access")).not.toBeInTheDocument();
+    expect(screen.queryByText("Configure an S3 account")).not.toBeInTheDocument();
   });
 
   it("renders two grouped feature summaries with enabled features only", async () => {

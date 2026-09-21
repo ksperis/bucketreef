@@ -214,10 +214,10 @@ function OnboardingPanel({
               />
               <SetupStep
                 index={2}
-                title="Configure storage access"
-                description="Create an S3 account or an active connection for storage operations."
+                title="Configure an S3 account"
+                description="Create an S3 account for storage administration and browsing."
                 done={onboarding.storage_access_configured}
-                action={{ label: "Configure connections", to: "/admin/s3-connections" }}
+                action={{ label: "Configure S3 accounts", to: "/admin/s3-accounts" }}
               />
               <div className={cx(uiCardMutedClass, "px-4 py-3 xl:col-span-2 2xl:col-span-1")}>
                 <p className="ui-body font-semibold text-[var(--ui-text)]">Next steps</p>

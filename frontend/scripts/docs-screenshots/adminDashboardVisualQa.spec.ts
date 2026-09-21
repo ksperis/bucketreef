@@ -127,7 +127,7 @@ for (const state of ["disabled", "partial-errors", "onboarding"] as const) {
       await expect(page.getByText("Audit temporarily unavailable")).toBeVisible();
     } else {
       await expect(page.getByRole("link", { name: "Configure endpoints", exact: true })).toBeVisible();
-      await expect(page.getByRole("link", { name: "Configure connections", exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Configure S3 accounts", exact: true })).toHaveAttribute("href", "/admin/s3-accounts");
       await page.getByRole("button", { name: "Collapse checklist" }).click();
       await expect(page.getByRole("button", { name: "Review" })).toBeVisible();
     }
