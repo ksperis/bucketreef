@@ -117,7 +117,7 @@ class BucketConfigurationService:
         for entry in tags_raw or []:
             if not isinstance(entry, dict):
                 continue
-            key = str(entry.get("key") or "").strip()
+            key = str(entry.get("key") or "")
             if not key:
                 continue
             tags.append(BucketTag(key=key, value=str(entry.get("value") or "")))

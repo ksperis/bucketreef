@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import UiButton from "../../../components/ui/UiButton";
+import { SettingsButton } from "../../../components/settings/SettingsControls";
 
 type BucketFeatureModeOption<T extends string> = {
   value: T;
@@ -23,19 +23,18 @@ export default function BucketFeatureModeToggle<T extends string>({
   disabled = false,
 }: BucketFeatureModeToggleProps<T>) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div role="group" aria-label="Editor mode" className="flex flex-wrap gap-2">
       {options.map((option) => (
-        <UiButton
+        <SettingsButton
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
           variant={value === option.value ? "primary" : "secondary"}
-          size="xs"
-          className="px-3"
+          aria-pressed={value === option.value}
           disabled={disabled}
         >
           {option.label}
-        </UiButton>
+        </SettingsButton>
       ))}
     </div>
   );

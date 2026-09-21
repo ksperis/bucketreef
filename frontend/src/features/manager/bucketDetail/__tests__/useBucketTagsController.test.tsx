@@ -46,11 +46,11 @@ describe("useBucketTagsController", () => {
     vi.clearAllMocks();
   });
 
-  it("loads, edits, and saves normalized Manager bucket tags", async () => {
+  it("loads, edits, and saves literal Manager bucket tags", async () => {
     apiMocks.getBucketTags.mockResolvedValue({
       tags: [
         { key: " env ", value: " prod " },
-        { key: "", value: "ignored" },
+        { key: "env", value: "distinct" },
       ],
     });
     apiMocks.putBucketTags.mockResolvedValue(undefined);
@@ -58,9 +58,9 @@ describe("useBucketTagsController", () => {
 
     await act(async () => result.current.load());
     expect(apiMocks.getBucketTags).toHaveBeenCalledWith("acc-1", "reports");
-    expect(result.current.tags).toHaveLength(1);
+    expect(result.current.tags).toHaveLength(2);
     expect(result.current.tags[0]).toMatchObject({
-      key: "env",
+      key: " env ",
       value: " prod ",
     });
     expect(result.current.configured).toBe(true);
@@ -75,10 +75,40 @@ describe("useBucketTagsController", () => {
     await act(async () => result.current.save());
 
     expect(apiMocks.putBucketTags).toHaveBeenCalledWith("acc-1", "reports", [
-      { key: "env", value: "staging" },
+      { key: " env ", value: " staging " },
+      { key: "env", value: "distinct" },
     ]);
     expect(result.current.status).toBe("Bucket tags updated.");
     expect(result.current.dirty).toBe(false);
+  });
+
+  it.each([false, true])("tracks whitespace-only changes and retains failed drafts (Ceph Admin: %s)", async (cephAdmin) => {
+    const get = cephAdmin ? apiMocks.getCephAdminBucketTags : apiMocks.getBucketTags;
+    const put = cephAdmin ? apiMocks.putCephAdminBucketTags : apiMocks.putBucketTags;
+    get.mockResolvedValue({ tags: [{ key: "tag+key", value: "value" }] });
+    put.mockRejectedValueOnce(new Error("Save failed")).mockResolvedValue(undefined);
+    const { result } = renderTags({ cephAdmin, endpointId: 7 });
+    await act(async () => result.current.load());
+    act(() => result.current.update(result.current.tags[0].uiId, { value: " value " }));
+    expect(result.current.dirty).toBe(true);
+    await act(async () => result.current.save());
+    expect(result.current.error).toBe("Save failed");
+    expect(result.current.tags[0].value).toBe(" value ");
+    expect(result.current.dirty).toBe(true);
+    await act(async () => result.current.save());
+    expect(put).toHaveBeenLastCalledWith(cephAdmin ? 7 : "acc-1", "reports", [{ key: "tag+key", value: " value " }]);
+    expect(result.current.dirty).toBe(false);
+  });
+
+  it("retains and rejects a missing key instead of dropping its value", async () => {
+    apiMocks.getBucketTags.mockResolvedValue({ tags: [{ key: "", value: "must not disappear" }] });
+    const { result } = renderTags();
+    await act(async () => result.current.load());
+    await act(async () => result.current.save());
+    expect(result.current.tags[0].value).toBe("must not disappear");
+    expect(result.current.error).toBe("Tag key is required when a value is provided.");
+    expect(apiMocks.putBucketTags).not.toHaveBeenCalled();
+    expect(apiMocks.deleteBucketTags).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate tag keys before calling the API", async () => {

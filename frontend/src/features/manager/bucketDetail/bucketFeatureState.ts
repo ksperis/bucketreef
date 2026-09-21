@@ -7,7 +7,7 @@ import type {
   BucketPublicAccessBlock,
 } from "../../../api/bucketContracts";
 
-export type BucketFeatureCardMode = "graphical" | "json" | "hybrid";
+export type BucketFeatureMode = "graphical" | "json" | "hybrid";
 export type BucketFeatureVisualState = "neutral" | "configured" | "unsaved" | "disabled";
 
 type JsonSignatureResult = {

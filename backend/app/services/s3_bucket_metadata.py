@@ -36,7 +36,7 @@ def put_bucket_tags(
     tag_set = [
         {"Key": str(tag.get("key") or ""), "Value": str(tag.get("value") or "")}
         for tag in tags
-        if str(tag.get("key") or "").strip()
+        if str(tag.get("key") or "")
     ]
     try:
         if tag_set:
@@ -77,7 +77,7 @@ def get_bucket_tags(
         for tag in tag_set:
             if not isinstance(tag, dict):
                 continue
-            key = str(tag.get("Key") or "").strip()
+            key = str(tag.get("Key") or "")
             if not key:
                 continue
             tags.append({"key": key, "value": str(tag.get("Value") or "")})

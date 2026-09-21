@@ -33,12 +33,9 @@ function createDraft(tag: BucketTag = { key: "", value: "" }): BucketTagDraft {
   return { ...tag, uiId: createUiDraftId("bucket-tag") };
 }
 
-function normalize(tags: BucketTag[]): BucketTag[] {
+function sortedTags(tags: BucketTag[]): BucketTag[] {
   return tags
-    .map((tag) => ({
-      key: String(tag.key ?? "").trim(),
-      value: String(tag.value ?? "").trim(),
-    }))
+    .map(({ key, value }) => ({ key, value }))
     .sort((left, right) => {
       const keyOrder = left.key.localeCompare(right.key);
       return keyOrder !== 0 ? keyOrder : left.value.localeCompare(right.value);
@@ -61,14 +58,8 @@ export function useBucketTagsController({
   const [clearing, setClearing] = useState(false);
 
   const apply = useCallback((next: BucketTag[]) => {
-    const normalized = next
-      .map((tag) => ({
-        key: String(tag.key ?? "").trim(),
-        value: String(tag.value ?? ""),
-      }))
-      .filter((tag) => tag.key.length > 0);
-    setTags(normalized.map(createDraft));
-    setSnapshot(normalized);
+    setTags(next.map(createDraft));
+    setSnapshot(next);
   }, []);
 
   const load = useCallback(async () => {
@@ -123,14 +114,11 @@ export function useBucketTagsController({
     setSaving(true);
     clearFeedback();
     try {
-      const normalized = tags.map((tag) => ({
-        key: String(tag.key ?? "").trim(),
-        value: String(tag.value ?? "").trim(),
-      }));
-      if (normalized.some((tag) => !tag.key && tag.value.length > 0)) {
+      const submitted = tags.map(({ key, value }) => ({ key, value }));
+      if (submitted.some((tag) => !tag.key && tag.value.length > 0)) {
         throw new Error("Tag key is required when a value is provided.");
       }
-      const filtered = normalized.filter((tag) => tag.key.length > 0);
+      const filtered = submitted.filter((tag) => tag.key.length > 0);
       const seen = new Set<string>();
       for (const tag of filtered) {
         if (seen.has(tag.key)) {
@@ -191,8 +179,8 @@ export function useBucketTagsController({
     clearing,
     configured: tags.length > 0,
     dirty:
-      stableBucketJsonSignature(normalize(tags)) !==
-      stableBucketJsonSignature(normalize(snapshot)),
+      stableBucketJsonSignature(sortedTags(tags)) !==
+      stableBucketJsonSignature(sortedTags(snapshot)),
     error,
     load,
     loading,
