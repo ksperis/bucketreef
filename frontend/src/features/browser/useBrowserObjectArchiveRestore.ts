@@ -15,7 +15,7 @@ type RestoreArchiveResult = "restored" | "invalid" | "skipped";
 type UseBrowserObjectArchiveRestoreOptions = {
   accountId: S3AccountSelector;
   bucketName: string;
-  loadProperties: (force?: boolean) => Promise<void>;
+  loadProperties: (force?: boolean) => Promise<unknown>;
   objectKey: string;
   requestOptions?: BrowserRequestOptions;
   versionId?: string | null;

@@ -7,6 +7,7 @@ import UiSelect from "../../components/ui/UiSelect";
 import { storageClassOptions } from "./browserConstants";
 import type {
   BrowserObjectMetadataDraft,
+  BrowserObjectDirtySections,
   BrowserObjectPropertyEntry,
   BrowserObjectPropertyEntryField,
 } from "./useBrowserObjectProperties";
@@ -66,6 +67,7 @@ function EditablePairs({
 
 type BrowserObjectPropertiesTabProps = {
   error: string | null;
+  dirtySections?: BrowserObjectDirtySections;
   loaded: boolean;
   loading: boolean;
   metadataDraft: BrowserObjectMetadataDraft;
@@ -91,7 +93,7 @@ type BrowserObjectPropertiesTabProps = {
 };
 
 export default function BrowserObjectPropertiesTab({
-  error, loaded, loading, metadataDraft, metadataItems, onAddMetadata, onAddTag,
+  error, dirtySections, loaded, loading, metadataDraft, metadataItems, onAddMetadata, onAddTag,
   onMetadataDraftChange, onMetadataItemChange, onRefresh, onRemoveMetadata,
   onRemoveTag, onSaveMetadata, onSaveStorageClass, onSaveTags, onStorageClassChange,
   onTagChange, readOnly, savingMetadata, savingStorageClass, savingTags, storageClass, tags,
@@ -103,14 +105,14 @@ export default function BrowserObjectPropertiesTab({
     <div className="settings-compact settings-form">
       {readOnly && <UiInlineMessage tone="info">Properties are read-only in the Standard Browser profile.</UiInlineMessage>}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="settings-description" role="status">{loading ? "Loading object details..." : "Save each section independently."}</p>
+        <p className="settings-description" role="status">{loading ? "Loading object details..." : "Save each section independently. Refresh keeps unsaved edits."}</p>
         <SettingsButton variant="secondary" onClick={() => void onRefresh()} disabled={loading || saving}>
           {error ? "Retry" : "Refresh"}
         </SettingsButton>
       </div>
       {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
       <SettingsOperationSection title="Metadata" description="Standard headers and custom metadata are saved together."
-        busy={savingMetadata} disabled={disabled} submitLabel="Save metadata" onSubmit={onSaveMetadata}>
+        busy={savingMetadata} disabled={disabled} dirty={dirtySections?.metadata} submitLabel="Save metadata" onSubmit={onSaveMetadata}>
         <div className="settings-fields sm:grid-cols-2">
           {standardMetadataFields.map(({ field, label, placeholder, type }) => (
             <UiInput key={field} label={label} type={type} value={metadataDraft[field]}
@@ -122,12 +124,12 @@ export default function BrowserObjectPropertiesTab({
           onAdd={onAddMetadata} onChange={onMetadataItemChange} onRemove={onRemoveMetadata} />
       </SettingsOperationSection>
       <SettingsOperationSection title="Tags" description="Key/value tags attached to this object."
-        busy={savingTags} disabled={disabled} submitLabel="Save tags" onSubmit={onSaveTags}>
+        busy={savingTags} disabled={disabled} dirty={dirtySections?.tags} submitLabel="Save tags" onSubmit={onSaveTags}>
         <EditablePairs title="Tags" hideLegend addLabel="Add tag" emptyLabel="No tags defined." entries={tags}
           keyPlaceholder="Key" valuePlaceholder="Value" onAdd={onAddTag} onChange={onTagChange} onRemove={onRemoveTag} />
       </SettingsOperationSection>
       <SettingsOperationSection title="Storage class" description="Changing storage class copies the object to the selected storage tier."
-        busy={savingStorageClass} disabled={disabled} submitDisabled={!storageClass}
+        busy={savingStorageClass} disabled={disabled} dirty={dirtySections?.storageClass} submitDisabled={!storageClass}
         submitLabel="Save storage class" onSubmit={onSaveStorageClass}>
         <UiSelect label="Storage class" value={storageClass} onChange={(event) => onStorageClassChange(event.target.value)}>
           <option value="">Select storage class</option>

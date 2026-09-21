@@ -2,10 +2,11 @@
 import { useRef, useState, type ReactNode } from "react";
 import { SettingsButton } from "./SettingsControls";
 import { SettingsSection } from "./SettingsLayout";
+import UiBadge from "../ui/UiBadge";
 
 /** One immediate operation, with its own native form and pending field lock. */
 export default function SettingsOperationSection({
-  title, description, busy = false, disabled = false, submitDisabled = false,
+  title, description, busy = false, disabled = false, submitDisabled = false, dirty = false,
   submitLabel, busyLabel = "Saving...", onSubmit, children,
 }: {
   title: string;
@@ -13,6 +14,7 @@ export default function SettingsOperationSection({
   busy?: boolean;
   disabled?: boolean;
   submitDisabled?: boolean;
+  dirty?: boolean;
   submitLabel: string;
   busyLabel?: string;
   onSubmit: () => Promise<unknown> | void;
@@ -41,6 +43,7 @@ export default function SettingsOperationSection({
       }}>
         <fieldset aria-label={`${title} settings`} aria-busy={locked}
           disabled={locked || disabled} className="settings-fields min-w-0">
+          {dirty && <div role="status"><UiBadge tone="warning">Unsaved changes</UiBadge></div>}
           {children}
           <div className="flex flex-wrap justify-end gap-2">
             <SettingsButton type="submit" disabled={submitDisabled}>
