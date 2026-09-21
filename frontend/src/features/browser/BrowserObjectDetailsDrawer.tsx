@@ -18,7 +18,7 @@ import type { S3AccountSelector } from "../../api/accountParams";
 import { BrowserCopyValueModal } from "./BrowserDialogModals";
 import BrowserObjectArchiveTab from "./BrowserObjectArchiveTab";
 import BrowserObjectReadOnlyDetailsTab, {
-  BrowserObjectFactsCard,
+  BrowserObjectFactsSection,
 } from "./BrowserObjectReadOnlyDetailsTab";
 import BrowserObjectPropertiesTab from "./BrowserObjectPropertiesTab";
 import BrowserObjectProtectionTab from "./BrowserObjectProtectionTab";
@@ -532,7 +532,7 @@ export default function BrowserObjectDetailsDrawer({
 
   const renderPropertiesContent = () => (
     <div className="space-y-4">
-      <BrowserObjectFactsCard
+      <BrowserObjectFactsSection
         bucketName={bucketName}
         item={itemSnapshot}
         metadata={metadata}

@@ -258,6 +258,19 @@ its timeline cards, group pagination and operation-specific actions. Use shared
 listing buttons and badges, `aria-pressed` for filters, `aria-expanded` for file
 groups and a named progress bar. Closing this read-only view never cancels work.
 
+Advanced object Properties, Access & Protection and Archive tabs use compact
+`SettingsSection` rows. `SettingsOperationSection` composes one native form per
+operation, named fields, a shared settings button and a pending fieldset lock.
+It suppresses duplicate submissions until the returned promise settles; callers
+own validation, errors, persistence and execution context. Keep read-only status
+outside the operation, and do not add sticky footers to each drawer section.
+Standard and custom metadata share one Save metadata action below both groups;
+tags, storage class, ACL, legal hold, retention and archive requests retain their
+own save boundaries. Refresh/retry remains available for read-only properties,
+but cannot race a pending save. An initial failed read cannot enable empty edits.
+Signed URLs and required headers use labelled, read-only theme-aware textareas;
+preserve SSE-C warnings, exact values and memory-only handling.
+
 Browser bulk attributes, restore-to-date and old-version cleanup also use
 `SettingsFormDialog` because their targets belong to the current selection or
 prefix. Keep the target summary visible and use `UiInput`, `UiSelect` and

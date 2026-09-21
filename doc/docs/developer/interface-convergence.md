@@ -721,6 +721,26 @@ The fixtures exercise exact payloads, field errors, pending and duplicate
 submissions, failure/retry, replacement, blank JSON and confirmed deletion.
 They provide rendered/request evidence without performing live IAM mutations.
 
+## Object configuration drawers
+
+Browser Properties, Access & Protection and Archive now share the compact
+settings layout and `SettingsOperationSection`. Standard/custom metadata share
+one explicit save action; the other native S3 operations keep independent forms.
+The shared object facts and Standard profile's read-only details use the same
+section layout, without exposing edit actions in the read-only profile.
+Native Enter submission, labels, pending locks and duplicate-submission handling
+are centralized. Loading and Object Lock capability messages remain readable.
+The read-only properties retry is outside the editing lock. Signed URLs and
+required headers have named, selectable read-only fields in both themes.
+The unused Browser input-style alias and the local editable-pair card layout are
+removed.
+
+Validate the advanced object drawer in desktop/mobile and light/dark layouts,
+including long metadata/tag values, loading and unavailable protection. Check
+independent submission, pending controls, keyboard use and failed-read retry.
+Use isolated Moto for authenticated Browser navigation; fixture-only archive or
+Object Lock cases do not establish live provider behavior.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
