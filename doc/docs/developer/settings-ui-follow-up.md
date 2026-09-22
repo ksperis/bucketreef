@@ -33,6 +33,14 @@ settings in three languages, both themes and desktop/mobile using API fixtures.
 Fixtures prove rendering and UI contracts, not successful Ceph operations.
 Temporary captures, auth state and reports are excluded from commits.
 
+Verification on 2026-09-22 confirmed that the distinct compact-settings pass
+still matches this contract after the later interface-convergence work. Browser,
+Manager and Portal Admin settings still use the shared compact settings frame
+and draft controller; Portal user settings still use the shared compact project
+editor with permission, conflict and translation handling intact. The targeted
+Vitest regression set for these four surfaces and the shared draft flows passes
+40 tests.
+
 ## Portal settings coherence
 
 - [x] Storage Space settings: Identity, File history, External tools and Space management.
