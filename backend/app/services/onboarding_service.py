@@ -12,7 +12,7 @@ from uuid import UUID
 from app.core.config import get_settings
 from app.db import (
     OnboardingJourney, OnboardingPreference, S3Account, S3Connection,
-    StorageEndpoint, User, AccountIAMUser, UserS3Account, is_admin_ui_role, is_superadmin_ui_role,
+    StorageEndpoint, StorageProvider, User, AccountIAMUser, UserS3Account, is_admin_ui_role, is_superadmin_ui_role,
     PortalStorageSpaceMetadata,
 )
 from app.models.onboarding import (
@@ -206,7 +206,7 @@ class OnboardingService:
                 if self.endpoints.env_endpoints_locked():
                     result.blockers.append("endpoints_locked")
             if endpoint is not None:
-                if str(endpoint.provider).lower() != "ceph":
+                if endpoint.provider != StorageProvider.CEPH.value:
                     result.blockers.append("ceph_endpoint_required")
                 editable = endpoint.is_editable and not self.endpoints.env_endpoints_locked()
                 flags = resolve_feature_flags(endpoint)
