@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 from sqlalchemy.orm import sessionmaker
 
 from app.db import (
-    AccountIAMUser, AppSetting, OnboardingJourney, S3Account, S3Connection,
+    AccountIAMUser, AppSetting, AuditLog, OnboardingJourney, S3Account, S3Connection,
     StorageEndpoint, User, UserRole, UserS3Account, PortalStorageSpaceMetadata,
 )
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
@@ -22,6 +22,7 @@ from app.services.onboarding_service import OnboardingError, OnboardingService, 
 from app.services.portal_service import PortalService
 from app.services.s3_connections_service import S3ConnectionsService
 from app.utils.time import utcnow
+from tests.s3_account_factory import make_s3_account
 
 
 @pytest.fixture
@@ -100,6 +101,7 @@ def test_preview_and_status_do_not_probe_storage_or_create_journeys(guided, db_s
     assert not guided.status(user).complete
     assert db_session.query(OnboardingJourney).count() == 0
     assert db_session.query(S3Connection).count() == 0
+    assert db_session.query(AuditLog).count() == 0
 
 
 @pytest.mark.parametrize("workspace,field", [(workspace, field) for workspace, fields in REQUIRED_FEATURES.items()
@@ -257,6 +259,57 @@ def test_failed_recheck_clears_success_and_does_not_treat_access_denied_as_succe
     with pytest.raises(ClientError):
         guided.verify(user, journey.id, journey.revision)
     assert not guided.status(user).complete
+
+
+def test_verification_audits_workflow_transitions_without_probe_details(guided, db_session, monkeypatch):
+    user = actor(db_session)
+    conn = connection(db_session, user)
+    client = SimpleNamespace(list_objects_v2=lambda **_: {})
+    monkeypatch.setattr(setup_service, "get_s3_client", lambda **_: client)
+    journey = configure_existing(
+        guided, user, connection_id=conn.id, bucket="private-bucket-canary",
+        prefix="private-object-canary/",
+    )
+    assert guided.verify(user, journey.id, journey.revision).usage_validated
+
+    def denied(**_kwargs):
+        raise ClientError({"Error": {"Code": "AccessDenied", "Message": "secret_key=probe-secret-canary"}}, "ListObjectsV2")
+
+    client.list_objects_v2 = denied
+    with pytest.raises(ClientError):
+        guided.verify(user, journey.id, journey.revision)
+    assert not guided.status(user).complete
+
+    rows = db_session.query(AuditLog).filter(
+        AuditLog.action.in_([
+            "onboarding.verification_started", "onboarding.verified", "onboarding.verification_failed",
+        ])
+    ).order_by(AuditLog.id).all()
+    assert [(row.action, row.status) for row in rows] == [
+        ("onboarding.verification_started", "success"),
+        ("onboarding.verified", "success"),
+        ("onboarding.verification_started", "success"),
+        ("onboarding.verification_failed", "error"),
+    ]
+    for row in rows:
+        assert row.user_id == user.id and row.scope == "admin"
+        assert row.entity_type == "onboarding" and row.entity_id == journey.id
+        assert row.account_id is None and row.message is None
+        assert json.loads(row.metadata_json) == {
+            "workflow_id": journey.id, "workspace": "browser", "account_id": None,
+        }
+
+
+def test_onboarding_audit_keeps_account_context(guided, db_session):
+    user = actor(db_session)
+    account = make_s3_account(db_session, name="Audit account")
+    db_session.add(account)
+    db_session.commit()
+    identifier = str(uuid4())
+    guided.audit(user, "verified", identifier, account_id=account.id, workspace="manager")
+    row = db_session.query(AuditLog).filter_by(action="onboarding.verified").one()
+    assert row.account_id == account.id
+    assert json.loads(row.metadata_json)["account_id"] == account.id
 
 
 def test_cross_admin_isolation_and_no_private_connection_impersonation(guided, db_session):

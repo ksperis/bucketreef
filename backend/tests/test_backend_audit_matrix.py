@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts.backend_audit_matrix import (
     ALLOWLISTED_UNAUDITED_ROUTES,
     SIGNAL_FIELDS,
@@ -128,3 +130,31 @@ def test_backend_audit_matrix_classifies_every_mutating_route():
     ]
 
     assert unclassified == []
+
+
+def test_backend_audit_matrix_tracks_only_audited_onboarding_routes():
+    backend_root = Path(__file__).resolve().parents[1]
+    rows = {
+        row.function: row
+        for row in collect_rows(backend_root)
+        if row.file.relative_to(backend_root) == Path("app/routers/admin/onboarding.py")
+    }
+    assert len(rows) == 7
+    preview = rows.pop("preview_onboarding")
+    assert not preview.has_audit_signal
+    assert preview.allowlist_reason(backend_root) == "read-only onboarding configuration preview"
+    assert all(row.signals["delegated_onboarding_audit"] for row in rows.values())
+
+
+@pytest.mark.parametrize("method", ["preview_draft", "status", "future_mutation"])
+def test_onboarding_service_reference_alone_does_not_imply_audit(tmp_path, method):
+    routers = tmp_path / "app" / "routers"
+    routers.mkdir(parents=True)
+    (routers / "example.py").write_text(
+        f'@router.post("/example")\n'
+        f'def example():\n'
+        f'    return _run(lambda: OnboardingService(db).{method}(current_user))\n'
+    )
+    row, = collect_rows(tmp_path)
+    assert not row.has_audit_signal
+    assert row.allowlist_reason(tmp_path) is None

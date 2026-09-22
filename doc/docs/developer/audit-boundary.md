@@ -16,6 +16,13 @@ such as bucket migration, bucket purge, prefix restore, or history cleanup keep
 one audit stream for their commands and state transitions; they must not emit
 one application audit row per object.
 
+Guided onboarding records configuration changes, dismiss/resume commands, saved
+journeys, and operator attestations. Automatic verification records the workflow
+start (which invalidates previous proof) and its success or failure, attributed
+to the administrator and journey, with account context when applicable. It does
+not record individual storage probes, object keys, credentials, or raw SDK
+errors. Configuration preview is read-only and produces no audit event.
+
 Admin Audit and `GET /api/admin/audit/logs` keep their existing schema and
 pagination contract. Their rows now represent only control-plane and security
 events, not an exhaustive history of object access.
