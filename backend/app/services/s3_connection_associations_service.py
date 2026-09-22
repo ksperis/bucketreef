@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
@@ -56,46 +56,34 @@ class S3ConnectionAssociationsService:
         self,
         group_ids: Optional[list[int]],
     ) -> Optional[list[int]]:
-        if group_ids is None:
-            return None
-        cleaned_ids = sorted({int(group_id) for group_id in group_ids})
-        if not cleaned_ids:
-            return []
-        found = {
-            int(group_id)
-            for (group_id,) in (
-                self.db.query(UiGroup.id)
-                .filter(UiGroup.id.in_(cleaned_ids))
-                .all()
-            )
-        }
-        missing = set(cleaned_ids) - found
-        if missing:
-            missing_ids = ", ".join(str(group_id) for group_id in sorted(missing))
-            raise ValueError(f"UI groups not found: {missing_ids}")
-        return cleaned_ids
+        return self._validated_ids(group_ids, id_column=UiGroup.id, entity_label="UI groups")
 
     def _validated_user_ids(
         self,
         user_ids: Optional[list[int]],
     ) -> Optional[list[int]]:
-        if user_ids is None:
+        return self._validated_ids(user_ids, id_column=User.id, entity_label="UI users")
+
+    def _validated_ids(
+        self,
+        ids: Optional[list[int]],
+        *,
+        id_column: Any,
+        entity_label: str,
+    ) -> Optional[list[int]]:
+        if ids is None:
             return None
-        cleaned_ids = sorted({int(user_id) for user_id in user_ids})
+        cleaned_ids = sorted({int(item_id) for item_id in ids})
         if not cleaned_ids:
             return []
         found = {
-            int(user_id)
-            for (user_id,) in (
-                self.db.query(User.id)
-                .filter(User.id.in_(cleaned_ids))
-                .all()
-            )
+            int(item_id)
+            for (item_id,) in self.db.query(id_column).filter(id_column.in_(cleaned_ids)).all()
         }
         missing = set(cleaned_ids) - found
         if missing:
-            missing_ids = ", ".join(str(user_id) for user_id in sorted(missing))
-            raise ValueError(f"UI users not found: {missing_ids}")
+            missing_ids = ", ".join(str(item_id) for item_id in sorted(missing))
+            raise ValueError(f"{entity_label} not found: {missing_ids}")
         return cleaned_ids
 
     def _replace_group_links(
