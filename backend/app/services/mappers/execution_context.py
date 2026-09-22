@@ -22,14 +22,6 @@ class _EndpointProjection(TypedDict):
     storage_endpoint_capabilities: dict[str, bool]
 
 
-def _provider_value(provider: object | None) -> str | None:
-    if provider is None:
-        return None
-    value = getattr(provider, "value", provider)
-    text = str(value).strip().lower()
-    return text or None
-
-
 def _storage_endpoint_projection(
     endpoint: StorageEndpoint,
     *,
@@ -45,7 +37,7 @@ def _storage_endpoint_projection(
         "endpoint_id": endpoint.id,
         "endpoint_name": endpoint.name,
         "endpoint_is_default": bool(endpoint.is_default),
-        "endpoint_provider": _provider_value(endpoint.provider),
+        "endpoint_provider": endpoint.provider,
         "endpoint_url": endpoint.endpoint_url if endpoint_url is None else endpoint_url,
         "storage_endpoint_capabilities": capabilities,
     }
