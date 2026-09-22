@@ -348,7 +348,7 @@ class S3UsersService:
         )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
-        uid = payload.uid.strip() if payload.uid else self._slugify_uid(payload.name)
+        uid = (payload.uid or "").strip() or self._slugify_uid(payload.name)
         existing = (
             self.db.query(S3UserModel)
             .filter(S3UserModel.rgw_user_uid == uid)

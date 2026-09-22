@@ -333,6 +333,22 @@ def test_create_user_persists_credentials(db_session, monkeypatch):
     assert record.storage_endpoint_id == endpoint.id
 
 
+def test_create_user_treats_blank_uid_as_automatic(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+
+    created = service.create_user(
+        S3UserCreate(
+            name="Automatic UID",
+            uid="   ",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+
+    assert created.rgw_user_uid == "automatic-uid"
+
+
 def test_import_user_fetches_remote_and_creates_key(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()

@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-09 canonical S3 user identities
+
+Migration `0126_canonical_s3_user_identities` makes the existing S3-user RGW
+identity contract explicit in the database: `s3_users.rgw_user_uid` must contain
+at least one non-whitespace character. Creation and import already normalize
+UID input before persistence; creation now treats whitespace-only optional UID
+input the same as an omitted UID and derives the canonical UID from the name.
+
+The migration stops with an explicit error if an existing row contains a blank
+UID because BucketReef cannot safely invent the corresponding remote RGW
+identity. Repair those rows before upgrading. After the migration, the runtime
+does not retain a blank-UID compatibility path. The downgrade removes the check
+constraint but does not recreate invalid values.
+
 ## 2026-09 canonical Manager usage snapshot scopes
 
 Migration `0124_canonical_manager_usage_scopes` replaces accepted alternative
