@@ -2,9 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Sequence, TypeVar
 
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db import S3Account, S3User, StorageEndpoint
@@ -22,6 +21,9 @@ from app.utils.normalize import (
     normalize_optional_string,
 )
 from app.core.sensitive_data import sanitized_error_log_detail
+
+
+EndpointResource = TypeVar("EndpointResource", S3Account, S3User)
 
 
 class KeyRotationService:
@@ -629,24 +631,22 @@ class KeyRotationService:
         )
 
     def _list_accounts_for_endpoint(self, endpoint: StorageEndpoint) -> list[S3Account]:
-        query = self.db.query(S3Account)
-        if endpoint.is_default:
-            query = query.filter(
-                or_(S3Account.storage_endpoint_id == endpoint.id, S3Account.storage_endpoint_id.is_(None))
-            )
-        else:
-            query = query.filter(S3Account.storage_endpoint_id == endpoint.id)
-        return query.order_by(S3Account.id.asc()).all()
+        return self._list_resources_for_endpoint(S3Account, endpoint)
 
     def _list_s3_users_for_endpoint(self, endpoint: StorageEndpoint) -> list[S3User]:
-        query = self.db.query(S3User)
-        if endpoint.is_default:
-            query = query.filter(
-                or_(S3User.storage_endpoint_id == endpoint.id, S3User.storage_endpoint_id.is_(None))
-            )
-        else:
-            query = query.filter(S3User.storage_endpoint_id == endpoint.id)
-        return query.order_by(S3User.id.asc()).all()
+        return self._list_resources_for_endpoint(S3User, endpoint)
+
+    def _list_resources_for_endpoint(
+        self,
+        model: type[EndpointResource],
+        endpoint: StorageEndpoint,
+    ) -> list[EndpointResource]:
+        return (
+            self.db.query(model)
+            .filter(model.storage_endpoint_id == endpoint.id)
+            .order_by(model.id.asc())
+            .all()
+        )
 
 def get_key_rotation_service(db: Session) -> KeyRotationService:
     return KeyRotationService(db)

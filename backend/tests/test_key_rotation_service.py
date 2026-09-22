@@ -159,6 +159,63 @@ def _seed_endpoint(db_session, *, name: str) -> StorageEndpoint:
     return endpoint
 
 
+def test_endpoint_resource_listing_is_scoped_to_persisted_endpoint(db_session):
+    default_endpoint = _seed_endpoint(db_session, name="ceph-default-listing")
+    secondary_endpoint = StorageEndpoint(
+        name="ceph-secondary-listing",
+        endpoint_url="https://ceph-secondary-listing.example.test",
+        provider=StorageProvider.CEPH.value,
+        features_config="features:\n  admin:\n    enabled: true\n",
+        is_default=False,
+        is_editable=True,
+    )
+    db_session.add(secondary_endpoint)
+    db_session.flush()
+
+    account_default = S3Account(
+        name="account-default",
+        rgw_account_id="RGW00000000000000101",
+        rgw_user_uid="RGW00000000000000101-admin",
+        storage_endpoint_id=default_endpoint.id,
+    )
+    account_secondary = S3Account(
+        name="account-secondary",
+        rgw_account_id="RGW00000000000000102",
+        rgw_user_uid="RGW00000000000000102-admin",
+        storage_endpoint_id=secondary_endpoint.id,
+    )
+    user_default = S3User(
+        name="user-default",
+        rgw_user_uid="user-default",
+        rgw_access_key="USR-DEFAULT",
+        rgw_secret_key="USR-DEFAULT-SEC",
+        storage_endpoint_id=default_endpoint.id,
+    )
+    user_secondary = S3User(
+        name="user-secondary",
+        rgw_user_uid="user-secondary",
+        rgw_access_key="USR-SECONDARY",
+        rgw_secret_key="USR-SECONDARY-SEC",
+        storage_endpoint_id=secondary_endpoint.id,
+    )
+    db_session.add_all(
+        [
+            account_default,
+            account_secondary,
+            user_default,
+            user_secondary,
+        ]
+    )
+    db_session.commit()
+
+    service = KeyRotationService(db_session)
+
+    assert service._list_accounts_for_endpoint(default_endpoint) == [account_default]
+    assert service._list_s3_users_for_endpoint(default_endpoint) == [user_default]
+    assert service._list_accounts_for_endpoint(secondary_endpoint) == [account_secondary]
+    assert service._list_s3_users_for_endpoint(secondary_endpoint) == [user_secondary]
+
+
 def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="ceph-main-1")
     account = S3Account(
