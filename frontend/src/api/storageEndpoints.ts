@@ -94,12 +94,13 @@ export type StorageEndpointPayload = {
   features_config?: string | null;
 };
 
-type StorageEndpointFeatureDetectionPayload = {
+export type StorageEndpointFeatureDetectionPayload = {
   endpoint_id?: number | null;
   endpoint_url: string;
   admin_endpoint?: string | null;
   region?: string | null;
   verify_tls?: boolean | null;
+  check_http?: boolean;
   admin_access_key?: string | null;
   admin_secret_key?: string | null;
   supervision_access_key?: string | null;
@@ -126,6 +127,12 @@ export type StorageEndpointCredentialChecks = {
   ceph_admin: StorageEndpointCredentialCheck;
 };
 
+export type StorageEndpointHttpCheck = {
+  status: "not_checked" | "valid" | "unavailable";
+  status_code?: number | null;
+  message?: string | null;
+};
+
 export type StorageEndpointFeatureDetectionResult = {
   admin: boolean;
   account: boolean;
@@ -136,6 +143,8 @@ export type StorageEndpointFeatureDetectionResult = {
   metrics_error?: string | null;
   usage_error?: string | null;
   warnings: string[];
+  http_check: StorageEndpointHttpCheck;
+  admin_ops_permissions: StorageEndpointAdminOpsPermissions;
   credential_checks: StorageEndpointCredentialChecks;
 };
 
@@ -163,9 +172,12 @@ export async function fetchStorageEndpointsMeta(): Promise<StorageEndpointMeta> 
 }
 
 export async function detectStorageEndpointFeatures(
-  payload: StorageEndpointFeatureDetectionPayload
+  payload: StorageEndpointFeatureDetectionPayload,
 ): Promise<StorageEndpointFeatureDetectionResult> {
-  const { data } = await client.post<StorageEndpointFeatureDetectionResult>("/admin/storage-endpoints/detect-features", payload);
+  const { data } = await client.post<StorageEndpointFeatureDetectionResult>(
+    "/admin/storage-endpoints/detect-features",
+    payload,
+  );
   return data;
 }
 

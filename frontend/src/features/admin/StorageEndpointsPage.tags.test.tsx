@@ -132,8 +132,19 @@ describe("StorageEndpointsPage tags", () => {
       usage: false,
       metrics: true,
       account_error: "RGW account API is unavailable.",
-      usage_error: "RGW usage logs endpoint is unavailable.",
-      warnings: ["Usage logs do not appear enabled on this RGW endpoint; activity traffic stats will not be available."],
+      usage_error:
+        "RGW usage logs returned no data. Verify rgw_enable_usage_log is enabled and that RGW has recorded traffic.",
+      warnings: [
+        "Usage logs returned no usable data; verify rgw_enable_usage_log is enabled and that RGW has recorded traffic.",
+      ],
+      admin_ops_permissions: {
+        users_read: true,
+        users_write: true,
+        buckets_read: false,
+        buckets_write: false,
+        accounts_read: true,
+        accounts_write: true,
+      },
       credential_checks: {
         admin: { status: "valid", message: "Admin Ops access was validated by RGW." },
         supervision: { status: "valid", message: "Supervision Ops access was validated by RGW." },
@@ -401,6 +412,11 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
 
     expect(await screen.findAllByText("Access validated")).toHaveLength(3);
+    expect(screen.getByText("✓ Users cap · read/write")).toBeInTheDocument();
+    expect(screen.getByText("✓ Accounts cap · read/write")).toBeInTheDocument();
+    expect(screen.getByText("Bucket quotas · optional cap not granted")).toBeInTheDocument();
+    expect(screen.getByText("✓ Bucket stats · available")).toBeInTheDocument();
+    expect(screen.getByText("! Usage data · no values")).toBeInTheDocument();
     expect(detectStorageEndpointFeaturesMock).toHaveBeenCalledWith(
       expect.objectContaining({
         admin_access_key: "admin-key",
@@ -848,7 +864,13 @@ describe("StorageEndpointsPage tags", () => {
 
   it("preloads and updates force path style when editing an endpoint", async () => {
     setSessionUserCache({ id: 7, role: "ui_superadmin" });
-    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ force_path_style: true })]);
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({
+      force_path_style: true,
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      supervision_access_key: "supervision-key",
+      has_supervision_secret: true,
+    })]);
 
     renderPage();
     await screen.findByText("Ceph Endpoint");
@@ -857,7 +879,9 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByLabelText("Force path style")).toBeChecked();
     fireEvent.click(screen.getByLabelText("Force path style"));
-    fireEvent.click(screen.getByRole("button", { name: "Update endpoint" }));
+    const updateButton = screen.getByRole("button", { name: "Update endpoint" });
+    await waitFor(() => expect(updateButton).toBeEnabled());
+    fireEvent.click(updateButton);
 
     await waitFor(() => {
       expect(updateStorageEndpointMock).toHaveBeenCalledWith(
@@ -872,7 +896,14 @@ describe("StorageEndpointsPage tags", () => {
   it("preloads and clears GPS coordinates when editing an endpoint", async () => {
     setSessionUserCache({ id: 8, role: "ui_superadmin" });
     listStorageEndpointsMock.mockResolvedValue([
-      makeEndpoint({ latitude: 43.6047, longitude: 1.4442 }),
+      makeEndpoint({
+        latitude: 43.6047,
+        longitude: 1.4442,
+        admin_access_key: "admin-key",
+        has_admin_secret: true,
+        supervision_access_key: "supervision-key",
+        has_supervision_secret: true,
+      }),
     ]);
 
     renderPage();
@@ -884,7 +915,9 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByLabelText("Longitude (optional)")).toHaveValue(1.4442);
     fireEvent.change(screen.getByLabelText("Latitude (optional)"), { target: { value: "" } });
     fireEvent.change(screen.getByLabelText("Longitude (optional)"), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "Update endpoint" }));
+    const updateButton = screen.getByRole("button", { name: "Update endpoint" });
+    await waitFor(() => expect(updateButton).toBeEnabled());
+    fireEvent.click(updateButton);
 
     await waitFor(() => {
       expect(updateStorageEndpointMock).toHaveBeenCalledWith(

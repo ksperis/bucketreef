@@ -51,21 +51,49 @@ reuses the shared passkey step-up dialog.
 | `POST /dismiss`, `POST /resume` | Hide or restore only this administrator's onboarding entry. General settings remains the explicit way to reopen it. |
 | `POST /preview` | Strict, secret-free `OnboardingDraft`; returns feature changes, assignments, blockers and a deterministic `review_token`. No provisioning occurs. |
 | `PUT /journeys/{uuid}` | Save `{draft, revision}`; omit revision on first creation. Unknown revisions and conflicting edits are rejected. |
-| `POST /journeys/{uuid}/apply` | Requires `revision`, `confirmed: true`, the displayed `review_token` and optional write-only endpoint/private credentials. Revalidates endpoint capabilities, permissions and ENV locks, then checkpoints service operations. |
+| `POST /journeys/{uuid}/apply` | Requires `revision`, `confirmed: true`, the displayed `review_token` and write-only credentials required by the selected setup options. Revalidates endpoint capabilities, permissions and ENV locks, then checkpoints service operations. |
 
 All suffixes in the table are relative to `/api/admin/onboarding` unless shown
 in full. The version-2 draft contains only endpoint selection/options and the
-four preparation booleans (`manager`, `portal`, `private_connection`,
-`ceph_admin`). The strict draft stores no credential fields. Submitted endpoint
-and private-connection credentials are accepted only by apply and go to their
-existing credential stores when needed.
+five preparation booleans (`manager`, `portal`, `private_connection`,
+`ceph_admin`, `supervision`). The strict draft stores no credential fields.
+Apply accepts separate write-only `admin_access_key` / `admin_secret_key`,
+Supervision Ops, Ceph Admin and private-S3 credentials. Existing complete
+endpoint credentials are reused; newly submitted credentials are validated
+before they enter the existing encrypted credential store. The onboarding API
+no longer exposes the legacy `endpoint_access_key` / `endpoint_secret_key`
+fields from the former first-step endpoint credential flow.
+
+The onboarding and endpoint editor share
+`POST /api/admin/storage-endpoints/detect-features` for live Ceph endpoint
+validation. Setting `check_http: true` adds an `http_check` result
+(`not_checked`, `valid` or `unavailable`) alongside the existing Admin Ops,
+Account API, supervision and Ceph Admin capability/credential checks. This is a
+read-only probe; it does not persist submitted credentials or feature flags.
+Supervision validation requests bucket statistics with `stats=true` and a
+summary-only RGW usage payload. `metrics=true` means bucket statistics are
+retrievable. `usage=true` requires the usage response to contain actual values;
+an empty response is treated as an unavailable usage-log capability and the UI
+prompts the operator to verify `rgw_enable_usage_log` and recorded traffic.
+Any HTTP response proves endpoint reachability, including an unauthenticated
+`403`; only a connection/request failure is `unavailable`. A successful Admin
+Ops identity lookup also returns `admin_ops_permissions`, resolved from the RGW
+user caps. Guided Manager/Portal provisioning requires `users=read,write` and
+`accounts=read,write`; `buckets=write` is reported separately and remains
+optional for onboarding because it is needed only for delegated bucket quota
+changes. Ceph Admin accepts a dedicated RGW identity with either the `admin` or
+`system` flag.
+Private S3 credentials use the existing Admin S3 credential-validation route
+and remain independent from RGW administration identities.
 
 An invalid request returns `422` with `detail.code = invalid_configuration`;
 raw input values, including malformed credentials, are never echoed in validation
 errors. `detail.code` gives sanitized errors, including
 `env_locked:FEATURE_…`, `review_changed`, `stale_revision` and
-`storage_access_denied`. Partial setup retains checkpoints and requires a fresh
-summary before changed choices can be applied.
+`storage_access_denied`. `admin_ops_permissions_insufficient` identifies valid
+Admin Ops credentials that are missing the RGW user/account caps required for
+Manager/Portal provisioning. Partial setup retains checkpoints and requires a
+fresh summary before changed choices can be applied.
 
 `complete` means the newest version-2 journey is configured. For upgrade
 compatibility, an installation with only an older configured onboarding row is

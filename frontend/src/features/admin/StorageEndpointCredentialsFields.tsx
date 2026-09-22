@@ -5,25 +5,11 @@ import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import type { FormState } from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
-
-const ADMIN_OPS_COMMAND = [
-  "radosgw-admin user create \\",
-  '  --uid="bkr-admin" \\',
-  '  --display-name="BucketReef Admin Ops" \\',
-  '  --caps="users=read,write;accounts=read,write;buckets=write"',
-].join("\n");
-const SUPERVISION_OPS_COMMAND = [
-  "radosgw-admin user create \\",
-  '  --uid="bkr-supervision" \\',
-  '  --display-name="BucketReef Supervision Ops" \\',
-  '  --caps="usage=read;buckets=read"',
-].join("\n");
-const CEPH_ADMIN_COMMAND = [
-  "radosgw-admin user create \\",
-  '  --uid="bkr-ceph-admin" \\',
-  '  --display-name="BucketReef Ceph Admin" \\',
-  '  --admin',
-].join("\n");
+import {
+  ADMIN_OPS_COMMAND,
+  CEPH_ADMIN_COMMAND,
+  SUPERVISION_OPS_COMMAND,
+} from "./storageEndpointCredentialHelp";
 
 type CredentialKind = "admin" | "supervision" | "ceph_admin";
 type Props = {

@@ -6,7 +6,6 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useNavigate, useParams } from "react-router-dom";
 import { flushSync } from "react-dom";
 import {
-  detectStorageEndpointFeatures,
   createStorageEndpoint,
   deleteStorageEndpoint,
   fetchStorageEndpointsMeta,
@@ -15,9 +14,7 @@ import {
   updateStorageEndpoint,
   updateStorageEndpointTags,
   type StorageEndpoint,
-  type StorageEndpointCredentialCheck,
   type StorageEndpointCredentialChecks,
-  type StorageEndpointCredentialCheckStatus,
   type StorageProvider,
 } from "../../api/storageEndpoints";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
@@ -26,7 +23,6 @@ import PageHeader from "../../components/PageHeader";
 import PageTabs from "../../components/PageTabs";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
-import UiBadge from "../../components/ui/UiBadge";
 import { ListActionButton } from "../../components/list/ListControls";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
@@ -57,9 +53,16 @@ import StorageEndpointCapabilitiesFields from "./StorageEndpointCapabilitiesFiel
 import { buildStorageEndpointSubmission } from "./storageEndpointSubmission";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import StorageEndpointList, { type EndpointListFilters } from "./StorageEndpointList";
+import {
+  AdminOpsPermissionsBadges,
+  CredentialStatusBadge,
+  EndpointHttpStatusBadge,
+  resolveCredentialCheckView,
+  SupervisionValidationBadges,
+} from "./StorageEndpointValidationStatus";
+import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
 
 type EndpointEditorTab = "general" | "credentials" | "capabilities";
-type CredentialCheckViewStatus = StorageEndpointCredentialCheckStatus | "checking";
 
 const createEmptyCredentialChecks = (): StorageEndpointCredentialChecks => ({
   admin: { status: "not_configured" },
@@ -75,77 +78,6 @@ function isMethodNotAllowedError(message?: string | null): boolean {
   if (!message) return false;
   const normalized = message.toLowerCase();
   return normalized.includes("405") || normalized.includes("methodnotallowed") || normalized.includes("method not allowed");
-}
-
-function CredentialStatusBadge({
-  status,
-  message,
-}: {
-  status: CredentialCheckViewStatus;
-  message?: string | null;
-}) {
-  const presentation = {
-    checking: { tone: "info" as const, label: "Checking access…", symbol: null },
-    valid: { tone: "success" as const, label: "Access validated", symbol: "✓" },
-    denied: { tone: "danger" as const, label: "Access rejected", symbol: "×" },
-    unavailable: { tone: "warning" as const, label: "Check unavailable", symbol: "!" },
-    incomplete: { tone: "warning" as const, label: "Complete both keys", symbol: "!" },
-    not_configured: { tone: "neutral" as const, label: "Not configured", symbol: null },
-  }[status];
-
-  return (
-    <UiBadge
-      tone={presentation.tone}
-      title={message ?? presentation.label}
-      role="status"
-      aria-label={message ? `${presentation.label}. ${message}` : presentation.label}
-      className="shrink-0 gap-1"
-    >
-      {status === "checking" ? (
-        <span aria-hidden="true" className="h-3 w-3 animate-spin rounded-full border border-current border-r-transparent" />
-      ) : presentation.symbol ? (
-        <span aria-hidden="true">{presentation.symbol}</span>
-      ) : null}
-      {presentation.label}
-    </UiBadge>
-  );
-}
-
-function resolveCredentialCheckView({
-  accessKey,
-  secretKey,
-  storedAccessKey,
-  hasStoredSecret,
-  endpointReady,
-  checking,
-  check,
-  incompleteMessage,
-}: {
-  accessKey: string;
-  secretKey: string;
-  storedAccessKey?: string | null;
-  hasStoredSecret: boolean;
-  endpointReady: boolean;
-  checking: boolean;
-  check: StorageEndpointCredentialCheck;
-  incompleteMessage: string;
-}): { status: CredentialCheckViewStatus; message?: string | null } | null {
-  const normalizedAccessKey = accessKey.trim();
-  const normalizedSecretKey = secretKey.trim();
-  if (!normalizedAccessKey && !normalizedSecretKey) return null;
-  const canReuseStoredSecret = Boolean(
-    hasStoredSecret && normalizedAccessKey && normalizedAccessKey === (storedAccessKey ?? "").trim()
-  );
-  if (!normalizedAccessKey || (!normalizedSecretKey && !canReuseStoredSecret)) {
-    return { status: "incomplete", message: incompleteMessage };
-  }
-  if (!endpointReady) {
-    return { status: "incomplete", message: "Enter the endpoint URL before checking access." };
-  }
-  if (checking || check.status === "not_configured") {
-    return { status: "checking", message: "BucketReef is checking these credentials against RGW." };
-  }
-  return check;
 }
 
 export default function StorageEndpointsPage() {
@@ -176,20 +108,13 @@ export default function StorageEndpointsPage() {
   const [deleteTarget, setDeleteTarget] = useState<StorageEndpoint | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [featureDetectBusy, setFeatureDetectBusy] = useState(false);
-  const [featureDetectError, setFeatureDetectError] = useState<string | null>(null);
-  const [featureDetectWarnings, setFeatureDetectWarnings] = useState<string[]>([]);
-  const [credentialChecks, setCredentialChecks] = useState<StorageEndpointCredentialChecks>(createEmptyCredentialChecks);
   const {
     catalog: endpointTagCatalog,
     loading: endpointTagCatalogLoading,
     error: endpointTagCatalogError,
   } = useTagCatalog({ kind: "admin", domain: "endpoint" }, Boolean(showForm && canEditEndpoints));
 
-  const invalidateCredentialChecks = useCallback(() => {
-    setFeatureDetectBusy(false);
-    setCredentialChecks(createEmptyCredentialChecks());
-  }, []);
+  const invalidateCredentialChecks = useCallback(() => undefined, []);
 
   const resetForm = useCallback(() => {
     setForm(createEmptyForm());
@@ -197,10 +122,6 @@ export default function StorageEndpointsPage() {
     setFormBaseline(null);
     setFormError(null);
     setValidationShown(false);
-    setFeatureDetectBusy(false);
-    setFeatureDetectError(null);
-    setFeatureDetectWarnings([]);
-    setCredentialChecks(createEmptyCredentialChecks());
     setEditingId(null);
   }, []);
 
@@ -239,187 +160,155 @@ export default function StorageEndpointsPage() {
   const configurationReadOnly = Boolean(
     editingId != null && (!metadataReady || envManaged || editingEndpoint?.is_editable === false || !canEditEndpoints)
   );
-  useEffect(() => {
-    if (saving) { setFeatureDetectBusy(false); return; }
-    if (!showForm || !cephMode || !canEditEndpoints || configurationReadOnly) {
-      setFeatureDetectBusy(false);
-      setFeatureDetectError(null);
-      setFeatureDetectWarnings([]);
-      setCredentialChecks(createEmptyCredentialChecks());
-      return;
-    }
-    const endpointUrl = form.endpoint_url.trim();
-    const adminEndpointOverride = form.features.admin.endpoint.trim();
-    const adminAccessKey = form.admin_access_key.trim();
-    const adminSecretKey = form.admin_secret_key.trim();
-    const supervisionAccessKey = form.supervision_access_key.trim();
-    const supervisionSecretKey = form.supervision_secret_key.trim();
-    const cephAdminAccessKey = form.ceph_admin_access_key.trim();
-    const cephAdminSecretKey = form.ceph_admin_secret_key.trim();
-    const hasAdminCredentials = Boolean(
-      adminAccessKey &&
-        (adminSecretKey ||
-          (form.has_admin_secret && adminAccessKey === (editingEndpoint?.admin_access_key ?? "").trim()))
-    );
-    const hasSupervisionCredentials = Boolean(
-      supervisionAccessKey &&
-        (supervisionSecretKey ||
-          (form.has_supervision_secret &&
-            supervisionAccessKey === (editingEndpoint?.supervision_access_key ?? "").trim()))
-    );
-    const hasCephAdminCredentials = Boolean(
-      cephAdminAccessKey &&
-        (cephAdminSecretKey ||
-          (form.has_ceph_admin_secret &&
-            cephAdminAccessKey === (editingEndpoint?.ceph_admin_access_key ?? "").trim()))
-    );
-
-    if (!endpointUrl || (!hasAdminCredentials && !hasSupervisionCredentials && !hasCephAdminCredentials)) {
-      setFeatureDetectBusy(false);
-      setFeatureDetectError(null);
-      setFeatureDetectWarnings([]);
-      setForm((prev) => {
-        if (prev.provider !== "ceph") return prev;
-        const next = applyFeatureConstraints(
-          {
-            ...prev.features,
-            admin: { ...prev.features.admin, enabled: false },
-            account: { ...prev.features.account, enabled: false },
-            usage: { ...prev.features.usage, enabled: false },
-            metrics: { ...prev.features.metrics, enabled: false },
-          },
-          prev.provider
-        );
-        if (
-          next.admin.enabled === prev.features.admin.enabled &&
-          next.account.enabled === prev.features.account.enabled &&
-          next.usage.enabled === prev.features.usage.enabled &&
-          next.metrics.enabled === prev.features.metrics.enabled
-        ) {
-          return prev;
-        }
-        return { ...prev, features: next };
-      });
-      return;
-    }
-
-    let cancelled = false;
-    setFeatureDetectBusy(true);
-    setCredentialChecks(createEmptyCredentialChecks());
-    const timer = window.setTimeout(async () => {
-      setFeatureDetectError(null);
-      try {
-        const detection = await detectStorageEndpointFeatures({
-          endpoint_id: editingId,
-          endpoint_url: endpointUrl,
-          admin_endpoint: adminEndpointOverride || null,
-          region: form.region.trim() || null,
-          verify_tls: form.verify_tls,
-          admin_access_key: adminAccessKey || null,
-          admin_secret_key: adminSecretKey || null,
-          supervision_access_key: supervisionAccessKey || null,
-          supervision_secret_key: supervisionSecretKey || null,
-          ceph_admin_access_key: cephAdminAccessKey || null,
-          ceph_admin_secret_key: cephAdminSecretKey || null,
-        });
-        if (cancelled || mutationPending.current) return;
-        const warnings: string[] = [];
-        if (Array.isArray(detection.warnings)) {
-          warnings.push(...detection.warnings.filter((item) => typeof item === "string" && item.trim()));
-        }
-        const errorParts: string[] = [];
-        if (hasAdminCredentials && !detection.admin && detection.admin_error) {
-          errorParts.push(`Admin: ${detection.admin_error}`);
-        }
-        if (hasAdminCredentials && !detection.account && detection.account_error) {
-          if (isMethodNotAllowedError(detection.account_error)) {
-            warnings.push("Account API is not available on this endpoint (optional capability).");
-          } else {
-            errorParts.push(`Account API: ${detection.account_error}`);
+  const endpointUrl = form.endpoint_url.trim();
+  const adminAccessKey = form.admin_access_key.trim();
+  const adminSecretKey = form.admin_secret_key.trim();
+  const supervisionAccessKey = form.supervision_access_key.trim();
+  const supervisionSecretKey = form.supervision_secret_key.trim();
+  const cephAdminAccessKey = form.ceph_admin_access_key.trim();
+  const cephAdminSecretKey = form.ceph_admin_secret_key.trim();
+  const hasAdminCredentials = Boolean(
+    adminAccessKey &&
+      (adminSecretKey ||
+        (form.has_admin_secret && adminAccessKey === (editingEndpoint?.admin_access_key ?? "").trim()))
+  );
+  const hasSupervisionCredentials = Boolean(
+    supervisionAccessKey &&
+      (supervisionSecretKey ||
+        (form.has_supervision_secret &&
+          supervisionAccessKey === (editingEndpoint?.supervision_access_key ?? "").trim()))
+  );
+  const endpointValidationPayload = useMemo(
+    () =>
+      showForm &&
+      cephMode &&
+      canEditEndpoints &&
+      !configurationReadOnly &&
+      !saving &&
+      endpointUrl
+        ? {
+            endpoint_id: editingId,
+            endpoint_url: endpointUrl,
+            admin_endpoint: form.features.admin.endpoint.trim() || null,
+            region: form.region.trim() || null,
+            verify_tls: form.verify_tls,
+            check_http: true,
+            admin_access_key: adminAccessKey || null,
+            admin_secret_key: adminSecretKey || null,
+            supervision_access_key: supervisionAccessKey || null,
+            supervision_secret_key: supervisionSecretKey || null,
+            ceph_admin_access_key: cephAdminAccessKey || null,
+            ceph_admin_secret_key: cephAdminSecretKey || null,
           }
-        }
-        if (hasSupervisionCredentials && !detection.metrics && detection.metrics_error) {
-          errorParts.push(`Metrics: ${detection.metrics_error}`);
-        }
-        if (hasSupervisionCredentials && !detection.usage && detection.usage_error) {
-          errorParts.push(`Usage Log: ${detection.usage_error}`);
-        }
-        setFeatureDetectWarnings(warnings);
-        setFeatureDetectError(errorParts.length > 0 ? errorParts.join(" | ") : null);
-        setCredentialChecks(detection.credential_checks);
-        setForm((prev) => {
-          if (prev.provider !== "ceph") return prev;
-          const next = applyFeatureConstraints(
-            {
-              ...prev.features,
-              admin: { ...prev.features.admin, enabled: Boolean(detection.admin) },
-              account: { ...prev.features.account, enabled: Boolean(detection.account) },
-              usage: { ...prev.features.usage, enabled: Boolean(detection.usage) },
-              metrics: { ...prev.features.metrics, enabled: Boolean(detection.metrics) },
-            },
-            prev.provider
-          );
-          if (
-            next.admin.enabled === prev.features.admin.enabled &&
-            next.account.enabled === prev.features.account.enabled &&
-            next.usage.enabled === prev.features.usage.enabled &&
-            next.metrics.enabled === prev.features.metrics.enabled
-          ) {
-            return prev;
-          }
-          return { ...prev, features: next };
-        });
-      } catch (err) {
-        if (!cancelled) {
-          setFeatureDetectWarnings([]);
-          setFeatureDetectError(extractError(err));
-          setCredentialChecks({
-            admin: hasAdminCredentials
-              ? { status: "unavailable", message: "Admin Ops access could not be checked." }
-              : { status: "not_configured" },
-            supervision: hasSupervisionCredentials
-              ? { status: "unavailable", message: "Supervision Ops access could not be checked." }
-              : { status: "not_configured" },
-            ceph_admin: hasCephAdminCredentials
-              ? { status: "unavailable", message: "Ceph Admin access could not be checked." }
-              : { status: "not_configured" },
-          });
-        }
-      } finally {
-        if (!cancelled) {
-          setFeatureDetectBusy(false);
-        }
-      }
-    }, 450);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
+        : null,
+    [
+      adminAccessKey,
+      adminSecretKey,
+      canEditEndpoints,
+      cephAdminAccessKey,
+      cephAdminSecretKey,
+      cephMode,
+      configurationReadOnly,
+      editingId,
+      endpointUrl,
+      form.features.admin.endpoint,
+      form.region,
+      form.verify_tls,
+      saving,
+      showForm,
+      supervisionAccessKey,
+      supervisionSecretKey,
+    ],
+  );
+  const endpointValidation = useStorageEndpointLiveValidation({
+    enabled: Boolean(endpointValidationPayload),
+    payload: endpointValidationPayload,
+  });
+  const featureDetectBusy = endpointValidation.status === "loading";
+  const detection = endpointValidation.result;
+  const credentialChecks = detection?.credential_checks ?? createEmptyCredentialChecks();
+  const featureDetectWarnings = useMemo(() => {
+    if (!detection) return [];
+    const warnings = detection.warnings.filter((item) => typeof item === "string" && item.trim());
+    if (
+      hasAdminCredentials &&
+      !detection.account &&
+      isMethodNotAllowedError(detection.account_error)
+    ) {
+      warnings.push("Account API is not available on this endpoint (optional capability).");
+    }
+    return warnings;
+  }, [detection, hasAdminCredentials]);
+  const featureDetectError = useMemo(() => {
+    if (endpointValidation.error) return endpointValidation.error;
+    if (!detection) return null;
+    const errors: string[] = [];
+    if (detection.http_check?.status === "unavailable") {
+      errors.push(detection.http_check.message ?? "Endpoint is unavailable.");
+    }
+    if (hasAdminCredentials && !detection.admin && detection.admin_error) {
+      errors.push(`Admin: ${detection.admin_error}`);
+    }
+    if (
+      hasAdminCredentials &&
+      !detection.account &&
+      detection.account_error &&
+      !isMethodNotAllowedError(detection.account_error)
+    ) {
+      errors.push(`Account API: ${detection.account_error}`);
+    }
+    if (hasSupervisionCredentials && !detection.metrics && detection.metrics_error) {
+      errors.push(`Metrics: ${detection.metrics_error}`);
+    }
+    if (
+      hasSupervisionCredentials &&
+      !detection.usage &&
+      detection.usage_error &&
+      !detection.metrics
+    ) {
+      errors.push(`Usage Log: ${detection.usage_error}`);
+    }
+    return errors.length > 0 ? errors.join(" | ") : null;
   }, [
-    cephMode,
-    editingId,
-    form.admin_access_key,
-    form.admin_secret_key,
-    form.endpoint_url,
-    form.features.admin.endpoint,
-    form.has_admin_secret,
-    form.has_ceph_admin_secret,
-    form.has_supervision_secret,
-    form.region,
-    form.verify_tls,
-    form.supervision_access_key,
-    form.supervision_secret_key,
-    form.ceph_admin_access_key,
-    form.ceph_admin_secret_key,
-    editingEndpoint?.admin_access_key,
-    editingEndpoint?.ceph_admin_access_key,
-    editingEndpoint?.supervision_access_key,
-    showForm,
-    canEditEndpoints,
-    configurationReadOnly,
-    saving,
+    detection,
+    endpointValidation.error,
+    hasAdminCredentials,
+    hasSupervisionCredentials,
   ]);
+
+  useEffect(() => {
+    if (!detection || mutationPending.current) return;
+    setForm((prev) => {
+      if (prev.provider !== "ceph") return prev;
+      const next = applyFeatureConstraints(
+        {
+          ...prev.features,
+          admin: hasAdminCredentials
+            ? { ...prev.features.admin, enabled: Boolean(detection.admin) }
+            : prev.features.admin,
+          account: hasAdminCredentials
+            ? { ...prev.features.account, enabled: Boolean(detection.account) }
+            : prev.features.account,
+          usage: hasSupervisionCredentials
+            ? { ...prev.features.usage, enabled: Boolean(detection.usage) }
+            : prev.features.usage,
+          metrics: hasSupervisionCredentials
+            ? { ...prev.features.metrics, enabled: Boolean(detection.metrics) }
+            : prev.features.metrics,
+        },
+        prev.provider,
+      );
+      if (
+        next.admin.enabled === prev.features.admin.enabled &&
+        next.account.enabled === prev.features.account.enabled &&
+        next.usage.enabled === prev.features.usage.enabled &&
+        next.metrics.enabled === prev.features.metrics.enabled
+      ) {
+        return prev;
+      }
+      return { ...prev, features: next };
+    });
+  }, [detection, hasAdminCredentials, hasSupervisionCredentials]);
 
   const updateFeatures = useCallback(
     (updater: (current: FeaturesState) => FeaturesState, providerOverride?: StorageProvider) => {
@@ -498,10 +387,6 @@ export default function StorageEndpointsPage() {
     setFormBaseline(nextForm);
     setFormError(null);
     setValidationShown(false);
-    setFeatureDetectBusy(false);
-    setFeatureDetectError(null);
-    setFeatureDetectWarnings([]);
-    setCredentialChecks(createEmptyCredentialChecks());
     setEditingId(null);
     setShowForm(true);
   };
@@ -515,10 +400,6 @@ export default function StorageEndpointsPage() {
     setFormBaseline(nextForm);
     setFormError(null);
     setValidationShown(false);
-    setFeatureDetectBusy(false);
-    setFeatureDetectError(null);
-    setFeatureDetectWarnings([]);
-    setCredentialChecks(createEmptyCredentialChecks());
     setShowForm(true);
   }, []);
 
@@ -805,12 +686,30 @@ export default function StorageEndpointsPage() {
             {activeTab === "general" && <StorageEndpointConnectionFields form={form} setForm={setForm}
               readOnly={configurationReadOnly} canEditTags={canEditEndpoints} busy={saving}
               catalog={endpointTagCatalog} catalogLoading={endpointTagCatalogLoading} errors={fieldErrors}
-              onProviderChange={handleProviderChange} onRegionChange={handleRegionChange} invalidateChecks={invalidateCredentialChecks} />}
+              onProviderChange={handleProviderChange} onRegionChange={handleRegionChange} invalidateChecks={invalidateCredentialChecks}
+              validationStatus={!configurationReadOnly && cephMode && endpointUrl ? (
+                <EndpointHttpStatusBadge checking={featureDetectBusy} check={detection?.http_check} />
+              ) : undefined} />}
             {activeTab === "credentials" && <StorageEndpointCredentialsFields form={form} setForm={setForm}
               readOnly={configurationReadOnly} editing={editingId !== null} cephAdminEnabled={cephAdminConfigEnabled}
               errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} statuses={{
-                admin: adminCredentialCheck && <CredentialStatusBadge {...adminCredentialCheck} />,
-                supervision: supervisionCredentialCheck && <CredentialStatusBadge {...supervisionCredentialCheck} />,
+                admin: adminCredentialCheck && <>
+                  <CredentialStatusBadge {...adminCredentialCheck} />
+                  {adminCredentialCheck.status === "valid" && (
+                    <AdminOpsPermissionsBadges permissions={detection?.admin_ops_permissions} />
+                  )}
+                </>,
+                supervision: supervisionCredentialCheck && <>
+                  <CredentialStatusBadge {...supervisionCredentialCheck} />
+                  {supervisionCredentialCheck.status === "valid" && detection && (
+                    <SupervisionValidationBadges
+                      metrics={detection.metrics}
+                      usage={detection.usage}
+                      metricsError={detection.metrics_error}
+                      usageError={detection.usage_error}
+                    />
+                  )}
+                </>,
                 ceph_admin: cephAdminCredentialCheck && <CredentialStatusBadge {...cephAdminCredentialCheck} />,
               }} />}
             {activeTab === "capabilities" && <StorageEndpointCapabilitiesFields features={form.features} provider={form.provider}

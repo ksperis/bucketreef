@@ -144,6 +144,142 @@ def test_create_account_with_root(db_session, monkeypatch):
     assert root_user is None
 
 
+class FakeRGWAdminProvisioning(FakeRGWAdmin):
+    def __init__(self, *, account_exists: bool = False, root_exists: bool = False):
+        super().__init__()
+        self.account_exists = account_exists
+        self.root_exists = root_exists
+        self.calls: list[tuple[str, object]] = []
+
+    def get_account(
+        self,
+        account_id: str,
+        allow_not_found: bool = False,
+        allow_not_implemented: bool = False,
+    ):
+        self.calls.append(("get_account", account_id))
+        if not self.account_exists:
+            return {"not_found": True}
+        return {"id": account_id, "name": "BucketReef sample", "user_list": []}
+
+    def create_account(self, account_id: str, account_name: str):
+        self.calls.append(("create_account", account_id))
+        self.account_exists = True
+        return super().create_account(account_id, account_name)
+
+    def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
+        self.calls.append(("get_user", tenant))
+        if not self.root_exists:
+            return None
+        return {
+            "user_id": uid,
+            "account_id": "RGW42177749789247960",
+            "keys": [{"access_key": "RESUMED", "secret_key": "RESUMED-SECRET"}],
+        }
+
+    def create_user_with_account_id(
+        self,
+        uid: str,
+        account_id: str,
+        display_name: str,
+        account_root: bool = True,
+    ):
+        self.calls.append(("create_root", account_id))
+        self.root_exists = True
+        return {
+            "user_id": uid,
+            "account_id": account_id,
+            "keys": [{"access_key": "NEWROOT", "secret_key": "NEWSECRET"}],
+        }
+
+    def create_access_key(
+        self,
+        uid: str,
+        tenant: Optional[str] = None,
+        key_name: Optional[str] = None,
+    ):
+        self.calls.append(("create_access_key", tenant))
+        return {"keys": [{"access_key": "RECOVERED", "secret_key": "RECOVERED-SECRET"}]}
+
+
+def test_ensure_provisioned_account_keeps_fresh_account_and_root_on_same_client(
+    db_session, monkeypatch
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdminProvisioning()
+    factory_calls = 0
+
+    def build_client(_endpoint):
+        nonlocal factory_calls
+        factory_calls += 1
+        return fake_admin
+
+    monkeypatch.setattr(
+        "app.services.s3_accounts_service.get_endpoint_admin_rgw_client",
+        build_client,
+    )
+    svc = S3AccountsService(db_session)
+    account_id = "RGW42177749789247960"
+
+    created = svc.ensure_provisioned_account(
+        S3AccountCreate(name="BucketReef sample", storage_endpoint_id=endpoint.id),
+        account_id,
+    )
+
+    assert created.rgw_account_id == account_id
+    # One client performs account + root provisioning; get_account_detail()
+    # creates a second client only after the local account has been persisted.
+    assert factory_calls == 2
+    assert fake_admin.calls[:3] == [
+        ("get_account", account_id),
+        ("create_account", account_id),
+        ("create_root", account_id),
+    ]
+    assert not any(call[0] == "get_user" for call in fake_admin.calls)
+
+
+def test_ensure_provisioned_account_resumes_orphaned_account_without_recreating_it(
+    db_session, monkeypatch
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdminProvisioning(account_exists=True, root_exists=False)
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    account_id = "RGW42177749789247960"
+
+    created = svc.ensure_provisioned_account(
+        S3AccountCreate(name="BucketReef sample", storage_endpoint_id=endpoint.id),
+        account_id,
+    )
+
+    assert created.rgw_account_id == account_id
+    assert not fake_admin.created_accounts
+    assert ("create_root", account_id) in fake_admin.calls
+    db_account = db_session.query(S3Account).filter_by(rgw_account_id=account_id).one()
+    assert db_account.rgw_access_key == "NEWROOT"
+    assert db_account.rgw_secret_key == "NEWSECRET"
+
+
+def test_ensure_provisioned_account_reuses_existing_root_credentials(
+    db_session, monkeypatch
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdminProvisioning(account_exists=True, root_exists=True)
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    account_id = "RGW42177749789247960"
+
+    created = svc.ensure_provisioned_account(
+        S3AccountCreate(name="BucketReef sample", storage_endpoint_id=endpoint.id),
+        account_id,
+    )
+
+    assert created.rgw_account_id == account_id
+    assert not fake_admin.created_accounts
+    assert not any(call[0] == "create_root" for call in fake_admin.calls)
+    db_account = db_session.query(S3Account).filter_by(rgw_account_id=account_id).one()
+    assert db_account.rgw_access_key == "RESUMED"
+    assert db_account.rgw_secret_key == "RESUMED-SECRET"
+
+
 def test_create_account_requires_account_api_feature(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=False, is_default=False)
     svc = _build_service(db_session, monkeypatch, FakeRGWAdmin())
@@ -576,4 +712,3 @@ def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):
     assert fake_admin.deleted == ["RGW00000000000000002"]
     assert fake_admin.deleted_users == [("rgw00000000000000002-admin", None)]
     assert db_session.query(S3Account).filter(S3Account.id == account.id).first() is None
-

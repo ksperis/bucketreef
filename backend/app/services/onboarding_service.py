@@ -46,6 +46,7 @@ REQUIRED_FEATURES = {
         "manager_enabled",
     ),
     "ceph_admin": ("ceph_admin_enabled",),
+    "supervision": (),
 }
 
 
@@ -167,7 +168,7 @@ class OnboardingService:
             result.blockers.append("endpoint_unavailable")
             return result
 
-        needs_ceph = draft.manager or draft.portal or draft.ceph_admin
+        needs_ceph = draft.manager or draft.portal or draft.ceph_admin or draft.supervision
         if endpoint is None:
             if not draft.endpoint_url:
                 result.blockers.append("endpoint_required")
@@ -182,10 +183,9 @@ class OnboardingService:
             editable = endpoint.is_editable and not self.endpoints.env_endpoints_locked()
             flags = resolve_feature_flags(endpoint)
             if draft.manager or draft.portal:
-                if not (endpoint.admin_access_key and endpoint.admin_secret_key):
-                    result.blockers.append("endpoint_admin_credentials_required")
-                else:
-                    result.changes.append("validate_ceph_account_api")
+                result.changes.append("validate_ceph_account_api")
+                if not (endpoint.admin_access_key and endpoint.admin_secret_key) and not editable:
+                    result.blockers.append("endpoint_credentials_locked")
                 if not (flags.admin_enabled and flags.account_enabled):
                     if editable:
                         result.changes.append("enable_endpoint_account_features")
@@ -193,19 +193,34 @@ class OnboardingService:
                         result.blockers.append("endpoint_features_locked")
                 if draft.portal and not flags.iam_enabled and not editable:
                     result.blockers.append("endpoint_features_locked")
+            if draft.supervision:
+                result.changes.append("validate_supervision")
+                if not (
+                    endpoint.supervision_access_key
+                    and endpoint.supervision_secret_key
+                ) and not editable:
+                    result.blockers.append("endpoint_credentials_locked")
+                if not (flags.usage_enabled and flags.metrics_enabled):
+                    if editable:
+                        result.changes.append("enable_endpoint_supervision_features")
+                    else:
+                        result.blockers.append("endpoint_features_locked")
             if draft.ceph_admin:
+                result.changes.append("validate_ceph_admin")
                 if not (
                     endpoint.ceph_admin_access_key
                     and endpoint.ceph_admin_secret_key
-                ):
-                    result.blockers.append("ceph_admin_credentials_required")
-                else:
-                    result.changes.append("validate_ceph_admin")
+                ) and not editable:
+                    result.blockers.append("endpoint_credentials_locked")
 
         if endpoint is None and (draft.manager or draft.portal):
             result.changes.append("validate_ceph_account_api")
         if endpoint is None and draft.ceph_admin:
             result.changes.append("validate_ceph_admin")
+        if endpoint is None and draft.supervision:
+            result.changes.extend(
+                ["validate_supervision", "enable_endpoint_supervision_features"]
+            )
 
         if draft.manager or draft.portal:
             resources = json.loads(row.resources_json)
@@ -246,6 +261,8 @@ class OnboardingService:
                     for value in (
                         endpoint.admin_access_key,
                         endpoint.admin_secret_key,
+                        endpoint.supervision_access_key,
+                        endpoint.supervision_secret_key,
                         endpoint.ceph_admin_access_key,
                         endpoint.ceph_admin_secret_key,
                     )

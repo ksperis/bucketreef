@@ -23,6 +23,7 @@ class OnboardingDraft(ApiModel):
     portal: bool = False
     private_connection: bool = False
     ceph_admin: bool = False
+    supervision: bool = False
 
     @model_validator(mode="after")
     def validate_endpoint(self):
@@ -47,7 +48,13 @@ class OnboardingDraft(ApiModel):
     def selected_options(self) -> tuple[str, ...]:
         return tuple(
             option
-            for option in ("manager", "portal", "private_connection", "ceph_admin")
+            for option in (
+                "manager",
+                "portal",
+                "private_connection",
+                "ceph_admin",
+                "supervision",
+            )
             if getattr(self, option)
         )
 
@@ -64,8 +71,12 @@ class OnboardingApply(ApiModel):
     confirmed: Literal[True]
     review_token: str = Field(min_length=64, max_length=64)
     # Write-only credentials. They are never copied into draft/progress/audit data.
-    endpoint_access_key: SecretStr | None = None
-    endpoint_secret_key: SecretStr | None = None
+    admin_access_key: SecretStr | None = None
+    admin_secret_key: SecretStr | None = None
+    supervision_access_key: SecretStr | None = None
+    supervision_secret_key: SecretStr | None = None
+    ceph_admin_access_key: SecretStr | None = None
+    ceph_admin_secret_key: SecretStr | None = None
     private_access_key: SecretStr | None = None
     private_secret_key: SecretStr | None = None
 

@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { StorageProvider } from "../../api/storageEndpoints";
 import type { TagDefinitionSummary } from "../../api/tags";
 import { SettingsSection, SettingsChoiceRow, SettingsItem, SettingsSwitch } from "../../components/settings/SettingsLayout";
@@ -14,6 +14,7 @@ import type { EndpointFieldErrors } from "./storageEndpointSubmission";
 export default function StorageEndpointConnectionFields({
   form, setForm, readOnly, canEditTags, busy, catalog, catalogLoading, errors,
   onProviderChange, onRegionChange, invalidateChecks,
+  validationStatus,
 }: {
   form: FormState;
   setForm: Dispatch<SetStateAction<FormState>>;
@@ -26,6 +27,7 @@ export default function StorageEndpointConnectionFields({
   onProviderChange: (value: StorageProvider) => void;
   onRegionChange: (value: string) => void;
   invalidateChecks: () => void;
+  validationStatus?: ReactNode;
 }) {
   const aws = form.provider === "aws";
   return <>
@@ -56,6 +58,7 @@ export default function StorageEndpointConnectionFields({
           <UiInput label="Region (optional)" value={form.region} readOnly={readOnly} placeholder="us-east-1"
             onChange={event => onRegionChange(event.target.value)} />
         </div>
+        {validationStatus ? <div className="flex flex-wrap items-center gap-2">{validationStatus}</div> : null}
         <SettingsItem title="Force path style" compact action={<SettingsSwitch ariaLabel="Force path style"
           checked={form.force_path_style} disabled={readOnly}
           onChange={value => setForm(previous => ({ ...previous, force_path_style: value }))} />} />

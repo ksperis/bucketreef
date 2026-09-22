@@ -77,7 +77,7 @@ def _allows(scope_permissions: set[str], permission: str) -> bool:
     )
 
 
-def _permissions_from_caps(raw_caps: object) -> StorageEndpointAdminOpsPermissions:
+def admin_ops_permissions_from_caps(raw_caps: object) -> StorageEndpointAdminOpsPermissions:
     parsed_caps = _parse_caps_payload(raw_caps)
     users_permissions = parsed_caps.get("users", set())
     buckets_permissions = parsed_caps.get("buckets", set())
@@ -125,7 +125,7 @@ def resolve_storage_endpoint_admin_ops_permissions(
         )
         if not user_payload:
             return _empty_permissions()
-        return _permissions_from_caps(user_payload.get("caps"))
+        return admin_ops_permissions_from_caps(user_payload.get("caps"))
     except RGWAdminError as exc:
         logger.warning(
             "Unable to evaluate admin ops permissions for endpoint id=%s name=%s: %s",
@@ -134,3 +134,15 @@ def resolve_storage_endpoint_admin_ops_permissions(
             exc,
         )
         return _empty_permissions()
+
+
+def has_account_provisioning_permissions(
+    permissions: StorageEndpointAdminOpsPermissions,
+) -> bool:
+    """Return whether Admin Ops can provision the RGW users/accounts onboarding needs."""
+    return bool(
+        permissions.users_read
+        and permissions.users_write
+        and permissions.accounts_read
+        and permissions.accounts_write
+    )

@@ -122,7 +122,8 @@ def test_account_identity_helpers(db_session):
 
     assert normalize_account_key("RGW1") == "rgw1"
     assert service._root_uid("RGW99") == "rgw99-admin"
-    assert service._root_display_name("My account", "RGW99") == "My account"
+    assert service._root_display_name("My account", "RGW99") == "My-account"
+    assert service._root_display_name("  My\t account  ", "RGW99") == "My-account"
 
 
 def test_account_topics_resolver_parses_caches_and_falls_back(db_session):

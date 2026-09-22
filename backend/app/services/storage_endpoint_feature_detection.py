@@ -4,23 +4,30 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Optional
 
+import requests
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db import StorageEndpoint
 from app.models.storage_endpoint import (
     StorageEndpointCredentialCheck,
     StorageEndpointFeatureDetectionRequest,
     StorageEndpointFeatureDetectionResult,
+    StorageEndpointHttpCheck,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import (
     classify_rgw_credential_failure,
     extract_ceph_admin_flags,
 )
+from app.services.storage_endpoint_admin_permissions import (
+    admin_ops_permissions_from_caps,
+)
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_endpoint import normalize_s3_endpoint
 
 RGWAdminClientFactory = Callable[..., RGWAdminClient]
+settings = get_settings()
 
 
 @dataclass(frozen=True)
@@ -39,6 +46,7 @@ class _FeatureDetectionCredentials:
 
 @dataclass(frozen=True)
 class _FeatureDetectionContext:
+    endpoint_url: str
     admin_endpoint: str
     region: Optional[str]
     verify_tls: bool
@@ -137,6 +145,7 @@ class StorageEndpointFeatureDetector:
             ),
         )
         return _FeatureDetectionContext(
+            endpoint_url=endpoint_url,
             admin_endpoint=admin_endpoint,
             region=region,
             verify_tls=verify_tls,
@@ -144,6 +153,30 @@ class StorageEndpointFeatureDetector:
             supervision_credentials=supervision_credentials,
             ceph_admin_credentials=ceph_admin_credentials,
         )
+
+    @staticmethod
+    def _detect_http_endpoint(
+        context: _FeatureDetectionContext,
+        result: StorageEndpointFeatureDetectionResult,
+    ) -> None:
+        try:
+            response = requests.get(
+                context.endpoint_url,
+                timeout=settings.healthcheck_timeout_seconds,
+                verify=context.verify_tls,
+                allow_redirects=True,
+                headers={"User-Agent": "bucketreef-endpoint-validation"},
+            )
+            result.http_check = StorageEndpointHttpCheck(
+                status="valid",
+                status_code=response.status_code,
+                message=f"Endpoint responded over HTTP ({response.status_code}).",
+            )
+        except requests.RequestException:
+            result.http_check = StorageEndpointHttpCheck(
+                status="unavailable",
+                message="Endpoint did not respond to the HTTP connectivity check.",
+            )
 
     @staticmethod
     def _failed_check(
@@ -187,6 +220,10 @@ class StorageEndpointFeatureDetector:
                 )
                 if admin_payload:
                     result.admin = True
+                    if isinstance(admin_payload, dict):
+                        result.admin_ops_permissions = admin_ops_permissions_from_caps(
+                            admin_payload.get("caps")
+                        )
                     result.credential_checks.admin = StorageEndpointCredentialCheck(
                         status="valid",
                         message="Admin Ops access was validated by RGW.",
@@ -258,11 +295,11 @@ class StorageEndpointFeatureDetector:
         supervision_client = None
         try:
             supervision_client = self._client(context, credentials)
-            supervision_client.get_all_buckets(with_stats=False)
+            supervision_client.get_all_buckets(with_stats=True)
             result.metrics = True
             result.credential_checks.supervision = StorageEndpointCredentialCheck(
                 status="valid",
-                message="Supervision Ops access was validated by RGW.",
+                message="Supervision Ops access and bucket stats were validated by RGW.",
             )
         except RGWAdminError as exc:
             result.metrics_error = str(exc)
@@ -280,14 +317,33 @@ class StorageEndpointFeatureDetector:
         try:
             usage_payload = supervision_client.get_usage(
                 show_entries=False,
-                show_summary=False,
+                show_summary=True,
             )
             if isinstance(usage_payload, dict) and usage_payload.get("not_found"):
                 result.usage_error = "RGW usage logs endpoint is unavailable."
-            else:
+            elif self._usage_payload_has_values(usage_payload):
                 result.usage = True
+            else:
+                result.usage_error = (
+                    "RGW usage logs returned no data. Verify rgw_enable_usage_log is "
+                    "enabled and that RGW has recorded traffic."
+                )
         except RGWAdminError as exc:
             result.usage_error = str(exc)
+
+    @staticmethod
+    def _usage_payload_has_values(payload: object) -> bool:
+        if isinstance(payload, list):
+            return any(isinstance(item, dict) and bool(item) for item in payload)
+        if not isinstance(payload, dict):
+            return False
+        for key in ("summary", "entries", "usage"):
+            value = payload.get(key)
+            if isinstance(value, list) and any(
+                isinstance(item, dict) and bool(item) for item in value
+            ):
+                return True
+        return False
 
     def _detect_ceph_admin_credentials(
         self,
@@ -348,6 +404,8 @@ class StorageEndpointFeatureDetector:
     ) -> StorageEndpointFeatureDetectionResult:
         context = self._context(payload)
         result = StorageEndpointFeatureDetectionResult()
+        if payload.check_http:
+            self._detect_http_endpoint(context, result)
         admin_client = self._detect_admin_features(context, result)
         self._detect_account_feature(admin_client, result)
         self._detect_supervision_features(context, result)
@@ -355,6 +413,6 @@ class StorageEndpointFeatureDetector:
 
         if result.metrics and not result.usage:
             result.warnings.append(
-                "Usage logs do not appear enabled on this RGW endpoint; activity traffic stats will not be available."
+                "Usage logs returned no usable data; verify rgw_enable_usage_log is enabled and that RGW has recorded traffic."
             )
         return result
