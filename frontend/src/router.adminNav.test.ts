@@ -170,6 +170,13 @@ describe("buildAdminNav", () => {
       "Usage History",
       "Audit trail",
     ]);
+    expect(overview?.links.find((link) => link.label === "Getting started")?.iconName).toBe("tools");
+  });
+
+  it("uses the key icon for API tokens", () => {
+    const apiTokensLink = getSettingsLink("API tokens", [true, true, false, false, false, true]);
+
+    expect(apiTokensLink?.iconName).toBe("key");
   });
 
   it("hides Getting started after onboarding is complete or dismissed", () => {
