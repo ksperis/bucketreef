@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated, Optional, Literal
 
-from pydantic import Field
+from pydantic import AfterValidator, Field
 
 from app.models.base import ApiModel
 from app.models.portal_storage_spaces import PortalStorageSpaceIcon
@@ -142,13 +142,25 @@ class ObjectMetadata(ApiModel):
 
 
 class ObjectTag(ApiModel):
-    key: str
+    key: str = Field(min_length=1)
     value: str
+
+
+def _validate_object_tag_keys(tags: list[ObjectTag]) -> list[ObjectTag]:
+    seen: set[str] = set()
+    for tag in tags:
+        if tag.key in seen:
+            raise ValueError(f"Duplicate object tag key: {tag.key}")
+        seen.add(tag.key)
+    return tags
+
+
+ObjectTagList = Annotated[list[ObjectTag], AfterValidator(_validate_object_tag_keys)]
 
 
 class ObjectTags(ApiModel):
     key: str
-    tags: list[ObjectTag] = Field(default_factory=list)
+    tags: ObjectTagList = Field(default_factory=list)
     version_id: Optional[str] = None
 
 
@@ -218,7 +230,7 @@ class MultipartUploadInitRequest(ApiModel):
     key: str
     content_type: Optional[str] = None
     metadata: dict[str, str] = Field(default_factory=dict)
-    tags: list[ObjectTag] = Field(default_factory=list)
+    tags: ObjectTagList = Field(default_factory=list)
     acl: Optional[str] = None
 
 
@@ -272,7 +284,7 @@ class CopyObjectPayload(ApiModel):
     source_version_id: Optional[str] = None
     metadata: dict[str, str] = Field(default_factory=dict)
     replace_metadata: bool = False
-    tags: list[ObjectTag] = Field(default_factory=list)
+    tags: ObjectTagList = Field(default_factory=list)
     replace_tags: bool = False
     acl: Optional[str] = None
     move: bool = False

@@ -114,7 +114,7 @@ class BrowserObjectOperationsMixin:
                 if value is not None:
                     kwargs[target_field] = value
         if payload.replace_tags:
-            tag_str = urlencode({tag.key: tag.value for tag in payload.tags if tag.key})
+            tag_str = urlencode([(tag.key, tag.value) for tag in payload.tags])
             kwargs["TaggingDirective"] = "REPLACE"
             if tag_str:
                 kwargs["Tagging"] = tag_str
@@ -135,7 +135,6 @@ class BrowserObjectOperationsMixin:
                     tag_set = [
                         {"Key": tag.key, "Value": tag.value}
                         for tag in payload.tags
-                        if tag.key is not None and str(tag.key).strip()
                     ]
                     if tag_set:
                         client.put_object_tagging(**tagging_kwargs, Tagging={"TagSet": tag_set})
@@ -222,7 +221,7 @@ class BrowserObjectOperationsMixin:
         if payload.metadata:
             kwargs["Metadata"] = payload.metadata
         if payload.tags:
-            tag_str = urlencode({tag.key: tag.value for tag in payload.tags if tag.key})
+            tag_str = urlencode([(tag.key, tag.value) for tag in payload.tags])
             if tag_str:
                 kwargs["Tagging"] = tag_str
         if payload.acl:

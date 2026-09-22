@@ -6,7 +6,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from app.db import S3Account
-from app.models.browser import ObjectMetadata, ObjectMetadataUpdate
+from app.models.browser import CopyObjectPayload, ObjectMetadata, ObjectMetadataUpdate, ObjectTag
 from app.services.browser_service import BrowserService
 
 
@@ -110,6 +110,60 @@ def test_update_object_metadata_preserves_source_state_and_tags(monkeypatch):
         },
     )
     assert invalidations == [(account, "bucket-a")]
+
+
+def test_copy_object_preserves_literal_tag_pairs(monkeypatch):
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeClient:
+        def copy_object(self, **kwargs):  # noqa: ANN001
+            calls.append(("copy", kwargs))
+            return {"VersionId": "v2"}
+
+        def put_object_tagging(self, **kwargs):  # noqa: ANN001
+            calls.append(("put_tags", kwargs))
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: FakeClient())
+    account = _account()
+    service.copy_object(
+        "bucket-a",
+        account,
+        CopyObjectPayload(
+            source_key="source.txt",
+            destination_key="destination.txt",
+            replace_tags=True,
+            tags=[
+                ObjectTag(key=" tag ", value=" value "),
+                ObjectTag(key=" ", value="literal-space-key"),
+            ],
+        ),
+    )
+
+    assert calls[0] == (
+        "copy",
+        {
+            "Bucket": "bucket-a",
+            "Key": "destination.txt",
+            "CopySource": {"Bucket": "bucket-a", "Key": "source.txt"},
+            "TaggingDirective": "REPLACE",
+            "Tagging": "+tag+=+value+&+=literal-space-key",
+        },
+    )
+    assert calls[1] == (
+        "put_tags",
+        {
+            "Bucket": "bucket-a",
+            "Key": "destination.txt",
+            "VersionId": "v2",
+            "Tagging": {
+                "TagSet": [
+                    {"Key": " tag ", "Value": " value "},
+                    {"Key": " ", "Value": "literal-space-key"},
+                ],
+            },
+        },
+    )
 
 
 def test_update_object_metadata_copies_empty_tag_set_without_restoration(monkeypatch):

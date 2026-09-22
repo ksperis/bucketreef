@@ -96,6 +96,10 @@ Metadata/tag columns and object history keep these distinctions, including
 names composed only of spaces. Opening an object's history does not substitute
 the history of a trimmed name or a neighboring prefix.
 
+Object tag keys and values are also literal. Leading or trailing spaces are
+preserved, including a key made only of spaces. An empty tag key or a duplicate
+tag key is rejected instead of being silently removed or merged.
+
 Folder navigation also preserves spaces and leading or repeated `/` characters.
 For example, `docs/`, `/docs/`, and `docs//` are distinct prefixes. The URL,
 editable path, suggestions, recent paths, parent navigation, and path details
