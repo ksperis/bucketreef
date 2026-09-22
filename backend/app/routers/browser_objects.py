@@ -11,6 +11,7 @@ from app.models.browser import (
     CleanupObjectVersionsPayload,
     CleanupObjectVersionsResponse,
     CopyObjectPayload,
+    CreateFolderPayload,
     DeleteObjectsPayload,
     ListObjectVersionsResponse,
     ObjectAcl,
@@ -22,7 +23,6 @@ from app.models.browser import (
     ObjectTags,
     SseCustomerContext,
 )
-from app.models.object import CreateFolderPayload
 from app.routers.browser_common import require_sse_feature
 from app.routers.dependencies import (
     get_account_context,
