@@ -70,13 +70,7 @@ type SettingsChoiceRowProps = {
   className?: string;
 };
 
-export const settingsInputClassName = uiInputClass;
 export const settingsTextareaClassName = cx(uiInputClass, "min-h-[96px]");
-export const settingsLabelClassName = cx(
-  "ui-caption font-semibold",
-  uiTitleTextClass,
-);
-export const settingsHelperClassName = cx("mt-1 ui-caption", uiMutedTextClass);
 
 export const SettingsSection = ({
   title,
@@ -217,7 +211,7 @@ export const SettingsChoiceRow = ({
       checked={checked}
       disabled={disabled}
       onChange={(event) => onChange(event.target.checked)}
-      className={`mt-0.5 ${type === "radio" ? uiRadioClass : settingsCheckboxClassName}`}
+      className={`mt-0.5 ${type === "radio" ? uiRadioClass : uiCheckboxClass}`}
     />
     <span className="min-w-0 flex-1">
       <span
@@ -310,5 +304,3 @@ export const SettingsToggleAction = ({
     />
   </div>
 );
-
-export const settingsCheckboxClassName = uiCheckboxClass;

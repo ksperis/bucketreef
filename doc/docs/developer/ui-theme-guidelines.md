@@ -195,6 +195,18 @@ examples and credential statuses on the shared settings/UI primitives. One
 native form and action bar owns all tabs; configuration/tag API boundaries and
 read-only access remain explicit in the controller rather than in local styles.
 
+OIDC and LDAP provider pages use `SettingsWorkflowForm` with a plain, wide
+surface and compact sections. `AuthProviderIdentityFields`,
+`AuthProviderSecretField` and `AuthProviderToggle` share labelled controls,
+stored-secret presentation and associated environment-lock hints. Keep API
+field names when checking locks, including text adapters for scopes and domains.
+Locked secrets use labelled read-only output; editable replacements stay empty
+with an explanatory hint. Explicit secret removal remains an acknowledgement.
+The form controller owns submission, pending and navigation guards, including
+the entire passkey verification promise. Consultation hides Save; failed loads
+offer Retry without an editable fallback. Feature adapters retain payloads,
+identity-linking policy and independent provider/global-settings saves.
+
 The Authentication tab uses the same compact sections for passkeys, passwords,
 external identities and sessions. Its native fieldsets submit their own immediate
 action on Enter and freeze both their fields and the parent editor navigation

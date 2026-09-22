@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -16,16 +16,12 @@ import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
 } from "../../../auth/useRecentWebAuthnStepUp";
-import PageShell from "../../../components/PageShell";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import SettingsNavigationGuard from "../../../components/settings/SettingsNavigationGuard";
-import {
-  SettingsActions,
-  SettingsButton,
-  useSettingsCloseGuard,
-} from "../../../components/settings/SettingsControls";
+import SettingsWorkflowForm from "../../../components/settings/SettingsWorkflowForm";
+import { SettingsButton } from "../../../components/settings/SettingsControls";
 import { useSettingsDraft } from "../../../components/settings/useSettingsDraft";
 import { extractApiError } from "../../../utils/apiError";
+import { focusFirstInvalidField } from "../../../utils/focusFirstInvalidField";
 import { adminPageBreadcrumbs } from "../adminBreadcrumbs";
 import {
   emptyOidcForm,
@@ -112,9 +108,10 @@ const ldap: Adapter<LdapProviderFormState, LdapProviderAdminItem> = {
     ]),
     timeout_seconds:
       Number(form.timeout_seconds) > 0 &&
+      Number(form.timeout_seconds) <= 60 &&
       Number.isFinite(Number(form.timeout_seconds))
         ? undefined
-        : "Timeout must be a positive number.",
+        : "Timeout must be greater than zero and no more than 60 seconds.",
   }),
   render: (props) => <LdapProviderFields {...props} />,
 };
@@ -126,13 +123,13 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
 }) {
   const { providerId } = useParams();
   const navigate = useNavigate();
-  const form = useSettingsDraft(adapter.empty());
+  const form = useSettingsDraft(adapter.empty);
   const [provider, setProvider] = useState<P | null>(null);
   const [loading, setLoading] = useState(Boolean(providerId));
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
-  const [busy, setBusy] = useState(false);
-  const pending = useRef(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [completed, setCompleted] = useState(false);
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
@@ -145,6 +142,8 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
   useEffect(() => {
     if (!providerId) return;
     let active = true;
+    setLoading(true);
+    setError(null);
     adapter
       .load()
       .then((providers) => {
@@ -168,50 +167,46 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
     return () => {
       active = false;
     };
-  }, [adapter, providerId, accept]);
+  }, [adapter, providerId, accept, loadAttempt]);
   const readOnly = Boolean(provider && !provider.editable);
   const title = `${providerId ? (readOnly ? "View" : "Edit") : "Add"} ${adapter.kind} provider`;
-  const cancel = useSettingsCloseGuard({
-    hasUnsavedChanges: form.dirty,
-    disabled: busy,
-    description: "Your provider changes have not been saved.",
-    onClose: () => {
-      flushSync(() => form.cancel());
-      navigate(backPath);
-    },
-  });
-  const save = async () => {
-    if (pending.current || readOnly || !form.dirty) return;
+  const close = (reason?: "navigation") => {
+    form.cancel();
+    if (reason !== "navigation") navigate(backPath);
+  };
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    if (loading || (providerId && !provider) || readOnly || !form.dirty) return;
     const nextErrors = adapter.validate(form.draft);
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) {
-      requestAnimationFrame(() =>
-        document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
-      );
+      focusFirstInvalidField(event.currentTarget);
       return;
     }
-    pending.current = true;
-    setBusy(true);
     setError(null);
     try {
       await runWithStepUp(() => adapter.save(form.draft, provider));
       if (!active.current) return;
-      flushSync(() => form.accept(form.draft));
+      // Remove the saved form and its pending navigation guard before redirecting.
+      flushSync(() => { form.accept(adapter.empty()); setCompleted(true); });
       navigate(backPath, {
         state: { providerSaved: `${adapter.kind} provider saved.` },
       });
     } catch (err) {
-      if (!isRecentWebAuthnVerificationCancelled(err))
+      if (active.current && !isRecentWebAuthnVerificationCancelled(err))
         setError(extractApiError(err, "Unable to save provider."));
-    } finally {
-      pending.current = false;
-      setBusy(false);
     }
   };
+  if (completed) return null;
   return (
-    <PageShell
+    <>
+      <SettingsWorkflowForm
       title={title}
       description="Configure the connection, identity mapping and security options."
+      formLabel={`${adapter.kind} provider configuration`}
+      contentVariant="plain" width="wide" backLabel="Back to authentication"
+      dirty={form.dirty} loading={loading} readOnly={readOnly || Boolean(providerId && !provider && !loading)}
+      disabled={!form.dirty || Boolean(providerId && !provider)} error={error}
+      submitLabel={`Save ${adapter.kind} provider`} busyLabel="Saving..." onSubmit={save} onClose={close}
       breadcrumbs={[
         ...adminPageBreadcrumbs("authentication-settings").map(
           (crumb, index, items) =>
@@ -220,71 +215,36 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
         { label: title },
       ]}
     >
-      <div className="settings-compact">
-        <SettingsButton
-          variant="ghost"
-          onClick={cancel.requestClose}
-          disabled={busy}
-        >
-          Back to authentication
-        </SettingsButton>
-        {error && (
-          <div className="my-4" role="alert">
-            <UiInlineMessage tone="error">{error}</UiInlineMessage>
-          </div>
-        )}
         {loading ? (
           <p role="status">Loading provider...</p>
         ) : (
           (!providerId || provider) && (
             <>
               {readOnly && (
-                <p className="my-3 settings-readonly">
+                <UiInlineMessage tone="info">
                   This provider is managed by environment variables and cannot
                   be edited here.
-                </p>
+                </UiInlineMessage>
               )}
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void save();
-                }}
-                noValidate
-              >
-                <fieldset disabled={busy} className="min-w-0">
-                  {adapter.render({
-                    form: form.draft,
-                    update: (key, value) => {
-                      form.setDraft((current) => ({
-                        ...current,
-                        [key]: value,
-                      }));
-                      setErrors((current) => ({
-                        ...current,
-                        [key]: undefined,
-                      }));
-                    },
-                    provider,
-                    readOnly,
-                    errors,
-                  })}
-                </fieldset>
-                <SettingsActions
-                  dirty={!readOnly && form.dirty}
-                  busy={busy}
-                  saveLabel={`Save ${adapter.kind} provider`}
-                  onSave={() => void save()}
-                  onCancel={cancel.requestClose}
-                />
-              </form>
+              {adapter.render({
+                form: form.draft,
+                update: (key, value) => {
+                  form.setDraft((current) => ({ ...current, [key]: value }));
+                  setErrors((current) => ({ ...current, [key]: undefined }));
+                },
+                provider,
+                readOnly,
+                errors,
+              })}
             </>
           )
         )}
-      </div>
-      <SettingsNavigationGuard dirty={form.dirty} />
-      {cancel.confirmationDialog}
+        {!loading && providerId && !provider && error && <div>
+          <SettingsButton variant="secondary" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Retry</SettingsButton>
+        </div>}
+      </SettingsWorkflowForm>
       {verificationDialog}
-    </PageShell>
+    </>
   );
 }
 

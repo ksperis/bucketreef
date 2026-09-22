@@ -8,15 +8,16 @@ import { useSettingsFormController } from "./useSettingsFormController";
 
 /** Native page form sharing the dialog's draft and pending-operation contract. */
 export default function SettingsWorkflowForm({
-  title, description, breadcrumbs, backLabel, contentVariant, formLabel = title,
-  dirty, busy = false, loading = false, disabled = false, error, submitLabel,
+  title, description, breadcrumbs, backLabel, contentVariant, width = "standard", formLabel = title,
+  dirty, busy = false, loading = false, disabled = false, readOnly = false, error, submitLabel,
   busyLabel = submitLabel, onSubmit, onClose, children,
-}: Pick<ComponentProps<typeof WorkflowPage>, "title" | "description" | "breadcrumbs" | "backLabel" | "contentVariant"> & {
+}: Pick<ComponentProps<typeof WorkflowPage>, "title" | "description" | "breadcrumbs" | "backLabel" | "contentVariant" | "width"> & {
   formLabel?: string;
   dirty: boolean;
   busy?: boolean;
   loading?: boolean;
   disabled?: boolean;
+  readOnly?: boolean;
   error?: string | null;
   submitLabel: string;
   busyLabel?: string;
@@ -25,17 +26,17 @@ export default function SettingsWorkflowForm({
   children: ReactNode;
 }) {
   const { labels, locked, requestClose, submit, confirmationDialog, navigationGuard } = useSettingsFormController({
-    dirty, busy, disabled: disabled || loading, onSubmit, onClose,
+    dirty: dirty && !readOnly, busy, disabled: disabled || loading || readOnly, onSubmit, onClose,
   });
   return <>
     <WorkflowPage title={title} description={description} breadcrumbs={breadcrumbs}
-      backLabel={backLabel} onBack={requestClose} backDisabled={locked} width="standard"
+      backLabel={backLabel} onBack={requestClose} backDisabled={locked} width={width}
       contentVariant={contentVariant} contentClassName="settings-compact settings-form">
       <SettingsForm label={formLabel} onSubmit={submit} busy={locked || loading}
-        submitDisabled={disabled} onCancel={requestClose} submitLabel={submitLabel} busyLabel={submitLabel}
+        submitDisabled={disabled || readOnly} onCancel={requestClose} submitLabel={submitLabel} busyLabel={submitLabel}
         actions={<>
-          <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>{labels.cancel}</SettingsButton>
-          <SettingsButton type="submit" disabled={locked || loading || disabled} loading={locked}>{locked ? busyLabel : submitLabel}</SettingsButton>
+          <SettingsButton variant="secondary" onClick={requestClose} disabled={locked}>{readOnly ? labels.close : labels.cancel}</SettingsButton>
+          {!readOnly && <SettingsButton type="submit" disabled={locked || loading || disabled} loading={locked}>{locked ? busyLabel : submitLabel}</SettingsButton>}
         </>}>
         <div className="settings-stack">
           {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
