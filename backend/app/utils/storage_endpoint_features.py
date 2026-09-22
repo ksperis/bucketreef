@@ -287,7 +287,7 @@ def resolve_admin_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
 
 def resolve_rgw_admin_api_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
     flags = resolve_feature_flags(endpoint)
-    return flags.admin_endpoint or _normalize_url(endpoint.endpoint_url)
+    return flags.admin_endpoint or endpoint.endpoint_url
 
 
 def resolve_sts_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
@@ -299,7 +299,7 @@ def resolve_sts_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
         return flags.sts_endpoint
     if provider == StorageProvider.AWS:
         return aws_sts_endpoint_for_region(endpoint.region)
-    return flags.sts_endpoint or _normalize_url(endpoint.endpoint_url)
+    return endpoint.endpoint_url
 
 
 def resolve_iam_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
@@ -311,7 +311,7 @@ def resolve_iam_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
     provider = StorageProvider(endpoint.provider)
     if provider == StorageProvider.AWS:
         return aws_iam_endpoint_for_region(endpoint.region)
-    return _normalize_url(endpoint.endpoint_url)
+    return endpoint.endpoint_url
 
 
 def resolve_iam_signing_region(endpoint: StorageEndpoint) -> Optional[str]:

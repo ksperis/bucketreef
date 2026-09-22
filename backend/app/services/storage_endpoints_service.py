@@ -45,7 +45,7 @@ from app.utils.tagging import (
     TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
     TAG_DOMAIN_ENDPOINT,
 )
-from app.utils.s3_endpoint import configured_s3_endpoint, normalize_s3_endpoint
+from app.utils.s3_endpoint import configured_s3_endpoint
 from app.utils.name_ordering import name_order_by
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
@@ -205,10 +205,8 @@ class StorageEndpointsService:
             return []
         configs = normalize_env_storage_endpoint_states(env_endpoints)
         existing_by_url = {
-            normalized_url: endpoint
+            endpoint.endpoint_url: endpoint
             for endpoint in self.db.query(StorageEndpoint).all()
-            if endpoint.endpoint_url
-            if (normalized_url := normalize_s3_endpoint(endpoint.endpoint_url))
         }
 
         for config in configs:
@@ -240,8 +238,8 @@ class StorageEndpointsService:
             .order_by(StorageEndpoint.is_default.desc(), StorageEndpoint.name.asc())
             .first()
         )
-        if endpoint and endpoint.endpoint_url:
-            return normalize_s3_endpoint(endpoint.endpoint_url)
+        if endpoint:
+            return endpoint.endpoint_url
         return configured_s3_endpoint()
 
     def get_endpoint(self, endpoint_id: int, *, include_admin_ops_permissions: bool = True) -> StorageEndpointSchema:
