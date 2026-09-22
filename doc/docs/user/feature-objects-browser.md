@@ -101,7 +101,9 @@ For example, `docs/`, `/docs/`, and `docs//` are distinct prefixes. The URL,
 editable path, suggestions, recent paths, parent navigation, and path details
 keep these distinctions. An empty path (or the **root** button) selects the
 bucket root; entering `/` selects the literal `/` prefix. A missing final `/`
-is added when entering a folder path. Existing objects are never renamed.
+is added when entering a folder path. Recursive searches and sorted listings
+keep empty path segments as distinct folders as well. Existing objects are
+never renamed.
 
 An error does not mean that every requested change was rolled back. After a
 failed deletion, copy, move, or upload, refresh the list before retrying. For
