@@ -36,6 +36,7 @@ class PortalSettingsOverride(ApiModel):
     allow_private_storage_space_create: Optional[bool] = None
     allow_portal_named_bucket_create: Optional[bool] = None
     allow_portal_user_access_key_create: Optional[bool] = None
+    allow_portal_user_external_sharing: Optional[bool] = None
     server_access_logging_enabled: Optional[bool] = None
     storage_space_version_cleanup_enabled: Optional[bool] = None
     bucket_defaults: Optional[PortalBucketDefaultsOverride] = None
@@ -152,6 +153,7 @@ class PortalSettings(ApiModel):
     allow_private_storage_space_create: bool = True
     allow_portal_named_bucket_create: bool = False
     allow_portal_user_access_key_create: bool = True
+    allow_portal_user_external_sharing: bool = False
     server_access_logging_enabled: bool = True
     server_access_log_retention_days: int = Field(default=30, ge=1)
     storage_space_version_cleanup_enabled: bool = True

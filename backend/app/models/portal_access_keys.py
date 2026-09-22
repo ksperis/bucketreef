@@ -72,4 +72,5 @@ class PortalAccessKeysState(ApiModel):
     force_path_style: bool = False
     access_keys: list[PortalAccessKey]
     can_manage_access_keys: bool = False
+    can_create_external_access: bool = False
     max_access_keys: int = Field(default=2, ge=1)

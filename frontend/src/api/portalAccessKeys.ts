@@ -42,6 +42,7 @@ export type PortalAccessKeysState = {
   force_path_style?: boolean;
   access_keys: PortalAccessKey[];
   can_manage_access_keys: boolean;
+  can_create_external_access: boolean;
   max_access_keys: number;
 };
 

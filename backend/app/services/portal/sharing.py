@@ -33,6 +33,23 @@ if TYPE_CHECKING:
 
 
 class PortalSharingMixin:
+    def _portal_user_can_create_external_sharing(
+        self,
+        user: User,
+        access: "AccountAccess",
+        bucket_name: str,
+    ) -> bool:
+        if access.portal_role != PortalAccountRole.PORTAL_USER.value:
+            return False
+        metadata = self._storage_space_metadata(access.account, bucket_name)
+        if metadata is None or metadata.archived_at is not None:
+            return False
+        if self._user_storage_space_role(user, access, bucket_name) != "Owner":
+            return False
+        return bool(
+            self._effective_portal_settings(access.account).allow_portal_user_external_sharing
+        )
+
     def _storage_space_share_card(
         self,
         actor: User,
@@ -221,9 +238,11 @@ class PortalSharingMixin:
             public_link_count=public_link_count,
             can_manage_access=can_manage_access,
             can_create_public_links=bool(
-                can_manage_access
-                and metadata.archived_at is None
-                and self._metadata_visibility(metadata) == "shared"
+                metadata.archived_at is None
+                and (
+                    can_manage_access
+                    or self._portal_user_can_create_external_sharing(user, access, bucket_name)
+                )
             ),
         )
 

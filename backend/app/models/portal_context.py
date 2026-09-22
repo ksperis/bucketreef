@@ -25,6 +25,7 @@ class PortalState(ApiModel):
     can_manage_buckets: bool = False
     can_create_private_storage_spaces: bool = False
     can_create_team_storage_spaces: bool = False
+    can_create_external_sharing: bool = False
     can_manage_portal_users: bool = False
     allow_named_bucket_create: bool = False
     server_access_logging_enabled: bool = True

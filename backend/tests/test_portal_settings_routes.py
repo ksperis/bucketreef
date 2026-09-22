@@ -108,6 +108,7 @@ def test_delegated_manager_updates_shared_override_and_audits(
         f"/api/portal/settings?account_id={account.id}",
         json={
             "allow_private_storage_space_create": False,
+            "allow_portal_user_external_sharing": True,
             "bucket_defaults": {"noncurrent_version_expiration_days": 45},
         },
     )
@@ -116,6 +117,8 @@ def test_delegated_manager_updates_shared_override_and_audits(
     body = response.json()
     assert body["can_update"] is True
     assert body["project_override"]["allow_private_storage_space_create"] is False
+    assert body["project_override"]["allow_portal_user_external_sharing"] is True
+    assert body["effective"]["allow_portal_user_external_sharing"] is True
     assert body["project_override"]["bucket_defaults"]["noncurrent_version_expiration_days"] == 45
     audit = db_session.query(AuditLog).filter(AuditLog.action == "update_project_portal_settings").one()
     assert audit.scope == "portal"

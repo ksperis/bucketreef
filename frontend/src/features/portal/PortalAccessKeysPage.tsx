@@ -109,32 +109,38 @@ function PortalAccessKeysContent() {
     [visibleKeys]
   );
   const canManageAccessKeys = Boolean(state?.can_manage_access_keys);
+  const canCreateExternalAccess = Boolean(state?.can_create_external_access);
   const maxAccessKeys = state?.max_access_keys ?? 0;
   const personalAccessLimitReached = maxAccessKeys > 0 && personalKeys.length >= maxAccessKeys;
+  const canCreatePersonalAccess = canManageAccessKeys && !personalAccessLimitReached;
+  const canCreateAnyAccess = canCreatePersonalAccess || canCreateExternalAccess;
+  const canManageKey = (key: PortalAccessKey) =>
+    key.target_type === "external" || canManageAccessKeys;
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: visibleKeys.length });
   useEffect(() => {
     if (
       queryCreateHandled ||
       requestedCreateTarget !== "external" ||
       !state ||
-      !canManageAccessKeys ||
+      !canCreateExternalAccess ||
       !requestedSpaceId
     ) {
       return;
     }
     setCreateOptions({ target: "external", spaceId: requestedSpaceId });
     setQueryCreateHandled(true);
-  }, [canManageAccessKeys, queryCreateHandled, requestedCreateTarget, requestedSpaceId, state]);
+  }, [canCreateExternalAccess, queryCreateHandled, requestedCreateTarget, requestedSpaceId, state]);
 
   const openCreateWorkflow = () => {
     if (createDisabled) return;
     setError(null);
-    setCreateOptions({ target: personalAccessLimitReached ? "external" : "self" });
+    setCreateOptions({ target: canCreatePersonalAccess ? "self" : "external" });
   };
 
   const handleCreateKey = async (payload: PortalAccessKeyCreate, selectedSpace: PortalStorageSpaceSummary | null) => {
-    if (!accountIdForApi || !canManageAccessKeys || busy) return;
-    if (payload.target_type === "self" && personalAccessLimitReached) return;
+    if (!accountIdForApi || busy) return;
+    if (payload.target_type === "self" && !canCreatePersonalAccess) return;
+    if (payload.target_type === "external" && !canCreateExternalAccess) return;
     setBusy("create");
     setError(null);
     setActionMessage(null);
@@ -158,7 +164,7 @@ function PortalAccessKeysContent() {
   };
 
   const updateKeyStatus = async (key: PortalAccessKey, active: boolean) => {
-    if (!accountIdForApi || !canManageAccessKeys || key.is_portal) return;
+    if (!accountIdForApi || !canManageKey(key) || key.is_portal) return;
     setBusy(`toggle:${key.access_key_id}`);
     setError(null);
     setActionMessage(null);
@@ -176,7 +182,7 @@ function PortalAccessKeysContent() {
   };
 
   const handleToggleKey = (key: PortalAccessKey) => {
-    if (!accountIdForApi || !canManageAccessKeys || key.is_portal) return;
+    if (!accountIdForApi || !canManageKey(key) || key.is_portal) return;
     const active = key.is_active;
     if (active) {
       setPendingAction({ type: "disable", key });
@@ -186,12 +192,12 @@ function PortalAccessKeysContent() {
   };
 
   const handleDeleteKey = (key: PortalAccessKey) => {
-    if (!accountIdForApi || !canManageAccessKeys || key.is_portal) return;
+    if (!accountIdForApi || !canManageKey(key) || key.is_portal) return;
     setPendingAction({ type: "delete", key });
   };
 
   const confirmDeleteKey = async (key: PortalAccessKey) => {
-    if (!accountIdForApi || !canManageAccessKeys || key.is_portal) return;
+    if (!accountIdForApi || !canManageKey(key) || key.is_portal) return;
     setBusy(`delete:${key.access_key_id}`);
     setError(null);
     setActionMessage(null);
@@ -215,7 +221,7 @@ function PortalAccessKeysContent() {
   };
 
   const configureDisabled = accountLoading || loading || !hasAccountContext || !accountIdForApi || !state || Boolean(busy);
-  const createDisabled = !state || !canManageAccessKeys || Boolean(busy);
+  const createDisabled = !state || !canCreateAnyAccess || Boolean(busy);
   const accessKeyColumns: DataTableColumn<PortalAccessKey>[] = [
     {
       id: "access-key",
@@ -254,7 +260,7 @@ function PortalAccessKeysContent() {
       mobileRole: "actions",
       render: (key) => {
         const active = key.is_active;
-        const disabled = Boolean(busy) || !canManageAccessKeys;
+        const disabled = Boolean(busy) || !canManageKey(key);
         return (
           <ListActions>
             {active ? (
@@ -325,8 +331,8 @@ function PortalAccessKeysContent() {
       {accountError && <PageBanner tone="error">{accountError}</PageBanner>}
       {error && !createOptions && <PageBanner tone="error">{error}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
-      {state && !canManageAccessKeys && (
-        <PageBanner tone="warning">{t({ en: "External-tool access is disabled for this project.", fr: "L'accès aux outils externes est désactivé pour ce projet.", de: "Der Zugriff für externe Werkzeuge ist für dieses Projekt deaktiviert.", zh: "此项目已禁用外部工具访问。" })}</PageBanner>
+      {state && !canManageAccessKeys && !canCreateExternalAccess && (
+        <PageBanner tone="warning">{t({ en: "Creating new tool access is disabled for this project.", fr: "La création de nouveaux accès outil est désactivée pour ce projet.", de: "Das Erstellen neuer Werkzeugzugriffe ist für dieses Projekt deaktiviert.", zh: "此项目已禁用创建新的工具访问凭据。" })}</PageBanner>
       )}
       {createdKey?.secret_access_key && (
         <div className="space-y-3">
@@ -408,11 +414,12 @@ function PortalAccessKeysContent() {
       {connectionDialogOpen && state && hasAccountContext && <PortalToolConnectionDialog
         accountId={accountIdForApi} activeKeys={activeKeys} endpoint={state.s3_endpoint} forcePathStyle={state.force_path_style}
         selection={connectionSelection} onSelectionChange={setConnectionSelection} requestedSpaceId={requestedSpaceId}
-        onClose={closeConnectionDialog} onCreate={canManageAccessKeys ? openCreateWorkflow : undefined} />}
+        onClose={closeConnectionDialog} onCreate={canCreateAnyAccess ? openCreateWorkflow : undefined} />}
 
       {createOptions && <PortalToolAccessCreateWorkflow accountId={accountIdForApi} options={createOptions}
+        personalAccessEnabled={canManageAccessKeys} externalAccessEnabled={canCreateExternalAccess}
         personalAccessLimitReached={personalAccessLimitReached} maxAccessKeys={maxAccessKeys}
-        busy={busy === "create"} error={error} disabled={!canManageAccessKeys || accountLoading}
+        busy={busy === "create"} error={error} disabled={accountLoading}
         onCreate={handleCreateKey} onClose={() => setCreateOptions(null)} />}
 
       {pendingAction?.type === "disable" ? (

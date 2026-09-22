@@ -38,6 +38,7 @@ const project: PortalProjectSettings = {
     allow_private_storage_space_create: true,
     allow_portal_named_bucket_create: false,
     allow_portal_user_access_key_create: true,
+    allow_portal_user_external_sharing: false,
     server_access_logging_enabled: true,
     server_access_log_retention_days: 30,
     storage_space_version_cleanup_enabled: true,
@@ -140,6 +141,21 @@ describe("Portal project settings", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(mocks.save).toHaveBeenLastCalledWith("101", {}));
+  });
+
+  it("lets a delegated manager opt Portal users into external sharing", async () => {
+    render(<PortalSettingsPage />);
+
+    const control = await screen.findByLabelText("External sharing by Portal users");
+    expect(control).toHaveValue("inherit");
+    fireEvent.change(control, { target: { value: "enabled" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(mocks.save).toHaveBeenCalledWith("101", {
+        allow_portal_user_external_sharing: true,
+      }),
+    );
   });
   it("cancels drafts and validates an empty customized number without clamping it", async () => {
     render(<PortalSettingsPage />);

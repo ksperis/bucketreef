@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => ({
     iam_user: { iam_username: "portal-101-7" },
     s3_endpoint: "https://s3.example.test",
     can_manage_access_keys: true,
+    can_create_external_access: true,
     max_access_keys: 2,
     access_keys: [
       { access_key_id: "AK-PORTAL", status: "Active", is_active: true, is_portal: true },
@@ -113,6 +114,7 @@ describe("PortalAccessKeysPage", () => {
       iam_user: { iam_username: "portal-101-7" },
       s3_endpoint: "https://s3.example.test",
       can_manage_access_keys: true,
+      can_create_external_access: true,
       max_access_keys: 2,
       access_keys: [
         { access_key_id: "AK-PORTAL", status: "Active", is_active: true, is_portal: true },
@@ -267,7 +269,12 @@ describe("PortalAccessKeysPage", () => {
   });
 
   it("does not offer access creation from the configurator in read-only mode", async () => {
-    mocks.state = { ...mocks.state, access_keys: [], can_manage_access_keys: false };
+    mocks.state = {
+      ...mocks.state,
+      access_keys: [],
+      can_manage_access_keys: false,
+      can_create_external_access: false,
+    };
     renderPage();
     const setupDialog = await openSetupDialog(userEvent.setup());
 
@@ -695,7 +702,11 @@ describe("PortalAccessKeysPage", () => {
   });
 
   it("disables mutations when access-key management is disabled", async () => {
-    mocks.state = { ...mocks.state, can_manage_access_keys: false };
+    mocks.state = {
+      ...mocks.state,
+      can_manage_access_keys: false,
+      can_create_external_access: false,
+    };
     const user = userEvent.setup();
     renderPage();
 
@@ -703,8 +714,45 @@ describe("PortalAccessKeysPage", () => {
     expect(screen.getByRole("button", { name: "New tool access" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Disable" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
-    expect(screen.getByText("External-tool access is disabled for this project.")).toBeInTheDocument();
+    expect(screen.getByText("Creating new tool access is disabled for this project.")).toBeInTheDocument();
     const setupDialog = await openSetupDialog(user);
     expect(within(setupDialog).getByRole("combobox", { name: "Access used" })).toHaveValue("AK-USER");
+  });
+
+  it("keeps existing external access revocable when new sharing is disabled", async () => {
+    mocks.state = {
+      ...mocks.state,
+      can_manage_access_keys: false,
+      can_create_external_access: false,
+      access_keys: [
+        {
+          access_key_id: "AK-EXT-EXISTING",
+          status: "Active",
+          is_active: true,
+          target_type: "external",
+          external_email: "partner@example.org",
+          storage_space_name: "Research Data",
+          bucket_name: "research-data-internal",
+          permission: "read_only",
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("AK-EXT-EXISTING");
+    expect(screen.getByRole("button", { name: "New tool access" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Disable" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "Delete tool access" })).getByRole("button", {
+        name: "Delete access",
+      }),
+    );
+    await waitFor(() =>
+      expect(mocks.deletePortalAccessKey).toHaveBeenCalledWith("101", "AK-EXT-EXISTING"),
+    );
   });
 });

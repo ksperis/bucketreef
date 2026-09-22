@@ -12,7 +12,8 @@ workflow.
 - The External tools page is enabled for the selected project.
 - You know which space the tool needs to reach.
 - You know whether the tool is for you or for an external user.
-- For an external user, you own the target space.
+- For an external user, you own the target space. If you are a Portal User,
+  **External sharing by Portal users** must also be enabled for the project.
 - You are ready to copy the secret when it is shown.
 
 ## Steps
@@ -54,6 +55,10 @@ workflow.
 - The configured key limit applies to each IAM user. When your personal IAM
   user reaches it, **For myself** is unavailable, but an external access can
   still be created because it receives a separate IAM user.
+- Personal tool access is controlled by the project's personal access-key
+  setting. External access for a Portal User is controlled separately by
+  **External sharing by Portal users** and is limited to spaces that user owns.
+  Portal Managers keep their existing external-access behavior.
 - Personal tool access follows your current Portal space grants.
 - Every tool identity must remain assigned to one person. Multiple personal
   keys are allowed during rotation, but never share a key between people.
@@ -62,6 +67,9 @@ workflow.
   the same one-person attribution contract.
 - External tool access is limited to one space and to the selected
   permission level.
+- Disabling external sharing prevents new external credentials from being
+  created by Portal Users. Existing external credentials can still be disabled
+  or deleted.
 - Tool access does not grant access outside the underlying storage policies.
 - The bucket name is shown only because some S3-compatible tools ask for it.
   Use the space name everywhere else in Portal.
@@ -86,7 +94,10 @@ intended space with the selected permission level.
 ## If tool access creation is unavailable
 
 Ask an admin whether External tools is enabled. If only **For myself** is
-unavailable, delete an unused personal S3 access key before creating another.
+unavailable, the project may disable personal access-key creation or your
+personal IAM user may have reached its key limit. If **For an external user**
+is unavailable, ask an admin or delegated Portal Manager whether **External
+sharing by Portal users** is enabled for the project.
 
 ## Related pages
 

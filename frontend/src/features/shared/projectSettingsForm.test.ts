@@ -42,4 +42,18 @@ describe("project override merge", () => {
       ),
     ).toThrow("project_settings_conflict");
   });
+
+  it("merges the Portal-user external sharing override independently", () => {
+    const baseline = { ...emptyForm, externalSharing: "inherit" as const };
+    expect(
+      mergeProjectOverrides(
+        baseline,
+        { ...baseline, externalSharing: "enabled" },
+        { allow_portal_user_access_key_create: false },
+      ),
+    ).toEqual({
+      allow_portal_user_access_key_create: false,
+      allow_portal_user_external_sharing: true,
+    });
+  });
 });

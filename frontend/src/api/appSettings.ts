@@ -9,6 +9,7 @@ export type PortalSettings = {
   allow_private_storage_space_create: boolean;
   allow_portal_named_bucket_create: boolean;
   allow_portal_user_access_key_create: boolean;
+  allow_portal_user_external_sharing: boolean;
   server_access_logging_enabled: boolean;
   server_access_log_retention_days: number;
   storage_space_version_cleanup_enabled: boolean;
@@ -37,6 +38,7 @@ export type PortalSettingsOverride = {
   allow_private_storage_space_create?: boolean | null;
   allow_portal_named_bucket_create?: boolean | null;
   allow_portal_user_access_key_create?: boolean | null;
+  allow_portal_user_external_sharing?: boolean | null;
   server_access_logging_enabled?: boolean | null;
   storage_space_version_cleanup_enabled?: boolean | null;
   bucket_defaults?: PortalBucketDefaultsOverride | null;

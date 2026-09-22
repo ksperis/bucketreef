@@ -21,9 +21,9 @@ import { historyDraft, mergeSpaceHistory, type SpaceHistoryDraft } from "./stora
 
 const emptyHistory: SpaceHistoryDraft = { versioning_enabled: false, lifecycle_enabled: false, version_history_retention_days: "" };
 
-export default function PortalStorageSpaceSettings({ accountId, space, canConfigureIcon, historyCleanupEnabled,
+export default function PortalStorageSpaceSettings({ accountId, space, canConfigureIcon, canCreateExternalAccess, historyCleanupEnabled,
   onDirtyChange, onRefresh, managementActions }: {
-  accountId: S3AccountSelector; space: PortalWorkspaceSpace; canConfigureIcon: boolean; historyCleanupEnabled: boolean;
+  accountId: S3AccountSelector; space: PortalWorkspaceSpace; canConfigureIcon: boolean; canCreateExternalAccess: boolean; historyCleanupEnabled: boolean;
   onDirtyChange: (dirty: boolean) => void; onRefresh: () => void;
   managementActions: (historyDirty: boolean) => ReactNode;
 }) {
@@ -177,9 +177,18 @@ export default function PortalStorageSpaceSettings({ accountId, space, canConfig
     {detailsOpen && <SettingsDialog title={t({ en: "Connection details", fr: "Détails de connexion", de: "Verbindungsdetails", zh: "连接信息" })} onClose={() => setDetailsOpen(false)} closeLabel={labels.close} closeAriaLabel={labels.close}>
       <p className="settings-body">{t({ en: "Use this name only when an external application asks for a storage or bucket name.", fr: "Utilisez ce nom uniquement lorsqu’une application externe demande un nom de stockage ou de bucket.", de: "Verwenden Sie diesen Namen nur, wenn eine externe Anwendung nach einem Speicher- oder Bucket-Namen fragt.", zh: "仅在外部应用要求输入存储或存储桶名称时使用此名称。" })}</p>
       <p className="my-4 break-all font-mono settings-body">{space.internalName ?? space.id}</p>
-      <Link className="settings-control settings-button inline-flex items-center rounded border border-[var(--ui-border)] px-3 text-primary" to={`/portal/access-keys?space_id=${encodeURIComponent(space.internalName ?? space.id)}&create=external`}>
-        {t({ en: "Configure access", fr: "Configurer l’accès", de: "Zugriff konfigurieren", zh: "配置访问权限" })}
-      </Link>
+      {canCreateExternalAccess ? (
+        <Link className="settings-control settings-button inline-flex items-center rounded border border-[var(--ui-border)] px-3 text-primary" to={`/portal/access-keys?space_id=${encodeURIComponent(space.internalName ?? space.id)}&create=external`}>
+          {t({ en: "Configure access", fr: "Configurer l’accès", de: "Zugriff konfigurieren", zh: "配置访问权限" })}
+        </Link>
+      ) : (
+        <span className="settings-readonly">{t({
+          en: "External sharing is disabled for your role in this project.",
+          fr: "Le partage externe est désactivé pour votre rôle dans ce projet.",
+          de: "Externe Freigabe ist für Ihre Rolle in diesem Projekt deaktiviert.",
+          zh: "此项目已对你的角色禁用外部共享。",
+        })}</span>
+      )}
     </SettingsDialog>}
   </div>;
 }
