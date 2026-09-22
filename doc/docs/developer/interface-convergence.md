@@ -789,6 +789,48 @@ must cover all tabs, mobile/desktop, both themes, keyboard submission and close
 confirmation. Isolated Moto proves authenticated UI/API flows; fixture Ceph
 responses do not prove live RGW access or capabilities.
 
+## Admin authentication provider editors
+
+OIDC and LDAP creation, editing and consultation use `SettingsWorkflowForm`
+with compact `SettingsSection` rows, canonical fields and one sticky action
+area. Identity and Connection are shared section patterns; OIDC then groups
+sign-in options, protocol security and identity linking, while LDAP separates
+user search, identity mapping and transport security. The providers keep their
+own API adapters and payloads.
+
+`AuthProviderIdentityFields`, `AuthProviderSecretField` and `AuthProviderToggle`
+centralize labels, switches, stored-secret output and accessible lock-source
+help. Preserve API field names for environment locks, including scopes and
+domain text adapters. A locked secret has no password input or clearing action;
+an editable replacement is empty and explains whether a secret is stored.
+OIDC clearing remains an explicit checkbox acknowledgement. LDAP anonymous
+search, stored-password preservation/removal, TLS compatibility options and
+mapping fields retain their existing semantics. Timeout validation matches
+the backend's greater-than-zero and 60-second maximum bounds.
+
+Each provider ID/type owns a separate draft. Failed or missing reads expose
+Retry without editable fallback values. Submission errors and cancelled
+passkey verification keep the draft; pending writes and verification lock
+fields, repeated submissions, close controls and navigation. Discarding
+preserves the requested router/history destination. Successful saves clear
+the secret-bearing draft and unmount the guard before returning to the list.
+Provider saves do not update global authentication policy.
+
+Regression coverage in `AuthenticationSettingsPage.test.tsx` includes field
+locks, hidden/stored secrets, independent payloads, native Enter submission,
+failed-read retry, draft retention, router/history guards, timeout focus and
+explicit WebAuthn verification with one retry. `SettingsWorkflowForm.test.tsx`
+also checks consultation without submission or an unnecessary discard prompt.
+
+Browser validation covers 28 create/edit/view cases in both themes at desktop
+and mobile widths, including 1024px creation, with top/end captures and sticky
+footer checks during scrolling. Edit/view visual cases use API fixtures,
+including long environment-lock sources. A separate authenticated isolated
+backend flow creates each provider (201), edits it (200), reloads persisted
+values and verifies secret preservation plus draft navigation. These checks
+do not establish login against an external LDAP directory or OIDC provider.
+Temporary screenshots, scripts and authentication state remain outside commits.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.

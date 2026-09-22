@@ -1,413 +1,73 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import {
-  settingsHelperClassName,
-  settingsInputClassName,
-  settingsLabelClassName,
-  SettingsSwitch,
-  settingsCheckboxClassName,
-} from "../../../components/settings/SettingsLayout";
 import type { OidcProviderAdminItem } from "../../../api/authSettings";
+import { SettingsSection } from "../../../components/settings/SettingsLayout";
+import UiCheckboxField from "../../../components/ui/UiCheckboxField";
+import UiInput from "../../../components/ui/UiInput";
+import UiSelect from "../../../components/ui/UiSelect";
+import UiTextarea from "../../../components/ui/UiTextarea";
+import { AuthProviderIdentityFields, AuthProviderSecretField, AuthProviderToggle, authProviderFieldState } from "./AuthProviderFields";
 import type { OidcProviderFormState } from "./authProviderForms";
-export default function OidcProviderFields({
-  form: oidcForm,
-  update: updateOidcFormField,
-  provider: selectedOidcProvider,
-  readOnly: oidcFormReadOnly,
-  errors,
-}: {
+
+export default function OidcProviderFields({ form, update, provider, readOnly, errors }: {
   form: OidcProviderFormState;
-  update: <K extends keyof OidcProviderFormState>(
-    key: K,
-    value: OidcProviderFormState[K],
-  ) => void;
+  update: <K extends keyof OidcProviderFormState>(key: K, value: OidcProviderFormState[K]) => void;
   provider: OidcProviderAdminItem | null;
   readOnly: boolean;
   errors: Partial<Record<keyof OidcProviderFormState, string>>;
 }) {
-  const isOidcFieldLocked = (field: string) =>
-    oidcFormReadOnly ||
-    (field === "provider_id" && Boolean(selectedOidcProvider)) ||
-    Boolean(selectedOidcProvider?.field_locks?.[field]?.forced);
-  const oidcLockHint = (field: string) =>
-    selectedOidcProvider?.field_locks?.[field]?.forced ? (
-      <p className={settingsHelperClassName}>
-        Forced by{" "}
-        {selectedOidcProvider.field_locks[field].source ?? "environment"}.
-      </p>
-    ) : null;
-  return (
-    <div className="settings-fields">
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <label className="block">
-          <span className={settingsLabelClassName}>Provider ID</span>
-          <input
-            aria-label="Provider ID"
-            className={settingsInputClassName}
-            value={oidcForm.provider_id}
-            onChange={(event) =>
-              updateOidcFormField("provider_id", event.target.value)
-            }
-            disabled={isOidcFieldLocked("provider_id")}
-            required
-            aria-invalid={Boolean(errors.provider_id)}
-            aria-describedby={
-              errors.provider_id ? "oidc-provider_id-error" : undefined
-            }
-          />
-          {errors.provider_id && (
-            <p
-              id="oidc-provider_id-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.provider_id}
-            </p>
-          )}
-          {oidcLockHint("provider_id")}
-        </label>
-        <label className="block">
-          <span className={settingsLabelClassName}>Display name</span>
-          <input
-            aria-label="Display name"
-            className={settingsInputClassName}
-            value={oidcForm.display_name}
-            onChange={(event) =>
-              updateOidcFormField("display_name", event.target.value)
-            }
-            disabled={isOidcFieldLocked("display_name")}
-            required
-            aria-invalid={Boolean(errors.display_name)}
-            aria-describedby={
-              errors.display_name ? "oidc-display_name-error" : undefined
-            }
-          />
-          {errors.display_name && (
-            <p
-              id="oidc-display_name-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.display_name}
-            </p>
-          )}
-          {oidcLockHint("display_name")}
-        </label>
-        <label className="block">
-          <span className={settingsLabelClassName}>Discovery URL</span>
-          <input
-            aria-label="Discovery URL"
-            className={settingsInputClassName}
-            value={oidcForm.discovery_url}
-            onChange={(event) =>
-              updateOidcFormField("discovery_url", event.target.value)
-            }
-            disabled={isOidcFieldLocked("discovery_url")}
-            required
-            aria-invalid={Boolean(errors.discovery_url)}
-            aria-describedby={
-              errors.discovery_url ? "oidc-discovery_url-error" : undefined
-            }
-          />
-          {errors.discovery_url && (
-            <p
-              id="oidc-discovery_url-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.discovery_url}
-            </p>
-          )}
-          {oidcLockHint("discovery_url")}
-        </label>
-        <label className="block">
-          <span className={settingsLabelClassName}>Client ID</span>
-          <input
-            aria-label="Client ID"
-            className={settingsInputClassName}
-            value={oidcForm.client_id}
-            onChange={(event) =>
-              updateOidcFormField("client_id", event.target.value)
-            }
-            disabled={isOidcFieldLocked("client_id")}
-            required
-            aria-invalid={Boolean(errors.client_id)}
-            aria-describedby={
-              errors.client_id ? "oidc-client_id-error" : undefined
-            }
-          />
-          {errors.client_id && (
-            <p
-              id="oidc-client_id-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.client_id}
-            </p>
-          )}
-          {oidcLockHint("client_id")}
-        </label>
-        <label className="block md:col-span-2">
-          <span className={settingsLabelClassName}>Redirect URI</span>
-          <input
-            aria-label="Redirect URI"
-            className={settingsInputClassName}
-            value={oidcForm.redirect_uri}
-            onChange={(event) =>
-              updateOidcFormField("redirect_uri", event.target.value)
-            }
-            disabled={isOidcFieldLocked("redirect_uri")}
-            required
-            aria-invalid={Boolean(errors.redirect_uri)}
-            aria-describedby={
-              errors.redirect_uri ? "oidc-redirect_uri-error" : undefined
-            }
-          />
-          {errors.redirect_uri && (
-            <p
-              id="oidc-redirect_uri-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.redirect_uri}
-            </p>
-          )}
-          {oidcLockHint("redirect_uri")}
-        </label>
-        <label className="block">
-          <span className={settingsLabelClassName}>Scopes</span>
-          <textarea
-            aria-label="Scopes"
-            className={settingsInputClassName}
-            value={oidcForm.scopesText}
-            onChange={(event) =>
-              updateOidcFormField("scopesText", event.target.value)
-            }
-            disabled={isOidcFieldLocked("scopes")}
-            rows={4}
-            aria-invalid={Boolean(errors.scopesText)}
-            aria-describedby={
-              errors.scopesText ? "oidc-scopesText-error" : undefined
-            }
-          />
-          {errors.scopesText && (
-            <p
-              id="oidc-scopesText-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.scopesText}
-            </p>
-          )}
-          {oidcLockHint("scopes")}
-        </label>
-        <div className="space-y-4">
-          <label className="block">
-            <span className={settingsLabelClassName}>Prompt</span>
-            <input
-              aria-label="Prompt"
-              className={settingsInputClassName}
-              value={oidcForm.prompt}
-              onChange={(event) =>
-                updateOidcFormField("prompt", event.target.value)
-              }
-              disabled={isOidcFieldLocked("prompt")}
-              aria-invalid={Boolean(errors.prompt)}
-              aria-describedby={errors.prompt ? "oidc-prompt-error" : undefined}
-            />
-            {errors.prompt && (
-              <p
-                id="oidc-prompt-error"
-                role="alert"
-                className="text-xs text-rose-700 dark:text-rose-300"
-              >
-                {errors.prompt}
-              </p>
-            )}
-            {oidcLockHint("prompt")}
-          </label>
-          <label className="block">
-            <span className={settingsLabelClassName}>Icon URL</span>
-            <input
-              aria-label="Icon URL"
-              className={settingsInputClassName}
-              value={oidcForm.icon_url}
-              onChange={(event) =>
-                updateOidcFormField("icon_url", event.target.value)
-              }
-              disabled={isOidcFieldLocked("icon_url")}
-              aria-invalid={Boolean(errors.icon_url)}
-              aria-describedby={
-                errors.icon_url ? "oidc-icon_url-error" : undefined
-              }
-            />
-            {errors.icon_url && (
-              <p
-                id="oidc-icon_url-error"
-                role="alert"
-                className="text-xs text-rose-700 dark:text-rose-300"
-              >
-                {errors.icon_url}
-              </p>
-            )}
-            {oidcLockHint("icon_url")}
-          </label>
-        </div>
-        <label className="block">
-          <span className={settingsLabelClassName}>
-            Identity linking policy
-          </span>
-          <select
-            aria-label="Identity linking policy"
-            className={settingsInputClassName}
-            value={oidcForm.linking_policy}
-            onChange={(event) =>
-              updateOidcFormField(
-                "linking_policy",
-                event.target.value as "manual" | "trusted_email",
-              )
-            }
-            disabled={isOidcFieldLocked("linking_policy")}
-          >
-            <option value="manual">Manual approval</option>
-            <option value="trusted_email">Trusted verified email</option>
-          </select>
-          <p className={settingsHelperClassName}>
-            Trusted email linking applies only to active standard local-password
-            accounts without any prior external identity.
-          </p>
-          {oidcLockHint("linking_policy")}
-        </label>
-        <label className="block">
-          <span className={settingsLabelClassName}>Trusted email domains</span>
-          <textarea
-            aria-label="Trusted email domains"
-            className={settingsInputClassName}
-            value={oidcForm.trustedEmailDomainsText}
-            onChange={(event) =>
-              updateOidcFormField("trustedEmailDomainsText", event.target.value)
-            }
-            disabled={
-              isOidcFieldLocked("trusted_email_domains") ||
-              oidcForm.linking_policy !== "trusted_email"
-            }
-            rows={3}
-            placeholder="example.com"
-            aria-invalid={Boolean(errors.trustedEmailDomainsText)}
-            aria-describedby={
-              errors.trustedEmailDomainsText
-                ? "oidc-trustedEmailDomainsText-error"
-                : undefined
-            }
-          />
-          {errors.trustedEmailDomainsText && (
-            <p
-              id="oidc-trustedEmailDomainsText-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.trustedEmailDomainsText}
-            </p>
-          )}
-          <p className={settingsHelperClassName}>
-            Enter exact domains, one per line. Subdomains are not matched
-            implicitly.
-          </p>
-          {oidcLockHint("trusted_email_domains")}
-        </label>
-        <label className="block md:col-span-2">
-          <span className={settingsLabelClassName}>Client secret</span>
-          <input
-            aria-label="Client secret"
-            className={settingsInputClassName}
-            type="password"
-            value={oidcForm.client_secret}
-            onChange={(event) =>
-              updateOidcFormField("client_secret", event.target.value)
-            }
-            disabled={
-              isOidcFieldLocked("client_secret") || oidcForm.clear_client_secret
-            }
-            placeholder={
-              selectedOidcProvider?.has_client_secret
-                ? "Stored secret is not displayed"
-                : ""
-            }
-            aria-invalid={Boolean(errors.client_secret)}
-            aria-describedby={
-              errors.client_secret ? "oidc-client_secret-error" : undefined
-            }
-          />
-          {errors.client_secret && (
-            <p
-              id="oidc-client_secret-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.client_secret}
-            </p>
-          )}
-          {oidcLockHint("client_secret")}
-        </label>
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <div className="flex items-center justify-between gap-3">
-          <span>Enabled</span>
-          <SettingsSwitch
-            ariaLabel="Enabled"
-            checked={oidcForm.enabled}
-            onChange={(value) => updateOidcFormField("enabled", value)}
-            disabled={isOidcFieldLocked("enabled")}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <span>Use PKCE</span>
-          <SettingsSwitch
-            ariaLabel="Use PKCE"
-            checked={oidcForm.use_pkce}
-            onChange={(value) => updateOidcFormField("use_pkce", value)}
-            disabled={isOidcFieldLocked("use_pkce")}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <span>Use nonce</span>
-          <SettingsSwitch
-            ariaLabel="Use nonce"
-            checked={oidcForm.use_nonce}
-            onChange={(value) => updateOidcFormField("use_nonce", value)}
-            disabled={isOidcFieldLocked("use_nonce")}
-          />
-        </div>
-        <label className="settings-choice ui-body text-[var(--ui-text)]">
-          <input
-            type="checkbox"
-            checked={oidcForm.clear_client_secret}
-            onChange={(event) =>
-              updateOidcFormField("clear_client_secret", event.target.checked)
-            }
-            disabled={
-              oidcFormReadOnly || !selectedOidcProvider?.has_client_secret
-            }
-            className={settingsCheckboxClassName}
-            aria-invalid={Boolean(errors.clear_client_secret)}
-            aria-describedby={
-              errors.clear_client_secret
-                ? "oidc-clear_client_secret-error"
-                : undefined
-            }
-          />
-          {errors.clear_client_secret && (
-            <p
-              id="oidc-clear_client_secret-error"
-              role="alert"
-              className="text-xs text-rose-700 dark:text-rose-300"
-            >
-              {errors.clear_client_secret}
-            </p>
-          )}
+  const state = authProviderFieldState(provider, readOnly);
+  return <div className="settings-stack">
+    <AuthProviderIdentityFields form={form} errors={errors} state={state}
+      onIdChange={value => update("provider_id", value)} onNameChange={value => update("display_name", value)}
+      onEnabledChange={value => update("enabled", value)} />
+    <SettingsSection title="Connection" description="Configure the identity provider and the application's registered OIDC client." presentation="compact">
+      <div className="settings-fields">
+        <UiInput label="Discovery URL" value={form.discovery_url} required disabled={state.locked("discovery_url")}
+          hint={state.hint("discovery_url")} error={errors.discovery_url} onChange={event => update("discovery_url", event.target.value)} />
+        <UiInput label="Client ID" value={form.client_id} required disabled={state.locked("client_id")}
+          hint={state.hint("client_id")} error={errors.client_id} onChange={event => update("client_id", event.target.value)} />
+        <UiInput label="Redirect URI" value={form.redirect_uri} required disabled={state.locked("redirect_uri")}
+          hint={state.hint("redirect_uri")} error={errors.redirect_uri} onChange={event => update("redirect_uri", event.target.value)} />
+        <AuthProviderSecretField label="Client secret" value={form.client_secret} stored={Boolean(provider?.has_client_secret)}
+          locked={state.locked("client_secret")} disabled={form.clear_client_secret} clearing={form.clear_client_secret}
+          hint={state.hint("client_secret")}
+          error={errors.client_secret} onChange={value => update("client_secret", value)} />
+        {provider?.has_client_secret && !state.locked("client_secret") && <UiCheckboxField className="settings-choice"
+          checked={form.clear_client_secret} onChange={event => update("clear_client_secret", event.target.checked)}>
           Clear stored client secret
-        </label>
+        </UiCheckboxField>}
       </div>
-    </div>
-  );
+    </SettingsSection>
+    <SettingsSection title="Sign-in options" description="Control the requested claims and login presentation." presentation="compact">
+      <div className="settings-fields">
+        <UiTextarea label="Scopes" value={form.scopesText} rows={3} disabled={state.locked("scopes")}
+          hint={state.hint("scopes", "Separate scopes with new lines or commas.")} error={errors.scopesText}
+          onChange={event => update("scopesText", event.target.value)} />
+        <div className="settings-fields sm:grid-cols-2">
+          <UiInput label="Prompt" value={form.prompt} disabled={state.locked("prompt")}
+            hint={state.hint("prompt")} error={errors.prompt} onChange={event => update("prompt", event.target.value)} />
+          <UiInput label="Icon URL" value={form.icon_url} disabled={state.locked("icon_url")}
+            hint={state.hint("icon_url")} error={errors.icon_url} onChange={event => update("icon_url", event.target.value)} />
+        </div>
+      </div>
+    </SettingsSection>
+    <SettingsSection title="Protocol security" description="Configure the OIDC request protections." presentation="compact">
+      <AuthProviderToggle label="Use PKCE" field="use_pkce" checked={form.use_pkce} state={state} onChange={value => update("use_pkce", value)} />
+      <AuthProviderToggle label="Use nonce" field="use_nonce" checked={form.use_nonce} state={state} onChange={value => update("use_nonce", value)} />
+    </SettingsSection>
+    <SettingsSection title="Identity linking" description="Choose how new external identities may link to existing local accounts." presentation="compact">
+      <div className="settings-fields">
+        <UiSelect label="Identity linking policy" value={form.linking_policy} disabled={state.locked("linking_policy")}
+          hint={state.hint("linking_policy", "Trusted email linking applies only to active standard local-password accounts without any prior external identity.")}
+          error={errors.linking_policy} onChange={event => update("linking_policy", event.target.value as "manual" | "trusted_email")}>
+          <option value="manual">Manual approval</option>
+          <option value="trusted_email">Trusted verified email</option>
+        </UiSelect>
+        <UiTextarea label="Trusted email domains" value={form.trustedEmailDomainsText} rows={3}
+          disabled={state.locked("trusted_email_domains") || form.linking_policy !== "trusted_email"}
+          hint={state.hint("trusted_email_domains", "Enter exact domains, one per line. Subdomains are not matched implicitly.")}
+          error={errors.trustedEmailDomainsText} onChange={event => update("trustedEmailDomainsText", event.target.value)} />
+      </div>
+    </SettingsSection>
+  </div>;
 }

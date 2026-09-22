@@ -55,3 +55,26 @@ it("submits by Enter, freezes the draft and guards breadcrumbs until the operati
   expect(close).toHaveBeenCalledWith("navigation");
   router.dispose();
 });
+
+it("keeps consultation non-submittable and closes without a draft confirmation", async () => {
+  const user = userEvent.setup();
+  const save = vi.fn();
+  const close = vi.fn();
+  const router = createMemoryRouter([{
+    path: "/view",
+    element: <SettingsWorkflowForm title="View provider" dirty readOnly width="wide"
+      submitLabel="Save provider" onSubmit={save} onClose={close}>
+      <output aria-label="Stored credential">Stored — value hidden</output>
+    </SettingsWorkflowForm>,
+  }], { initialEntries: ["/view"] });
+  render(<RouterProvider router={router} />);
+
+  fireEvent.submit(screen.getByRole("form", { name: "View provider" }));
+  expect(save).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Save provider" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Close", exact: true }));
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  router.dispose();
+});

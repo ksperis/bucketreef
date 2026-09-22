@@ -81,6 +81,21 @@ baselines, including retry after a partial save. See
 [Admin storage endpoint editor](interface-convergence.md#admin-storage-endpoint-editor)
 for composition, access boundaries and validation.
 
+## Admin authentication provider editors
+
+OIDC and LDAP creation, editing and consultation now share compact sections,
+canonical fields and the `SettingsWorkflowForm` action/navigation contract.
+Identity, secret and switch presentation are factored into common provider
+components, including field-lock help and stored-secret status. The unused
+legacy input, label, helper and checkbox exports have been removed from
+`SettingsLayout`.
+
+Failed loads require Retry before editing; failed or cancelled writes retain
+the draft. Pending saves and passkey verification freeze fields, repeated
+submissions and navigation. Provider payloads and global policy saves remain
+independent. See [Admin authentication provider editors](interface-convergence.md#admin-authentication-provider-editors)
+for the validation scope and remaining external-login boundary.
+
 ## Deferred scope
 
 Other account tabs, bucket and workspace forms keep their existing default

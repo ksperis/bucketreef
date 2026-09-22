@@ -233,11 +233,23 @@ The branding preview is local until a successful save updates the interface.
 Manager migration limits and Portal CORS origins use the same dialog pattern.
 
 Authentication lists external providers separately from the global login and
-security policy. **Add**, **Edit** and **View** open dedicated OIDC/LDAP pages,
-with a return to Authentication. Provider saves are independent of policy
-saves. Environment-managed values stay locked. Existing secrets are not shown;
-leave them blank to keep the stored secret, following the field's explicit
-removal controls. Sensitive updates retain passkey verification.
+security policy. **Add**, **Edit** and **View** open dedicated OIDC/LDAP pages
+with compact Identity and Connection sections. OIDC adds sign-in options,
+protocol security and identity linking; LDAP adds user search, identity mapping
+and transport security. **Save provider / Cancel** stays reachable at the
+bottom of the page. Provider saves are independent of policy saves.
+
+Environment-managed values stay locked and explain their source; consultation
+shows **Close** instead of Save. Existing secrets are never displayed. Leave a
+replacement empty to preserve the stored secret. OIDC offers an explicit
+**Clear stored client secret** acknowledgement. Removing the LDAP Bind DN and
+leaving the password empty switches to anonymous search and removes the stored
+bind password when saved.
+
+Leaving with unsaved changes asks whether to keep editing or discard them.
+Failed saves keep the draft for retry, and a failed provider load offers
+**Retry** before editing becomes available. Saving, including any requested
+passkey verification, temporarily locks the form and navigation.
 
 These administration pages remain in English. The user Portal project settings
 and shared profile support English, French, German and Simplified Chinese.

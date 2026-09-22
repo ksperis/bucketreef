@@ -1,9 +1,10 @@
 import { transferableAbortController } from "node:util";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import AuthProviderPage from "./settings/AuthProviderPage";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setSessionUserCache } from "../../utils/workspaces";
 import type { AppSettings } from "../../api/appSettings";
 import type {
   LdapProviderAdminItem,
@@ -264,14 +265,15 @@ function firstButton(name: string): HTMLElement {
   return button;
 }
 
-function renderPage() {
+function renderPage(initialEntries = ["/admin/authentication-settings"]) {
   const router = createMemoryRouter([
+    { path: "/admin", element: <h1>Admin destination</h1> },
     { path: "/admin/authentication-settings", element: <AuthenticationSettingsPage /> },
     ...(["oidc", "ldap"] as const).flatMap(kind => [
       { path: `/admin/authentication-settings/${kind}/new`, element: <AuthProviderPage kind={kind} /> },
       { path: `/admin/authentication-settings/${kind}/providers/:providerId`, element: <AuthProviderPage kind={kind} /> },
     ]),
-  ], { initialEntries: ["/admin/authentication-settings"] });
+  ], { initialEntries, initialIndex: initialEntries.length - 1 });
   render(<RouterProvider router={router} />);
   return router;
 }
@@ -279,6 +281,7 @@ function renderPage() {
 describe("AuthenticationSettingsPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    setSessionUserCache(null);
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     fetchAppSettingsMock.mockResolvedValue(buildSettings());
     fetchDefaultAppSettingsMock.mockResolvedValue(buildSettings());
@@ -319,6 +322,8 @@ describe("AuthenticationSettingsPage", () => {
     authenticatePasskeyMock.mockResolvedValue({ id: "credential" });
     finishRecentWebAuthnVerificationMock.mockResolvedValue({ mfa_verified_at: "2026-09-02T10:00:00Z" });
   });
+
+  afterEach(() => { vi.unstubAllGlobals(); setSessionUserCache(null); });
 
   it("renders the authentication toggles", async () => {
     renderPage();
@@ -456,7 +461,8 @@ describe("AuthenticationSettingsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "View OIDC provider" })).toBeInTheDocument();
     expect(screen.getByLabelText("Display name")).toBeDisabled();
-    expect(screen.getByLabelText("Client secret")).toBeDisabled();
+    expect(screen.getByLabelText("Client secret")).toHaveTextContent("Stored — value hidden");
+    expect(document.querySelector('input[type="password"]')).toBeNull();
     expect(screen.getByText("Forced by OIDC_PROVIDERS__GOOGLE__DISPLAY_NAME.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save OIDC provider" })).not.toBeInTheDocument();
   });
@@ -510,7 +516,8 @@ describe("AuthenticationSettingsPage", () => {
     const displayName = await screen.findByLabelText("Display name");
     await user.clear(displayName);
     await user.type(displayName, "Updated Provider");
-    expect(screen.getByLabelText("Client secret")).toHaveAttribute("placeholder", "Stored secret is not displayed");
+    expect(screen.getByLabelText("Client secret")).toHaveAccessibleDescription("A secret is stored. Leave this field empty to keep it.");
+    expect(screen.getByLabelText("Client secret")).not.toHaveAttribute("placeholder");
     await user.click(screen.getByRole("button", { name: "Save OIDC provider" }));
 
     await waitFor(() => {
@@ -574,7 +581,8 @@ describe("AuthenticationSettingsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "View LDAP provider" })).toBeInTheDocument();
     expect(screen.getByLabelText("LDAP Display name")).toBeDisabled();
-    expect(screen.getByLabelText("LDAP Bind password")).toBeDisabled();
+    expect(screen.getByLabelText("LDAP Bind password")).toHaveTextContent("Stored — value hidden");
+    expect(document.querySelector('input[type="password"]')).toBeNull();
     expect(screen.getByText("Forced by LDAP_PROVIDERS__CORP__URL.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save LDAP provider" })).not.toBeInTheDocument();
   });
@@ -655,10 +663,8 @@ describe("AuthenticationSettingsPage", () => {
     const displayName = await screen.findByLabelText("LDAP Display name");
     await user.clear(displayName);
     await user.type(displayName, "Updated LDAP");
-    expect(screen.getByLabelText("LDAP Bind password")).toHaveAttribute(
-      "placeholder",
-      "Stored password is not displayed"
-    );
+    expect(screen.getByLabelText("LDAP Bind password")).toHaveAccessibleDescription("A secret is stored. Leave this field empty to keep it.");
+    expect(screen.getByLabelText("LDAP Bind password")).not.toHaveAttribute("placeholder");
     await user.click(screen.getByRole("button", { name: "Save LDAP provider" }));
 
     await waitFor(() => {
@@ -724,4 +730,135 @@ describe("AuthenticationSettingsPage", () => {
     expect(await screen.findByRole("heading", { name: "Authentication settings" })).toBeInTheDocument();
   });
 
+  it.each([
+    { kind: "oidc", id: "ui", name: "Display name", secret: "Client secret" },
+    { kind: "ldap", id: "corp", name: "LDAP Display name", secret: "LDAP Bind password" },
+  ])("locks $kind submission by Enter and navigation until a failed save can be retried", async ({ kind, id, name, secret }) => {
+    const user = userEvent.setup();
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    fetchOidcAdminProvidersMock.mockResolvedValue([buildOidcProvider({ has_client_secret: true })]);
+    fetchLdapAdminProvidersMock.mockResolvedValue([buildLdapProvider({ has_bind_password: true })]);
+    let reject!: (error: Error) => void;
+    const operation = new Promise<never>((_resolve, fail) => { reject = fail; });
+    const saveMock = kind === "oidc" ? updateOidcAdminProviderMock : updateLdapAdminProviderMock;
+    saveMock.mockImplementationOnce(() => operation);
+    const path = `/admin/authentication-settings/${kind}/providers/${id}`;
+    const router = renderPage([path]);
+    const nameField = await screen.findByLabelText(name);
+    await user.clear(nameField);
+    await user.type(screen.getByLabelText(secret), "replacement-fixture");
+    await user.type(nameField, "Retained draft{Enter}");
+    const form = screen.getByRole("form", { name: `${kind.toUpperCase()} provider configuration` });
+    fireEvent.submit(form);
+    expect(saveMock).toHaveBeenCalledOnce();
+    expect(nameField).toBeDisabled();
+    expect(screen.getByLabelText(secret)).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Enabled", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to authentication" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
+    await user.click(screen.getByRole("link", { name: "Admin", exact: true }));
+    const busyDialog = screen.getByRole("dialog", { name: "Operation in progress" });
+    expect(within(busyDialog).getByRole("button", { name: "Discard changes" })).toBeDisabled();
+    await user.click(within(busyDialog).getByRole("button", { name: "Keep editing" }));
+    expect(router.state.location.pathname).toBe(path);
+    await act(async () => reject(new Error("Provider write failed")));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Provider write failed");
+    expect(nameField).toHaveValue("Retained draft");
+    expect(screen.getByLabelText(secret)).toHaveValue("replacement-fixture");
+    expect(nameField).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: `Save ${kind.toUpperCase()} provider` }));
+    await screen.findByRole("heading", { name: "Authentication settings" });
+    expect(saveMock).toHaveBeenCalledTimes(2);
+    expect(saveMock.mock.calls[1][0]).toBe(id);
+    expect(updateAppSettingsMock).not.toHaveBeenCalled();
+    router.dispose();
+  });
+
+  it("keeps the provider draft on cancelled navigation and preserves history destinations on discard", async () => {
+    const user = userEvent.setup();
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    fetchOidcAdminProvidersMock.mockResolvedValue([buildOidcProvider(), buildOidcProvider({ provider_id: "second", display_name: "Second" })]);
+    const path = "/admin/authentication-settings/oidc/providers/ui";
+    const router = renderPage(["/admin", path]);
+    await user.type(await screen.findByLabelText("Display name"), " changed");
+    await act(async () => { await router.navigate("/admin/authentication-settings/oidc/providers/second"); });
+    expect(screen.getByLabelText("Display name")).toHaveValue("UI Provider changed");
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(router.state.location.pathname).toBe(path);
+    await act(async () => { await router.navigate(-1); });
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(await screen.findByRole("heading", { name: "Admin destination" })).toBeVisible();
+    expect(router.state.location.pathname).toBe("/admin");
+    expect(updateOidcAdminProviderMock).not.toHaveBeenCalled();
+    router.dispose();
+  });
+
+  it("retries provider loading without offering an empty editable configuration", async () => {
+    fetchLdapAdminProvidersMock.mockRejectedValueOnce(new Error("Directory configuration unavailable"))
+      .mockResolvedValueOnce([buildLdapProvider()]);
+    renderPage(["/admin/authentication-settings/ldap/providers/corp"]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Directory configuration unavailable");
+    expect(screen.queryByLabelText("LDAP Provider ID")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save LDAP provider" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByLabelText("LDAP Display name")).toHaveValue("Corporate LDAP");
+    expect(screen.getByRole("button", { name: "Save LDAP provider" })).toBeDisabled();
+    expect(fetchLdapAdminProvidersMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("locks all provider controls through explicit passkey verification and retries the same draft once", async () => {
+    const user = userEvent.setup();
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    fetchOidcAdminProvidersMock.mockResolvedValue([buildOidcProvider()]);
+    updateOidcAdminProviderMock.mockRejectedValueOnce(recentWebAuthnRequiredError());
+    let finish!: (value: { mfa_verified_at: string }) => void;
+    finishRecentWebAuthnVerificationMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    renderPage(["/admin/authentication-settings/oidc/providers/ui"]);
+    await user.type(await screen.findByLabelText("Display name"), " verified");
+    await user.click(screen.getByRole("button", { name: "Save OIDC provider" }));
+    const prompt = await screen.findByRole("dialog", { name: "Verify with passkey" });
+    expect(screen.getByLabelText("Display name")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to authentication" })).toBeDisabled();
+    expect(beginRecentWebAuthnVerificationMock).not.toHaveBeenCalled();
+    await user.click(within(prompt).getByRole("button", { name: "Verify with passkey" }));
+    await waitFor(() => expect(finishRecentWebAuthnVerificationMock).toHaveBeenCalledOnce());
+    expect(within(prompt).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    fireEvent.submit(screen.getByRole("form", { name: "OIDC provider configuration" }));
+    expect(updateOidcAdminProviderMock).toHaveBeenCalledOnce();
+    await act(async () => finish({ mfa_verified_at: "2026-09-21T20:00:00Z" }));
+    await screen.findByRole("heading", { name: "Authentication settings" });
+    expect(updateOidcAdminProviderMock).toHaveBeenCalledTimes(2);
+    expect(updateOidcAdminProviderMock.mock.calls[1]).toEqual(updateOidcAdminProviderMock.mock.calls[0]);
+    expect(updateAppSettingsMock).not.toHaveBeenCalled();
+  });
+
+  it("associates forced switch and textarea hints and prevents clearing a locked secret", async () => {
+    fetchOidcAdminProvidersMock.mockResolvedValue([buildOidcProvider({ has_client_secret: true, field_locks: {
+      scopes: { forced: true, source: "ENV_SCOPES" }, use_pkce: { forced: true, source: "ENV_PKCE" },
+      client_secret: { forced: true, source: "ENV_SECRET" },
+    } })]);
+    renderPage(["/admin/authentication-settings/oidc/providers/ui"]);
+    const scopes = await screen.findByLabelText("Scopes");
+    expect(scopes).toBeDisabled();
+    expect(scopes).toHaveAccessibleDescription("Separate scopes with new lines or commas. Forced by ENV_SCOPES.");
+    expect(screen.getByRole("switch", { name: "Use PKCE" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Use PKCE" })).toHaveAccessibleDescription("Forced by ENV_PKCE.");
+    expect(screen.getByLabelText("Client secret")).toHaveTextContent("Stored — value hidden");
+    expect(screen.queryByRole("checkbox", { name: "Clear stored client secret" })).not.toBeInTheDocument();
+  });
+
+  it("validates the LDAP timeout against the server maximum and focuses its field", async () => {
+    fetchLdapAdminProvidersMock.mockResolvedValue([buildLdapProvider()]);
+    renderPage(["/admin/authentication-settings/ldap/providers/corp"]);
+    const timeout = await screen.findByLabelText("LDAP Timeout seconds");
+    fireEvent.change(timeout, { target: { value: "61" } });
+    fireEvent.submit(screen.getByRole("form", { name: "LDAP provider configuration" }));
+    await waitFor(() => expect(timeout).toHaveFocus());
+    expect(timeout).toHaveAccessibleDescription("Timeout must be greater than zero and no more than 60 seconds.");
+    expect(updateLdapAdminProviderMock).not.toHaveBeenCalled();
+    fireEvent.change(timeout, { target: { value: "60" } });
+    fireEvent.submit(screen.getByRole("form", { name: "LDAP provider configuration" }));
+    await waitFor(() => expect(updateLdapAdminProviderMock).toHaveBeenCalledOnce());
+    expect(updateLdapAdminProviderMock.mock.calls[0][1].timeout_seconds).toBe(60);
+  });
 });
