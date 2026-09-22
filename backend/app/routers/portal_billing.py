@@ -31,8 +31,6 @@ def portal_billing_me(
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     account = access.account
-    if account.storage_endpoint_id is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not configured")
     service = BillingService(db)
     try:
         return service.subject_detail(month, account.storage_endpoint_id, "account", account.id)

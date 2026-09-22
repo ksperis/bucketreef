@@ -109,17 +109,14 @@ class QuotaMonitoringService:
             )
             return self._finish_run(summary)
 
-        run, default_endpoint_id = self._prepare_run(
+        run = self._prepare_run(
             settings=settings,
             now=now,
             quota_alerts_enabled=quota_alerts_enabled,
             usage_history_enabled=usage_history_enabled,
             summary=summary,
         )
-        subjects = self._load_subjects(
-            endpoint_map=run.endpoint_map,
-            default_endpoint_id=default_endpoint_id,
-        )
+        subjects = self._load_subjects(endpoint_map=run.endpoint_map)
         summary["subjects_total"] = len(subjects)
         for subject in subjects:
             self._process_subject(subject, run)
@@ -162,19 +159,11 @@ class QuotaMonitoringService:
         quota_alerts_enabled: bool,
         usage_history_enabled: bool,
         summary: dict[str, Any],
-    ) -> tuple[_QuotaMonitorRun, int | None]:
+    ) -> _QuotaMonitorRun:
         endpoint_map = {
             endpoint.id: endpoint
             for endpoint in self.db.query(StorageEndpoint).all()
         }
-        default_endpoint_id = min(
-            (
-                endpoint.id
-                for endpoint in endpoint_map.values()
-                if endpoint.is_default
-            ),
-            default=None,
-        )
         alert_states = QuotaAlertStateService(self.db)
         recipients = QuotaAlertRecipientsService(self.db)
         email = QuotaAlertEmailService()
@@ -195,26 +184,23 @@ class QuotaMonitoringService:
             )
             if mailer is None and mail_error_reason:
                 summary["warnings"].append(mail_error_reason)
-        return (
-            _QuotaMonitorRun(
-                settings=settings,
-                now=now,
-                quota_alerts_enabled=quota_alerts_enabled,
-                usage_history_enabled=usage_history_enabled,
-                summary=summary,
-                endpoint_map=endpoint_map,
-                usage_clients={},
-                admin_clients={},
-                notifications=UserNotificationsService(self.db),
-                history=QuotaUsageHistoryService(self.db),
-                alert_states=alert_states,
-                recipients=recipients,
-                email=email,
-                states=states,
-                recipient_index=recipient_index,
-                mailer=mailer,
-            ),
-            default_endpoint_id,
+        return _QuotaMonitorRun(
+            settings=settings,
+            now=now,
+            quota_alerts_enabled=quota_alerts_enabled,
+            usage_history_enabled=usage_history_enabled,
+            summary=summary,
+            endpoint_map=endpoint_map,
+            usage_clients={},
+            admin_clients={},
+            notifications=UserNotificationsService(self.db),
+            history=QuotaUsageHistoryService(self.db),
+            alert_states=alert_states,
+            recipients=recipients,
+            email=email,
+            states=states,
+            recipient_index=recipient_index,
+            mailer=mailer,
         )
 
     def _process_subject(
@@ -474,7 +460,6 @@ class QuotaMonitoringService:
         self,
         *,
         endpoint_map: dict[int, StorageEndpoint],
-        default_endpoint_id: int | None,
     ) -> list[SubjectContext]:
         subjects: list[SubjectContext] = []
 
@@ -501,9 +486,7 @@ class QuotaMonitoringService:
 
         s3_users = self.db.query(S3User).all()
         for s3_user in s3_users:
-            endpoint_id = s3_user.storage_endpoint_id or default_endpoint_id
-            if endpoint_id is None:
-                continue
+            endpoint_id = s3_user.storage_endpoint_id
             endpoint = endpoint_map.get(endpoint_id)
             if not endpoint:
                 continue
