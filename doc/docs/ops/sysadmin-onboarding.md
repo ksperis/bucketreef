@@ -26,11 +26,10 @@ runbooks.
    before treating the installation as ready. Keep no bootstrap URL in tickets,
    logs, shell history exports, or shared notes.
 
-4. **Choose an optional guided setup goal.**
+4. **Use the optional guided setup.**
    Open **Admin → Getting started** (`/admin/onboarding`), also available from
-   the dashboard. Choose evaluation, personal use, or a service for an
-   organization, internal teams, or external clients. Select Browser, Manager,
-   Portal, or Ceph Admin according to the first useful operation.
+   the dashboard. Connect an existing endpoint or add a Ceph RGW endpoint,
+   then choose the first workspaces and access paths BucketReef should prepare.
    Check the [Backends matrix](backends-compatibility.md) and
    [Ceph RGW](backends-ceph-rgw.md) notes before promising a feature. Keep the
    endpoint URL, provider type, feature flags, and healthcheck mode.
@@ -57,87 +56,57 @@ runbooks.
 
 ## Guided application setup
 
-The guide has three stages: **your goal → configuration → check and open**.
-It leaves first-administrator creation and passkey enrollment unchanged.
-Each administrator has independent saved goals and dismissal preferences.
-**Save and leave** retains the draft; **Add another goal** preserves existing
-resources. The permanent navigation entry remains available after dismissal.
-Only a platform superadministrator can apply configuration changes.
+The guide has two stages and leaves first-administrator creation and passkey
+enrollment unchanged:
 
-The saved/unsaved indicator distinguishes retained progress from the live
-configuration preview. Leaving with unsaved configuration opens a confirmation;
-a failed save keeps the current edits available for retry. Entered keys are
-never included in the draft and must be entered again after resuming. Selecting
-a different resource or beneficiary clears the entered keys and access consent.
+1. **Connect storage.** Reuse an existing endpoint or add a Ceph RGW endpoint.
+   Administration keys are recommended for Ceph because they allow BucketReef
+   to detect RGW Account and Ceph Admin capabilities. Region and addressing
+   style remain under advanced options.
+2. **Prepare BucketReef.** Select only the access paths needed for the first
+   use: Manager with a sample RGW Account, Portal with the same sample account,
+   a private S3 connection for Browser + Manager, and/or Ceph Admin.
 
-| First useful goal | Minimal configuration |
-|---|---|
-| Browser | Reuse your private S3 connection or enter an endpoint and credentials. Optionally specify an authorized bucket and exact folder prefix, including its final `/`. |
-| Manager | Reuse a permitted connection or choose/create an RGW account and explicitly assign its beneficiary. Manager is a technical S3/IAM self-service console for teams and clients as well as personal use. |
-| Portal | Choose/create a Ceph RGW project, prepare its explicit membership and personal IAM identity, and choose/create a file space. Portal is the simpler file and collaboration self-service experience. |
-| Ceph Admin | Select/configure a Ceph endpoint and its dedicated admin/system execution identity; assign an existing administrator explicitly when needed. |
+The second step adapts to detected endpoint capabilities. Manager and Portal
+share one sample RGW Account when both are selected, while their membership
+roles remain independent. A private S3 connection uses its own credentials and
+does not reuse the endpoint administration identity. Ceph Admin requires a
+validated RGW admin/system identity.
 
-The configuration summary lists feature activations, creations and access
-assignments before **Configure and continue**. Changing a goal alone does not
-enable features or grant permissions. Required features are enabled on confirmed
-configuration unless forced off by ENV. Manager does not require Browser;
-Portal enables its embedded file Browser dependency; the standalone Browser
-flag remains unchanged. Ceph Admin does not change its optional privileged
-Browser flag. Existing features are never
-disabled when a goal changes.
+Before **Apply configuration**, the summary lists the feature activations,
+resource creations and access assignments that will occur. Required features
+are enabled only for selected options and remain subject to deployment ENV
+locks. Advanced policies, quotas, identity providers and group assignments stay
+in the standard administration pages.
 
-The guide reuses registered endpoints, accounts, private connections and
-authorized Portal spaces. New S3 connections remain private. Manager/Portal
-account-role axes remain independent. A Manager beneficiary does not become a
-platform administrator. Enabling Ceph Admin access is a separate, explicit
-administrator capability applying across configured Ceph endpoints.
-Advanced policies, quotas, identity providers and group assignments remain in
-the standard interface; neither a disabled endpoint capability nor a storage
-denial is treated as permission to widen access.
+Only a platform superadministrator can apply configuration changes, and apply
+uses the normal recent-passkey sensitive-action guard. Submitted keys are never
+stored in onboarding progress. Partial provisioning checkpoints resource IDs so
+the same operation can be retried without deliberately creating duplicates.
 
-### Validation and retained evidence
+After a successful apply, **Getting started** disappears from the dashboard and
+left navigation. It also disappears when the administrator chooses **Hide
+setup**. The assistant can always be opened again from **Admin → General
+settings → Setup assistant**. Each administrator has an independent dismissal
+preference and onboarding progress.
 
-**Configured** means the prerequisites are present. **Usage validated** requires
-an explicit successful read request, or a clearly identified administrator
-declaration describing a real operation with the intended profile. Merely opening
-a page or finding an existing resource is not proof. Restricted Browser keys can
-test one bucket/prefix without listing every bucket or uploading an object.
-Portal checks use the member's personal IAM keys, never the account root as a
-fallback. A different beneficiary must sign in and perform its own pilot check;
-the guide does not impersonate that user to certify access.
-
-During evaluation, manual declarations are available under **Record a result
-checked outside this guide**. A Portal project without a selected space offers
-**Choose a space to check** before attempting a file-access check. Organizational
-readiness has a separate pilot-results field beside the allowed-operation,
-denial and isolation confirmations; record the tested profiles and results there.
-
-Local revocation, expiry, endpoint changes and Portal space archival invalidate
-the displayed evidence. Storage-side permissions may change independently: the
-timestamped last check is historical evidence, not continuous monitoring.
-Rechecking after a denial clears the previous success. Individual readiness
-confirmations become stale when their scope changes.
-
-Personal use adds backup, restoration and upgrade confirmations. Organizational
-use additionally records identity boundaries, operational ownership, successful
-authorized pilot operations, expected denials and isolation between teams or
-clients. These are operator attestations, not automatic production certification.
-See [Production readiness](production-readiness.md) before opening the service.
+The guide prepares an initial usable configuration; it does not certify a
+deployment for production. Run the intended operations with real pilot profiles
+and follow [Production readiness](production-readiness.md) before opening the
+service to users.
 
 ### Interrupted configuration
 
-Progress records contain identifiers, scope and evidence, not submitted keys.
-Keys are retained only in the existing credential stores; re-enter unsubmitted
-keys after leaving the guide. Local connection/endpoint creation and their
-checkpoint commit together. Account provisioning records a durable RGW account
-identifier before the remote call and reuses it on retry.
+Progress records contain the selected options and resource identifiers, not
+submitted keys. Keys are retained only in the existing credential stores;
+re-enter unsubmitted keys after leaving the guide. Local connection/endpoint
+creation and their checkpoint commit together. Account provisioning records a
+durable RGW account identifier before the remote call and reuses it on retry.
 
-If space creation is interrupted, the guide pauses rather than creating another
-space blindly. Refresh and select the existing authorized space when it exists;
-an unresolved remote failure requires reconciliation through the standard Portal
-and storage administration tools. A pending account must be resumed under its
-saved scope before changing it. Enabled features and created resources are not
-silently rolled back or removed after an error.
+An unresolved remote failure requires reconciliation through the standard
+administration tools. A pending account resumes with the same durable RGW
+identifier. Enabled features and created resources are not silently rolled back
+or removed after an error.
 
 ## Find the right page fast
 

@@ -35,6 +35,7 @@ import {
 } from "./navigation/workspacePages";
 import { useAdminPendingRequestCounts } from "./hooks/useAdminPendingRequestCounts";
 import type { AdminPendingRequestCounts } from "./api/adminNavigation";
+import { useOnboardingStatus } from "./features/admin/useOnboardingStatus";
 
 export { RequireManagerFeatureRulesTool, RequirePortalAccess } from "./routerGuards";
 
@@ -144,6 +145,7 @@ export const buildAdminNav = (
   isSuperAdmin: boolean,
   settingsExpanded = false,
   pendingRequestCounts: AdminPendingRequestCounts | null = null,
+  showOnboarding = true,
 ) => {
   const identityRequestCount = pendingRequestCounts?.identity_link_requests ?? 0;
   const portalRequestCount = pendingRequestCounts?.portal_requests ?? 0;
@@ -168,7 +170,10 @@ export const buildAdminNav = (
   return [
     {
       label: "Overview",
-      links: [{ ...workspacePageLink(ADMIN_PAGE_CONTRACTS.dashboard), end: true }, workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding)],
+      links: [
+        { ...workspacePageLink(ADMIN_PAGE_CONTRACTS.dashboard), end: true },
+        ...(showOnboarding ? [workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding)] : []),
+      ],
     },
     {
       label: "Identity & Access",
@@ -241,6 +246,7 @@ export const buildAdminNav = (
 
 function AdminLayoutShell() {
   const { generalSettings } = useGeneralSettings();
+  const { status: onboardingStatus } = useOnboardingStatus();
   const location = useLocation();
   const pendingRequestCounts = useAdminPendingRequestCounts();
   const currentUser = readStoredUser();
@@ -254,6 +260,7 @@ function AdminLayoutShell() {
     canConfigureApp,
     isAdminSettingsPath(location.pathname),
     pendingRequestCounts,
+    Boolean(onboardingStatus && !onboardingStatus.complete && !onboardingStatus.dismissed),
   );
   return (
     <Layout

@@ -171,4 +171,11 @@ describe("buildAdminNav", () => {
       "Audit trail",
     ]);
   });
+
+  it("hides Getting started after onboarding is complete or dismissed", () => {
+    const adminNav = buildAdminNav(true, true, false, false, false, true, false, null, false);
+    const overview = adminNav.find((section) => section.label === "Overview");
+
+    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+  });
 });

@@ -1,33 +1,33 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-"""Minimal setup orchestration and explicit, bounded usage checks."""
+"""Setup orchestration for the two-step administrator onboarding."""
 import json
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from app.db import S3Account, S3Connection, StorageEndpoint, UserS3Account
 from app.models.s3_account import S3AccountCreate
-from app.models.s3_connection import S3ConnectionCreate, S3ConnectionUpdate
+from app.models.s3_connection import S3ConnectionCreate
 from app.models.storage_endpoint import (
-    StorageEndpointCreate, StorageEndpointUpdate, StorageEndpointFeatures,
+    StorageEndpointCreate,
     StorageEndpointFeatureDetectionRequest,
+    StorageEndpointFeatures,
+    StorageEndpointUpdate,
 )
 from app.models.user import UserUpdate
 from app.services.app_settings_service import enable_onboarding_features
 from app.services.onboarding_service import OnboardingError, REQUIRED_FEATURES
 from app.services.portal_access_service import resolve_portal_account_access
 from app.services.portal_service import get_portal_service
-from app.services.rgw_admin_identity import extract_ceph_admin_flags
-from app.services.rgw_admin import get_rgw_admin_client
 from app.services.rgw_iam import get_iam_client
 from app.services.s3_accounts_service import get_s3_accounts_service
-from app.services.s3_client import get_s3_client
 from app.services.s3_connections_service import S3ConnectionsService
-from app.services.s3_execution_client import require_s3_execution_credentials, s3_execution_client_kwargs
-from app.services.s3_execution_context import S3ExecutionContext
+from app.services.s3_execution_client import require_s3_execution_credentials
 from app.services.users_service import get_users_service
 from app.utils.storage_endpoint_features import (
-    dump_features_config, normalize_features_config, resolve_feature_flags,
-    resolve_rgw_admin_api_endpoint,
+    dump_features_config,
+    normalize_features_config,
+    resolve_feature_flags,
 )
 from app.utils.time import utcnow
 
@@ -39,217 +39,340 @@ class OnboardingSetupService:
         self.endpoints = progress.endpoints
 
     @staticmethod
-    def credentials(payload):
-        access = payload.access_key.get_secret_value() if payload.access_key else ""
-        secret = payload.secret_key.get_secret_value() if payload.secret_key else ""
-        if not access or not secret:
+    def _pair(access_secret, secret_secret):
+        access = access_secret.get_secret_value() if access_secret else ""
+        secret = secret_secret.get_secret_value() if secret_secret else ""
+        if bool(access) != bool(secret):
             raise OnboardingError("credentials_required")
+        return access, secret
+
+    def _endpoint_credentials(self, payload, *, required=False):
+        access, secret = self._pair(
+            payload.endpoint_access_key, payload.endpoint_secret_key
+        )
+        if required and not access:
+            raise OnboardingError("endpoint_admin_credentials_required")
+        return access, secret
+
+    def _private_credentials(self, payload):
+        access, secret = self._pair(payload.private_access_key, payload.private_secret_key)
+        if not access:
+            raise OnboardingError("private_credentials_required")
         return access, secret
 
     def configure(self, actor, row, payload, preview):
         draft = self.progress.draft(row)
-        target = self.progress.target(actor, draft)
-        if {"create_private_connection", "create_ceph_endpoint", "configure_endpoint_credentials"} & set(preview.changes):
-            self.credentials(payload)
-        features = enable_onboarding_features(self.db, REQUIRED_FEATURES[draft.workspace])
+        endpoint = self._prepare_endpoint(actor, row, draft, payload)
+        draft = self.progress.draft(row)
+
+        account = None
+        if draft.manager or draft.portal:
+            account = self._account(actor, row, endpoint)
+            if draft.portal:
+                self._ensure_portal_iam(actor, row, endpoint, account)
+            self._assign_account_access(actor, row, draft, account)
+            if draft.portal:
+                access = resolve_portal_account_access(self.db, actor, account.id)
+                get_portal_service(self.db).get_portal_credentials(
+                    actor, account, access.portal_role
+                )
+
+        if draft.private_connection:
+            self._private_connection(actor, row, draft, endpoint, payload)
+
+        if draft.ceph_admin and not actor.can_access_ceph_admin:
+            get_users_service(self.db).update_user(
+                actor.id, UserUpdate(can_access_ceph_admin=True)
+            )
+            self.progress.audit(
+                actor,
+                "access_assigned",
+                row.id,
+                beneficiary_user_id=actor.id,
+                workspace="ceph-admin",
+                endpoint_id=endpoint.id,
+            )
+
+        fields: list[str] = []
+        for option in draft.selected_options:
+            for field in REQUIRED_FEATURES[option]:
+                if field not in fields:
+                    fields.append(field)
+        features = enable_onboarding_features(self.db, tuple(fields))
         if features:
             self.progress.audit(actor, "features_enabled", row.id, features=features)
-        if draft.resource_kind == "connection":
-            self._connection(actor, row, draft, payload, preview)
-        else:
-            endpoint = self._endpoint(actor, row, draft, payload, preview)
-            draft = self.progress.draft(row)
-            if draft.resource_kind == "account":
-                account = self._account(actor, row, draft, endpoint)
-                if draft.workspace == "portal":
-                    self._portal_iam(actor, row, endpoint, account)
-                self._membership(actor, row, target, draft, account, preview)
-                if draft.workspace == "portal":
-                    portal = get_portal_service(self.db)
-                    access = resolve_portal_account_access(self.db, target, account.id)
-                    # Explicit Portal orchestration; never use root credentials
-                    # as the beneficiary's data-plane execution identity.
-                    portal.get_portal_credentials(target, account, access.portal_role)
-                    if draft.space_name:
-                        row.pending_step = "space"
-                        self.db.commit()
-                        space = portal.create_storage_space(
-                            target, access, name=draft.space_name,
-                            visibility=draft.space_visibility, share_scope="restricted",
-                        )
-                        self.progress.checkpoint(row, space_id=space.id)
-                        self.progress.audit(actor, "space_created", row.id, account_id=account.id, beneficiary_user_id=target.id)
-            elif "grant_ceph_admin_access" in preview.changes:
-                get_users_service(self.db).update_user(target.id, UserUpdate(can_access_ceph_admin=True))
-                self.progress.audit(actor, "access_assigned", row.id, beneficiary_user_id=target.id, workspace="ceph-admin", endpoint_id=endpoint.id)
+
         row.configured_at = utcnow()
         row.updated_at = utcnow()
         row.pending_step = None
         self.db.commit()
-        self.progress.audit(actor, "configured", row.id, workspace=draft.workspace, beneficiary_user_id=target.id)
+        self.progress.audit(
+            actor,
+            "configured",
+            row.id,
+            endpoint_id=endpoint.id,
+            account_id=account.id if account else None,
+            options=list(draft.selected_options),
+        )
 
-    def _connection(self, actor, row, draft, payload, preview):
-        connections = S3ConnectionsService(self.db)
-        if "allow_private_connections" in preview.changes:
-            get_users_service(self.db).update_user(actor.id, UserUpdate(can_create_manual_private_connections=True))
-            self.progress.audit(actor, "access_assigned", row.id, beneficiary_user_id=actor.id, capability="can_create_manual_private_connections")
-        if draft.connection_id:
-            if "enable_connection_workspace" in preview.changes:
-                connections.update(actor.id, draft.connection_id, S3ConnectionUpdate(**{f"access_{draft.workspace}": True}))
-                self.progress.audit(actor, "connection_workspace_enabled", row.id, workspace=draft.workspace)
-            return
-        access, secret = self.credentials(payload)
-        endpoint = {"storage_endpoint_id": draft.endpoint_id} if draft.endpoint_id else {
-            "endpoint_url": draft.endpoint_url, "region": draft.region or None,
-            "force_path_style": draft.force_path_style, "verify_tls": True,
-        }
-        connection = connections.create(actor.id, S3ConnectionCreate(
-            name=draft.name, access_key_id=access, secret_access_key=secret,
-            access_browser=draft.workspace == "browser", access_manager=draft.workspace == "manager",
-            **endpoint,
-        ), commit=False)
-        # Private connection and its progress reference commit atomically.
-        self.progress.checkpoint(row, connection_id=connection.id)
-        self.progress.audit(actor, "private_connection_created", row.id, workspace=draft.workspace, beneficiary_user_id=actor.id)
+    def _detect(self, draft, endpoint, access, secret):
+        payload = StorageEndpointFeatureDetectionRequest(
+            endpoint_id=endpoint.id if endpoint else None,
+            endpoint_url=endpoint.endpoint_url if endpoint else draft.endpoint_url,
+            region=endpoint.region if endpoint else (draft.region or None),
+            verify_tls=endpoint.verify_tls if endpoint else True,
+            admin_access_key=access or None,
+            admin_secret_key=secret or None,
+            ceph_admin_access_key=(access or None) if draft.ceph_admin and endpoint is None else None,
+            ceph_admin_secret_key=(secret or None) if draft.ceph_admin and endpoint is None else None,
+        )
+        return self.endpoints.detect_features(payload)
 
-    def _endpoint(self, actor, row, draft, payload, preview):
-        account = self.db.get(S3Account, draft.account_id) if draft.account_id else None
-        endpoint = account.storage_endpoint if account else self.db.get(StorageEndpoint, draft.endpoint_id) if draft.endpoint_id else None
+    def _prepare_endpoint(self, actor, row, draft, payload):
+        resources = json.loads(row.resources_json)
+        endpoint_id = resources.get("endpoint_id") or draft.endpoint_id
+        endpoint = self.db.get(StorageEndpoint, endpoint_id) if endpoint_id else None
+        if endpoint_id and endpoint is None:
+            raise OnboardingError("endpoint_unavailable")
+        if endpoint is not None and (
+            draft.manager or draft.portal or draft.ceph_admin
+        ) and endpoint.provider != "ceph":
+            raise OnboardingError("ceph_endpoint_required")
+
+        needs_account_api = draft.manager or draft.portal
         if endpoint is None:
-            access, secret = self.credentials(payload)
-            credentials = {"ceph_admin_access_key": access, "ceph_admin_secret_key": secret} if draft.workspace == "ceph-admin" else {"admin_access_key": access, "admin_secret_key": secret}
+            access, secret = self._endpoint_credentials(
+                payload, required=needs_account_api or draft.ceph_admin
+            )
+        else:
+            access = secret = ""
+
+        detection = self._detect(draft, endpoint, access, secret)
+        if needs_account_api and not (detection.admin and detection.account):
+            raise OnboardingError("account_api_unavailable")
+        if draft.ceph_admin and detection.credential_checks.ceph_admin.status != "valid":
+            raise OnboardingError("ceph_identity_denied")
+        if endpoint is None and access and detection.credential_checks.admin.status != "valid":
+            if needs_account_api or draft.ceph_admin:
+                raise OnboardingError("endpoint_credentials_invalid")
+            # Admin credentials are optional for a private-only setup. If the
+            # probe rejects them, do not persist unusable credentials on the
+            # newly created endpoint.
+            access = secret = ""
+
+        if endpoint is None:
             features = StorageEndpointFeatures()
-            if draft.resource_kind == "account":
-                detected = self.endpoints.detect_features(StorageEndpointFeatureDetectionRequest(
-                    endpoint_url=draft.endpoint_url, region=draft.region or None, verify_tls=True, **credentials,
-                ))
-                if not (detected.admin and detected.account):
-                    raise OnboardingError("account_api_unavailable")
-                features.admin.enabled = True
-                features.account.enabled = True
-            created = self.endpoints.create_endpoint(StorageEndpointCreate(
-                name=draft.name if draft.workspace == "ceph-admin" else f"{draft.name} endpoint",
-                endpoint_url=draft.endpoint_url, region=draft.region or None,
-                force_path_style=draft.force_path_style, verify_tls=True,
-                features_config=dump_features_config(features.model_dump()), **credentials,
-            ), commit=False)
+            features.admin.enabled = detection.admin
+            features.account.enabled = detection.account
+            endpoint_name = resources.get("endpoint_name") or self._unique_endpoint_name(
+                draft.endpoint_url
+            )
+            if not resources.get("endpoint_name"):
+                self.progress.checkpoint(row, endpoint_name=endpoint_name)
+            endpoint_payload = StorageEndpointCreate(
+                name=endpoint_name,
+                endpoint_url=draft.endpoint_url,
+                region=draft.region or None,
+                force_path_style=draft.force_path_style,
+                verify_tls=True,
+                provider="ceph",
+                admin_access_key=access or None,
+                admin_secret_key=secret or None,
+                ceph_admin_access_key=access if draft.ceph_admin else None,
+                ceph_admin_secret_key=secret if draft.ceph_admin else None,
+                features_config=dump_features_config(features.model_dump()),
+            )
+            created = self.endpoints.create_endpoint(endpoint_payload, commit=False)
             self.progress.checkpoint(row, endpoint_id=created.id)
             endpoint = self.db.get(StorageEndpoint, created.id)
-            self.progress.audit(actor, "endpoint_created", row.id, endpoint_id=endpoint.id)
-        elif "configure_endpoint_credentials" in preview.changes:
-            access, secret = self.credentials(payload)
-            credentials = {"ceph_admin_access_key": access, "ceph_admin_secret_key": secret} if draft.workspace == "ceph-admin" else {"admin_access_key": access, "admin_secret_key": secret}
-            self.endpoints.update_endpoint(endpoint.id, StorageEndpointUpdate(**credentials))
-            self.progress.audit(actor, "endpoint_credentials_configured", row.id, endpoint_id=endpoint.id, workspace=draft.workspace)
-        flags = resolve_feature_flags(endpoint)
-        if draft.resource_kind == "account" and not draft.account_id and not (flags.admin_enabled and flags.account_enabled):
-            detected = self.endpoints.detect_features(StorageEndpointFeatureDetectionRequest(
-                endpoint_id=endpoint.id, endpoint_url=endpoint.endpoint_url,
-            ))
-            if not (detected.admin and detected.account):
-                raise OnboardingError("account_api_unavailable")
-            self._enable_endpoint_features(endpoint, "admin", "account")
-            self.progress.audit(actor, "endpoint_features_enabled", row.id, endpoint_id=endpoint.id, features=["admin", "account"])
-        if not json.loads(row.resources_json).get("endpoint_id"):
-            self.progress.checkpoint(row, endpoint_id=endpoint.id)
+            self.progress.audit(
+                actor, "endpoint_created", row.id, endpoint_id=endpoint.id
+            )
+        elif needs_account_api:
+            flags = resolve_feature_flags(endpoint)
+            if not (flags.admin_enabled and flags.account_enabled):
+                self._enable_endpoint_features(endpoint, "admin", "account")
+                self.progress.audit(
+                    actor,
+                    "endpoint_features_enabled",
+                    row.id,
+                    endpoint_id=endpoint.id,
+                    features=["admin", "account"],
+                )
+
         return endpoint
 
     def _enable_endpoint_features(self, endpoint, *fields):
-        features = normalize_features_config(endpoint.provider, endpoint.features_config, endpoint.region)
+        features = normalize_features_config(
+            endpoint.provider, endpoint.features_config, endpoint.region
+        )
         for field in fields:
             features[field]["enabled"] = True
-        self.endpoints.update_endpoint(endpoint.id, StorageEndpointUpdate(features_config=dump_features_config(features)))
+        self.endpoints.update_endpoint(
+            endpoint.id,
+            StorageEndpointUpdate(features_config=dump_features_config(features)),
+        )
 
-    def _account(self, actor, row, draft, endpoint):
-        if draft.account_id:
-            return self.db.get(S3Account, draft.account_id)
+    def _unique_endpoint_name(self, endpoint_url):
+        hostname = urlsplit(endpoint_url).hostname or "Ceph RGW"
+        base = hostname
+        candidate = base
+        index = 2
+        while self.db.query(StorageEndpoint.id).filter_by(name=candidate).first():
+            candidate = f"{base} {index}"
+            index += 1
+        return candidate
+
+    def _unique_account_name(self):
+        base = "BucketReef sample"
+        candidate = base
+        index = 2
+        while self.db.query(S3Account.id).filter_by(name=candidate).first():
+            candidate = f"{base} {index}"
+            index += 1
+        return candidate
+
+    def _account(self, actor, row, endpoint):
         resources = json.loads(row.resources_json)
+        if resources.get("account_id"):
+            account = self.db.get(S3Account, resources["account_id"])
+            if account is None:
+                raise OnboardingError("account_unavailable")
+            return account
+
         identifier = resources.get("rgw_account_id")
         if not identifier:
             identifier = f"RGW{uuid4().int % (10 ** 17):017d}"
             self.progress.checkpoint(row, rgw_account_id=identifier)
+            resources = json.loads(row.resources_json)
+
+        account_name = resources.get("account_name")
+        if not account_name:
+            account_name = self._unique_account_name()
+            self.progress.checkpoint(row, account_name=account_name)
+
         row.pending_step = "account"
         self.db.commit()
         created = get_s3_accounts_service(self.db).ensure_provisioned_account(
-            S3AccountCreate(name=draft.name, storage_endpoint_id=endpoint.id), identifier,
+            S3AccountCreate(name=account_name, storage_endpoint_id=endpoint.id),
+            identifier,
         )
         self.progress.checkpoint(row, account_id=created.id)
-        self.progress.audit(actor, "account_created", row.id, account_id=created.id, endpoint_id=endpoint.id)
+        self.progress.audit(
+            actor,
+            "account_created",
+            row.id,
+            account_id=created.id,
+            endpoint_id=endpoint.id,
+        )
         return self.db.get(S3Account, created.id)
 
-    def _portal_iam(self, actor, row, endpoint, account):
+    def _ensure_portal_iam(self, actor, row, endpoint, account):
         if resolve_feature_flags(endpoint).iam_enabled:
             return
-        access, secret = require_s3_execution_credentials(account, error_message="Account credentials are required")
-        # A positive IAM API response is required before enabling its capability.
-        client = get_iam_client(access, secret, endpoint=endpoint.endpoint_url, region=endpoint.region, verify_tls=endpoint.verify_tls)
+        if not endpoint.is_editable or self.endpoints.env_endpoints_locked():
+            raise OnboardingError("endpoint_features_locked")
+        access, secret = require_s3_execution_credentials(
+            account, error_message="Account credentials are required"
+        )
+        client = get_iam_client(
+            access,
+            secret,
+            endpoint=endpoint.endpoint_url,
+            region=endpoint.region,
+            verify_tls=endpoint.verify_tls,
+        )
         client.list_users(MaxItems=1)
         self._enable_endpoint_features(endpoint, "iam")
-        self.progress.audit(actor, "endpoint_features_enabled", row.id, endpoint_id=endpoint.id, features=["iam"])
-
-    def _membership(self, actor, row, target, draft, account, preview):
-        field = "grant_manager_access" if draft.workspace == "manager" else "grant_portal_access"
-        if field not in preview.changes:
-            return
-        # Preserve the independent role axis and any existing group inheritance.
-        direct = self.db.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).populate_existing().first()
-        manager_role = direct.manager_role if direct else None
-        portal_role = direct.portal_role if direct else None
-        if draft.workspace == "manager":
-            manager_role = "account_administrator"
-        else:
-            portal_role = "portal_manager"
-        get_users_service(self.db).assign_user_to_account(
-            target.id, account.id, manager_role=manager_role, portal_role=portal_role,
+        self.progress.audit(
+            actor,
+            "endpoint_features_enabled",
+            row.id,
+            endpoint_id=endpoint.id,
+            features=["iam"],
         )
-        self.progress.audit(actor, "access_assigned", row.id, account_id=account.id, beneficiary_user_id=target.id, workspace=draft.workspace)
 
-    def verify(self, actor, row):
-        draft = self.progress.draft(row)
-        if draft.workspace == "ceph-admin":
-            endpoint = self.db.get(StorageEndpoint, draft.endpoint_id)
-            access, secret = endpoint.ceph_admin_access_key, endpoint.ceph_admin_secret_key
-            if not access or not secret:
-                raise OnboardingError("credentials_required")
-            # Ceph Admin has its own execution identity and is independent of
-            # the Admin provisioning capability on this endpoint.
-            client = get_rgw_admin_client(access_key=access, secret_key=secret,
-                endpoint=resolve_rgw_admin_api_endpoint(endpoint), region=endpoint.region, verify_tls=endpoint.verify_tls)
-            identity = client.get_user_by_access_key(access, allow_not_found=True)
-            if not identity or not any(extract_ceph_admin_flags(identity)):
-                raise OnboardingError("ceph_identity_denied")
-            return {"operation": "rgw_identity", "context_id": f"ceph-admin-{endpoint.id}"}
-        if draft.workspace == "portal":
-            if not draft.space_id:
-                raise OnboardingError("space_required")
-            access = resolve_portal_account_access(self.db, actor, draft.account_id)
-            portal = get_portal_service(self.db)
-            # Normal Portal setup may create keys and repair IAM projections.
-            # Verification must only exercise the already provisioned identity.
-            portal.check_storage_space_read_access(actor, access, draft.space_id)
-            return {"operation": "portal_files", "context_id": f"portal-{draft.account_id}", "space_id": draft.space_id}
-        if draft.resource_kind == "connection":
-            connection = self.db.get(S3Connection, draft.connection_id)
-            if not self.progress.access.connection_is_allowed(actor, connection, workspace=draft.workspace):
-                raise OnboardingError("connection_not_authorized", 403)
-            context = S3ExecutionContext.from_connection(connection)
-        else:
-            account = self.db.get(S3Account, draft.account_id)
-            link = self.progress.access.resolve_user(actor).account_link_for(account.id)
-            if link is None or not self.progress.access.manager_account_allowed(link):
-                raise OnboardingError("account_not_authorized", 403)
-            key, secret = require_s3_execution_credentials(account, error_message="Account credentials are required")
-            context = S3ExecutionContext.from_account(account, access_key=key, secret_key=secret)
-        key, secret = require_s3_execution_credentials(context, error_message="Credentials are required")
-        client = get_s3_client(access_key=key, secret_key=secret, **s3_execution_client_kwargs(context))
-        if draft.bucket:
-            if draft.workspace == "browser":
-                client.list_objects_v2(Bucket=draft.bucket, Prefix=draft.prefix, MaxKeys=1)
-                operation = "list_objects"
-            else:
-                client.head_bucket(Bucket=draft.bucket)
-                operation = "head_bucket"
-        else:
-            client.list_buckets()
-            operation = "list_buckets"
-        return {"operation": operation, "context_id": context.context_id, "bucket": draft.bucket, "prefix": draft.prefix}
+    def _assign_account_access(self, actor, row, draft, account):
+        users = get_users_service(self.db)
+        users.assign_user_to_account(
+            actor.id,
+            account.id,
+            manager_role="account_administrator" if draft.manager else None,
+            portal_role="portal_manager" if draft.portal else None,
+        )
+        link = (
+            self.db.query(UserS3Account)
+            .filter_by(user_id=actor.id, account_id=account.id)
+            .one()
+        )
+        if draft.manager and not link.allow_manager_browser_data_access:
+            link.allow_manager_browser_data_access = True
+            link.updated_at = utcnow()
+            self.db.commit()
+        self.progress.audit(
+            actor,
+            "access_assigned",
+            row.id,
+            account_id=account.id,
+            beneficiary_user_id=actor.id,
+            manager=draft.manager,
+            portal=draft.portal,
+            manager_browser=draft.manager,
+        )
+
+    def _unique_connection_name(self, actor_id):
+        base = "My S3 access"
+        candidate = base
+        index = 2
+        while (
+            self.db.query(S3Connection.id)
+            .filter_by(
+                created_by_user_id=actor_id, name=candidate, is_shared=False
+            )
+            .first()
+        ):
+            candidate = f"{base} {index}"
+            index += 1
+        return candidate
+
+    def _private_connection(self, actor, row, draft, endpoint, payload):
+        resources = json.loads(row.resources_json)
+        if resources.get("connection_id"):
+            if self.db.get(S3Connection, resources["connection_id"]) is None:
+                raise OnboardingError("connection_unavailable")
+            return
+
+        access, secret = self._private_credentials(payload)
+        if not actor.can_create_manual_private_connections:
+            get_users_service(self.db).update_user(
+                actor.id, UserUpdate(can_create_manual_private_connections=True)
+            )
+            self.progress.audit(
+                actor,
+                "access_assigned",
+                row.id,
+                beneficiary_user_id=actor.id,
+                capability="can_create_manual_private_connections",
+            )
+
+        connection_name = self._unique_connection_name(actor.id)
+        connection = S3ConnectionsService(self.db).create(
+            actor.id,
+            S3ConnectionCreate(
+                name=connection_name,
+                storage_endpoint_id=endpoint.id,
+                access_key_id=access,
+                secret_access_key=secret,
+                access_browser=True,
+                access_manager=True,
+            ),
+            commit=False,
+        )
+        self.progress.checkpoint(row, connection_id=connection.id)
+        self.progress.audit(
+            actor,
+            "private_connection_created",
+            row.id,
+            beneficiary_user_id=actor.id,
+            endpoint_id=endpoint.id,
+        )

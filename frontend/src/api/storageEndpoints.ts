@@ -126,7 +126,7 @@ export type StorageEndpointCredentialChecks = {
   ceph_admin: StorageEndpointCredentialCheck;
 };
 
-type StorageEndpointFeatureDetectionResult = {
+export type StorageEndpointFeatureDetectionResult = {
   admin: boolean;
   account: boolean;
   usage: boolean;

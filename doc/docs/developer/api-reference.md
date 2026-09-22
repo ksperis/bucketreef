@@ -41,44 +41,37 @@ Use route-level schemas and examples in code as the canonical API contract.
 Progress and dismissal belong to the current administrator; another
 administrator's journey identifier returns `404`. Configuration writes require
 a platform superadministrator, and apply additionally uses the existing recent
-WebAuthn sensitive-action guard. Apply and storage verification require an
-interactive UI session: an `admin:write` API token cannot execute storage checks
-through this guide. The UI reuses the shared passkey step-up dialog.
+WebAuthn sensitive-action guard. Apply requires an interactive UI session: an
+`admin:write` API token cannot execute this guided storage configuration. The UI
+reuses the shared passkey step-up dialog.
 
 | Method and suffix | Behavior |
 |---|---|
-| `GET /api/admin/onboarding` | Local status, saved goals and eligible resource options. It performs no remote storage check. |
-| `POST /dismiss`, `POST /resume` | Hide or restore only this administrator's dashboard entry. The permanent route stays accessible. |
+| `GET /api/admin/onboarding` | Local status and resumable version-2 journeys. It performs no remote storage check. |
+| `POST /dismiss`, `POST /resume` | Hide or restore only this administrator's onboarding entry. General settings remains the explicit way to reopen it. |
 | `POST /preview` | Strict, secret-free `OnboardingDraft`; returns feature changes, assignments, blockers and a deterministic `review_token`. No provisioning occurs. |
 | `PUT /journeys/{uuid}` | Save `{draft, revision}`; omit revision on first creation. Unknown revisions and conflicting edits are rejected. |
-| `POST /journeys/{uuid}/apply` | Requires `revision`, `confirmed: true`, the displayed `review_token` and optional write-only credentials. Revalidates permissions and ENV locks, then checkpoints existing service operations. |
-| `POST /journeys/{uuid}/verify` | Explicit bounded read operation with the selected current user's identity. Clears an earlier result before rechecking. |
-| `POST /journeys/{uuid}/attest` | Records `{revision, check, checked, note}` as an operator declaration, distinct from automatic evidence. |
+| `POST /journeys/{uuid}/apply` | Requires `revision`, `confirmed: true`, the displayed `review_token` and optional write-only endpoint/private credentials. Revalidates endpoint capabilities, permissions and ENV locks, then checkpoints service operations. |
 
 All suffixes in the table are relative to `/api/admin/onboarding` unless shown
-in full. The strict draft stores no credential fields. Submitted credentials are
-accepted only by apply and go to the existing encrypted credential stores.
-Evidence records the operation, actor, time and local scope fingerprint; the
-fingerprint is not exposed through the public evidence response.
+in full. The version-2 draft contains only endpoint selection/options and the
+four preparation booleans (`manager`, `portal`, `private_connection`,
+`ceph_admin`). The strict draft stores no credential fields. Submitted endpoint
+and private-connection credentials are accepted only by apply and go to their
+existing credential stores when needed.
+
 An invalid request returns `422` with `detail.code = invalid_configuration`;
 raw input values, including malformed credentials, are never echoed in validation
-errors. Preview and fingerprinting do not inspect another user's private
-connection or reveal whether it exists, is active, or has rotated credentials.
-
-Portal verification uses only the existing personal IAM credentials and local
-Storage Space grants. It never creates or rotates keys, repairs IAM policies or
-group memberships, or falls back to account-root credentials. A storage denial
-remains a failed check; reconfiguration requires a separately reviewed apply.
-
-`configured`, `usage_validated` and `ready` are independent states. The legacy
-`complete` field now means at least one saved goal has current usage evidence,
-not merely that an endpoint and account exist. Readiness confirmations are
-invalidated by scope changes. Operator notes must describe actual checks and
-must not contain credentials. `detail.code` gives sanitized errors, including
+errors. `detail.code` gives sanitized errors, including
 `env_locked:FEATURE_…`, `review_changed`, `stale_revision` and
 `storage_access_denied`. Partial setup retains checkpoints and requires a fresh
-summary; uncertain space creation requires reconciliation rather than blind
-repetition.
+summary before changed choices can be applied.
+
+`complete` means the newest version-2 journey is configured. For upgrade
+compatibility, an installation with only an older configured onboarding row is
+also treated as complete until a new version-2 journey is started. Completed or
+dismissed onboarding is removed from the normal Admin navigation; General
+settings remains the explicit re-entry point.
 
 ## Error contract
 

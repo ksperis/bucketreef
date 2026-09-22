@@ -1,291 +1,898 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { isApiError } from "../../api/client";
 import {
-  applyOnboardingJourney, attestOnboardingJourney, fetchOnboardingStatus, previewOnboardingDraft,
-  resumeOnboarding, saveOnboardingJourney, verifyOnboardingJourney,
-  type OnboardingDraft, type OnboardingJourney, type OnboardingPreview, type OnboardingStatus, type OnboardingWorkspace,
+  announceOnboardingStatus,
+  applyOnboardingJourney,
+  dismissOnboarding,
+  previewOnboardingDraft,
+  resumeOnboarding,
+  saveOnboardingJourney,
+  type OnboardingDraft,
+  type OnboardingJourney,
+  type OnboardingPreview,
 } from "../../api/onboarding";
+import {
+  detectStorageEndpointFeatures,
+  listStorageEndpoints,
+  type StorageEndpoint,
+  type StorageEndpointFeatureDetectionResult,
+} from "../../api/storageEndpoints";
 import { useSession } from "../../auth/SessionProvider";
-import { isRecentWebAuthnVerificationCancelled, useRecentWebAuthnStepUp } from "../../auth/useRecentWebAuthnStepUp";
+import {
+  isRecentWebAuthnVerificationCancelled,
+  useRecentWebAuthnStepUp,
+} from "../../auth/useRecentWebAuthnStepUp";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { settingsLabels } from "../../components/settings/settingsLabels";
-import WorkflowPage, { WorkflowActions, WorkflowMetadata, WorkflowSection } from "../../components/WorkflowPage";
+import WorkflowPage, {
+  WorkflowActions,
+  WorkflowSection,
+} from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
+import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
-import { uiCardMutedClass, uiCheckboxClass, uiMutedTextClass } from "../../components/ui/styles";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import UiInput from "../../components/ui/UiInput";
+import UiSelect from "../../components/ui/UiSelect";
+import {
+  cx,
+  uiCardMutedClass,
+  uiCheckboxClass,
+  uiMutedTextClass,
+} from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
-import { isCancelledError, isRecentWebAuthnRequired } from "../../utils/apiError";
+import {
+  extractApiError,
+  isCancelledError,
+  isRecentWebAuthnRequired,
+} from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
-import OnboardingSetupFields from "./OnboardingSetupFields";
-import OnboardingValidation from "./OnboardingValidation";
 import { onboardingActions, onboardingCopy as copy, onboardingErrors } from "./onboardingCopy";
+import { useOnboardingStatus } from "./useOnboardingStatus";
 
-type Step = "goal" | "setup" | "validation";
-const initialDraft = (name: string): OnboardingDraft => ({
-  name, intent: "evaluate", workspace: "browser", resource_kind: "connection", beneficiary_user_id: null,
-  endpoint_id: null, connection_id: null, account_id: null, endpoint_url: "", region: "", force_path_style: true,
-  grant_access: false, bucket: "", prefix: "", space_id: "", space_name: "", space_visibility: "private",
+type Step = "connect" | "prepare";
+
+const initialDraft = (): OnboardingDraft => ({
+  version: 2,
+  endpoint_id: null,
+  endpoint_url: "",
+  region: "",
+  force_path_style: true,
+  manager: false,
+  portal: false,
+  private_connection: false,
+  ceph_admin: false,
 });
-const workspaces: { value: OnboardingWorkspace; label: "browser" | "manager" | "portal" | "ceph" }[] = [
-  { value: "browser", label: "browser" }, { value: "manager", label: "manager" },
-  { value: "portal", label: "portal" }, { value: "ceph-admin", label: "ceph" },
-];
+
+function validEndpointUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:") && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function SetupOption({
+  title,
+  description,
+  checked,
+  disabled,
+  disabledReason,
+  recommended,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  disabled: boolean;
+  disabledReason?: string;
+  recommended?: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      className={cx(
+        uiCardMutedClass,
+        "block min-h-28 p-4",
+        disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+        checked && !disabled && "outline outline-2 outline-[var(--ui-primary)]",
+      )}
+    >
+      <span className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          className={cx(uiCheckboxClass, "mt-0.5")}
+          checked={checked}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="ui-body font-semibold text-[var(--ui-text)]">{title}</span>
+            {recommended && <UiBadge tone="neutral">{recommended}</UiBadge>}
+          </span>
+          <span className={cx("mt-1 block ui-caption", uiMutedTextClass)}>{description}</span>
+          {disabledReason && (
+            <span className="mt-2 block ui-caption text-[var(--ui-warning-text)]">
+              {disabledReason}
+            </span>
+          )}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+function Capability({
+  label,
+  available,
+  detail,
+  availableLabel,
+  unavailableLabel,
+}: {
+  label: string;
+  available: boolean;
+  detail?: string | null;
+  availableLabel: string;
+  unavailableLabel: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3 py-1.5">
+      <span className="ui-body">{label}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        {detail && <span className={cx("truncate ui-caption", uiMutedTextClass)}>{detail}</span>}
+        <UiBadge tone={available ? "success" : "neutral"}>
+          {available ? availableLabel : unavailableLabel}
+        </UiBadge>
+      </span>
+    </div>
+  );
+}
 
 export default function OnboardingPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const initialId = useRef(params.get("journey"));
-  const initialized = useRef(false);
-  const id = useRef<string>(crypto.randomUUID());
+  const labels = settingsLabels(t);
   const { refresh: refreshSettings } = useGeneralSettings();
   const { refresh: refreshSession } = useSession();
+  const {
+    status,
+    error: statusError,
+    refresh: refreshStatus,
+    setStatus,
+  } = useOnboardingStatus();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp({
     title: t({ en: "Verify with passkey", fr: "Vérifier avec une passkey", de: "Mit Passkey bestätigen", zh: "使用通行密钥验证" }),
-    description: t({ en: "Confirm your identity to apply the reviewed configuration.", fr: "Confirmez votre identité pour appliquer la configuration vérifiée.", de: "Bestätigen Sie Ihre Identität, um die geprüfte Konfiguration anzuwenden.", zh: "请确认身份以应用已审核的配置。" }),
+    description: t(copy.signIn),
     cancel: t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" }),
   });
-  const [status, setStatus] = useState<OnboardingStatus | null>(null);
+
+  const initialized = useRef(false);
+  const id = useRef<string>(crypto.randomUUID());
+  const [step, setStep] = useState<Step>("connect");
   const [journey, setJourney] = useState<OnboardingJourney | null>(null);
-  const [draft, setDraft] = useState(() => initialDraft(t(copy.defaultName)));
-  const [baseline, setBaseline] = useState(() => JSON.stringify(initialDraft(t(copy.defaultName))));
-  const [internalNavigation, setInternalNavigation] = useState(false);
-  const [step, setStep] = useState<Step>("goal");
+  const [draft, setDraft] = useState<OnboardingDraft>(initialDraft);
+  const [baseline, setBaseline] = useState(() => JSON.stringify(initialDraft()));
+  const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
+  const [endpointListError, setEndpointListError] = useState("");
+  const [endpointAccessKey, setEndpointAccessKey] = useState("");
+  const [endpointSecretKey, setEndpointSecretKey] = useState("");
+  const [privateAccessKey, setPrivateAccessKey] = useState("");
+  const [privateSecretKey, setPrivateSecretKey] = useState("");
+  const [detection, setDetection] = useState<StorageEndpointFeatureDetectionResult | null>(null);
+  const [detectionPending, setDetectionPending] = useState(false);
+  const [detectionError, setDetectionError] = useState("");
   const [preview, setPreview] = useState<OnboardingPreview | null>(null);
   const [previewPending, setPreviewPending] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [previewNonce, setPreviewNonce] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [accessKey, setAccessKey] = useState("");
-  const [secretKey, setSecretKey] = useState("");
-  const labels = settingsLabels(t);
+  const [internalNavigation, setInternalNavigation] = useState(false);
+
   const dirtyDraft = JSON.stringify(draft) !== baseline;
-  const dirty = dirtyDraft || Boolean(accessKey || secretKey);
-  const updateJourneyUrl = useCallback((journeyId: string | null) => {
-    // This only changes the URL of an accepted local selection/checkpoint.
-    // External navigation and reloads still use the shared draft guard.
-    flushSync(() => setInternalNavigation(true));
-    setParams(journeyId ? { journey: journeyId } : {}, { replace: true });
-    setInternalNavigation(false);
-  }, [setParams]);
+  const dirtySecrets = Boolean(
+    endpointAccessKey || endpointSecretKey || privateAccessKey || privateSecretKey,
+  );
+  const dirty = dirtyDraft || dirtySecrets;
+  const selectedEndpoint = useMemo(
+    () => endpoints.find((endpoint) => endpoint.id === draft.endpoint_id) ?? null,
+    [draft.endpoint_id, endpoints],
+  );
+  const isCeph = draft.endpoint_id ? selectedEndpoint?.provider === "ceph" : true;
+  const endpointConfigured = Boolean(
+    draft.endpoint_id || (draft.endpoint_url && validEndpointUrl(draft.endpoint_url)),
+  );
+  const endpointCredentialsPartial = Boolean(endpointAccessKey) !== Boolean(endpointSecretKey);
+  const canAccount = Boolean(isCeph && detection?.admin && detection?.account);
+  const canCephAdmin = Boolean(
+    isCeph && detection?.credential_checks.ceph_admin.status === "valid",
+  );
+  const hasSelection =
+    draft.manager || draft.portal || draft.private_connection || draft.ceph_admin;
 
-  const message = useCallback((code: string) => {
-    const [key, source] = code.split(":");
-    return `${t(onboardingErrors[key] ?? onboardingErrors.generic)}${source ? ` (${source})` : ""}`;
-  }, [t]);
-  const failure = useCallback((cause: unknown) => {
-    if (isRecentWebAuthnRequired(cause)) return t(copy.signIn);
-    if (isApiError(cause)) {
-      const detail = cause.response?.data?.detail as { code?: string } | undefined;
-      return message(detail?.code ?? (cause.response?.status === 422 ? "invalid_configuration" : "generic"));
-    }
-    return message(cause instanceof Error && cause.message === "review_changed" ? "review_changed" : "generic");
-  }, [message, t]);
-  const selectJourney = useCallback((value: OnboardingJourney) => {
+  const message = useCallback(
+    (code: string) => {
+      const [key, source] = code.split(":");
+      return `${t(onboardingErrors[key] ?? onboardingErrors.generic)}${source ? ` (${source})` : ""}`;
+    },
+    [t],
+  );
+  const failure = useCallback(
+    (cause: unknown) => {
+      if (isRecentWebAuthnRequired(cause)) return t(copy.signIn);
+      if (isApiError(cause)) {
+        const detail = cause.response?.data?.detail as { code?: string } | undefined;
+        return message(
+          detail?.code ??
+            (cause.response?.status === 422 ? "invalid_configuration" : "generic"),
+        );
+      }
+      return message(
+        cause instanceof Error && cause.message === "review_changed"
+          ? "review_changed"
+          : "generic",
+      );
+    },
+    [message, t],
+  );
+
+  const store = useCallback((value: OnboardingJourney) => {
     id.current = value.id;
-    setJourney(value); setDraft(value.draft); setPreview(value.preview);
-    setBaseline(JSON.stringify(value.draft)); setPreviewPending(false); setPreviewError("");
-    setStep(value.configured ? "validation" : "setup");
-    setAccessKey(""); setSecretKey(""); setError("");
-    updateJourneyUrl(value.id);
-  }, [updateJourneyUrl]);
+    setJourney(value);
+    setDraft(value.draft);
+    setBaseline(JSON.stringify(value.draft));
+    setPreview(value.preview);
+    setPreviewPending(false);
+    setPreviewError("");
+  }, []);
 
   useEffect(() => {
-    if (initialized.current) return;
+    if (!status || status.dismissed || initialized.current) return;
+    initialized.current = true;
+    const current = status.journeys.find((item) => !item.configured);
+    if (current) {
+      store(current);
+      setStep("prepare");
+    }
+  }, [status, store]);
+
+  useEffect(() => {
     let active = true;
-    fetchOnboardingStatus().then(async (loaded) => {
-      if (!active) return;
-      const value = loaded.dismissed ? await resumeOnboarding() : loaded;
-      if (!active) return;
-      initialized.current = true;
-      setStatus(value);
-      const selected = value.journeys?.find((item) => item.id === initialId.current) ?? value.journeys?.[0];
-      if (selected) selectJourney(selected);
-    }).catch((cause) => { if (active) setError(failure(cause)); });
-    return () => { active = false; };
-  }, [failure, selectJourney]);
+    listStorageEndpoints()
+      .then((value) => {
+        if (active) {
+          setEndpoints(value);
+          setEndpointListError("");
+        }
+      })
+      .catch((cause) => {
+        if (active) {
+          setEndpointListError(
+            extractApiError(cause, "Unable to load configured endpoints."),
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
-    if (step !== "setup" || busy) return;
-    const controller = new AbortController();
-    setPreviewPending(true); setPreviewError("");
-    const timer = window.setTimeout(() => {
-      previewOnboardingDraft(draft, controller.signal, journey?.id).then((value) => {
-        if (!controller.signal.aborted) { setPreview(value); setPreviewPending(false); }
-      }).catch((cause) => {
-        if (!controller.signal.aborted && !isCancelledError(cause)) { setPreviewError(failure(cause)); setPreviewPending(false); }
-      });
-    }, 250);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [draft, step, busy, previewNonce, failure, journey?.id]);
+    const endpoint = selectedEndpoint;
+    if (endpoint && endpoint.provider !== "ceph") {
+      setDetection(null);
+      setDetectionPending(false);
+      setDetectionError("");
+      return;
+    }
+    const url = endpoint?.endpoint_url ?? draft.endpoint_url;
+    if (!url || (!endpoint && !validEndpointUrl(url)) || endpointCredentialsPartial) {
+      setDetection(null);
+      setDetectionPending(false);
+      setDetectionError("");
+      return;
+    }
 
-  const store = (value: OnboardingJourney) => {
-    setJourney(value); setDraft(value.draft); setPreview(value.preview);
-    setBaseline(JSON.stringify(value.draft)); setPreviewPending(false); setPreviewError("");
-    setStatus((current) => current && ({ ...current, journeys: [value, ...(current.journeys ?? []).filter((item) => item.id !== value.id)] }));
-    updateJourneyUrl(value.id);
+    const controller = new AbortController();
+    setDetectionPending(true);
+    setDetectionError("");
+    const timer = window.setTimeout(() => {
+      detectStorageEndpointFeatures({
+        endpoint_id: endpoint?.id ?? null,
+        endpoint_url: url,
+        region: (endpoint?.region ?? draft.region) || null,
+        verify_tls: endpoint?.verify_tls ?? true,
+        admin_access_key: endpoint ? null : endpointAccessKey || null,
+        admin_secret_key: endpoint ? null : endpointSecretKey || null,
+        ceph_admin_access_key: endpoint ? null : endpointAccessKey || null,
+        ceph_admin_secret_key: endpoint ? null : endpointSecretKey || null,
+      })
+        .then((value) => {
+          if (!controller.signal.aborted) {
+            setDetection(value);
+            setDetectionPending(false);
+          }
+        })
+        .catch((cause) => {
+          if (!controller.signal.aborted && !isCancelledError(cause)) {
+            setDetection(null);
+            setDetectionPending(false);
+            setDetectionError(
+              extractApiError(cause, "Endpoint capabilities could not be checked."),
+            );
+          }
+        });
+    }, 450);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [
+    draft.endpoint_url,
+    draft.region,
+    endpointAccessKey,
+    endpointCredentialsPartial,
+    endpointSecretKey,
+    selectedEndpoint,
+  ]);
+
+  useEffect(() => {
+    if (step !== "prepare" || journey?.configured || busy) return;
+    const controller = new AbortController();
+    setPreviewPending(true);
+    setPreviewError("");
+    const timer = window.setTimeout(() => {
+      previewOnboardingDraft(draft, controller.signal, journey?.id)
+        .then((value) => {
+          if (!controller.signal.aborted) {
+            setPreview(value);
+            setPreviewPending(false);
+          }
+        })
+        .catch((cause) => {
+          if (!controller.signal.aborted && !isCancelledError(cause)) {
+            setPreviewError(failure(cause));
+            setPreviewPending(false);
+          }
+        });
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [busy, draft, failure, journey?.configured, journey?.id, previewNonce, step]);
+
+  const clearSecrets = () => {
+    setEndpointAccessKey("");
+    setEndpointSecretKey("");
+    setPrivateAccessKey("");
+    setPrivateSecretKey("");
   };
-  const persist = async () => {
-    const value = await saveOnboardingJourney(id.current, draft, journey?.revision);
-    store(value);
-    return value;
+
+  const change = (patch: Partial<OnboardingDraft>) => {
+    setDraft((current) => ({ ...current, ...patch }));
+    setPreview(null);
+    setPreviewPending(step === "prepare");
   };
-  const run = async (action: (reconcile: () => void) => Promise<void>) => {
-    if (busy) return;
-    let reconcileCheckpoints = false;
-    setBusy(true); setError("");
-    try { await action(() => { reconcileCheckpoints = true; }); }
-    catch (cause) {
-      if (isRecentWebAuthnVerificationCancelled(cause)) return;
-      setError(failure(cause));
-      // Reconcile only after a remote operation was attempted. A failed draft
-      // save must retain edits; a failed check must remove any stale success.
-      try {
-        const value = await fetchOnboardingStatus(); setStatus(value);
-        const saved = value.journeys?.find((item) => item.id === id.current);
-        if (saved && reconcileCheckpoints) store(saved);
-      } catch { /* Keep the original operation error and allow an explicit retry. */ }
-      setPreviewNonce((value) => value + 1);
-    } finally { setBusy(false); }
-  };
-  const configure = () => {
-    if (!preview || previewPending || previewError || preview.blockers.length > 0 || pendingSpace || (needsCredentials && (!accessKey || !secretKey))) return;
-    return run(async (reconcile) => {
-    const reviewed = preview?.review_token;
-    const saved = await persist();
-    if (reviewed !== saved.preview.review_token) throw new Error("review_changed");
-    reconcile();
-    const result = await runWithStepUp(() => applyOnboardingJourney(saved, { access_key: accessKey || undefined, secret_key: secretKey || undefined }));
-    store(result); setAccessKey(""); setSecretKey("");
-    await Promise.all([refreshSettings(), refreshSession()]);
-    notifyExecutionContextsRefresh();
-    setStatus(await fetchOnboardingStatus());
-    setStep("validation");
+
+  const selectEndpoint = (value: string) => {
+    clearSecrets();
+    setDetection(null);
+    setDetectionError("");
+    setPreview(null);
+    if (value === "new") {
+      change({
+        endpoint_id: null,
+        endpoint_url: "",
+        region: "",
+        force_path_style: true,
+        manager: false,
+        portal: false,
+        private_connection: false,
+        ceph_admin: false,
+      });
+      return;
+    }
+    const endpointId = Number(value);
+    change({
+      endpoint_id: endpointId,
+      endpoint_url: "",
+      region: "",
+      force_path_style: true,
+      manager: false,
+      portal: false,
+      private_connection: false,
+      ceph_admin: false,
     });
   };
-  const change = (patch: Partial<OnboardingDraft>) => {
-    const changedIdentity = ["resource_kind", "connection_id", "account_id", "endpoint_id", "endpoint_url", "beneficiary_user_id"].some((key) => key in patch);
-    if (changedIdentity) {
-      setAccessKey(""); setSecretKey("");
-      setPreview(null);
-    }
-    setPreviewPending(true);
-    setDraft((current) => ({ ...current, ...(changedIdentity ? { grant_access: false } : {}), ...patch }));
-  };
-  const changeWorkspace = (workspace: OnboardingWorkspace) => {
-    if (workspace === draft.workspace) return;
-    const kind = workspace === "portal" || (workspace === "manager" && draft.resource_kind === "account")
-      ? "account" : workspace === "ceph-admin" ? "endpoint" : "connection";
-    const existingConnection = status?.connections?.find((item) => item.id === draft.connection_id);
-    const connectionId = kind === "connection" && existingConnection && (workspace === "manager" || !existingConnection.is_shared)
-      ? existingConnection.id : null;
-    const accountId = kind === "account" ? draft.account_id : null;
-    const existingEndpoint = status?.endpoints?.find((item) => item.id === draft.endpoint_id);
-    const endpointId = existingEndpoint && (kind === "connection" || existingEndpoint.provider === "ceph") ? existingEndpoint.id : null;
-    const beneficiaryId = workspace === "browser" || workspace === "ceph-admin" ? null : draft.beneficiary_user_id;
-    change({ workspace, resource_kind: kind, account_id: accountId, connection_id: connectionId, endpoint_id: endpointId,
-      beneficiary_user_id: beneficiaryId, bucket: workspace === "browser" || workspace === "manager" ? draft.bucket : "",
-      prefix: workspace === "browser" ? draft.prefix : "", space_id: "",
-      space_name: workspace === "portal" && (!beneficiaryId || beneficiaryId === status?.actor_id) ? t(copy.defaultSpace) : "", grant_access: false });
-  };
-  const reset = () => {
-    id.current = crypto.randomUUID();
-    const value = initialDraft(t(copy.defaultName));
-    setJourney(null); setDraft(value); setBaseline(JSON.stringify(value)); setStep("goal");
-    setPreview(null); setPreviewPending(false); setPreviewError(""); setError("");
-    setAccessKey(""); setSecretKey(""); updateJourneyUrl(null);
-  };
-  const beneficiary = status?.users?.find((user) => user.id === (draft.beneficiary_user_id ?? status.actor_id))?.name ?? t(copy.myself);
-  const endpoint = status?.endpoints?.find((item) => item.id === draft.endpoint_id)?.name ?? draft.endpoint_url;
-  const resourceName = (draft.resource_kind === "connection" ? status?.connections?.find((item) => item.id === draft.connection_id) : status?.accounts?.find((item) => item.id === draft.account_id))?.name ?? draft.name;
-  const needsCredentials = Boolean((draft.resource_kind === "connection" && !draft.connection_id)
-    || (!draft.endpoint_id && !draft.account_id && !draft.connection_id)
-    || preview?.changes.some((item) => ["create_ceph_endpoint", "configure_endpoint_credentials"].includes(item)));
-  const needsAccessConfirmation = preview?.changes.some((item) => ["allow_private_connections", "enable_connection_workspace", "grant_manager_access", "grant_portal_access", "grant_ceph_admin_access", "enable_ui_user"].includes(item));
-  const pendingSpace = journey?.pending_step === "space" && !draft.space_id;
 
-  return <WorkflowPage title={t(copy.title)} description={t(copy.description)} width="standard" breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: t(copy.title) }]}>
-    <div className="space-y-4" aria-busy={busy}>
-      <p className={uiMutedTextClass}>{t(copy.optional)}</p>
-      {status && (dirty || journey) && <p role="status" className="ui-caption text-[var(--ui-text-muted)]">{t(dirty ? copy.unsaved : copy.saved)}</p>}
-      {error && <div role="alert" className="ui-body text-[var(--ui-danger-text)]">{error} <UiButton variant="ghost" onClick={() => void run(async () => {
-        const value = await fetchOnboardingStatus(); setStatus(value);
-        const saved = value.journeys?.find((item) => item.id === id.current); if (saved) selectJourney(saved);
-      })}>{t(copy.loadSaved)}</UiButton></div>}
-      {!status ? <p role="status">{t(copy.loading)}</p> : <>
-        {!status.can_configure && <p role="alert">{message("superadmin_required")}</p>}
-        {(status.journeys?.length ?? 0) > 0 && <details>
-          <summary className="cursor-pointer ui-body">{t(copy.journeys)}</summary>
-          <div className="mt-2 flex flex-wrap gap-2">{status.journeys?.map((item) => <UiButton key={item.id} variant="secondary" disabled={busy} onClick={() => void run(async () => {
-            if (dirtyDraft) await persist();
-            if (item.id !== id.current) selectJourney(item);
-          })}>{item.draft.name} · {item.draft.workspace}</UiButton>)}</div>
-        </details>}
-        <WorkflowTabs activeTab={step} onTabChange={setStep} ariaLabel={t(copy.title)} tabs={[
-          { id: "goal", label: t(copy.goal), disabled: busy }, { id: "setup", label: t(copy.setup), disabled: busy },
-          { id: "validation", label: t(copy.validation), disabled: busy || !journey?.configured || JSON.stringify(draft) !== JSON.stringify(journey.draft) },
-        ]}>
-          {step === "goal" && <fieldset disabled={busy || !status.can_configure} className="space-y-4">
-            <WorkflowSection title={t(copy.context)}>
-              {(["evaluate", "personal", "organization"] as const).map((intent) => <label key={intent} className="flex min-h-11 cursor-pointer items-center gap-3 ui-body">
-                <input type="radio" name="onboarding-intent" value={intent} checked={draft.intent === intent} onChange={() => change({ intent })} />{t(copy[intent])}
-                {intent === "evaluate" && status.source === "quickstart" && <span className="ui-caption">{t(copy.quickstart)}</span>}
-              </label>)}
-            </WorkflowSection>
-            <WorkflowSection title={t(copy.need)}>
-              {workspaces.map((workspace) => <label key={workspace.value} className="flex min-h-11 cursor-pointer items-center gap-3 py-2 ui-body">
-                <input type="radio" name="onboarding-workspace" value={workspace.value} checked={draft.workspace === workspace.value} onChange={() => changeWorkspace(workspace.value)} />{t(copy[workspace.label])}
-              </label>)}
-            </WorkflowSection>
-            <WorkflowActions><UiButton onClick={() => void run(async () => { await persist(); setStep("setup"); })}>{t(copy.continue)}</UiButton></WorkflowActions>
-          </fieldset>}
-          {step === "setup" && <form onSubmit={(event) => { event.preventDefault(); void configure(); }}>
+  const persist = async (value = draft) => {
+    const saved = await saveOnboardingJourney(id.current, value, journey?.revision);
+    store(saved);
+    if (status?.complete) {
+      const nextStatus = await refreshStatus();
+      if (nextStatus) announceOnboardingStatus(nextStatus);
+    }
+    return saved;
+  };
+
+  const run = async (action: () => Promise<void>) => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (cause) {
+      if (isRecentWebAuthnVerificationCancelled(cause)) return;
+      setError(failure(cause));
+      const latest = await refreshStatus();
+      const saved = latest?.journeys.find((item) => item.id === id.current);
+      if (saved) store(saved);
+      setPreviewNonce((value) => value + 1);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const goPrepare = () =>
+    run(async () => {
+      let next = draft;
+      if (!hasSelection) {
+        next = canAccount
+          ? { ...draft, manager: true, portal: true }
+          : { ...draft, private_connection: true };
+        setDraft(next);
+      }
+      await persist(next);
+      setStep("prepare");
+    });
+
+  const accountUnavailableReason = !isCeph
+    ? t(onboardingErrors.ceph_endpoint_required)
+    : detectionError
+      ? detectionError
+      : !detection
+        ? t(onboardingErrors.endpoint_admin_credentials_required)
+        : !detection.admin
+          ? t(onboardingErrors.endpoint_admin_credentials_required)
+          : !detection.account
+            ? t(onboardingErrors.account_api_unavailable)
+            : undefined;
+  const cephUnavailableReason = !isCeph
+    ? t(onboardingErrors.ceph_endpoint_required)
+    : detectionError
+      ? detectionError
+      : !canCephAdmin
+        ? t(onboardingErrors.ceph_identity_denied)
+        : undefined;
+
+  const invalidSelection =
+    (draft.manager && !canAccount) ||
+    (draft.portal && !canAccount) ||
+    (draft.ceph_admin && !canCephAdmin);
+  const privateCredentialsMissing =
+    draft.private_connection && (!privateAccessKey || !privateSecretKey);
+  const canApply =
+    Boolean(preview) &&
+    !previewPending &&
+    !previewError &&
+    preview!.blockers.length === 0 &&
+    hasSelection &&
+    !invalidSelection &&
+    !endpointCredentialsPartial &&
+    !privateCredentialsMissing;
+
+  const configure = () =>
+    run(async () => {
+      if (!canApply || !preview) return;
+      const reviewed = preview.review_token;
+      const saved = await persist();
+      if (saved.preview.review_token !== reviewed) throw new Error("review_changed");
+      const result = await runWithStepUp(() =>
+        applyOnboardingJourney(saved, {
+          endpoint_access_key: endpointAccessKey || undefined,
+          endpoint_secret_key: endpointSecretKey || undefined,
+          private_access_key: privateAccessKey || undefined,
+          private_secret_key: privateSecretKey || undefined,
+        }),
+      );
+      store(result);
+      clearSecrets();
+      await Promise.all([refreshSettings(), refreshSession()]);
+      notifyExecutionContextsRefresh();
+      const nextStatus = await refreshStatus();
+      if (nextStatus) announceOnboardingStatus(nextStatus);
+    });
+
+  const hideSetup = () =>
+    run(async () => {
+      if (journey || dirtyDraft) await persist();
+      const next = await dismissOnboarding();
+      setStatus(next);
+      flushSync(() => setInternalNavigation(true));
+      navigate("/admin");
+    });
+
+  if (!status) {
+    return (
+      <WorkflowPage
+        title={t(copy.title)}
+        description={t(copy.description)}
+        width="standard"
+        breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: t(copy.title) }]}
+      >
+        <p role="status">{statusError ?? t({ en: "Loading…", fr: "Chargement…", de: "Laden…", zh: "加载中…" })}</p>
+      </WorkflowPage>
+    );
+  }
+
+  if (status.dismissed) {
+    return (
+      <WorkflowPage
+        title={t(copy.title)}
+        description={t(copy.description)}
+        width="standard"
+        breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: t(copy.title) }]}
+      >
+        <WorkflowSection title={t(copy.hiddenTitle)} description={t(copy.hiddenDescription)}>
+          <WorkflowActions>
+            <UiButton
+              onClick={() =>
+                void run(async () => {
+                  initialized.current = false;
+                  const next = await resumeOnboarding();
+                  setStatus(next);
+                })
+              }
+            >
+              {t(copy.showSetup)}
+            </UiButton>
+            <Link to="/admin" className="text-primary underline">{t(copy.admin)}</Link>
+          </WorkflowActions>
+        </WorkflowSection>
+        {verificationDialog}
+      </WorkflowPage>
+    );
+  }
+
+  if (journey?.configured) {
+    return (
+      <WorkflowPage
+        title={t(copy.title)}
+        description={t(copy.description)}
+        width="standard"
+        breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: t(copy.title) }]}
+      >
+        <WorkflowSection title={t(copy.successTitle)} description={t(copy.successDescription)}>
+          <div className="mb-4"><UiBadge tone="success">{t(copy.available)}</UiBadge></div>
+          <WorkflowActions>
+            {journey.links.manager && <Link className="text-primary underline" to={journey.links.manager}>{t(copy.openManager)}</Link>}
+            {journey.links.portal && <Link className="text-primary underline" to={journey.links.portal}>{t(copy.openPortal)}</Link>}
+            {journey.links.browser && <Link className="text-primary underline" to={journey.links.browser}>{t(copy.openBrowser)}</Link>}
+            {journey.links.private_manager && <Link className="text-primary underline" to={journey.links.private_manager}>{t(copy.openPrivateManager)}</Link>}
+            {journey.links.ceph_admin && <Link className="text-primary underline" to={journey.links.ceph_admin}>{t(copy.openCephAdmin)}</Link>}
+            <Link to="/admin" className="text-primary underline">{t(copy.admin)}</Link>
+          </WorkflowActions>
+        </WorkflowSection>
+        {verificationDialog}
+      </WorkflowPage>
+    );
+  }
+
+  return (
+    <WorkflowPage
+      title={t(copy.title)}
+      description={t(copy.description)}
+      width="standard"
+      breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: t(copy.title) }]}
+    >
+      <div className="space-y-4" aria-busy={busy}>
+        <p className={uiMutedTextClass}>{t(copy.optional)}</p>
+        {(statusError || endpointListError) && (
+          <UiInlineMessage tone="error">{statusError || endpointListError}</UiInlineMessage>
+        )}
+        {error && (
+          <UiInlineMessage tone="error">
+            {error}{" "}
+            <UiButton variant="ghost" onClick={() => setPreviewNonce((value) => value + 1)}>
+              {t(copy.retry)}
+            </UiButton>
+          </UiInlineMessage>
+        )}
+        {!status.can_configure && (
+          <UiInlineMessage tone="warning">{message("superadmin_required")}</UiInlineMessage>
+        )}
+
+        <WorkflowTabs
+          activeTab={step}
+          onTabChange={setStep}
+          ariaLabel={t(copy.title)}
+          tabs={[
+            { id: "connect", label: t(copy.connectStep), disabled: busy },
+            {
+              id: "prepare",
+              label: t(copy.prepareStep),
+              disabled: busy || !journey,
+            },
+          ]}
+        >
+          {step === "connect" && (
             <fieldset disabled={busy || !status.can_configure} className="space-y-4">
-              <OnboardingSetupFields key={`${id.current}:${draft.workspace}:${draft.account_id}:${draft.beneficiary_user_id}`} draft={draft} status={status} needsCredentials={needsCredentials} onChange={change} accessKey={accessKey} secretKey={secretKey} onCredentials={(access, secret) => { setAccessKey(access); setSecretKey(secret); }} />
-              <section className={`${uiCardMutedClass} space-y-3 p-4`} aria-label={t(copy.summary)} aria-busy={previewPending}>
-                <h2 className="ui-subtitle">{t(copy.summary)}</h2>
-                <WorkflowMetadata items={[{ label: t(copy.beneficiary), value: beneficiary }, { label: t(copy.resource), value: resourceName }, { label: t(copy.endpoint), value: endpoint || "—" }]} />
-                <p className={uiMutedTextClass}>{t(copy.automatic)}</p>
-                {previewError && <p role="alert">{previewError} <UiButton variant="ghost" onClick={() => setPreviewNonce((value) => value + 1)}>{t(copy.retry)}</UiButton></p>}
-                {pendingSpace && <p role="alert">{message("space_reconciliation_required")}</p>}
-                {(previewPending || !preview) && !previewError && <p role="status">{t(copy.saving)}</p>}
-                {preview && !previewError && <>
-                  {preview.features.length + preview.changes.length === 0 && <p>{t(copy.noChanges)}</p>}
-                  {(preview.features.length + preview.changes.length > 0) && <ul className="list-disc space-y-1 pl-5 ui-body">{[...preview.features, ...preview.changes].map((item) => <li key={item}>{t(onboardingActions[item] ?? copy.review)}</li>)}</ul>}
-                  {!previewPending && preview.blockers.length > 0 && <div role="alert">{preview.blockers.map((item) => <p key={item}>{message(item)}</p>)}</div>}
-                </>}
-                {needsAccessConfirmation && <label className="flex min-h-11 cursor-pointer items-center gap-3 ui-body">
-                  <input type="checkbox" className={uiCheckboxClass} checked={draft.grant_access} disabled={previewPending || Boolean(previewError)} onChange={(event) => change({ grant_access: event.target.checked })} />
-                  {t(copy.allowAccess)}
-                </label>}
-              </section>
-              <WorkflowActions><UiButton variant="secondary" onClick={() => setStep("goal")}>{t(copy.back)}</UiButton>
-                <UiButton type="submit" loading={busy} disabled={!preview || previewPending || Boolean(previewError) || pendingSpace || preview.blockers.length > 0 || Boolean(needsCredentials && (!accessKey || !secretKey))}>{t(busy ? copy.working : copy.configure)}</UiButton>
+              <WorkflowSection title={t(copy.endpointTitle)} description={t(copy.endpointHelp)}>
+                <div className="space-y-4">
+                  <UiSelect
+                    label={t(copy.endpointChoice)}
+                    value={draft.endpoint_id ? String(draft.endpoint_id) : "new"}
+                    onChange={(event) => selectEndpoint(event.target.value)}
+                  >
+                    <option value="new">{t(copy.newEndpoint)}</option>
+                    {endpoints.map((endpoint) => (
+                      <option key={endpoint.id} value={endpoint.id}>
+                        {endpoint.name} · {endpoint.provider.toUpperCase()}
+                      </option>
+                    ))}
+                  </UiSelect>
+
+                  {!draft.endpoint_id && (
+                    <>
+                      <UiInput
+                        label={t(copy.endpointUrl)}
+                        type="url"
+                        required
+                        placeholder="https://s3.example.com"
+                        value={draft.endpoint_url}
+                        onChange={(event) => change({ endpoint_url: event.target.value })}
+                      />
+                      <div className={cx(uiCardMutedClass, "space-y-3 p-4")}>
+                        <div>
+                          <h3 className="ui-body font-semibold">{t(copy.adminCredentials)}</h3>
+                          <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>{t(copy.adminCredentialsHelp)}</p>
+                          <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>{t(copy.keysNotSaved)}</p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <UiInput
+                            label={t(copy.accessKey)}
+                            type="password"
+                            autoComplete="off"
+                            value={endpointAccessKey}
+                            onChange={(event) => setEndpointAccessKey(event.target.value)}
+                          />
+                          <UiInput
+                            label={t(copy.secretKey)}
+                            type="password"
+                            autoComplete="new-password"
+                            value={endpointSecretKey}
+                            onChange={(event) => setEndpointSecretKey(event.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <details>
+                        <summary className="cursor-pointer ui-body">{t(copy.advanced)}</summary>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <UiInput
+                            label={t(copy.region)}
+                            value={draft.region}
+                            onChange={(event) => change({ region: event.target.value })}
+                          />
+                          <UiSelect
+                            label={t(copy.addressStyle)}
+                            value={draft.force_path_style ? "path" : "host"}
+                            onChange={(event) =>
+                              change({ force_path_style: event.target.value === "path" })
+                            }
+                          >
+                            <option value="path">{t(copy.pathStyle)}</option>
+                            <option value="host">{t(copy.virtualHost)}</option>
+                          </UiSelect>
+                        </div>
+                      </details>
+                    </>
+                  )}
+                </div>
+              </WorkflowSection>
+
+              <WorkflowSection title={t(copy.capabilityTitle)} description={t(copy.detectionHint)}>
+                {detectionPending ? (
+                  <p role="status" className={uiMutedTextClass}>{t(copy.detecting)}</p>
+                ) : (
+                  <div className="divide-y divide-[var(--ui-border)]">
+                    <Capability
+                      label={t(copy.adminOps)}
+                      available={Boolean(detection?.admin)}
+                      detail={detection?.credential_checks.admin.message}
+                      availableLabel={t(copy.available)}
+                      unavailableLabel={t(copy.unavailable)}
+                    />
+                    <Capability
+                      label={t(copy.accountApi)}
+                      available={Boolean(detection?.account)}
+                      detail={detection?.account_error}
+                      availableLabel={t(copy.available)}
+                      unavailableLabel={t(copy.unavailable)}
+                    />
+                    <Capability
+                      label={t(copy.cephIdentity)}
+                      available={canCephAdmin}
+                      detail={detection?.credential_checks.ceph_admin.message}
+                      availableLabel={t(copy.available)}
+                      unavailableLabel={t(copy.unavailable)}
+                    />
+                  </div>
+                )}
+                {selectedEndpoint?.provider !== "ceph" && (
+                  <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>
+                    S3 access is available through a private connection; Ceph-specific setup is not offered for this endpoint.
+                  </p>
+                )}
+                {detectionError && <UiInlineMessage tone="warning">{detectionError}</UiInlineMessage>}
+              </WorkflowSection>
+
+              <WorkflowActions>
+                <UiButton
+                  onClick={() => void goPrepare()}
+                  disabled={
+                    !endpointConfigured ||
+                    endpointCredentialsPartial ||
+                    detectionPending ||
+                    busy
+                  }
+                >
+                  {t(copy.continue)}
+                </UiButton>
+                <UiButton variant="ghost" onClick={() => void hideSetup()}>{t(copy.dismiss)}</UiButton>
               </WorkflowActions>
             </fieldset>
-          </form>}
-          {step === "validation" && journey && <OnboardingValidation key={journey.id} journey={journey} actorId={status.actor_id ?? 0} busy={busy} onConfigureSpace={() => setStep("setup")} onVerify={() => void run(async (reconcile) => { reconcile(); store(await verifyOnboardingJourney(journey)); })} onAttest={(check, checked, note) => void run(async (reconcile) => { reconcile(); store(await attestOnboardingJourney(journey, check, checked, note)); })} />}
+          )}
+
+          {step === "prepare" && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void configure();
+              }}
+            >
+              <fieldset disabled={busy || !status.can_configure} className="space-y-4">
+                <WorkflowSection title={t(copy.prepareTitle)} description={t(copy.prepareHelp)}>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <SetupOption
+                      title={t(copy.managerTitle)}
+                      description={t(copy.managerDesc)}
+                      checked={draft.manager}
+                      disabled={!canAccount}
+                      disabledReason={!canAccount ? accountUnavailableReason : undefined}
+                      recommended={canAccount ? t(copy.recommended) : undefined}
+                      onChange={(manager) => change({ manager })}
+                    />
+                    <SetupOption
+                      title={t(copy.portalTitle)}
+                      description={t(copy.portalDesc)}
+                      checked={draft.portal}
+                      disabled={!canAccount}
+                      disabledReason={!canAccount ? accountUnavailableReason : undefined}
+                      recommended={canAccount ? t(copy.recommended) : undefined}
+                      onChange={(portal) => change({ portal })}
+                    />
+                    <SetupOption
+                      title={t(copy.privateTitle)}
+                      description={t(copy.privateDesc)}
+                      checked={draft.private_connection}
+                      disabled={false}
+                      onChange={(private_connection) => change({ private_connection })}
+                    />
+                    <SetupOption
+                      title={t(copy.cephTitle)}
+                      description={t(copy.cephDesc)}
+                      checked={draft.ceph_admin}
+                      disabled={!canCephAdmin}
+                      disabledReason={!canCephAdmin ? cephUnavailableReason : undefined}
+                      onChange={(ceph_admin) => change({ ceph_admin })}
+                    />
+                  </div>
+                </WorkflowSection>
+
+                {draft.private_connection && (
+                  <WorkflowSection
+                    title={t(copy.privateCredentials)}
+                    description={t(copy.privateCredentialsHelp)}
+                  >
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <UiInput
+                        label={t(copy.accessKey)}
+                        type="password"
+                        autoComplete="off"
+                        required
+                        value={privateAccessKey}
+                        onChange={(event) => setPrivateAccessKey(event.target.value)}
+                      />
+                      <UiInput
+                        label={t(copy.secretKey)}
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        value={privateSecretKey}
+                        onChange={(event) => setPrivateSecretKey(event.target.value)}
+                      />
+                    </div>
+                    <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>{t(copy.keysNotSaved)}</p>
+                  </WorkflowSection>
+                )}
+
+                <section
+                  className={cx(uiCardMutedClass, "space-y-3 p-4")}
+                  aria-label={t(copy.summary)}
+                  aria-busy={previewPending}
+                >
+                  <div>
+                    <h2 className="ui-subtitle">{t(copy.summary)}</h2>
+                    <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>{t(copy.summaryHelp)}</p>
+                  </div>
+                  {previewPending || !preview ? (
+                    <p role="status" className={uiMutedTextClass}>{t(copy.previewing)}</p>
+                  ) : (
+                    <>
+                      {preview.features.length + preview.changes.length === 0 && <p>{t(copy.noChanges)}</p>}
+                      {preview.features.length + preview.changes.length > 0 && (
+                        <ul className="list-disc space-y-1 pl-5 ui-body">
+                          {[...preview.features, ...preview.changes].map((item) => (
+                            <li key={item}>{t(onboardingActions[item] ?? copy.summaryHelp)}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {preview.blockers.length > 0 && (
+                        <UiInlineMessage tone="warning">
+                          {preview.blockers.map((item) => (
+                            <span className="block" key={item}>{message(item)}</span>
+                          ))}
+                        </UiInlineMessage>
+                      )}
+                    </>
+                  )}
+                  {previewError && (
+                    <UiInlineMessage tone="error">
+                      {previewError}{" "}
+                      <UiButton variant="ghost" onClick={() => setPreviewNonce((value) => value + 1)}>
+                        {t(copy.retry)}
+                      </UiButton>
+                    </UiInlineMessage>
+                  )}
+                  {!hasSelection && (
+                    <UiInlineMessage tone="warning">{message("selection_required")}</UiInlineMessage>
+                  )}
+                </section>
+
+                <WorkflowActions>
+                  <UiButton variant="secondary" onClick={() => setStep("connect")}>{t(copy.back)}</UiButton>
+                  <UiButton type="submit" loading={busy} disabled={!canApply}>
+                    {t(busy ? copy.working : copy.apply)}
+                  </UiButton>
+                  <UiButton variant="ghost" onClick={() => void hideSetup()}>{t(copy.dismiss)}</UiButton>
+                </WorkflowActions>
+              </fieldset>
+            </form>
+          )}
         </WorkflowTabs>
-        <WorkflowActions>
-          <Link to="/admin" className="text-primary underline">Admin</Link>
-          <UiButton variant="secondary" disabled={busy || !status.can_configure} onClick={() => void run(async () => {
-            await persist();
-            flushSync(() => { setAccessKey(""); setSecretKey(""); setInternalNavigation(true); });
-            navigate("/admin");
-          })}>{t(copy.pause)}</UiButton>
-          <UiButton variant="ghost" disabled={busy || !status.can_configure} onClick={() => void run(async () => { if (journey || dirtyDraft) await persist(); reset(); })}>{t(copy.newGoal)}</UiButton>
-        </WorkflowActions>
-      </>}
-      {verificationDialog}
-      <SettingsNavigationGuard dirty={Boolean(status) && !internalNavigation && (dirty || busy)} discardDisabled={busy}
-        title={busy ? t(copy.working) : labels.discardTitle}
-        description={busy ? t(copy.waitBeforeLeaving) : t(copy.unsavedHelp)}
-        confirmLabel={labels.discard} cancelLabel={labels.keepEditing} closeLabel={labels.close} />
-    </div>
-  </WorkflowPage>;
+
+        {verificationDialog}
+        <SettingsNavigationGuard
+          dirty={!internalNavigation && (dirty || busy)}
+          discardDisabled={busy}
+          title={busy ? t(copy.working) : labels.discardTitle}
+          description={
+            busy
+              ? t({ en: "Wait for the current operation to finish before leaving.", fr: "Attendez la fin de l’opération avant de quitter la page.", de: "Warten Sie, bis der Vorgang abgeschlossen ist.", zh: "请等待当前操作完成后再离开。" })
+              : t({ en: "Entered keys are not saved. Leave this setup?", fr: "Les clés saisies ne sont pas enregistrées. Quitter cette configuration ?", de: "Eingegebene Schlüssel werden nicht gespeichert. Einrichtung verlassen?", zh: "输入的密钥不会保存。要离开此设置吗？" })
+          }
+          confirmLabel={labels.discard}
+          cancelLabel={labels.keepEditing}
+          closeLabel={labels.close}
+        />
+      </div>
+    </WorkflowPage>
+  );
 }

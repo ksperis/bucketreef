@@ -12,12 +12,11 @@ from app.core.database import get_db
 from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.onboarding import (
-    OnboardingApply, OnboardingAttestation, OnboardingJourneyOut,
-    OnboardingSave, OnboardingStatus, OnboardingVerify,
+    OnboardingApply, OnboardingJourneyOut, OnboardingSave, OnboardingStatus,
     OnboardingDraft, OnboardingPreview,
 )
 from app.routers.dependencies import get_current_super_admin, get_current_ui_superadmin
-from app.services.identity_security_policy import require_admin_interactive_session, require_admin_sensitive_action
+from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.onboarding_service import OnboardingError, OnboardingService
 from app.services.rgw_admin import RGWAdminError
 
@@ -84,16 +83,3 @@ def save_onboarding_journey(journey_id: UUID, payload: OnboardingSave, db: Sessi
 def apply_onboarding_journey(journey_id: UUID, payload: OnboardingApply, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_ui_superadmin)):
     require_admin_sensitive_action(request, db, current_user)
     return _run(lambda: OnboardingService(db).apply(current_user, journey_id, payload))
-
-
-@router.post("/journeys/{journey_id}/verify", response_model=OnboardingJourneyOut)
-def verify_onboarding_journey(journey_id: UUID, payload: OnboardingVerify, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_ui_superadmin)):
-    # An admin:write API token must not acquire S3/Ceph execution through a
-    # different surface's stored credentials. This guide runs in the UI session.
-    require_admin_interactive_session(request, db, current_user)
-    return _run(lambda: OnboardingService(db).verify(current_user, journey_id, payload.revision))
-
-
-@router.post("/journeys/{journey_id}/attest", response_model=OnboardingJourneyOut)
-def attest_onboarding_journey(journey_id: UUID, payload: OnboardingAttestation, db: Session = Depends(get_db), current_user: User = Depends(get_current_ui_superadmin)):
-    return _run(lambda: OnboardingService(db).attest(current_user, journey_id, payload))

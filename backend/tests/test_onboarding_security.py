@@ -14,12 +14,11 @@ from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 
 
-@pytest.mark.parametrize("operation", ["apply", "verify"])
 @pytest.mark.parametrize("mode", [
     "anonymous", "user", "admin", "no_csrf", "foreign_origin",
     "stale_mfa", "api_token", "revoked_session", "valid",
 ])
-def test_storage_operations_require_authorized_interactive_sessions(db_session, client, monkeypatch, operation, mode):
+def test_apply_requires_authorized_recent_interactive_session(db_session, client, monkeypatch, mode):
     # Keep only the isolated test database dependency. Exercise the production
     # role, cookie, CSRF, token-scope and sensitive-action checks unchanged.
     app.dependency_overrides.pop(dependencies.get_current_super_admin, None)
@@ -51,22 +50,20 @@ def test_storage_operations_require_authorized_interactive_sessions(db_session, 
     calls = []
 
     def reached_service(*_args, **_kwargs):
-        calls.append(operation)
+        calls.append("apply")
         raise OnboardingError("test_service_reached", 409)
 
-    monkeypatch.setattr(OnboardingService, operation, reached_service)
-    payload = {"revision": 1}
-    if operation == "apply":
-        payload.update(confirmed=True, review_token="0" * 64)
+    monkeypatch.setattr(OnboardingService, "apply", reached_service)
+    payload = {"revision": 1, "confirmed": True, "review_token": "0" * 64}
     response = client.post(
-        f"/api/admin/onboarding/journeys/00000000-0000-4000-8000-000000000001/{operation}",
+        "/api/admin/onboarding/journeys/00000000-0000-4000-8000-000000000001/apply",
         json=payload, headers=headers,
     )
-    permitted = mode == "valid" or (mode == "stale_mfa" and operation == "verify")
+    permitted = mode == "valid"
     if permitted:
         assert response.status_code == 409
         assert response.json() == {"detail": {"code": "test_service_reached"}}
-        assert calls == [operation]
+        assert calls == ["apply"]
     else:
         assert response.status_code in {401, 403}
         assert calls == []

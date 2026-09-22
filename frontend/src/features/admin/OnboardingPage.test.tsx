@@ -1,273 +1,338 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { axe } from "jest-axe";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { OnboardingDraft, OnboardingJourney, OnboardingPreview, OnboardingStatus } from "../../api/onboarding";
+import type {
+  OnboardingDraft,
+  OnboardingJourney,
+  OnboardingPreview,
+  OnboardingStatus,
+} from "../../api/onboarding";
+import type {
+  StorageEndpoint,
+  StorageEndpointFeatureDetectionResult,
+} from "../../api/storageEndpoints";
 import OnboardingPage from "./OnboardingPage";
 
-const api = vi.hoisted(() => ({
-  fetchOnboardingStatus: vi.fn(), previewOnboardingDraft: vi.fn(), saveOnboardingJourney: vi.fn(),
-  applyOnboardingJourney: vi.fn(), verifyOnboardingJourney: vi.fn(), attestOnboardingJourney: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  announceOnboardingStatus: vi.fn(),
+  applyOnboardingJourney: vi.fn(),
+  detectStorageEndpointFeatures: vi.fn(),
+  dismissOnboarding: vi.fn(),
+  fetchOnboardingStatus: vi.fn(),
+  listStorageEndpoints: vi.fn(),
+  previewOnboardingDraft: vi.fn(),
+  refreshSession: vi.fn(),
+  refreshSettings: vi.fn(),
   resumeOnboarding: vi.fn(),
-  refreshSettings: vi.fn(), refreshSession: vi.fn(),
+  saveOnboardingJourney: vi.fn(),
 }));
-vi.mock("../../api/onboarding", () => api);
-vi.mock("../../components/GeneralSettingsContext", () => ({ useGeneralSettings: () => ({ refresh: api.refreshSettings }) }));
-vi.mock("../../auth/SessionProvider", () => ({ useSession: () => ({ refresh: api.refreshSession }) }));
 
-let state: OnboardingStatus;
-const reviewToken = "a".repeat(64);
-function preview(draft: OnboardingDraft): OnboardingPreview {
+vi.mock("../../api/onboarding", () => ({
+  ONBOARDING_STATUS_EVENT: "bucketreef:onboarding-status",
+  announceOnboardingStatus: mocks.announceOnboardingStatus,
+  applyOnboardingJourney: mocks.applyOnboardingJourney,
+  dismissOnboarding: mocks.dismissOnboarding,
+  fetchOnboardingStatus: mocks.fetchOnboardingStatus,
+  previewOnboardingDraft: mocks.previewOnboardingDraft,
+  resumeOnboarding: mocks.resumeOnboarding,
+  saveOnboardingJourney: mocks.saveOnboardingJourney,
+}));
+vi.mock("../../api/storageEndpoints", () => ({
+  detectStorageEndpointFeatures: mocks.detectStorageEndpointFeatures,
+  listStorageEndpoints: mocks.listStorageEndpoints,
+}));
+vi.mock("../../components/GeneralSettingsContext", () => ({
+  useGeneralSettings: () => ({ refresh: mocks.refreshSettings }),
+}));
+vi.mock("../../auth/SessionProvider", () => ({
+  useSession: () => ({ refresh: mocks.refreshSession }),
+}));
+vi.mock("../../auth/useRecentWebAuthnStepUp", () => ({
+  isRecentWebAuthnVerificationCancelled: () => false,
+  useRecentWebAuthnStepUp: () => ({
+    runWithStepUp: async (action: () => Promise<unknown>) => action(),
+    verificationDialog: null,
+  }),
+}));
+
+const REVIEW_TOKEN = "a".repeat(64);
+const createdAt = "2026-09-22T12:00:00Z";
+let status: OnboardingStatus;
+let lastJourney: OnboardingJourney | null;
+
+const cephEndpoint = {
+  id: 3,
+  name: "Lab Ceph",
+  endpoint_url: "https://s3.example.test",
+  region: "default",
+  force_path_style: true,
+  verify_tls: true,
+  provider: "ceph",
+  has_admin_secret: true,
+  has_supervision_secret: false,
+  has_ceph_admin_secret: true,
+  features: {},
+  is_default: true,
+  is_editable: true,
+  tags: [],
+  created_at: createdAt,
+  updated_at: createdAt,
+} as StorageEndpoint;
+
+const awsEndpoint = {
+  ...cephEndpoint,
+  id: 4,
+  name: "External S3",
+  endpoint_url: "https://s3.external.test",
+  provider: "other",
+  has_admin_secret: false,
+  has_ceph_admin_secret: false,
+} as StorageEndpoint;
+
+const validDetection: StorageEndpointFeatureDetectionResult = {
+  admin: true,
+  account: true,
+  usage: true,
+  metrics: true,
+  warnings: [],
+  credential_checks: {
+    admin: { status: "valid", message: "Admin credentials validated" },
+    supervision: { status: "not_configured" },
+    ceph_admin: { status: "valid", message: "Ceph Admin identity validated" },
+  },
+};
+
+function previewFor(draft: OnboardingDraft): OnboardingPreview {
+  const features: string[] = [];
+  const changes: string[] = [];
+  const blockers: string[] = [];
+  if (!draft.endpoint_id && !draft.endpoint_url) blockers.push("endpoint_required");
+  if (!draft.manager && !draft.portal && !draft.private_connection && !draft.ceph_admin) {
+    blockers.push("selection_required");
+  }
+  if (draft.manager) changes.push("grant_manager_access");
+  if (draft.portal) changes.push("grant_portal_access", "prepare_portal_identity");
+  if (draft.private_connection) changes.push("create_private_connection");
+  if (draft.ceph_admin) changes.push("grant_ceph_admin_access");
+  return { review_token: REVIEW_TOKEN, features, changes, blockers };
+}
+
+function journey(id: string, draft: OnboardingDraft, configured = false): OnboardingJourney {
   return {
-    review_token: reviewToken, features: draft.workspace === "portal" ? ["portal_enabled", "browser_enabled", "browser_portal_enabled"] : [],
-    changes: draft.connection_id ? [] : ["create_private_connection"],
-    blockers: !draft.connection_id && !draft.endpoint_id && !draft.endpoint_url ? ["endpoint_required"] : [],
+    id,
+    revision: 1,
+    draft,
+    resources: {},
+    pending_step: null,
+    configured,
+    preview: configured ? { review_token: "", features: [], changes: [], blockers: [] } : previewFor(draft),
+    links: {},
+    created_at: createdAt,
+    updated_at: createdAt,
   };
 }
-function saved(id: string, draft: OnboardingDraft, revision = 1): OnboardingJourney {
-  return { id, revision, draft, resources: {}, evidence: {}, readiness: {}, pending_step: null,
-    configured: false, usage_validated: false, ready: false, preview: preview(draft), open_url: null,
-    created_at: "2026-09-21T12:00:00Z", updated_at: "2026-09-21T12:00:00Z" };
+
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={["/admin/onboarding"]}>
+      <OnboardingPage />
+    </MemoryRouter>,
+  );
 }
-function existingDraft(patch: Partial<OnboardingDraft> = {}): OnboardingDraft {
-  return { name: "Saved scope", intent: "evaluate", workspace: "browser", resource_kind: "connection",
-    beneficiary_user_id: null, endpoint_id: 3, connection_id: 5, account_id: null,
-    endpoint_url: "", region: "", force_path_style: true, grant_access: false,
-    bucket: "allowed-bucket", prefix: "", space_id: "", space_name: "", space_visibility: "private", ...patch };
-}
-function page() { return render(<MemoryRouter initialEntries={["/admin/onboarding"]}><OnboardingPage /></MemoryRouter>); }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  state = { dismissed: false, complete: false, endpoint_configured: true, storage_access_configured: false,
-    can_configure: true, actor_id: 1, journeys: [], source: "quickstart",
-    endpoints: [{ id: 3, name: "Lab S3", provider: "ceph" }], connections: [], accounts: [],
-    users: [{ id: 1, name: "Administrator" }, { id: 2, name: "Client pilot" }], spaces: [],
+  lastJourney = null;
+  status = {
+    dismissed: false,
+    complete: false,
+    endpoint_configured: true,
+    storage_access_configured: false,
+    source: "standard",
+    journeys: [],
+    can_configure: true,
+    actor_id: 1,
   };
-  api.fetchOnboardingStatus.mockImplementation(async () => state);
-  api.resumeOnboarding.mockImplementation(async () => { state = { ...state, dismissed: false }; return state; });
-  api.previewOnboardingDraft.mockImplementation(async (draft: OnboardingDraft) => preview(draft));
-  api.saveOnboardingJourney.mockImplementation(async (id: string, draft: OnboardingDraft, revision?: number) => {
-    const journey = saved(id, draft, revision ?? 1); state.journeys = [journey]; return journey;
+  mocks.fetchOnboardingStatus.mockImplementation(async () => status);
+  mocks.listStorageEndpoints.mockResolvedValue([cephEndpoint, awsEndpoint]);
+  mocks.detectStorageEndpointFeatures.mockResolvedValue(validDetection);
+  mocks.previewOnboardingDraft.mockImplementation(async (draft: OnboardingDraft) => previewFor(draft));
+  mocks.saveOnboardingJourney.mockImplementation(async (id: string, draft: OnboardingDraft) => {
+    lastJourney = journey(id, draft);
+    status = { ...status, complete: false, journeys: [lastJourney] };
+    return lastJourney;
   });
-  api.applyOnboardingJourney.mockImplementation(async (journey: OnboardingJourney) => {
-    const result = { ...journey, configured: true, draft: { ...journey.draft, connection_id: 5 },
-      resources: { connection_id: 5 }, preview: { features: [], changes: [], blockers: [], review_token: reviewToken },
-      open_url: `/${journey.draft.workspace}?ctx=conn-5` };
-    state.journeys = [result]; return result;
+  mocks.applyOnboardingJourney.mockImplementation(async (current: OnboardingJourney) => {
+    const result: OnboardingJourney = {
+      ...current,
+      configured: true,
+      resources: {
+        endpoint_id: current.draft.endpoint_id ?? 9,
+        ...(current.draft.manager || current.draft.portal ? { account_id: 11 } : {}),
+        ...(current.draft.private_connection ? { connection_id: 12 } : {}),
+      },
+      preview: { review_token: "", features: [], changes: [], blockers: [] },
+      links: {
+        ...(current.draft.manager ? { manager: "/manager/buckets?ctx=11" } : {}),
+        ...(current.draft.portal ? { portal: "/portal/storage-spaces?project=11" } : {}),
+        ...(current.draft.private_connection
+          ? {
+              browser: "/browser?ctx=conn-12",
+              private_manager: "/manager/buckets?ctx=conn-12",
+            }
+          : {}),
+        ...(current.draft.ceph_admin ? { ceph_admin: "/ceph-admin?ep=3" } : {}),
+      },
+    };
+    lastJourney = result;
+    status = { ...status, complete: true, journeys: [result] };
+    return result;
   });
-  api.verifyOnboardingJourney.mockImplementation(async (journey: OnboardingJourney) => {
-    const result = { ...journey, usage_validated: true, evidence: { source: "automatic" as const, current: true, operation: "list_buckets" } };
-    state.journeys = [result]; return result;
+  mocks.dismissOnboarding.mockImplementation(async () => {
+    status = { ...status, dismissed: true };
+    return status;
   });
-  api.refreshSettings.mockResolvedValue(undefined); api.refreshSession.mockResolvedValue(null);
+  mocks.resumeOnboarding.mockImplementation(async () => {
+    status = { ...status, dismissed: false };
+    return status;
+  });
+  mocks.refreshSettings.mockResolvedValue(undefined);
+  mocks.refreshSession.mockResolvedValue(undefined);
 });
 
-describe("guided onboarding", () => {
-  it("restores the dashboard entry when the administrator explicitly reopens the guide", async () => {
-    state.dismissed = true;
-    page();
-    await screen.findByRole("heading", { name: "How will you use BucketReef?" });
-    expect(api.resumeOnboarding).toHaveBeenCalledTimes(1);
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
+describe("simplified onboarding", () => {
+  it("uses two clear steps and preselects Manager + Portal when Ceph account capabilities are available", async () => {
+    renderPage();
+
+    expect(await screen.findByRole("tab", { name: "1. Connect storage" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "2. Prepare BucketReef" })).toBeDisabled();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Endpoint" }), { target: { value: "3" } });
+    await waitFor(() => expect(mocks.detectStorageEndpointFeatures).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getAllByText("Available").length).toBeGreaterThanOrEqual(3));
+
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    await waitFor(() => expect(continueButton).toBeEnabled());
+    fireEvent.click(continueButton);
+
+    expect(await screen.findByRole("checkbox", { name: /Manager with a sample RGW Account/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Portal with the same sample account/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Private S3 connection/ })).not.toBeChecked();
+    expect(mocks.saveOnboardingJourney).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ endpoint_id: 3, manager: true, portal: true }),
+      undefined,
+    );
   });
-  it("presents all four goals and keeps QuickStart optional (a11y)", async () => {
-    const { container } = page();
-    expect(await screen.findByRole("heading", { name: "How will you use BucketReef?" })).toBeInTheDocument();
-    expect(screen.getByText(/Recommended after QuickStart/)).toBeInTheDocument();
-    expect(screen.getAllByRole("radio")).toHaveLength(7);
-    expect(screen.getByRole("radio", { name: /Manager.*teams and clients/ })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /Portal.*teams and clients/ })).toBeInTheDocument();
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
+
+  it("keeps private S3 credentials out of draft/preview and applies them only on confirmation", async () => {
+    renderPage();
+    fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    const privateOption = await screen.findByRole("checkbox", { name: /Private S3 connection/ });
+    expect(privateOption).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Manager with a sample RGW Account/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Ceph Admin/ })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Access key"), { target: { value: "private-access" } });
+    fireEvent.change(screen.getByLabelText("Secret key"), { target: { value: "private-secret" } });
+
+    const applyButton = screen.getByRole("button", { name: "Apply configuration" });
+    await waitFor(() => expect(applyButton).toBeEnabled());
+    expect(JSON.stringify(mocks.previewOnboardingDraft.mock.calls)).not.toContain("private-secret");
+    expect(JSON.stringify(mocks.saveOnboardingJourney.mock.calls)).not.toContain("private-secret");
+
+    fireEvent.click(applyButton);
+    expect(await screen.findByRole("heading", { name: "BucketReef is ready to explore" })).toBeInTheDocument();
+    expect(mocks.applyOnboardingJourney).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: expect.objectContaining({ private_connection: true }) }),
+      expect.objectContaining({
+        private_access_key: "private-access",
+        private_secret_key: "private-secret",
+      }),
+    );
+    expect(screen.getByRole("link", { name: "Open Browser" })).toHaveAttribute("href", "/browser?ctx=conn-12");
+    expect(screen.getByRole("link", { name: "Open private connection in Manager" })).toHaveAttribute(
+      "href",
+      "/manager/buckets?ctx=conn-12",
+    );
+    expect(mocks.refreshSettings).toHaveBeenCalled();
+    expect(mocks.refreshSession).toHaveBeenCalled();
+  });
+
+  it("shows why Ceph-specific choices are unavailable on a generic S3 endpoint", async () => {
+    renderPage();
+    fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await screen.findByRole("checkbox", { name: /Private S3 connection/ });
+    expect(screen.getAllByText("This option requires a Ceph RGW endpoint.").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByRole("checkbox", { name: /Private S3 connection/ })).toBeEnabled();
+  });
+
+  it("does not silently restore a dismissed assistant", async () => {
+    status = { ...status, dismissed: true };
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Setup assistant is hidden" })).toBeInTheDocument();
+    expect(mocks.resumeOnboarding).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Show setup assistant" }));
+    await waitFor(() => expect(mocks.resumeOnboarding).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("tab", { name: "1. Connect storage" })).toBeInTheDocument();
+  });
+
+  it("resumes an incomplete v2 setup at the preparation step", async () => {
+    const draft: OnboardingDraft = {
+      version: 2,
+      endpoint_id: 3,
+      endpoint_url: "",
+      region: "",
+      force_path_style: true,
+      manager: true,
+      portal: false,
+      private_connection: false,
+      ceph_admin: false,
+    };
+    status = { ...status, journeys: [journey("saved", draft)] };
+    renderPage();
+
+    expect(await screen.findByRole("tab", { name: "2. Prepare BucketReef" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("checkbox", { name: /Manager with a sample RGW Account/ })).toBeChecked();
+  });
+
+  it("turns a completed setup into a new active journey when the assistant is run again", async () => {
+    const completedDraft: OnboardingDraft = {
+      version: 2,
+      endpoint_id: 3,
+      endpoint_url: "",
+      region: "",
+      force_path_style: true,
+      manager: true,
+      portal: false,
+      private_connection: false,
+      ceph_admin: false,
+    };
+    status = { ...status, complete: true, journeys: [journey("completed", completedDraft, true)] };
+    renderPage();
+
+    fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), { target: { value: "3" } });
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    await waitFor(() => expect(continueButton).toBeEnabled());
+    fireEvent.click(continueButton);
+
+    await waitFor(() => expect(status.complete).toBe(false));
+    await waitFor(() => expect(mocks.announceOnboardingStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ complete: false }),
+    ));
+    expect(await screen.findByRole("tab", { name: "2. Prepare BucketReef" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("keeps the first-run surface accessible", async () => {
+    const { container } = renderPage();
+    await screen.findByRole("tab", { name: "1. Connect storage" });
     expect((await axe(container)).violations).toEqual([]);
-  });
-
-  it("configures Manager directly, sends keys only on confirmation, then runs an explicit check", async () => {
-    page();
-    fireEvent.click(await screen.findByRole("radio", { name: /Manager —/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue", exact: true }));
-    await screen.findByRole("combobox", { name: "Storage endpoint" });
-    fireEvent.change(screen.getByRole("combobox", { name: "Storage endpoint" }), { target: { value: "3" } });
-    fireEvent.change(await screen.findByLabelText("Access key", { exact: true }), { target: { value: "test-access" } });
-    fireEvent.change(screen.getByLabelText("Secret key", { exact: true }), { target: { value: "test-secret" } });
-    const submit = screen.getByRole("button", { name: "Configure and continue" });
-    await waitFor(() => expect(submit).toBeEnabled());
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
-    expect(JSON.stringify(api.previewOnboardingDraft.mock.calls)).not.toContain("test-secret");
-    fireEvent.click(submit);
-    await screen.findByText("Configured", { selector: "span" });
-    expect(api.applyOnboardingJourney).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({ workspace: "manager" }) }), { access_key: "test-access", secret_key: "test-secret" });
-    expect(JSON.stringify(api.saveOnboardingJourney.mock.calls)).not.toContain("test-secret");
-    expect(api.verifyOnboardingJourney).not.toHaveBeenCalled();
-    expect(api.refreshSettings).toHaveBeenCalled(); expect(api.refreshSession).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Check access with this profile" }));
-    expect(await screen.findByText("Usage validated")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open workspace" })).toHaveAttribute("href", "/manager?ctx=conn-5");
-  });
-
-  it("shows ENV blockers and never applies a disabled journey", async () => {
-    api.previewOnboardingDraft.mockResolvedValue({ features: [], changes: [], blockers: ["env_locked:FEATURE_BROWSER_ENABLED"], review_token: reviewToken });
-    page();
-    fireEvent.click(await screen.findByRole("button", { name: "Continue", exact: true }));
-    expect(await screen.findByText(/FEATURE_BROWSER_ENABLED/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Configure and continue" })).toBeDisabled();
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
-  });
-
-  it("retains a saved goal on reload and keeps setup separate from real use", async () => {
-    const draft = { intent: "organization", workspace: "manager", resource_kind: "connection", connection_id: 5,
-      account_id: null, endpoint_id: 3, beneficiary_user_id: null, name: "Client scope", endpoint_url: "", region: "",
-      force_path_style: true, grant_access: false, bucket: "allowed-bucket", prefix: "", space_id: "", space_name: "", space_visibility: "private" } as OnboardingDraft;
-    state.journeys = [{ ...saved("aa", draft), configured: true, open_url: "/manager?ctx=conn-5" }];
-    page();
-    await screen.findByText("Usage still to be checked");
-    expect(screen.queryByText("Usage validated")).not.toBeInTheDocument();
-    expect(api.verifyOnboardingJourney).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("tab", { name: "2. Configuration" }));
-    expect(await screen.findByLabelText("Known bucket (optional)")).toHaveValue("allowed-bucket");
-    await waitFor(() => expect(api.previewOnboardingDraft).toHaveBeenCalled());
-    expect(api.fetchOnboardingStatus).toHaveBeenCalledTimes(1);
-  });
-
-  it("preserves the configuration and shows the denial after a failed check", async () => {
-    const draft = { intent: "evaluate", workspace: "browser", resource_kind: "connection", connection_id: 5,
-      name: "Private scope", beneficiary_user_id: null } as OnboardingDraft;
-    state.journeys = [{ ...saved("saved", draft), configured: true, open_url: "/browser?ctx=conn-5" }];
-    api.verifyOnboardingJourney.mockRejectedValue({ isApiError: true, response: { status: 400, data: { detail: { code: "storage_access_denied" } } } });
-    page();
-    fireEvent.click(await screen.findByRole("button", { name: "Check access with this profile" }));
-    const alert = await screen.findByRole("alert");
-    expect(within(alert).getByText(/Storage denied this operation/)).toBeInTheDocument();
-    expect(screen.getByText("Usage still to be checked")).toBeInTheDocument();
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
-  });
-
-  it("retains a compatible private connection when switching from Browser to Manager", async () => {
-    const draft = { intent: "personal", workspace: "browser", resource_kind: "connection", connection_id: 5,
-      endpoint_id: 3, name: "Existing scope", beneficiary_user_id: null, bucket: "limited-bucket", prefix: "docs/",
-      account_id: null, endpoint_url: "", region: "", force_path_style: true, grant_access: false,
-      space_id: "", space_name: "", space_visibility: "private" } as OnboardingDraft;
-    state.connections = [{ id: 5, name: "Existing scope", endpoint_id: 3, is_shared: false }];
-    state.journeys = [{ ...saved("existing", draft), configured: true, open_url: "/browser?ctx=conn-5" }];
-    page();
-    await screen.findByText("Usage still to be checked");
-    fireEvent.click(screen.getByRole("tab", { name: "1. Your goal" }));
-    fireEvent.click(screen.getByRole("radio", { name: /Manager —/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue", exact: true }));
-    expect(await screen.findByRole("combobox", { name: "S3 connection" })).toHaveValue("5");
-    expect(screen.getByLabelText("Known bucket (optional)")).toHaveValue("limited-bucket");
-    expect(api.saveOnboardingJourney).toHaveBeenLastCalledWith("existing", expect.objectContaining({
-      workspace: "manager", connection_id: 5, endpoint_id: 3, prefix: "", grant_access: false,
-    }), 1);
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
-  });
-
-  it("keeps credential fields mounted while reviewing edits and blocks a failed or pending preview", async () => {
-    page();
-    fireEvent.click(await screen.findByRole("button", { name: "Continue", exact: true }));
-    fireEvent.change(await screen.findByRole("combobox", { name: "Storage endpoint" }), { target: { value: "3" } });
-    const access = await screen.findByLabelText("Access key", { exact: true });
-    const secret = screen.getByLabelText("Secret key", { exact: true });
-    fireEvent.change(access, { target: { value: "test-access" } });
-    fireEvent.change(secret, { target: { value: "test-secret" } });
-    const submit = screen.getByRole("button", { name: "Configure and continue" });
-    await waitFor(() => expect(submit).toBeEnabled());
-    let rejectPreview!: (cause: Error) => void;
-    api.previewOnboardingDraft.mockImplementationOnce(() => new Promise((_, reject) => { rejectPreview = reject; }));
-    fireEvent.change(screen.getByLabelText("Known bucket (optional)"), { target: { value: "limited-bucket" } });
-    expect(screen.getByLabelText("Access key", { exact: true })).toBe(access);
-    expect(screen.getByLabelText("Secret key", { exact: true })).toBe(secret);
-    expect(secret).toHaveValue("test-secret");
-    expect(submit).toBeDisabled();
-    fireEvent.submit(submit.closest("form")!);
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
-    await waitFor(() => expect(rejectPreview).toBeDefined());
-    await act(async () => rejectPreview(new Error("preview unavailable")));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Setup could not complete/);
-    expect(submit).toBeDisabled();
-    fireEvent.submit(submit.closest("form")!);
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
-    expect(secret).toHaveValue("test-secret");
-    fireEvent.click(screen.getByRole("button", { name: "Retry", exact: true }));
-    await waitFor(() => expect(submit).toBeEnabled());
-  });
-
-  it("retains unsaved edits after a save failure and guards a reload", async () => {
-    state.connections = [{ id: 5, name: "Saved scope", endpoint_id: 3, is_shared: false }];
-    state.journeys = [saved("saved", existingDraft())];
-    page();
-    fireEvent.change(await screen.findByLabelText("Name", { exact: true }), { target: { value: "My edited scope" } });
-    api.saveOnboardingJourney.mockRejectedValueOnce(new Error("network unavailable"));
-    fireEvent.click(screen.getByRole("button", { name: "Save and leave" }));
-    await screen.findByRole("alert");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Save and leave" })).toBeEnabled());
-    expect(screen.getByLabelText("Name", { exact: true })).toHaveValue("My edited scope");
-    expect(screen.getByText("Changes not saved yet")).toBeInTheDocument();
-    const unload = new Event("beforeunload", { cancelable: true });
-    window.dispatchEvent(unload);
-    expect(unload.defaultPrevented).toBe(true);
-  });
-
-  it("saves a new edited goal before starting another one", async () => {
-    page();
-    fireEvent.click(await screen.findByRole("radio", { name: /Manager —/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Add another goal" }));
-    await waitFor(() => expect(api.saveOnboardingJourney).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ workspace: "manager" }), undefined));
-    await waitFor(() => expect(screen.getByRole("radio", { name: /Browser —/ })).toBeChecked());
-    expect(api.applyOnboardingJourney).not.toHaveBeenCalled();
-  });
-
-  it("keeps the Portal space choice consistent after changing project or beneficiary", async () => {
-    state.accounts = [{ id: 7, name: "Existing project", endpoint_id: 3 }];
-    page();
-    fireEvent.click(await screen.findByRole("radio", { name: /Portal —/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue", exact: true }));
-    expect(await screen.findByLabelText("New space name")).toHaveValue("My files");
-    expect(screen.getByRole("combobox", { name: "Who can access this space?" })).toHaveValue("private");
-    fireEvent.change(screen.getByRole("combobox", { name: "Ceph RGW account / project" }), { target: { value: "7" } });
-    expect(screen.queryByLabelText("New space name")).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "First file space" })).toHaveValue("later");
-    fireEvent.change(screen.getByRole("combobox", { name: "First file space" }), { target: { value: "new" } });
-    fireEvent.change(screen.getByRole("combobox", { name: "Profile receiving this access" }), { target: { value: "2" } });
-    expect(screen.queryByLabelText("New space name")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByRole("combobox", { name: "Profile receiving this access" }), { target: { value: "" } });
-    expect(screen.getByRole("combobox", { name: "First file space" })).toHaveValue("later");
-    expect(screen.queryByLabelText("New space name")).not.toBeInTheDocument();
-  });
-
-  it("offers space selection instead of a failing Portal check when no space is configured", async () => {
-    const draft = existingDraft({ workspace: "portal", resource_kind: "account", account_id: 7, connection_id: null });
-    state.accounts = [{ id: 7, name: "Existing project", endpoint_id: 3 }];
-    state.journeys = [{ ...saved("portal", draft), configured: true, open_url: "/portal?project=7" }];
-    page();
-    expect(await screen.findByRole("button", { name: "Choose a space to check" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Check access with this profile" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Choose a space to check" }));
-    expect(await screen.findByRole("combobox", { name: "First file space" })).toHaveValue("later");
-    expect(api.verifyOnboardingJourney).not.toHaveBeenCalled();
-  });
-
-  it("keeps the evaluation focused on the read check and opens manual evidence on demand", async () => {
-    state.journeys = [{ ...saved("evaluation", existingDraft()), configured: true, open_url: "/browser?ctx=conn-5" }];
-    const { container } = page();
-    await screen.findByText("Usage still to be checked");
-    const note = screen.getByLabelText("Observed result and tested profiles (never include credentials)");
-    expect(note).not.toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Before keeping or opening this service" })).not.toBeInTheDocument();
-    expect((await axe(container)).violations).toEqual([]);
-  });
-
-  it("places the required pilot evidence next to the readiness checks", async () => {
-    const journey = { ...saved("organization", existingDraft({ intent: "organization", workspace: "manager" })), configured: true, open_url: "/manager?ctx=conn-5" };
-    state.journeys = [journey];
-    api.attestOnboardingJourney.mockResolvedValue(journey);
-    page();
-    const allowed = await screen.findByRole("checkbox", { name: "Allowed operations succeed with pilot profiles" });
-    expect(allowed).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Pilot test results (no credentials)"), { target: { value: "Client pilot listed only its assigned bucket." } });
-    expect(allowed).toBeEnabled();
-    fireEvent.click(allowed);
-    await waitFor(() => expect(api.attestOnboardingJourney).toHaveBeenCalledWith(journey, "pilot_allowed", true, "Client pilot listed only its assigned bucket."));
   });
 });

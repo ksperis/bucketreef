@@ -7,11 +7,11 @@ Use this checklist before exposing BucketReef to real users.
 This page turns deployment, security, observability, and user-handover pages into one operator checklist.
 
 The optional [guided onboarding](sysadmin-onboarding.md#guided-application-setup)
-separates configuration, a validated real operation and readiness declarations.
-Its final checklist records the operator's assessment; it does not certify the
-deployment automatically. An organization can offer Manager, Portal, Browser or
-a combination of these experiences. Test both allowed and denied operations
-with actual pilot profiles and confirm isolation between teams or clients.
+prepares an initial endpoint, workspace features and administrator access. It
+does not certify the deployment automatically. An organization can offer
+Manager, Portal, Browser or a combination of these experiences. Test both
+allowed and denied operations with actual pilot profiles and confirm isolation
+between teams or clients.
 Do not use the number of enabled features as a completion criterion.
 
 ## Publish gates
