@@ -75,10 +75,8 @@ class TopicsService:
         return arn
 
     def _is_ceph_endpoint(self, account: S3ExecutionTarget) -> bool:
-        endpoint = getattr(account, "storage_endpoint", None)
-        provider = getattr(endpoint, "provider", None)
-        provider_value = getattr(provider, "value", provider)
-        return str(provider_value or "").strip().lower() == StorageProvider.CEPH.value
+        endpoint = account.storage_endpoint
+        return endpoint is not None and endpoint.provider == StorageProvider.CEPH.value
 
     def _parse_configurable_attributes(self, attributes: dict) -> Optional[dict]:
         configuration: dict[str, Any] = {}
