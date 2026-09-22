@@ -4,6 +4,7 @@ import json
 from datetime import UTC, date, datetime
 
 import pytest
+import requests
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
@@ -820,17 +821,23 @@ def test_detect_features_warns_when_usage_log_endpoint_is_unavailable(db_session
             if self.access_key == "AKIA-CEPH-ADMIN":
                 return {"user": {"system": "true"}}
             assert self.access_key == "AKIA-ADMIN"
-            return {"user_id": "admin-user"}
+            return {
+                "user_id": "admin-user",
+                "caps": [
+                    {"type": "users", "perm": "read,write"},
+                    {"type": "accounts", "perm": "read,write"},
+                ],
+            }
 
         def get_all_buckets(self, with_stats: bool = False):
             assert self.access_key == "AKIA-SUPERVISION"
-            assert with_stats is False
+            assert with_stats is True
             return []
 
         def get_usage(self, show_entries: bool = False, show_summary: bool = False):
             assert self.access_key == "AKIA-SUPERVISION"
             assert show_entries is False
-            assert show_summary is False
+            assert show_summary is True
             return {"not_found": True}
 
         def get_account(
@@ -870,10 +877,131 @@ def test_detect_features_warns_when_usage_log_endpoint_is_unavailable(db_session
     assert result.usage is False
     assert result.usage_error == "RGW usage logs endpoint is unavailable."
     assert result.credential_checks.admin.status == "valid"
+    assert result.admin_ops_permissions.users_read is True
+    assert result.admin_ops_permissions.users_write is True
+    assert result.admin_ops_permissions.accounts_read is True
+    assert result.admin_ops_permissions.accounts_write is True
+    assert result.admin_ops_permissions.buckets_write is False
     assert result.credential_checks.supervision.status == "valid"
     assert result.credential_checks.ceph_admin.status == "valid"
     assert len(result.warnings) == 1
-    assert "Usage logs do not appear enabled" in result.warnings[0]
+    assert "Usage logs returned no usable data" in result.warnings[0]
+
+
+def test_detect_features_requires_usage_values_for_usage_log_detection(
+    db_session, monkeypatch
+):
+    class FakeRGWClient:
+        account_api_supported = None
+
+        def get_all_buckets(self, with_stats: bool = False):
+            assert with_stats is True
+            return []
+
+        def get_usage(self, show_entries: bool = False, show_summary: bool = False):
+            assert show_entries is False
+            assert show_summary is True
+            return {"summary": []}
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **_kwargs: FakeRGWClient(),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            supervision_access_key="AKIA-SUPERVISION",
+            supervision_secret_key="SECRET-SUPERVISION",
+        )
+    )
+
+    assert result.credential_checks.supervision.status == "valid"
+    assert result.metrics is True
+    assert result.usage is False
+    assert result.usage_error == (
+        "RGW usage logs returned no data. Verify rgw_enable_usage_log is enabled "
+        "and that RGW has recorded traffic."
+    )
+    assert len(result.warnings) == 1
+
+
+@pytest.mark.parametrize("status_code", [204, 403])
+def test_detect_features_checks_http_endpoint_when_requested(
+    db_session, monkeypatch, status_code
+):
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        pass
+
+    FakeResponse.status_code = status_code
+
+    def fake_get(url: str, **kwargs):
+        captured["url"] = url
+        captured["kwargs"] = kwargs
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoint_feature_detection.requests.get",
+        fake_get,
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            verify_tls=False,
+            check_http=True,
+        )
+    )
+
+    assert result.http_check.status == "valid"
+    assert result.http_check.status_code == status_code
+    assert captured["url"] == "https://ceph.example.test"
+    kwargs = captured["kwargs"]
+    assert isinstance(kwargs, dict)
+    assert kwargs["verify"] is False
+    assert kwargs["allow_redirects"] is True
+
+
+def test_detect_features_reports_unavailable_http_endpoint(db_session, monkeypatch):
+    def fake_get(*_args, **_kwargs):
+        raise requests.RequestException("connect timeout")
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoint_feature_detection.requests.get",
+        fake_get,
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            check_http=True,
+        )
+    )
+
+    assert result.http_check.status == "unavailable"
+    assert result.http_check.status_code is None
+    assert result.http_check.message == (
+        "Endpoint did not respond to the HTTP connectivity check."
+    )
+
+
+def test_detect_features_skips_http_endpoint_check_by_default(db_session, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.storage_endpoint_feature_detection.requests.get",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("HTTP check must be opt-in")
+        ),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+        )
+    )
+
+    assert result.http_check.status == "not_checked"
 
 
 def test_detect_features_reports_incomplete_credential_pairs(db_session, monkeypatch):
@@ -962,7 +1090,14 @@ def test_detect_features_keeps_account_and_usage_probes_independent(db_session, 
             raise RGWAdminError("metrics probe failed")
 
         def get_usage(self, **_kwargs):
-            return {"entries": [], "summary": []}
+            return {
+                "summary": [
+                    {
+                        "user": "demo",
+                        "categories": [{"category": "get_obj", "ops": 1}],
+                    }
+                ]
+            }
 
     monkeypatch.setattr(
         "app.services.storage_endpoints_service.get_rgw_admin_client",
@@ -1207,14 +1342,21 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
 
         def get_all_buckets(self, with_stats: bool = False):
             assert self.access_key == endpoint.supervision_access_key
-            assert with_stats is False
+            assert with_stats is True
             return []
 
         def get_usage(self, show_entries: bool = False, show_summary: bool = False):
             assert self.access_key == endpoint.supervision_access_key
             assert show_entries is False
-            assert show_summary is False
-            return {"entries": [], "summary": []}
+            assert show_summary is True
+            return {
+                "summary": [
+                    {
+                        "user": "demo",
+                        "categories": [{"category": "put_obj", "ops": 1}],
+                    }
+                ]
+            }
 
         def get_account(
             self,

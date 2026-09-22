@@ -164,6 +164,7 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
     admin_endpoint: Optional[str] = None
     region: Optional[str] = None
     verify_tls: Optional[bool] = None
+    check_http: bool = False
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[str] = None
     supervision_access_key: Optional[str] = None
@@ -208,6 +209,12 @@ class StorageEndpointCredentialChecks(ApiModel):
     )
 
 
+class StorageEndpointHttpCheck(ApiModel):
+    status: Literal["not_checked", "valid", "unavailable"] = "not_checked"
+    status_code: Optional[int] = None
+    message: Optional[str] = None
+
+
 class StorageEndpointFeatureDetectionResult(ApiModel):
     admin: bool = False
     account: bool = False
@@ -218,6 +225,12 @@ class StorageEndpointFeatureDetectionResult(ApiModel):
     metrics_error: Optional[str] = None
     usage_error: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)
+    http_check: StorageEndpointHttpCheck = Field(
+        default_factory=StorageEndpointHttpCheck
+    )
+    admin_ops_permissions: StorageEndpointAdminOpsPermissions = Field(
+        default_factory=StorageEndpointAdminOpsPermissions
+    )
     credential_checks: StorageEndpointCredentialChecks = Field(
         default_factory=StorageEndpointCredentialChecks
     )

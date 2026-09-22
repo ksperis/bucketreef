@@ -56,28 +56,53 @@ runbooks.
 
 ## Guided application setup
 
-The guide has two stages and leaves first-administrator creation and passkey
+The guide has four stages and leaves first-administrator creation and passkey
 enrollment unchanged:
 
 1. **Connect storage.** Reuse an existing endpoint or add a Ceph RGW endpoint.
-   Administration keys are recommended for Ceph because they allow BucketReef
-   to detect RGW Account and Ceph Admin capabilities. Region and addressing
-   style remain under advanced options.
+   This step only identifies the endpoint; it does not request privileged
+   credentials. Region and addressing style remain under advanced options. A
+   live HTTP check must confirm that the endpoint responds before continuing.
+   An HTTP `403` is valid for this connectivity check because it proves that
+   RGW answered before any storage credentials are applied.
 2. **Prepare BucketReef.** Select only the access paths needed for the first
    use: Manager with a sample RGW Account, Portal with the same sample account,
-   a private S3 connection for Browser + Manager, and/or Ceph Admin.
+   a private S3 connection for Browser + Manager, monitoring/metrics, and/or
+   Ceph Admin. Ceph-specific choices remain available for a Ceph RGW endpoint
+   even when its management credentials have not been configured yet.
+3. **Provide credentials.** BucketReef asks only for credentials required by
+   the selected choices and not already configured on the endpoint. Admin Ops,
+   Supervision Ops and Ceph Admin use distinct RGW identities. The private S3
+   connection also uses its own S3 identity. The UI includes the corresponding
+   `radosgw-admin user create` examples for Ceph RGW. Credentials and their
+   required RGW capabilities are validated live before the next step is enabled.
+4. **Review and apply.** Inspect the exact feature activations, resource
+   creations and access assignments, then explicitly apply the reviewed
+   configuration. **Apply configuration** is available only in this final step.
 
-The second step adapts to detected endpoint capabilities. Manager and Portal
-share one sample RGW Account when both are selected, while their membership
-roles remain independent. A private S3 connection uses its own credentials and
-does not reuse the endpoint administration identity. Ceph Admin requires a
-validated RGW admin/system identity.
+The second step adapts to the endpoint provider: generic S3 endpoints can use a
+private Browser/Manager connection, while Ceph-specific setup requires Ceph
+RGW. Manager and Portal share one sample RGW Account when both are selected,
+while their membership roles remain independent. Monitoring enables the
+endpoint usage and metrics capabilities after validating its dedicated
+read-only Supervision Ops identity. Ceph Admin requires a distinct validated
+RGW admin/system identity.
 
-Before **Apply configuration**, the summary lists the feature activations,
-resource creations and access assignments that will occur. Required features
-are enabled only for selected options and remain subject to deployment ENV
-locks. Advanced policies, quotas, identity providers and group assignments stay
-in the standard administration pages.
+The live checks distinguish endpoint reachability, credential access and the
+capability needed by each selected path. Manager/Portal validates Admin Ops and
+the RGW Account API, plus the Admin Ops `users=read,write` and
+`accounts=read,write` caps needed to provision the sample account and identities.
+`buckets=write` is displayed separately and does not block onboarding; it is
+needed only for delegated Manager bucket quota changes. Monitoring validates
+Supervision Ops by retrieving bucket statistics and RGW usage data. The usage
+check must contain actual values; an empty result blocks the monitoring choice
+and asks the operator to verify `rgw_enable_usage_log` and that RGW has already
+recorded traffic. Ceph Admin validates a dedicated RGW identity carrying either the
+`admin` or `system` flag. A private Browser/Manager connection validates its S3
+credentials independently. Required features are enabled only for selected
+options and remain subject to deployment ENV locks. Advanced policies, quotas,
+identity providers and group assignments stay in the standard administration
+pages.
 
 Only a platform superadministrator can apply configuration changes, and apply
 uses the normal recent-passkey sensitive-action guard. Submitted keys are never

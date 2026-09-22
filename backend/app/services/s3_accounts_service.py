@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import logging
 import random
+import re
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -204,7 +205,12 @@ class S3AccountsService:
 
     def _root_display_name(self, account_name: Optional[str], account_identifier: str) -> str:
         base = (account_name or account_identifier or "").strip()
-        return base or "bucketreef admin user"
+        # Ceph RGW Tentacle rejects account-root creation with InvalidArgument
+        # when display-name is serialized with whitespace in the Admin Ops
+        # query string. Keep the human-readable name while making it safe for
+        # this account-root path.
+        safe = re.sub(r"\s+", "-", base)
+        return safe or "bucketreef-admin-user"
 
     def _account_rgw_users(
         self,
@@ -530,17 +536,106 @@ class S3AccountsService:
         self.db.commit()
         return created
 
+    def _ensure_provisioned_root_credentials(
+        self,
+        admin: RGWAdminClient,
+        *,
+        rgw_account_id: str,
+        account_name: str,
+        resume: bool,
+    ) -> tuple[str, str, str]:
+        """Create or reconcile the root identity for a provisioned RGW account.
+
+        Fresh provisioning deliberately creates the account and its root user
+        through the same RGW client/session, matching the normal account
+        creation path. Resume mode first reconciles an already-created root so
+        an interrupted onboarding can continue without creating duplicates.
+        """
+        root_uid = self._root_uid(rgw_account_id)
+        root_payload: dict[str, Any] | None = None
+        if resume:
+            root_payload = self._load_existing_root_user(
+                admin,
+                root_uid,
+                rgw_account_id,
+            )
+
+        if not root_payload:
+            try:
+                root_payload = admin.create_user_with_account_id(
+                    uid=root_uid,
+                    account_id=rgw_account_id,
+                    display_name=self._root_display_name(account_name, rgw_account_id),
+                    account_root=True,
+                )
+            except RGWAdminError as exc:
+                raise ValueError(f"RGW root user creation failed: {exc}") from exc
+
+        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
+            admin.extract_keys(root_payload or {})
+        )
+        if not access_key or not secret_key:
+            reconciled = self._load_existing_root_user(
+                admin,
+                root_uid,
+                rgw_account_id,
+            )
+            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
+                admin.extract_keys(reconciled or {})
+            )
+        if not access_key or not secret_key:
+            try:
+                key_payload = admin.create_access_key(
+                    root_uid,
+                    key_name="bucketreef",
+                )
+            except RGWAdminError as exc:
+                raise ValueError(f"RGW root access key creation failed: {exc}") from exc
+            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
+                admin.extract_keys(key_payload)
+            )
+        if not access_key or not secret_key:
+            raise ValueError("Unable to obtain root access/secret keys for account")
+        return root_uid, access_key, secret_key
+
+    def _persist_provisioned_account(
+        self,
+        payload: S3AccountCreate,
+        endpoint: StorageEndpoint,
+        *,
+        rgw_account_id: str,
+        root_uid: str,
+        access_key: str,
+        secret_key: str,
+    ) -> S3Account:
+        account = S3Account(
+            name=payload.name,
+            rgw_account_id=rgw_account_id,
+            rgw_access_key=access_key,
+            rgw_secret_key=secret_key,
+            rgw_user_uid=root_uid,
+            email=payload.email,
+            storage_endpoint_id=endpoint.id,
+        )
+        self.db.add(account)
+        self.db.flush()
+        self.tags.replace_account_tags(account, payload.tags)
+        if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
+            self._apply_account_quota(
+                account,
+                payload.quota_max_size_gb,
+                payload.quota_max_objects,
+                payload.quota_max_size_unit,
+            )
+        return account
+
     def ensure_provisioned_account(self, payload: S3AccountCreate, rgw_account_id: str) -> S3AccountSchema:
         """Resume a minimal account provisioning operation with a durable RGW ID.
 
         The orchestrator owns the ID and records it before any remote mutation.
-        The existing import workflow reconciles a root user/key after an
-        interrupted request; it never creates another RGW account on retry.
+        Account and root creation stay on the same RGW client/session. A retry
+        reconciles whichever remote resources were already created.
         """
-        source = S3AccountImport(
-            rgw_account_id=rgw_account_id, name=payload.name, email=payload.email,
-            storage_endpoint_id=payload.storage_endpoint_id,
-        )
         existing = self.db.query(S3Account).filter(S3Account.rgw_account_id == rgw_account_id).first()
         if existing:
             if existing.storage_endpoint_id != payload.storage_endpoint_id or existing.name != payload.name:
@@ -555,12 +650,30 @@ class S3AccountsService:
         if admin is None:
             raise ValueError("RGW administrative credentials are required")
         remote = admin.get_account(rgw_account_id, allow_not_found=True)
+        resume = bool(remote and not remote.get("not_found"))
         if not remote or remote.get("not_found"):
-            admin.create_account(account_id=rgw_account_id, account_name=payload.name)
+            try:
+                admin.create_account(account_id=rgw_account_id, account_name=payload.name)
+            except RGWAdminError as exc:
+                raise ValueError(f"RGW account creation failed: {exc}") from exc
         elif remote.get("name") != payload.name:
             raise ValueError("Provisioned RGW account does not match the requested name")
-        self.import_accounts([source])
-        account = self.db.query(S3Account).filter(S3Account.rgw_account_id == rgw_account_id).one()
+        root_uid, access_key, secret_key = self._ensure_provisioned_root_credentials(
+            admin,
+            rgw_account_id=rgw_account_id,
+            account_name=payload.name,
+            resume=resume,
+        )
+        account = self._persist_provisioned_account(
+            payload,
+            endpoint,
+            rgw_account_id=rgw_account_id,
+            root_uid=root_uid,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
+        self.db.commit()
+        self.db.refresh(account)
         return self.get_account_detail(account.id, include_usage=False)
 
     def create_account_with_manager(self, payload: S3AccountCreate) -> S3AccountSchema:
@@ -584,44 +697,20 @@ class S3AccountsService:
         except RGWAdminError as exc:
             raise ValueError(f"RGW account creation failed: {exc}") from exc
 
-        # Create root user in RGW for this account
-        root_uid = self._root_uid(rgw_account_id)
-        root_display = self._root_display_name(payload.name, rgw_account_id)
-        try:
-            root_user_resp = admin.create_user_with_account_id(
-                uid=root_uid,
-                account_id=rgw_account_id,
-                display_name=root_display,
-                account_root=True,
-            )
-        except RGWAdminError as exc:
-            raise ValueError(f"RGW root user creation failed: {exc}") from exc
-        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-            admin.extract_keys(root_user_resp)
-        )
-        if not access_key or not secret_key:
-            raise ValueError("Unable to obtain root access/secret keys for account")
-
-        account = S3Account(
-            name=payload.name,
+        root_uid, access_key, secret_key = self._ensure_provisioned_root_credentials(
+            admin,
             rgw_account_id=rgw_account_id,
-            rgw_access_key=access_key,
-            rgw_secret_key=secret_key,
-            rgw_user_uid=root_uid,
-            email=payload.email,
-            storage_endpoint_id=endpoint.id,
+            account_name=payload.name,
+            resume=False,
         )
-        self.db.add(account)
-        self.db.flush()
-        self.tags.replace_account_tags(account, payload.tags)
-
-        if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
-            self._apply_account_quota(
-                account,
-                payload.quota_max_size_gb,
-                payload.quota_max_objects,
-                payload.quota_max_size_unit,
-            )
+        account = self._persist_provisioned_account(
+            payload,
+            endpoint,
+            rgw_account_id=rgw_account_id,
+            root_uid=root_uid,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
         quota_max_size_gb, quota_max_objects = self.get_account_quota(account, admin)
 
         self.db.commit()

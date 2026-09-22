@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { isApiError } from "../../api/client";
@@ -14,11 +14,11 @@ import {
   type OnboardingJourney,
   type OnboardingPreview,
 } from "../../api/onboarding";
+import { validateAdminS3ConnectionCredentials } from "../../api/s3ConnectionsAdmin";
 import {
-  detectStorageEndpointFeatures,
   listStorageEndpoints,
   type StorageEndpoint,
-  type StorageEndpointFeatureDetectionResult,
+  type StorageEndpointCredentialCheck,
 } from "../../api/storageEndpoints";
 import { useSession } from "../../auth/SessionProvider";
 import {
@@ -51,10 +51,26 @@ import {
   isRecentWebAuthnRequired,
 } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
+import S3CredentialsValidationMessage from "../shared/S3CredentialsValidationMessage";
+import { useLiveS3CredentialsValidation } from "../shared/useLiveS3CredentialsValidation";
 import { onboardingActions, onboardingCopy as copy, onboardingErrors } from "./onboardingCopy";
+import {
+  AdminOpsPermissionsBadges,
+  CredentialStatusBadge,
+  EndpointHttpStatusBadge,
+  hasAccountProvisioningPermissions,
+  SupervisionValidationBadges,
+} from "./StorageEndpointValidationStatus";
+import {
+  ADMIN_OPS_COMMAND,
+  CEPH_ADMIN_COMMAND,
+  PRIVATE_S3_USER_COMMAND,
+  SUPERVISION_OPS_COMMAND,
+} from "./storageEndpointCredentialHelp";
 import { useOnboardingStatus } from "./useOnboardingStatus";
+import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
 
-type Step = "connect" | "prepare";
+type Step = "connect" | "prepare" | "credentials" | "review";
 
 const initialDraft = (): OnboardingDraft => ({
   version: 2,
@@ -62,10 +78,11 @@ const initialDraft = (): OnboardingDraft => ({
   endpoint_url: "",
   region: "",
   force_path_style: true,
-  manager: false,
+  manager: true,
   portal: false,
   private_connection: false,
   ceph_admin: false,
+  supervision: true,
 });
 
 function validEndpointUrl(value: string): boolean {
@@ -76,6 +93,10 @@ function validEndpointUrl(value: string): boolean {
     return false;
   }
 }
+
+const EMPTY_CREDENTIAL_CHECK: StorageEndpointCredentialCheck = {
+  status: "not_configured",
+};
 
 function SetupOption({
   title,
@@ -128,28 +149,105 @@ function SetupOption({
   );
 }
 
-function Capability({
-  label,
-  available,
-  detail,
-  availableLabel,
-  unavailableLabel,
+function CredentialHelp({ command, note }: { command: string; note?: string }) {
+  return (
+    <details className="mt-3">
+      <summary className="cursor-pointer ui-caption font-medium">{note}</summary>
+      <pre className="mt-2 whitespace-pre-wrap break-all rounded-md border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 ui-caption">
+        <code>{command}</code>
+      </pre>
+    </details>
+  );
+}
+
+function CredentialSection({
+  title,
+  description,
+  accessLabel,
+  secretLabel,
+  accessKey,
+  secretKey,
+  required,
+  stored,
+  command,
+  commandHelp,
+  storedLabel,
+  onAccessChange,
+  onSecretChange,
+  extraHelp,
+  validation,
 }: {
-  label: string;
-  available: boolean;
-  detail?: string | null;
-  availableLabel: string;
-  unavailableLabel: string;
+  title: string;
+  description: string;
+  accessLabel: string;
+  secretLabel: string;
+  accessKey: string;
+  secretKey: string;
+  required: boolean;
+  stored: boolean;
+  command?: string;
+  commandHelp: string;
+  storedLabel: string;
+  onAccessChange: (value: string) => void;
+  onSecretChange: (value: string) => void;
+  extraHelp?: string;
+  validation?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-3 py-1.5">
-      <span className="ui-body">{label}</span>
-      <span className="flex min-w-0 items-center gap-2">
-        {detail && <span className={cx("truncate ui-caption", uiMutedTextClass)}>{detail}</span>}
-        <UiBadge tone={available ? "success" : "neutral"}>
-          {available ? availableLabel : unavailableLabel}
-        </UiBadge>
-      </span>
+    <WorkflowSection title={title} description={description}>
+      {validation ? <div className="flex flex-wrap items-center gap-2">{validation}</div> : null}
+      {stored ? (
+        <UiInlineMessage tone="success">{storedLabel}</UiInlineMessage>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <UiInput
+              label={accessLabel}
+              type="password"
+              autoComplete="off"
+              required={required}
+              value={accessKey}
+              onChange={(event) => onAccessChange(event.target.value)}
+            />
+            <UiInput
+              label={secretLabel}
+              type="password"
+              autoComplete="new-password"
+              required={required}
+              value={secretKey}
+              onChange={(event) => onSecretChange(event.target.value)}
+            />
+          </div>
+        </>
+      )}
+      {extraHelp && <p className={cx("mt-3 ui-caption", uiMutedTextClass)}>{extraHelp}</p>}
+      {command && <CredentialHelp command={command} note={commandHelp} />}
+    </WorkflowSection>
+  );
+}
+
+function hasStoredCredentials(
+  endpoint: StorageEndpoint | null,
+  accessField: "admin_access_key" | "supervision_access_key" | "ceph_admin_access_key",
+  secretField: "has_admin_secret" | "has_supervision_secret" | "has_ceph_admin_secret",
+): boolean {
+  return Boolean(endpoint?.[accessField] && endpoint?.[secretField]);
+}
+
+function selectedOptionCount(draft: OnboardingDraft): number {
+  return [
+    draft.manager,
+    draft.portal,
+    draft.private_connection,
+    draft.ceph_admin,
+    draft.supervision,
+  ].filter(Boolean).length;
+}
+
+function SelectionCount({ count, label }: { count: number; label: string }) {
+  return (
+    <div className="flex justify-end">
+      <UiBadge tone={count > 0 ? "success" : "neutral"}>{label}</UiBadge>
     </div>
   );
 }
@@ -175,18 +273,21 @@ export default function OnboardingPage() {
   const initialized = useRef(false);
   const id = useRef<string>(crypto.randomUUID());
   const [step, setStep] = useState<Step>("connect");
+  const workflowTopRef = useRef<HTMLDivElement>(null);
+  const previousStepRef = useRef<Step>(step);
   const [journey, setJourney] = useState<OnboardingJourney | null>(null);
   const [draft, setDraft] = useState<OnboardingDraft>(initialDraft);
   const [baseline, setBaseline] = useState(() => JSON.stringify(initialDraft()));
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [endpointListError, setEndpointListError] = useState("");
-  const [endpointAccessKey, setEndpointAccessKey] = useState("");
-  const [endpointSecretKey, setEndpointSecretKey] = useState("");
+  const [adminAccessKey, setAdminAccessKey] = useState("");
+  const [adminSecretKey, setAdminSecretKey] = useState("");
+  const [supervisionAccessKey, setSupervisionAccessKey] = useState("");
+  const [supervisionSecretKey, setSupervisionSecretKey] = useState("");
+  const [cephAdminAccessKey, setCephAdminAccessKey] = useState("");
+  const [cephAdminSecretKey, setCephAdminSecretKey] = useState("");
   const [privateAccessKey, setPrivateAccessKey] = useState("");
   const [privateSecretKey, setPrivateSecretKey] = useState("");
-  const [detection, setDetection] = useState<StorageEndpointFeatureDetectionResult | null>(null);
-  const [detectionPending, setDetectionPending] = useState(false);
-  const [detectionError, setDetectionError] = useState("");
   const [preview, setPreview] = useState<OnboardingPreview | null>(null);
   const [previewPending, setPreviewPending] = useState(false);
   const [previewError, setPreviewError] = useState("");
@@ -195,9 +296,24 @@ export default function OnboardingPage() {
   const [error, setError] = useState("");
   const [internalNavigation, setInternalNavigation] = useState(false);
 
+  useEffect(() => {
+    if (previousStepRef.current === step) return;
+    previousStepRef.current = step;
+    const workflowTop = workflowTopRef.current;
+    if (!workflowTop || typeof workflowTop.scrollIntoView !== "function") return;
+    workflowTop.scrollIntoView({ block: "start" });
+  }, [step]);
+
   const dirtyDraft = JSON.stringify(draft) !== baseline;
   const dirtySecrets = Boolean(
-    endpointAccessKey || endpointSecretKey || privateAccessKey || privateSecretKey,
+    adminAccessKey ||
+      adminSecretKey ||
+      supervisionAccessKey ||
+      supervisionSecretKey ||
+      cephAdminAccessKey ||
+      cephAdminSecretKey ||
+      privateAccessKey ||
+      privateSecretKey,
   );
   const dirty = dirtyDraft || dirtySecrets;
   const selectedEndpoint = useMemo(
@@ -208,13 +324,146 @@ export default function OnboardingPage() {
   const endpointConfigured = Boolean(
     draft.endpoint_id || (draft.endpoint_url && validEndpointUrl(draft.endpoint_url)),
   );
-  const endpointCredentialsPartial = Boolean(endpointAccessKey) !== Boolean(endpointSecretKey);
-  const canAccount = Boolean(isCeph && detection?.admin && detection?.account);
-  const canCephAdmin = Boolean(
-    isCeph && detection?.credential_checks.ceph_admin.status === "valid",
+  const storedAdminCredentials = hasStoredCredentials(
+    selectedEndpoint,
+    "admin_access_key",
+    "has_admin_secret",
   );
-  const hasSelection =
-    draft.manager || draft.portal || draft.private_connection || draft.ceph_admin;
+  const storedSupervisionCredentials = hasStoredCredentials(
+    selectedEndpoint,
+    "supervision_access_key",
+    "has_supervision_secret",
+  );
+  const storedCephAdminCredentials = hasStoredCredentials(
+    selectedEndpoint,
+    "ceph_admin_access_key",
+    "has_ceph_admin_secret",
+  );
+  const adminCredentialsRequired = (draft.manager || draft.portal) && !storedAdminCredentials;
+  const supervisionCredentialsRequired = draft.supervision && !storedSupervisionCredentials;
+  const cephAdminCredentialsRequired = draft.ceph_admin && !storedCephAdminCredentials;
+  const selectionCount = selectedOptionCount(draft);
+  const hasSelection = selectionCount > 0;
+  const validationEndpointUrl = (
+    selectedEndpoint?.endpoint_url ??
+    draft.endpoint_url
+  ).trim();
+  const validationRegion = (
+    selectedEndpoint?.region ??
+    draft.region
+  )?.trim() || null;
+  const validationForcePathStyle =
+    selectedEndpoint?.force_path_style ?? draft.force_path_style;
+  const validationVerifyTls = selectedEndpoint?.verify_tls ?? true;
+  const endpointValidationPayload = useMemo(
+    () =>
+      endpointConfigured && validationEndpointUrl
+        ? {
+            endpoint_id: draft.endpoint_id,
+            endpoint_url: validationEndpointUrl,
+            region: validationRegion,
+            verify_tls: validationVerifyTls,
+            check_http: true,
+            admin_access_key:
+              draft.manager || draft.portal
+                ? adminAccessKey.trim() ||
+                  (storedAdminCredentials ? selectedEndpoint?.admin_access_key ?? null : null)
+                : null,
+            admin_secret_key:
+              draft.manager || draft.portal ? adminSecretKey.trim() || null : null,
+            supervision_access_key: draft.supervision
+              ? supervisionAccessKey.trim() ||
+                (storedSupervisionCredentials
+                  ? selectedEndpoint?.supervision_access_key ?? null
+                  : null)
+              : null,
+            supervision_secret_key: draft.supervision
+              ? supervisionSecretKey.trim() || null
+              : null,
+            ceph_admin_access_key: draft.ceph_admin
+              ? cephAdminAccessKey.trim() ||
+                (storedCephAdminCredentials
+                  ? selectedEndpoint?.ceph_admin_access_key ?? null
+                  : null)
+              : null,
+            ceph_admin_secret_key: draft.ceph_admin
+              ? cephAdminSecretKey.trim() || null
+              : null,
+          }
+        : null,
+    [
+      cephAdminAccessKey,
+      cephAdminSecretKey,
+      draft.ceph_admin,
+      draft.endpoint_id,
+      draft.manager,
+      draft.portal,
+      draft.supervision,
+      adminAccessKey,
+      endpointConfigured,
+      adminSecretKey,
+      selectedEndpoint?.admin_access_key,
+      selectedEndpoint?.ceph_admin_access_key,
+      selectedEndpoint?.supervision_access_key,
+      storedAdminCredentials,
+      storedCephAdminCredentials,
+      storedSupervisionCredentials,
+      supervisionAccessKey,
+      supervisionSecretKey,
+      validationEndpointUrl,
+      validationRegion,
+      validationVerifyTls,
+    ],
+  );
+  const endpointValidation = useStorageEndpointLiveValidation({
+    enabled: Boolean(endpointValidationPayload),
+    payload: endpointValidationPayload,
+  });
+  const endpointReachable =
+    endpointValidation.result?.http_check?.status === "valid";
+  const adminCredentialCheck =
+    endpointValidation.result?.credential_checks?.admin ?? EMPTY_CREDENTIAL_CHECK;
+  const supervisionCredentialCheck =
+    endpointValidation.result?.credential_checks?.supervision ?? EMPTY_CREDENTIAL_CHECK;
+  const cephAdminCredentialCheck =
+    endpointValidation.result?.credential_checks?.ceph_admin ?? EMPTY_CREDENTIAL_CHECK;
+  const privateValidationPayload = useMemo(() => {
+    const accessKey = privateAccessKey.trim();
+    const secretKey = privateSecretKey.trim();
+    if (!draft.private_connection || !accessKey || !secretKey || !endpointConfigured) {
+      return null;
+    }
+    if (draft.endpoint_id) {
+      return {
+        storage_endpoint_id: draft.endpoint_id,
+        access_key_id: accessKey,
+        secret_access_key: secretKey,
+      };
+    }
+    return {
+      endpoint_url: validationEndpointUrl,
+      region: validationRegion,
+      force_path_style: validationForcePathStyle,
+      verify_tls: validationVerifyTls,
+      access_key_id: accessKey,
+      secret_access_key: secretKey,
+    };
+  }, [
+    draft.endpoint_id,
+    draft.private_connection,
+    endpointConfigured,
+    privateAccessKey,
+    privateSecretKey,
+    validationEndpointUrl,
+    validationForcePathStyle,
+    validationRegion,
+    validationVerifyTls,
+  ]);
+  const privateValidation = useLiveS3CredentialsValidation({
+    enabled: Boolean(privateValidationPayload),
+    payload: privateValidationPayload,
+    validate: validateAdminS3ConnectionCredentials,
+  });
 
   const message = useCallback(
     (code: string) => {
@@ -284,66 +533,7 @@ export default function OnboardingPage() {
   }, []);
 
   useEffect(() => {
-    const endpoint = selectedEndpoint;
-    if (endpoint && endpoint.provider !== "ceph") {
-      setDetection(null);
-      setDetectionPending(false);
-      setDetectionError("");
-      return;
-    }
-    const url = endpoint?.endpoint_url ?? draft.endpoint_url;
-    if (!url || (!endpoint && !validEndpointUrl(url)) || endpointCredentialsPartial) {
-      setDetection(null);
-      setDetectionPending(false);
-      setDetectionError("");
-      return;
-    }
-
-    const controller = new AbortController();
-    setDetectionPending(true);
-    setDetectionError("");
-    const timer = window.setTimeout(() => {
-      detectStorageEndpointFeatures({
-        endpoint_id: endpoint?.id ?? null,
-        endpoint_url: url,
-        region: (endpoint?.region ?? draft.region) || null,
-        verify_tls: endpoint?.verify_tls ?? true,
-        admin_access_key: endpoint ? null : endpointAccessKey || null,
-        admin_secret_key: endpoint ? null : endpointSecretKey || null,
-        ceph_admin_access_key: endpoint ? null : endpointAccessKey || null,
-        ceph_admin_secret_key: endpoint ? null : endpointSecretKey || null,
-      })
-        .then((value) => {
-          if (!controller.signal.aborted) {
-            setDetection(value);
-            setDetectionPending(false);
-          }
-        })
-        .catch((cause) => {
-          if (!controller.signal.aborted && !isCancelledError(cause)) {
-            setDetection(null);
-            setDetectionPending(false);
-            setDetectionError(
-              extractApiError(cause, "Endpoint capabilities could not be checked."),
-            );
-          }
-        });
-    }, 450);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [
-    draft.endpoint_url,
-    draft.region,
-    endpointAccessKey,
-    endpointCredentialsPartial,
-    endpointSecretKey,
-    selectedEndpoint,
-  ]);
-
-  useEffect(() => {
-    if (step !== "prepare" || journey?.configured || busy) return;
+    if (step === "connect" || journey?.configured || busy) return;
     const controller = new AbortController();
     setPreviewPending(true);
     setPreviewError("");
@@ -369,8 +559,12 @@ export default function OnboardingPage() {
   }, [busy, draft, failure, journey?.configured, journey?.id, previewNonce, step]);
 
   const clearSecrets = () => {
-    setEndpointAccessKey("");
-    setEndpointSecretKey("");
+    setAdminAccessKey("");
+    setAdminSecretKey("");
+    setSupervisionAccessKey("");
+    setSupervisionSecretKey("");
+    setCephAdminAccessKey("");
+    setCephAdminSecretKey("");
     setPrivateAccessKey("");
     setPrivateSecretKey("");
   };
@@ -378,13 +572,11 @@ export default function OnboardingPage() {
   const change = (patch: Partial<OnboardingDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
     setPreview(null);
-    setPreviewPending(step === "prepare");
+    setPreviewPending(step !== "connect");
   };
 
   const selectEndpoint = (value: string) => {
     clearSecrets();
-    setDetection(null);
-    setDetectionError("");
     setPreview(null);
     if (value === "new") {
       change({
@@ -392,23 +584,27 @@ export default function OnboardingPage() {
         endpoint_url: "",
         region: "",
         force_path_style: true,
-        manager: false,
+        manager: true,
         portal: false,
         private_connection: false,
         ceph_admin: false,
+        supervision: true,
       });
       return;
     }
     const endpointId = Number(value);
+    const endpoint = endpoints.find((candidate) => candidate.id === endpointId);
+    const cephDefaults = endpoint?.provider === "ceph";
     change({
       endpoint_id: endpointId,
       endpoint_url: "",
       region: "",
       force_path_style: true,
-      manager: false,
+      manager: cephDefaults,
       portal: false,
       private_connection: false,
       ceph_admin: false,
+      supervision: cephDefaults,
     });
   };
 
@@ -442,51 +638,89 @@ export default function OnboardingPage() {
 
   const goPrepare = () =>
     run(async () => {
-      let next = draft;
-      if (!hasSelection) {
-        next = canAccount
-          ? { ...draft, manager: true, portal: true }
-          : { ...draft, private_connection: true };
-        setDraft(next);
-      }
-      await persist(next);
+      if (!endpointReachable) return;
+      await persist();
       setStep("prepare");
     });
 
-  const accountUnavailableReason = !isCeph
-    ? t(onboardingErrors.ceph_endpoint_required)
-    : detectionError
-      ? detectionError
-      : !detection
-        ? t(onboardingErrors.endpoint_admin_credentials_required)
-        : !detection.admin
-          ? t(onboardingErrors.endpoint_admin_credentials_required)
-          : !detection.account
-            ? t(onboardingErrors.account_api_unavailable)
-            : undefined;
-  const cephUnavailableReason = !isCeph
-    ? t(onboardingErrors.ceph_endpoint_required)
-    : detectionError
-      ? detectionError
-      : !canCephAdmin
-        ? t(onboardingErrors.ceph_identity_denied)
-        : undefined;
+  const goCredentials = () =>
+    run(async () => {
+      if (!hasSelection) return;
+      await persist();
+      setStep("credentials");
+    });
 
   const invalidSelection =
-    (draft.manager && !canAccount) ||
-    (draft.portal && !canAccount) ||
-    (draft.ceph_admin && !canCephAdmin);
+    !isCeph && (draft.manager || draft.portal || draft.ceph_admin || draft.supervision);
+  const adminCredentialsPartial =
+    adminCredentialsRequired && Boolean(adminAccessKey) !== Boolean(adminSecretKey);
+  const supervisionCredentialsPartial =
+    supervisionCredentialsRequired &&
+    Boolean(supervisionAccessKey) !== Boolean(supervisionSecretKey);
+  const cephAdminCredentialsPartial =
+    cephAdminCredentialsRequired &&
+    Boolean(cephAdminAccessKey) !== Boolean(cephAdminSecretKey);
+  const adminCredentialsMissing =
+    adminCredentialsRequired && (!adminAccessKey || !adminSecretKey);
+  const supervisionCredentialsMissing =
+    supervisionCredentialsRequired && (!supervisionAccessKey || !supervisionSecretKey);
+  const cephAdminCredentialsMissing =
+    cephAdminCredentialsRequired && (!cephAdminAccessKey || !cephAdminSecretKey);
   const privateCredentialsMissing =
     draft.private_connection && (!privateAccessKey || !privateSecretKey);
+  const adminOpsPermissionsReady = hasAccountProvisioningPermissions(
+    endpointValidation.result?.admin_ops_permissions,
+  );
+  const adminValidationReady =
+    !(draft.manager || draft.portal) ||
+    (adminCredentialCheck.status === "valid" &&
+      endpointValidation.result?.admin === true &&
+      endpointValidation.result?.account === true &&
+      adminOpsPermissionsReady);
+  const supervisionValidationReady =
+    !draft.supervision ||
+    (supervisionCredentialCheck.status === "valid" &&
+      endpointValidation.result?.metrics === true &&
+      endpointValidation.result?.usage === true);
+  const cephAdminValidationReady =
+    !draft.ceph_admin || cephAdminCredentialCheck.status === "valid";
+  const privateValidationReady =
+    !draft.private_connection ||
+    (privateValidation.status === "done" && privateValidation.result?.ok === true);
+  const validationPending =
+    endpointValidation.status === "loading" ||
+    (draft.private_connection && privateValidation.status === "loading");
+  const canReview =
+    endpointReachable &&
+    endpointValidation.status === "done" &&
+    !endpointValidation.error &&
+    hasSelection &&
+    !invalidSelection &&
+    !adminCredentialsPartial &&
+    !supervisionCredentialsPartial &&
+    !cephAdminCredentialsPartial &&
+    !adminCredentialsMissing &&
+    !supervisionCredentialsMissing &&
+    !cephAdminCredentialsMissing &&
+    !privateCredentialsMissing &&
+    adminValidationReady &&
+    supervisionValidationReady &&
+    cephAdminValidationReady &&
+    privateValidationReady &&
+    !validationPending;
   const canApply =
+    canReview &&
     Boolean(preview) &&
     !previewPending &&
     !previewError &&
-    preview!.blockers.length === 0 &&
-    hasSelection &&
-    !invalidSelection &&
-    !endpointCredentialsPartial &&
-    !privateCredentialsMissing;
+    preview!.blockers.length === 0;
+
+  const goReview = () =>
+    run(async () => {
+      if (!canReview) return;
+      await persist();
+      setStep("review");
+    });
 
   const configure = () =>
     run(async () => {
@@ -496,8 +730,12 @@ export default function OnboardingPage() {
       if (saved.preview.review_token !== reviewed) throw new Error("review_changed");
       const result = await runWithStepUp(() =>
         applyOnboardingJourney(saved, {
-          endpoint_access_key: endpointAccessKey || undefined,
-          endpoint_secret_key: endpointSecretKey || undefined,
+          admin_access_key: adminAccessKey || undefined,
+          admin_secret_key: adminSecretKey || undefined,
+          supervision_access_key: supervisionAccessKey || undefined,
+          supervision_secret_key: supervisionSecretKey || undefined,
+          ceph_admin_access_key: cephAdminAccessKey || undefined,
+          ceph_admin_secret_key: cephAdminSecretKey || undefined,
           private_access_key: privateAccessKey || undefined,
           private_secret_key: privateSecretKey || undefined,
         }),
@@ -609,19 +847,30 @@ export default function OnboardingPage() {
           <UiInlineMessage tone="warning">{message("superadmin_required")}</UiInlineMessage>
         )}
 
-        <WorkflowTabs
-          activeTab={step}
-          onTabChange={setStep}
-          ariaLabel={t(copy.title)}
-          tabs={[
-            { id: "connect", label: t(copy.connectStep), disabled: busy },
-            {
-              id: "prepare",
-              label: t(copy.prepareStep),
-              disabled: busy || !journey,
-            },
-          ]}
-        >
+        <div ref={workflowTopRef}>
+          <WorkflowTabs
+            activeTab={step}
+            onTabChange={setStep}
+            ariaLabel={t(copy.title)}
+            tabs={[
+              { id: "connect", label: t(copy.connectStep), disabled: busy },
+              {
+                id: "prepare",
+                label: t(copy.prepareStep),
+                disabled: busy || !journey,
+              },
+              {
+                id: "credentials",
+                label: t(copy.credentialsStep),
+                disabled: busy || !journey || !hasSelection,
+              },
+              {
+                id: "review",
+                label: t(copy.reviewStep),
+                disabled: busy || !journey || !canReview,
+              },
+            ]}
+          >
           {step === "connect" && (
             <fieldset disabled={busy || !status.can_configure} className="space-y-4">
               <WorkflowSection title={t(copy.endpointTitle)} description={t(copy.endpointHelp)}>
@@ -649,29 +898,6 @@ export default function OnboardingPage() {
                         value={draft.endpoint_url}
                         onChange={(event) => change({ endpoint_url: event.target.value })}
                       />
-                      <div className={cx(uiCardMutedClass, "space-y-3 p-4")}>
-                        <div>
-                          <h3 className="ui-body font-semibold">{t(copy.adminCredentials)}</h3>
-                          <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>{t(copy.adminCredentialsHelp)}</p>
-                          <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>{t(copy.keysNotSaved)}</p>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <UiInput
-                            label={t(copy.accessKey)}
-                            type="password"
-                            autoComplete="off"
-                            value={endpointAccessKey}
-                            onChange={(event) => setEndpointAccessKey(event.target.value)}
-                          />
-                          <UiInput
-                            label={t(copy.secretKey)}
-                            type="password"
-                            autoComplete="new-password"
-                            value={endpointSecretKey}
-                            onChange={(event) => setEndpointSecretKey(event.target.value)}
-                          />
-                        </div>
-                      </div>
                       <details>
                         <summary className="cursor-pointer ui-body">{t(copy.advanced)}</summary>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -694,54 +920,24 @@ export default function OnboardingPage() {
                       </details>
                     </>
                   )}
+                  {endpointConfigured && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <EndpointHttpStatusBadge
+                        checking={endpointValidation.status === "loading"}
+                        check={endpointValidation.result?.http_check}
+                      />
+                    </div>
+                  )}
+                  {endpointValidation.error && (
+                    <UiInlineMessage tone="error">{endpointValidation.error}</UiInlineMessage>
+                  )}
                 </div>
-              </WorkflowSection>
-
-              <WorkflowSection title={t(copy.capabilityTitle)} description={t(copy.detectionHint)}>
-                {detectionPending ? (
-                  <p role="status" className={uiMutedTextClass}>{t(copy.detecting)}</p>
-                ) : (
-                  <div className="divide-y divide-[var(--ui-border)]">
-                    <Capability
-                      label={t(copy.adminOps)}
-                      available={Boolean(detection?.admin)}
-                      detail={detection?.credential_checks.admin.message}
-                      availableLabel={t(copy.available)}
-                      unavailableLabel={t(copy.unavailable)}
-                    />
-                    <Capability
-                      label={t(copy.accountApi)}
-                      available={Boolean(detection?.account)}
-                      detail={detection?.account_error}
-                      availableLabel={t(copy.available)}
-                      unavailableLabel={t(copy.unavailable)}
-                    />
-                    <Capability
-                      label={t(copy.cephIdentity)}
-                      available={canCephAdmin}
-                      detail={detection?.credential_checks.ceph_admin.message}
-                      availableLabel={t(copy.available)}
-                      unavailableLabel={t(copy.unavailable)}
-                    />
-                  </div>
-                )}
-                {selectedEndpoint?.provider !== "ceph" && (
-                  <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>
-                    S3 access is available through a private connection; Ceph-specific setup is not offered for this endpoint.
-                  </p>
-                )}
-                {detectionError && <UiInlineMessage tone="warning">{detectionError}</UiInlineMessage>}
               </WorkflowSection>
 
               <WorkflowActions>
                 <UiButton
                   onClick={() => void goPrepare()}
-                  disabled={
-                    !endpointConfigured ||
-                    endpointCredentialsPartial ||
-                    detectionPending ||
-                    busy
-                  }
+                  disabled={!endpointReachable || endpointValidation.status === "loading" || busy}
                 >
                   {t(copy.continue)}
                 </UiButton>
@@ -751,6 +947,247 @@ export default function OnboardingPage() {
           )}
 
           {step === "prepare" && (
+            <fieldset disabled={busy || !status.can_configure} className="space-y-4">
+              <WorkflowSection title={t(copy.prepareTitle)} description={t(copy.prepareHelp)}>
+                <SelectionCount
+                  count={selectionCount}
+                  label={`${selectionCount} ${t(copy.optionsSelected)}`}
+                />
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  <SetupOption
+                    title={t(copy.managerTitle)}
+                    description={t(copy.managerDesc)}
+                    checked={draft.manager}
+                    disabled={!isCeph}
+                    disabledReason={!isCeph ? t(onboardingErrors.ceph_endpoint_required) : undefined}
+                    recommended={isCeph ? t(copy.recommended) : undefined}
+                    onChange={(manager) => change({ manager })}
+                  />
+                  <SetupOption
+                    title={t(copy.portalTitle)}
+                    description={t(copy.portalDesc)}
+                    checked={draft.portal}
+                    disabled={!isCeph}
+                    disabledReason={!isCeph ? t(onboardingErrors.ceph_endpoint_required) : undefined}
+                    onChange={(portal) => change({ portal })}
+                  />
+                  <SetupOption
+                    title={t(copy.privateTitle)}
+                    description={t(copy.privateDesc)}
+                    checked={draft.private_connection}
+                    disabled={false}
+                    onChange={(private_connection) => change({ private_connection })}
+                  />
+                  <SetupOption
+                    title={t(copy.supervisionTitle)}
+                    description={t(copy.supervisionDesc)}
+                    checked={draft.supervision}
+                    disabled={!isCeph}
+                    disabledReason={!isCeph ? t(onboardingErrors.ceph_endpoint_required) : undefined}
+                    recommended={isCeph ? t(copy.recommended) : undefined}
+                    onChange={(supervision) => change({ supervision })}
+                  />
+                  <SetupOption
+                    title={t(copy.cephTitle)}
+                    description={t(copy.cephDesc)}
+                    checked={draft.ceph_admin}
+                    disabled={!isCeph}
+                    disabledReason={!isCeph ? t(onboardingErrors.ceph_endpoint_required) : undefined}
+                    onChange={(ceph_admin) => change({ ceph_admin })}
+                  />
+                </div>
+              </WorkflowSection>
+
+              {!isCeph && (
+                <UiInlineMessage tone="info">{t(copy.genericEndpointHelp)}</UiInlineMessage>
+              )}
+              {!hasSelection && (
+                <UiInlineMessage tone="warning">{message("selection_required")}</UiInlineMessage>
+              )}
+
+              <WorkflowActions>
+                <UiButton variant="secondary" onClick={() => setStep("connect")}>{t(copy.back)}</UiButton>
+                <UiButton onClick={() => void goCredentials()} disabled={!hasSelection || invalidSelection}>
+                  {t(copy.continue)}
+                </UiButton>
+                <UiButton variant="ghost" onClick={() => void hideSetup()}>{t(copy.dismiss)}</UiButton>
+              </WorkflowActions>
+            </fieldset>
+          )}
+
+          {step === "credentials" && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void goReview();
+              }}
+            >
+              <fieldset disabled={busy || !status.can_configure} className="space-y-4">
+                <WorkflowSection title={t(copy.credentialsTitle)} description={t(copy.credentialsHelp)}>
+                  <p className={uiMutedTextClass}>{t(copy.credentialsIntro)}</p>
+                  <p className={cx("ui-caption", uiMutedTextClass)}>{t(copy.keysNotSaved)}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <EndpointHttpStatusBadge
+                      checking={endpointValidation.status === "loading"}
+                      check={endpointValidation.result?.http_check}
+                    />
+                  </div>
+                  {endpointValidation.error && (
+                    <UiInlineMessage tone="error">{endpointValidation.error}</UiInlineMessage>
+                  )}
+                </WorkflowSection>
+
+                {(draft.manager || draft.portal) && (
+                  <CredentialSection
+                    title={t(copy.adminCredentials)}
+                    description={t(copy.adminCredentialsHelp)}
+                    accessLabel={t(copy.adminAccessKey)}
+                    secretLabel={t(copy.adminSecretKey)}
+                    accessKey={adminAccessKey}
+                    secretKey={adminSecretKey}
+                    required={adminCredentialsRequired}
+                    stored={storedAdminCredentials}
+                    command={ADMIN_OPS_COMMAND}
+                    commandHelp={t(copy.rgwCommandHelp)}
+                    storedLabel={t(copy.storedCredentials)}
+                    onAccessChange={setAdminAccessKey}
+                    onSecretChange={setAdminSecretKey}
+                    validation={
+                      <>
+                        <CredentialStatusBadge
+                          status={
+                            endpointValidation.status === "loading"
+                              ? "checking"
+                              : adminCredentialCheck.status
+                          }
+                          message={adminCredentialCheck.message}
+                        />
+                        {endpointValidation.status === "done" &&
+                          adminCredentialCheck.status === "valid" && (
+                            <>
+                              <AdminOpsPermissionsBadges
+                                permissions={endpointValidation.result?.admin_ops_permissions}
+                              />
+                              <UiBadge
+                                tone={endpointValidation.result?.account ? "success" : "danger"}
+                              >
+                                {t(copy.accountApi)} ·{" "}
+                                {t(
+                                  endpointValidation.result?.account
+                                    ? copy.available
+                                    : copy.unavailable,
+                                )}
+                              </UiBadge>
+                            </>
+                          )}
+                      </>
+                    }
+                  />
+                )}
+
+                {draft.supervision && (
+                  <CredentialSection
+                    title={t(copy.supervisionCredentials)}
+                    description={t(copy.supervisionCredentialsHelp)}
+                    accessLabel={t(copy.supervisionAccessKey)}
+                    secretLabel={t(copy.supervisionSecretKey)}
+                    accessKey={supervisionAccessKey}
+                    secretKey={supervisionSecretKey}
+                    required={supervisionCredentialsRequired}
+                    stored={storedSupervisionCredentials}
+                    command={SUPERVISION_OPS_COMMAND}
+                    commandHelp={t(copy.rgwCommandHelp)}
+                    storedLabel={t(copy.storedCredentials)}
+                    onAccessChange={setSupervisionAccessKey}
+                    onSecretChange={setSupervisionSecretKey}
+                    validation={
+                      <>
+                        <CredentialStatusBadge
+                          status={
+                            endpointValidation.status === "loading"
+                              ? "checking"
+                              : supervisionCredentialCheck.status
+                          }
+                          message={supervisionCredentialCheck.message}
+                        />
+                        {endpointValidation.status === "done" &&
+                          supervisionCredentialCheck.status === "valid" && (
+                            <SupervisionValidationBadges
+                              metrics={Boolean(endpointValidation.result?.metrics)}
+                              usage={Boolean(endpointValidation.result?.usage)}
+                              metricsError={endpointValidation.result?.metrics_error}
+                              usageError={endpointValidation.result?.usage_error}
+                            />
+                          )}
+                      </>
+                    }
+                  />
+                )}
+
+                {draft.ceph_admin && (
+                  <CredentialSection
+                    title={t(copy.cephAdminCredentials)}
+                    description={t(copy.cephAdminCredentialsHelp)}
+                    accessLabel={t(copy.cephAdminAccessKey)}
+                    secretLabel={t(copy.cephAdminSecretKey)}
+                    accessKey={cephAdminAccessKey}
+                    secretKey={cephAdminSecretKey}
+                    required={cephAdminCredentialsRequired}
+                    stored={storedCephAdminCredentials}
+                    command={CEPH_ADMIN_COMMAND}
+                    commandHelp={t(copy.rgwCommandHelp)}
+                    storedLabel={t(copy.storedCredentials)}
+                    onAccessChange={setCephAdminAccessKey}
+                    onSecretChange={setCephAdminSecretKey}
+                    validation={
+                      <CredentialStatusBadge
+                        status={
+                          endpointValidation.status === "loading"
+                            ? "checking"
+                            : cephAdminCredentialCheck.status
+                        }
+                        message={cephAdminCredentialCheck.message}
+                      />
+                    }
+                  />
+                )}
+
+                {draft.private_connection && (
+                  <CredentialSection
+                    title={t(copy.privateCredentials)}
+                    description={t(copy.privateCredentialsHelp)}
+                    accessLabel={t(copy.privateAccessKey)}
+                    secretLabel={t(copy.privateSecretKey)}
+                    accessKey={privateAccessKey}
+                    secretKey={privateSecretKey}
+                    required
+                    stored={false}
+                    command={isCeph ? PRIVATE_S3_USER_COMMAND : undefined}
+                    commandHelp={t(copy.rgwCommandHelp)}
+                    storedLabel={t(copy.storedCredentials)}
+                    extraHelp={isCeph ? t(copy.privatePermissionsHelp) : undefined}
+                    onAccessChange={setPrivateAccessKey}
+                    onSecretChange={setPrivateSecretKey}
+                    validation={
+                      privateValidation.status !== "idle" ? (
+                        <S3CredentialsValidationMessage validation={privateValidation} />
+                      ) : undefined
+                    }
+                  />
+                )}
+
+                <WorkflowActions>
+                  <UiButton variant="secondary" onClick={() => setStep("prepare")}>{t(copy.back)}</UiButton>
+                  <UiButton type="submit" disabled={!canReview || validationPending}>
+                    {t(copy.continue)}
+                  </UiButton>
+                  <UiButton variant="ghost" onClick={() => void hideSetup()}>{t(copy.dismiss)}</UiButton>
+                </WorkflowActions>
+              </fieldset>
+            </form>
+          )}
+
+          {step === "review" && (
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -758,70 +1195,73 @@ export default function OnboardingPage() {
               }}
             >
               <fieldset disabled={busy || !status.can_configure} className="space-y-4">
-                <WorkflowSection title={t(copy.prepareTitle)} description={t(copy.prepareHelp)}>
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    <SetupOption
-                      title={t(copy.managerTitle)}
-                      description={t(copy.managerDesc)}
-                      checked={draft.manager}
-                      disabled={!canAccount}
-                      disabledReason={!canAccount ? accountUnavailableReason : undefined}
-                      recommended={canAccount ? t(copy.recommended) : undefined}
-                      onChange={(manager) => change({ manager })}
+                <WorkflowSection title={t(copy.reviewTitle)} description={t(copy.reviewHelp)}>
+                  <div className="space-y-2">
+                    <EndpointHttpStatusBadge
+                      checking={endpointValidation.status === "loading"}
+                      check={endpointValidation.result?.http_check}
                     />
-                    <SetupOption
-                      title={t(copy.portalTitle)}
-                      description={t(copy.portalDesc)}
-                      checked={draft.portal}
-                      disabled={!canAccount}
-                      disabledReason={!canAccount ? accountUnavailableReason : undefined}
-                      recommended={canAccount ? t(copy.recommended) : undefined}
-                      onChange={(portal) => change({ portal })}
-                    />
-                    <SetupOption
-                      title={t(copy.privateTitle)}
-                      description={t(copy.privateDesc)}
-                      checked={draft.private_connection}
-                      disabled={false}
-                      onChange={(private_connection) => change({ private_connection })}
-                    />
-                    <SetupOption
-                      title={t(copy.cephTitle)}
-                      description={t(copy.cephDesc)}
-                      checked={draft.ceph_admin}
-                      disabled={!canCephAdmin}
-                      disabledReason={!canCephAdmin ? cephUnavailableReason : undefined}
-                      onChange={(ceph_admin) => change({ ceph_admin })}
-                    />
+                    {(draft.manager || draft.portal) && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="ui-caption font-semibold text-[var(--ui-text)]">
+                          {t(copy.adminCredentials)}
+                        </span>
+                        <CredentialStatusBadge
+                          status={adminCredentialCheck.status}
+                          message={adminCredentialCheck.message}
+                        />
+                        <AdminOpsPermissionsBadges
+                          permissions={endpointValidation.result?.admin_ops_permissions}
+                        />
+                        <UiBadge tone={endpointValidation.result?.account ? "success" : "danger"}>
+                          {t(copy.accountApi)} ·{" "}
+                          {t(endpointValidation.result?.account ? copy.available : copy.unavailable)}
+                        </UiBadge>
+                      </div>
+                    )}
+                    {draft.supervision && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="ui-caption font-semibold text-[var(--ui-text)]">
+                          {t(copy.supervisionCredentials)}
+                        </span>
+                        <CredentialStatusBadge
+                          status={supervisionCredentialCheck.status}
+                          message={supervisionCredentialCheck.message}
+                        />
+                        <SupervisionValidationBadges
+                          metrics={Boolean(endpointValidation.result?.metrics)}
+                          usage={Boolean(endpointValidation.result?.usage)}
+                          metricsError={endpointValidation.result?.metrics_error}
+                          usageError={endpointValidation.result?.usage_error}
+                        />
+                      </div>
+                    )}
+                    {draft.ceph_admin && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="ui-caption font-semibold text-[var(--ui-text)]">
+                          {t(copy.cephAdminCredentials)}
+                        </span>
+                        <CredentialStatusBadge
+                          status={cephAdminCredentialCheck.status}
+                          message={cephAdminCredentialCheck.message}
+                        />
+                      </div>
+                    )}
                   </div>
-                </WorkflowSection>
-
-                {draft.private_connection && (
-                  <WorkflowSection
-                    title={t(copy.privateCredentials)}
-                    description={t(copy.privateCredentialsHelp)}
-                  >
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <UiInput
-                        label={t(copy.accessKey)}
-                        type="password"
-                        autoComplete="off"
-                        required
-                        value={privateAccessKey}
-                        onChange={(event) => setPrivateAccessKey(event.target.value)}
-                      />
-                      <UiInput
-                        label={t(copy.secretKey)}
-                        type="password"
-                        autoComplete="new-password"
-                        required
-                        value={privateSecretKey}
-                        onChange={(event) => setPrivateSecretKey(event.target.value)}
-                      />
+                  {draft.private_connection && (
+                    <div className="space-y-1.5">
+                      <span className="ui-caption font-semibold text-[var(--ui-text)]">
+                        {t(copy.privateCredentials)}
+                      </span>
+                      <S3CredentialsValidationMessage validation={privateValidation} />
                     </div>
-                    <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>{t(copy.keysNotSaved)}</p>
-                  </WorkflowSection>
-                )}
+                  )}
+                  {endpointValidation.result?.warnings.map((warning) => (
+                    <UiInlineMessage tone="warning" key={warning}>
+                      {warning}
+                    </UiInlineMessage>
+                  ))}
+                </WorkflowSection>
 
                 <section
                   className={cx(uiCardMutedClass, "space-y-3 p-4")}
@@ -861,13 +1301,10 @@ export default function OnboardingPage() {
                       </UiButton>
                     </UiInlineMessage>
                   )}
-                  {!hasSelection && (
-                    <UiInlineMessage tone="warning">{message("selection_required")}</UiInlineMessage>
-                  )}
                 </section>
 
                 <WorkflowActions>
-                  <UiButton variant="secondary" onClick={() => setStep("connect")}>{t(copy.back)}</UiButton>
+                  <UiButton variant="secondary" onClick={() => setStep("credentials")}>{t(copy.back)}</UiButton>
                   <UiButton type="submit" loading={busy} disabled={!canApply}>
                     {t(busy ? copy.working : copy.apply)}
                   </UiButton>
@@ -876,7 +1313,8 @@ export default function OnboardingPage() {
               </fieldset>
             </form>
           )}
-        </WorkflowTabs>
+          </WorkflowTabs>
+        </div>
 
         {verificationDialog}
         <SettingsNavigationGuard

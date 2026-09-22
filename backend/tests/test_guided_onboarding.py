@@ -21,6 +21,7 @@ from app.db import (
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
 from app.models.onboarding import OnboardingApply, OnboardingDraft, OnboardingSave
 from app.models.storage_endpoint import (
+    StorageEndpointAdminOpsPermissions,
     StorageEndpointCredentialCheck,
     StorageEndpointCredentialChecks,
     StorageEndpointFeatureDetectionResult,
@@ -32,6 +33,7 @@ from app.services import users_service as users_module
 from app.services.onboarding_service import OnboardingError, OnboardingService, REQUIRED_FEATURES
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.storage_endpoints_service import StorageEndpointsService
+from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
 from tests.s3_account_factory import make_s3_account
 
@@ -76,16 +78,31 @@ def endpoint(db, **values):
     return row
 
 
-def detection(*, admin=True, account=True, ceph_admin="valid"):
+def detection(
+    *,
+    admin=True,
+    account=True,
+    supervision="valid",
+    ceph_admin="valid",
+    admin_ops_permissions=None,
+):
+    permissions = admin_ops_permissions or StorageEndpointAdminOpsPermissions(
+        users_read=True,
+        users_write=True,
+        accounts_read=True,
+        accounts_write=True,
+    )
     return StorageEndpointFeatureDetectionResult(
         admin=admin,
         account=account,
         usage=True,
         metrics=True,
+        admin_ops_permissions=permissions,
         credential_checks=StorageEndpointCredentialChecks(
             admin=StorageEndpointCredentialCheck(
                 status="valid" if admin else "denied"
             ),
+            supervision=StorageEndpointCredentialCheck(status=supervision),
             ceph_admin=StorageEndpointCredentialCheck(status=ceph_admin),
         ),
     )
@@ -194,6 +211,28 @@ def test_preview_requires_a_selected_setup_option(guided, db_session):
     assert result.blockers == ["selection_required"]
 
 
+def test_preview_does_not_block_editable_ceph_choices_when_credentials_are_missing(
+    guided, db_session
+):
+    user = actor(db_session)
+    ep = endpoint(db_session)
+
+    result = guided.preview_draft(
+        user,
+        OnboardingDraft(
+            endpoint_id=ep.id,
+            manager=True,
+            supervision=True,
+            ceph_admin=True,
+        ),
+    )
+
+    assert result.blockers == []
+    assert "validate_ceph_account_api" in result.changes
+    assert "validate_supervision" in result.changes
+    assert "validate_ceph_admin" in result.changes
+
+
 def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypatch):
     user = actor(db_session)
     lock_feature(monkeypatch, "browser_enabled")
@@ -220,7 +259,7 @@ def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypat
     assert db_session.query(StorageEndpoint).count() == 0
 
 
-def test_private_only_new_endpoint_discards_invalid_optional_admin_credentials(
+def test_private_only_new_endpoint_does_not_configure_admin_credentials(
     guided, db_session, monkeypatch
 ):
     user = actor(db_session)
@@ -251,8 +290,6 @@ def test_private_only_new_endpoint_discards_invalid_optional_admin_credentials(
         guided,
         user,
         journey,
-        endpoint_access_key="bad-admin-ak",
-        endpoint_secret_key="bad-admin-sk",
         private_access_key="private-ak",
         private_secret_key="private-sk",
     )
@@ -277,7 +314,7 @@ def test_private_only_new_endpoint_discards_invalid_optional_admin_credentials(
             *[row.metadata_json or "" for row in db_session.query(AuditLog).all()],
         ]
     )
-    for secret in ("bad-admin-ak", "bad-admin-sk", "private-ak", "private-sk"):
+    for secret in ("private-ak", "private-sk"):
         assert secret not in serialized
 
 
@@ -287,8 +324,6 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     user = actor(db_session)
     ep = endpoint(
         db_session,
-        admin_access_key="admin-ak",
-        admin_secret_key="admin-sk",
         features_config=account_feature_config(iam=True),
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
@@ -325,9 +360,16 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
         guided,
         user,
         save(guided, user, endpoint_id=ep.id, manager=True, portal=True),
+        admin_access_key="admin-ak",
+        admin_secret_key="admin-sk",
     )
 
     assert result.configured
+    db_session.refresh(ep)
+    assert ep.admin_access_key == "admin-ak"
+    assert ep.admin_secret_key == "admin-sk"
+    assert ep.ceph_admin_access_key is None
+    assert ep.ceph_admin_secret_key is None
     assert db_session.query(S3Account).count() == 1
     account = db_session.get(S3Account, result.resources["account_id"])
     link = (
@@ -340,6 +382,35 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     assert link.allow_manager_browser_data_access is True
     assert result.links["manager"] == f"/manager/buckets?ctx={account.id}"
     assert result.links["portal"] == f"/portal/storage-spaces?project={account.id}"
+
+
+def test_onboarding_rejects_admin_ops_without_required_provisioning_caps(
+    guided, db_session, monkeypatch
+):
+    user = actor(db_session)
+    ep = endpoint(
+        db_session,
+        admin_access_key="admin-ak",
+        admin_secret_key="admin-sk",
+        features_config=account_feature_config(iam=True),
+    )
+    monkeypatch.setattr(
+        guided.endpoints,
+        "detect_features",
+        lambda *_args, **_kwargs: detection(
+            admin_ops_permissions=StorageEndpointAdminOpsPermissions(
+                users_read=True,
+                users_write=True,
+                accounts_read=True,
+                accounts_write=False,
+                buckets_write=True,
+            )
+        ),
+    )
+
+    journey = save(guided, user, endpoint_id=ep.id, manager=True)
+    with pytest.raises(OnboardingError, match="admin_ops_permissions_insufficient"):
+        apply(guided, user, journey)
 
 
 @pytest.mark.parametrize(
@@ -408,6 +479,111 @@ def test_manager_and_portal_role_axes_remain_independent(
     assert link.manager_role == expected_manager
     assert link.portal_role == expected_portal
     assert link.allow_manager_browser_data_access is manager
+
+
+def test_supervision_credentials_are_validated_stored_and_enable_endpoint_features(
+    guided, db_session, monkeypatch
+):
+    user = actor(db_session)
+    ep = endpoint(db_session)
+    monkeypatch.setattr(
+        guided.endpoints,
+        "detect_features",
+        lambda *_args, **_kwargs: detection(),
+    )
+
+    result = apply(
+        guided,
+        user,
+        save(guided, user, endpoint_id=ep.id, supervision=True),
+        supervision_access_key="supervision-ak",
+        supervision_secret_key="supervision-sk",
+    )
+
+    assert result.configured
+    db_session.refresh(ep)
+    assert ep.supervision_access_key == "supervision-ak"
+    assert ep.supervision_secret_key == "supervision-sk"
+    assert ep.admin_access_key is None
+    assert ep.ceph_admin_access_key is None
+    flags = resolve_feature_flags(ep)
+    assert flags.usage_enabled is True
+    assert flags.metrics_enabled is True
+
+
+def test_new_endpoint_keeps_ceph_admin_credentials_separate_from_admin_ops(
+    guided, db_session, monkeypatch
+):
+    user = actor(db_session)
+    monkeypatch.setattr(
+        guided.endpoints,
+        "detect_features",
+        lambda *_args, **_kwargs: detection(),
+    )
+
+    result = apply(
+        guided,
+        user,
+        save(
+            guided,
+            user,
+            endpoint_url="https://ceph-admin-only.example.test",
+            ceph_admin=True,
+        ),
+        ceph_admin_access_key="ceph-admin-ak",
+        ceph_admin_secret_key="ceph-admin-sk",
+    )
+
+    ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
+    assert result.configured
+    assert ep.admin_access_key is None
+    assert ep.admin_secret_key is None
+    assert ep.ceph_admin_access_key == "ceph-admin-ak"
+    assert ep.ceph_admin_secret_key == "ceph-admin-sk"
+    db_session.refresh(user)
+    assert user.can_access_ceph_admin is True
+
+
+def test_onboarding_rejects_partial_supervision_credentials(
+    guided, db_session, monkeypatch
+):
+    user = actor(db_session)
+    ep = endpoint(db_session)
+    monkeypatch.setattr(
+        guided.endpoints,
+        "detect_features",
+        lambda *_args, **_kwargs: detection(),
+    )
+    journey = save(guided, user, endpoint_id=ep.id, supervision=True)
+
+    with pytest.raises(OnboardingError, match="credentials_required"):
+        apply(
+            guided,
+            user,
+            journey,
+            supervision_access_key="supervision-ak",
+        )
+
+
+def test_onboarding_requires_usage_data_for_supervision(
+    guided, db_session, monkeypatch
+):
+    user = actor(db_session)
+    ep = endpoint(
+        db_session,
+        supervision_access_key="supervision-ak",
+        supervision_secret_key="supervision-sk",
+    )
+    monkeypatch.setattr(
+        guided.endpoints,
+        "detect_features",
+        lambda *_args, **_kwargs: detection().model_copy(
+            update={"usage": False, "usage_error": "no usage data"}
+        ),
+    )
+
+    with pytest.raises(OnboardingError, match="usage_log_unavailable"):
+        apply(guided, user, save(guided, user, endpoint_id=ep.id, supervision=True))
 
 
 def test_ceph_admin_requires_valid_dedicated_identity_and_grants_access(

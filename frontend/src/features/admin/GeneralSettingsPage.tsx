@@ -347,7 +347,7 @@ export default function GeneralSettingsPage() {
                 ? "Initial setup is complete. Run the assistant again to prepare another endpoint or access path."
                 : onboardingStatus.dismissed
                   ? "The assistant is hidden. You can show it again without changing the current configuration."
-                  : "Connect storage and prepare Manager, Portal, private Browser access or Ceph Admin in two steps."
+                  : "Connect storage, choose Manager, Portal, private Browser access, monitoring or Ceph Admin, then provide only the required credentials."
           }
           action={
             <SettingsButton
