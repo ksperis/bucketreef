@@ -8,7 +8,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Iterable, Optional
+from typing import Iterable, Optional, TypeAlias
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -34,6 +34,8 @@ from app.models.billing import (
     BillingUsageTotals,
 )
 settings = get_settings()
+
+BillingSubject: TypeAlias = S3Account | S3User
 
 
 @dataclass
@@ -267,7 +269,7 @@ class BillingService:
                     subject_type=subject_type,
                     subject_id=subject_id,
                     name=subject.name,
-                    rgw_identifier=getattr(subject, "rgw_user_uid", None) or getattr(subject, "rgw_account_id", None),
+                    rgw_identifier=subject.rgw_user_uid,
                     storage=BillingStorageTotals(
                         avg_bytes=totals.avg_storage_bytes,
                         avg_gb_month=totals.avg_storage_gb_month,
@@ -374,7 +376,7 @@ class BillingService:
             subject_type=subject_type,
             subject_id=subject_id,
             name=subject.name,
-            rgw_identifier=getattr(subject, "rgw_user_uid", None) or getattr(subject, "rgw_account_id", None),
+            rgw_identifier=subject.rgw_user_uid,
             daily=daily,
             usage=usage_totals,
             storage=storage_totals,
@@ -417,7 +419,7 @@ class BillingService:
                         subject_type=subject_type,
                         subject_id=subject_id,
                         name=subject.name,
-                        rgw_identifier=getattr(subject, "rgw_user_uid", None) or getattr(subject, "rgw_account_id", None),
+                        rgw_identifier=subject.rgw_user_uid,
                         storage=BillingStorageTotals(
                             avg_bytes=totals.avg_storage_bytes,
                             avg_gb_month=totals.avg_storage_gb_month,
@@ -462,7 +464,7 @@ class BillingService:
         filename = f"billing-{period.month}-endpoint-{endpoint_id}.csv"
         return filename, output.getvalue()
 
-    def _load_subjects(self, endpoint_id: int, subject_type: str) -> list[Any]:
+    def _load_subjects(self, endpoint_id: int, subject_type: str) -> list[BillingSubject]:
         if subject_type == "account":
             return (
                 self.db.query(S3Account)
