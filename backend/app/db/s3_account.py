@@ -15,8 +15,14 @@ class S3Account(Base):
     __tablename__ = "s3_accounts"
     __table_args__ = (
         Index("ix_s3_accounts_storage_endpoint", "storage_endpoint_id"),
-        CheckConstraint("TRIM(rgw_account_id) <> ''", name="ck_s3_accounts_rgw_account_id_nonempty"),
-        CheckConstraint("TRIM(rgw_user_uid) <> ''", name="ck_s3_accounts_rgw_user_uid_nonempty"),
+        CheckConstraint(
+            "rgw_account_id = TRIM(rgw_account_id) AND LENGTH(rgw_account_id) > 0",
+            name="ck_s3_accounts_rgw_account_id_canonical",
+        ),
+        CheckConstraint(
+            "rgw_user_uid = TRIM(rgw_user_uid) AND LENGTH(rgw_user_uid) > 0",
+            name="ck_s3_accounts_rgw_user_uid_canonical",
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)

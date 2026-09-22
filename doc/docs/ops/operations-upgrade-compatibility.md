@@ -1,5 +1,21 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-09 canonical S3 identity whitespace
+
+Migration `0127_canonical_s3_identity_whitespace` trims surrounding whitespace
+from persisted `s3_accounts.rgw_account_id`, `s3_accounts.rgw_user_uid`, and
+`s3_users.rgw_user_uid`, then requires those database values to remain already
+trimmed and non-empty. Case and all non-surrounding characters are preserved.
+
+The migration stops before changing data if trimming would make two unique
+identities collide (`s3_accounts.rgw_account_id` or `s3_users.rgw_user_uid`).
+Repair those conflicting rows before upgrading. After the migration, runtime
+code consuming persisted account and S3-user identities trusts the database
+invariant instead of retaining whitespace cleanup compatibility paths.
+
+Downgrade restores the previous non-empty constraints but cannot restore
+whitespace removed by the upgrade.
+
 ## 2026-09 canonical S3 user identities
 
 Migration `0126_canonical_s3_user_identities` makes the existing S3-user RGW

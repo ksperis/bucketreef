@@ -188,6 +188,28 @@ def test_versioned_sqlite_upgrade_preserves_referencing_rows_with_foreign_keys_e
         )
         connection.exec_driver_sql(
             """
+            INSERT INTO s3_accounts (
+                id,
+                name,
+                rgw_account_id,
+                rgw_user_uid,
+                created_at,
+                updated_at,
+                storage_endpoint_id
+            )
+            VALUES (
+                1,
+                'migration-account',
+                ' RGW00000000000000001 ',
+                ' migration-account-root ',
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP,
+                1
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
             CREATE TABLE migration_s3_user_refs (
                 id INTEGER PRIMARY KEY,
                 s3_user_id INTEGER NOT NULL REFERENCES s3_users(id)
@@ -196,6 +218,17 @@ def test_versioned_sqlite_upgrade_preserves_referencing_rows_with_foreign_keys_e
         )
         connection.exec_driver_sql(
             "INSERT INTO migration_s3_user_refs (id, s3_user_id) VALUES (1, 1)"
+        )
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE migration_s3_account_refs (
+                id INTEGER PRIMARY KEY,
+                s3_account_id INTEGER NOT NULL REFERENCES s3_accounts(id)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO migration_s3_account_refs (id, s3_account_id) VALUES (1, 1)"
         )
 
     database_initialization._initialize_or_upgrade_schema(sqlite_database)
@@ -206,4 +239,13 @@ def test_versioned_sqlite_upgrade_preserves_referencing_rows_with_foreign_keys_e
         assert connection.scalar(
             sa.text("SELECT s3_user_id FROM migration_s3_user_refs WHERE id = 1")
         ) == 1
+        assert connection.scalar(
+            sa.text("SELECT s3_account_id FROM migration_s3_account_refs WHERE id = 1")
+        ) == 1
+        account_identity = connection.execute(
+            sa.text(
+                "SELECT rgw_account_id, rgw_user_uid FROM s3_accounts WHERE id = 1"
+            )
+        ).one()
+        assert account_identity == ("RGW00000000000000001", "migration-account-root")
         assert _database_revision(connection) == _alembic_head()

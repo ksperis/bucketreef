@@ -533,10 +533,10 @@ class AdminMetricsService:
 
         allowed: set[str] = set()
         for acc in accounts:
-            allowed.add(acc.rgw_account_id.strip().lower())
-            allowed.add(acc.rgw_user_uid.strip().lower())
+            allowed.add(acc.rgw_account_id.lower())
+            allowed.add(acc.rgw_user_uid.lower())
         for user in s3_users:
-            allowed.add(user.rgw_user_uid.strip().lower())
+            allowed.add(user.rgw_user_uid.lower())
         return accounts, s3_users, allowed
 
     def _filter_buckets(self, buckets: Iterable[Dict], allowed: set[str]) -> list[dict]:
