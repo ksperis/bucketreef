@@ -162,6 +162,14 @@ on `SettingsSection presentation="compact"`. Properties, Permissions, Advanced
 and privileged quotas use the same left-aligned section layout. Do not restore
 per-feature card palettes, grid placement or action sizing. Use `SettingsButton`,
 `SettingsItem`, `SettingsSwitch` and named `SettingsChoiceRow` radio groups.
+`BucketFeatureSection` defaults to the `simple` presentation and exposes a
+`workbench` presentation for features that combine status, operation controls
+and a substantial editor or inventory. Workbenches keep the compact title
+column and separate their toolbar from functional content with the shared soft
+border. Tables inside them use `DataTableShell` or the shared `ui-data-table`
+foundation directly; avoid an extra muted card around a table. Mutation success
+feedback is a compact badge owned by `BucketFeatureSection`; errors and warnings
+retain the shared inline-message treatment.
 The page uses the line variant of `PageTabs` with named tabs/panels and native
 arrow-key navigation; refresh uses the same settings action presentation.
 JSON editors use labelled `UiTextarea` fields; examples use the shared controls,

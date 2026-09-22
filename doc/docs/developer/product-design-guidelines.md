@@ -324,6 +324,18 @@ Sign out. Use tables for connection inventories: the private S3 tab shares the
 flat outer framing while retaining its existing dense table and editing flow.
 Its table/editor translation is outside this profile delivery.
 
+Manager bucket configuration keeps this compact section-title contract while
+distinguishing straightforward settings from feature workbenches. Use the
+default `BucketFeatureSection` `simple` presentation for a small group of
+fields or switches. Use `workbench` when a feature combines persistent state,
+an action toolbar, a table, a multi-mode editor, or another substantial
+functional area. Workbenches keep their content in the section's functional
+column, separate toolbar and content with the shared soft border, and use
+shared list primitives such as `DataTableShell` instead of nested muted cards
+or page-specific table geometry. Successful mutations use the section's compact
+success feedback; keep errors and warnings in the more prominent inline-message
+presentation.
+
 Validate a 1440 × 900 viewport with two open sessions: all three security sections
 must fit without opening details. Check German wrapping, keyboard focus, mobile
 touch targets, both themes and actual authenticated routes.

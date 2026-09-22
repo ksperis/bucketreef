@@ -11,6 +11,8 @@ describe("BucketFeatureSection", () => {
         description="Replicate objects."
         mode="hybrid"
         visualState="unsaved"
+        presentation="workbench"
+        successMessage="Replication updated"
         actions={<button type="button">Save</button>}
         testId="feature-section"
       >
@@ -21,6 +23,8 @@ describe("BucketFeatureSection", () => {
     expect(screen.getByRole("group", { name: "Replication actions" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Unsaved changes");
     expect(screen.getByTestId("feature-section")).toHaveAttribute("data-feature-mode", "hybrid");
+    expect(screen.getByTestId("feature-section")).toHaveAttribute("data-feature-presentation", "workbench");
+    expect(screen.getByText("Replication updated")).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Role ARN" })).toBeEnabled();
   });
 
@@ -69,6 +73,10 @@ describe("BucketFeatureSection", () => {
       </BucketFeatureSection>,
     );
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.getByRole("group", { name: "ACL configuration" })).toHaveAttribute(
+      "data-feature-presentation",
+      "simple",
+    );
     expect(screen.getByText("AccessDenied")).toBeVisible();
   });
 });

@@ -1175,6 +1175,38 @@ describe("BucketDetailPage replication state", () => {
     expect(screen.getByTestId("bucket-feature-tags")).toBeInTheDocument();
   });
 
+  it("renders lifecycle as a responsive workbench table without squeezed action columns", async () => {
+    const user = userEvent.setup();
+    getCephAdminBucketLifecycleMock.mockResolvedValue({
+      rules: [
+        {
+          ID: "expire-old-versions",
+          Status: "Enabled",
+          Filter: { Prefix: "archive/" },
+          NoncurrentVersionExpiration: { NoncurrentDays: 90 },
+          AbortIncompleteMultipartUpload: { DaysAfterInitiation: 30 },
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
+
+    const lifecycle = await screen.findByTestId("bucket-feature-lifecycle");
+    expect(lifecycle).toHaveAttribute("data-feature-presentation", "workbench");
+    expect(within(lifecycle).getByText("1 rule")).toBeInTheDocument();
+    const table = within(lifecycle).getByRole("table");
+    expect(table).toHaveClass("responsive-data-table");
+    expect(within(table).getByRole("columnheader", { name: "Rule actions" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Manage" })).toBeInTheDocument();
+    expect(within(table).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
   it("omits blank Rule 3 lifecycle expiration fields from the quick-add payload", async () => {
     const user = userEvent.setup();
     render(
