@@ -10,6 +10,7 @@ import { setSessionUserCache } from "../../utils/workspaces";
 
 const mocks = vi.hoisted(() => ({
   setSelectedAccountId: vi.fn(),
+  selectedPortalRole: "portal_user" as "portal_user" | "portal_manager",
   portalAccounts: [
     { id: "101", name: "Helios Retail", tags: [] },
     { id: "102", name: "Northwind Ops", tags: [] },
@@ -60,7 +61,12 @@ vi.mock("./PortalAccountContext", () => ({
   usePortalAccountContext: () => ({
     accounts: mocks.portalAccounts,
     selectedAccountId: "101",
-    selectedAccount: { id: "101", name: "Helios Retail", tags: [] },
+    selectedAccount: {
+      id: "101",
+      name: "Helios Retail",
+      tags: [],
+      portal_role: mocks.selectedPortalRole,
+    },
     setSelectedAccountId: mocks.setSelectedAccountId,
     loading: false,
     error: null,
@@ -86,6 +92,7 @@ describe("PortalLayout", () => {
     act(() => setSessionUserCache(null));
     window.localStorage.clear();
     vi.clearAllMocks();
+    mocks.selectedPortalRole = "portal_user";
     mocks.portalAccounts.splice(
       0,
       mocks.portalAccounts.length,
@@ -132,10 +139,7 @@ describe("PortalLayout", () => {
       "Spaces",
       "Collaborators",
       "External tools",
-      "History",
       "Storage health",
-      "Help requests",
-      "Settings",
     ]);
     expect(nav).not.toHaveTextContent("Administration");
     expect(nav).not.toHaveTextContent("Browser");
@@ -179,6 +183,32 @@ describe("PortalLayout", () => {
       await screen.findByRole("option", { name: "Northwind Ops" }),
     );
     expect(mocks.setSelectedAccountId).toHaveBeenCalledWith("102");
+  });
+
+  it("keeps governance and project-management navigation visible to portal managers", () => {
+    mocks.selectedPortalRole = "portal_manager";
+
+    render(
+      <MemoryRouter initialEntries={["/portal"]}>
+        <PortalLayout />
+      </MemoryRouter>,
+    );
+
+    const nav = screen.getByRole("navigation", { name: "PORTAL navigation" });
+    expect(
+      within(nav)
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual([
+      "Dashboard",
+      "Spaces",
+      "Collaborators",
+      "External tools",
+      "History",
+      "Storage health",
+      "Help requests",
+      "Settings",
+    ]);
   });
 
   it("searches projects locally when the selector exceeds the shared threshold", async () => {
@@ -267,10 +297,7 @@ describe("PortalLayout", () => {
       "Espaces",
       "Collaborateurs",
       "Outils externes",
-      "Historique",
       "État du stockage",
-      "Demandes d'aide",
-      "Paramètres",
     ]);
     expect(
       await screen.findByRole("button", { name: "Switch workspace" }),

@@ -159,6 +159,13 @@ Portal canonical routes are:
 - `/portal/requests`
 - `/portal/settings`
 
+The Portal sidebar uses progressive disclosure by project role. `portal_user`
+members see the day-to-day workspace destinations: Dashboard, Storage Spaces,
+Collaborators, External tools, and Storage health. History, Help requests, and
+project Settings remain canonical routes but are promoted in the sidebar only
+for `portal_manager` members. End users can still reach the applicable
+read-only or contextual views through direct links from Portal workflows.
+
 Object details stay inside `/portal/storage-spaces/:spaceId`. Deep links use
 the `object` query parameter for the full object key and `object_view` for
 `preview`, `history`, `sharing`, or `details`. `prefix` preserves the folder;
