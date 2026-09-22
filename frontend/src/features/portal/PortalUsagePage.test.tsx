@@ -350,7 +350,7 @@ describe("PortalUsagePage", () => {
     expect(screen.getByText("Room left")).toBeInTheDocument();
     expect(screen.getByText("50% of quota")).toBeInTheDocument();
     expect(screen.getAllByText("Backend status").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Operational").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Operational")).toHaveLength(1);
     expect(screen.queryByText("Monitored services")).not.toBeInTheDocument();
     expect(screen.getByText("Current issues")).toBeInTheDocument();
     expect(mocks.hookArgs[0]).toMatchObject({ includeTraffic: true, includeHealth: true, trafficWindow: "week" });
