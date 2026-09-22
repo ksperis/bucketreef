@@ -6,7 +6,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.database import get_db
 from app.db import User
 from app.models.access_context import AccountAccess
@@ -20,10 +19,8 @@ from app.routers.portal_common import (
 from app.services.app_settings_service import load_app_settings
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.portal_service import PortalService
-from app.utils.time import utcnow
 
 router = APIRouter()
-settings = get_settings()
 
 
 @router.get("/endpoint-health", response_model=WorkspaceEndpointHealthOverviewResponse)
@@ -34,23 +31,9 @@ def portal_endpoint_health(
     app_settings = load_app_settings()
     if not app_settings.general.endpoint_status_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Endpoint Status feature is disabled.")
-    account = access.account
-    endpoint_id = getattr(account, "storage_endpoint_id", None)
-    if endpoint_id is None:
-        return WorkspaceEndpointHealthOverviewResponse(
-            generated_at=utcnow().isoformat(),
-            incident_highlight_minutes=max(1, int(settings.healthcheck_incident_recent_minutes or 720)),
-            endpoint_count=0,
-            up_count=0,
-            degraded_count=0,
-            down_count=0,
-            unknown_count=0,
-            endpoints=[],
-            incidents=[],
-        )
     service = HealthCheckQueryService(db)
     return WorkspaceEndpointHealthOverviewResponse(
-        **service.build_workspace_health_overview(endpoint_id=int(endpoint_id))
+        **service.build_workspace_health_overview(endpoint_id=access.account.storage_endpoint_id)
     )
 
 
@@ -58,10 +41,9 @@ def _portal_endpoint_alerts(access: AccountAccess, db: Session) -> list[PortalAl
     app_settings = load_app_settings()
     if not app_settings.general.endpoint_status_enabled:
         return []
-    endpoint_id = getattr(access.account, "storage_endpoint_id", None)
-    if endpoint_id is None:
-        return []
-    overview = HealthCheckQueryService(db).build_workspace_health_overview(endpoint_id=int(endpoint_id))
+    overview = HealthCheckQueryService(db).build_workspace_health_overview(
+        endpoint_id=access.account.storage_endpoint_id
+    )
     down_count = int(overview.get("down_count") or 0)
     degraded_count = int(overview.get("degraded_count") or 0)
     if down_count <= 0 and degraded_count <= 0:
