@@ -94,6 +94,22 @@ describe("useBucketObjectsController", () => {
     expect(result.current.parentPrefix).toBe("archive/");
   });
 
+  it.each([
+    ["archive//", "archive/"],
+    ["archive///", "archive//"],
+    ["/", ""],
+    ["//", "/"],
+    ["///", "//"],
+    ["/archive/", "/"],
+    ["/archive//", "/archive/"],
+  ])("preserves literal S3 separators when navigating above %s", (prefix, parent) => {
+    const { result } = renderObjects();
+
+    act(() => result.current.openPrefix(prefix));
+
+    expect(result.current.parentPrefix).toBe(parent);
+  });
+
   it("loads objects through the selected Ceph Admin endpoint", async () => {
     apiMocks.listCephAdminBucketObjects.mockResolvedValue({
       ...emptyListing,
