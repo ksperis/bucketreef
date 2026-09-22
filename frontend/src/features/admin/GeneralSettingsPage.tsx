@@ -1,11 +1,13 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   fetchGeneralFeatureLocks,
   sendQuotaNotificationTestEmail,
   type GeneralFeatureLocks,
   type QuotaNotificationSettings,
 } from "../../api/appSettings";
+import { resumeOnboarding } from "../../api/onboarding";
 import { applyBranding } from "../../components/ui/brandingRuntime";
 import {
   SettingsItem,
@@ -26,6 +28,7 @@ import {
   AppSettingsToggle,
 } from "./settings/AppSettingsFields";
 import { useAppSettingsDraft } from "./settings/useAppSettingsDraft";
+import { useOnboardingStatus } from "./useOnboardingStatus";
 import {
   validateInteger,
   type AppSettingsValues,
@@ -119,6 +122,8 @@ function validate(values: AppSettingsValues): FieldErrors {
 }
 
 export default function GeneralSettingsPage() {
+  const navigate = useNavigate();
+  const { status: onboardingStatus } = useOnboardingStatus();
   const [locks, setLocks] = useState<GeneralFeatureLocks | null>(null);
   const form = useAppSettingsDraft(
     paths,
@@ -139,6 +144,8 @@ export default function GeneralSettingsPage() {
   const [sending, setSending] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
   const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [onboardingBusy, setOnboardingBusy] = useState(false);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     fetchGeneralFeatureLocks()
@@ -217,6 +224,19 @@ export default function GeneralSettingsPage() {
       setTestError(extractApiError(err, "Unable to send test email."));
     } finally {
       setSending(false);
+    }
+  };
+  const openOnboarding = async () => {
+    if (!onboardingStatus || onboardingBusy) return;
+    setOnboardingBusy(true);
+    setOnboardingError(null);
+    try {
+      if (onboardingStatus.dismissed) await resumeOnboarding();
+      navigate("/admin/onboarding");
+    } catch (err) {
+      setOnboardingError(extractApiError(err, "Unable to open the setup assistant."));
+    } finally {
+      setOnboardingBusy(false);
     }
   };
   const color = String(form.draft["branding.primary_color"] ?? "#0569f8");
@@ -312,6 +332,41 @@ export default function GeneralSettingsPage() {
       }
     >
       {lockError && <UiInlineMessage tone="error">{lockError}</UiInlineMessage>}
+      <SettingsSection
+        presentation="compact"
+        title="Setup assistant"
+        description="Return to the guided setup whenever you need it."
+      >
+        <SettingsItem
+          compact
+          title="Guided setup"
+          description={
+            !onboardingStatus
+              ? "Loading setup status…"
+              : onboardingStatus.complete
+                ? "Initial setup is complete. Run the assistant again to prepare another endpoint or access path."
+                : onboardingStatus.dismissed
+                  ? "The assistant is hidden. You can show it again without changing the current configuration."
+                  : "Connect storage and prepare Manager, Portal, private Browser access or Ceph Admin in two steps."
+          }
+          action={
+            <SettingsButton
+              variant="secondary"
+              disabled={!onboardingStatus || onboardingBusy}
+              onClick={() => void openOnboarding()}
+            >
+              {onboardingBusy
+                ? "Opening…"
+                : onboardingStatus?.complete
+                  ? "Run setup assistant again"
+                  : onboardingStatus?.dismissed
+                    ? "Show setup assistant"
+                    : "Open setup assistant"}
+            </SettingsButton>
+          }
+        />
+        {onboardingError && <UiInlineMessage tone="error">{onboardingError}</UiInlineMessage>}
+      </SettingsSection>
       <SettingsSection
         presentation="compact"
         title="Available workspaces"

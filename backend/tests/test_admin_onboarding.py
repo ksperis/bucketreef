@@ -86,8 +86,8 @@ def test_onboarding_domain_errors_use_shared_secret_redaction(code):
     }),
     ("post", "/journeys/00000000-0000-4000-8000-000000000001/apply", {
         "revision": 1, "confirmed": True, "review_token": "0" * 64,
-        "access_key": {"value": "request-secret-canary"},
-        "secret_key": ["request-secret-canary"],
+        "endpoint_access_key": {"value": "request-secret-canary"},
+        "endpoint_secret_key": ["request-secret-canary"],
     }),
 ])
 def test_invalid_onboarding_requests_do_not_echo_input(db_session, client, caplog, method, path, payload):

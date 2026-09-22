@@ -31,6 +31,7 @@ vi.mock("../../api/healthchecks", () => ({
 }));
 
 vi.mock("../../api/onboarding", () => ({
+  ONBOARDING_STATUS_EVENT: "bucketreef:onboarding-status",
   dismissOnboarding: mocks.dismissOnboarding,
   fetchOnboardingStatus: mocks.fetchOnboardingStatus,
 }));
@@ -313,9 +314,13 @@ describe("AdminDashboard feature summary", () => {
   it("keeps setup compact and links to the optional guide even when storage exists", async () => {
     mocks.fetchOnboardingStatus.mockResolvedValue({
       dismissed: false,
-      complete: true,
+      complete: false,
       endpoint_configured: true,
       storage_access_configured: true,
+      journeys: [],
+      can_configure: true,
+      actor_id: 1,
+      source: "standard",
     });
 
     await renderDashboard();
@@ -692,12 +697,12 @@ describe("AdminDashboard feature summary", () => {
   });
 
   it("retains a failed onboarding dismissal and allows retry", async () => {
-    mocks.fetchOnboardingStatus.mockResolvedValue({ dismissed: false, complete: true, endpoint_configured: true, storage_access_configured: true });
+    mocks.fetchOnboardingStatus.mockResolvedValue({ dismissed: false, complete: false, endpoint_configured: true, storage_access_configured: true, journeys: [], can_configure: true, actor_id: 1, source: "standard" });
     mocks.dismissOnboarding.mockRejectedValueOnce(new Error("Unable to dismiss setup"));
     await renderDashboard();
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Hide setup", exact: true }));
     expect(await screen.findByText("Unable to dismiss setup")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Dismiss", exact: true })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Hide setup", exact: true })).toBeEnabled();
     expect(screen.getByRole("link", { name: "Start setup" })).toBeInTheDocument();
   });
 

@@ -139,7 +139,7 @@ def test_backend_audit_matrix_tracks_only_audited_onboarding_routes():
         for row in collect_rows(backend_root)
         if row.file.relative_to(backend_root) == Path("app/routers/admin/onboarding.py")
     }
-    assert len(rows) == 7
+    assert len(rows) == 5
     preview = rows.pop("preview_onboarding")
     assert not preview.has_audit_signal
     assert preview.allowlist_reason(backend_root) == "read-only onboarding configuration preview"

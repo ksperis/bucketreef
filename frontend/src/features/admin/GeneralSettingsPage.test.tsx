@@ -1,6 +1,7 @@
 import { ThemeProvider } from "../../components/theme";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSettings, GeneralFeatureLocks, QuotaNotificationSettings } from "../../api/appSettings";
 import { ApiError } from "../../api/client";
@@ -15,11 +16,19 @@ const sendQuotaNotificationTestEmailMock = vi.fn<
   (payload: QuotaNotificationSettings) => Promise<{ status: string; recipient: string; sent_at: string }>
 >();
 const applyBrandingMock = vi.fn();
+const fetchOnboardingStatusMock = vi.fn();
+const resumeOnboardingMock = vi.fn();
 
 vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     setGeneralSettings: setGeneralSettingsMock,
   }),
+}));
+
+vi.mock("../../api/onboarding", () => ({
+  ONBOARDING_STATUS_EVENT: "bucketreef:onboarding-status",
+  fetchOnboardingStatus: () => fetchOnboardingStatusMock(),
+  resumeOnboarding: () => resumeOnboardingMock(),
 }));
 
 vi.mock("../../api/appSettings", () => ({
@@ -115,6 +124,16 @@ function unlockedFeatureLocks(): GeneralFeatureLocks {
   };
 }
 
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <ThemeProvider>
+        <GeneralSettingsPage />
+      </ThemeProvider>
+    </MemoryRouter>,
+  );
+}
+
 describe("GeneralSettingsPage branding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -123,6 +142,26 @@ describe("GeneralSettingsPage branding", () => {
     fetchGeneralFeatureLocksMock.mockResolvedValue(unlockedFeatureLocks());
     fetchDefaultAppSettingsMock.mockResolvedValue(buildSettings());
     updateAppSettingsMock.mockImplementation(async (payload: AppSettings) => payload);
+    fetchOnboardingStatusMock.mockResolvedValue({
+      dismissed: false,
+      complete: false,
+      endpoint_configured: false,
+      storage_access_configured: false,
+      journeys: [],
+      can_configure: true,
+      actor_id: 1,
+      source: "standard",
+    });
+    resumeOnboardingMock.mockResolvedValue({
+      dismissed: false,
+      complete: false,
+      endpoint_configured: false,
+      storage_access_configured: false,
+      journeys: [],
+      can_configure: true,
+      actor_id: 1,
+      source: "standard",
+    });
     sendQuotaNotificationTestEmailMock.mockResolvedValue({
       status: "sent",
       recipient: "superadmin@example.com",
@@ -131,7 +170,7 @@ describe("GeneralSettingsPage branding", () => {
   });
 
   it("only shows color picker (no hex input)", async () => {
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
     expect(await screen.findByLabelText("Primary color picker")).toBeInTheDocument();
     expect(screen.queryByLabelText("Primary color hex")).not.toBeInTheDocument();
     expect(screen.getByText(/BucketReef branding always remains visible/i)).toBeInTheDocument();
@@ -139,7 +178,7 @@ describe("GeneralSettingsPage branding", () => {
 
   it("saves branding color and applies it immediately", async () => {
     const user = userEvent.setup();
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
 
     const picker = (await screen.findByLabelText("Primary color picker")) as HTMLInputElement;
     fireEvent.change(picker, { target: { value: "#0057b8" } });
@@ -156,7 +195,7 @@ describe("GeneralSettingsPage branding", () => {
   });
 
   it("does not render authentication options", async () => {
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
 
     await screen.findByLabelText("Primary color picker");
     expect(screen.queryByLabelText("Access-key login")).not.toBeInTheDocument();
@@ -166,7 +205,7 @@ describe("GeneralSettingsPage branding", () => {
   });
 
   it("does not render manager extra tools toggles", async () => {
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
 
     await screen.findByLabelText("Primary color picker");
     expect(screen.queryByLabelText("Bucket migration tool")).not.toBeInTheDocument();
@@ -174,7 +213,7 @@ describe("GeneralSettingsPage branding", () => {
   });
 
   it("shows Experimental badge on portal feature toggle", async () => {
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
 
     await screen.findByLabelText("Portal feature");
     expect(screen.getByText("Experimental")).toBeInTheDocument();
@@ -182,7 +221,7 @@ describe("GeneralSettingsPage branding", () => {
 
   it("sends a quota SMTP test email with current quota notification settings", async () => {
     const user = userEvent.setup();
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
 
     await screen.findByLabelText("Primary color picker");
     await user.click(screen.getByRole("button", { name: "Configure SMTP" }));
@@ -209,7 +248,7 @@ describe("GeneralSettingsPage branding", () => {
     fetchAppSettingsMock.mockResolvedValue(initialSettings);
     fetchDefaultAppSettingsMock.mockResolvedValueOnce(defaultSettings);
 
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
 
     await screen.findByLabelText("Primary color picker");
     await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
@@ -238,7 +277,7 @@ describe("GeneralSettingsPage branding", () => {
       response: { status: 403, data: { detail: "Forbidden by policy" }, headers: {} },
     }));
 
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
 
     expect(await screen.findByText("Forbidden by policy")).toBeInTheDocument();
   });
@@ -246,7 +285,7 @@ describe("GeneralSettingsPage branding", () => {
   it("shows a public fallback when initial settings load fails without detail", async () => {
     fetchAppSettingsMock.mockRejectedValueOnce(new ApiError("Network Error"));
 
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
 
     expect(await screen.findByText("Unable to load settings.")).toBeInTheDocument();
     expect(screen.queryByText("Network Error")).not.toBeInTheDocument();
@@ -256,7 +295,7 @@ describe("GeneralSettingsPage branding", () => {
     fetchAppSettingsMock.mockResolvedValue(current);
     const locks = unlockedFeatureLocks(); locks.portal_enabled = { forced: true, value: false, source: "FEATURE_PORTAL_ENABLED" };
     fetchGeneralFeatureLocksMock.mockResolvedValue(locks);
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
     const toggle = await screen.findByRole("switch", { name: "Portal feature" });
     expect(toggle).toBeDisabled(); expect(toggle).not.toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Reset to defaults" }));
@@ -265,7 +304,7 @@ describe("GeneralSettingsPage branding", () => {
     expect(toggle).not.toBeChecked(); expect(updateAppSettingsMock).not.toHaveBeenCalled();
   });
   it("validates SMTP before testing and keeps SMTP edits inside its draft", async () => {
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Configure SMTP" }));
     const port = screen.getByRole("spinbutton", { name: "SMTP port" });
     fireEvent.change(port, { target: { value: "" } });
@@ -281,7 +320,7 @@ describe("GeneralSettingsPage branding", () => {
   });
   it("does not apply global branding on a failed save", async () => {
     updateAppSettingsMock.mockRejectedValueOnce(new ApiError("Network Error"));
-    render(<ThemeProvider><GeneralSettingsPage /></ThemeProvider>);
+    renderPage();
     const picker = await screen.findByLabelText("Primary color picker");
     fireEvent.change(picker, { target: { value: "#0057b8" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));

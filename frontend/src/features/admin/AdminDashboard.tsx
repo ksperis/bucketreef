@@ -14,7 +14,7 @@ import {
   type WorkspaceEndpointHealthEntry,
   type WorkspaceEndpointHealthOverviewResponse,
 } from "../../api/healthchecks";
-import { dismissOnboarding, fetchOnboardingStatus, type OnboardingStatus } from "../../api/onboarding";
+import { dismissOnboarding, type OnboardingStatus } from "../../api/onboarding";
 import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
 import {
   type AdminStorageStats,
@@ -59,6 +59,7 @@ import { formatLocalDateTime } from "../../utils/dateTime";
 import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
 import { useI18n } from "../../i18n";
 import { onboardingCopy } from "./onboardingCopy";
+import { useOnboardingStatus } from "./useOnboardingStatus";
 
 const ENDPOINT_STATUS_MAX_AGE_HOURS = 24;
 const ENDPOINT_STATUS_MAX_AGE_MS = ENDPOINT_STATUS_MAX_AGE_HOURS * 60 * 60 * 1000;
@@ -155,13 +156,12 @@ function OnboardingPanel({
   onDismiss: () => void;
 }) {
   const { t } = useI18n();
-  const latest = onboarding.journeys?.[0];
+  const latest = onboarding.journeys?.find((item) => !item.configured);
   const destination = latest ? `/admin/onboarding?journey=${encodeURIComponent(latest.id)}` : "/admin/onboarding";
   return <section className={cx(uiCardClass, "flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between")}>
     <div className="min-w-0">
       <h2 className="ui-body font-semibold text-[var(--ui-text)]">{t(onboardingCopy.title)}</h2>
       <p className={cx("mt-0.5 ui-caption", uiMutedTextClass)}>{t(onboardingCopy.description)}</p>
-      {latest && <p className={cx("mt-0.5 ui-caption", uiMutedTextClass)}>{latest.draft.name} · {latest.draft.workspace} · {t(latest.usage_validated ? onboardingCopy.verified : onboardingCopy.unverified)}</p>}
       {error && <p role="alert" className="mt-2 ui-caption">{error}</p>}
     </div>
     <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -330,8 +330,7 @@ export default function AdminDashboard() {
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
-  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [onboardingActionError, setOnboardingActionError] = useState<string | null>(null);
   const [endpointFreshnessWarning, setEndpointFreshnessWarning] = useState<string | null>(null);
   const [workspaceHealth, setWorkspaceHealth] = useState<WorkspaceEndpointHealthOverviewResponse | null>(null);
   const [workspaceHealthLoading, setWorkspaceHealthLoading] = useState(false);
@@ -355,6 +354,11 @@ export default function AdminDashboard() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const { generalSettings } = useGeneralSettings();
+  const {
+    status: onboarding,
+    error: onboardingStatusError,
+    setStatus: setOnboarding,
+  } = useOnboardingStatus();
 
   useEffect(() => {
     let cancelled = false;
@@ -373,23 +377,6 @@ export default function AdminDashboard() {
       })
       .finally(() => {
         if (!cancelled) setSummaryLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshNonce]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchOnboardingStatus()
-      .then((data) => {
-        if (cancelled) return;
-        setOnboarding(data);
-        setOnboardingError(null);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setOnboardingError(extractApiError(err, "Unable to load onboarding status."));
       });
     return () => {
       cancelled = true;
@@ -615,11 +602,12 @@ export default function AdminDashboard() {
   const handleDismissOnboarding = async () => {
     if (!onboarding) return;
     setDismissBusy(true);
+    setOnboardingActionError(null);
     try {
       const data = await dismissOnboarding();
       setOnboarding(data);
     } catch (err) {
-      setOnboardingError(extractApiError(err, "Unable to dismiss onboarding yet."));
+      setOnboardingActionError(extractApiError(err, "Unable to hide setup yet."));
     } finally {
       setDismissBusy(false);
     }
@@ -774,10 +762,10 @@ export default function AdminDashboard() {
         }
       />
 
-      {onboarding && !onboarding.dismissed && (
+      {onboarding && !onboarding.dismissed && !onboarding.complete && (
         <OnboardingPanel
           onboarding={onboarding}
-          error={onboardingError}
+          error={onboardingActionError || onboardingStatusError}
           dismissBusy={dismissBusy}
           onDismiss={handleDismissOnboarding}
         />

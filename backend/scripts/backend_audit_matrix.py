@@ -190,7 +190,7 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
             signals["delegated_onboarding_audit"] = any(
                 isinstance(call, ast.Call)
                 and isinstance(call.func, ast.Attribute)
-                and call.func.attr in {"dismiss", "save", "apply", "verify", "attest"}
+                and call.func.attr in {"dismiss", "save", "apply"}
                 and isinstance(call.func.value, ast.Call)
                 and isinstance(call.func.value.func, ast.Name)
                 and call.func.value.func.id == "OnboardingService"
