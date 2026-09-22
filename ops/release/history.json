@@ -1,0 +1,151 @@
+{
+  "schema": 1,
+  "latest": "0.2.5",
+  "releases": [
+    {
+      "version": "0.1.0",
+      "sha": "634182d9ef3159b2fb5691b544abf8d836f16e00",
+      "date": "2026-01-06",
+      "date_source": "commit",
+      "reconstructed": true,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.1",
+      "sha": "9150bd51a467cbee8e92d676fa2efcd4a26269af",
+      "date": "2026-01-06",
+      "date_source": "commit",
+      "reconstructed": true,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.2",
+      "sha": "6c31b056c9885a9d65d8fa7f1a826bf6c3b1597e",
+      "date": "2026-01-09",
+      "date_source": "commit",
+      "reconstructed": true,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.3",
+      "sha": "353d33447fc1c65a7821bc330b515f47e7a5936b",
+      "date": "2026-02-02",
+      "date_source": "commit",
+      "reconstructed": true,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.4",
+      "sha": "cb9adf3cd5a8cbf6c6c5e1c76879233f05bd9c12",
+      "date": "2026-03-29",
+      "date_source": "tag",
+      "reconstructed": true,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.5",
+      "sha": "108d1cfc235c416793521f6111677c7283d7640c",
+      "date": "2026-04-05",
+      "date_source": "commit",
+      "reconstructed": true,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.6",
+      "sha": "cdd0899788d2187c1a3d54d6efb0d90c1e658b23",
+      "date": "2026-04-27",
+      "date_source": "commit",
+      "reconstructed": true,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.7",
+      "sha": "48201316130597221c6818a52f2bf91d0c458233",
+      "date": "2026-05-13",
+      "date_source": "commit",
+      "reconstructed": true,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.8",
+      "sha": "39198eb4b6762f9758176b27544032aae0fbfe81",
+      "date": "2026-06-16",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true,
+      "previous_gitlab_sha": "8080a847a2e00009810ee3aae5db81dda6982c11"
+    },
+    {
+      "version": "0.1.9",
+      "sha": "985f542df58b01091afd1257d17f285cd19d5a05",
+      "date": "2026-06-26",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.10",
+      "sha": "71bcafcebd98cb666211260c477d16ddc0322a05",
+      "date": "2026-07-22",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    },
+    {
+      "version": "0.1.11",
+      "sha": "84acecfd660b5c400f00a55a7e55692b30878932",
+      "date": "2026-07-26",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    },
+    {
+      "version": "0.2.0",
+      "sha": "a34f815fc2370ab0d3ee7945f6dcb02e5b85d91d",
+      "date": "2026-08-19",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    },
+    {
+      "version": "0.2.1",
+      "sha": "79fd97271171d1021dd7cac851e9d775ada23a8c",
+      "date": "2026-08-28",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    },
+    {
+      "version": "0.2.2",
+      "sha": "eaf8c00e95efa2ddafced940546eea2d50ed95ce",
+      "date": "2026-09-02",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    },
+    {
+      "version": "0.2.3",
+      "sha": "6228c438f605d862c5631af7a59eb831694bff8c",
+      "date": "2026-09-04",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    },
+    {
+      "version": "0.2.4",
+      "sha": "740a852ac3360df1543d44ccc78f8a30be7c4ea9",
+      "date": "2026-09-11",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    },
+    {
+      "version": "0.2.5",
+      "sha": "bfbf29be334a56911408a06a469096e4154b8879",
+      "date": "2026-09-20",
+      "date_source": "changelog",
+      "reconstructed": false,
+      "confirmed": true
+    }
+  ]
+}

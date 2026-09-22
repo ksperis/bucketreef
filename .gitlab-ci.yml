@@ -5,7 +5,7 @@ workflow:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
     - if: '$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev")'
-    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main" && $CI_MODE =~ /^(qualify|docs|recover-release)$/'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main" && $CI_MODE =~ /^(qualify|docs|recover-release|release-history)$/'
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "main" && $CI_MODE =~ /^(regression|security|secrets-history)$/'
     - when: never
 stages: [plan, run]
