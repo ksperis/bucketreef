@@ -111,6 +111,21 @@ describe("useBucketTagsController", () => {
     expect(apiMocks.deleteBucketTags).not.toHaveBeenCalled();
   });
 
+  it("ignores a blank new row without claiming it is configured", async () => {
+    apiMocks.getBucketTags.mockResolvedValue({ tags: [] });
+    const { result } = renderTags();
+    await act(async () => result.current.load());
+    act(() => result.current.add());
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.configured).toBe(false);
+    act(() => result.current.update(result.current.tags[0].uiId, { value: "keep me" }));
+    expect(result.current.dirty).toBe(true);
+    expect(result.current.configured).toBe(false);
+    await act(async () => result.current.save());
+    expect(result.current.error).toBe("Tag key is required when a value is provided.");
+    expect(result.current.tags[0].value).toBe("keep me");
+  });
+
   it("rejects duplicate tag keys before calling the API", async () => {
     const { result } = renderTags();
     act(() => {

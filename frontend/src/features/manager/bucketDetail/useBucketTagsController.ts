@@ -36,6 +36,7 @@ function createDraft(tag: BucketTag = { key: "", value: "" }): BucketTagDraft {
 
 function sortedTags(tags: BucketTag[]): BucketTag[] {
   return tags
+    .filter(({ key, value }) => key !== "" || value !== "")
     .map(({ key, value }) => ({ key, value }))
     .sort((left, right) => {
       const keyOrder = left.key.localeCompare(right.key);
@@ -167,7 +168,7 @@ export function useBucketTagsController({
     add,
     clear,
     clearing,
-    configured: tags.length > 0,
+    configured: snapshot.length > 0,
     dirty:
       stableBucketJsonSignature(sortedTags(tags)) !==
       stableBucketJsonSignature(sortedTags(snapshot)),
