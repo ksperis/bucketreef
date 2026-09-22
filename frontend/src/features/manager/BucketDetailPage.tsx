@@ -2,7 +2,8 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton, ListBadge } from "../../components/list/ListControls";
+import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import { ListActionButton, ListActions, ListBadge } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState, useCallback, useId, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -94,6 +95,12 @@ type BucketConfigurationDeleteKind =
   | "website"
   | "policy"
   | "access-logging";
+
+type LifecycleTableRow = {
+  key: string;
+  index: number;
+  rule: LifecycleRuleRecord;
+};
 
 const bucketConfigurationDeleteCopy: Record<
   BucketConfigurationDeleteKind,
@@ -1111,6 +1118,80 @@ function BucketDetailPageContent({
     configured: notificationsConfigured,
     unsaved: notificationsDirty,
   });
+  const lifecycleTableRows = useMemo<LifecycleTableRow[]>(
+    () =>
+      lifecycleRules.map((rawRule, index) => {
+        const rule = rawRule as LifecycleRuleRecord;
+        const ruleId = lifecycleRuleId(rule);
+        return {
+          key: `${ruleId ?? lifecycleRulePrefix(rule) ?? "rule"}-${index}`,
+          index,
+          rule,
+        };
+      }),
+    [lifecycleRules],
+  );
+  const lifecycleTableColumns: Array<DataTableColumn<LifecycleTableRow>> = [
+    {
+      id: "id",
+      label: "ID",
+      primary: true,
+      headerClassName: "min-w-48",
+      cellClassName: "min-w-48",
+      render: ({ rule }) => lifecycleRuleId(rule) ?? "(no ID)",
+    },
+    {
+      id: "status",
+      label: "Status",
+      headerClassName: "w-px whitespace-nowrap",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ index, rule }) => {
+        const status = lifecycleRuleStatus(rule);
+        return (
+          <ListActionButton
+            type="button"
+            onClick={() => toggleLifecycleRuleStatus(index)}
+            variant={status === "Disabled" ? "secondary" : "success"}
+            disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
+          >
+            {status}
+          </ListActionButton>
+        );
+      },
+    },
+    {
+      id: "filter",
+      label: "Filter",
+      headerClassName: "min-w-32 whitespace-nowrap",
+      cellClassName: "min-w-32",
+      render: ({ rule }) => lifecycleFilterLabel(rule.Filter),
+    },
+    {
+      id: "actions",
+      label: "Rule actions",
+      mobileLabel: "Rule actions",
+      headerClassName: "min-w-72",
+      cellClassName: "min-w-72",
+      render: ({ rule }) => describeLifecycleActions(rule),
+    },
+    {
+      id: "manage",
+      label: "Manage",
+      mobileRole: "actions",
+      render: ({ index }) => (
+        <ListActions>
+          <ListActionButton
+            variant="danger"
+            type="button"
+            onClick={() => deleteLifecycleRule(index)}
+            disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
+          >
+            Delete
+          </ListActionButton>
+        </ListActions>
+      ),
+    },
+  ];
   const quotaCardState = resolveFeatureVisualState({
     disabled: !quotaFeatureEnabled || quotaSectionRestricted,
     configured: quotaConfigured,
@@ -1718,6 +1799,8 @@ function BucketDetailPageContent({
                     description="Bucket default encryption rules (S3 API Rules array)."
                     mode="json"
                     visualState={encryptionCardState}
+                    presentation="workbench"
+                    successMessage={encryptionStatus}
                     busy={savingEncryption || deletingEncryption || encryptionLoading}
                     testId="bucket-feature-encryption"
                     actions={
@@ -1744,9 +1827,6 @@ function BucketDetailPageContent({
                     {!sseFeatureEnabled && <EndpointFeatureDisabledNotice featureLabel="Server-side encryption" />}
                     {encryptionError && (
                       <UiInlineMessage tone="error">{encryptionError}</UiInlineMessage>
-                    )}
-                    {encryptionStatus && (
-                      <UiInlineMessage tone="success">{encryptionStatus}</UiInlineMessage>
                     )}
                     <UiTextarea label="Encryption rules (JSON)" rows={6}
                       value={encryptionText}
@@ -1779,6 +1859,7 @@ function BucketDetailPageContent({
                     description="WORM / default retention."
                     mode="graphical"
                     visualState={objectLockCardState}
+                    successMessage={objectLockStatus}
                     busy={savingObjectLock || objectLockLoading}
                     testId="bucket-feature-object-lock"
                     actions={
@@ -1811,9 +1892,6 @@ function BucketDetailPageContent({
                       )}
                       {objectLockError && (
                         <UiInlineMessage tone="error">{objectLockError}</UiInlineMessage>
-                      )}
-                      {objectLockStatus && (
-                        <UiInlineMessage tone="success">{objectLockStatus}</UiInlineMessage>
                       )}
                       <form
                         id={objectLockFormId}
@@ -1912,11 +1990,15 @@ function BucketDetailPageContent({
                       description="S3-side expiration/clean-up."
                       mode="hybrid"
                       visualState={lifecycleCardState}
-                    busy={savingLifecycle || lifecycleLoading}
+                      presentation="workbench"
+                      successMessage={lifecycleStatus}
+                      busy={savingLifecycle || lifecycleLoading}
                       testId="bucket-feature-lifecycle"
                       actions={
-                        <div className="flex items-center gap-2">
-                          <span className={bucketDetailHintClass}>{lifecycleRuleCount} rule(s)</span>
+                        <div className={bucketDetailWrapActionsClass}>
+                          <span className={bucketDetailHintClass}>
+                            {lifecycleRuleCount === 1 ? "1 rule" : `${lifecycleRuleCount} rules`}
+                          </span>
                           <SettingsButton
                             type="button"
                             onClick={toggleLifecycleEditor}
@@ -1947,85 +2029,26 @@ function BucketDetailPageContent({
                         </div>
                       }
                     >
-                      {lifecycleLoading && (
-                        <UiInlineMessage className="mt-2">Loading lifecycle rules...</UiInlineMessage>
-                      )}
                       {lifecycleError && (
                         <UiInlineMessage tone="error" className="mt-2">{lifecycleError}</UiInlineMessage>
                       )}
-                      {lifecycleStatus && (
-                        <UiInlineMessage tone="success" className="mt-2">{lifecycleStatus}</UiInlineMessage>
-                      )}
-                      <div className={cx(uiCardMutedClass, "mt-3 px-3 py-2")}>
-                        {lifecycleRules.length === 0 ? (
-                          <p className={bucketDetailMutedBodyClass}>No rules configured on this bucket.</p>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className={uiDataTableClass}>
-                              <thead>
-                                <tr>
-                                  <th className="text-left">
-                                    ID
-                                  </th>
-                                  <th className="text-left">
-                                    Status
-                                  </th>
-                                  <th className="text-left">
-                                    Filter
-                                  </th>
-                                  <th className="text-left">
-                                    Actions
-                                  </th>
-                                  <th className="text-left">
-                                    Manage
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className={bucketDetailDividerClass}>
-                                {lifecycleRules.map((rawRule, idx) => {
-                                  const rule = rawRule as LifecycleRuleRecord;
-                                  const ruleId = lifecycleRuleId(rule);
-                                  const filterLabel = lifecycleFilterLabel(rule.Filter);
-                                  const status = lifecycleRuleStatus(rule);
-                                  return (
-                                    <tr
-                                      key={`${ruleId ?? lifecycleRulePrefix(rule) ?? "rule"}-${idx}`}
-                                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                                    >
-                                      <td className="ui-table-primary">
-                                        {ruleId ?? "(no ID)"}
-                                      </td>
-                                      <td >
-                                        <ListActionButton
-                                          type="button"
-                                          onClick={() => toggleLifecycleRuleStatus(idx)}
-                                          variant={status === "Disabled" ? "secondary" : "success"}
-                                          disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
-                                        >
-                                          {status}
-                                        </ListActionButton>
-                                      </td>
-                                      <td >{filterLabel}</td>
-                                      <td >{describeLifecycleActions(rule)}</td>
-                                      <td >
-                                        <div className={bucketDetailWrapActionsClass}>
-                                          <ListActionButton variant="danger"
-                                            type="button"
-                                            onClick={() => deleteLifecycleRule(idx)}
-                                            disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
-                                          >
-                                            Delete
-                                          </ListActionButton>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
+                      <DataTableShell
+                        columns={lifecycleTableColumns}
+                        rows={lifecycleTableRows}
+                        rowKey={(row) => row.key}
+                        status={
+                          lifecycleLoading && lifecycleTableRows.length === 0
+                            ? "loading"
+                            : lifecycleTableRows.length === 0
+                              ? "empty"
+                              : "ready"
+                        }
+                        loadingMessage="Loading lifecycle rules..."
+                        errorMessage="Unable to load lifecycle rules."
+                        emptyMessage="No rules configured on this bucket."
+                        primaryColumnId="id"
+                        responsiveCards
+                      />
 
                       {showLifecycleEditor && (
                         <>
@@ -2238,6 +2261,7 @@ function BucketDetailPageContent({
                       description="S3 key/value tags associated with this bucket."
                       mode="graphical"
                       visualState={tagsCardState}
+                      successMessage={bucketTagsStatus}
                       busy={savingBucketTags || deletingBucketTags || bucketTagsLoading}
                       testId="bucket-feature-tags"
                       actions={
@@ -2263,9 +2287,6 @@ function BucketDetailPageContent({
                     >
                       {bucketTagsError && (
                         <UiInlineMessage tone="error">{bucketTagsError}</UiInlineMessage>
-                      )}
-                      {bucketTagsStatus && (
-                        <UiInlineMessage tone="success">{bucketTagsStatus}</UiInlineMessage>
                       )}
                       {bucketTagsLoading ? (
                         <UiInlineMessage>Loading bucket tags...</UiInlineMessage>
@@ -2337,6 +2358,7 @@ function BucketDetailPageContent({
                   description="Manage the four S3 public access block flags. Configure each option below."
                   mode="graphical"
                   visualState={publicAccessCardState}
+                  successMessage={publicAccessStatus}
                   busy={savingPublicAccess || publicAccessLoading}
                   testId="bucket-feature-block-public-access"
                   actions={
@@ -2350,9 +2372,6 @@ function BucketDetailPageContent({
                     </SettingsButton>
                   }
                 >
-                  {publicAccessStatus && (
-                    <UiInlineMessage tone="success">{publicAccessStatus}</UiInlineMessage>
-                  )}
                   {publicAccessError && (
                     <UiInlineMessage tone="error">{publicAccessError}</UiInlineMessage>
                   )}
@@ -2379,6 +2398,8 @@ function BucketDetailPageContent({
                   description="Configure a canned ACL and review resulting grants."
                   mode="graphical"
                   visualState={aclCardState}
+                  presentation="workbench"
+                  successMessage={bucketAclStatus}
                   busy={savingBucketAcl || bucketAclLoading}
                   testId="bucket-feature-acl"
                   actions={
@@ -2394,9 +2415,6 @@ function BucketDetailPageContent({
                 >
                   {bucketAclError && (
                     <UiInlineMessage tone="error">{bucketAclError}</UiInlineMessage>
-                  )}
-                  {bucketAclStatus && (
-                    <UiInlineMessage tone="success">{bucketAclStatus}</UiInlineMessage>
                   )}
                   <div className={bucketDetailTwoColumnGridClass}>
                     <label className={bucketFeatureLabelClass}>
@@ -2479,6 +2497,7 @@ function BucketDetailPageContent({
                   description="IAM-like JSON applied directly on the bucket."
                   mode="json"
                   visualState={policyCardState}
+                  presentation="workbench"
                   busy={savingPolicy || deletingPolicy || policyLoading}
                   testId="bucket-feature-policy"
                   actions={
@@ -2527,6 +2546,7 @@ function BucketDetailPageContent({
                   description="CORS rules in AWS format (CORSRules)."
                   mode="json"
                   visualState={corsCardState}
+                  presentation="workbench"
                   busy={savingCors || deletingCors || corsLoading}
                   testId="bucket-feature-cors"
                   actions={
@@ -2583,6 +2603,8 @@ function BucketDetailPageContent({
                   description="Host a static website from this bucket or redirect all requests."
                   mode="hybrid"
                   visualState={websiteCardState}
+                  presentation="workbench"
+                  successMessage={websiteStatus}
                   busy={savingWebsite || clearingWebsite || websiteLoading}
                   testId="bucket-feature-website"
                   actions={
@@ -2609,9 +2631,6 @@ function BucketDetailPageContent({
                   {staticWebsiteBlocked && <EndpointFeatureDisabledNotice featureLabel="Static website" />}
                   {websiteError && (
                     <UiInlineMessage tone="error">{websiteError}</UiInlineMessage>
-                  )}
-                  {websiteStatus && (
-                    <UiInlineMessage tone="success">{websiteStatus}</UiInlineMessage>
                   )}
                   <fieldset className="space-y-2">
                     <legend className="settings-label">Website mode</legend>
@@ -2717,6 +2736,8 @@ function BucketDetailPageContent({
                     description="Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup."
                     mode="hybrid"
                     visualState={replicationCardState}
+                    presentation="workbench"
+                    successMessage={replicationStatus}
                     busy={replicationBusy}
                     testId="bucket-feature-replication"
                     actions={
@@ -2755,9 +2776,6 @@ function BucketDetailPageContent({
                     )}
                     {replicationWarning && (
                       <UiInlineMessage tone="warning">{replicationWarning}</UiInlineMessage>
-                    )}
-                    {replicationStatus && (
-                      <UiInlineMessage tone="success">{replicationStatus}</UiInlineMessage>
                     )}
                     {replicationLoading ? (
                       <UiInlineMessage>Loading replication configuration...</UiInlineMessage>
@@ -2912,6 +2930,7 @@ function BucketDetailPageContent({
                   description="Deliver S3 server access logs to another bucket."
                   mode="graphical"
                   visualState={accessLoggingCardState}
+                  successMessage={accessLoggingStatus}
                   busy={savingAccessLogging || clearingAccessLogging || accessLoggingLoading}
                   testId="bucket-feature-access-logging"
                   actions={
@@ -2937,9 +2956,6 @@ function BucketDetailPageContent({
                 >
                   {accessLoggingError && (
                     <UiInlineMessage tone="error">{accessLoggingError}</UiInlineMessage>
-                  )}
-                  {accessLoggingStatus && (
-                    <UiInlineMessage tone="success">{accessLoggingStatus}</UiInlineMessage>
                   )}
                   <SettingsItem
                     compact
@@ -2987,6 +3003,8 @@ function BucketDetailPageContent({
                   }
                   mode="json"
                   visualState={notificationsCardState}
+                  presentation="workbench"
+                  successMessage={notificationsStatus}
                   busy={savingNotifications || clearingNotifications || notificationsLoading}
                   testId="bucket-feature-notifications"
                   actions={
@@ -3012,9 +3030,6 @@ function BucketDetailPageContent({
                 >
                   {notificationsError && (
                     <UiInlineMessage tone="error">{notificationsError}</UiInlineMessage>
-                  )}
-                  {notificationsStatus && (
-                    <UiInlineMessage tone="success">{notificationsStatus}</UiInlineMessage>
                   )}
                   <UiTextarea label="Notification configuration (JSON)" rows={10}
                     value={notificationText}
@@ -3124,6 +3139,7 @@ function BucketDetailPageContent({
                         description="Allowed bucket size and object count."
                         mode="graphical"
                         visualState={quotaCardState}
+                        successMessage={quotaStatus}
                         busy={updatingQuota || loadingBucket}
                         testId="bucket-feature-quota"
                         actions={
@@ -3197,9 +3213,6 @@ function BucketDetailPageContent({
                         />
                       </label>
                     </div>
-                    {quotaStatus && (
-                      <UiInlineMessage tone="success">{quotaStatus}</UiInlineMessage>
-                    )}
                     {quotaError && (
                       <UiInlineMessage tone="error">{quotaError}</UiInlineMessage>
                     )}
