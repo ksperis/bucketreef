@@ -748,3 +748,26 @@ scheduler-contract:
   - docker:27-dind
   script:
   - sh ops/ci/tasks/run.sh scheduler-contract
+
+publish-release-history:
+  stage: deploy
+  image: python:3.12-alpine
+  before_script:
+    - apk add --no-cache git
+  environment:
+    name: release-public
+    action: prepare
+  resource_group: public-release
+  needs: []
+  script:
+    - |
+      if [ "$RELEASE_HISTORY_APPLY" = true ]; then
+        python3 ops/release/publish_history.py --apply
+      else
+        python3 ops/release/publish_history.py
+      fi
+  artifacts:
+    when: always
+    paths:
+      - dist/release-history/
+    expire_in: 30 days

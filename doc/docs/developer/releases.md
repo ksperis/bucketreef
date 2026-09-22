@@ -183,3 +183,36 @@ identical existing content and recomputes aliases under the lock. Do not delete 
 move immutable versions to repair a failure. Public GitHub download checks occur
 again after the draft is exposed; an outage there leaves aliases unchanged.
 Metadata-only recovery cannot finish aliases or substitute for qualification.
+## Historical notes and the documentation index
+
+Historical publication is separate from artifact distribution. On protected
+`main`, start a web pipeline with `CI_MODE=release-history`. It previews every
+GitHub/GitLab release action without writes. Set `RELEASE_HISTORY_APPLY=true`
+explicitly to apply the reviewed catalog. Both modes verify remote tags and
+refuse conflicting descriptions before writing. Application is idempotent and
+never builds images, uploads assets, creates baselines, or edits tags.
+
+The versioned `ops/release/history.json` catalog records commit, historical date,
+date provenance and whether publication on both platforms has been confirmed.
+Notes are taken only from `CHANGELOG.md`; reconstructed sections are labelled.
+GitHub's actual publication timestamp is not backdated. Historical GitLab
+releases receive their catalog date, and neither platform's latest release moves.
+The one-time v0.1.8 GitLab alignment is recorded in the catalog and rendered notes;
+it does not establish the provenance of existing container images.
+
+After publication, download `dist/release-history/confirmed.json` from the
+successful job and review it against the checked-in catalog. Copy it to
+`ops/release/history.json`, then run:
+
+```sh
+python3 ops/release/history.py
+python3 ops/release/history.py --check
+python3 -m mkdocs build -f doc/mkdocs.yml --strict
+```
+
+Commit the confirmed catalog and generated page, synchronize the commit and
+publish documentation with the normal docs pipeline. For future versions,
+append their changelog and catalog metadata, then confirm publication on both
+platforms before setting `confirmed: true` and regenerating the page. Generation
+is offline and includes only confirmed entries; the browser never queries APIs.
+Do not run historical publication against future drafts or pending releases.
