@@ -85,9 +85,55 @@ def _create_postgresql_alembic_version_table(connection) -> None:
     ).create(connection)
 
 
+def _sqlite_foreign_key_violations(connection) -> list[tuple]:
+    return list(connection.exec_driver_sql("PRAGMA foreign_key_check").all())
+
+
+def _upgrade_sqlite_schema(connection, config: Config) -> None:
+    if connection.in_transaction():
+        connection.rollback()
+
+    dbapi_connection = connection.connection.driver_connection
+    foreign_keys_enabled = bool(
+        dbapi_connection.execute("PRAGMA foreign_keys").fetchone()[0]
+    )
+    if foreign_keys_enabled:
+        dbapi_connection.execute("PRAGMA foreign_keys = OFF")
+        if dbapi_connection.execute("PRAGMA foreign_keys").fetchone()[0] != 0:
+            raise RuntimeError("Could not disable SQLite foreign key checks for schema migration")
+
+    try:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
+        if connection.in_transaction():
+            connection.commit()
+
+        violations = _sqlite_foreign_key_violations(connection)
+        if connection.in_transaction():
+            connection.rollback()
+        if violations:
+            preview = ", ".join(
+                f"{table}(rowid={rowid}, parent={parent}, fk={fk_id})"
+                for table, rowid, parent, fk_id in violations[:10]
+            )
+            suffix = " ..." if len(violations) > 10 else ""
+            raise RuntimeError(
+                "SQLite foreign key integrity check failed after schema migration: "
+                f"{preview}{suffix}"
+            )
+    finally:
+        if connection.in_transaction():
+            connection.rollback()
+        if foreign_keys_enabled:
+            dbapi_connection.execute("PRAGMA foreign_keys = ON")
+            if dbapi_connection.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                raise RuntimeError("Could not restore SQLite foreign key checks after schema migration")
+
+
 def _initialize_or_upgrade_schema(engine) -> None:
     config = _alembic_config()
-    with engine.begin() as connection:
+    connection_context = engine.connect() if engine.dialect.name == "sqlite" else engine.begin()
+    with connection_context as connection:
         inspector = inspect(connection)
         table_names = set(inspector.get_table_names())
         view_names = set(inspector.get_view_names())
@@ -97,6 +143,8 @@ def _initialize_or_upgrade_schema(engine) -> None:
             _create_postgresql_alembic_version_table(connection)
             config.attributes["connection"] = connection
             command.stamp(config, "head")
+            if connection.dialect.name == "sqlite" and connection.in_transaction():
+                connection.commit()
             logger.info(
                 "Bootstrapped empty database from SQLAlchemy metadata and stamped Alembic head"
             )
@@ -107,6 +155,10 @@ def _initialize_or_upgrade_schema(engine) -> None:
                 "Database is not empty and has no alembic_version table. "
                 "Refusing to create or stamp a potentially unmanaged or partially initialized schema."
             )
+
+        if connection.dialect.name == "sqlite":
+            _upgrade_sqlite_schema(connection, config)
+            return
 
         config.attributes["connection"] = connection
         command.upgrade(config, "head")

@@ -26,8 +26,25 @@ _s3_users = sa.table(
 )
 
 
+def _cleanup_stale_sqlite_batch_table(bind) -> None:
+    if bind.dialect.name != "sqlite":
+        return
+    table_names = set(sa.inspect(bind).get_table_names())
+    temporary_table = "_alembic_tmp_s3_users"
+    if temporary_table not in table_names:
+        return
+    if "s3_users" not in table_names:
+        raise RuntimeError(
+            "Interrupted S3 user schema migration detected: "
+            "_alembic_tmp_s3_users exists but s3_users is missing. "
+            "Restore the database backup before retrying the upgrade."
+        )
+    bind.exec_driver_sql("DROP TABLE _alembic_tmp_s3_users")
+
+
 def upgrade() -> None:
     bind = op.get_bind()
+    _cleanup_stale_sqlite_batch_table(bind)
     incomplete_rows = bind.execute(
         sa.select(
             _s3_users.c.id,
@@ -55,6 +72,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    _cleanup_stale_sqlite_batch_table(op.get_bind())
     with op.batch_alter_table("s3_users", schema=None) as batch_op:
         batch_op.drop_constraint(
             "ck_s3_users_rgw_user_uid_nonempty",

@@ -123,3 +123,87 @@ def test_versioned_database_upgrades_from_0118_and_preserves_data(sqlite_databas
         assert connection.scalar(
             sa.select(AppSetting.payload_json).where(AppSetting.key == "bootstrap-test")
         ) == '{"preserved":true}'
+
+
+def test_versioned_sqlite_upgrade_preserves_referencing_rows_with_foreign_keys_enabled(
+    sqlite_database: Engine,
+) -> None:
+    database_initialization.command.upgrade(
+        database_initialization._alembic_config(),
+        "0125_guided_onboarding",
+    )
+    with sqlite_database.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys = ON")
+        connection.exec_driver_sql(
+            """
+            INSERT INTO storage_endpoints (
+                id,
+                name,
+                endpoint_url,
+                provider,
+                force_path_style,
+                verify_tls,
+                is_default,
+                is_editable,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                1,
+                'migration-endpoint',
+                'https://s3.example.test',
+                'ceph',
+                0,
+                1,
+                1,
+                1,
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            INSERT INTO s3_users (
+                id,
+                name,
+                rgw_user_uid,
+                rgw_access_key,
+                rgw_secret_key,
+                created_at,
+                updated_at,
+                storage_endpoint_id
+            )
+            VALUES (
+                1,
+                'migration-user',
+                'migration-user',
+                'access-key',
+                'encrypted-placeholder',
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP,
+                1
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE migration_s3_user_refs (
+                id INTEGER PRIMARY KEY,
+                s3_user_id INTEGER NOT NULL REFERENCES s3_users(id)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO migration_s3_user_refs (id, s3_user_id) VALUES (1, 1)"
+        )
+
+    database_initialization._initialize_or_upgrade_schema(sqlite_database)
+
+    with sqlite_database.connect() as connection:
+        assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
+        assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
+        assert connection.scalar(
+            sa.text("SELECT s3_user_id FROM migration_s3_user_refs WHERE id = 1")
+        ) == 1
+        assert _database_revision(connection) == _alembic_head()
