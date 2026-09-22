@@ -18,7 +18,6 @@ import PageShell from "../../components/PageShell";
 import UsageBreakdown from "../../components/UsageBreakdown";
 import UsageHistoryTrendsSection from "../../components/UsageHistoryTrendsSection";
 import { WorkspaceStatusDot } from "../../components/WorkspaceDashboardKit";
-import UiBadge from "../../components/ui/UiBadge";
 import { cx, uiCardMutedClass, uiInputClass, uiLabelClass, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
@@ -49,13 +48,6 @@ function backendStatusFromHealth(health: ReturnType<typeof usePortalWorkspaceDat
   if (health.degraded_count > 0) return "degraded";
   if (health.up_count > 0) return "up";
   return "unknown";
-}
-
-function backendStatusTone(status: HealthCheckStatus): "success" | "warning" | "danger" | "neutral" {
-  if (status === "up") return "success";
-  if (status === "degraded") return "warning";
-  if (status === "down") return "danger";
-  return "neutral";
 }
 
 function backendStatusLabel(status: HealthCheckStatus, t: ReturnType<typeof useI18n>["t"]): string {
@@ -401,14 +393,7 @@ export default function PortalUsagePage() {
           >
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <div className={cx(uiCardMutedClass, "px-4 py-3")}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className={uiLabelClass}>{t({ en: "Backend status", fr: "Statut du backend", de: "Backend-Status", zh: "后端状态" })}</p>
-                  {!healthLoading ? (
-                    <UiBadge tone={backendStatusTone(backendStatus)} className="px-2 py-0 text-[11px] leading-5">
-                      {backendStatusLabel(backendStatus, t)}
-                    </UiBadge>
-                  ) : null}
-                </div>
+                <p className={uiLabelClass}>{t({ en: "Backend status", fr: "Statut du backend", de: "Backend-Status", zh: "后端状态" })}</p>
                 <div className="mt-2 flex items-center gap-2">
                   {!healthLoading ? <WorkspaceStatusDot status={backendStatus} className="h-2.5 w-2.5 shrink-0" /> : null}
                   <p className={cx("ui-subtitle", uiTitleTextClass)}>{healthLoading ? "..." : backendStatusLabel(backendStatus, t)}</p>
