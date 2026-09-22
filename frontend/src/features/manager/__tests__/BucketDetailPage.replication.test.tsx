@@ -24,7 +24,7 @@ const getBucketCorsMock = vi.fn();
 const getBucketTagsMock = vi.fn();
 const getBucketPublicAccessBlockMock = vi.fn();
 const putBucketLifecycleMock = vi.fn();
-const listObjectsMock = vi.fn();
+const listManagerObjectsMock = vi.fn();
 const listCephAdminBucketObjectsMock = vi.fn();
 const listCephAdminBucketsMock = vi.fn();
 const getCephAdminBucketPropertiesMock = vi.fn();
@@ -114,11 +114,11 @@ vi.mock("../../../api/cephAdminMetrics", () => ({
     fetchCephAdminClusterTrafficMock(...args),
 }));
 
-vi.mock("../../../api/objects", async () => {
-  const actual = await vi.importActual<typeof import("../../../api/objects")>("../../../api/objects");
+vi.mock("../../../api/managerObjects", async () => {
+  const actual = await vi.importActual<typeof import("../../../api/managerObjects")>("../../../api/managerObjects");
   return {
     ...actual,
-    listObjects: (...args: unknown[]) => listObjectsMock(...args),
+    listManagerObjects: (...args: unknown[]) => listManagerObjectsMock(...args),
   };
 });
 
@@ -202,7 +202,7 @@ describe("BucketDetailPage replication state", () => {
     });
     putBucketLifecycleMock.mockImplementation((_accountId, _bucketName, rules) => Promise.resolve({ rules }));
     getBucketReplicationMock.mockResolvedValue({ configuration: {} });
-    listObjectsMock.mockResolvedValue({ prefix: "", objects: [], prefixes: [], is_truncated: false });
+    listManagerObjectsMock.mockResolvedValue({ prefix: "", objects: [], prefixes: [], is_truncated: false });
     listCephAdminBucketObjectsMock.mockResolvedValue({ prefix: "", objects: [], prefixes: [], is_truncated: false });
     listCephAdminBucketsMock.mockResolvedValue({
       items: [{ name: "demo-bucket" }],
@@ -649,7 +649,7 @@ describe("BucketDetailPage replication state", () => {
     await user.click(screen.getByRole("tab", { name: "Objects / S3 Console" }));
 
     await waitFor(() => {
-      expect(listObjectsMock).toHaveBeenCalledOnce();
+      expect(listManagerObjectsMock).toHaveBeenCalledOnce();
     });
     expect(getBucketStatsMock).not.toHaveBeenCalled();
     expect(getBucketVersioningMock).not.toHaveBeenCalled();

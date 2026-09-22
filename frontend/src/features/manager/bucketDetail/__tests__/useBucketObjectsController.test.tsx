@@ -4,7 +4,7 @@ import { useBucketObjectsController } from "../useBucketObjectsController";
 
 const apiMocks = vi.hoisted(() => ({
   listCephAdminBucketObjects: vi.fn(),
-  listObjects: vi.fn(),
+  listManagerObjects: vi.fn(),
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({
@@ -12,8 +12,8 @@ vi.mock("../../../../api/cephAdminBucketDetails", () => ({
     apiMocks.listCephAdminBucketObjects(...args),
 }));
 
-vi.mock("../../../../api/objects", () => ({
-  listObjects: (...args: unknown[]) => apiMocks.listObjects(...args),
+vi.mock("../../../../api/managerObjects", () => ({
+  listManagerObjects: (...args: unknown[]) => apiMocks.listManagerObjects(...args),
 }));
 
 function renderObjects(
@@ -44,7 +44,7 @@ describe("useBucketObjectsController", () => {
   });
 
   it("loads Manager rows and derives prefix navigation", async () => {
-    apiMocks.listObjects
+    apiMocks.listManagerObjects
       .mockResolvedValueOnce({
         ...emptyListing,
         objects: [{ key: "summary.csv", size: 2048 }],
@@ -59,7 +59,7 @@ describe("useBucketObjectsController", () => {
 
     await act(async () => result.current.refresh());
 
-    expect(apiMocks.listObjects).toHaveBeenCalledWith(
+    expect(apiMocks.listManagerObjects).toHaveBeenCalledWith(
       "acc-1",
       "reports",
       "",
@@ -79,7 +79,7 @@ describe("useBucketObjectsController", () => {
     expect(result.current.parentPrefix).toBe("");
     await act(async () => result.current.refresh());
 
-    expect(apiMocks.listObjects).toHaveBeenLastCalledWith(
+    expect(apiMocks.listManagerObjects).toHaveBeenLastCalledWith(
       "acc-1",
       "reports",
       "archive/",
@@ -133,7 +133,7 @@ describe("useBucketObjectsController", () => {
   });
 
   it("clears rows and exposes listing failures", async () => {
-    apiMocks.listObjects
+    apiMocks.listManagerObjects
       .mockResolvedValueOnce({
         ...emptyListing,
         objects: [{ key: "old.txt", size: 1 }],
@@ -156,7 +156,7 @@ describe("useBucketObjectsController", () => {
     const oldListing = new Promise<typeof emptyListing>((resolve) => {
       resolveOldListing = resolve;
     });
-    apiMocks.listObjects
+    apiMocks.listManagerObjects
       .mockReturnValueOnce(oldListing)
       .mockResolvedValueOnce({
         ...emptyListing,
@@ -208,7 +208,7 @@ describe("useBucketObjectsController", () => {
     await act(async () => disabled.result.current.refresh());
     await act(async () => missingEndpoint.result.current.refresh());
 
-    expect(apiMocks.listObjects).not.toHaveBeenCalled();
+    expect(apiMocks.listManagerObjects).not.toHaveBeenCalled();
     expect(apiMocks.listCephAdminBucketObjects).not.toHaveBeenCalled();
     expect(disabled.result.current.rows).toEqual([]);
     expect(missingEndpoint.result.current.rows).toEqual([]);
