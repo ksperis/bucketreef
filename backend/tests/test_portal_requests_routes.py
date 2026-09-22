@@ -147,6 +147,46 @@ def test_portal_request_routes_use_effective_manager_role_for_creation(client: T
     assert response.status_code == 201
 
 
+def test_portal_setting_change_request_rejects_when_settings_are_delegated(client: TestClient, db_session):
+    account = _seed_account(db_session)
+    account.portal_settings_delegated = True
+    db_session.add(account)
+    db_session.commit()
+    requester = _seed_user(db_session, email="manager@example.org")
+    _install_portal_access_override(account, requester)
+
+    response = client.post(
+        "/api/portal/requests",
+        json={
+            "request_type": "portal_setting_change",
+            "setting": "browser_access_enabled",
+            "mode": "override",
+            "value": True,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "already delegated" in response.json()["detail"]
+
+
+def test_portal_setting_change_request_validates_setting_value(client: TestClient, db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="manager@example.org")
+    _install_portal_access_override(account, requester)
+
+    response = client.post(
+        "/api/portal/requests",
+        json={
+            "request_type": "portal_setting_change",
+            "setting": "bucket_defaults.noncurrent_version_expiration_days",
+            "mode": "override",
+            "value": False,
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_admin_request_routes_approve_and_conflict(client: TestClient, db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")

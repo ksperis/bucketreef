@@ -38,6 +38,9 @@ alerts, and password settings are managed from **User profile**.
 Every Portal project member sees the effective values. Portal Users and
 non-delegated Portal Managers cannot change the controls. A delegated Portal
 Manager can update the single shared project override also shown in Admin.
+When delegation is disabled, a Portal Manager can request a change to one
+project-overridable setting from **Portal > Help requests**; an administrator
+must approve that request before it is applied.
 
 **External sharing by Portal users** is disabled by default. When enabled, a
 Portal User can create public links and external S3 tool access only for a
@@ -74,8 +77,9 @@ available for preview through the project API.
 
 If settings are read-only, either your project role is not Portal Manager or an
 administrator has not enabled delegation for this project. Existing overrides
-remain effective when delegation is disabled. Use **User profile** for personal
-settings or ask an administrator to review the project configuration.
+remain effective when delegation is disabled. Portal Managers can use
+**Portal > Help requests** to request a change to an eligible project setting.
+Use **User profile** for personal settings.
 
 ## Limits / feature flags
 

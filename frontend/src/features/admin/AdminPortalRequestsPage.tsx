@@ -324,6 +324,7 @@ export default function AdminPortalRequestsPage() {
                 <option value="portal_user_access">Add Portal user</option>
                 <option value="portal_user_removal">Remove Portal user</option>
                 <option value="account_quota_change">Storage quota</option>
+                <option value="portal_setting_change">Project setting</option>
               </UiSelect>
               <UiSelect
                 label="Account"

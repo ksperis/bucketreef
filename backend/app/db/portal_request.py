@@ -15,7 +15,7 @@ class PortalAdminRequest(Base):
     __tablename__ = "portal_admin_requests"
     __table_args__ = (
         CheckConstraint(
-            "request_type IN ('portal_user_access', 'portal_user_removal', 'account_quota_change')",
+            "request_type IN ('portal_user_access', 'portal_user_removal', 'account_quota_change', 'portal_setting_change')",
             name="ck_portal_admin_requests_type",
         ),
         CheckConstraint(

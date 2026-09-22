@@ -11,8 +11,13 @@ import {
   type PortalAdminRequest,
   type PortalQuotaDirection,
   type PortalQuotaUnit,
+  type PortalSettingChangeRequestCreate,
 } from "../../api/portalRequests";
-import { fetchPortalState } from "../../api/portalAccounts";
+import {
+  fetchPortalProjectSettings,
+  fetchPortalState,
+  type PortalProjectSettings,
+} from "../../api/portalAccounts";
 import {
   fetchPortalCollaborators,
   type PortalCollaborator,
@@ -43,6 +48,7 @@ import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { formatBytes } from "../../utils/format";
 import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
+import PortalSettingChangeRequestDialog from "./PortalSettingChangeRequestDialog";
 import {
   PortalRequestStatusBadge,
   portalRequestPayloadSummary,
@@ -52,9 +58,9 @@ import {
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import { usePortalAccountContext } from "./PortalAccountContext";
 
-type BusyAction = "collaborator" | "quota" | "refresh" | null;
+type BusyAction = "collaborator" | "quota" | "setting" | "refresh" | null;
 type CollaboratorAction = "add" | "remove";
-type RequestDialog = "collaborator" | "storage-limit" | null;
+type RequestDialog = "collaborator" | "storage-limit" | "setting" | null;
 type RequestsTab = "request-help" | "history";
 
 const quotaUnits: PortalQuotaUnit[] = ["MiB", "GiB", "TiB"];
@@ -112,6 +118,12 @@ export default function PortalRequestsPage() {
   const [collaboratorsError, setCollaboratorsError] = useState<string | null>(
     null,
   );
+  const [projectSettings, setProjectSettings] =
+    useState<PortalProjectSettings | null>(null);
+  const [projectSettingsLoading, setProjectSettingsLoading] = useState(false);
+  const [projectSettingsError, setProjectSettingsError] = useState<string | null>(
+    null,
+  );
   const [requestPermission, setRequestPermission] = useState<{
     accountId: string;
     canManage: boolean;
@@ -129,6 +141,11 @@ export default function PortalRequestsPage() {
     stateAllowsManagedRequests ?? summaryAllowsManagedRequests;
   const showRequestHelpTab =
     accountLoading || !requestPermissionResolved || canRequestManagedChanges;
+  const canRequestSettingChange = Boolean(
+    canRequestManagedChanges &&
+      projectSettings &&
+      !projectSettings.delegated_to_portal_managers,
+  );
 
   useEffect(() => {
     if (!hasAccountContext || !accountIdForApi || !selectedAccountKey) {
@@ -196,6 +213,40 @@ export default function PortalRequestsPage() {
   useEffect(() => {
     void loadRequests();
   }, [loadRequests]);
+
+  const loadProjectSettings = useCallback(async () => {
+    if (!hasAccountContext || !accountIdForApi || !canRequestManagedChanges) {
+      setProjectSettings(null);
+      setProjectSettingsLoading(false);
+      setProjectSettingsError(null);
+      return;
+    }
+    setProjectSettingsLoading(true);
+    setProjectSettingsError(null);
+    try {
+      setProjectSettings(await fetchPortalProjectSettings(accountIdForApi));
+    } catch (err) {
+      console.error(err);
+      setProjectSettings(null);
+      setProjectSettingsError(
+        extractApiError(
+          err,
+          t({
+            en: "Unable to load project settings. Setting-change requests are unavailable.",
+            fr: "Impossible de charger les paramètres du projet. Les demandes de modification sont indisponibles.",
+            de: "Projekteinstellungen können nicht geladen werden. Änderungsanfragen sind nicht verfügbar.",
+            zh: "无法加载项目设置。设置更改请求当前不可用。",
+          }),
+        ),
+      );
+    } finally {
+      setProjectSettingsLoading(false);
+    }
+  }, [accountIdForApi, canRequestManagedChanges, hasAccountContext, t]);
+
+  useEffect(() => {
+    void loadProjectSettings();
+  }, [loadProjectSettings]);
 
   useEffect(() => {
     if (
@@ -285,7 +336,12 @@ export default function PortalRequestsPage() {
   const handleRefresh = async () => {
     setBusy("refresh");
     try {
-      await Promise.all([loadRequests(), loadUsage(), loadCollaborators()]);
+      await Promise.all([
+        loadRequests(),
+        loadUsage(),
+        loadCollaborators(),
+        loadProjectSettings(),
+      ]);
     } finally {
       setBusy(null);
     }
@@ -498,6 +554,44 @@ export default function PortalRequestsPage() {
     }
   };
 
+  const handleSettingRequest = async (
+    payload: PortalSettingChangeRequestCreate,
+  ) => {
+    if (!accountIdForApi) return;
+    setBusy("setting");
+    setNotice(null);
+    setRequestError(null);
+    try {
+      await createPortalRequest(accountIdForApi, payload);
+      setNotice(
+        t({
+          en: "Request sent. You can follow its status below.",
+          fr: "Demande envoyée. Vous pouvez suivre son statut ci-dessous.",
+          de: "Anfrage gesendet. Sie können den Status unten verfolgen.",
+          zh: "请求已发送。你可以在下方查看状态。",
+        }),
+      );
+      setRequestDialog(null);
+      setActiveTab("history");
+      await loadRequests();
+    } catch (err) {
+      console.error(err);
+      setRequestError(
+        extractApiError(
+          err,
+          t({
+            en: "Unable to send the setting-change request.",
+            fr: "Impossible d'envoyer la demande de modification du paramètre.",
+            de: "Die Anfrage zur Einstellungsänderung konnte nicht gesendet werden.",
+            zh: "无法发送设置更改请求。",
+          }),
+        ),
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const columns = useMemo<Array<DataTableColumn<PortalAdminRequest>>>(
     () => [
       {
@@ -570,10 +664,10 @@ export default function PortalRequestsPage() {
           zh: "帮助请求",
         })}
         description={t({
-          en: "Ask the support team for help with collaborators and project storage limits.",
-          fr: "Demandez de l'aide à l'équipe support pour les collaborateurs et les limites de stockage du projet.",
-          de: "Bitten Sie das Support-Team um Hilfe bei Mitwirkenden und Projekt-Speichergrenzen.",
-          zh: "向支持团队寻求协作者和项目存储上限方面的帮助。",
+          en: "Ask the support team for help with collaborators, project storage limits, and managed settings.",
+          fr: "Demandez de l'aide à l'équipe support pour les collaborateurs, les limites de stockage et les paramètres gérés du projet.",
+          de: "Bitten Sie das Support-Team um Hilfe bei Mitwirkenden, Projekt-Speichergrenzen und verwalteten Einstellungen.",
+          zh: "向支持团队寻求协作者、项目存储上限和托管设置方面的帮助。",
         })}
         breadcrumbs={portalBreadcrumbs({
           label: t({
@@ -594,13 +688,16 @@ export default function PortalRequestsPage() {
       {collaboratorsError ? (
         <PageBanner tone="warning">{collaboratorsError}</PageBanner>
       ) : null}
+      {projectSettingsError ? (
+        <PageBanner tone="warning">{projectSettingsError}</PageBanner>
+      ) : null}
       {!accountLoading && hasAccountContext && !canRequestManagedChanges ? (
         <PageBanner tone="info">
           {t({
-            en: "Only storage managers can submit collaborator or storage-limit requests for this project.",
-            fr: "Seuls les managers du stockage peuvent envoyer des demandes collaborateur ou limite pour ce projet.",
-            de: "Nur Speicher-Manager konnen fur dieses Projekt Mitwirkenden- oder Speichergrenzen-Anfragen senden.",
-            zh: "仅存储管理员可以为此项目提交协作者或存储上限请求。",
+            en: "Only Portal managers can submit managed project requests.",
+            fr: "Seuls les gestionnaires Portal peuvent envoyer des demandes gérées pour ce projet.",
+            de: "Nur Portal-Manager können verwaltete Projektanfragen senden.",
+            zh: "只有 Portal 管理员可以提交托管项目请求。",
           })}
         </PageBanner>
       ) : null}
@@ -741,6 +838,54 @@ export default function PortalRequestsPage() {
                   })}
             </p>
           </UiCard>
+
+          {canRequestSettingChange ? (
+            <UiCard
+              title={t({
+                en: "Change a project setting",
+                fr: "Modifier un paramètre du projet",
+                de: "Projekteinstellung ändern",
+                zh: "更改项目设置",
+              })}
+              description={t({
+                en: "Ask support to change a setting that is still managed by the platform administrator.",
+                fr: "Demandez au support de modifier un paramètre encore géré par l’administrateur de la plateforme.",
+                de: "Bitten Sie den Support, eine weiterhin vom Plattformadministrator verwaltete Einstellung zu ändern.",
+                zh: "请求支持团队更改仍由平台管理员管理的设置。",
+              })}
+              actions={
+                <UiButton
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setRequestError(null);
+                    setRequestDialog("setting");
+                  }}
+                  disabled={
+                    requestsDisabled ||
+                    projectSettingsLoading ||
+                    !canRequestSettingChange
+                  }
+                >
+                  {t({
+                    en: "Request change",
+                    fr: "Demander la modification",
+                    de: "Änderung anfordern",
+                    zh: "请求更改",
+                  })}
+                </UiButton>
+              }
+            >
+              <p className={cx("ui-caption", uiMutedTextClass)}>
+                {t({
+                  en: "The administrator reviews the request before the change is applied.",
+                  fr: "L’administrateur examine la demande avant l’application de la modification.",
+                  de: "Der Administrator prüft die Anfrage, bevor die Änderung angewendet wird.",
+                  zh: "管理员审核请求后才会应用更改。",
+                })}
+              </p>
+            </UiCard>
+          ) : null}
 
         </PortalTabPanel>
       ) : null}
@@ -978,6 +1123,17 @@ export default function PortalRequestsPage() {
           <PortalRequestReason value={quotaReason} onChange={setQuotaReason}
             disabled={requestsDisabled || !canRequestManagedChanges || busy === "quota"} />
         </SettingsFormDialog>
+      ) : null}
+
+      {requestDialog === "setting" && projectSettings ? (
+        <PortalSettingChangeRequestDialog
+          settings={projectSettings}
+          busy={busy === "setting"}
+          disabled={requestsDisabled || !canRequestSettingChange}
+          error={requestError}
+          onClose={closeRequestDialog}
+          onSubmit={handleSettingRequest}
+        />
       ) : null}
     </PageShell>
   );

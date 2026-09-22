@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   createPortalRequest: vi.fn(),
   fetchPortalUsage: vi.fn(),
   fetchPortalState: vi.fn(),
+  fetchPortalProjectSettings: vi.fn(),
   fetchPortalCollaborators: vi.fn(),
   usePortalAccountContext: vi.fn(),
 }));
@@ -26,6 +27,7 @@ vi.mock("../../api/portalRequests", () => ({
 
 vi.mock("../../api/portalAccounts", () => ({
   fetchPortalState: mocks.fetchPortalState,
+  fetchPortalProjectSettings: mocks.fetchPortalProjectSettings,
 }));
 
 vi.mock("../../api/portalCollaborators", () => ({
@@ -83,6 +85,29 @@ describe("PortalRequestsPage", () => {
     mocks.fetchPortalState.mockResolvedValue({
       portal_role: "portal_manager",
       can_manage_portal_users: true,
+    });
+    mocks.fetchPortalProjectSettings.mockResolvedValue({
+      effective: {
+        browser_access_enabled: true,
+        allow_private_storage_space_create: true,
+        allow_portal_named_bucket_create: false,
+        allow_portal_user_access_key_create: true,
+        allow_portal_user_external_sharing: false,
+        server_access_logging_enabled: false,
+        server_access_log_retention_days: 30,
+        storage_space_version_cleanup_enabled: true,
+        max_portal_user_access_keys: 2,
+        bucket_defaults: {
+          versioning: true,
+          enable_cors: false,
+          enable_lifecycle: true,
+          noncurrent_version_expiration_days: 30,
+          cors_allowed_origins: [],
+        },
+      },
+      project_override: {},
+      delegated_to_portal_managers: false,
+      can_update: false,
     });
     mocks.fetchPortalUsage.mockResolvedValue({
       used_bytes: 16 * 1024 ** 3,
@@ -220,6 +245,70 @@ describe("PortalRequestsPage", () => {
     });
   });
 
+  it("submits a project-setting change request when settings are not delegated", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { name: "Change a project setting" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Request change" }));
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Request project setting change",
+    });
+    const currentValue = within(dialog).getByText("Currently applied").parentElement;
+    expect(currentValue).not.toBeNull();
+    expect(within(currentValue as HTMLElement).getByText("Enabled")).toBeInTheDocument();
+    expect(within(currentValue as HTMLElement).getByText(/Source: Platform/)).toBeInTheDocument();
+    await user.selectOptions(within(dialog).getByLabelText("Requested value"), "disabled");
+    await user.type(within(dialog).getByLabelText("Reason (optional)"), "Keep access restricted");
+    await user.click(within(dialog).getByRole("button", { name: "Send request" }));
+
+    await waitFor(() => {
+      expect(mocks.createPortalRequest).toHaveBeenCalledWith("101", {
+        request_type: "portal_setting_change",
+        setting: "browser_access_enabled",
+        mode: "override",
+        value: false,
+        reason: "Keep access restricted",
+      });
+    });
+  });
+
+  it("does not offer setting-change requests when settings are delegated", async () => {
+    mocks.fetchPortalProjectSettings.mockResolvedValue({
+      effective: {
+        browser_access_enabled: true,
+        allow_private_storage_space_create: true,
+        allow_portal_named_bucket_create: false,
+        allow_portal_user_access_key_create: true,
+        allow_portal_user_external_sharing: false,
+        server_access_logging_enabled: false,
+        server_access_log_retention_days: 30,
+        storage_space_version_cleanup_enabled: true,
+        max_portal_user_access_keys: 2,
+        bucket_defaults: {
+          versioning: true,
+          enable_cors: false,
+          enable_lifecycle: true,
+          noncurrent_version_expiration_days: 30,
+          cors_allowed_origins: [],
+        },
+      },
+      project_override: {},
+      delegated_to_portal_managers: true,
+      can_update: true,
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Help requests" })).toBeInTheDocument();
+    await waitFor(() => expect(mocks.fetchPortalProjectSettings).toHaveBeenCalledWith("101"));
+    expect(screen.queryByRole("heading", { name: "Change a project setting" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Request change" })).not.toBeInTheDocument();
+  });
+
   it("keeps a failed request inside the dialog, retries the same draft and resets after discard", async () => {
     const user = userEvent.setup();
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -303,8 +392,9 @@ describe("PortalRequestsPage", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Request help" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Add or remove a collaborator" })).not.toBeInTheDocument();
-    expect(screen.getByText("Only storage managers can submit collaborator or storage-limit requests for this project.")).toBeInTheDocument();
+    expect(screen.getByText("Only Portal managers can submit managed project requests.")).toBeInTheDocument();
     expect(mocks.fetchPortalCollaborators).not.toHaveBeenCalled();
+    expect(mocks.fetchPortalProjectSettings).not.toHaveBeenCalled();
   });
 
   it("uses the authoritative Portal capability when the account summary omits the manager role", async () => {

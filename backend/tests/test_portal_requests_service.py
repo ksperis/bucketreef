@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,7 @@ from app.db import (
 from app.models.portal_requests import (
     PortalAdminRequestDecision,
     PortalAccountQuotaChangeRequestCreate,
+    PortalSettingChangeRequestCreate,
     PortalUserAccessRequestCreate,
     PortalUserRemovalRequestCreate,
 )
@@ -87,12 +89,17 @@ def _seed_user(
     return user
 
 
-def _portal_access(account: S3Account, user: User) -> AccountAccess:
+def _portal_access(
+    account: S3Account,
+    user: User,
+    *,
+    portal_role: str = PortalAccountRole.PORTAL_USER.value,
+) -> AccountAccess:
     return AccountAccess(
         account=account,
         actor=user,
         membership=None,
-        portal_role=PortalAccountRole.PORTAL_USER.value,
+        portal_role=portal_role,
         capabilities=AccountCapabilities(),
     )
 
@@ -291,6 +298,122 @@ def test_approve_quota_change_applies_new_account_quota_and_keeps_object_quota(d
     assert payload.quota_max_size_gb == 12
     assert payload.quota_max_size_unit == "GiB"
     assert payload.quota_max_objects == 123
+
+
+def test_setting_change_request_rejects_when_project_settings_are_delegated(db_session):
+    account = _seed_account(db_session)
+    account.portal_settings_delegated = True
+    db_session.add(account)
+    db_session.commit()
+    requester = _seed_user(db_session, email="manager@example.org")
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+
+    with pytest.raises(ValueError, match="already delegated"):
+        service.create_request(
+            requester,
+            _portal_access(
+                account,
+                requester,
+                portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+            ),
+            PortalSettingChangeRequestCreate(
+                request_type="portal_setting_change",
+                setting="browser_access_enabled",
+                mode="override",
+                value=True,
+            ),
+        )
+
+    assert db_session.query(PortalAdminRequest).count() == 0
+
+
+def test_approve_setting_change_preserves_concurrent_project_overrides(db_session):
+    account = _seed_account(db_session)
+    account.portal_settings_override = json.dumps(
+        {"allow_portal_named_bucket_create": True}
+    )
+    db_session.add(account)
+    db_session.commit()
+    requester = _seed_user(db_session, email="manager@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = service.create_request(
+        requester,
+        _portal_access(
+            account,
+            requester,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        ),
+        PortalSettingChangeRequestCreate(
+            request_type="portal_setting_change",
+            setting="browser_access_enabled",
+            mode="override",
+            value=True,
+            reason="Browser needed for the project",
+        ),
+    )
+    account.portal_settings_override = json.dumps(
+        {
+            "allow_portal_named_bucket_create": True,
+            "allow_private_storage_space_create": False,
+        }
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    approved = service.approve_request(created.id, admin)
+
+    db_session.refresh(account)
+    stored = json.loads(account.portal_settings_override)
+    assert stored == {
+        "allow_portal_named_bucket_create": True,
+        "allow_private_storage_space_create": False,
+        "browser_access_enabled": True,
+    }
+    assert approved.status == "approved"
+    assert approved.result == {
+        "setting": "browser_access_enabled",
+        "mode": "override",
+        "requested_value": True,
+        "effective_value": True,
+    }
+
+
+def test_approve_setting_change_inherit_removes_only_requested_nested_override(db_session):
+    account = _seed_account(db_session)
+    account.portal_settings_override = json.dumps(
+        {
+            "browser_access_enabled": True,
+            "bucket_defaults": {"versioning": False, "enable_cors": False},
+        }
+    )
+    db_session.add(account)
+    db_session.commit()
+    requester = _seed_user(db_session, email="manager@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = service.create_request(
+        requester,
+        _portal_access(
+            account,
+            requester,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        ),
+        PortalSettingChangeRequestCreate(
+            request_type="portal_setting_change",
+            setting="bucket_defaults.versioning",
+            mode="inherit",
+        ),
+    )
+
+    service.approve_request(created.id, admin)
+
+    db_session.refresh(account)
+    stored = json.loads(account.portal_settings_override)
+    assert stored == {
+        "browser_access_enabled": True,
+        "bucket_defaults": {"enable_cors": False},
+    }
 
 
 def test_create_quota_change_rejects_target_below_current_usage(db_session, monkeypatch):

@@ -5,15 +5,57 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal, Optional, Union
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import (
+    EmailStr,
+    Field,
+    StrictBool,
+    StrictInt,
+    StrictStr,
+    field_validator,
+    model_validator,
+)
 
 from app.models.base import ApiModel
 
 
-PortalAdminRequestType = Literal["portal_user_access", "portal_user_removal", "account_quota_change"]
+PortalAdminRequestType = Literal[
+    "portal_user_access",
+    "portal_user_removal",
+    "account_quota_change",
+    "portal_setting_change",
+]
 PortalAdminRequestStatus = Literal["pending", "processing", "approved", "rejected", "failed"]
 PortalQuotaDirection = Literal["increase", "decrease"]
 PortalQuotaUnit = Literal["MiB", "GiB", "TiB"]
+PortalSettingChangeMode = Literal["inherit", "override"]
+PortalSettingKey = Literal[
+    "browser_access_enabled",
+    "allow_private_storage_space_create",
+    "allow_portal_named_bucket_create",
+    "allow_portal_user_access_key_create",
+    "allow_portal_user_external_sharing",
+    "server_access_logging_enabled",
+    "storage_space_version_cleanup_enabled",
+    "bucket_defaults.versioning",
+    "bucket_defaults.enable_lifecycle",
+    "bucket_defaults.enable_cors",
+    "bucket_defaults.noncurrent_version_expiration_days",
+    "bucket_defaults.cors_allowed_origins",
+]
+PortalSettingValue = Union[StrictBool, StrictInt, list[StrictStr]]
+
+_PORTAL_BOOLEAN_SETTING_KEYS = {
+    "browser_access_enabled",
+    "allow_private_storage_space_create",
+    "allow_portal_named_bucket_create",
+    "allow_portal_user_access_key_create",
+    "allow_portal_user_external_sharing",
+    "server_access_logging_enabled",
+    "storage_space_version_cleanup_enabled",
+    "bucket_defaults.versioning",
+    "bucket_defaults.enable_lifecycle",
+    "bucket_defaults.enable_cors",
+}
 
 
 def _normalize_optional_request_text(value: Optional[str]) -> Optional[str]:
@@ -59,8 +101,45 @@ class PortalAccountQuotaChangeRequestCreate(ApiModel):
     _normalize_reason = field_validator("reason")(_normalize_optional_request_text)
 
 
+class PortalSettingChangeRequestCreate(ApiModel):
+    request_type: Literal["portal_setting_change"]
+    setting: PortalSettingKey
+    mode: PortalSettingChangeMode
+    value: Optional[PortalSettingValue] = None
+    reason: Optional[str] = Field(default=None, max_length=2000)
+
+    _normalize_reason = field_validator("reason")(_normalize_optional_request_text)
+
+    @model_validator(mode="after")
+    def _validate_requested_value(self) -> "PortalSettingChangeRequestCreate":
+        if self.mode == "inherit":
+            if self.value is not None:
+                raise ValueError("value must be omitted when mode is inherit")
+            return self
+        if self.value is None:
+            raise ValueError("value is required when mode is override")
+        if self.setting in _PORTAL_BOOLEAN_SETTING_KEYS:
+            if not isinstance(self.value, bool):
+                raise ValueError("value must be a boolean for this setting")
+            return self
+        if self.setting == "bucket_defaults.noncurrent_version_expiration_days":
+            if isinstance(self.value, bool) or not isinstance(self.value, int) or self.value < 1:
+                raise ValueError("value must be a positive integer for this setting")
+            return self
+        if self.setting == "bucket_defaults.cors_allowed_origins":
+            if not isinstance(self.value, list):
+                raise ValueError("value must be a string list for this setting")
+            return self
+        raise ValueError("Unsupported Portal setting")
+
+
 PortalAdminRequestCreate = Annotated[
-    Union[PortalUserAccessRequestCreate, PortalUserRemovalRequestCreate, PortalAccountQuotaChangeRequestCreate],
+    Union[
+        PortalUserAccessRequestCreate,
+        PortalUserRemovalRequestCreate,
+        PortalAccountQuotaChangeRequestCreate,
+        PortalSettingChangeRequestCreate,
+    ],
     Field(discriminator="request_type"),
 ]
 
