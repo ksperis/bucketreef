@@ -30,6 +30,10 @@ class CreateBucketPayload(ApiModel):
     versioning: bool = False
 
 
+class CreateFolderPayload(ApiModel):
+    prefix: str = Field(..., description="Folder prefix, trailing slash optional")
+
+
 class EnsureCorsPayload(ApiModel):
     origin: Optional[str] = None
 
@@ -40,6 +44,11 @@ class BrowserObject(ApiModel):
     last_modified: Optional[datetime] = None
     etag: Optional[str] = None
     storage_class: Optional[str] = None
+
+
+class ObjectUploadResponse(ApiModel):
+    key: str
+    message: str
 
 
 BrowserObjectSortBy = Literal["name", "size", "modified", "storage_class", "etag"]

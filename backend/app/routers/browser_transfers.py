@@ -16,6 +16,7 @@ from app.models.browser import (
     ListMultipartUploadsResponse,
     MultipartUploadInitRequest,
     MultipartUploadInitResponse,
+    ObjectUploadResponse,
     PresignPartRequest,
     PresignPartResponse,
     PresignRequest,
@@ -23,7 +24,6 @@ from app.models.browser import (
     SseCustomerContext,
     StsStatus,
 )
-from app.models.object import ObjectUploadResponse
 from app.routers.browser_common import require_sse_feature
 from app.routers.auth_session_guards import current_auth_session
 from app.routers.s3_download_response import S3DownloadResponse

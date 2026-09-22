@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.sensitive_data import sanitize_error_detail
 from app.models.access_context import ManagerActor
-from app.models.object import ListObjectsResponse
+from app.models.manager_object_listing import ListObjectsResponse
 from app.routers.dependencies import get_account_context, get_current_account_admin
 from app.services.manager_object_listing_service import (
     ManagerObjectListingService,
