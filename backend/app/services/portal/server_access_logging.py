@@ -33,7 +33,7 @@ class PortalServerAccessLoggingMixin:
         return bool(getattr(account, "storage_endpoint", None) or getattr(account, "storage_endpoint_id", None))
 
     def _portal_server_access_log_bucket_name(self, account: S3Account) -> str:
-        seed = f"{getattr(account, 'rgw_account_id', None) or ''}{account.name or ''}"
+        seed = f"{account.rgw_account_id}{account.name or ''}"
         digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:8]
         return f"bkr-portal-access-logs-{account.id}-{digest}"
 
@@ -41,10 +41,7 @@ class PortalServerAccessLoggingMixin:
         return f"{SERVER_ACCESS_LOGGING_PREFIX_ROOT}{source_bucket}/"
 
     def _portal_server_access_source_account_id(self, account: S3Account) -> str:
-        source_account = str(getattr(account, "rgw_account_id", "") or "").strip()
-        if source_account:
-            return source_account
-        raise RuntimeError("Portal Server Access Logging requires an RGW account id.")
+        return account.rgw_account_id.strip()
 
     def _portal_server_access_client(self, account: S3Account):
         access_key, secret_key = self._account_credentials(account)

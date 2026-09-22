@@ -268,7 +268,7 @@ def _resolve_session_account(
     account: Optional[S3Account] = None
     if account_id and account_id > 0:
         account = _resolve_account_by_id(db, account_id)
-        if account.rgw_account_id and account.rgw_account_id.lower() != actor.account_id.lower():
+        if account.rgw_account_id.lower() != actor.account_id.lower():
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this account")
     else:
         account = (
