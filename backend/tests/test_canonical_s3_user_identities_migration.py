@@ -87,3 +87,38 @@ def test_migration_rejects_existing_empty_rgw_user_uid(monkeypatch):
 
         with pytest.raises(RuntimeError, match="Repair rgw_user_uid before upgrading"):
             migration.upgrade()
+
+
+def test_migration_discards_stale_sqlite_batch_copy_when_source_table_is_intact(monkeypatch):
+    engine = sa.create_engine("sqlite:///:memory:")
+    users = _create_schema(engine)
+
+    with engine.begin() as connection:
+        connection.execute(
+            users.insert().values(id=1, name="canonical", rgw_user_uid="canonical-user")
+        )
+        connection.exec_driver_sql(
+            "CREATE TABLE _alembic_tmp_s3_users AS SELECT * FROM s3_users"
+        )
+        migration = _load_migration()
+        _install_operations(monkeypatch, migration, connection)
+
+        migration.upgrade()
+
+        assert "_alembic_tmp_s3_users" not in sa.inspect(connection).get_table_names()
+        assert connection.scalar(sa.select(sa.func.count()).select_from(users)) == 1
+
+
+def test_migration_refuses_ambiguous_stale_sqlite_batch_copy(monkeypatch):
+    engine = sa.create_engine("sqlite:///:memory:")
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE _alembic_tmp_s3_users "
+            "(id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, rgw_user_uid VARCHAR NOT NULL)"
+        )
+        migration = _load_migration()
+        _install_operations(monkeypatch, migration, connection)
+
+        with pytest.raises(RuntimeError, match="s3_users is missing"):
+            migration.upgrade()
