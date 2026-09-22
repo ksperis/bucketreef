@@ -7,6 +7,7 @@ import type { S3AccountSelector } from "../../../api/accountParams";
 import { listCephAdminBucketObjects } from "../../../api/cephAdminBucketDetails";
 import { listObjects, type S3Object } from "../../../api/objects";
 import { extractApiError } from "../../../utils/apiError";
+import { parentS3Prefix } from "../../../utils/s3Prefix";
 
 type UseBucketObjectsControllerOptions = {
   accountId: S3AccountSelector;
@@ -15,13 +16,6 @@ type UseBucketObjectsControllerOptions = {
   enabled: boolean;
   endpointId?: number | null;
 };
-
-function parentObjectPrefix(prefix: string): string {
-  if (!prefix) return "";
-  const withoutTrailingSlash = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
-  const separatorIndex = withoutTrailingSlash.lastIndexOf("/");
-  return separatorIndex < 0 ? "" : withoutTrailingSlash.slice(0, separatorIndex + 1);
-}
 
 export function useBucketObjectsController({
   accountId,
@@ -101,7 +95,7 @@ export function useBucketObjectsController({
   );
 
   const parentPrefix = useMemo(() => {
-    return parentObjectPrefix(currentPrefix);
+    return parentS3Prefix(currentPrefix);
   }, [currentPrefix]);
 
   const rows = useMemo(() => {
