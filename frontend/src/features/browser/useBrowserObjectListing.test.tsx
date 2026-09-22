@@ -74,7 +74,6 @@ function createOptions() {
       status: "unknown" as const,
       detail: null,
     })),
-    isPortalProfile: false,
     onWarning: vi.fn(),
     prefix: "",
     recursive: false,
@@ -259,6 +258,51 @@ describe("useBrowserObjectListing", () => {
         prefix: "",
         requestOptions: { workspaceSurface: "browser" },
       }),
+    );
+  });
+
+  it("keeps deleted-object searches as substring scans within the current prefix", async () => {
+    apiMocks.getBrowserBucketVersioning.mockResolvedValue({
+      status: "Enabled",
+      enabled: true,
+    });
+    apiMocks.listBrowserObjects.mockResolvedValue(objectPage([]));
+    apiMocks.listObjectVersions.mockResolvedValue({
+      versions: [],
+      delete_markers: [
+        {
+          key: "monthly-report.txt",
+          version_id: "delete-v1",
+          is_latest: true,
+          is_delete_marker: true,
+        },
+      ],
+      common_prefixes: [],
+      is_truncated: false,
+      next_key_marker: null,
+      next_version_id_marker: null,
+    });
+    const options = {
+      ...createOptions(),
+      filter: "report",
+      showDeletedObjects: true,
+    };
+    const { result } = renderHook(() => useBrowserObjectListing(options));
+
+    await waitFor(() => {
+      expect(result.current.isVersioningEnabled).toBe(true);
+    });
+    await act(async () => {
+      await result.current.loadObjects({ forceRefresh: true });
+    });
+
+    expect(result.current.deletedObjects.map((entry) => entry.key)).toEqual([
+      "monthly-report.txt",
+    ]);
+    expect(apiMocks.listObjectVersions).toHaveBeenCalledWith(
+      "account-a",
+      "bucket-a",
+      expect.objectContaining({ prefix: "" }),
     );
   });
 

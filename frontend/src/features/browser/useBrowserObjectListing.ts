@@ -63,7 +63,6 @@ type UseBrowserObjectListingOptions = {
   exactMatch: boolean;
   filter: string;
   getBucketAccessEntry: (bucketName: string) => BucketAccessEntry;
-  isPortalProfile: boolean;
   onWarning: (message: string) => void;
   prefix: string;
   recursive: boolean;
@@ -115,7 +114,6 @@ export function useBrowserObjectListing({
   exactMatch,
   filter,
   getBucketAccessEntry,
-  isPortalProfile,
   onWarning,
   prefix,
   recursive,
@@ -267,11 +265,6 @@ export function useBrowserObjectListing({
       const normalizedQuery = queryCaseSensitive
         ? queryValue
         : queryValue.toLowerCase();
-      const requestedVersionPrefix =
-        isPortalProfile && queryValue
-          ? `${targetPrefix}${queryValue.replace(/^\/+/, "")}`
-          : targetPrefix;
-
       const matchesQuery = (key: string) => {
         if (!normalizedQuery) return true;
         let relative = key;
@@ -300,7 +293,7 @@ export function useBrowserObjectListing({
             DELETED_RESULTS_TARGET)
       ) {
         const data = await listObjectVersions(accountId, bucketName, {
-          prefix: requestedVersionPrefix,
+          prefix: targetPrefix,
           delimiter: isRecursiveSearch ? undefined : "/",
           keyMarker: nextKeyMarker ?? undefined,
           versionIdMarker: nextVersionIdMarker ?? undefined,
@@ -382,7 +375,6 @@ export function useBrowserObjectListing({
       accountId,
       bucketName,
       enabled,
-      isPortalProfile,
       isVersioningEnabled,
       showDeletedObjects,
       stableRequestOptions,

@@ -497,7 +497,6 @@ export default function BrowserPage({
     exactMatch: searchExactMatch,
     filter,
     getBucketAccessEntry,
-    isPortalProfile,
     onWarning: setWarningMessage,
     prefix,
     recursive: searchRecursive,
