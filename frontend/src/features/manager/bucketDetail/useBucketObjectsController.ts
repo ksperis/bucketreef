@@ -5,7 +5,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { S3AccountSelector } from "../../../api/accountParams";
 import { listCephAdminBucketObjects } from "../../../api/cephAdminBucketDetails";
-import { listObjects, type S3Object } from "../../../api/objects";
+import {
+  listManagerObjects,
+  type ManagerObject,
+} from "../../../api/managerObjects";
 import { extractApiError } from "../../../utils/apiError";
 import { parentS3Prefix } from "../../../utils/s3Prefix";
 
@@ -24,7 +27,7 @@ export function useBucketObjectsController({
   enabled,
   endpointId,
 }: UseBucketObjectsControllerOptions) {
-  const [objects, setObjects] = useState<S3Object[]>([]);
+  const [objects, setObjects] = useState<ManagerObject[]>([]);
   const [prefixes, setPrefixes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,7 +68,7 @@ export function useBucketObjectsController({
             prefix,
           );
         } else {
-          data = await listObjects(accountId, bucketName, prefix);
+          data = await listManagerObjects(accountId, bucketName, prefix);
         }
         if (requestId !== requestIdRef.current) return;
         setObjects(
