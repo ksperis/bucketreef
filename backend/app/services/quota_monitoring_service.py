@@ -514,8 +514,7 @@ class QuotaMonitoringService:
         cached = cache.get(endpoint.id)
         if endpoint.id in cache:
             return cached
-        provider = str(endpoint.provider or "").strip().lower()
-        if provider != StorageProvider.CEPH.value:
+        if endpoint.provider != StorageProvider.CEPH.value:
             cache[endpoint.id] = None
             return None
         admin_endpoint = resolve_admin_endpoint(endpoint)
@@ -538,8 +537,7 @@ class QuotaMonitoringService:
         cached = cache.get(endpoint.id)
         if endpoint.id in cache:
             return cached
-        provider = str(endpoint.provider or "").strip().lower()
-        if provider != StorageProvider.CEPH.value:
+        if endpoint.provider != StorageProvider.CEPH.value:
             cache[endpoint.id] = None
             return None
         try:
