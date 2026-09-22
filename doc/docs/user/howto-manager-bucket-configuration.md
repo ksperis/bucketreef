@@ -20,11 +20,44 @@ Open the bucket from the account or connection that should own the configuration
 2. Locate the bucket to update.
 3. Click **Configure** on that bucket.
 4. In the bucket detail page, update the required sections:
-   - **Properties** (versioning, object lock, lifecycle, quota)
-   - **Permissions** (policy, ACL, public access block)
+   - **Properties** (versioning, Object Lock, lifecycle, encryption, tags)
+   - **Permissions** (policy, ACL, public access block, CORS)
    - **Advanced** (logging, notifications, replication, website)
+   - **Privileged Ceph** (quotas, when available)
 5. Save changes in each section.
 6. Use **Refresh** and the bucket summary to verify the expected state.
+
+## Configuration and draft states
+
+Each section saves independently. **Configured** uses the theme accent to make
+an existing configuration easy to spot; it does not report endpoint health or
+guarantee that a policy is appropriate for your use case. **Unsaved changes**
+uses a warning badge while that section has a draft.
+
+**Save** becomes available when that section has changes. It becomes disabled
+again after a successful save or after restoring the original values. Merely
+reformatting JSON does not count as a change; whitespace inside tag keys and
+values remains significant. Object Lock's **Reset** is available only while its
+draft differs from the loaded configuration. Save failures retain the draft
+for correction or retry.
+
+Lifecycle **Quick add** actions save immediately and retain their own buttons.
+These conventions also apply to the shared bucket configuration in Ceph Admin.
+
+## Leaving a configuration draft
+
+Navigating to another page, returning to the bucket list, using browser history,
+or changing the execution context prompts you to **Keep editing** or **Discard
+changes** while any section has unsaved changes. Reloading or closing the browser
+tab uses the browser's own warning. An in-progress save must finish before you
+can confirm an in-app departure.
+
+Switching bucket tabs keeps your drafts. **Refresh** updates only sections
+without unsaved changes or an in-progress write; it does not discard your edits.
+Saving one section does not clear the warning for another section's draft.
+The warning disappears after the last draft is saved or restored to its original
+values. These safeguards also apply to the shared configuration page in Storage
+Ops and Ceph Admin, including changing the selected Ceph endpoint.
 
 ## Expected result
 

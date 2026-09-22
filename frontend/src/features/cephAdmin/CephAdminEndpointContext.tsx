@@ -11,7 +11,7 @@ import {
   listCephAdminEndpoints,
 } from "../../api/cephAdminEndpoints";
 import { extractApiError } from "../../utils/apiError";
-import { CLIENT_STORAGE_KEYS, readClientStorage, removeClientStorage, writeClientStorage } from "../../utils/clientStorage";
+import { CLIENT_STORAGE_KEYS, readClientStorage, writeClientStorage } from "../../utils/clientStorage";
 import { resolveUrlScopedSelection } from "../../utils/urlScopedSelection";
 
 const ENDPOINT_STORAGE_KEY = CLIENT_STORAGE_KEYS.selectedCephAdminEndpoint;
@@ -115,13 +115,12 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
   }, [endpoints, searchParams, selectedEndpointId, setSearchParams]);
 
   const setSelectedEndpointId = useCallback((id: number | null) => {
-    setSelectedEndpointIdState(id);
+    // Navigate before changing the executor or persisted preference. A page's
+    // unsaved-change guard must be able to reject the endpoint switch intact.
     const nextParams = new URLSearchParams(searchParams);
     if (id === null) {
-      removeClientStorage(ENDPOINT_STORAGE_KEY);
       nextParams.delete(ENDPOINT_URL_PARAM);
     } else {
-      writeClientStorage(ENDPOINT_STORAGE_KEY, String(id));
       nextParams.set(ENDPOINT_URL_PARAM, String(id));
     }
     setSearchParams(nextParams, { replace: true });

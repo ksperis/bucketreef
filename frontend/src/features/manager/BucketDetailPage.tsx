@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
-import { useEffect, useMemo, useState, useCallback, useId } from "react";
+import { useEffect, useMemo, useState, useCallback, useId, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {
   cx,
@@ -16,6 +16,9 @@ import type { BucketPublicAccessBlock } from "../../api/bucketContracts";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageHeader from "../../components/PageHeader";
 import { SettingsButton } from "../../components/settings/SettingsControls";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import { settingsLabels } from "../../components/settings/settingsLabels";
+import { useI18n } from "../../i18n";
 import UiTextarea from "../../components/ui/UiTextarea";
 import UiBadge from "../../components/ui/UiBadge";
 import PageBanner from "../../components/PageBanner";
@@ -240,6 +243,7 @@ type BucketDetailPageProps = {
   bucketListPathOverride?: string;
   onBackToBuckets?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
 };
 
 type BucketDetailPageContentProps = BucketDetailPageProps & {
@@ -282,8 +286,33 @@ export function BucketDetailContent(props: BucketDetailPageProps) {
   );
 }
 
-export default function BucketDetailPage(props: BucketDetailPageProps) {
-  return <BucketDetailContent {...props} />;
+export default function BucketDetailPage({ onDirtyChange, onBusyChange, ...props }: BucketDetailPageProps) {
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const { t } = useI18n();
+  const labels = settingsLabels(t);
+  const handleDirtyChange = useCallback((value: boolean) => {
+    setDirty(value);
+    onDirtyChange?.(value);
+  }, [onDirtyChange]);
+  const handleBusyChange = useCallback((value: boolean) => {
+    setBusy(value);
+    onBusyChange?.(value);
+  }, [onBusyChange]);
+
+  // Standalone routes own navigation; the Browser drawer owns its own guard
+  // around the named BucketDetailContent export.
+  return <>
+    <BucketDetailContent {...props} onDirtyChange={handleDirtyChange} onBusyChange={handleBusyChange} />
+    <SettingsNavigationGuard dirty={dirty || busy} discardDisabled={busy}
+      title={busy ? t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft" }) : labels.discardTitle}
+      description={busy ? t({
+        en: "Wait for the operation to finish before leaving this page.",
+        fr: "Attendez la fin de l’opération avant de quitter cette page.",
+        de: "Warten Sie, bis der Vorgang abgeschlossen ist, bevor Sie diese Seite verlassen.",
+      }) : labels.discardDescription}
+      confirmLabel={labels.discard} cancelLabel={labels.keepEditing} closeLabel={labels.close} />
+  </>;
 }
 
 function BucketDetailPageContent({
@@ -296,6 +325,7 @@ function BucketDetailPageContent({
   bucketListPathOverride,
   onBackToBuckets,
   onDirtyChange,
+  onBusyChange,
   activeTab,
   cephAdminEndpoint,
   onActiveTabChange,
@@ -786,28 +816,69 @@ function BucketDetailPageContent({
     onSaved: refreshBucketMeta,
   });
 
+  const mutations = {
+    versioning: updatingVersioning,
+    objectLock: savingObjectLock,
+    lifecycle: savingLifecycle,
+    policy: savingPolicy || deletingPolicy,
+    acl: savingBucketAcl,
+    cors: savingCors || deletingCors,
+    replication: savingReplication || clearingReplication,
+    encryption: savingEncryption || deletingEncryption,
+    publicAccess: savingPublicAccess,
+    website: savingWebsite || clearingWebsite,
+    accessLogging: savingAccessLogging || clearingAccessLogging,
+    notifications: savingNotifications || clearingNotifications,
+    tags: savingBucketTags || deletingBucketTags,
+    quota: updatingQuota,
+  };
+  const drafts = {
+    versioning: versioningDirty,
+    objectLock: objectLockDirty,
+    lifecycle: lifecycleDirty,
+    policy: policyDirty,
+    acl: aclDirty,
+    cors: corsDirty,
+    replication: replicationDirty,
+    encryption: encryptionDirty,
+    publicAccess: publicAccessDirty,
+    website: websiteDirty,
+    accessLogging: accessLoggingDirty,
+    notifications: notificationsDirty,
+    tags: tagsDirty,
+    quota: quotaDirty,
+  };
+  // Tab changes and Refresh may reload clean sections only. Reading the latest
+  // flags through a ref avoids triggering the load effect on every draft edit.
+  const protectedFeatures = useRef({ drafts, mutations });
+  protectedFeatures.current = { drafts, mutations };
+
   const refreshActiveTab = useCallback(async () => {
+    const loadClean = (feature: keyof typeof protectedFeatures.current.drafts, load: () => Promise<void>) => {
+      const current = protectedFeatures.current;
+      return current.drafts[feature] || current.mutations[feature] ? Promise.resolve() : load();
+    };
     if (activeTab === "overview") {
       await Promise.all([
-        refreshBucketMeta(),
-        loadVersioning(),
-        loadObjectLock(),
-        loadLifecycle(),
-        loadPolicy(),
-        loadBucketAcl(),
-        loadCors(),
-        loadReplication(),
-        loadEncryption(),
-        loadPublicAccessBlock(),
-        loadWebsite(),
-        loadAccessLogging(),
-        loadNotifications(),
+        loadClean("quota", refreshBucketMeta),
+        loadClean("versioning", loadVersioning),
+        loadClean("objectLock", loadObjectLock),
+        loadClean("lifecycle", loadLifecycle),
+        loadClean("policy", loadPolicy),
+        loadClean("acl", loadBucketAcl),
+        loadClean("cors", loadCors),
+        loadClean("replication", loadReplication),
+        loadClean("encryption", loadEncryption),
+        loadClean("publicAccess", loadPublicAccessBlock),
+        loadClean("website", loadWebsite),
+        loadClean("accessLogging", loadAccessLogging),
+        loadClean("notifications", loadNotifications),
       ]);
       return;
     }
     if (activeTab === "metrics") {
       if (!canViewBucketMetrics) return;
-      await refreshBucketMeta();
+      await loadClean("quota", refreshBucketMeta);
       return;
     }
     if (activeTab === "objects") {
@@ -819,19 +890,30 @@ function BucketDetailPageContent({
       return;
     }
     if (activeTab === "properties") {
-      await Promise.all([loadVersioning(), loadObjectLock(), loadLifecycle(), loadBucketTags(), loadEncryption()]);
+      await Promise.all([
+        loadClean("versioning", loadVersioning), loadClean("objectLock", loadObjectLock),
+        loadClean("lifecycle", loadLifecycle), loadClean("tags", loadBucketTags), loadClean("encryption", loadEncryption),
+      ]);
       return;
     }
     if (activeTab === "permissions") {
-      await Promise.all([loadPublicAccessBlock(), loadBucketAcl(), loadPolicy()]);
+      await Promise.all([
+        loadClean("publicAccess", loadPublicAccessBlock), loadClean("acl", loadBucketAcl),
+        loadClean("policy", loadPolicy), loadClean("cors", loadCors),
+      ]);
       return;
     }
     if (activeTab === "advanced") {
-      await Promise.all([loadWebsite(), loadCors(), loadReplication(), loadAccessLogging(), loadNotifications()]);
+      await Promise.all([
+        loadClean("website", loadWebsite), loadClean("replication", loadReplication),
+        loadClean("accessLogging", loadAccessLogging), loadClean("notifications", loadNotifications),
+      ]);
       return;
     }
     if (activeTab === "ceph") {
-      await Promise.all([refreshBucketMeta(), loadVersioning(), loadObjectLock()]);
+      await Promise.all([
+        loadClean("quota", refreshBucketMeta), loadClean("versioning", loadVersioning), loadClean("objectLock", loadObjectLock),
+      ]);
     }
   }, [
     activeTab,
@@ -887,10 +969,10 @@ function BucketDetailPageContent({
       return versioningLoading || objectLockLoading || lifecycleLoading || bucketTagsLoading || encryptionLoading;
     }
     if (activeTab === "permissions") {
-      return publicAccessLoading || bucketAclLoading || policyLoading;
+      return publicAccessLoading || bucketAclLoading || policyLoading || corsLoading;
     }
     if (activeTab === "advanced") {
-      return websiteLoading || corsLoading || replicationLoading || accessLoggingLoading || notificationsLoading;
+      return websiteLoading || replicationLoading || accessLoggingLoading || notificationsLoading;
     }
     if (activeTab === "ceph") {
       return loadingBucket || versioningLoading || objectLockLoading;
@@ -1034,27 +1116,18 @@ function BucketDetailPageContent({
     configured: quotaConfigured,
     unsaved: quotaDirty,
   });
-  const hasUnsavedChanges = Boolean(
-    versioningDirty ||
-    encryptionDirty ||
-    objectLockDirty ||
-    lifecycleDirty ||
-    tagsDirty ||
-    publicAccessDirty ||
-    aclDirty ||
-    policyDirty ||
-    websiteDirty ||
-    replicationDirty ||
-    corsDirty ||
-    accessLoggingDirty ||
-    notificationsDirty ||
-    quotaDirty,
-  );
+  const hasUnsavedChanges = Object.values(drafts).some(Boolean);
+  const configurationBusy = Object.values(mutations).some(Boolean);
 
   useEffect(() => {
     onDirtyChange?.(hasUnsavedChanges);
     return () => onDirtyChange?.(false);
   }, [hasUnsavedChanges, onDirtyChange]);
+
+  useEffect(() => {
+    onBusyChange?.(configurationBusy);
+    return () => onBusyChange?.(false);
+  }, [configurationBusy, onBusyChange]);
 
   const propertySummary = useMemo<PropertySummary[]>(() => {
     const versioningState = versioningLoading
@@ -1660,7 +1733,7 @@ function BucketDetailPageContent({
                         <SettingsButton
                           type="button"
                           onClick={saveEncryption}
-                          disabled={!sseFeatureEnabled || encryptionNotImplemented || savingEncryption || encryptionLoading}
+                          disabled={!sseFeatureEnabled || encryptionNotImplemented || savingEncryption || encryptionLoading || !encryptionDirty}
                           variant="primary"
                         >
                           {savingEncryption ? "Saving..." : "Save"}
@@ -1714,14 +1787,14 @@ function BucketDetailPageContent({
                           type="button"
                           onClick={resetObjectLock}
                           variant="secondary"
-                          disabled={objectLockLoading || Boolean(objectLockLoadError) || savingObjectLock}
+                          disabled={objectLockLoading || Boolean(objectLockLoadError) || savingObjectLock || !objectLockDirty}
                         >
                           Reset
                         </SettingsButton>
                         <SettingsButton
                           type="submit"
                           form={objectLockFormId}
-                          disabled={savingObjectLock || objectLockLoading || Boolean(objectLockLoadError)}
+                          disabled={savingObjectLock || objectLockLoading || Boolean(objectLockLoadError) || !objectLockDirty}
                           variant="primary"
                         >
                           {savingObjectLock ? "Saving..." : "Save"}
@@ -1859,6 +1932,7 @@ function BucketDetailPageContent({
                               lifecycleNotImplemented ||
                               savingLifecycle ||
                               lifecycleLoading ||
+                              !lifecycleDirty ||
                               lifecycleMode !== "json"
                             }
                             title={
@@ -2180,7 +2254,7 @@ function BucketDetailPageContent({
                             type="button"
                             onClick={saveBucketTags}
                             variant="primary"
-                            disabled={tagsNotImplemented || bucketTagsLoading || savingBucketTags || deletingBucketTags}
+                            disabled={tagsNotImplemented || bucketTagsLoading || savingBucketTags || deletingBucketTags || !tagsDirty}
                           >
                             {savingBucketTags ? "Saving..." : "Save"}
                           </SettingsButton>
@@ -2269,7 +2343,7 @@ function BucketDetailPageContent({
                     <SettingsButton
                       type="button"
                       onClick={savePublicAccessBlock}
-                      disabled={publicAccessNotImplemented || publicAccessLoading || savingPublicAccess}
+                      disabled={publicAccessNotImplemented || publicAccessLoading || savingPublicAccess || !publicAccessDirty}
                       variant="primary"
                     >
                       {savingPublicAccess ? "Saving..." : "Save"}
@@ -2312,7 +2386,7 @@ function BucketDetailPageContent({
                       type="button"
                       onClick={saveBucketAcl}
                       variant="primary"
-                      disabled={aclNotImplemented || savingBucketAcl || bucketAclLoading}
+                      disabled={aclNotImplemented || savingBucketAcl || bucketAclLoading || !aclDirty}
                     >
                       {savingBucketAcl ? "Saving..." : "Save"}
                     </SettingsButton>
@@ -2420,7 +2494,7 @@ function BucketDetailPageContent({
                       <SettingsButton
                         type="button"
                         onClick={savePolicy}
-                        disabled={policyNotImplemented || savingPolicy || policyLoading}
+                        disabled={policyNotImplemented || savingPolicy || policyLoading || !policyDirty}
                         variant="primary"
                       >
                         {savingPolicy ? "Saving..." : "Save"}
@@ -2468,7 +2542,7 @@ function BucketDetailPageContent({
                       <SettingsButton
                         type="button"
                         onClick={saveCors}
-                        disabled={corsNotImplemented || savingCors || corsLoading}
+                        disabled={corsNotImplemented || savingCors || corsLoading || !corsDirty}
                         variant="primary"
                       >
                         {savingCors ? "Saving..." : "Save"}
@@ -2524,7 +2598,7 @@ function BucketDetailPageContent({
                       <SettingsButton
                         type="button"
                         onClick={saveWebsite}
-                        disabled={websiteNotImplemented || savingWebsite || websiteLoading || staticWebsiteBlocked}
+                        disabled={websiteNotImplemented || savingWebsite || websiteLoading || staticWebsiteBlocked || !websiteDirty}
                         variant="primary"
                       >
                         {savingWebsite ? "Saving..." : "Save"}
@@ -2658,7 +2732,7 @@ function BucketDetailPageContent({
                         <SettingsButton
                           type="button"
                           onClick={saveReplication}
-                          disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
+                          disabled={replicationBlocked || replicationNotImplemented || replicationBusy || !replicationDirty}
                           variant="primary"
                         >
                           {savingReplication ? "Saving..." : "Save"}
@@ -2853,7 +2927,7 @@ function BucketDetailPageContent({
                       <SettingsButton
                         type="button"
                         onClick={saveAccessLogging}
-                        disabled={accessLoggingNotImplemented || savingAccessLogging || accessLoggingLoading}
+                        disabled={accessLoggingNotImplemented || savingAccessLogging || accessLoggingLoading || !accessLoggingDirty}
                         variant="primary"
                       >
                         {savingAccessLogging ? "Saving..." : "Save"}
@@ -2928,7 +3002,7 @@ function BucketDetailPageContent({
                       <SettingsButton
                         type="button"
                         onClick={saveNotifications}
-                        disabled={notificationsNotImplemented || savingNotifications || notificationsLoading}
+                        disabled={notificationsNotImplemented || savingNotifications || notificationsLoading || !notificationsDirty}
                         variant="primary"
                       >
                         {savingNotifications ? "Saving..." : "Save"}
@@ -3061,7 +3135,7 @@ function BucketDetailPageContent({
                             <SettingsButton
                               type="submit"
                               form={quotaFormId}
-                              disabled={updatingQuota || !canEditQuota}
+                              disabled={updatingQuota || !canEditQuota || !quotaDirty}
                               variant="primary"
                               title={
                                 !quotaFeatureEnabled

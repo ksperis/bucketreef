@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { transferableAbortController } from "node:util";
+import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import BucketDetailPage from "../BucketDetailPage";
 import { setSessionUserCache } from "../../../utils/workspaces";
@@ -45,6 +46,8 @@ const setCephAdminBucketVersioningMock = vi.fn();
 const updateCephAdminBucketObjectLockMock = vi.fn();
 const fetchCephAdminClusterTrafficMock = vi.fn();
 const deleteCephAdminBucketReplicationMock = vi.fn();
+const putBucketCorsMock = vi.fn();
+const putCephAdminBucketCorsMock = vi.fn();
 
 vi.mock("../../../api/bucketDetails", async () => {
   const actual = await vi.importActual<typeof import("../../../api/bucketDetails")>("../../../api/bucketDetails");
@@ -62,6 +65,7 @@ vi.mock("../../../api/bucketDetails", async () => {
     getBucketPolicy: (...args: unknown[]) => getBucketPolicyMock(...args),
     getBucketAcl: (...args: unknown[]) => getBucketAclMock(...args),
     getBucketCors: (...args: unknown[]) => getBucketCorsMock(...args),
+    putBucketCors: (...args: unknown[]) => putBucketCorsMock(...args),
     getBucketTags: (...args: unknown[]) => getBucketTagsMock(...args),
     getBucketPublicAccessBlock: (...args: unknown[]) => getBucketPublicAccessBlockMock(...args),
     putBucketLifecycle: (...args: unknown[]) => putBucketLifecycleMock(...args),
@@ -95,6 +99,7 @@ vi.mock("../../../api/cephAdminBucketDetails", async () => {
     getCephAdminBucketPolicy: (...args: unknown[]) => getCephAdminBucketPolicyMock(...args),
     getCephAdminBucketAcl: (...args: unknown[]) => getCephAdminBucketAclMock(...args),
     getCephAdminBucketCors: (...args: unknown[]) => getCephAdminBucketCorsMock(...args),
+    putCephAdminBucketCors: (...args: unknown[]) => putCephAdminBucketCorsMock(...args),
     getCephAdminBucketTags: (...args: unknown[]) => getCephAdminBucketTagsMock(...args),
     getCephAdminBucketPublicAccessBlock: (...args: unknown[]) => getCephAdminBucketPublicAccessBlockMock(...args),
     putCephAdminBucketLifecycle: (...args: unknown[]) => putCephAdminBucketLifecycleMock(...args),
@@ -149,8 +154,11 @@ function managerCephAccountContext(accountId: string) {
 }
 
 describe("BucketDetailPage replication state", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     setSessionUserCache(null);
     window.localStorage.clear();
     useS3AccountContextMock.mockReturnValue({
@@ -252,6 +260,265 @@ describe("BucketDetailPage replication state", () => {
       category_breakdown: [],
     });
     deleteCephAdminBucketReplicationMock.mockResolvedValue(undefined);
+    putBucketCorsMock.mockImplementation((_account, _bucket, rules) => Promise.resolve({ rules }));
+    putCephAdminBucketCorsMock.mockImplementation((_endpoint, _bucket, rules) => Promise.resolve({ rules }));
+  });
+
+  function renderNavigableBucket(mode: "manager" | "ceph-admin" = "manager") {
+    setSessionUserCache({ role: "ui_admin", authType: "password" });
+    useS3AccountContextMock.mockReturnValue(managerCephAccountContext("acc-1"));
+    const route = `/${mode}/buckets/demo-bucket?${mode === "manager" ? "ctx=acc-1" : "ep=1"}`;
+    const router = createMemoryRouter([
+      { path: `/${mode}/buckets/:bucketName`, element: <BucketDetailPage mode={mode} /> },
+      { path: `/${mode}/buckets`, element: <p>Bucket inventory</p> },
+      { path: "/other", element: <p>Other page</p> },
+    ], { initialEntries: ["/other", route] });
+    render(<RouterProvider router={router} />);
+    return router;
+  }
+
+  function warnsBeforeUnload() {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  it.each(["manager", "ceph-admin"] as const)("guards route, history, context and reload exits from a dirty %s bucket", async (mode) => {
+    const user = userEvent.setup();
+    const router = renderNavigableBucket(mode);
+    try {
+      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      const section = screen.getByTestId("bucket-feature-cors");
+      await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
+      expect(warnsBeforeUnload()).toBe(false);
+      const editor = within(section).getByRole("textbox");
+      const draft = '[{"AllowedOrigins":["https://example.org"],"AllowedMethods":["GET"]}]';
+      fireEvent.change(editor, { target: { value: draft } });
+      await waitFor(() => expect(warnsBeforeUnload()).toBe(true));
+
+      for (const leave of [
+        () => router.navigate(-1),
+        () => router.navigate(`?${mode === "manager" ? "ctx=acc-2" : "ep=2"}`),
+        () => router.navigate("/other"),
+      ]) {
+        await act(async () => { void leave(); });
+        expect(screen.getAllByRole("dialog", { name: "Discard changes?" })).toHaveLength(1);
+        await user.click(screen.getByRole("button", { name: "Keep editing" }));
+        expect(router.state.location.pathname).toBe(`/${mode}/buckets/demo-bucket`);
+        expect(editor).toHaveValue(draft);
+      }
+
+      await user.click(screen.getByRole("link", { name: /Back to buckets/ }));
+      await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+      expect(await screen.findByText("Bucket inventory")).toBeVisible();
+      expect(warnsBeforeUnload()).toBe(false);
+    } finally { router.dispose(); }
+  });
+
+  it("preserves drafts across tabs and refresh, reloads clean sections, and guards until every draft is resolved", async () => {
+    const user = userEvent.setup();
+    const router = renderNavigableBucket();
+    try {
+      await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+      const objectLock = screen.getByTestId("bucket-feature-object-lock");
+      await waitFor(() => expect(objectLock).toHaveAttribute("aria-busy", "false"));
+      await user.click(within(objectLock).getByRole("switch", { name: "Enable object lock" }));
+      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      const cors = screen.getByTestId("bucket-feature-cors");
+      await waitFor(() => expect(cors).toHaveAttribute("aria-busy", "false"));
+      const draft = '[{"AllowedMethods":["GET"],"AllowedOrigins":["https://example.org"]}]';
+      fireEvent.change(within(cors).getByRole("textbox"), { target: { value: draft } });
+      const corsReads = getBucketCorsMock.mock.calls.length;
+      const lockReads = getBucketObjectLockMock.mock.calls.length;
+      const policyReads = getBucketPolicyMock.mock.calls.length;
+
+      await user.click(screen.getByRole("tab", { name: "Overview", exact: true }));
+      await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+      const retainedLock = screen.getByTestId("bucket-feature-object-lock");
+      expect(within(retainedLock).getByRole("switch", { name: "Enable object lock" })).toBeChecked();
+      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      await user.click(screen.getByRole("button", { name: "Refresh", exact: true }));
+      expect(getBucketCorsMock).toHaveBeenCalledTimes(corsReads);
+      expect(getBucketObjectLockMock).toHaveBeenCalledTimes(lockReads);
+      expect(getBucketPolicyMock.mock.calls.length).toBeGreaterThan(policyReads);
+      const retainedCors = screen.getByTestId("bucket-feature-cors");
+      expect(within(retainedCors).getByRole("textbox")).toHaveValue(draft);
+      await user.click(within(retainedCors).getByRole("button", { name: "Save", exact: true }));
+      await waitFor(() => expect(within(retainedCors).getByRole("button", { name: "Save", exact: true })).toBeDisabled());
+      expect(putBucketCorsMock).toHaveBeenCalledWith("acc-1", "demo-bucket", JSON.parse(draft));
+      expect(warnsBeforeUnload()).toBe(true);
+      await act(async () => { void router.navigate("/other"); });
+      await user.click(screen.getByRole("button", { name: "Keep editing" }));
+
+      await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+      await user.click(within(screen.getByTestId("bucket-feature-object-lock")).getByRole("button", { name: "Reset", exact: true }));
+      // Enabling Object Lock also changes the independent Versioning draft.
+      expect(warnsBeforeUnload()).toBe(true);
+      await user.click(within(screen.getByTestId("bucket-feature-versioning")).getByRole("switch", { name: "Enable versioning" }));
+      await waitFor(() => expect(warnsBeforeUnload()).toBe(false));
+      await act(async () => { await router.navigate("/other"); });
+      expect(screen.getByText("Other page")).toBeVisible();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    } finally { router.dispose(); }
+  });
+
+  it("keeps a failed save guarded and releases navigation after a successful retry", async () => {
+    const user = userEvent.setup();
+    const router = renderNavigableBucket("ceph-admin");
+    putCephAdminBucketCorsMock.mockRejectedValueOnce(new Error("Temporary failure"));
+    try {
+      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      const section = screen.getByTestId("bucket-feature-cors");
+      await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
+      fireEvent.change(within(section).getByRole("textbox"), {
+        target: { value: '[{"AllowedMethods":["GET"]}]' },
+      });
+      await user.click(within(section).getByRole("button", { name: "Save", exact: true }));
+      await waitFor(() => expect(putCephAdminBucketCorsMock).toHaveBeenCalledOnce());
+      await act(async () => { void router.navigate("/other"); });
+      expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeVisible();
+      await user.click(screen.getByRole("button", { name: "Keep editing" }));
+      await user.click(within(section).getByRole("button", { name: "Save", exact: true }));
+      await waitFor(() => expect(warnsBeforeUnload()).toBe(false));
+      await act(async () => { await router.navigate("/other"); });
+      expect(screen.getByText("Other page")).toBeVisible();
+    } finally { router.dispose(); }
+  });
+
+  it("blocks discarding during a pending write and prevents refresh from overwriting it", async () => {
+    const user = userEvent.setup();
+    let finishSave!: (value: { rules: Record<string, unknown>[] }) => void;
+    putBucketCorsMock.mockReturnValueOnce(new Promise((resolve) => { finishSave = resolve; }));
+    const router = renderNavigableBucket();
+    try {
+      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      const section = screen.getByTestId("bucket-feature-cors");
+      await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
+      fireEvent.change(within(section).getByRole("textbox"), { target: { value: '[{"AllowedMethods":["GET"]}]' } });
+      const reads = getBucketCorsMock.mock.calls.length;
+      await user.click(within(section).getByRole("button", { name: "Save", exact: true }));
+      await user.click(screen.getByRole("button", { name: "Refresh", exact: true }));
+      expect(getBucketCorsMock).toHaveBeenCalledTimes(reads);
+      await act(async () => { void router.navigate("/other"); });
+      expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+      expect(warnsBeforeUnload()).toBe(true);
+      await user.click(screen.getByRole("button", { name: "Keep editing" }));
+      await act(async () => finishSave({ rules: [{ AllowedMethods: ["GET"] }] }));
+      await waitFor(() => expect(warnsBeforeUnload()).toBe(false));
+      await act(async () => { await router.navigate("/other"); });
+      expect(screen.getByText("Other page")).toBeVisible();
+    } finally { router.dispose(); }
+  });
+
+  it.each(["manager", "ceph-admin"] as const)("disables every unchanged configuration save in %s", async (mode) => {
+    const user = userEvent.setup();
+    setSessionUserCache({ role: "ui_admin" });
+    useS3AccountContextMock.mockReturnValue(managerCephAccountContext("acc-1"));
+    render(
+      <MemoryRouter>
+        <BucketDetailPage mode={mode} bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>,
+    );
+
+    const tabs = [
+      { name: "Properties", count: 5 },
+      { name: "Permissions", count: 4 },
+      { name: "Advanced", count: 4 },
+      { name: mode === "manager" ? "Privileged Ceph" : "Ceph Admin", count: 1 },
+    ];
+    for (const tab of tabs) {
+      await user.click(screen.getByRole("tab", { name: tab.name, exact: true }));
+      const panel = screen.getByRole("tabpanel", { name: tab.name, exact: true });
+      await waitFor(() => expect(panel.querySelector('[aria-busy="true"]')).toBeNull());
+      const buttons = within(panel).getAllByRole("button", { name: "Save", exact: true });
+      expect(buttons).toHaveLength(tab.count);
+      for (const button of buttons) expect(button).toBeDisabled();
+    }
+  });
+
+  it("enables only the changed section and treats equivalent JSON as unchanged", async () => {
+    const user = userEvent.setup();
+    const policy = { Version: "2012-10-17", Statement: [] };
+    getCephAdminBucketPolicyMock.mockResolvedValue({ policy });
+    render(
+      <MemoryRouter>
+        <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+    const policySection = screen.getByTestId("bucket-feature-policy");
+    const editor = within(policySection).getByRole("textbox");
+    const save = within(policySection).getByRole("button", { name: "Save", exact: true });
+    await waitFor(() => expect(editor).toHaveValue(JSON.stringify(policy, null, 2)));
+
+    fireEvent.change(editor, { target: { value: '{ "Statement": [], "Version": "2012-10-17" }' } });
+    expect(save).toBeDisabled();
+    expect(within(policySection).getByRole("status")).toHaveTextContent("Configured");
+    fireEvent.change(editor, { target: { value: '{ "Statement": [{"Effect":"Allow"}], "Version": "2012-10-17" }' } });
+    expect(save).toBeEnabled();
+    expect(within(policySection).getByRole("status")).toHaveTextContent("Unsaved changes");
+    const publicAccess = screen.getByTestId("bucket-feature-block-public-access");
+    expect(within(publicAccess).getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(editor, { target: { value: JSON.stringify(policy) } });
+    expect(save).toBeDisabled();
+
+    const toggle = within(publicAccess).getAllByRole("switch")[0];
+    await user.click(toggle);
+    expect(within(publicAccess).getByRole("button", { name: "Save" })).toBeEnabled();
+    await user.click(toggle);
+    expect(within(publicAccess).getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("keeps literal tag edits saveable and ignores an empty new row", async () => {
+    const user = userEvent.setup();
+    getCephAdminBucketTagsMock.mockResolvedValue({ tags: [{ key: "environment", value: "test" }] });
+    render(
+      <MemoryRouter>
+        <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+    const section = screen.getByTestId("bucket-feature-tags");
+    const value = await within(section).findByDisplayValue("test");
+    const save = within(section).getByRole("button", { name: "Save", exact: true });
+    await user.click(within(section).getByRole("button", { name: "Add tag" }));
+    expect(save).toBeDisabled();
+    fireEvent.change(value, { target: { value: "test " } });
+    expect(save).toBeEnabled();
+    fireEvent.change(value, { target: { value: "test" } });
+    expect(save).toBeDisabled();
+  });
+
+  it("retains an Object Lock draft after failure and becomes clean after retry", async () => {
+    const user = userEvent.setup();
+    updateCephAdminBucketObjectLockMock.mockRejectedValueOnce(new Error("Temporary failure"));
+    render(
+      <MemoryRouter>
+        <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+    const section = screen.getByTestId("bucket-feature-object-lock");
+    const save = within(section).getByRole("button", { name: "Save", exact: true });
+    const reset = within(section).getByRole("button", { name: "Reset", exact: true });
+    const toggle = within(section).getByRole("switch", { name: "Enable object lock" });
+    await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
+    expect(reset).toBeDisabled();
+    fireEvent.submit(section.querySelector("form")!);
+    expect(updateCephAdminBucketObjectLockMock).not.toHaveBeenCalled();
+    await user.click(toggle);
+    expect(save).toBeEnabled();
+    expect(reset).toBeEnabled();
+    await user.click(save);
+    expect(await within(section).findByText("Temporary failure")).toBeVisible();
+    expect(toggle).toBeChecked();
+    expect(save).toBeEnabled();
+    await user.click(save);
+    await waitFor(() => expect(within(section).getByRole("status")).toHaveTextContent("Configured"));
+    expect(save).toBeDisabled();
+    expect(reset).toBeDisabled();
+    expect(updateCephAdminBucketObjectLockMock).toHaveBeenCalledTimes(2);
   });
 
   it("renders the Manager bucket detail header with a working buckets return action", () => {
@@ -1030,7 +1297,11 @@ describe("BucketDetailPage replication state", () => {
     expect(accessDeniedMessage).toBeInTheDocument();
     expect(accessDeniedMessage).toHaveClass("ui-caption");
     expect(accessLoggingCard).toHaveAttribute("data-feature-state", "neutral");
-    expect(within(accessLoggingShell).getByRole("button", { name: "Save" })).not.toBeDisabled();
+    expect(within(accessLoggingShell).getByRole("button", { name: "Save" })).toBeDisabled();
+    const toggle = within(accessLoggingCard).getByLabelText("Enable server access logging");
+    expect(toggle).toBeEnabled();
+    await user.click(toggle);
+    expect(within(accessLoggingShell).getByRole("button", { name: "Save" })).toBeEnabled();
   });
 
   it("keeps bucket Metrics available for non-Ceph manager endpoints", async () => {

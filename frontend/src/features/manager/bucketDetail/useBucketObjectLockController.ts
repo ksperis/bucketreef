@@ -137,13 +137,14 @@ export function useBucketObjectLockController({
   };
 
   const persistentlyEnabled = configuration?.enabled === true;
+  const dirty = signature(draft) !== signature(snapshot);
   const updateEnabled = (value: boolean) => {
     if (persistentlyEnabled) return;
     update("enabled", value);
   };
 
   const save = async () => {
-    if (!bucketName || !enabled || loading || loadError) return;
+    if (!bucketName || !enabled || loading || loadError || saving || !dirty) return;
     setSaving(true);
     setStatus(null);
     setError(null);
@@ -223,7 +224,7 @@ export function useBucketObjectLockController({
     active: draft.enabled === true || persistentlyEnabled,
     configuration,
     days: draft.days,
-    dirty: signature(draft) !== signature(snapshot),
+    dirty,
     enabled: draft.enabled,
     error,
     load,

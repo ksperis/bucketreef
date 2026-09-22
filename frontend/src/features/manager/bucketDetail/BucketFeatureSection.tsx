@@ -46,7 +46,7 @@ export default function BucketFeatureSection({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div role="status">
             {visualState === "unsaved" && <UiBadge tone="warning">Unsaved changes</UiBadge>}
-            {visualState === "configured" && <UiBadge tone="neutral">Configured</UiBadge>}
+            {visualState === "configured" && <UiBadge tone="primary">Configured</UiBadge>}
             {visualState === "disabled" && <UiBadge tone="neutral">Unavailable</UiBadge>}
           </div>
           {actions && (

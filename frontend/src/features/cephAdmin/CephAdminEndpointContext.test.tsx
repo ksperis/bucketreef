@@ -1,8 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { transferableAbortController } from "node:util";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes, useLocation, useNavigate } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CephAdminEndpointProvider, useCephAdminEndpoint } from "./CephAdminEndpointContext";
+import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import { setSessionUserCache } from "../../utils/workspaces";
 
 const listCephAdminEndpointsMock = vi.fn();
 const getCephAdminEndpointAccessMock = vi.fn();
@@ -18,7 +21,7 @@ const ENDPOINTS = [
 ];
 
 function Probe() {
-  const { selectedEndpointId } = useCephAdminEndpoint();
+  const { selectedEndpointId, setSelectedEndpointId } = useCephAdminEndpoint();
   const location = useLocation();
   const navigate = useNavigate();
   return (
@@ -27,6 +30,7 @@ function Probe() {
       <div data-testid="location">{`${location.pathname}${location.search}`}</div>
       <button type="button" onClick={() => navigate("/ceph-admin/buckets?ep=2")}>Open endpoint 2</button>
       <button type="button" onClick={() => navigate("/ceph-admin/users")}>Navigate without endpoint</button>
+      <button type="button" onClick={() => setSelectedEndpointId(2)}>Select endpoint 2</button>
     </>
   );
 }
@@ -42,6 +46,7 @@ function renderProvider(initialEntry: string) {
 }
 
 describe("CephAdminEndpointProvider", () => {
+  afterEach(() => { vi.unstubAllGlobals(); setSessionUserCache(null); });
   beforeEach(() => {
     localStorage.clear();
     listCephAdminEndpointsMock.mockReset();
@@ -83,5 +88,37 @@ describe("CephAdminEndpointProvider", () => {
     await user.click(screen.getByRole("button", { name: "Open endpoint 2" }));
 
     await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("2"));
+  });
+
+  it("keeps the executor and stored endpoint unchanged until navigation is accepted", async () => {
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
+    setSessionUserCache({ role: "ui_admin", authType: "password" });
+    const user = userEvent.setup();
+    function GuardedProbe() {
+      const { selectedEndpointId } = useCephAdminEndpoint();
+      return <>
+        <Probe />
+        <SettingsNavigationGuard key={selectedEndpointId} dirty={selectedEndpointId === 1} />
+      </>;
+    }
+    const router = createMemoryRouter([
+      { path: "*", element: <CephAdminEndpointProvider><GuardedProbe /></CephAdminEndpointProvider> },
+    ], { initialEntries: ["/ceph-admin/buckets?ep=1"] });
+    render(<RouterProvider router={router} />);
+    try {
+      await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("1"));
+      await user.click(screen.getByRole("button", { name: "Select endpoint 2" }));
+      expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeVisible();
+      expect(screen.getByTestId("selected")).toHaveTextContent("1");
+      expect(localStorage.getItem("selectedCephAdminEndpointId")).toBe("1");
+      expect(getCephAdminEndpointAccessMock.mock.calls.some(([id]) => id === 2)).toBe(false);
+      await user.click(screen.getByRole("button", { name: "Keep editing" }));
+      expect(router.state.location.search).toBe("?ep=1");
+      await user.click(screen.getByRole("button", { name: "Select endpoint 2" }));
+      await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+      await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("2"));
+      expect(router.state.location.search).toBe("?ep=2");
+      expect(localStorage.getItem("selectedCephAdminEndpointId")).toBe("2");
+    } finally { router.dispose(); }
   });
 });

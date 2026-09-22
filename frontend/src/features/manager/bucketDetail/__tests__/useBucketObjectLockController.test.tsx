@@ -135,12 +135,11 @@ describe("useBucketObjectLockController", () => {
     apiMocks.getCephAdminBucketObjectLock.mockResolvedValue(
       enabledConfiguration,
     );
-    apiMocks.updateCephAdminBucketObjectLock.mockResolvedValue(
-      enabledConfiguration,
-    );
+    apiMocks.updateCephAdminBucketObjectLock.mockResolvedValue({ ...enabledConfiguration, days: 45 });
     const { result } = renderObjectLock({ cephAdmin: true, endpointId: 7 });
 
     await act(async () => result.current.load());
+    act(() => result.current.updateDays("45"));
     await act(async () => result.current.save());
 
     expect(apiMocks.getCephAdminBucketObjectLock).toHaveBeenCalledWith(
@@ -150,9 +149,26 @@ describe("useBucketObjectLockController", () => {
     expect(apiMocks.updateCephAdminBucketObjectLock).toHaveBeenCalledWith(
       7,
       "records",
-      enabledConfiguration,
+      { ...enabledConfiguration, days: 45 },
     );
     expect(apiMocks.setCephAdminBucketVersioning).not.toHaveBeenCalled();
+  });
+
+  it("skips unchanged saves after loading, reverting, and saving", async () => {
+    apiMocks.getBucketObjectLock.mockResolvedValue(enabledConfiguration);
+    apiMocks.updateBucketObjectLock.mockResolvedValue({ ...enabledConfiguration, days: 45 });
+    const { result } = renderObjectLock();
+    await act(async () => result.current.load());
+    await act(async () => result.current.save());
+    act(() => result.current.updateDays("45"));
+    act(() => result.current.updateDays("30"));
+    await act(async () => result.current.save());
+    expect(apiMocks.updateBucketObjectLock).not.toHaveBeenCalled();
+    act(() => result.current.updateDays("45"));
+    await act(async () => result.current.save());
+    await act(async () => result.current.save());
+    expect(apiMocks.updateBucketObjectLock).toHaveBeenCalledOnce();
+    expect(result.current.dirty).toBe(false);
   });
 
   it("does not access APIs without an enabled bucket context", async () => {
