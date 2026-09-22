@@ -261,4 +261,90 @@ describe("useBrowserObjectListing", () => {
       }),
     );
   });
+
+  it("preserves literal separators in recursively derived deleted prefixes", async () => {
+    apiMocks.getBrowserBucketVersioning.mockResolvedValue({
+      status: "Enabled",
+      enabled: true,
+    });
+    apiMocks.listBrowserObjects.mockResolvedValue(objectPage([]));
+    apiMocks.listObjectVersions.mockResolvedValue({
+      versions: [],
+      delete_markers: [
+        {
+          key: "logs//2026/deleted.txt",
+          version_id: "delete-v1",
+          is_latest: true,
+          is_delete_marker: true,
+        },
+      ],
+      common_prefixes: [],
+      is_truncated: false,
+      next_key_marker: null,
+      next_version_id_marker: null,
+    });
+    const options = {
+      ...createOptions(),
+      filter: "logs",
+      recursive: true,
+      showDeletedObjects: true,
+    };
+    const { result } = renderHook(() => useBrowserObjectListing(options));
+
+    await waitFor(() => {
+      expect(result.current.isVersioningEnabled).toBe(true);
+    });
+    await act(async () => {
+      await result.current.loadObjects({ forceRefresh: true });
+    });
+
+    expect(result.current.deletedPrefixes).toEqual([
+      "logs/",
+      "logs//",
+      "logs//2026/",
+    ]);
+    expect(apiMocks.listObjectVersions).toHaveBeenCalledWith(
+      "account-a",
+      "bucket-a",
+      expect.objectContaining({ delimiter: undefined, prefix: "" }),
+    );
+  });
+
+  it("keeps a leading slash as a literal deleted child prefix", async () => {
+    apiMocks.getBrowserBucketVersioning.mockResolvedValue({
+      status: "Enabled",
+      enabled: true,
+    });
+    apiMocks.listBrowserObjects.mockResolvedValue(objectPage([]));
+    apiMocks.listObjectVersions.mockResolvedValue({
+      versions: [],
+      delete_markers: [
+        {
+          key: "/deleted.txt",
+          version_id: "delete-v1",
+          is_latest: true,
+          is_delete_marker: true,
+        },
+      ],
+      common_prefixes: [],
+      is_truncated: false,
+      next_key_marker: null,
+      next_version_id_marker: null,
+    });
+    const options = {
+      ...createOptions(),
+      showDeletedObjects: true,
+    };
+    const { result } = renderHook(() => useBrowserObjectListing(options));
+
+    await waitFor(() => {
+      expect(result.current.isVersioningEnabled).toBe(true);
+    });
+    await act(async () => {
+      await result.current.loadObjects({ forceRefresh: true });
+    });
+
+    expect(result.current.deletedPrefixes).toEqual(["/"]);
+    expect(result.current.deletedObjects).toEqual([]);
+  });
 });

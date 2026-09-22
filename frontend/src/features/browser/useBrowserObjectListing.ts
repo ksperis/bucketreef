@@ -17,6 +17,7 @@ import {
   listObjectVersions,
 } from "../../api/browserObjects";
 import { getBrowserBucketVersioning } from "../../api/browserBuckets";
+import { recursiveS3PrefixesForKey } from "../../utils/s3Prefix";
 import type {
   BrowserObject,
   BrowserObjectVersion,
@@ -325,33 +326,24 @@ export function useBrowserObjectListing({
           const relative = marker.key.slice(targetPrefix.length);
           if (!relative) return;
           const isFolderMarker = marker.key.endsWith("/");
-          if (relative.includes("/") && !isRecursiveSearch) {
+          const derivedPrefixes = recursiveS3PrefixesForKey(
+            marker.key,
+            targetPrefix,
+            isFolderMarker,
+          );
+          if (!isRecursiveSearch && derivedPrefixes.length > 0) {
             if (typeFilter === "file") return;
-            const child = relative.split("/")[0];
-            if (!child) return;
-            const childPrefix = `${targetPrefix}${child}/`;
+            const childPrefix = derivedPrefixes[0];
             if (activePrefixes.has(childPrefix)) return;
             if (!matchesQuery(childPrefix)) return;
             markerPrefixes.add(childPrefix);
             return;
           }
           if (typeFilter !== "file" && isRecursiveSearch) {
-            const segments = relative.split("/").filter(Boolean);
-            if (segments.length > 1) {
-              let running = targetPrefix;
-              for (const segment of segments.slice(0, -1)) {
-                running = `${running}${segment}/`;
-                if (activePrefixes.has(running)) continue;
-                if (!matchesQuery(running)) continue;
-                markerPrefixes.add(running);
-              }
-            }
-            if (
-              isFolderMarker &&
-              !activePrefixes.has(marker.key) &&
-              matchesQuery(marker.key)
-            ) {
-              markerPrefixes.add(marker.key);
+            for (const prefixKey of derivedPrefixes) {
+              if (activePrefixes.has(prefixKey)) continue;
+              if (!matchesQuery(prefixKey)) continue;
+              markerPrefixes.add(prefixKey);
             }
           }
           if (typeFilter === "folder" || isFolderMarker) return;
