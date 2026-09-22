@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
+import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import ListToolbar from "../../components/ListToolbar";
@@ -13,14 +14,12 @@ import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
-import PaginationControls from "../../components/PaginationControls";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 
 import { toolbarCompactInputClasses } from "../../components/toolbarControlClasses";
-import { uiDataTableClass } from "../../components/ui/styles";
 import {
   S3Connection,
   createConnection,
@@ -76,8 +75,6 @@ type PendingPrivateConnectionDelete = {
   scope: "single" | "bulk";
   connections: S3Connection[];
 };
-
-const privateConnectionsTableClass = uiDataTableClass;
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (isApiError(error)) {
@@ -774,6 +771,170 @@ export default function ProfilePage({
     setConnectionsPage(1);
   };
 
+  const privateConnectionsTableStatus = connectionsLoading
+    ? "loading"
+    : pagedConnections.length === 0
+      ? "empty"
+      : "ready";
+
+  const privateConnectionTableColumns: Array<DataTableColumn<S3Connection>> = [
+    {
+      id: "select",
+      label: "Select",
+      headerClassName: "w-10",
+      cellClassName: "w-10",
+      header: (
+        <label className="ui-list-selection"><input
+          type="checkbox"
+          aria-label="Select all filtered private connections"
+          checked={allFilteredConnectionsSelected}
+          onChange={toggleSelectAllFilteredConnections}
+          disabled={
+            filteredConnectionIds.length === 0 ||
+            bulkActivatingConnections ||
+            bulkDisablingConnections ||
+            bulkDeletingConnections
+          }
+          className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+        /></label>
+      ),
+      render: (connection) => (
+        <label className="ui-list-selection"><input
+          type="checkbox"
+          aria-label={`Select private connection ${connection.name || connection.id}`}
+          checked={selectedFilteredConnectionIdSet.has(connection.id)}
+          onChange={() => togglePrivateConnectionSelection(connection.id)}
+          disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
+          className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+        /></label>
+      ),
+    },
+    {
+      id: "connection",
+      label: "Connection",
+      primary: true,
+      render: (connection) => {
+        const connectionTagItems = buildUiTagItems(connection.tags);
+        return (
+          <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+            <div className="min-w-0 flex-1">
+              <p className="truncate">{connection.name || "-"}</p>
+              {connection.server_managed && (
+                <ListBadge tone="primary" className="mt-1">
+                  Server managed{connection.managed_access_state === "cleanup_pending" ? " - cleanup required" : ""}
+                </ListBadge>
+              )}
+              <p className="ui-caption font-normal text-slate-500 dark:text-slate-400">
+                Access Key: {connection.access_key_id || "-"}
+              </p>
+            </div>
+            {connectionTagItems.length > 0 && (
+              <UiTagBadgeList
+                items={connectionTagItems}
+                variant="listing-compact"
+                layout="inline-compact"
+                className="ml-auto max-w-full"
+                maxVisible={4}
+              />
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "endpoint",
+      label: "Endpoint",
+      render: (connection) => {
+        const endpointLabel = connection.storage_endpoint_id
+          ? storageEndpointLabelById.get(connection.storage_endpoint_id) ||
+            `Managed endpoint #${connection.storage_endpoint_id}`
+          : connection.endpoint_url || "-";
+        return connection.storage_endpoint_id ? (
+          <ListBadge tone="neutral">{endpointLabel}</ListBadge>
+        ) : (
+          <span className="ui-mono">{endpointLabel}</span>
+        );
+      },
+    },
+    {
+      id: "provider",
+      label: "Provider",
+      render: (connection) => connection.provider_hint || "-",
+    },
+    {
+      id: "status",
+      label: "Status",
+      render: (connection) => {
+        const isActive = connection.is_active !== false;
+        return <ListBadge tone={isActive ? "success" : "neutral"}>{isActive ? "Active" : "Inactive"}</ListBadge>;
+      },
+    },
+    {
+      id: "updated-at",
+      label: "Last update",
+      render: (connection) => formatLocalDateTime(connection.updated_at ?? connection.created_at),
+    },
+    {
+      id: "last-used-at",
+      label: "Last used",
+      render: (connection) => formatLocalDateTime(connection.last_used_at),
+    },
+    {
+      id: "actions",
+      label: "Actions",
+      align: "right",
+      mobileRole: "actions",
+      render: (connection) => {
+        const isActive = connection.is_active !== false;
+        return (
+          <ListActions>
+            {connection.managed_access_state === "cleanup_pending" && (
+              <ListActionButton
+                type="button"
+                disabled={deletingConnectionBusyId === connection.id}
+                onClick={() => void handleRetryManagedCleanup(connection.id)}
+              >
+                {deletingConnectionBusyId === connection.id ? "Retrying..." : "Retry cleanup"}
+              </ListActionButton>
+            )}
+            <ListActionButton
+              type="button"
+              disabled={
+                togglingConnectionBusyId === connection.id ||
+                bulkActivatingConnections ||
+                bulkDisablingConnections ||
+                bulkDeletingConnections
+              }
+              onClick={() => void handleTogglePrivateConnectionStatus(connection)}
+            >
+              {togglingConnectionBusyId === connection.id ? "Saving..." : isActive ? "Deactivate" : "Activate"}
+            </ListActionButton>
+            <ListActionButton
+              type="button"
+              onClick={() => openEditConnectionModal(connection)}
+              disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
+            >
+              Edit
+            </ListActionButton>
+            <ListActionButton
+              type="button"
+              variant="danger"
+              disabled={
+                deletingConnectionBusyId === connection.id ||
+                bulkActivatingConnections ||
+                bulkDisablingConnections ||
+                bulkDeletingConnections
+              }
+              onClick={() => handleDeletePrivateConnection(connection)}
+            >
+              {deletingConnectionBusyId === connection.id ? "Deleting..." : "Delete"}
+            </ListActionButton>
+          </ListActions>
+        );
+      },
+    },
+  ];
+
   return (
     <div className={workflowPageHostClass(showConnectionsSection && (showCreateConnectionModal || Boolean(editingConnection)))}>
       {showPageHeader && (
@@ -863,191 +1024,30 @@ export default function ProfilePage({
                     </ListActions>
                   </div>
                 )}
-                <div className="overflow-x-auto">
-                  <table className={`ui-data-table ${privateConnectionsTableClass}`}>
-                    <thead className="bg-slate-50 dark:bg-slate-900/50">
-                      <tr>
-                        <th className="text-left">
-                          <label className="ui-list-selection"><input
-                            type="checkbox"
-                            aria-label="Select all filtered private connections"
-                            checked={allFilteredConnectionsSelected}
-                            onChange={toggleSelectAllFilteredConnections}
-                            disabled={
-                              filteredConnectionIds.length === 0 ||
-                              bulkActivatingConnections ||
-                              bulkDisablingConnections ||
-                              bulkDeletingConnections
-                            }
-                            className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                          /></label>
-                        </th>
-                        {["Connection", "Endpoint", "Provider", "Status", "Last update", "Last used", "Actions"].map(
-                          (label) => (
-                            <th
-                              key={label}
-                              className="text-left"
-                            >
-                              {label}
-                            </th>
-                          )
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                      {connectionsLoading && (
-                        <tr>
-                          <td colSpan={8} className="ui-table-secondary">
-                            Loading connections...
-                          </td>
-                        </tr>
-                      )}
-                      {!connectionsLoading && pagedConnections.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="ui-table-secondary">
-                            No private S3 connection configured.
-                          </td>
-                        </tr>
-                      )}
-                      {!connectionsLoading &&
-                        pagedConnections.map((connection) => {
-                          const isActive = connection.is_active !== false;
-                          const connectionTagItems = buildUiTagItems(connection.tags);
-                          const endpointLabel = connection.storage_endpoint_id
-                            ? storageEndpointLabelById.get(connection.storage_endpoint_id) ||
-                              `Managed endpoint #${connection.storage_endpoint_id}`
-                            : connection.endpoint_url || "-";
-                          return (
-                            <tr key={connection.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                              <td>
-                                <label className="ui-list-selection"><input
-                                  type="checkbox"
-                                  aria-label={`Select private connection ${connection.name || connection.id}`}
-                                  checked={selectedFilteredConnectionIdSet.has(connection.id)}
-                                  onChange={() => togglePrivateConnectionSelection(connection.id)}
-                                  disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
-                                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                                /></label>
-                              </td>
-                              <td>
-                                <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate ui-body font-semibold text-slate-900 dark:text-slate-100">
-                                      {connection.name || "-"}
-                                    </p>
-                                    {connection.server_managed && (
-                                      <ListBadge tone="primary" className="mt-1">
-                                        Server managed{connection.managed_access_state === "cleanup_pending" ? " - cleanup required" : ""}
-                                      </ListBadge>
-                                    )}
-                                    <p className="ui-caption text-slate-500 dark:text-slate-400">
-                                      Access Key: {connection.access_key_id || "-"}
-                                    </p>
-                                  </div>
-                                  {connectionTagItems.length > 0 && (
-                                    <UiTagBadgeList
-                                      items={connectionTagItems}
-                                      variant="listing-compact"
-                                      layout="inline-compact"
-                                      className="ml-auto max-w-full"
-                                      maxVisible={4}
-                                    />
-                                  )}
-                                </div>
-                              </td>
-                              <td className="ui-table-secondary">
-                                {connection.storage_endpoint_id ? (
-                                  <ListBadge tone="neutral">
-                                    {endpointLabel}
-                                  </ListBadge>
-                                ) : (
-                                  <span className="ui-mono">{endpointLabel}</span>
-                                )}
-                              </td>
-                              <td className="ui-table-secondary">
-                                {connection.provider_hint || "-"}
-                              </td>
-                              <td className="ui-table-secondary">
-                                <ListBadge
-                                  tone={isActive ? "success" : "neutral"}
-                                >
-                                  {isActive ? "Active" : "Inactive"}
-                                </ListBadge>
-                              </td>
-                              <td className="ui-table-secondary">
-                                {formatLocalDateTime(connection.updated_at ?? connection.created_at)}
-                              </td>
-                              <td className="ui-table-secondary">
-                                {formatLocalDateTime(connection.last_used_at)}
-                              </td>
-                              <td className="text-right">
-                                <ListActions>
-                                  {connection.managed_access_state === "cleanup_pending" && (
-                                    <ListActionButton
-                                      type="button"
-                                      disabled={deletingConnectionBusyId === connection.id}
-                                      onClick={() => void handleRetryManagedCleanup(connection.id)}
-                                    >
-                                      {deletingConnectionBusyId === connection.id ? "Retrying..." : "Retry cleanup"}
-                                    </ListActionButton>
-                                  )}
-                                  <ListActionButton
-                                    type="button"
-                                    disabled={
-                                      togglingConnectionBusyId === connection.id ||
-                                      bulkActivatingConnections ||
-                                      bulkDisablingConnections ||
-                                      bulkDeletingConnections
-                                    }
-                                    onClick={() => void handleTogglePrivateConnectionStatus(connection)}
-                                  >
-                                    {togglingConnectionBusyId === connection.id ? "Saving..." : isActive ? "Deactivate" : "Activate"}
-                                  </ListActionButton>
-                                  <ListActionButton
-                                    type="button"
-                                    onClick={() => openEditConnectionModal(connection)}
-                                    disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
-                                  >
-                                    Edit
-                                  </ListActionButton>
-                                  <ListActionButton
-                                    type="button"
-                                     variant="danger"
-                                    disabled={
-                                      deletingConnectionBusyId === connection.id ||
-                                      bulkActivatingConnections ||
-                                      bulkDisablingConnections ||
-                                      bulkDeletingConnections
-                                    }
-                                    onClick={() => handleDeletePrivateConnection(connection)}
-                                  >
-                                    {deletingConnectionBusyId === connection.id ? "Deleting..." : "Delete"}
-                                  </ListActionButton>
-                                </ListActions>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-                {!connectionsLoading && filteredConnections.length > 0 && (
-                  <PaginationControls
-                    page={connectionsPage}
-                    pageSize={connectionsPageSize}
-                    total={filteredConnections.length}
-                    onPageChange={(page) => {
+                <DataTableShell
+                  columns={privateConnectionTableColumns}
+                  rows={connectionsLoading ? [] : pagedConnections}
+                  rowKey={(connection) => connection.id}
+                  status={privateConnectionsTableStatus}
+                  loadingMessage="Loading connections..."
+                  errorMessage="Unable to load private S3 connections."
+                  emptyMessage="No private S3 connection configured."
+                  pagination={!connectionsLoading && filteredConnections.length > 0 ? {
+                    page: connectionsPage,
+                    pageSize: connectionsPageSize,
+                    total: filteredConnections.length,
+                    onPageChange: (page) => {
                       setConnectionsPage(Math.max(1, page));
                       setSelectedConnectionIds([]);
-                    }}
-                    onPageSizeChange={(size) => {
+                    },
+                    onPageSizeChange: (size) => {
                       setConnectionsPageSize(size);
                       setSelectedConnectionIds([]);
                       setConnectionsPage(1);
-                    }}
-                    pageSizeOptions={[5, 10, 25, 50]}
-                  />
-                )}
+                    },
+                    pageSizeOptions: [5, 10, 25, 50],
+                  } : undefined}
+                />
               </div>
             </>
         </div>
