@@ -62,7 +62,12 @@ class BucketMigrationPolicyGrantsMixin:
 
         return candidates
 
-    def _without_managed_source_copy_grant_statement(self, policy: Any) -> Optional[dict[str, Any]]:
+    def _without_managed_policy_statement(
+        self,
+        policy: Any,
+        *,
+        sid: str,
+    ) -> Optional[dict[str, Any]]:
         if not isinstance(policy, dict):
             return None
 
@@ -76,7 +81,7 @@ class BucketMigrationPolicyGrantsMixin:
         filtered_statements = [
             statement
             for statement in statements
-            if not (isinstance(statement, dict) and statement.get("Sid") == _SOURCE_COPY_GRANT_POLICY_SID)
+            if not (isinstance(statement, dict) and statement.get("Sid") == sid)
         ]
         if not filtered_statements:
             return None
@@ -85,6 +90,9 @@ class BucketMigrationPolicyGrantsMixin:
         if "Version" not in policy_doc:
             policy_doc["Version"] = "2012-10-17"
         return policy_doc
+
+    def _without_managed_source_copy_grant_statement(self, policy: Any) -> Optional[dict[str, Any]]:
+        return self._without_managed_policy_statement(policy, sid=_SOURCE_COPY_GRANT_POLICY_SID)
 
     def _build_source_copy_grant_policy(
         self,
@@ -350,68 +358,38 @@ class BucketMigrationPolicyGrantsMixin:
         return policy_doc
 
     def _without_managed_read_only_statement(self, policy: Any) -> Optional[dict[str, Any]]:
-        if not isinstance(policy, dict):
-            return None
-
-        policy_doc: dict[str, Any] = deepcopy(policy)
-        statements = policy_doc.get("Statement")
-        if isinstance(statements, dict):
-            statements = [statements]
-        if not isinstance(statements, list):
-            statements = []
-
-        filtered_statements = [
-            statement
-            for statement in statements
-            if not (isinstance(statement, dict) and statement.get("Sid") == _READ_ONLY_POLICY_SID)
-        ]
-        if not filtered_statements:
-            return None
-
-        policy_doc["Statement"] = filtered_statements
-        if "Version" not in policy_doc:
-            policy_doc["Version"] = "2012-10-17"
-        return policy_doc
+        return self._without_managed_policy_statement(policy, sid=_READ_ONLY_POLICY_SID)
 
     def _without_managed_target_write_lock_statement(self, policy: Any) -> Optional[dict[str, Any]]:
-        if not isinstance(policy, dict):
-            return None
+        return self._without_managed_policy_statement(policy, sid=_TARGET_WRITE_LOCK_POLICY_SID)
 
-        policy_doc: dict[str, Any] = deepcopy(policy)
-        statements = policy_doc.get("Statement")
-        if isinstance(statements, dict):
-            statements = [statements]
-        if not isinstance(statements, list):
-            statements = []
-
-        filtered_statements = [
-            statement
-            for statement in statements
-            if not (isinstance(statement, dict) and statement.get("Sid") == _TARGET_WRITE_LOCK_POLICY_SID)
-        ]
-        if not filtered_statements:
-            return None
-
-        policy_doc["Statement"] = filtered_statements
-        if "Version" not in policy_doc:
-            policy_doc["Version"] = "2012-10-17"
-        return policy_doc
+    def _remove_managed_policy_statement(
+        self,
+        bucket_name: str,
+        account: S3ExecutionTarget,
+        *,
+        sid: str,
+    ) -> None:
+        existing_policy = self._configuration.get_policy(bucket_name, account)
+        cleaned = self._without_managed_policy_statement(existing_policy, sid=sid)
+        if isinstance(cleaned, dict):
+            self._configuration.put_policy(bucket_name, account, cleaned)
+            return
+        self._configuration.delete_policy(bucket_name, account)
 
     def _remove_managed_read_only_statement(self, source_bucket: str, source_account: S3ExecutionTarget) -> None:
-        existing_policy = self._configuration.get_policy(source_bucket, source_account)
-        cleaned = self._without_managed_read_only_statement(existing_policy)
-        if isinstance(cleaned, dict):
-            self._configuration.put_policy(source_bucket, source_account, cleaned)
-            return
-        self._configuration.delete_policy(source_bucket, source_account)
+        self._remove_managed_policy_statement(
+            source_bucket,
+            source_account,
+            sid=_READ_ONLY_POLICY_SID,
+        )
 
     def _remove_managed_target_write_lock_statement(self, target_bucket: str, target_account: S3ExecutionTarget) -> None:
-        existing_policy = self._configuration.get_policy(target_bucket, target_account)
-        cleaned = self._without_managed_target_write_lock_statement(existing_policy)
-        if isinstance(cleaned, dict):
-            self._configuration.put_policy(target_bucket, target_account, cleaned)
-            return
-        self._configuration.delete_policy(target_bucket, target_account)
+        self._remove_managed_policy_statement(
+            target_bucket,
+            target_account,
+            sid=_TARGET_WRITE_LOCK_POLICY_SID,
+        )
 
     def _set_managed_block_policy(self, source_bucket: str, source_account: S3ExecutionTarget, *, deny_delete: bool) -> None:
         try:
