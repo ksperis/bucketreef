@@ -38,7 +38,7 @@ class PortalServerAccessLoggingMixin:
         return f"{SERVER_ACCESS_LOGGING_PREFIX_ROOT}{source_bucket}/"
 
     def _portal_server_access_source_account_id(self, account: S3Account) -> str:
-        return account.rgw_account_id.strip()
+        return account.rgw_account_id
 
     def _portal_server_access_client(self, account: S3Account):
         access_key, secret_key = self._account_credentials(account)

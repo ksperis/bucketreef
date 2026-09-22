@@ -15,7 +15,10 @@ class S3User(Base):
     __table_args__ = (
         UniqueConstraint("rgw_user_uid", name="uq_s3_users_uid"),
         Index("ix_s3_users_storage_endpoint", "storage_endpoint_id"),
-        CheckConstraint("TRIM(rgw_user_uid) <> ''", name="ck_s3_users_rgw_user_uid_nonempty"),
+        CheckConstraint(
+            "rgw_user_uid = TRIM(rgw_user_uid) AND LENGTH(rgw_user_uid) > 0",
+            name="ck_s3_users_rgw_user_uid_canonical",
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)

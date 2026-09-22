@@ -34,7 +34,7 @@ class PortalStorageSpaceBucketPoliciesMixin:
         if iam_user_id and str(iam_user_id).startswith("arn:"):
             arns.append(str(iam_user_id))
         arns.append(f"arn:aws:iam:::user/{username}")
-        rgw_account_id = account.rgw_account_id.strip()
+        rgw_account_id = account.rgw_account_id
         arns.append(f"arn:aws:iam::{rgw_account_id}:user/{username}")
         return sorted(set(arns))
 
@@ -122,8 +122,8 @@ class PortalStorageSpaceBucketPoliciesMixin:
         return allowed_user_ids
 
     def _portal_storage_space_technical_principal_arns(self, account: S3Account) -> list[str]:
-        rgw_account_id = account.rgw_account_id.strip()
-        rgw_user_uid = account.rgw_user_uid.strip()
+        rgw_account_id = account.rgw_account_id
+        rgw_user_uid = account.rgw_user_uid
         principals = {f"arn:aws:iam::{rgw_account_id}:root"}
         principals.update(self._portal_iam_principal_arns(account, rgw_user_uid, None))
         return sorted(principals)
