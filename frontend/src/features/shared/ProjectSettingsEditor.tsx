@@ -47,7 +47,7 @@ export type ProjectSettingsAdapter = {
 
 export default function ProjectSettingsEditor({
   accountId, projectName, storageName, adapter, admin = false,
-  t = translate, locale = "en", onDirtyChange, navigationGuard = true,
+  t = translate, locale = "en", onDirtyChange, onBusyChange, disabled = false, navigationGuard = true,
 }: {
   accountId: string;
   projectName: string;
@@ -57,6 +57,8 @@ export default function ProjectSettingsEditor({
   t?: (message: I18nMessage) => string;
   locale?: string;
   onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
+  disabled?: boolean;
   navigationGuard?: boolean;
 }) {
   const { draft, setDraft, baseline, accept, cancel, dirty } =
@@ -64,6 +66,10 @@ export default function ProjectSettingsEditor({
   const [settings, setSettings] = useState<PortalProjectSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    onBusyChange?.(saving);
+    return () => onBusyChange?.(false);
+  }, [saving, onBusyChange]);
   const [error, setError] = useState<
     "load" | "save" | "conflict" | "access" | null
   >(null);
@@ -116,6 +122,7 @@ export default function ProjectSettingsEditor({
   };
   const guard = useSettingsCloseGuard({
     hasUnsavedChanges: dirty,
+    disabled: saving || disabled,
     onClose: discard,
     title: labels.discardTitle,
     description: labels.discardDescription,
@@ -132,7 +139,7 @@ export default function ProjectSettingsEditor({
     setSaved(false);
   };
   const save = async () => {
-    if (!editable || pending.current) return;
+    if (!editable || disabled || pending.current) return;
     const invalid =
       draft.versionHistoryRetentionOverride &&
       (!/^\d+$/.test(draft.versionHistoryRetentionDays) ||
@@ -398,7 +405,7 @@ export default function ProjectSettingsEditor({
             void save();
           }}
         >
-          <fieldset disabled={saving} className="min-w-0">
+          <fieldset disabled={saving || disabled} className="min-w-0">
             {admin && <SettingsSection presentation="compact" title="Delegation">
               <SettingsItem compact title="Project settings access"
                 description="Allow this project's Portal managers to edit the same settings from Portal."
@@ -628,7 +635,7 @@ export default function ProjectSettingsEditor({
           </fieldset>
           <SettingsActions
             dirty={dirty}
-            busy={saving}
+            busy={saving || disabled}
             disabled={!editable}
             onSave={() => void save()}
             onCancel={guard.requestClose}
@@ -672,6 +679,7 @@ export default function ProjectSettingsEditor({
             zh: "所有项目自定义设置都将从草稿中移除。保存后生效。",
           })}
           confirmLabel={labels.apply}
+          loading={saving || disabled}
           cancelLabel={labels.cancel}
           closeLabel={labels.close}
           onCancel={() => setResetOpen(false)}
@@ -696,6 +704,7 @@ export default function ProjectSettingsEditor({
           initialValue={draft.corsOriginsText}
           labels={labels}
           onDirtyChange={setDialogDirty}
+          disabled={saving || disabled}
           onApply={(value) => update("corsOriginsText", value)}
           onClose={() => setOriginsOpen(false)}
         >

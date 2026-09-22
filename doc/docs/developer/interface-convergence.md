@@ -831,6 +831,63 @@ values and verifies secret preservation plus draft navigation. These checks
 do not establish login against an external LDAP directory or OIDC provider.
 Temporary screenshots, scripts and authentication state remain outside commits.
 
+## Admin RGW account configuration
+
+`AdminAccountEditor` owns a keyed account draft and its read/retry lifecycle,
+leaving listing, creation, import and deletion in `AccountsPage`. General,
+linked users, linked groups, privileged access and Portal settings share the
+compact workflow presentation. General uses side-title settings sections for
+tags, observed usage and quotas; `InlineSummary` preserves unknown versus zero
+usage and shows the saved limits separately from editable quota values.
+Inactive tab wrappers must retain native `hidden` behavior: put grid/flex
+presentation inside the wrapper rather than overriding its display rule.
+
+`AdminAccountAssociations` shares the user/group table and picker while explicit
+adapters preserve their API identities and grant fields. Failed catalogues
+show an error and Retry, not an empty result. Selected additions survive tab
+changes and participate in the account close guard; saving directs the user to
+apply or cancel them first. Existing Manager and Portal roles stay independent,
+including when Portal is disabled. Advanced association settings reuse the
+compact draft dialog and a named switch; Apply changes only the parent draft.
+Native dialog submission stops propagation to an enclosing account form.
+Association tables use `DataTableShell` responsive cards below 768px so long
+identities, both role controls and actions remain usable without horizontal
+scrolling. Desktop rows retain the shared compact table presentation.
+
+The account uses `SettingsForm` and `useSettingsFormController` for Enter,
+pending fields, duplicate submission, close and route/reload protection.
+Portal settings keep their own save/merge/conflict boundary and report dirty
+and busy state to the enclosing account workflow. Either pending save locks
+the account tabs and closing; a successful account save preserves an unsaved
+Portal draft. Failed reads never expose an empty writable configuration,
+failed writes retain drafts, and unmounted editors ignore late completion.
+
+Permission lookups have an explicit retry. Quota editing still requires
+`accounts=write`; enabling bucket quota management still requires
+`buckets=write`. `adminAccountPayload` omits unchanged quotas and sends both
+quota dimensions when either changes, retaining explicit clearing semantics.
+The shared quota input adapter uses whole MiB only when exact and otherwise
+preserves fractional GiB, avoiding rounding when an object limit is changed.
+
+Regression scenarios cover the two association adapters, pending selections,
+native submission, router history, read and permission retries, independent
+Portal drafts, write failures and exact quotas. Browser validation must cover
+all five tabs, the picker and advanced dialog in light/dark, desktop and mobile,
+including inactive-tab visibility, sticky actions, field focus and retry.
+Account and permission fixture responses validate UI contracts, not live RGW
+quota enforcement or mutations. Temporary captures and auth state stay outside
+commits.
+
+Final validation for this pass covered 2,776 frontend tests across 465 files,
+the full frontend CI check, and a strict MkDocs build. The authenticated
+isolated-browser matrix covered all five tabs at 1440, 1024 and 390 px in light
+and dark themes (52 captures), including responsive user/group role controls,
+picker controls, long advanced-dialog identifiers, pending association locks,
+sticky actions, retry paths and independent Portal saves. It reported no page
+exceptions or root horizontal overflow. The account, permission, usage and
+write responses in that browser matrix are fixtures; this pass does not prove
+live RGW quota enforcement or account mutations.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.

@@ -424,7 +424,7 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByRole("button", { name: "Remove" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Allow Manager Browser data access" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Allow Manager Browser data access" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 

@@ -25,6 +25,7 @@ export default function SettingsDraftDialog<T>({
   children,
   labels,
   maxWidthClass,
+  disabled = false,
 }: {
   title: string;
   initialValue: T;
@@ -48,12 +49,14 @@ export default function SettingsDraftDialog<T>({
     keepEditing: string;
   };
   maxWidthClass?: string;
+  disabled?: boolean;
 }) {
   const initialFocus = useRef<HTMLElement | null>(null);
   const { draft, setDraft, dirty } = useSettingsDraft(initialValue);
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const guard = useSettingsCloseGuard({
     hasUnsavedChanges: dirty,
+    disabled,
     onClose,
     title: labels?.discardTitle,
     description: labels?.discardDescription,
@@ -79,6 +82,7 @@ export default function SettingsDraftDialog<T>({
     return true;
   };
   const apply = () => {
+    if (disabled) return;
     if (!validateDraft()) return;
     onApply(draft);
     onClose();
@@ -92,6 +96,7 @@ export default function SettingsDraftDialog<T>({
         closeLabel={labels?.close}
         closeAriaLabel={labels?.close}
         maxWidthClass={maxWidthClass}
+        closeDisabled={disabled}
       >
         <form
           className="settings-stack"
@@ -102,19 +107,20 @@ export default function SettingsDraftDialog<T>({
               ) ?? null;
           }}
           onSubmit={(event) => {
+            event.stopPropagation();
             event.preventDefault();
             apply();
           }}
           noValidate
         >
-          <div className="settings-fields">
+          <fieldset disabled={disabled} className="settings-fields">
             {children(draft, setDraft, errors, validateDraft)}
-          </div>
+          </fieldset>
           <ModalActions>
-            <SettingsButton variant="secondary" onClick={guard.requestClose}>
+            <SettingsButton variant="secondary" onClick={guard.requestClose} disabled={disabled}>
               {labels?.cancel ?? "Cancel"}
             </SettingsButton>
-            <SettingsButton onClick={apply}>
+            <SettingsButton type="submit" disabled={disabled}>
               {labels?.apply ?? "Apply"}
             </SettingsButton>
           </ModalActions>
