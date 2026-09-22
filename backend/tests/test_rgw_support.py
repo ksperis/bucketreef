@@ -89,7 +89,7 @@ def test_get_supervision_rgw_client_uses_endpoint_url_when_admin_feature_disable
     monkeypatch.setattr("app.services.rgw_supervision.get_rgw_admin_client", fake_get_rgw_admin_client)
     endpoint = StorageEndpoint(
         name="ceph",
-        endpoint_url="https://rgw.example.test/",
+        endpoint_url="https://rgw.example.test",
         provider=StorageProvider.CEPH.value,
         verify_tls=False,
         supervision_access_key="SUP-AK",
