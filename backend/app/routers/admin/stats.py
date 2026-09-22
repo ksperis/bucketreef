@@ -72,14 +72,6 @@ def _build_rgw_client(endpoint: StorageEndpoint) -> RGWAdminClient:
     return get_supervision_rgw_client(endpoint)
 
 
-def _resolve_account_endpoint(db: Session, account: S3Account) -> StorageEndpoint:
-    return _resolve_endpoint(db, account.storage_endpoint_id, require_storage_metrics=True)
-
-
-def _resolve_s3_user_endpoint(db: Session, s3_user: S3User) -> StorageEndpoint:
-    return _resolve_endpoint(db, s3_user.storage_endpoint_id, require_storage_metrics=True)
-
-
 def _load_principal_bucket_stats(rgw_admin: RGWAdminClient, uid: str) -> dict:
     try:
         payload = rgw_admin.get_all_buckets(uid=uid, with_stats=True)
@@ -132,7 +124,7 @@ def account_stats(
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Account not found")
 
-    endpoint = _resolve_account_endpoint(db, account)
+    endpoint = _resolve_endpoint(db, account.storage_endpoint_id, require_storage_metrics=True)
     rgw_admin = _build_rgw_client(endpoint)
     return _load_principal_bucket_stats(rgw_admin, account.rgw_user_uid)
 
@@ -147,7 +139,7 @@ def s3_user_stats(
     if not s3_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3 user not found")
 
-    endpoint = _resolve_s3_user_endpoint(db, s3_user)
+    endpoint = _resolve_endpoint(db, s3_user.storage_endpoint_id, require_storage_metrics=True)
     rgw_admin = _build_rgw_client(endpoint)
     if not s3_user.rgw_user_uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage metrics not available for this user")
