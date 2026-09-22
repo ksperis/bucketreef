@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { type KeyboardEvent as ReactKeyboardEvent, ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   clearReadUserNotifications,
   deleteUserNotification,
@@ -19,6 +19,15 @@ import {
 } from "../utils/workspaces";
 import type { WorkspaceSwitcherModel } from "./EnvironmentSwitcher";
 import ThemeToggle from "./ThemeToggle";
+import TopbarWorkspaceSelector from "./TopbarWorkspaceSelector";
+import {
+  BellIcon,
+  ChevronDownIcon,
+  HamburgerIcon,
+  LinkIcon,
+  LogoutIcon,
+  UserIcon,
+} from "./topbarIcons";
 import type { TopbarControlDescriptor } from "./topbarControlsLayout";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
@@ -69,13 +78,6 @@ function resolveUiRoleLabel(user: StoredTopbarUser | null): string {
   if (user.role === "ui_user") return "User";
   if (user.role === "ui_none") return "No access";
   return "Unknown";
-}
-
-function compactWorkspaceLabel(label?: string | null): string {
-  const normalized = (label ?? "").replace(/\s*\([^)]*\)\s*$/, "").trim();
-  if (!normalized) return "Workspace";
-  if (normalized.toLowerCase() === "administration") return "Admin";
-  return normalized;
 }
 
 function formatPercent(value: unknown): string | null {
@@ -156,13 +158,6 @@ export default function Topbar({
   const notificationsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const notificationsMenuId = useId();
 
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
-  const [workspaceActiveIndex, setWorkspaceActiveIndex] = useState(-1);
-  const workspaceTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const workspaceMenuSurfaceRef = useRef<HTMLDivElement | null>(null);
-  const workspaceListboxRef = useRef<HTMLDivElement | null>(null);
-  const workspaceListboxId = useId();
-
   const controlsStripRef = useRef<HTMLDivElement | null>(null);
 
   const accountDisplay = userEmail ?? "Session";
@@ -170,15 +165,6 @@ export default function Topbar({
   const accountAvatarName = accountName === accountDisplay ? null : accountName;
   const showNotifications = !isS3Session;
 
-  useDismissibleLayer({
-    open: workspaceMenuOpen,
-    insideRefs: [workspaceTriggerRef, workspaceMenuSurfaceRef],
-    onDismiss: (reason) => {
-      setWorkspaceMenuOpen(false);
-      if (reason === "escape") workspaceTriggerRef.current?.focus();
-    },
-    preventEscapeDefault: true,
-  });
   useDismissibleLayer({
     open: accountMenuOpen,
     insideRefs: [accountMenuRootRef, accountMenuSurfaceRef],
@@ -295,12 +281,6 @@ export default function Topbar({
     });
   }, [adaptiveControlDescriptors, controlsAvailableWidth, hasAdaptiveControls, isMobileViewport]);
 
-  const workspaceOptions = useMemo(() => workspaceSwitcher?.options ?? [], [workspaceSwitcher]);
-  const workspaceSelectedIndex = useMemo(() => {
-    if (!workspaceSwitcher) return -1;
-    return workspaceOptions.findIndex((option) => option.value === workspaceSwitcher.currentWorkspaceId);
-  }, [workspaceOptions, workspaceSwitcher]);
-
   useEffect(() => {
     if (!showNotifications) return;
     void loadNotifications();
@@ -346,25 +326,6 @@ export default function Topbar({
       window.removeEventListener("resize", update);
     };
   }, [hasAdaptiveControls]);
-
-  useEffect(() => {
-    if (!workspaceMenuOpen) return;
-    setWorkspaceActiveIndex(workspaceSelectedIndex >= 0 ? workspaceSelectedIndex : workspaceOptions.length > 0 ? 0 : -1);
-    requestAnimationFrame(() => {
-      workspaceListboxRef.current?.focus();
-    });
-  }, [workspaceMenuOpen, workspaceOptions.length, workspaceSelectedIndex]);
-
-  useEffect(() => {
-    if (!workspaceMenuOpen) return;
-    if (workspaceOptions.length === 0) {
-      setWorkspaceActiveIndex(-1);
-      return;
-    }
-    if (workspaceActiveIndex < 0 || workspaceActiveIndex >= workspaceOptions.length) {
-      setWorkspaceActiveIndex(0);
-    }
-  }, [workspaceActiveIndex, workspaceMenuOpen, workspaceOptions.length]);
 
   useEffect(() => {
     if (!accountMenuOpen) return;
@@ -424,177 +385,6 @@ export default function Topbar({
   const triggerLogout = () => {
     setAccountMenuOpen(false);
     onLogout?.();
-  };
-
-  const activateWorkspaceByIndex = (index: number) => {
-    if (!workspaceSwitcher) return;
-    if (index < 0 || index >= workspaceOptions.length) return;
-    const option = workspaceOptions[index];
-    setWorkspaceMenuOpen(false);
-    if (option.value !== workspaceSwitcher.currentWorkspaceId) {
-      workspaceSwitcher.onChange(option.value);
-    }
-    workspaceTriggerRef.current?.focus();
-  };
-
-  const handleWorkspaceListboxKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      setWorkspaceMenuOpen(false);
-      workspaceTriggerRef.current?.focus();
-      return;
-    }
-    if (event.key === "Tab") {
-      setWorkspaceMenuOpen(false);
-      return;
-    }
-    if (workspaceOptions.length === 0) return;
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setWorkspaceActiveIndex((current) => (current < 0 ? 0 : (current + 1) % workspaceOptions.length));
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setWorkspaceActiveIndex((current) =>
-        current < 0 ? workspaceOptions.length - 1 : (current - 1 + workspaceOptions.length) % workspaceOptions.length
-      );
-      return;
-    }
-    if (event.key === "Home") {
-      event.preventDefault();
-      setWorkspaceActiveIndex(0);
-      return;
-    }
-    if (event.key === "End") {
-      event.preventDefault();
-      setWorkspaceActiveIndex(workspaceOptions.length - 1);
-      return;
-    }
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      if (workspaceActiveIndex >= 0) activateWorkspaceByIndex(workspaceActiveIndex);
-    }
-  };
-
-  const workspaceTriggerLabel = workspaceSwitcher
-    ? compactWorkspaceLabel(workspaceSwitcher.currentWorkspaceLabel)
-    : compactWorkspaceLabel(section);
-  const showWorkspaceInTopbar = showWorkspaceSwitcher;
-
-  const renderWorkspaceSelector = (placement: "sidebar" | "topbar") => {
-    const sidebarPlacement = placement === "sidebar";
-
-    if (workspaceSwitcher) {
-      return (
-        <div className="relative min-w-0 shrink-0">
-          <button
-            ref={workspaceTriggerRef}
-            type="button"
-            onClick={() => setWorkspaceMenuOpen((open) => !open)}
-            aria-label="Switch workspace"
-            aria-haspopup="listbox"
-            aria-expanded={workspaceMenuOpen}
-            aria-controls={workspaceMenuOpen ? workspaceListboxId : undefined}
-            onKeyDown={(event) => {
-              if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-              event.preventDefault();
-              setWorkspaceMenuOpen(true);
-            }}
-            className={`shell-control inline-flex min-w-0 items-center rounded-lg border text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
-              sidebarPlacement
-                ? "h-10 w-full px-3"
-                : "h-10 w-[140px] px-3"
-            } ${workspaceMenuOpen ? "shell-control-active" : ""}`}
-          >
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="shell-muted-text block truncate text-[10px] font-medium">Workspace</span>
-              <span className="mt-0.5 block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]">
-                {workspaceTriggerLabel}
-              </span>
-            </span>
-            <ChevronDownIcon
-              className={`shell-icon-muted ml-2 h-4 w-4 shrink-0 transition-transform ${
-                workspaceMenuOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-
-          {workspaceMenuOpen && (
-            <AnchoredPortalMenu
-              open={workspaceMenuOpen}
-              anchorRef={workspaceTriggerRef}
-              placement="bottom-start"
-              minWidth={240}
-              className="shell-menu overflow-hidden rounded-lg border p-1.5"
-            >
-              <div ref={workspaceMenuSurfaceRef}>
-                <div
-                  id={workspaceListboxId}
-                  ref={workspaceListboxRef}
-                  className="max-h-72 overflow-y-auto focus:outline-none"
-                  role="listbox"
-                  tabIndex={0}
-                  aria-label="Switch workspace"
-                  aria-activedescendant={
-                    workspaceActiveIndex >= 0 ? `${workspaceListboxId}-option-${workspaceActiveIndex}` : undefined
-                  }
-                  onKeyDown={handleWorkspaceListboxKeyDown}
-                >
-                  {workspaceOptions.map((option, index) => {
-                    const active = workspaceSwitcher.currentWorkspaceId === option.value;
-                    const highlighted = workspaceOptions[workspaceActiveIndex]?.value === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        id={`${workspaceListboxId}-option-${index}`}
-                        type="button"
-                        role="option"
-                        aria-selected={active}
-                        tabIndex={-1}
-                        onMouseEnter={() => setWorkspaceActiveIndex(index)}
-                        onClick={() => activateWorkspaceByIndex(index)}
-                        className={`flex w-full items-start gap-2 rounded-md px-3 py-1.5 text-left transition ${
-                          active
-                            ? "shell-menu-item-active"
-                            : highlighted
-                              ? "shell-menu-item-highlighted"
-                              : "shell-menu-item hover:bg-[var(--shell-hover)]"
-                        }`}
-                      >
-                        <span className="mt-0.5 h-4 w-4 shrink-0">
-                          {active ? <CheckIcon className="h-4 w-4" /> : null}
-                        </span>
-                        {option.icon && (
-                          <span className="shell-icon-muted mt-0.5 h-4 w-4 shrink-0">{option.icon}</span>
-                        )}
-                        <span className="min-w-0">
-                          <span className="block truncate ui-caption font-semibold">{option.label}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </AnchoredPortalMenu>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className={`shell-control flex min-w-0 items-center gap-2 rounded-lg border ${sidebarPlacement ? "h-10 px-3" : "h-10 w-[140px] px-3"}`}>
-        <span className="min-w-0 leading-[1.05]">
-          <span className="shell-muted-text block truncate text-[10px] font-medium">Workspace</span>
-          {workspaceTriggerLabel && (
-            <span className="mt-0.5 block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]">
-              {workspaceTriggerLabel}
-            </span>
-          )}
-        </span>
-      </div>
-    );
   };
 
   const renderNotificationItem = (item: UserNotification) => {
@@ -751,7 +541,9 @@ export default function Topbar({
               </button>
             )}
 
-            {showWorkspaceInTopbar ? renderWorkspaceSelector("topbar") : null}
+            {showWorkspaceSwitcher ? (
+              <TopbarWorkspaceSelector section={section} workspaceSwitcher={workspaceSwitcher} />
+            ) : null}
 
             {hasAdaptiveControls ? (
               <div ref={controlsStripRef} className="flex min-w-0 flex-1 items-center">
@@ -981,71 +773,5 @@ export default function Topbar({
       </div>
 
     </>
-  );
-}
-
-function HamburgerIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeWidth={1.8} d="M4 7h16M4 12h16M4 17h16" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="m5 7 5 6 5-6" />
-    </svg>
-  );
-}
-
-function CheckIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m4.5 10.5 3.2 3.2 7.8-7.8" />
-    </svg>
-  );
-}
-
-function UserIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <circle cx="12" cy="8" r="3.25" strokeWidth={1.5} />
-      <path strokeLinecap="round" strokeWidth={1.5} d="M5 19a7 7 0 0 1 14 0" />
-    </svg>
-  );
-}
-
-function LinkIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 14a4 4 0 0 1 0-5.66L12.34 6a4 4 0 0 1 5.66 5.66L16.5 13.2" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10a4 4 0 0 1 0 5.66L11.66 18a4 4 0 0 1-5.66-5.66L7.5 10.8" />
-    </svg>
-  );
-}
-
-function BellIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.5}
-        d="M18 9.5a6 6 0 1 0-12 0c0 6-2.25 6.5-2.25 6.5h16.5S18 15.5 18 9.5Z"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 19a2.25 2.25 0 0 0 4.5 0" />
-    </svg>
-  );
-}
-
-function LogoutIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 16.5 20 12l-5-4.5" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 12H9" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 19.5H6A2.5 2.5 0 0 1 3.5 17V7A2.5 2.5 0 0 1 6 4.5h6" />
-    </svg>
   );
 }
