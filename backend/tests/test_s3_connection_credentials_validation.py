@@ -105,9 +105,15 @@ def test_validate_credentials_access_denied_is_warning_user_route(db_session, mo
         db_session.add(endpoint)
         db_session.commit()
         db_session.refresh(endpoint)
+        captured: dict[str, object] = {}
+
+        def build_client(**kwargs):
+            captured.update(kwargs)
+            return _FakeS3Client(error=_client_error("AccessDenied"))
+
         monkeypatch.setattr(
             "app.services.s3_connection_validation_service.s3_client.get_s3_client",
-            lambda **kwargs: _FakeS3Client(error=_client_error("AccessDenied")),
+            build_client,
         )
 
         response = client.post(
@@ -124,6 +130,8 @@ def test_validate_credentials_access_denied_is_warning_user_route(db_session, mo
     assert payload["ok"] is True
     assert payload["severity"] == "warning"
     assert payload["code"] == "AccessDenied"
+    assert captured["endpoint"] == endpoint.endpoint_url
+    assert captured["force_path_style"] is endpoint.force_path_style
 
 
 def test_validate_credentials_invalid_credentials_error(db_session, monkeypatch):

@@ -44,6 +44,23 @@ def _seed_endpoint(db_session, *, name: str, endpoint_url: str, is_default: bool
     )
 
 
+def test_healthcheck_target_uses_canonical_persisted_endpoint_fields(db_session):
+    _seed_endpoint(
+        db_session,
+        name="Canonical target",
+        endpoint_url="https://canonical.example.test",
+        is_default=True,
+    )
+    db_session.commit()
+    endpoint = db_session.query(StorageEndpoint).filter(StorageEndpoint.name == "Canonical target").one()
+
+    target = HealthCheckService._to_check_target(endpoint)
+
+    assert target.endpoint_url == endpoint.endpoint_url
+    assert target.force_path_style is endpoint.force_path_style
+    assert target.verify_tls is endpoint.verify_tls
+
+
 def test_http_healthcheck_honors_endpoint_insecure_tls(monkeypatch):
     service = HealthCheckService(db=None)
     target = _build_target(verify_tls=False)
