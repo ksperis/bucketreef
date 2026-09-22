@@ -127,8 +127,7 @@ def resolve_iam_client_options(account: object) -> tuple[Optional[str], Optional
     verify_tls = True
     if endpoint_obj is not None:
         endpoint = resolve_iam_endpoint(endpoint_obj)
-        provider = str(getattr(getattr(endpoint_obj, "provider", None), "value", getattr(endpoint_obj, "provider", None)) or "").strip().lower()
-        if provider == "aws":
+        if endpoint_obj.provider == "aws":
             region = resolve_iam_signing_region(endpoint_obj)
         elif region is None:
             region = resolve_iam_signing_region(endpoint_obj)
