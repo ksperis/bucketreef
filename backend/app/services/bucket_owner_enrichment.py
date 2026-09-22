@@ -529,12 +529,11 @@ class BucketOwnerMetadataService:
         endpoint = self.endpoint
         if endpoint is None:
             return None
-        provider = str(getattr(endpoint, "provider", "") or "").strip().lower()
-        if provider and provider != StorageProvider.CEPH.value:
+        if endpoint.provider != StorageProvider.CEPH.value:
             return None
 
-        supervision_access_key = getattr(endpoint, "supervision_access_key", None)
-        supervision_secret_key = getattr(endpoint, "supervision_secret_key", None)
+        supervision_access_key = endpoint.supervision_access_key
+        supervision_secret_key = endpoint.supervision_secret_key
         supervision_creds = None
         if self.account is not None:
             supervision_creds = get_supervision_credentials(self.account)
@@ -550,7 +549,7 @@ class BucketOwnerMetadataService:
                         secret_key=secret_key,
                         endpoint=admin_endpoint,
                         region=endpoint.region,
-                        verify_tls=bool(getattr(endpoint, "verify_tls", True)),
+                        verify_tls=endpoint.verify_tls,
                     )
                     return self.rgw_admin
                 except RGWAdminError:
