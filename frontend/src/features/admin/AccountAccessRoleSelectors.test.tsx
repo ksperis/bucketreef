@@ -61,7 +61,7 @@ describe("AccountAccessRoleSelectors", () => {
     ).toBeDisabled();
   });
 
-  it("allows an empty draft but explains that it cannot be saved", () => {
+  it("shows the required-role message only when validation is requested", () => {
     const onChange = vi.fn();
     render(
       <AccountAccessRoleSelectors
@@ -89,6 +89,19 @@ describe("AccountAccessRoleSelectors", () => {
         portalEnabled
         value={{ manager_role: null, portal_role: null }}
         onChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByText("Choose at least one role for this association."),
+    ).not.toBeInTheDocument();
+
+    render(
+      <AccountAccessRoleSelectors
+        label="Selected empty association"
+        portalEnabled
+        value={{ manager_role: null, portal_role: null }}
+        onChange={vi.fn()}
+        showValidation
       />,
     );
     expect(

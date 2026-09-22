@@ -407,16 +407,25 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.getByRole("columnheader", { name: "Portal role" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Add UI users" }));
-    fireEvent.change(await screen.findByRole("combobox", { name: "Portal role for ui7@example.com" }), {
+    const userCheckbox = await screen.findByRole("checkbox", { name: "ui7@example.com" });
+    const userManagerRole = screen.getByRole("combobox", { name: "Manager role for ui7@example.com" });
+    const userPortalRole = screen.getByRole("combobox", { name: "Portal role for ui7@example.com" });
+    expect(userManagerRole).toHaveValue("");
+    expect(userPortalRole).toHaveValue("");
+    expect(screen.queryByText("Choose at least one role for this association.")).not.toBeInTheDocument();
+    fireEvent.click(userCheckbox);
+    expect(screen.getByText("Choose at least one role for this association.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add selected" })).toBeDisabled();
+    fireEvent.change(userPortalRole, {
       target: { value: "portal_manager" },
     });
-    fireEvent.click(screen.getByRole("checkbox", { name: "ui7@example.com" }));
+    expect(screen.queryByText("Choose at least one role for this association.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
     fireEvent.click(screen.getByRole("tab", { name: "Linked UI groups" }));
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
     expect(await screen.findByRole("combobox", { name: "Portal role for Research Group" })).toHaveValue(
-      "portal_user",
+      "",
     );
     fireEvent.change(screen.getByRole("combobox", { name: "Manager role for Research Group" }), {
       target: { value: "account_administrator" },
