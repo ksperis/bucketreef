@@ -18,8 +18,11 @@ from app.db import ManagerAccountRole, S3Account, StorageEndpoint, StorageProvid
 from app.models.s3_account import S3AccountCreate, S3AccountUpdate
 from app.models.user import UserCreate
 from app.services.buckets_service import BucketsService
-from app.services.objects_service import ObjectsService
 from app.services.s3_accounts_service import get_s3_accounts_service
+from app.services.s3_execution_client import (
+    require_s3_execution_credentials,
+    s3_execution_client_kwargs,
+)
 from app.services.users_service import UsersService
 from app.services.rgw_iam import get_iam_service
 from app.services import s3_client
@@ -468,7 +471,6 @@ def ensure_iam_user_with_key(account: S3Account, iam_username: str) -> IAMAccess
 def create_account_data(
     accounts_service,
     buckets_service: BucketsService,
-    objects_service: ObjectsService,
     users_service: UsersService,
     plan: AccountPlan,
     storage_endpoint_id: int,
@@ -489,6 +491,7 @@ def create_account_data(
         return
     logger.info("Account ready: %s (rgw_id=%s)", account.name, account.rgw_account_id)
     iam_keys: dict[str, IAMAccessKey | None] = {}
+    account_client = None
 
     def _client_for(user_name: str):
         key = iam_keys.get(user_name)
@@ -530,12 +533,22 @@ def create_account_data(
                 if bucket_client:
                     bucket_client.put_object(Bucket=bucket_plan.name, Key=key, Body=body, ContentType=content_type)
                 else:
-                    objects_service.upload_object(
-                        bucket_plan.name,
-                        account,
-                        key,
-                        file_obj=body,
-                        content_type=content_type,
+                    if account_client is None:
+                        access_key, secret_key = require_s3_execution_credentials(
+                            account,
+                            error_message="Account credentials are required to seed objects",
+                        )
+                        account_client = s3_client.get_s3_client(
+                            access_key,
+                            secret_key,
+                            request_profile="long_running",
+                            **s3_execution_client_kwargs(account),
+                        )
+                    account_client.put_object(
+                        Bucket=bucket_plan.name,
+                        Key=key,
+                        Body=body,
+                        ContentType=content_type,
                     )
             except Exception as exc:
                 if bucket_ready:
@@ -634,7 +647,6 @@ def main() -> None:
             raise SystemExit("A default Ceph storage endpoint is required to seed demo data.")
         accounts_service = get_s3_accounts_service(db)
         buckets_service = BucketsService()
-        objects_service = ObjectsService()
         users_service = UsersService(db)
         plans = build_account_plans(args, config)
         logger.info("Planned %s accounts (%s from YAML).", len(plans), len(config.get('accounts', [])) if config else 0)
@@ -642,7 +654,6 @@ def main() -> None:
             create_account_data(
                 accounts_service,
                 buckets_service,
-                objects_service,
                 users_service,
                 plan,
                 storage_endpoint.id,
