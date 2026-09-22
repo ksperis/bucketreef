@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from app.db import S3Account, StorageEndpoint
+from app.db import S3Account
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_supervision import get_supervision_rgw_client
@@ -42,12 +42,6 @@ class PortalAccountRuntimeMixin:
 
     def _supervision_admin_for_account(self, account: S3Account) -> RGWAdminClient:
         endpoint = account.storage_endpoint
-        if endpoint is None and account.storage_endpoint_id:
-            endpoint = (
-                self.db.query(StorageEndpoint)
-                .filter(StorageEndpoint.id == account.storage_endpoint_id)
-                .first()
-            )
         if not endpoint:
             raise RuntimeError("Endpoint de supervision manquant pour ce compte")
         flags = resolve_feature_flags(endpoint)
@@ -60,12 +54,6 @@ class PortalAccountRuntimeMixin:
 
     def _quota_admin_for_account(self, account: S3Account) -> Optional[RGWAdminClient]:
         endpoint = account.storage_endpoint
-        if endpoint is None and account.storage_endpoint_id:
-            endpoint = (
-                self.db.query(StorageEndpoint)
-                .filter(StorageEndpoint.id == account.storage_endpoint_id)
-                .first()
-            )
         if not endpoint:
             return None
         admin_endpoint = resolve_admin_endpoint(endpoint)
