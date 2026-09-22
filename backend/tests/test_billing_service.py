@@ -166,9 +166,12 @@ def test_billing_subject_detail_and_export(db_session):
     db_session.commit()
 
     service = BillingService(db_session)
+    subjects = service.list_subjects("2026-01", endpoint.id, "account", 1, 50, "name", "asc")
     detail = service.subject_detail("2026-01", endpoint.id, "account", account.id)
 
+    assert subjects.items[0].rgw_identifier == account.rgw_user_uid
     assert detail.subject_id == account.id
+    assert detail.rgw_identifier == account.rgw_user_uid
     assert detail.usage.bytes_out == 1024
     assert detail.storage.avg_bytes == 2048
     assert detail.coverage.days_collected == 1
@@ -180,6 +183,7 @@ def test_billing_subject_detail_and_export(db_session):
     assert filename.startswith("billing-2026-01")
     assert "subject_type" in payload
     assert str(account.id) in payload
+    assert account.rgw_user_uid in payload
 
 
 def test_billing_coverage_tracks_storage_and_usage_days_separately(db_session):
