@@ -119,15 +119,13 @@ class PortalBucketsUsersMixin:
             secret_key=secret_key,
             **self._s3_client_kwargs(account),
         )
-        endpoint_id = int(account.storage_endpoint_id or 0)
-        if endpoint_id > 0:
-            BucketUiTagsService(self.db).remove_all_namespaces_for_bucket(
-                PhysicalBucketTarget.create(
-                    endpoint_id,
-                    resolve_storage_ops_context_tenant(account),
-                    bucket_name,
-                )
+        BucketUiTagsService(self.db).remove_all_namespaces_for_bucket(
+            PhysicalBucketTarget.create(
+                int(account.storage_endpoint_id),
+                resolve_storage_ops_context_tenant(account),
+                bucket_name,
             )
+        )
 
     def provision_portal_user(self, target: User, account: S3Account, portal_role: str) -> None:
         """Create/sync IAM user and group membership immediately when roles change."""

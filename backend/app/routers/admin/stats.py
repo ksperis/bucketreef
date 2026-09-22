@@ -73,20 +73,10 @@ def _build_rgw_client(endpoint: StorageEndpoint) -> RGWAdminClient:
 
 
 def _resolve_account_endpoint(db: Session, account: S3Account) -> StorageEndpoint:
-    if account.storage_endpoint_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Storage endpoint is not configured for this account.",
-        )
     return _resolve_endpoint(db, account.storage_endpoint_id, require_storage_metrics=True)
 
 
 def _resolve_s3_user_endpoint(db: Session, s3_user: S3User) -> StorageEndpoint:
-    if s3_user.storage_endpoint_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Storage endpoint is not configured for this user.",
-        )
     return _resolve_endpoint(db, s3_user.storage_endpoint_id, require_storage_metrics=True)
 
 
