@@ -26,6 +26,17 @@ Use this page when you work with files inside a Portal space.
 | Restore a folder | Open folder > **Restore deleted files in this folder** | Restores deleted files under that folder with progress and cancellation. This action is intentionally unavailable at the space root. |
 | Inspect safe details | File detail > Details | Shows size, type, last update, and location first. Storage class and encryption stay under **Technical details**. |
 
+## Exact file paths
+
+File paths preserve spaces and every `/`: `report.txt`, `/report.txt`, and
+`//report.txt` identify different files. Details, downloads, history, deletion,
+restoration, and public links use the selected file's exact path. Restoring the
+literal `/` folder does not restore the whole space.
+
+Existing public links keep their stored file path. Check that path before
+sharing an older link; revoke and recreate the link when it points to a
+different file than intended.
+
 ## You are done when
 
 The file list reflects the new upload, folder, deletion, download-ready file, or public-link state without leaving the space.

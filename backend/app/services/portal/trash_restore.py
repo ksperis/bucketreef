@@ -209,11 +209,9 @@ class PortalDeletedPrefixRestoreMixin:
         *,
         prefix: str,
     ) -> PortalDeletedPrefixRestoreTarget:
-        target_prefix = (prefix or "").lstrip("/")
-        if not target_prefix:
+        if not prefix:
             raise ValueError("A folder prefix is required.")
-        if not target_prefix.endswith("/"):
-            target_prefix = f"{target_prefix}/"
+        target_prefix = prefix if prefix.endswith("/") else f"{prefix}/"
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
             raise RuntimeError("Storage space not found or not allowed.")

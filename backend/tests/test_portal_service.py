@@ -3714,8 +3714,8 @@ def test_object_detail_and_delete_use_safe_portal_operations(monkeypatch, db_ses
     fake_client = FakeClient()
     monkeypatch.setattr(service, "_portal_object_client", lambda *_args, **_kwargs: fake_client)
 
-    detail = service.get_storage_space_object_detail(user, access, "research-data", "/raw-data/readme.txt")
-    deleted_key = service.delete_storage_space_object(user, access, "research-data", "/raw-data/old.txt")
+    detail = service.get_storage_space_object_detail(user, access, "research-data", "raw-data/readme.txt")
+    deleted_key = service.delete_storage_space_object(user, access, "research-data", "raw-data/old.txt")
 
     assert detail.content_type == "text/plain"
     assert detail.storage_class == "STANDARD"
@@ -3779,7 +3779,7 @@ def test_portal_object_history_lists_versions_and_delete_markers(monkeypatch, db
         user,
         access,
         "research-data",
-        "/folder/report.txt",
+        "folder/report.txt",
     )
 
     assert result.versioning_status == "Enabled"
@@ -3898,7 +3898,7 @@ def test_portal_restore_deleted_object_creates_new_current_version(monkeypatch, 
         user,
         access,
         "research-data",
-        "/folder/deleted.txt",
+        "folder/deleted.txt",
     )
 
     assert result.restored_from_version_id == "v7"
@@ -4919,7 +4919,7 @@ def test_public_links_are_scoped_expirable_and_revocable(monkeypatch, db_session
         owner,
         access,
         "research-data",
-        object_key="/raw-data/report.csv",
+        object_key="raw-data/report.csv",
         label="Report",
         expires_at=utcnow() + timedelta(days=1),
     )
@@ -6117,7 +6117,7 @@ def test_download_storage_space_object_streams_visible_object(monkeypatch, db_se
         "/raw-data/readme.txt",
     )
 
-    assert fake_client.calls == [{"Bucket": "bucket-research-data", "Key": "raw-data/readme.txt"}]
+    assert fake_client.calls == [{"Bucket": "bucket-research-data", "Key": "/raw-data/readme.txt"}]
     assert list(download.body.iter_chunks(chunk_size=3)) == [b"abc", b"def"]
     download.body.close()
     assert download.content_type == "text/plain"

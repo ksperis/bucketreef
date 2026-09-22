@@ -169,8 +169,7 @@ class PortalObjectsMixin:
         version_id_marker: Optional[str] = None,
         max_keys: int = 1000,
     ) -> PortalStorageObjectVersionsResponse:
-        target_key = (key or "").lstrip("/")
-        if not target_key:
+        if not key:
             raise RuntimeError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
@@ -180,27 +179,27 @@ class PortalObjectsMixin:
         versioning_status = self._storage_space_versioning_status(client, bucket_name, space_id)
         if versioning_status == "Disabled":
             return PortalStorageObjectVersionsResponse(
-                key=target_key,
+                key=key,
                 versioning_status="Disabled",
                 can_restore=False,
             )
         response = self._list_storage_space_object_versions_page(
             client,
             bucket_name,
-            key=target_key,
+            key=key,
             key_marker=key_marker,
             version_id_marker=version_id_marker,
             max_keys=max_keys,
         )
         entries: list[PortalStorageObjectVersion] = []
         for value in response.get("Versions", []):
-            if value.get("Key") != target_key:
+            if value.get("Key") != key:
                 continue
             entry = self._portal_version_entry(value, is_delete_marker=False)
             if entry is not None:
                 entries.append(entry)
         for value in response.get("DeleteMarkers", []):
-            if value.get("Key") != target_key:
+            if value.get("Key") != key:
                 continue
             entry = self._portal_version_entry(value, is_delete_marker=True)
             if entry is not None:
@@ -210,7 +209,7 @@ class PortalObjectsMixin:
             reverse=True,
         )
         return PortalStorageObjectVersionsResponse(
-            key=target_key,
+            key=key,
             versioning_status=versioning_status,
             can_restore=role != "Viewer",
             versions=entries,
@@ -341,8 +340,7 @@ class PortalObjectsMixin:
         *,
         version_id: Optional[str] = None,
     ) -> PortalStorageObjectRestoreResponse:
-        target_key = (key or "").lstrip("/")
-        if not target_key:
+        if not key:
             raise RuntimeError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
@@ -355,17 +353,17 @@ class PortalObjectsMixin:
         source_version_id = version_id or self._latest_restorable_storage_space_version(
             client,
             bucket_name,
-            target_key,
+            key,
         )
         self._restore_storage_space_object_version_with_client(
             client,
             bucket_name,
-            target_key,
+            key,
             source_version_id,
             space_id=space_id,
         )
         return PortalStorageObjectRestoreResponse(
-            key=target_key,
+            key=key,
             restored_from_version_id=source_version_id,
         )
 
@@ -418,8 +416,7 @@ class PortalObjectsMixin:
         space_id: str,
         key: str,
     ) -> S3ObjectDownload:
-        target_key = (key or "").lstrip("/")
-        if not target_key:
+        if not key:
             raise RuntimeError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
@@ -427,14 +424,14 @@ class PortalObjectsMixin:
         self._require_storage_space_content_role(user, access, bucket_name)
         client = self._portal_object_client(user, access.account, request_profile="long_running")
         try:
-            resp = client.get_object(Bucket=bucket_name, Key=target_key)
+            resp = client.get_object(Bucket=bucket_name, Key=key)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to download object '{target_key}' in storage space '{space_id}': {exc}") from exc
+            raise RuntimeError(f"Unable to download object '{key}' in storage space '{space_id}': {exc}") from exc
         body = resp.get("Body")
         if not body:
-            raise RuntimeError(f"Unable to download object '{target_key}': empty response body")
+            raise RuntimeError(f"Unable to download object '{key}': empty response body")
         content_type = resp.get("ContentType")
-        filename = self._object_name(target_key) or "download"
+        filename = self._object_name(key) or "download"
         return S3ObjectDownload(body=body, content_type=content_type, filename=filename)
 
     def _safe_content_preview(self, client, bucket_name: str, key: str, content_type: Optional[str]) -> tuple[str, Optional[str], Optional[str]]:
@@ -475,20 +472,19 @@ class PortalObjectsMixin:
         space_id: str,
         key: str,
     ) -> PortalStorageObjectDetail:
-        target_key = (key or "").lstrip("/")
-        if not target_key:
+        if not key:
             raise RuntimeError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
             raise RuntimeError("Storage space not found or not allowed.")
         self._require_storage_space_content_role(user, access, bucket_name)
         client = self._portal_object_client(user, access.account)
-        resp = self._head_storage_space_object(client, bucket_name, space_id, target_key)
+        resp = self._head_storage_space_object(client, bucket_name, space_id, key)
         content_type = resp.get("ContentType")
-        preview_type, preview_text, preview_reason = self._safe_content_preview(client, bucket_name, target_key, content_type)
+        preview_type, preview_text, preview_reason = self._safe_content_preview(client, bucket_name, key, content_type)
         return PortalStorageObjectDetail(
-            key=target_key,
-            name=self._object_name(target_key),
+            key=key,
+            name=self._object_name(key),
             size=resp.get("ContentLength"),
             last_modified=resp.get("LastModified"),
             content_type=content_type,
@@ -506,8 +502,7 @@ class PortalObjectsMixin:
         space_id: str,
         key: str,
     ) -> str:
-        target_key = (key or "").lstrip("/")
-        if not target_key:
+        if not key:
             raise RuntimeError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
@@ -516,7 +511,7 @@ class PortalObjectsMixin:
             raise RuntimeError("Delete not allowed for this storage space role.")
         client = self._portal_object_client(user, access.account)
         try:
-            client.delete_object(Bucket=bucket_name, Key=target_key)
+            client.delete_object(Bucket=bucket_name, Key=key)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to delete object '{target_key}' in storage space '{space_id}': {exc}") from exc
-        return target_key
+            raise RuntimeError(f"Unable to delete object '{key}' in storage space '{space_id}': {exc}") from exc
+        return key

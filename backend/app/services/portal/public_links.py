@@ -93,7 +93,7 @@ class PortalPublicLinksMixin:
             DBPortalPublicLink.bucket_name == bucket_name,
         )
         if object_key:
-            query = query.filter(DBPortalPublicLink.object_key == object_key.lstrip("/"))
+            query = query.filter(DBPortalPublicLink.object_key == object_key)
         if not include_revoked:
             query = query.filter(DBPortalPublicLink.revoked_at.is_(None))
         links = query.order_by(DBPortalPublicLink.created_at.desc(), DBPortalPublicLink.id.desc()).all()
@@ -109,8 +109,7 @@ class PortalPublicLinksMixin:
         label: Optional[str] = None,
         expires_at: Optional[datetime] = None,
     ) -> PortalPublicLink:
-        target_key = (object_key or "").lstrip("/")
-        if not target_key:
+        if not object_key:
             raise RuntimeError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
@@ -132,13 +131,13 @@ class PortalPublicLinksMixin:
         if expires_at is not None and expires_at <= utcnow():
             raise RuntimeError("Public link expiration must be in the future.")
         client = self._portal_object_client(user, access.account)
-        self._head_storage_space_object(client, bucket_name, space_id, target_key)
+        self._head_storage_space_object(client, bucket_name, space_id, object_key)
         token = secrets.token_urlsafe(32)
         link = DBPortalPublicLink(
             token=token,
             account_id=access.account.id,
             bucket_name=bucket_name,
-            object_key=target_key,
+            object_key=object_key,
             label=label,
             created_by_user_id=user.id,
             created_by_email=user.email,
