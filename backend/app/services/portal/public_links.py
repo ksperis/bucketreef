@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import get_settings
-from app.db import PortalPublicLink as DBPortalPublicLink, S3Account, User
+from app.db import PortalAccountRole, PortalPublicLink as DBPortalPublicLink, S3Account, User
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.models.portal_sharing import PortalPublicLink
 from app.services.s3_client import get_s3_client
@@ -36,8 +36,6 @@ class PortalPublicLinksMixin:
         metadata = self._storage_space_metadata(account, link.bucket_name) if account is not None else None
         if metadata and metadata.archived_at:
             return "Archived"
-        if self._metadata_visibility(metadata) == "private":
-            return "Suspended"
         return "Active"
 
     def _public_link_url(self, token: str) -> str:
@@ -116,7 +114,11 @@ class PortalPublicLinksMixin:
             raise RuntimeError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
-        self._require_storage_space_shared(access.account, bucket_name)
+        self._require_storage_space_active(access.account, bucket_name)
+        if access.portal_role == PortalAccountRole.PORTAL_MANAGER.value:
+            self._require_storage_space_shared(access.account, bucket_name)
+        elif not self._portal_user_can_create_external_sharing(user, access, bucket_name):
+            raise RuntimeError("External sharing is disabled for this Portal user.")
         storage_space = next(
             (
                 item
@@ -190,8 +192,6 @@ class PortalPublicLinksMixin:
         metadata = self._storage_space_metadata(account, link.bucket_name)
         if metadata and metadata.archived_at:
             raise RuntimeError("Public link is archived.")
-        if self._metadata_visibility(metadata) == "private":
-            raise RuntimeError("Public link is suspended for this private storage space.")
         access_key, secret_key = self._account_credentials(account)
         endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(account)
         client = get_s3_client(

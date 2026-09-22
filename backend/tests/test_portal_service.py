@@ -637,12 +637,14 @@ def test_get_state_without_bootstrap_is_read_only(monkeypatch, db_session):
         "can_manage_buckets",
         "can_create_private_storage_spaces",
         "can_create_team_storage_spaces",
+        "can_create_external_sharing",
         "can_manage_portal_users",
         "allow_named_bucket_create",
         "server_access_logging_enabled",
         "storage_space_version_cleanup_enabled",
     }
     assert state.portal_role == PortalAccountRole.PORTAL_USER.value
+    assert state.can_create_external_sharing is False
 
 
 def test_get_state_does_not_load_dynamic_quota_limits(monkeypatch, db_session):
@@ -904,6 +906,7 @@ def test_access_keys_state_hides_portal_key_and_exposes_policy(monkeypatch, db_s
     assert state.s3_endpoint == "https://portal-keys.example.test"
     assert state.force_path_style is True
     assert state.can_manage_access_keys is True
+    assert state.can_create_external_access is False
     assert state.max_access_keys == 3
     assert [key.access_key_id for key in state.access_keys] == ["AK-USER"]
     assert state.access_keys[0].secret_access_key is None
@@ -1024,6 +1027,35 @@ def test_get_state_disables_storage_space_creation_for_portal_user_when_setting_
     assert state.can_manage_buckets is False
     assert state.can_create_private_storage_spaces is False
     assert state.can_create_team_storage_spaces is False
+
+
+def test_get_state_exposes_external_sharing_capability_by_portal_role(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-account-external-sharing-state",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(email="portal-external-sharing-state@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_effective_portal_settings",
+        lambda _account: PortalSettings(allow_portal_user_external_sharing=True),
+    )
+
+    portal_user_state = service.get_state(
+        _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value)
+    )
+    portal_manager_state = service.get_state(
+        _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value)
+    )
+
+    assert portal_user_state.can_create_external_sharing is True
+    assert portal_manager_state.can_create_external_sharing is True
 
 
 def test_get_state_exposes_effective_server_access_logging_setting(monkeypatch, db_session):
@@ -5051,6 +5083,89 @@ def test_private_storage_space_blocks_new_shares_and_public_links(monkeypatch, d
         service.create_storage_space_public_link(owner, access, "private-data", object_key="report.csv")
 
 
+def test_portal_user_owner_can_create_private_public_link_when_external_sharing_enabled(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-private-public-link-enabled",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    owner = User(email="owner-private-public-enabled@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="private-public-data",
+        display_name="Private Public Data",
+        owner_user_id=owner.id,
+        visibility="private",
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "list_storage_spaces",
+        lambda *_args, **_kwargs: [
+            PortalStorageSpaceSummary(
+                id="private-public-data",
+                name="Private Public Data",
+                role="Owner",
+                internal_bucket_name="private-public-data",
+                visibility="private",
+            )
+        ],
+    )
+    settings = PortalSettings(allow_portal_user_external_sharing=False)
+    monkeypatch.setattr(service, "_effective_portal_settings", lambda _account: settings)
+    access = _portal_access(
+        account,
+        owner,
+        portal_role=PortalAccountRole.PORTAL_USER.value,
+        can_manage_buckets=False,
+    )
+
+    with pytest.raises(RuntimeError, match="External sharing is disabled"):
+        service.create_storage_space_public_link(
+            owner,
+            access,
+            "private-public-data",
+            object_key="report.csv",
+        )
+
+    settings.allow_portal_user_external_sharing = True
+
+    class FakeClient:
+        def head_object(self, **kwargs):
+            assert kwargs == {"Bucket": "private-public-data", "Key": "report.csv"}
+            return {"ContentLength": 12}
+
+    monkeypatch.setattr(service, "_portal_object_client", lambda *_args, **_kwargs: FakeClient())
+
+    summary = service.get_storage_space_access_summary(owner, access, "private-public-data")
+    link = service.create_storage_space_public_link(
+        owner,
+        access,
+        "private-public-data",
+        object_key="report.csv",
+    )
+
+    assert summary.can_manage_access is False
+    assert summary.can_create_public_links is True
+    assert link.status == "Active"
+
+    settings.allow_portal_user_external_sharing = False
+    revoked = service.revoke_storage_space_public_link(
+        owner,
+        access,
+        "private-public-data",
+        link.id,
+    )
+
+    assert [(item.id, item.status) for item in revoked] == [(link.id, "Revoked")]
+
+
 def test_archived_storage_space_suspends_public_link_download(db_session):
     account = make_s3_account(db_session, name="portal-archived-link", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     owner = User(email="owner-archived-link@example.com", hashed_password="x", role="ui_user")
@@ -6481,7 +6596,15 @@ def test_create_external_access_key_scopes_policy_to_storage_space(
     synced = []
     service = PortalService(db_session)
     monkeypatch.setattr(service, "_get_iam_service", lambda acc: iam_service)
-    monkeypatch.setattr(service, "_effective_portal_settings", lambda acc: PortalSettings(max_portal_user_access_keys=1))
+    monkeypatch.setattr(
+        service,
+        "_effective_portal_settings",
+        lambda acc: PortalSettings(
+            allow_portal_user_access_key_create=False,
+            max_portal_user_access_keys=1,
+            allow_portal_user_external_sharing=True,
+        ),
+    )
     monkeypatch.setattr(
         service,
         "_sync_storage_space_access_projection",
@@ -6517,6 +6640,100 @@ def test_create_external_access_key_scopes_policy_to_storage_space(
     assert resources == {f"arn:aws:s3:::{metadata.bucket_name}", f"arn:aws:s3:::{metadata.bucket_name}/*"}
 
 
+def test_portal_user_external_access_requires_external_sharing_setting(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-account-ext-setting-disabled",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    owner = User(email="portal-owner-ext-setting-disabled@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="private-external-disabled",
+        display_name="Private External Disabled",
+        owner_user_id=owner.id,
+        visibility="private",
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_effective_portal_settings",
+        lambda _account: PortalSettings(
+            allow_portal_user_access_key_create=True,
+            allow_portal_user_external_sharing=False,
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_get_iam_service",
+        lambda _account: pytest.fail("IAM should not be reached when external sharing is disabled"),
+    )
+
+    with pytest.raises(PortalAccessKeyManagementDisabled, match="External sharing is disabled"):
+        service.create_access_key(
+            owner,
+            _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_USER.value),
+            PortalAccessKeyCreate(
+                target_type="external",
+                storage_space_id=metadata.bucket_name,
+                external_email="partner@example.org",
+                permission="read_only",
+            ),
+        )
+
+
+def test_portal_manager_external_access_does_not_use_portal_user_external_sharing_setting(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-manager-ext-setting",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    manager = User(email="portal-manager-ext-setting@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, manager])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="manager-external-space",
+        display_name="Manager External Space",
+        visibility="shared",
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_effective_portal_settings",
+        lambda _account: PortalSettings(
+            allow_portal_user_access_key_create=False,
+            allow_portal_user_external_sharing=False,
+        ),
+    )
+    payload = PortalAccessKeyCreate(
+        target_type="external",
+        storage_space_id=metadata.bucket_name,
+        external_email="partner@example.org",
+        permission="read_only",
+    )
+
+    validated_metadata, external_email, permission = service._validate_external_access_key_request(
+        manager,
+        _portal_access(account, manager, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
+        payload,
+    )
+
+    assert validated_metadata.id == metadata.id
+    assert external_email == "partner@example.org"
+    assert permission == "read_only"
+
+
 def test_create_external_access_key_requires_content_owner(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-account-ext-denied", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     owner = User(email="portal-owner-ext-denied@example.com", hashed_password="x", role="ui_user")
@@ -6543,7 +6760,15 @@ def test_create_external_access_key_requires_content_owner(monkeypatch, db_sessi
     db_session.commit()
 
     service = PortalService(db_session)
-    monkeypatch.setattr(service, "_effective_portal_settings", lambda acc: PortalSettings(max_portal_user_access_keys=4))
+    monkeypatch.setattr(
+        service,
+        "_effective_portal_settings",
+        lambda acc: PortalSettings(
+            allow_portal_user_access_key_create=False,
+            allow_portal_user_external_sharing=False,
+            max_portal_user_access_keys=4,
+        ),
+    )
     monkeypatch.setattr(service, "_get_iam_service", lambda acc: pytest.fail("IAM should not be reached when owner check fails"))
 
     with pytest.raises(RuntimeError, match="Full content access required"):
@@ -6607,7 +6832,15 @@ def test_external_access_key_status_and_delete_resync_policy(monkeypatch, db_ses
     synced = []
     service = PortalService(db_session)
     monkeypatch.setattr(service, "_get_iam_service", lambda acc: iam_service)
-    monkeypatch.setattr(service, "_effective_portal_settings", lambda acc: PortalSettings(max_portal_user_access_keys=4))
+    monkeypatch.setattr(
+        service,
+        "_effective_portal_settings",
+        lambda acc: PortalSettings(
+            allow_portal_user_access_key_create=False,
+            allow_portal_user_external_sharing=False,
+            max_portal_user_access_keys=4,
+        ),
+    )
     monkeypatch.setattr(
         service,
         "_sync_storage_space_access_projection",

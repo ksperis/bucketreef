@@ -7,7 +7,7 @@ import re
 import secrets
 from typing import Optional, TYPE_CHECKING
 
-from app.db import PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
+from app.db import PortalAccountRole, PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
 from app.models.app_settings import PortalSettings
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
 from app.models.portal_storage_spaces import PortalStorageSpaceRole
@@ -94,6 +94,13 @@ class PortalAccessKeysMixin:
             force_path_style=force_path_style,
             access_keys=access_keys,
             can_manage_access_keys=portal_settings.allow_portal_user_access_key_create,
+            can_create_external_access=bool(
+                access.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+                or (
+                    access.portal_role == PortalAccountRole.PORTAL_USER.value
+                    and portal_settings.allow_portal_user_external_sharing
+                )
+            ),
             max_access_keys=portal_settings.max_portal_user_access_keys,
         )
 
@@ -244,6 +251,13 @@ class PortalAccessKeysMixin:
         metadata = self._require_storage_space_active(access.account, bucket_name)
         if metadata is None:
             raise RuntimeError("Storage space metadata is missing.")
+        if (
+            access.portal_role != PortalAccountRole.PORTAL_MANAGER.value
+            and not self._portal_user_can_create_external_sharing(user, access, bucket_name)
+        ):
+            raise PortalAccessKeyManagementDisabled(
+                "External sharing is disabled for this Portal user."
+            )
         permission = payload.permission if payload.permission in {"read_only", "read_write"} else "read_only"
         return metadata, external_email, permission
 
@@ -253,7 +267,6 @@ class PortalAccessKeysMixin:
         access: "AccountAccess",
         payload: PortalAccessKeyCreate,
     ) -> PortalAccessKey:
-        self._ensure_access_key_management_allowed(access)
         metadata, external_email, permission = self._validate_external_access_key_request(user, access, payload)
         iam_service = self._get_iam_service(access.account)
         iam_username = self._external_username(access.account, metadata, external_email)
@@ -305,10 +318,9 @@ class PortalAccessKeysMixin:
         )
 
     def update_access_key_status(self, user: User, access: "AccountAccess", access_key_id: str, active: bool) -> PortalAccessKey:
-        portal_settings = self._ensure_access_key_management_allowed(access)
-        iam_service = self._get_iam_service(access.account)
         external = self._find_external_credential(user, access.account, access_key_id)
         if external is not None:
+            iam_service = self._get_iam_service(access.account)
             status_value = "Active" if active else "Inactive"
             iam_service.update_access_key_status(external.iam_username, access_key_id, status_value)
             external.status = status_value
@@ -324,6 +336,8 @@ class PortalAccessKeysMixin:
                 external,
                 storage_space_name=self._display_storage_space_name(external.bucket_name, metadata),
             )
+        self._ensure_access_key_management_allowed(access)
+        iam_service = self._get_iam_service(access.account)
         link, _, _ = self._ensure_portal_user(user, access.account, iam_service)
         self._sync_user_group_membership(
             iam_service,
@@ -350,10 +364,9 @@ class PortalAccessKeysMixin:
         )
 
     def delete_access_key(self, user: User, access: "AccountAccess", access_key_id: str) -> Optional[PortalAccessKey]:
-        portal_settings = self._ensure_access_key_management_allowed(access)
-        iam_service = self._get_iam_service(access.account)
         external = self._find_external_credential(user, access.account, access_key_id)
         if external is not None:
+            iam_service = self._get_iam_service(access.account)
             metadata = external.storage_space
             deleted = portal_access_key_from_external_credential(
                 external,
@@ -374,6 +387,8 @@ class PortalAccessKeysMixin:
                 self._sync_storage_space_access_projection(access.account, metadata, sync_participants=False)
             self.db.commit()
             return deleted
+        self._ensure_access_key_management_allowed(access)
+        iam_service = self._get_iam_service(access.account)
         link, _, _ = self._ensure_portal_user(user, access.account, iam_service)
         self._sync_user_group_membership(
             iam_service,

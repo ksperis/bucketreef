@@ -9,6 +9,7 @@ export type ProjectSettingsForm = {
   bucketCreate: TriState;
   namedBucketCreate: TriState;
   accessKeyCreate: TriState;
+  externalSharing: TriState;
   serverAccessLogging: TriState;
   versionCleanup: TriState;
   versioning: TriState;
@@ -26,6 +27,7 @@ export const emptyForm: ProjectSettingsForm = {
   bucketCreate: "inherit",
   namedBucketCreate: "inherit",
   accessKeyCreate: "inherit",
+  externalSharing: "inherit",
   serverAccessLogging: "inherit",
   versionCleanup: "inherit",
   versioning: "inherit",
@@ -66,6 +68,9 @@ export function formFromSettings(
     accessKeyCreate: resolveTriState(
       override.allow_portal_user_access_key_create,
     ),
+    externalSharing: resolveTriState(
+      override.allow_portal_user_external_sharing,
+    ),
     serverAccessLogging: resolveTriState(
       override.server_access_logging_enabled,
     ),
@@ -95,6 +100,7 @@ function buildOverride(form: ProjectSettingsForm): PortalSettingsOverride {
     ["allow_private_storage_space_create", form.bucketCreate],
     ["allow_portal_named_bucket_create", form.namedBucketCreate],
     ["allow_portal_user_access_key_create", form.accessKeyCreate],
+    ["allow_portal_user_external_sharing", form.externalSharing],
     ["server_access_logging_enabled", form.serverAccessLogging],
     ["storage_space_version_cleanup_enabled", form.versionCleanup],
   ];

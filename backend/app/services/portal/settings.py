@@ -85,6 +85,8 @@ class PortalSettingsMixin:
             portal_settings.allow_portal_named_bucket_create = override.allow_portal_named_bucket_create
         if override.allow_portal_user_access_key_create is not None:
             portal_settings.allow_portal_user_access_key_create = override.allow_portal_user_access_key_create
+        if override.allow_portal_user_external_sharing is not None:
+            portal_settings.allow_portal_user_external_sharing = override.allow_portal_user_external_sharing
         if override.server_access_logging_enabled is not None:
             portal_settings.server_access_logging_enabled = override.server_access_logging_enabled
         if override.storage_space_version_cleanup_enabled is not None:

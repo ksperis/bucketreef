@@ -25,6 +25,7 @@ const paths = [
   "portal.allow_private_storage_space_create",
   "portal.allow_portal_named_bucket_create",
   "portal.allow_portal_user_access_key_create",
+  "portal.allow_portal_user_external_sharing",
   "portal.server_access_logging_enabled",
   "portal.server_access_log_retention_days",
   "portal.storage_space_version_cleanup_enabled",
@@ -147,6 +148,18 @@ export default function PortalSettingsPage() {
           form={form}
           field="portal.max_portal_user_access_keys"
           title="Max S3 access keys per portal user"
+        />
+      </SettingsSection>
+      <SettingsSection
+        presentation="compact"
+        title="External sharing"
+        description="Controls whether Portal users may expose data outside Portal."
+      >
+        <AppSettingsToggle
+          form={form}
+          field="portal.allow_portal_user_external_sharing"
+          title="External sharing by Portal users"
+          description="Allow Portal users to create public links and external S3 tool access only for Storage Spaces they own. Portal managers keep their existing project-wide capabilities."
         />
       </SettingsSection>
       <SettingsSection

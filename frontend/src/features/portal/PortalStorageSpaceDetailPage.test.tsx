@@ -47,6 +47,7 @@ const mocks = vi.hoisted(() => ({
     accountIdForApi: "101",
     state: {
       portal_role: "portal_manager",
+      can_create_external_sharing: true,
       storage_space_version_cleanup_enabled: true,
     },
     selectedAccount: {
@@ -474,6 +475,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     mocks.hookResult.workspace.spaces[0].quotaObjects = 1000;
     mocks.hookResult.workspace.spaces[0].shareCount = 3;
     mocks.hookResult.state.portal_role = "portal_manager";
+    mocks.hookResult.state.can_create_external_sharing = true;
     mocks.hookResult.state.storage_space_version_cleanup_enabled = true;
     mocks.hookResult.refreshWorkspaceData.mockClear();
   });
@@ -1605,7 +1607,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     let resolveOld!: (value: unknown) => void;
     mocks.fetchStorageSpaceSettingsMock.mockReturnValueOnce(new Promise((resolve) => { resolveOld = resolve; }));
     const space = mocks.hookResult.workspace.spaces[0] as unknown as ComponentProps<typeof PortalStorageSpaceSettings>["space"];
-    const view = (id: string) => <MemoryRouter><PortalStorageSpaceSettings key={id} accountId="101" space={{ ...space, id }} canConfigureIcon historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
+    const view = (id: string) => <MemoryRouter><PortalStorageSpaceSettings key={id} accountId="101" space={{ ...space, id }} canConfigureIcon canCreateExternalAccess historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
     const rendered = render(view("old-space"));
     mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: true, versioning_status: "Enabled", lifecycle_enabled: true, version_history_retention_days: 30, can_update: true });
     rendered.rerender(view("new-space"));
@@ -1616,7 +1618,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("retains history while refreshing existing space metadata", async () => {
     const space = mocks.hookResult.workspace.spaces[0] as unknown as ComponentProps<typeof PortalStorageSpaceSettings>["space"];
-    const view = (description: string) => <MemoryRouter><PortalStorageSpaceSettings accountId="101" space={{ ...space, description }} canConfigureIcon historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
+    const view = (description: string) => <MemoryRouter><PortalStorageSpaceSettings accountId="101" space={{ ...space, description }} canConfigureIcon canCreateExternalAccess historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
     const rendered = render(view("Before"));
     const retention = await screen.findByRole("spinbutton", { name: "Version history retention" });
     fireEvent.change(retention, { target: { value: "33" } });

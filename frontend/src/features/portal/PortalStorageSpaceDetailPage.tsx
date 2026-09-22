@@ -593,9 +593,12 @@ function StorageSpaceDetail() {
     (showSpaceReadyBanner || space.objectCount === 0);
   const canCreatePublicLinks = Boolean(
     canBrowse &&
-    space.role === "Manager" &&
-    space.visibility === "shared" &&
     accessSummary?.can_create_public_links
+  );
+  const canCreateExternalAccess = Boolean(
+    canBrowse &&
+    hasFullAccess &&
+    state?.can_create_external_sharing
   );
   const externalLinksUnavailableReason = isArchived
     ? t({
@@ -1173,6 +1176,7 @@ function StorageSpaceDetail() {
         <PortalTabPanel idPrefix="portal-space-detail" tabId="settings">
           <PortalStorageSpaceSettings key={`${accountIdForApi}:${space.id}`}
             accountId={accountIdForApi} space={space} canConfigureIcon={canConfigureIcon}
+            canCreateExternalAccess={canCreateExternalAccess}
             historyCleanupEnabled={historyCleanupEnabled} onDirtyChange={setSettingsDirty} onRefresh={refreshWorkspaceData}
             managementActions={(historyDirty) => <div className="flex flex-wrap justify-end gap-2">
               {space.canTakeOwnership && <SettingsButton variant="secondary" disabled={historyDirty || takeOwnershipBusy}

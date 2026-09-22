@@ -39,6 +39,13 @@ Every Portal project member sees the effective values. Portal Users and
 non-delegated Portal Managers cannot change the controls. A delegated Portal
 Manager can update the single shared project override also shown in Admin.
 
+**External sharing by Portal users** is disabled by default. When enabled, a
+Portal User can create public links and external S3 tool access only for a
+Storage Space they own. This setting does not grant Viewer or Editor access,
+does not turn a private space into a team space, and does not control personal
+S3 access keys. Portal Managers keep their existing external-sharing
+capabilities independently of this setting.
+
 **Account administrator** is a separate Manager role: it grants neither Portal
 membership nor permission to edit Portal settings. A person with both roles
 uses their Portal role here, regardless of their Manager rights.
@@ -77,6 +84,10 @@ settings or ask an administrator to review the project configuration.
     Managers edit the same project override. Project defaults affect newly
     created Storage Spaces only; use the Settings tab of an existing Space to
     change its file-version retention, automatic history cleanup, or retention period.
+
+    Disabling **External sharing by Portal users** blocks new public links and
+    external S3 tool access for Portal Users. Existing links and external
+    credentials remain available for review and revocation.
 
 ## Related pages
 

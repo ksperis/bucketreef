@@ -12,7 +12,9 @@ so the affected files and permissions always remain clear.
   review another member or change direct access.
 - The person you want to add appears in the people list, or you know their name
   and email so you can request that they be added to the project.
-- Public links are enabled when you need to share one file by link.
+- Public links are enabled when you need to share one file by link. Portal
+  Users also need **External sharing by Portal users** enabled and must own the
+  target space.
 
 ## Portal roles
 
@@ -73,7 +75,9 @@ Portal managers can browse and manage every project space.
    tab. Owners and managers can copy any listed link or revoke an active one.
    Use **External links** in the global Collaborators page for a multi-space
    inventory. New links are always created from the actions of the file being
-   shared.
+   shared. A Portal User can create a new link only for an owned space when
+   the project allows external sharing; an owned private space is valid and
+   remains private.
 
 ## You are done when
 
@@ -88,6 +92,10 @@ collaboration is required. If the person is missing from the people list, send
 a collaborator access request from the picker, then follow it from **Portal >
 Help requests**. Archived spaces keep saved collaborators and links for future
 restoration, but those entries are inactive while archived.
+
+Disabling **External sharing by Portal users** prevents Portal Users from
+creating new public links. It does not remove existing links; owners and Portal
+Managers can still review and revoke them.
 
 ## Related pages
 

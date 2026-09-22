@@ -24,6 +24,7 @@ export type PortalState = {
   can_manage_buckets?: boolean;
   can_create_private_storage_spaces?: boolean;
   can_create_team_storage_spaces?: boolean;
+  can_create_external_sharing?: boolean;
   can_manage_portal_users?: boolean;
   allow_named_bucket_create?: boolean;
   server_access_logging_enabled?: boolean;

@@ -16,10 +16,12 @@ import { portalBreadcrumbs } from "./portalBreadcrumbs";
 export type PortalToolAccessCreateOptions = { target: "self" | "external"; spaceId?: string };
 
 export default function PortalToolAccessCreateWorkflow({
-  accountId, options, personalAccessLimitReached, maxAccessKeys, busy, error, disabled, onCreate, onClose,
+  accountId, options, personalAccessEnabled, externalAccessEnabled, personalAccessLimitReached, maxAccessKeys, busy, error, disabled, onCreate, onClose,
 }: {
   accountId: S3AccountSelector;
   options: PortalToolAccessCreateOptions;
+  personalAccessEnabled: boolean;
+  externalAccessEnabled: boolean;
   personalAccessLimitReached: boolean;
   maxAccessKeys: number;
   busy: boolean;
@@ -39,7 +41,7 @@ export default function PortalToolAccessCreateWorkflow({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   useEffect(() => {
-    if (target !== "external" || !accountId) return;
+    if (target !== "external" || !externalAccessEnabled || !accountId) return;
     let active = true;
     setLoading(true);
     setLoadError(null);
@@ -52,13 +54,14 @@ export default function PortalToolAccessCreateWorkflow({
       }
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [accountId, target, revision, t]);
+  }, [accountId, externalAccessEnabled, target, revision, t]);
   const initialSpace = spaces.find(space => space.id === options.spaceId || space.internal_bucket_name === options.spaceId) ?? spaces[0] ?? null;
   const selectedSpace = spaceId === null ? initialSpace : spaces.find(space => space.id === spaceId) ?? null;
   const dirty = target !== options.target || Boolean(externalLabel) || permission !== "read_only" ||
     (spaceId !== null && spaceId !== initialSpace?.id);
-  const submitDisabled = disabled || !accountId || (target === "self" ? personalAccessLimitReached
-    : !externalLabel.trim() || !selectedSpace || loading || Boolean(loadError));
+  const submitDisabled = disabled || !accountId || (target === "self"
+    ? !personalAccessEnabled || personalAccessLimitReached
+    : !externalAccessEnabled || !externalLabel.trim() || !selectedSpace || loading || Boolean(loadError));
   const myself = t({ en: "For myself", fr: "Pour moi-même", de: "Für mich", zh: "为自己创建" });
   const external = t({ en: "For an external user", fr: "Pour un utilisateur externe", de: "Für einen externen Benutzer", zh: "为外部用户创建" });
   const readOnly = t({ en: "Read only", fr: "Lecture seule", de: "Nur lesen", zh: "只读" });
@@ -93,13 +96,13 @@ export default function PortalToolAccessCreateWorkflow({
       <fieldset className="min-w-0">
         <legend className="sr-only">{t({ en: "Recipient", fr: "Destinataire", de: "Empfänger", zh: "接收人" })}</legend>
         <SettingsChoiceRow type="radio" name={`${groupId}-target`} title={myself} ariaLabel={myself}
-          checked={target === "self"} onChange={() => setTarget("self")} disabled={personalAccessLimitReached}
+          checked={target === "self"} onChange={() => setTarget("self")} disabled={!personalAccessEnabled || personalAccessLimitReached}
           description={t({ en: "Uses my current Portal grants.", fr: "Utilise mes droits Portal actuels.", de: "Verwendet meine aktuellen Portal-Berechtigungen.", zh: "使用我当前的 Portal 授权。" })} />
         <SettingsChoiceRow type="radio" name={`${groupId}-target`} title={external} ariaLabel={external}
-          checked={target === "external"} onChange={() => setTarget("external")}
+          checked={target === "external"} onChange={() => setTarget("external")} disabled={!externalAccessEnabled}
           description={t({ en: "Limits tool access to one space.", fr: "Limite l'accès outil à un seul espace.", de: "Beschränkt den Werkzeugzugriff auf einen Bereich.", zh: "将工具访问限制为一个空间。" })} />
       </fieldset>
-      {personalAccessLimitReached && <UiInlineMessage tone="info">{t({
+      {personalAccessLimitReached && externalAccessEnabled && <UiInlineMessage tone="info">{t({
         en: `Your personal IAM user already has the maximum of ${maxAccessKeys} S3 access keys. You can still create access for an external user because it uses a separate IAM user.`,
         fr: `Votre utilisateur IAM personnel a déjà atteint la limite de ${maxAccessKeys} clés d'accès S3. Vous pouvez toutefois créer un accès pour un utilisateur externe.`,
         de: `Ihr persönlicher IAM-Benutzer hat bereits das Maximum von ${maxAccessKeys} S3-Zugriffsschlüsseln. Für externe Benutzer können Sie weiterhin Zugriff erstellen, da dafür ein separater IAM-Benutzer verwendet wird.`,

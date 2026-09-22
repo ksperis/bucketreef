@@ -46,6 +46,7 @@ function buildSettings(): AppSettings {
       allow_private_storage_space_create: true,
       allow_portal_named_bucket_create: false,
       allow_portal_user_access_key_create: true,
+      allow_portal_user_external_sharing: false,
       server_access_logging_enabled: true,
       server_access_log_retention_days: 30,
       storage_space_version_cleanup_enabled: true,
@@ -130,6 +131,20 @@ describe("PortalSettingsPage", () => {
 
     await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
     expect(updateAppSettingsMock.mock.calls[0][0].portal.browser_access_enabled).toBe(true);
+  });
+
+  it("keeps Portal-user external sharing disabled by default and saves an explicit opt-in", async () => {
+    render(<PortalSettingsPage />);
+
+    const toggle = await screen.findByLabelText("External sharing by Portal users");
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
+    expect(
+      updateAppSettingsMock.mock.calls[0][0].portal.allow_portal_user_external_sharing,
+    ).toBe(true);
   });
 
   it("sends server access log retention in save payload", async () => {

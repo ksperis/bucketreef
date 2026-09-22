@@ -260,6 +260,7 @@ export default function ProjectSettingsEditor({
     allow_private_storage_space_create: t({ en: "Private Storage Space creation", fr: "Création d’espaces privés", de: "Private Speicherbereiche erstellen", zh: "创建私有存储空间" }),
     allow_portal_named_bucket_create: t({ en: "Named bucket creation", fr: "Création de buckets nommés", de: "Benannte Buckets erstellen", zh: "创建指定名称的存储桶" }),
     allow_portal_user_access_key_create: t({ en: "Personal access keys", fr: "Clés d’accès personnelles", de: "Persönliche Zugriffsschlüssel", zh: "个人访问密钥" }),
+    allow_portal_user_external_sharing: t({ en: "External sharing by Portal users", fr: "Partage externe par les utilisateurs Portal", de: "Externe Freigabe durch Portal-Benutzer", zh: "Portal 用户外部共享" }),
     server_access_logging_enabled: t({ en: "Server access logging", fr: "Journalisation des accès serveur", de: "Server-Zugriffsprotokollierung", zh: "服务器访问日志" }),
     storage_space_version_cleanup_enabled: t({ en: "Storage Space history cleanup", fr: "Nettoyage de l’historique", de: "Versionsverlauf bereinigen", zh: "存储空间历史记录清理" }),
     versioning: t({ en: "Versioning", fr: "Gestion des versions", de: "Versionierung", zh: "版本控制" }),
@@ -461,6 +462,22 @@ export default function ProjectSettingsEditor({
                   zh: "个人访问密钥",
                 }),
                 settings.effective.allow_portal_user_access_key_create,
+              )}
+              {row(
+                "externalSharing",
+                t({
+                  en: "External sharing by Portal users",
+                  fr: "Partage externe par les utilisateurs Portal",
+                  de: "Externe Freigabe durch Portal-Benutzer",
+                  zh: "Portal 用户外部共享",
+                }),
+                settings.effective.allow_portal_user_external_sharing,
+                t({
+                  en: "Allows Portal users to create public links and external S3 tool access only for Storage Spaces they own.",
+                  fr: "Autorise les utilisateurs Portal à créer des liens publics et des accès S3 externes uniquement pour les Storage Spaces dont ils sont propriétaires.",
+                  de: "Erlaubt Portal-Benutzern öffentliche Links und externen S3-Werkzeugzugriff nur für eigene Storage Spaces.",
+                  zh: "允许 Portal 用户仅为自己拥有的 Storage Space 创建公开链接和外部 S3 工具访问。",
+                }),
               )}
               {row(
                 "serverAccessLogging",

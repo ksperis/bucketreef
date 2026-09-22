@@ -18,7 +18,7 @@ Use this page when you work with files inside a Portal space.
 | Review or restore an older version | File detail > History | Available when file history is enabled for the space. Restoring creates a new current version and keeps the existing history. |
 | Download files | Object row or detail page | Available when your role and storage permissions allow reads. |
 | Return to the containing folder | File detail > Back to files | Returns to the file list while preserving the file's parent folder. |
-| Share a file outside the workspace | File detail > Sharing | Open the file, use **Share** or **Set up public link** to reach the sharing panel, create the link only when anyone with the link should have access, then use **Copy link** from the link row. |
+| Share a file outside the workspace | File detail > Sharing | Open the file, use **Share** or **Set up public link** to reach the sharing panel, create the link only when anyone with the link should have access, then use **Copy link** from the link row. Portal Users can create a link only for a space they own and only when **External sharing by Portal users** is enabled. |
 | Create folders | Object list action bar | Creates a prefix marker or equivalent folder representation. |
 | Delete files | Object row actions | Available only for roles that can write/delete. When file history is enabled, deletion moves the file to the space trash. |
 | Show deleted files | Space file list > **Show deleted files** | Available when file history is enabled or suspended. Deleted files and historical folders appear in the current folder only; there is no separate trash index or background scan. |
@@ -36,6 +36,11 @@ literal `/` folder does not restore the whole space.
 Existing public links keep their stored file path. Check that path before
 sharing an older link; revoke and recreate the link when it points to a
 different file than intended.
+
+A Portal User may create a public link from an owned private Storage Space when
+the project allows external sharing. The link exposes only the selected file;
+it does not change the space to team access or add collaborators. Disabling the
+project setting later blocks new links but existing links remain revocable.
 
 ## You are done when
 

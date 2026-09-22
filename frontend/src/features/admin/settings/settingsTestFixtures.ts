@@ -39,6 +39,7 @@ export function createAppSettings(
       allow_private_storage_space_create: true,
       allow_portal_named_bucket_create: false,
       allow_portal_user_access_key_create: true,
+      allow_portal_user_external_sharing: false,
       server_access_logging_enabled: true,
       server_access_log_retention_days: 30,
       storage_space_version_cleanup_enabled: true,

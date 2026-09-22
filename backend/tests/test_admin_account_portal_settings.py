@@ -65,6 +65,7 @@ def test_admin_put_account_portal_settings_replaces_override_and_audits(client, 
         json={
             "browser_access_enabled": True,
             "allow_private_storage_space_create": False,
+            "allow_portal_user_external_sharing": True,
             "bucket_defaults": {
                 "versioning": True,
                 "noncurrent_version_expiration_days": 45,
@@ -77,6 +78,8 @@ def test_admin_put_account_portal_settings_replaces_override_and_audits(client, 
     assert body["admin_override"]["browser_access_enabled"] is True
     assert body["effective"]["browser_access_enabled"] is True
     assert body["admin_override"]["allow_private_storage_space_create"] is False
+    assert body["admin_override"]["allow_portal_user_external_sharing"] is True
+    assert body["effective"]["allow_portal_user_external_sharing"] is True
     assert body["admin_override"]["bucket_defaults"]["versioning"] is True
     assert body["admin_override"]["bucket_defaults"]["noncurrent_version_expiration_days"] == 45
     assert body["effective"]["bucket_defaults"]["noncurrent_version_expiration_days"] == 45
@@ -87,6 +90,7 @@ def test_admin_put_account_portal_settings_replaces_override_and_audits(client, 
     stored = json.loads(account.portal_settings_override)
     assert stored["browser_access_enabled"] is True
     assert stored["allow_private_storage_space_create"] is False
+    assert stored["allow_portal_user_external_sharing"] is True
 
     assert len(audit.actions) == 1
     assert audit.actions[0]["action"] == "update_account_portal_settings"

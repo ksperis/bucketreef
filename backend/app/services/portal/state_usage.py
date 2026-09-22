@@ -79,11 +79,19 @@ class PortalStateUsageMixin:
             and access.portal_role in {PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value}
         )
         can_create_team_storage_spaces = access.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+        can_create_external_sharing = bool(
+            access.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+            or (
+                access.portal_role == PortalAccountRole.PORTAL_USER.value
+                and portal_settings.allow_portal_user_external_sharing
+            )
+        )
         return PortalState(
             portal_role=access.portal_role,
             can_manage_buckets=access.capabilities.can_manage_buckets,
             can_create_private_storage_spaces=can_create_private_storage_spaces,
             can_create_team_storage_spaces=can_create_team_storage_spaces,
+            can_create_external_sharing=can_create_external_sharing,
             can_manage_portal_users=access.capabilities.can_manage_portal_users,
             allow_named_bucket_create=portal_settings.allow_portal_named_bucket_create,
             server_access_logging_enabled=portal_settings.server_access_logging_enabled,
