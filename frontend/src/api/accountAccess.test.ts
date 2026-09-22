@@ -32,7 +32,7 @@ describe("account access roles", () => {
   it("uses explicit feature-dependent defaults for new associations", () => {
     expect(defaultAccountAccessGrant(true)).toEqual({
       manager_role: null,
-      portal_role: "portal_user",
+      portal_role: null,
     });
     expect(defaultAccountAccessGrant(false)).toEqual({
       manager_role: "account_administrator",

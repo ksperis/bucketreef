@@ -54,6 +54,6 @@ export function hasAccountAccessRole(grant: AccountAccessGrant): boolean {
 
 export function defaultAccountAccessGrant(portalEnabled: boolean): AccountAccessGrant {
   return portalEnabled
-    ? { manager_role: null, portal_role: "portal_user" }
+    ? { manager_role: null, portal_role: null }
     : { manager_role: "account_administrator", portal_role: null };
 }

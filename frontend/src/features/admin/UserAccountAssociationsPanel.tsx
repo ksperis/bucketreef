@@ -234,6 +234,7 @@ export default function UserAccountAssociationsPanel({
                     label={option.label}
                     portalEnabled={showPortalRole}
                     value={access}
+                    showValidation={isSelected}
                     onChange={(value) =>
                       accounts.setAccountAccessChoice((current) => ({
                         ...current,

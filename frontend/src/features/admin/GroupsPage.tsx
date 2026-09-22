@@ -764,6 +764,7 @@ export default function GroupsPage() {
                                 accountAccessChoice[accountId] ??
                                 defaultAccountAccessGrant(showPortalRole)
                               }
+                              showValidation={selected}
                               onChange={(value) =>
                                 setAccountAccessChoice((current) => ({
                                   ...current,

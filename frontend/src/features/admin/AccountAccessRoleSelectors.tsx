@@ -157,6 +157,7 @@ type AccountAccessRoleSelectorsProps = {
   onChange: (value: AccountAccessGrant) => void;
   portalEnabled: boolean;
   label: string;
+  showValidation?: boolean;
 };
 
 export default function AccountAccessRoleSelectors({
@@ -164,8 +165,9 @@ export default function AccountAccessRoleSelectors({
   onChange,
   portalEnabled,
   label,
+  showValidation = false,
 }: AccountAccessRoleSelectorsProps) {
-  const missingRole = !hasAccountAccessRole(value);
+  const missingRole = showValidation && !hasAccountAccessRole(value);
 
   return (
     <div className="flex flex-wrap items-start gap-3">

@@ -106,6 +106,7 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
         {!catalogue.loading && !catalogue.loadError && available.slice(0, 10).map(principal => <div key={principal.id} className={adminAssociationAccountOptionRowClass(selected.includes(principal.id))}>
           <UiCheckboxField checked={selected.includes(principal.id)} onChange={() => setSelected(current => current.includes(principal.id) ? current.filter(id => id !== principal.id) : [...current, principal.id])}>{principal.label}</UiCheckboxField>
           <AccountAccessRoleSelectors label={principal.label} value={access(principal.id)} portalEnabled={portalEnabled}
+            showValidation={selected.includes(principal.id)}
             onChange={grant => setChoices(current => ({ ...current, [principal.id]: grant }))} />
         </div>)}
       </AdminAssociationPickerPanel>

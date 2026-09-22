@@ -1027,7 +1027,6 @@ describe("UsersPage modal tabs", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add accounts" }));
     const accountCheckbox = await screen.findByRole("checkbox", { name: "acc-1" });
-    fireEvent.click(accountCheckbox);
     const accountRow = accountCheckbox.closest("div");
     if (!accountRow) {
       throw new Error("Account row not found");
@@ -1048,13 +1047,24 @@ describe("UsersPage modal tabs", () => {
       "portal_manager",
     ]);
     expect(managerRoleSelect).toHaveValue("");
-    expect(portalRoleSelect).toHaveValue("portal_user");
+    expect(portalRoleSelect).toHaveValue("");
+    expect(
+      within(accountRow).queryByText("Choose at least one role for this association."),
+    ).not.toBeInTheDocument();
+    fireEvent.click(accountCheckbox);
+    expect(
+      within(accountRow).getByText("Choose at least one role for this association."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add selected" })).toBeDisabled();
     fireEvent.change(managerRoleSelect, {
       target: { value: "account_administrator" },
     });
     fireEvent.change(portalRoleSelect, {
       target: { value: "portal_manager" },
     });
+    expect(
+      within(accountRow).queryByText("Choose at least one role for this association."),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
