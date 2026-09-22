@@ -28,6 +28,8 @@ import { formatAccountLabel } from "../shared/storageEndpointLabel";
 
 function usePortalNavSections(): SidebarSection[] {
   const { t } = useI18n();
+  const { selectedAccount } = usePortalAccountContext();
+  const isPortalManager = selectedAccount?.portal_role === "portal_manager";
   return useMemo(
     () => [
       {
@@ -74,11 +76,15 @@ function usePortalNavSections(): SidebarSection[] {
             }),
             icon: <KeyIcon />,
           },
-          {
-            to: "/portal/history",
-            label: t({ en: "History", fr: "Historique", de: "Verlauf", zh: "历史记录" }),
-            icon: <ActivityIcon />,
-          },
+          ...(isPortalManager
+            ? [
+                {
+                  to: "/portal/history",
+                  label: t({ en: "History", fr: "Historique", de: "Verlauf", zh: "历史记录" }),
+                  icon: <ActivityIcon />,
+                },
+              ]
+            : []),
           {
             to: "/portal/usage",
             label: t({
@@ -89,25 +95,29 @@ function usePortalNavSections(): SidebarSection[] {
             }),
             icon: <ChartIcon />,
           },
-          {
-            to: "/portal/requests",
-            label: t({
-              en: "Help requests",
-              fr: "Demandes d'aide",
-              de: "Hilfeanfragen",
-              zh: "帮助请求",
-            }),
-            icon: <RequestIcon />,
-          },
-          {
-            to: "/portal/settings",
-            label: t({ en: "Settings", fr: "Paramètres", de: "Einstellungen", zh: "设置" }),
-            icon: <SettingsIcon />,
-          },
+          ...(isPortalManager
+            ? [
+                {
+                  to: "/portal/requests",
+                  label: t({
+                    en: "Help requests",
+                    fr: "Demandes d'aide",
+                    de: "Hilfeanfragen",
+                    zh: "帮助请求",
+                  }),
+                  icon: <RequestIcon />,
+                },
+                {
+                  to: "/portal/settings",
+                  label: t({ en: "Settings", fr: "Paramètres", de: "Einstellungen", zh: "设置" }),
+                  icon: <SettingsIcon />,
+                },
+              ]
+            : []),
         ],
       },
     ],
-    [t],
+    [isPortalManager, t],
   );
 }
 
