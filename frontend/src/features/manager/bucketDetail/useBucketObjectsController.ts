@@ -16,6 +16,13 @@ type UseBucketObjectsControllerOptions = {
   endpointId?: number | null;
 };
 
+function parentObjectPrefix(prefix: string): string {
+  if (!prefix) return "";
+  const withoutTrailingSlash = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
+  const separatorIndex = withoutTrailingSlash.lastIndexOf("/");
+  return separatorIndex < 0 ? "" : withoutTrailingSlash.slice(0, separatorIndex + 1);
+}
+
 export function useBucketObjectsController({
   accountId,
   bucketName,
@@ -94,10 +101,7 @@ export function useBucketObjectsController({
   );
 
   const parentPrefix = useMemo(() => {
-    if (!currentPrefix) return "";
-    const parts = currentPrefix.split("/").filter(Boolean);
-    parts.pop();
-    return parts.length > 0 ? `${parts.join("/")}/` : "";
+    return parentObjectPrefix(currentPrefix);
   }, [currentPrefix]);
 
   const rows = useMemo(() => {
