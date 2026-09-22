@@ -13,6 +13,7 @@ from app.db import (
     S3Account,
     S3Connection,
     S3User,
+    StorageProvider,
     UiGroup,
     UiGroupS3Account,
     UiGroupS3Connection,
@@ -490,12 +491,10 @@ class EffectiveAccessService:
         )
 
     @staticmethod
-    def portal_account_is_compatible(account: object) -> bool:
-        endpoint = getattr(account, "storage_endpoint", None)
+    def portal_account_is_compatible(account: S3Account) -> bool:
+        endpoint = account.storage_endpoint
         return bool(
-            getattr(account, "rgw_account_id", None)
-            and endpoint is not None
-            and str(getattr(endpoint, "provider", "")).strip().lower() == "ceph"
+            endpoint.provider == StorageProvider.CEPH.value
             and resolve_feature_flags(endpoint).iam_enabled
         )
 
