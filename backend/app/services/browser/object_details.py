@@ -378,7 +378,6 @@ class BrowserObjectDetailsMixin:
         tag_set = [
             {"Key": tag.key, "Value": tag.value}
             for tag in tags
-            if tag.key is not None and str(tag.key).strip()
         ]
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:

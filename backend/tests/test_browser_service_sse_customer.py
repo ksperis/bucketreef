@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from app.db import S3Account, StorageEndpoint
 from app.models.browser import (
     MultipartUploadInitRequest,
+    ObjectTag,
     PresignPartRequest,
     PresignRequest,
     SseCustomerContext,
@@ -109,6 +110,38 @@ def test_initiate_multipart_upload_passes_sse_customer(monkeypatch):
     assert kwargs["SSECustomerAlgorithm"] == "AES256"
     assert "SSECustomerKey" in kwargs
     assert "SSECustomerKeyMD5" in kwargs
+
+
+def test_initiate_multipart_upload_preserves_literal_tag_pairs(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeClient:
+        def create_multipart_upload(self, **kwargs):  # noqa: ANN001
+            captured["kwargs"] = kwargs
+            return {"UploadId": "upload-1"}
+
+    service = BrowserService()
+    monkeypatch.setattr(
+        service,
+        "_client",
+        lambda _account, request_profile="interactive": FakeClient(),
+    )
+
+    service.initiate_multipart_upload(
+        "bucket-a",
+        _account(),
+        MultipartUploadInitRequest(
+            key="archive.bin",
+            tags=[
+                ObjectTag(key=" tag ", value=" value "),
+                ObjectTag(key=" ", value="literal-space-key"),
+            ],
+        ),
+    )
+
+    kwargs = captured["kwargs"]
+    assert isinstance(kwargs, dict)
+    assert kwargs["Tagging"] == "+tag+=+value+&+=literal-space-key"
 
 
 def test_presign_part_passes_sse_customer_and_returns_required_headers(monkeypatch):

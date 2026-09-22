@@ -113,6 +113,12 @@ different keys and prefixes. Recursive folder synthesis scans delimiter
 positions directly, so empty path segments such as `/`, `//`, and `docs//`
 remain distinct in both the default and server-sorted listing paths.
 
+Browser object tags use the same literal identity rule. Tag keys and values are
+never trimmed, and a whitespace-only key remains valid input. Empty keys and
+duplicate keys are rejected explicitly. CopyObject and multipart initiation
+encode the validated tag list as ordered key/value pairs rather than converting
+it through a dictionary, so no tag is silently discarded or overwritten.
+
 ## Browser mutation cache lifetime
 
 Browser mutations use `BrowserContextMixin._object_mutation` around the storage

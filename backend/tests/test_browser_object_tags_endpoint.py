@@ -57,6 +57,51 @@ def test_browser_put_object_tags_passes_key_tags_and_version_id(client):
     assert [tag.model_dump() for tag in captured["tags"]] == [ObjectTag(key="env", value="dev").model_dump()]
 
 
+def test_browser_put_object_tags_preserves_whitespace_only_tag_key(client):
+    captured: dict[str, object] = {}
+
+    class FakeService:
+        def put_object_tags(self, bucket_name, account, key, tags, version_id=None):  # noqa: ANN001
+            captured["tags"] = tags
+            return ObjectTags(key=key, tags=tags, version_id=version_id)
+
+    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
+    app.dependency_overrides[browser_router.get_audit_service] = lambda: _FakeAuditService()
+
+    response = client.put(
+        "/api/browser/buckets/my-bucket/object-tags?account_id=s3u-1",
+        json={"key": "folder/demo.txt", "tags": [{"key": " ", "value": " literal "}]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["tags"] == [{"key": " ", "value": " literal "}]
+    assert [tag.model_dump() for tag in captured["tags"]] == [{"key": " ", "value": " literal "}]
+
+
+def test_browser_put_object_tags_rejects_empty_and_duplicate_tag_keys(client):
+    app.dependency_overrides[dependencies.get_account_context] = _account
+    app.dependency_overrides[browser_router.get_audit_service] = lambda: _FakeAuditService()
+
+    empty = client.put(
+        "/api/browser/buckets/my-bucket/object-tags?account_id=s3u-1",
+        json={"key": "folder/demo.txt", "tags": [{"key": "", "value": "value"}]},
+    )
+    duplicate = client.put(
+        "/api/browser/buckets/my-bucket/object-tags?account_id=s3u-1",
+        json={
+            "key": "folder/demo.txt",
+            "tags": [
+                {"key": " literal ", "value": "first"},
+                {"key": " literal ", "value": "second"},
+            ],
+        },
+    )
+
+    assert empty.status_code == 422
+    assert duplicate.status_code == 422
+
+
 def test_browser_put_object_tags_rejects_missing_key(client):
     class FakeService:
         def put_object_tags(self, bucket_name, account, key, tags, version_id=None):  # noqa: ANN001
