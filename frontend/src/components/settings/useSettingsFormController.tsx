@@ -43,9 +43,12 @@ export function useSettingsFormController({
   const runAction = async (action: () => void | Promise<void>) => {
     if (locked || disabled || completed || submitting.current) return;
     submitting.current = true;
-    setPending(true);
     try {
-      await action();
+      const result = action();
+      if (result) {
+        setPending(true);
+        await result;
+      }
     } finally {
       submitting.current = false;
       setPending(false);
