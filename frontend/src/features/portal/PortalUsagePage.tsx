@@ -11,7 +11,7 @@ import type { TrafficWindow } from "../../api/stats";
 import type { UsageHistoryTrendResponse, UsageHistoryTrendWindow } from "../../api/usageHistory";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { MetricsCard, MetricsEmptyState } from "../../components/MetricsCard";
-import MetricsTrafficOverview, { MetricsSnapshotCard, MetricsSummaryCard } from "../../components/MetricsTrafficOverview";
+import MetricsTrafficOverview, { MetricsSnapshotCard } from "../../components/MetricsTrafficOverview";
 import PageBanner from "../../components/PageBanner";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageShell from "../../components/PageShell";
@@ -360,7 +360,7 @@ export default function PortalUsagePage() {
       <PortalTabPanel idPrefix="portal-storage-health" tabId={activeTab} className="space-y-4">
       {activeTab === "storage" ? (
         <div className="space-y-4">
-          <MetricsSummaryCard
+          <MetricsCard
             title={t({ en: "Room and files", fr: "Espace et fichiers", de: "Platz und Dateien", zh: "容量与文件" })}
             description={t({ en: "Current storage, file count, and remaining room for this workspace.", fr: "Stockage actuel, nombre de fichiers et espace restant pour ce workspace.", de: "Aktueller Speicher, Dateianzahl und verbleibender Platz für diesen Workspace.", zh: "此工作区的当前存储用量、文件数量和剩余容量。" })}
           >
@@ -393,13 +393,13 @@ export default function PortalUsagePage() {
                 loading={usageLoading}
               />
             </div>
-          </MetricsSummaryCard>
+          </MetricsCard>
 
           <MetricsCard
             title={t({ en: "Backend status", fr: "Statut du backend", de: "Backend-Status", zh: "后端状态" })}
             description={t({ en: "Current availability of the storage service used by this workspace.", fr: "Disponibilité actuelle du service de stockage utilisé par ce workspace.", de: "Aktuelle Verfügbarkeit des Speicherdienstes für diesen Workspace.", zh: "此工作区所使用存储服务的当前可用性。" })}
           >
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <div className={cx(uiCardMutedClass, "px-4 py-3")}>
                 <div className="flex items-center justify-between gap-3">
                   <p className={uiLabelClass}>{t({ en: "Backend status", fr: "Statut du backend", de: "Backend-Status", zh: "后端状态" })}</p>
@@ -417,12 +417,6 @@ export default function PortalUsagePage() {
                   {healthLoading ? t({ en: "Checking storage service status...", fr: "Vérification du statut du service de stockage...", de: "Status des Speicherdienstes wird geprüft...", zh: "正在检查存储服务状态…" }) : backendStatusHint(backendStatus, t)}
                 </p>
               </div>
-              <MetricsSnapshotCard
-                label={t({ en: "Monitored services", fr: "Services surveillés", de: "Überwachte Dienste", zh: "受监控服务" })}
-                value={formatCompactNumber(health?.endpoint_count ?? 0)}
-                hint={t({ en: "Linked to this workspace", fr: "Liés à ce workspace", de: "Mit diesem Workspace verknüpft", zh: "关联到此工作区" })}
-                loading={healthLoading}
-              />
               <MetricsSnapshotCard
                 label={t({ en: "Current issues", fr: "Incidents en cours", de: "Aktuelle Probleme", zh: "当前问题" })}
                 value={formatCompactNumber(backendIssueCount)}
