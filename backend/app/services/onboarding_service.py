@@ -481,10 +481,11 @@ class OnboardingService:
         row.updated_at = utcnow()
         self.db.commit()
 
-    def audit(self, actor, action, identifier, **metadata):
+    def audit(self, actor, action, identifier, *, status="success", **metadata):
         AuditService(self.db).record_action(
             user=actor, scope="admin", action=f"onboarding.{action}",
             entity_type="onboarding", entity_id=identifier,
+            account_id=metadata.get("account_id"), status=status,
             metadata={"workflow_id": identifier, **metadata},
         )
 
@@ -541,7 +542,16 @@ class OnboardingService:
             row.validated_at = None
             row.evidence_json = "{}"
             self.db.commit()
-            evidence = OnboardingSetupService(self).verify(actor, row)
+            draft = self.draft(row)
+            audit_context = {"workspace": draft.workspace, "account_id": draft.account_id}
+            self.audit(actor, "verification_started", row.id, **audit_context)
+            try:
+                evidence = OnboardingSetupService(self).verify(actor, row)
+            except Exception:
+                # Only the workflow outcome is audited, never storage errors,
+                # credentials, object keys, or per-request probe details.
+                self.audit(actor, "verification_failed", row.id, status="error", **audit_context)
+                raise
             row.validated_at = utcnow()
             row.evidence_json = json.dumps({
                 **evidence, "source": "automatic", "actor_id": actor.id,
@@ -549,4 +559,5 @@ class OnboardingService:
             })
             row.updated_at = utcnow()
             self.db.commit()
+            self.audit(actor, "verified", row.id, **audit_context)
             return self.output(actor, row)

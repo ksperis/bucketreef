@@ -9,6 +9,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.onboarding import (
     OnboardingApply, OnboardingAttestation, OnboardingJourneyOut,
@@ -43,7 +44,7 @@ def _run(action):
     try:
         return action()
     except OnboardingError as exc:
-        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from None
+        raise HTTPException(status_code=exc.status_code, detail=sanitize_error_detail({"code": exc.code})) from None
     except ClientError as exc:
         denied = exc.response.get("Error", {}).get("Code") in {"AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken"}
         raise HTTPException(status_code=400, detail={"code": "storage_access_denied" if denied else "storage_unavailable"}) from None

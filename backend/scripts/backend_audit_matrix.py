@@ -34,6 +34,7 @@ SIGNAL_FIELDS = {
     "delegated_ceph_admin_execute_audit": "_execute(",
     "delegated_portal_deleted_restore_audit": "stream_portal_deleted_prefix_restore(",
     "delegated_portal_version_cleanup_audit": "stream_portal_storage_space_version_cleanup(",
+    "delegated_onboarding_audit": "OnboardingService(",
 }
 DELEGATED_AUDIT_SIGNALS = frozenset(
     {
@@ -53,10 +54,12 @@ DELEGATED_AUDIT_SIGNALS = frozenset(
         "delegated_ceph_admin_execute_audit",
         "delegated_portal_deleted_restore_audit",
         "delegated_portal_version_cleanup_audit",
+        "delegated_onboarding_audit",
     }
 )
 
 ALLOWLISTED_UNAUDITED_ROUTES: dict[tuple[str, str, str, str], str] = {
+    ("POST", "app/routers/admin/onboarding.py", "preview_onboarding", "/preview"): "read-only onboarding configuration preview",
     ("POST", "app/routers/admin/s3_connections.py", "validate_s3_connection_credentials", "/validate-credentials"): "credential validation probe",
     ("POST", "app/routers/admin/storage_endpoints.py", "detect_storage_endpoint_features", "/detect-features"): "feature detection probe",
     ("POST", "app/routers/admin/usage_stats.py", "stream_admin_managed_usage_stats_aggregate", "/admin/usage-stats/stream"): "read-only stream",
@@ -181,6 +184,17 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
             ] and (
                 "workflow.mutate(" in body
                 or "workflow.update_definition(" in body
+            )
+            # Only the explicitly audited workflow methods qualify. Preview,
+            # status, or a future method must not gain coverage by class name.
+            signals["delegated_onboarding_audit"] = any(
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr in {"dismiss", "save", "apply", "verify", "attest"}
+                and isinstance(call.func.value, ast.Call)
+                and isinstance(call.func.value.func, ast.Name)
+                and call.func.value.func.id == "OnboardingService"
+                for call in ast.walk(node)
             )
             for method, path in routes:
                 rows.append(

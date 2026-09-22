@@ -9,6 +9,7 @@ from app.main import app
 from app.models.app_settings import AppSettings
 from app.routers.dependencies import get_current_super_admin, get_current_ui_superadmin
 from app.routers.admin import onboarding
+from app.services.onboarding_service import OnboardingError
 
 
 def _admin(db_session) -> User:
@@ -49,6 +50,33 @@ def test_storage_errors_never_echo_credentials(exception, code):
     with pytest.raises(HTTPException) as error:
         onboarding._run(fail)
     assert error.value.detail == {"code": code}
+
+
+@pytest.mark.parametrize("code", ["stale_revision", "env_locked:FEATURE_BROWSER_ENABLED"])
+def test_onboarding_domain_error_codes_keep_their_http_contract(code):
+    def fail():
+        raise OnboardingError(code, 409)
+
+    with pytest.raises(HTTPException) as error:
+        onboarding._run(fail)
+    assert error.value.status_code == 409
+    assert error.value.detail == {"code": code}
+
+
+@pytest.mark.parametrize("code", [
+    "secret_key=domain-secret-canary",
+    "https://user:domain-secret-canary@storage.example.test",
+    "Authorization: Bearer domain-secret-canary",
+])
+def test_onboarding_domain_errors_use_shared_secret_redaction(code):
+    def fail():
+        raise OnboardingError(code)
+
+    with pytest.raises(HTTPException) as error:
+        onboarding._run(fail)
+    assert error.value.status_code == 400
+    assert "domain-secret-canary" not in str(error.value.detail)
+    assert "redacted" in error.value.detail["code"]
 
 
 @pytest.mark.parametrize("method,path,payload", [
