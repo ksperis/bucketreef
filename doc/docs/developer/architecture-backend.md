@@ -67,6 +67,25 @@ previews report it as unavailable and log reads fail explicitly. A genuine
 empty body remains valid, and a log object deleted after listing is still
 ignored on `NoSuchKey`/not-found responses.
 
+## Portal object identity
+
+Portal object keys pass unchanged from HTTP query parameters or JSON payloads
+to S3 reads, deletion, version history, and restoration. A leading slash is
+part of the key: `report.txt`, `/report.txt`, and `//report.txt` are distinct
+objects. Object names used for presentation or download filenames must never
+be reused as execution keys.
+
+Public-link creation checks and persists the exact requested key. Link
+filtering compares that value literally, and downloads use the persisted
+key. Existing links retain their stored targets; a formerly discarded leading
+slash cannot be inferred or repaired by a data migration. Revoke and recreate
+a link explicitly when its stored target is not the intended object.
+
+Deleted-folder restoration retains leading and repeated slashes and spaces.
+It appends only a missing final `/`. The empty prefix remains rejected for
+this operation; `/` is a literal folder prefix rather than the bucket root.
+The existing account, Storage Space role, and storage-side checks still apply.
+
 ## Browser object read identity
 
 Object-column reads preserve each key exactly through HTTP validation, S3 HEAD
