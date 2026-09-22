@@ -141,8 +141,6 @@ def s3_user_stats(
 
     endpoint = _resolve_endpoint(db, s3_user.storage_endpoint_id, require_storage_metrics=True)
     rgw_admin = _build_rgw_client(endpoint)
-    if not s3_user.rgw_user_uid:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage metrics not available for this user")
     return _load_principal_bucket_stats(rgw_admin, s3_user.rgw_user_uid)
 
 

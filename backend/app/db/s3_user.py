@@ -3,7 +3,7 @@
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.core.security import EncryptedString
@@ -15,6 +15,7 @@ class S3User(Base):
     __table_args__ = (
         UniqueConstraint("rgw_user_uid", name="uq_s3_users_uid"),
         Index("ix_s3_users_storage_endpoint", "storage_endpoint_id"),
+        CheckConstraint("TRIM(rgw_user_uid) <> ''", name="ck_s3_users_rgw_user_uid_nonempty"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
