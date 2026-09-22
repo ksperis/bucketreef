@@ -5911,6 +5911,51 @@ def test_portal_endpoint_alerts_report_degraded_endpoint(monkeypatch, db_session
     ]
 
 
+def test_portal_endpoint_health_uses_canonical_account_endpoint(monkeypatch, db_session):
+    endpoint = StorageEndpoint(name="endpoint-health", endpoint_url="https://s3-health.example.test")
+    account = make_s3_account(db_session, name="portal-health-overview", storage_endpoint=endpoint)
+    user = User(email="health-overview@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([endpoint, account, user])
+    db_session.commit()
+
+    class FakeGeneral:
+        endpoint_status_enabled = True
+
+    class FakeSettings:
+        general = FakeGeneral()
+
+    requested_endpoint_ids: list[int] = []
+
+    class FakeHealthQueryService:
+        def __init__(self, _db):
+            pass
+
+        def build_workspace_health_overview(self, *, endpoint_id):
+            requested_endpoint_ids.append(endpoint_id)
+            return {
+                "generated_at": "2026-09-22T10:00:00+00:00",
+                "stale_after_seconds": 60,
+                "incident_highlight_minutes": 720,
+                "endpoint_count": 0,
+                "up_count": 0,
+                "degraded_count": 0,
+                "down_count": 0,
+                "unknown_count": 0,
+                "endpoints": [],
+                "incidents": [],
+            }
+
+    monkeypatch.setattr(portal_monitoring_router, "load_app_settings", lambda: FakeSettings())
+    monkeypatch.setattr(portal_monitoring_router, "HealthCheckQueryService", FakeHealthQueryService)
+
+    access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
+
+    response = portal_monitoring_router.portal_endpoint_health(access=access, db=db_session)
+
+    assert requested_endpoint_ids == [endpoint.id]
+    assert response.endpoint_count == 0
+
+
 def test_portal_monitoring_routes_are_owned_by_dedicated_router():
     expected_paths = {"/portal/endpoint-health", "/portal/alerts"}
     route_modules = {
