@@ -359,7 +359,9 @@ describe("ProfilePage live validation", () => {
 
     render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
 
-    await screen.findByText("managed-connection");
+    const connectionName = await screen.findByText("managed-connection");
+    expect(connectionName.closest("td")).toHaveClass("ui-table-primary");
+    expect(connectionName.closest("table")).toHaveClass("ui-data-table-fixed");
     expect(screen.queryByRole("button", { name: "Credentials" })).not.toBeInTheDocument();
   });
 
