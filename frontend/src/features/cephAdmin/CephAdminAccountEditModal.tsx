@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { cx, uiDataTableClass, uiPanelMutedClass } from "../../components/ui/styles";
 import {
   CephAdminRgwAccountDetail,
@@ -17,12 +17,13 @@ import {
 import WorkflowPage from "../../components/WorkflowPage";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
-import { SettingsActionBar, SettingsButton } from "../../components/settings/SettingsControls";
+import { SettingsButton } from "../../components/settings/SettingsControls";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import CephAdminAccountFormFields from "./CephAdminAccountFormFields";
 import { parseCephAdminAccountLimits, validateCephAdminAccountForm } from "./cephAdminAccountForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import UsageTile from "../../components/UsageTile";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
@@ -114,11 +115,6 @@ export default function CephAdminAccountEditModal({
     ]
   );
   const [initialSignature, setInitialSignature] = useState(currentSignature);
-  const closeGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: !detailLoading && currentSignature !== initialSignature,
-    onClose,
-    disabled: saving,
-  });
 
   useEffect(() => {
     let cancelled = false;
@@ -222,20 +218,19 @@ export default function CephAdminAccountEditModal({
     }
   }, [activeTab, canViewMetrics]);
 
-  const formRef = useRef<HTMLFormElement>(null);
   const [validationAttempted, setValidationAttempted] = useState(false);
   const profileValues = { accountName, email, maxUsers, maxBuckets, maxRoles, maxGroups, maxAccessKeys };
   const validation = validateCephAdminAccountForm(profileValues,
     { enabled: quotaEnabled, size: quotaSize, unit: quotaUnit, objects: quotaObjects },
     { enabled: bucketQuotaEnabled, size: bucketQuotaSize, unit: bucketQuotaUnit, objects: bucketQuotaObjects });
 
-  const submit = async () => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     if (saving || detailLoading || !detail) return;
     setSaveError(null);
     setSaveStatus(null);
     setValidationAttempted(true);
     if (validation.invalid) {
-      if (formRef.current) focusFirstInvalidField(formRef.current);
+      focusFirstInvalidField(event.currentTarget);
       return;
     }
     const parsedQuotaBytes = quotaEnabled ? parseQuotaBytes(quotaSize, quotaUnit) : null;
@@ -244,58 +239,67 @@ export default function CephAdminAccountEditModal({
     const parsedBucketQuotaObjects = bucketQuotaEnabled ? parseOptionalNonNegativeInteger(bucketQuotaObjects) : null;
 
     setSaving(true);
-    try {
-      const payload: UpdateCephAdminAccountPayload = {
-        account_name: accountName.trim() || null,
-        email: email.trim() || null,
-        ...parseCephAdminAccountLimits(profileValues),
-        ...buildCephAdminQuotaPatch(
-          {
-            enabled: "quota_enabled",
-            maxSizeBytes: "quota_max_size_bytes",
-            maxObjects: "quota_max_objects",
-          },
-          detail?.quota,
-          {
-            enabled: quotaEnabled,
-            maxSizeBytes: parsedQuotaBytes,
-            maxObjects: parsedQuotaObjects,
+    return (async () => {
+      try {
+        const payload: UpdateCephAdminAccountPayload = {
+          account_name: accountName.trim() || null,
+          email: email.trim() || null,
+          ...parseCephAdminAccountLimits(profileValues),
+          ...buildCephAdminQuotaPatch(
+            {
+              enabled: "quota_enabled",
+              maxSizeBytes: "quota_max_size_bytes",
+              maxObjects: "quota_max_objects",
+            },
+            detail?.quota,
+            {
+              enabled: quotaEnabled,
+              maxSizeBytes: parsedQuotaBytes,
+              maxObjects: parsedQuotaObjects,
+            }
+          ),
+          ...buildCephAdminQuotaPatch(
+            {
+              enabled: "bucket_quota_enabled",
+              maxSizeBytes: "bucket_quota_max_size_bytes",
+              maxObjects: "bucket_quota_max_objects",
+            },
+            detail?.bucket_quota,
+            {
+              enabled: bucketQuotaEnabled,
+              maxSizeBytes: parsedBucketQuotaBytes,
+              maxObjects: parsedBucketQuotaObjects,
+            }
+          ),
+        };
+        const updated = await updateCephAdminAccountConfig(endpointId, accountId, payload);
+        setDetail(updated);
+        setInitialSignature(currentSignature);
+        setSaveStatus("Account configuration updated.");
+        onSaved?.(updated);
+        if (activeTab === "metrics") {
+          try {
+            const refreshedMetrics = await getCephAdminAccountMetrics(endpointId, accountId);
+            setMetrics(refreshedMetrics);
+            setMetricsError(null);
+          } catch {
+            // Metrics refresh is best effort.
           }
-        ),
-        ...buildCephAdminQuotaPatch(
-          {
-            enabled: "bucket_quota_enabled",
-            maxSizeBytes: "bucket_quota_max_size_bytes",
-            maxObjects: "bucket_quota_max_objects",
-          },
-          detail?.bucket_quota,
-          {
-            enabled: bucketQuotaEnabled,
-            maxSizeBytes: parsedBucketQuotaBytes,
-            maxObjects: parsedBucketQuotaObjects,
-          }
-        ),
-      };
-      const updated = await updateCephAdminAccountConfig(endpointId, accountId, payload);
-      setDetail(updated);
-      setInitialSignature(currentSignature);
-      setSaveStatus("Account configuration updated.");
-      onSaved?.(updated);
-      if (activeTab === "metrics") {
-        try {
-          const refreshedMetrics = await getCephAdminAccountMetrics(endpointId, accountId);
-          setMetrics(refreshedMetrics);
-          setMetricsError(null);
-        } catch {
-          // Metrics refresh is best effort.
         }
+      } catch (err) {
+        setSaveError(extractError(err));
+      } finally {
+        setSaving(false);
       }
-    } catch (err) {
-      setSaveError(extractError(err));
-    } finally {
-      setSaving(false);
-    }
+    })();
   };
+  const formController = useSettingsFormController({
+    dirty: !detailLoading && currentSignature !== initialSignature,
+    busy: saving,
+    disabled: detailLoading || !detail,
+    onSubmit: submit,
+    onClose,
+  });
 
   const overviewQuota = detail?.quota ?? null;
 
@@ -359,13 +363,26 @@ export default function CephAdminAccountEditModal({
   );
 
   const configTab = (
-    <form ref={formRef} aria-label="RGW account configuration" noValidate
-      onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      {detailLoading && <PageBanner tone="info">Loading account details...</PageBanner>}
-      {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
-      {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
-      {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
-      <fieldset disabled={saving || detailLoading || !detail} className="min-w-0">
+    <SettingsForm
+      label="RGW account configuration"
+      busy={formController.locked || detailLoading}
+      disabled={!detail}
+      submitDisabled={detailLoading || !detail}
+      onSubmit={formController.submit}
+      onCancel={formController.requestClose}
+      submitLabel="Save configuration"
+      busyLabel="Saving..."
+      actions={(
+        <SettingsButton type="submit" disabled={formController.locked || detailLoading || !detail} loading={formController.locked}>
+          {formController.locked ? "Saving..." : "Save configuration"}
+        </SettingsButton>
+      )}
+    >
+      <div className="settings-compact settings-form settings-stack">
+        {detailLoading && <PageBanner tone="info">Loading account details...</PageBanner>}
+        {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
+        {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
+        {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
         <CephAdminAccountFormFields values={profileValues}
           errors={validationAttempted ? validation.profile : undefined}
           onChange={(field, value) => ({ accountName: setAccountName, email: setEmail,
@@ -405,14 +422,8 @@ export default function CephAdminAccountEditModal({
           sizePlaceholder="Leave empty to clear"
           objectPlaceholder="Leave empty to clear"
         />
-
-      </fieldset>
-      <SettingsActionBar>
-        <SettingsButton type="submit" disabled={saving || detailLoading || !detail}>
-          {saving ? "Saving..." : "Save configuration"}
-        </SettingsButton>
-      </SettingsActionBar>
-    </form>
+      </div>
+    </SettingsForm>
   );
 
   const metricsTab = (
@@ -494,13 +505,14 @@ export default function CephAdminAccountEditModal({
     ...(canViewMetrics ? [{ id: "metrics", label: "Metrics", content: metricsTab }] : []),
   ];
 
-  return (
+  return <>
     <WorkflowPage
       title={`Configure account · ${accountId}`}
       description="Review configuration, quotas and metrics without nested dialog scrolling."
       breadcrumbs={cephAdminPageBreadcrumbs("accounts", { label: accountId })}
       backLabel="Back to accounts"
-      onBack={closeGuard.requestClose}
+      onBack={formController.requestClose}
+      backDisabled={formController.locked}
       contentClassName="min-w-0"
       contentVariant="plain"
     >
@@ -512,7 +524,8 @@ export default function CephAdminAccountEditModal({
         ariaLabel="Account configuration sections"
         idPrefix="ceph-admin-account-editor"
       />
-      {closeGuard.confirmationDialog}
     </WorkflowPage>
-  );
+    {formController.confirmationDialog}
+    {formController.navigationGuard}
+  </>;
 }

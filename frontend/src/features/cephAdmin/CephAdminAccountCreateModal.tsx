@@ -2,20 +2,18 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   CephAdminRgwAccountDetail,
   createCephAdminAccount,
   CreateCephAdminAccountPayload,
 } from "../../api/cephAdminAccounts";
-import WorkflowPage from "../../components/WorkflowPage";
+import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import PageBanner from "../../components/PageBanner";
-import { SettingsActionBar, SettingsButton } from "../../components/settings/SettingsControls";
 import CephAdminAccountFormFields from "./CephAdminAccountFormFields";
 import { parseCephAdminAccountLimits, validateCephAdminAccountForm } from "./cephAdminAccountForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { extractApiError } from "../../utils/apiError";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { stableSignature } from "../../utils/stableSignature";
 import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
@@ -93,26 +91,19 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
     ]
   );
   const [initialSignature, setInitialSignature] = useState(currentSignature);
-  const closeGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: currentSignature !== initialSignature,
-    onClose,
-    disabled: saving,
-  });
-
-  const formRef = useRef<HTMLFormElement>(null);
   const [validationAttempted, setValidationAttempted] = useState(false);
   const profileValues = { accountName, email, maxUsers, maxBuckets, maxRoles, maxGroups, maxAccessKeys };
   const validation = validateCephAdminAccountForm(profileValues,
     { enabled: accountQuotaEnabled, size: accountQuotaSize, unit: accountQuotaUnit, objects: accountQuotaObjects },
     { enabled: bucketQuotaEnabled, size: bucketQuotaSize, unit: bucketQuotaUnit, objects: bucketQuotaObjects }, true);
 
-  const submit = async () => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     if (saving) return;
     setError(null);
     setStatus(null);
     setValidationAttempted(true);
     if (validation.invalid) {
-      if (formRef.current) focusFirstInvalidField(formRef.current);
+      focusFirstInvalidField(event.currentTarget);
       return;
     }
     const limits = parseCephAdminAccountLimits(profileValues);
@@ -138,80 +129,73 @@ export default function CephAdminAccountCreateModal({ endpointId, onClose, onCre
     };
 
     setSaving(true);
-    try {
-      const response = await createCephAdminAccount(endpointId, payload);
-      onCreated?.(response.account);
-      setInitialSignature(currentSignature);
-      setStatus(`Account ${response.account.account_id} created.`);
-    } catch (err) {
-      setError(extractError(err));
-    } finally {
-      setSaving(false);
-    }
+    return (async () => {
+      try {
+        const response = await createCephAdminAccount(endpointId, payload);
+        onCreated?.(response.account);
+        setInitialSignature(currentSignature);
+        setStatus(`Account ${response.account.account_id} created.`);
+      } catch (err) {
+        setError(extractError(err));
+      } finally {
+        setSaving(false);
+      }
+    })();
   };
 
   return (
-    <WorkflowPage
+    <SettingsWorkflowForm
       title="Create account"
       description="Define the RGW account identity and quotas in a dedicated Ceph Admin workflow."
       breadcrumbs={cephAdminPageBreadcrumbs("accounts", { label: "Create" })}
       backLabel="Back to accounts"
-      onBack={closeGuard.requestClose}
       width="standard"
       contentVariant="plain"
+      formLabel="Create RGW account"
+      dirty={currentSignature !== initialSignature}
+      busy={saving}
+      error={error}
+      submitLabel="Create account"
+      busyLabel="Creating..."
+      onSubmit={submit}
+      onClose={onClose}
     >
-      <form ref={formRef} aria-label="Create RGW account" noValidate
-        onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        {error && <PageBanner tone="error">{error}</PageBanner>}
-        {status && <PageBanner tone="success">{status}</PageBanner>}
-        <fieldset disabled={saving} className="min-w-0">
-          <CephAdminAccountFormFields creating values={profileValues}
-            errors={validationAttempted ? validation.profile : undefined}
-            onChange={(field, value) => ({ accountName: setAccountName, email: setEmail,
-              maxBuckets: setMaxBuckets, maxUsers: setMaxUsers, maxRoles: setMaxRoles,
-              maxGroups: setMaxGroups, maxAccessKeys: setMaxAccessKeys })[field](value)} />
+      {status && <PageBanner tone="success">{status}</PageBanner>}
+      <CephAdminAccountFormFields creating values={profileValues}
+        errors={validationAttempted ? validation.profile : undefined}
+        onChange={(field, value) => ({ accountName: setAccountName, email: setEmail,
+          maxBuckets: setMaxBuckets, maxUsers: setMaxUsers, maxRoles: setMaxRoles,
+          maxGroups: setMaxGroups, maxAccessKeys: setMaxAccessKeys })[field](value)} />
 
-          <CephAdminQuotaFields
-            title="Account quota"
-            enabledLabel="Enable account quota"
-            enabled={accountQuotaEnabled}
-            onEnabledChange={setAccountQuotaEnabled}
-            sizeValue={accountQuotaSize}
-            onSizeChange={setAccountQuotaSize}
-            unitValue={accountQuotaUnit}
-            onUnitChange={setAccountQuotaUnit}
-            sizeError={validationAttempted ? validation.accountQuota.size : undefined}
-            objectError={validationAttempted ? validation.accountQuota.objects : undefined}
-            objectValue={accountQuotaObjects}
-            onObjectChange={setAccountQuotaObjects}
-          />
+      <CephAdminQuotaFields
+        title="Account quota"
+        enabledLabel="Enable account quota"
+        enabled={accountQuotaEnabled}
+        onEnabledChange={setAccountQuotaEnabled}
+        sizeValue={accountQuotaSize}
+        onSizeChange={setAccountQuotaSize}
+        unitValue={accountQuotaUnit}
+        onUnitChange={setAccountQuotaUnit}
+        sizeError={validationAttempted ? validation.accountQuota.size : undefined}
+        objectError={validationAttempted ? validation.accountQuota.objects : undefined}
+        objectValue={accountQuotaObjects}
+        onObjectChange={setAccountQuotaObjects}
+      />
 
-          <CephAdminQuotaFields
-            title="Bucket quota"
-            enabledLabel="Enable bucket quota"
-            enabled={bucketQuotaEnabled}
-            onEnabledChange={setBucketQuotaEnabled}
-            sizeValue={bucketQuotaSize}
-            onSizeChange={setBucketQuotaSize}
-            unitValue={bucketQuotaUnit}
-            onUnitChange={setBucketQuotaUnit}
-            sizeError={validationAttempted ? validation.bucketQuota.size : undefined}
-            objectError={validationAttempted ? validation.bucketQuota.objects : undefined}
-            objectValue={bucketQuotaObjects}
-            onObjectChange={setBucketQuotaObjects}
-          />
-
-        </fieldset>
-        <SettingsActionBar>
-          <SettingsButton variant="secondary" onClick={closeGuard.requestClose} disabled={saving}>
-            Cancel
-          </SettingsButton>
-          <SettingsButton type="submit" disabled={saving}>
-            {saving ? "Creating..." : "Create account"}
-          </SettingsButton>
-        </SettingsActionBar>
-      </form>
-      {closeGuard.confirmationDialog}
-    </WorkflowPage>
+      <CephAdminQuotaFields
+        title="Bucket quota"
+        enabledLabel="Enable bucket quota"
+        enabled={bucketQuotaEnabled}
+        onEnabledChange={setBucketQuotaEnabled}
+        sizeValue={bucketQuotaSize}
+        onSizeChange={setBucketQuotaSize}
+        unitValue={bucketQuotaUnit}
+        onUnitChange={setBucketQuotaUnit}
+        sizeError={validationAttempted ? validation.bucketQuota.size : undefined}
+        objectError={validationAttempted ? validation.bucketQuota.objects : undefined}
+        objectValue={bucketQuotaObjects}
+        onObjectChange={setBucketQuotaObjects}
+      />
+    </SettingsWorkflowForm>
   );
 }

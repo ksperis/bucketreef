@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { cx, uiDataTableClass, uiPanelMutedClass, uiTableContainerClass } from "../../components/ui/styles";
 import {
   CephAdminRgwUserDetail,
@@ -24,9 +24,11 @@ import {
   updateCephAdminUserKeyStatus,
 } from "../../api/cephAdminUserKeys";
 import AddS3ConnectionFromKeyModal from "../../components/AddS3ConnectionFromKeyModal";
-import WorkflowPage, { WorkflowActions } from "../../components/WorkflowPage";
+import WorkflowPage from "../../components/WorkflowPage";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton } from "../../components/settings/SettingsControls";
+import SettingsForm from "../../components/settings/SettingsForm";
+import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
@@ -35,7 +37,6 @@ import UiInput from "../../components/ui/UiInput";
 import { CephAdminUserProfileFields, CephAdminUserFlags, CephAdminUserCapsFields } from "./CephAdminUserFormFields";
 import { parseCephAdminUserCaps, validateCephAdminUserLimits, type CephAdminUserCapsMode } from "./cephAdminUserForm";
 import UsageTile from "../../components/UsageTile";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 
 import { extractApiError } from "../../utils/apiError";
@@ -165,11 +166,6 @@ export default function CephAdminUserEditModal({
     ]
   );
   const [initialSignature, setInitialSignature] = useState(currentSignature);
-  const closeGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: !detailLoading && currentSignature !== initialSignature,
-    onClose,
-    disabled: saving,
-  });
 
   const refreshKeys = async () => {
     setKeysLoading(true);
@@ -288,13 +284,13 @@ export default function CephAdminUserEditModal({
   const validationErrors = validateCephAdminUserLimits({ maxBuckets, quotaEnabled, quotaSize, quotaUnit, quotaObjects });
   const fieldErrors = validationShown ? validationErrors : {};
 
-  const submit = async (form: HTMLFormElement) => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     if (saving || detailLoading || !detail) return;
     setValidationShown(true);
     setSaveError(null);
     setSaveStatus(null);
     if (Object.keys(validationErrors).length > 0) {
-      focusFirstInvalidField(form);
+      focusFirstInvalidField(event.currentTarget);
       return;
     }
     const accountRootEnabled = Boolean(detail.account_id);
@@ -306,64 +302,73 @@ export default function CephAdminUserEditModal({
     const nextDefaultStorageClass = defaultStorageClass.trim();
 
     setSaving(true);
-    try {
-      const payload: UpdateCephAdminUserPayload = {
-        display_name: displayName.trim() || null,
-        email: email.trim() || null,
-        suspended,
-        max_buckets: parsedMaxBuckets,
-        op_mask: opMask.trim() || null,
-        admin: adminFlag,
-        system: systemFlag,
-        account_root: accountRootEnabled ? true : undefined,
-        caps: {
-          mode: capsMode,
-          values: parseCephAdminUserCaps(capsText),
-        },
-        extra_params: {
-          "default-placement": nextDefaultPlacement || "",
-          "default-storage-class": nextDefaultStorageClass || "",
-        },
-        ...buildCephAdminQuotaPatch(
-          {
-            enabled: "quota_enabled",
-            maxSizeBytes: "quota_max_size_bytes",
-            maxObjects: "quota_max_objects",
+    return (async () => {
+      try {
+        const payload: UpdateCephAdminUserPayload = {
+          display_name: displayName.trim() || null,
+          email: email.trim() || null,
+          suspended,
+          max_buckets: parsedMaxBuckets,
+          op_mask: opMask.trim() || null,
+          admin: adminFlag,
+          system: systemFlag,
+          account_root: accountRootEnabled ? true : undefined,
+          caps: {
+            mode: capsMode,
+            values: parseCephAdminUserCaps(capsText),
           },
-          detail?.quota,
-          {
-            enabled: quotaEnabled,
-            maxSizeBytes: parsedQuotaBytes,
-            maxObjects: parsedQuotaObjects,
+          extra_params: {
+            "default-placement": nextDefaultPlacement || "",
+            "default-storage-class": nextDefaultStorageClass || "",
+          },
+          ...buildCephAdminQuotaPatch(
+            {
+              enabled: "quota_enabled",
+              maxSizeBytes: "quota_max_size_bytes",
+              maxObjects: "quota_max_objects",
+            },
+            detail?.quota,
+            {
+              enabled: quotaEnabled,
+              maxSizeBytes: parsedQuotaBytes,
+              maxObjects: parsedQuotaObjects,
+            }
+          ),
+        };
+        const updated = await updateCephAdminUserConfig(
+          endpointId,
+          uid,
+          payload,
+          tenant
+        );
+        setDetail(updated);
+        setKeys(updated.keys ?? []);
+        setInitialSignature(currentSignature);
+        setSaveStatus("User configuration updated.");
+        onSaved?.(updated);
+        if (activeTab === "metrics") {
+          try {
+            const refreshedMetrics = await getCephAdminUserMetrics(endpointId, uid, tenant);
+            setMetrics(refreshedMetrics);
+            setMetricsError(null);
+          } catch {
+            // Metrics refresh is best effort.
           }
-        ),
-      };
-      const updated = await updateCephAdminUserConfig(
-        endpointId,
-        uid,
-        payload,
-        tenant
-      );
-      setDetail(updated);
-      setKeys(updated.keys ?? []);
-      setInitialSignature(currentSignature);
-      setSaveStatus("User configuration updated.");
-      onSaved?.(updated);
-      if (activeTab === "metrics") {
-        try {
-          const refreshedMetrics = await getCephAdminUserMetrics(endpointId, uid, tenant);
-          setMetrics(refreshedMetrics);
-          setMetricsError(null);
-        } catch {
-          // Metrics refresh is best effort.
         }
+      } catch (err) {
+        setSaveError(extractError(err));
+      } finally {
+        setSaving(false);
       }
-    } catch (err) {
-      setSaveError(extractError(err));
-    } finally {
-      setSaving(false);
-    }
+    })();
   };
+  const formController = useSettingsFormController({
+    dirty: !detailLoading && currentSignature !== initialSignature,
+    busy: saving,
+    disabled: detailLoading || !detail,
+    onSubmit: submit,
+    onClose,
+  });
 
   const handleCreateKey = async () => {
     setKeysError(null);
@@ -495,12 +500,26 @@ export default function CephAdminUserEditModal({
   );
 
   const cephTab = (
-    <form aria-label="RGW user configuration" noValidate onSubmit={(event) => { event.preventDefault(); void submit(event.currentTarget); }} className="settings-compact settings-form space-y-3">
-      {detailLoading && <PageBanner tone="info">Loading user details...</PageBanner>}
-      {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
-      {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
-      {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
-      <fieldset disabled={saving || detailLoading || !detail} className="min-w-0">
+    <SettingsForm
+      label="RGW user configuration"
+      busy={formController.locked || detailLoading}
+      disabled={!detail}
+      submitDisabled={detailLoading || !detail}
+      onSubmit={formController.submit}
+      onCancel={formController.requestClose}
+      submitLabel="Save configuration"
+      busyLabel="Saving..."
+      actions={(
+        <SettingsButton type="submit" disabled={formController.locked || detailLoading || !detail} loading={formController.locked}>
+          {formController.locked ? "Saving..." : "Save configuration"}
+        </SettingsButton>
+      )}
+    >
+      <div className="settings-compact settings-form settings-stack">
+        {detailLoading && <PageBanner tone="info">Loading user details...</PageBanner>}
+        {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
+        {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
+        {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
         <SettingsSection title="Profile" presentation="compact">
           <CephAdminUserProfileFields values={{ displayName, email, maxBuckets, opMask }}
             onChange={(field, value) => ({ displayName: setDisplayName, email: setEmail, maxBuckets: setMaxBuckets, opMask: setOpMask })[field](value)}
@@ -516,13 +535,8 @@ export default function CephAdminUserEditModal({
           objectValue={quotaObjects} onObjectChange={setQuotaObjects} sizePlaceholder="Leave empty to clear" objectPlaceholder="Leave empty to clear"
           sizeError={fieldErrors.quotaSize} objectError={fieldErrors.quotaObjects} />
         <CephAdminUserCapsFields mode={capsMode} onModeChange={setCapsMode} value={capsText} onChange={setCapsText} />
-      </fieldset>
-      <WorkflowActions>
-        <SettingsButton type="submit" disabled={saving || detailLoading || !detail}>
-          {saving ? "Saving..." : "Save configuration"}
-        </SettingsButton>
-      </WorkflowActions>
-    </form>
+      </div>
+    </SettingsForm>
   );
 
   const s3Tab = (
@@ -735,13 +749,14 @@ export default function CephAdminUserEditModal({
     });
   }, [createdKey, detail?.account_id, tenant, uid]);
 
-  return (
+  return <>
     <WorkflowPage
       title={`Configure user · ${identityLabel}`}
       description="Manage this RGW user’s configuration, access keys, capabilities and metrics."
       breadcrumbs={cephAdminPageBreadcrumbs("users", { label: identityLabel })}
       backLabel="Back to users"
-      onBack={closeGuard.requestClose}
+      onBack={formController.requestClose}
+      backDisabled={formController.locked}
       contentClassName="min-w-0"
       contentVariant="plain"
     >
@@ -776,8 +791,9 @@ export default function CephAdminUserEditModal({
           }}
         />
       )}
-      {closeGuard.confirmationDialog}
       {keyConfirmation.confirmationDialog}
     </WorkflowPage>
-  );
+    {formController.confirmationDialog}
+    {formController.navigationGuard}
+  </>;
 }

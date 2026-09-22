@@ -107,6 +107,18 @@ The advanced association dialog uses the shared draft controls and a switch.
 See [Admin RGW account configuration](interface-convergence.md#admin-rgw-account-configuration)
 for exact quota behavior, save boundaries and validation limits.
 
+## Ceph Admin RGW identity workflows
+
+Account/User create workflows now use `SettingsWorkflowForm`; their edit
+configuration tabs use the same `SettingsForm`/controller contract. This
+centralizes native submission, pending locks, action geometry and draft
+navigation guards without changing RGW quota, capability, account-root or key
+payloads. Local validation stays synchronously retryable and only a real async
+operation enters the pending state. Browser QA covers create flows at desktop
+and mobile widths; the isolated endpoint lacks Ceph Admin credentials, so edit
+rendering and RGW mutations remain fixture-backed for this pass. See
+[Ceph Admin RGW identity workflows](interface-convergence.md#ceph-admin-rgw-identity-workflows).
+
 ## Deferred scope
 
 Other account tabs, bucket and workspace forms keep their existing default

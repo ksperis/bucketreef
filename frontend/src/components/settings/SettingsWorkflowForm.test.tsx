@@ -56,6 +56,27 @@ it("submits by Enter, freezes the draft and guards breadcrumbs until the operati
   router.dispose();
 });
 
+it("keeps the form interactive when local validation rejects synchronously", () => {
+  const save = vi.fn(() => undefined);
+  const close = vi.fn();
+  render(
+    <SettingsWorkflowForm title="Create account" dirty onClose={close} onSubmit={save}
+      submitLabel="Create account" backLabel="Back to accounts">
+      <UiInput label="Name" value="" onChange={() => undefined} />
+    </SettingsWorkflowForm>
+  );
+
+  const form = screen.getByRole("form", { name: "Create account" });
+  fireEvent.submit(form);
+  expect(save).toHaveBeenCalledOnce();
+  expect(screen.getByRole("textbox", { name: "Name" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Create account" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Back to accounts" })).toBeEnabled();
+
+  fireEvent.submit(form);
+  expect(save).toHaveBeenCalledTimes(2);
+});
+
 it("keeps consultation non-submittable and closes without a draft confirmation", async () => {
   const user = userEvent.setup();
   const save = vi.fn();

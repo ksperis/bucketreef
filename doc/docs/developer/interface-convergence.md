@@ -888,10 +888,37 @@ exceptions or root horizontal overflow. The account, permission, usage and
 write responses in that browser matrix are fixtures; this pass does not prove
 live RGW quota enforcement or account mutations.
 
+## Ceph Admin RGW identity workflows
+
+RGW account and user creation now use `SettingsWorkflowForm`, while their
+configuration tabs use `SettingsForm` with `useSettingsFormController`. The
+four workflows therefore share native form submission, the compact action
+area, duplicate-submit protection, pending field locking, and the same
+close/router/reload draft guard. Their RGW account limits, user capabilities,
+account-root handling, key generation and quota payload semantics remain
+unchanged.
+
+The shared form controller distinguishes local validation from an asynchronous
+operation: a submit handler that returns synchronously keeps the draft
+interactive and immediately retryable, while a returned promise activates the
+pending lock until it settles. The synchronous submission ref still rejects a
+duplicate submit in the same call stack. This prevents validation-only submits
+from briefly presenting an operation-in-progress state.
+
+Final validation for this pass covered 2,798 frontend tests across 466 files,
+the full frontend CI check and a strict MkDocs build. Authenticated browser QA
+exercises account and user creation at 1728 and 390 px, including required-field
+focus, immediate retry, responsive sections/actions and dirty-back
+confirmation. The isolated browser endpoint has no dedicated Ceph Admin
+credentials, so RGW lists and writes are unavailable; edit rendering and live
+RGW mutations are validated only by component/API fixtures in this pass, not
+against a Ceph RGW cluster.
+
 ## Remaining passes
 
 - Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
-- Review remaining operational form sections.
+- Review remaining operational form sections beyond Ceph Admin RGW identity
+  create/edit workflows.
 - Review remaining account and bucket form sections against the compact
   settings contract, preserving each independent save boundary.
