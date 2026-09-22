@@ -14,8 +14,8 @@ export function buildAdminQuotaSizeEditorValue(
   if (quotaGb == null) {
     return { value: "", unit: "GiB" };
   }
-  if (quotaGb > 0 && quotaGb < 1) {
-    return { value: String(Math.round(quotaGb * 1024)), unit: "MiB" };
+  if (quotaGb > 0 && quotaGb < 1 && Number.isInteger(quotaGb * 1024)) {
+    return { value: String(quotaGb * 1024), unit: "MiB" };
   }
   return { value: String(quotaGb), unit: "GiB" };
 }

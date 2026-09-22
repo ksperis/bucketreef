@@ -188,6 +188,20 @@ guards include pending association selections and image changes. The user
 Authentication tab keeps its immediate actions and Done footer: it must never
 submit the parent profile draft.
 
+Admin RGW account editing uses a keyed `AdminAccountEditor`, compact sections
+and the shared native settings form across its account tabs. Use `InlineSummary`
+for observed usage and saved quota limits; do not nest usage cards inside the
+form. Users and groups share `AdminAccountAssociations` and existing role
+selectors. Keep hidden tab wrappers free from display/grid classes so inactive
+fields cannot remain visible. The Portal settings form stays outside the
+account form and reports its pending state to the workflow.
+
+Advanced association settings reuse `SettingsDraftDialog`, compact rows and a
+switch. Apply remains a draft action. The dialog's native submit stops event
+propagation, and `disabled` freezes its fields, actions and close paths when
+the owning workflow is saving. Keep the same explicit permission guidance for
+account and RGW-user associations.
+
 Admin storage endpoint creation, editing and view use the same compact sections
 through `StorageEndpointEditor` and its three domain field components. Keep
 provider radio choices, binary switches, labelled inputs, visible command

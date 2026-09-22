@@ -37,7 +37,7 @@ export default function AdminQuotaFields({
       title="Quotas"
       description="Set optional storage and object limits. Leave a value empty to disable that limit."
     >
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className={compact ? "settings-fields sm:grid-cols-2" : "grid gap-4 md:grid-cols-2"}>
         <div className="grid grid-cols-[minmax(0,1fr)_6rem] items-start gap-2">
           <UiInput
             label="Storage quota"

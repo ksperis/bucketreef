@@ -37,6 +37,11 @@ export function rgwCreateErrors(value: {name: string; storage_endpoint_id: strin
     if (nameFormatError) errors.name = nameFormatError;
   }
   if (!value.storage_endpoint_id) errors.storage_endpoint_id = "Select a Ceph endpoint.";
+  return { ...errors, ...adminQuotaErrors(value) };
+}
+
+export function adminQuotaErrors(value: { quota_max_size_gb: string; quota_max_objects: string }): Record<string, string> {
+  const errors: Record<string, string> = {};
   if (value.quota_max_size_gb && (!Number.isFinite(Number(value.quota_max_size_gb)) || Number(value.quota_max_size_gb) < 0)) errors.quota_max_size_gb = "Enter a non-negative storage quota.";
   if (value.quota_max_objects && (!Number.isSafeInteger(Number(value.quota_max_objects)) || Number(value.quota_max_objects) < 0)) errors.quota_max_objects = "Enter a non-negative whole number within the supported range.";
   return errors;

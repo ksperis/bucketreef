@@ -1,5 +1,8 @@
+import { transferableAbortController } from "node:util";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import userEvent from "@testing-library/user-event";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AccountsPage from "./AccountsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
@@ -99,7 +102,8 @@ vi.mock("../../api/tags", () => ({
 
 describe("AccountsPage modal tabs", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
 
     portalEnabled = false;
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
@@ -190,6 +194,8 @@ describe("AccountsPage modal tabs", () => {
     updateAccountPortalSettingsMock.mockResolvedValue(makePortalAccountSettings());
   });
 
+  afterEach(() => { vi.unstubAllGlobals(); setSessionUserCache(null); });
+
   it("shows the compact empty state when no RGW accounts exist", async () => {
     listS3AccountsMock.mockResolvedValueOnce({
       items: [],
@@ -220,7 +226,7 @@ describe("AccountsPage modal tabs", () => {
     expect(within(generalPanel).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Object quota")).toHaveClass("ui-control");
-    expect(within(generalPanel).queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(within(generalPanel).getByRole("button", { name: "Save changes" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
     expect(screen.getAllByText("RGW ID").some((node) => node.tagName === "DT")).toBe(true);
   });
@@ -523,6 +529,8 @@ describe("AccountsPage modal tabs", () => {
       screen.queryByRole("combobox", { name: "Portal role for ui7@example.com" }),
     ).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.change(screen.getByLabelText("Object quota"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -1073,39 +1081,48 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
   });
 
-  it("keeps Portal edits made while the account save is pending", async () => {
+  it("preserves the independent Portal draft while freezing account-save navigation", async () => {
     portalEnabled = true;
     let finishSave!: () => void;
-    updateS3AccountMock.mockReturnValueOnce(new Promise<void>((resolve) => { finishSave = resolve; }));
+    updateS3AccountMock.mockReturnValueOnce(new Promise<void>(resolve => { finishSave = resolve; }));
     render(<AccountsPage />);
-    await screen.findByText("acc-1");
-    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
-    fireEvent.click(screen.getByRole("switch", { name: "Bucket quota management" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
-    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
-    await act(async () => { finishSave(); });
-    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("enabled");
-    expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
-  });
-
-  it("ignores an account save response after closing and opening another editor", async () => {
-    portalEnabled = true;
-    let finishSave!: () => void;
-    updateS3AccountMock.mockReturnValueOnce(new Promise<void>((resolve) => { finishSave = resolve; }));
-    render(<AccountsPage />);
-    await screen.findByText("acc-1");
-    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
-    fireEvent.click(screen.getByRole("switch", { name: "Bucket quota management" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
-    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
-    await act(async () => { finishSave(); });
+    fireEvent.click(screen.getByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Bucket quota management" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(screen.getByRole("tab", { name: "Portal settings" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
+    expect(screen.getByRole("tab", { name: "Privileged access" })).toHaveAttribute("aria-selected", "true");
+    await act(async () => finishSave());
+    fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
+    expect(screen.getByLabelText("Browser workspace access")).toHaveValue("enabled");
+    expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await screen.findByText("Project settings saved.");
+    expect(updateS3AccountMock).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("ignores an account save response after its editor is unmounted", async () => {
+    portalEnabled = true;
+    let finishSave!: () => void;
+    updateS3AccountMock.mockReturnValueOnce(new Promise<void>(resolve => { finishSave = resolve; }));
+    const first = render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Bucket quota management" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
+    first.unmount();
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
+    fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
+    await act(async () => finishSave());
     expect(screen.getByLabelText("Browser workspace access")).toHaveValue("enabled");
     expect(screen.queryByText("S3Account updated")).not.toBeInTheDocument();
   });
@@ -1254,6 +1271,162 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(fields.getByRole("button", {name: "Cancel"}));
     expect(screen.queryByText("Discard changes?")).not.toBeInTheDocument();
     expect(screen.queryByRole("form", {name: "Import RGW accounts"})).not.toBeInTheDocument();
+  });
+
+  it("locks native account submission and browser history until a failed save can be retried", async () => {
+    const user = userEvent.setup();
+    let reject!: (error: Error) => void;
+    updateS3AccountMock.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    const router = createMemoryRouter([
+      { path: "/admin", element: <h1>Admin destination</h1> },
+      { path: "/admin/s3-accounts", element: <AccountsPage /> },
+    ], { initialEntries: ["/admin", "/admin/s3-accounts"] });
+    render(<RouterProvider router={router} />);
+    await user.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    const quota = await screen.findByLabelText("Object quota");
+    await waitFor(() => expect(quota).toBeEnabled());
+    await user.click(screen.getByRole("tab", { name: "Linked UI users" }));
+    await user.click(screen.getByRole("button", { name: "Add UI users" }));
+    await screen.findByRole("checkbox", { name: "ui7@example.com" });
+    await user.click(screen.getByRole("tab", { name: "General" }));
+    await user.type(quota, "42{Enter}");
+    fireEvent.submit(screen.getByRole("form", { name: "Edit RGW account" }));
+    expect(updateS3AccountMock).toHaveBeenCalledOnce();
+    expect(quota).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Add a tag for this account" })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: "Linked UI users" })).toBeDisabled();
+    expect(screen.getByRole("searchbox", { name: "Search UI users", hidden: true })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "ui7@example.com", hidden: true })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Manager role for ui7@example.com", hidden: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
+    await act(async () => { await router.navigate(-1); });
+    expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Discard changes" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    await act(async () => reject(new Error("Account write refused")));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Account write refused");
+    expect(quota).toHaveValue(42);
+    expect(quota).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Edit RGW account" })).not.toBeInTheDocument());
+    expect(updateS3AccountMock.mock.calls[1]).toEqual(updateS3AccountMock.mock.calls[0]);
+    expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
+    await act(async () => { await router.navigate(-1); });
+    expect(await screen.findByRole("heading", { name: "Admin destination" })).toBeVisible();
+    router.dispose();
+  });
+
+  it("retries an account read without enabling an empty editor", async () => {
+    getS3AccountMock.mockRejectedValueOnce(new Error("Account unavailable"));
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Account unavailable");
+    expect(screen.queryByRole("form", { name: "Edit RGW account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByLabelText("Object quota")).toHaveValue(null);
+    expect(getS3AccountMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { kind: "users", label: "ui7@example.com", mock: listMinimalUsersMock },
+    { kind: "groups", label: "Research Group", mock: listMinimalGroupsMock },
+  ])("recovers the $kind catalogue and protects selected additions before they are applied", async ({ kind, label, mock }) => {
+    mock.mockRejectedValueOnce(new Error("Catalogue unavailable"));
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("tab", { name: `Linked UI ${kind}` }));
+    fireEvent.click(screen.getByRole("button", { name: `Add UI ${kind}` }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Catalogue unavailable");
+    expect(screen.queryByText("No results.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: label, exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(`Add the selected UI ${kind}`);
+    expect(screen.getByRole("tab", { name: `Linked UI ${kind}` })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("checkbox", { name: label, exact: true })).toBeChecked();
+    expect(updateS3AccountMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add selected" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updateS3AccountMock).toHaveBeenCalledOnce());
+    expect(updateS3AccountMock.mock.calls[0][1]).not.toHaveProperty("quota_max_size_gb");
+    expect(updateS3AccountMock.mock.calls[0][1]).not.toHaveProperty("quota_max_objects");
+  });
+
+  it("reveals invalid quota fields across tabs and preserves zero and selected units", async () => {
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    const quota = await screen.findByLabelText("Object quota");
+    await waitFor(() => expect(quota).toBeEnabled());
+    fireEvent.change(quota, { target: { value: "1.5" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Privileged access" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Edit RGW account" }));
+    await waitFor(() => expect(quota).toHaveFocus());
+    expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute("aria-selected", "true");
+    expect(quota).toHaveAccessibleDescription("Enter a non-negative whole number within the supported range.");
+    expect(updateS3AccountMock).not.toHaveBeenCalled();
+    fireEvent.change(quota, { target: { value: "0" } });
+    fireEvent.change(screen.getByLabelText("Storage quota"), { target: { value: "0.5" } });
+    fireEvent.change(screen.getByLabelText("Storage quota unit"), { target: { value: "TiB" } });
+    fireEvent.submit(screen.getByRole("form", { name: "Edit RGW account" }));
+    await waitFor(() => expect(updateS3AccountMock).toHaveBeenCalledOnce());
+    expect(updateS3AccountMock.mock.calls[0][1]).toEqual(expect.objectContaining({ quota_max_size_gb: 0.5, quota_max_size_unit: "TiB", quota_max_objects: 0 }));
+  });
+
+  it("keeps a fractional storage quota exact when changing only the object limit", async () => {
+    const account = await getS3AccountMock();
+    getS3AccountMock.mockResolvedValue({ ...account, quota_max_size_gb: 0.5001, quota_max_objects: 100 });
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    const objects = await screen.findByLabelText("Object quota");
+    await waitFor(() => expect(objects).toBeEnabled());
+    expect(screen.getByLabelText("Storage quota")).toHaveValue(0.5001);
+    expect(screen.getByLabelText("Storage quota unit")).toHaveValue("GiB");
+    fireEvent.change(objects, { target: { value: "" } });
+    fireEvent.submit(screen.getByRole("form", { name: "Edit RGW account" }));
+    await waitFor(() => expect(updateS3AccountMock).toHaveBeenCalledOnce());
+    expect(updateS3AccountMock.mock.calls[0][1]).toEqual(expect.objectContaining({ quota_max_size_gb: 0.5001, quota_max_size_unit: "GiB", quota_max_objects: null }));
+  });
+
+  it("keeps endpoint-permission failures retryable without authorizing quota edits", async () => {
+    getStorageEndpointMock.mockRejectedValueOnce(new Error("Permission lookup failed"));
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Permission lookup failed");
+    expect(screen.getByLabelText("Object quota")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry permissions" }));
+    await waitFor(() => expect(screen.getByLabelText("Object quota")).toBeEnabled());
+    expect(updateS3AccountMock).not.toHaveBeenCalled();
+  });
+
+  it("locks the account shell during a Portal save and retains both drafts after failure", async () => {
+    portalEnabled = true;
+    let reject!: (error: Error) => void;
+    updateAccountPortalSettingsMock.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    render(<AccountsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    const quota = await screen.findByLabelText("Object quota");
+    await waitFor(() => expect(quota).toBeEnabled());
+    fireEvent.change(quota, { target: { value: "24" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Portal settings" }));
+    const browserAccess = await screen.findByLabelText("Browser workspace access");
+    fireEvent.change(browserAccess, { target: { value: "enabled" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updateAccountPortalSettingsMock).toHaveBeenCalledOnce());
+    expect(browserAccess).toBeDisabled();
+    expect(quota).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: "General" })).toBeDisabled();
+    await act(async () => reject(new Error("Portal write failed")));
+    expect(await screen.findByText(/Unable to save project settings/)).toBeInTheDocument();
+    expect(browserAccess).toHaveValue("enabled");
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    expect(quota).toHaveValue(24);
+    expect(updateS3AccountMock).not.toHaveBeenCalled();
   });
 
   it("keeps endpoint capability failures visible and prevents creating or importing", async () => {

@@ -52,6 +52,10 @@
   font-weight: var(--settings-title-weight);
   color: var(--ui-text);
 }
+.settings-section-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .settings-label,
 .settings-fields label:not(.settings-choice),
 .settings-form label {

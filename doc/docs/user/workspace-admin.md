@@ -98,6 +98,30 @@ tags fail, the page explains the partial result and keeps the tag draft. Retry
 uses the saved endpoint identity and does not repeat unchanged configuration or
 create a duplicate endpoint. A tag-only edit does not rewrite configuration.
 
+## Editing an RGW account
+
+Open **Edit** from **Managed Tenants > RGW Accounts**. **General** groups tags,
+observed usage and quota fields. Usage and saved limits describe the current
+configuration; editing a quota does not apply it until **Save changes**.
+Leave a quota value empty to remove that limit. Unchanged quotas are not sent
+again when saving tags or associations. Quota controls require verified
+`accounts=write` permission on the endpoint; a failed permission check provides
+**Retry permissions**.
+
+**Linked UI users** and **Linked UI groups** use the same searchable picker.
+Select principals and their roles, then use **Add selected** to add them to
+the account draft. Saving reminds you to finish any pending selection. A
+catalogue loading error provides **Retry** without hiding existing links.
+The **Advanced** association dialog applies its setting to the account draft;
+save the account to persist it.
+
+**Privileged access** contains the existing bucket quota management grant.
+**Portal settings**, when available, has its own save action: saving either
+form preserves unsaved changes in the other. While either save is running,
+fields, tabs and return controls are locked. A failed save keeps the draft for
+retry. Returning to the account list or leaving the page asks for confirmation
+when unsaved changes remain.
+
 ## Compact identity associations
 
 The **Managed Tenants** RGW Accounts and RGW Users lists, together with

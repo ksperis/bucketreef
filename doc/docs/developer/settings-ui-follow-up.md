@@ -96,6 +96,17 @@ submissions and navigation. Provider payloads and global policy saves remain
 independent. See [Admin authentication provider editors](interface-convergence.md#admin-authentication-provider-editors)
 for the validation scope and remaining external-login boundary.
 
+## Admin RGW account editor
+
+The five account tabs now use the compact workflow, with shared General
+sections, a single account action area and a common user/group association
+composition. Account and Portal settings retain independent saves and drafts;
+pending operations lock the enclosing tabs and navigation. Loading failures,
+permission failures and association catalogue failures have explicit retry.
+The advanced association dialog uses the shared draft controls and a switch.
+See [Admin RGW account configuration](interface-convergence.md#admin-rgw-account-configuration)
+for exact quota behavior, save boundaries and validation limits.
+
 ## Deferred scope
 
 Other account tabs, bucket and workspace forms keep their existing default
