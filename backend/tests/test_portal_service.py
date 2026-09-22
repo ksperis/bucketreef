@@ -3437,7 +3437,6 @@ def test_reconcile_portal_server_access_logging_enables_and_disables_managed_buc
     service = PortalService(db_session)
     enabled_calls = []
     disabled_calls = []
-    monkeypatch.setattr(service, "_portal_server_access_logging_account_ready", lambda _account: True)
     monkeypatch.setattr(service, "_ensure_portal_server_access_log_bucket", lambda _account, **_kwargs: "technical-logs")
     monkeypatch.setattr(service, "_ensure_portal_server_access_log_bucket_policy", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(

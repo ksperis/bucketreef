@@ -29,9 +29,6 @@ SERVER_ACCESS_LOGGING_RETENTION_DEFAULT_DAYS = 30
 
 
 class PortalServerAccessLoggingMixin:
-    def _portal_server_access_logging_account_ready(self, account: S3Account) -> bool:
-        return bool(getattr(account, "storage_endpoint", None) or getattr(account, "storage_endpoint_id", None))
-
     def _portal_server_access_log_bucket_name(self, account: S3Account) -> str:
         seed = f"{account.rgw_account_id}{account.name or ''}"
         digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:8]
@@ -190,8 +187,6 @@ class PortalServerAccessLoggingMixin:
         )
 
     def _sync_portal_server_access_log_bucket_policy_if_present(self, account: S3Account) -> None:
-        if not self._portal_server_access_logging_account_ready(account):
-            return
         log_bucket = self._portal_server_access_log_bucket_name(account)
         client = self._portal_server_access_client(account)
         try:
@@ -261,9 +256,6 @@ class PortalServerAccessLoggingMixin:
         effective = portal_settings or self._effective_portal_settings(account)
         if not effective.server_access_logging_enabled:
             return
-        if not self._portal_server_access_logging_account_ready(account):
-            logger.debug("Skipping Portal Server Access Logging without a storage endpoint: account=%s", account.id)
-            return
         log_bucket = self._ensure_portal_server_access_log_bucket(account, portal_settings=effective)
         self._ensure_portal_server_access_log_bucket_policy(account, log_bucket)
         self._put_portal_server_access_logging(account, source_bucket, log_bucket)
@@ -282,9 +274,6 @@ class PortalServerAccessLoggingMixin:
         )
         summary = {"enabled": 0, "disabled": 0, "skipped": 0}
         if not metadata_rows:
-            return summary
-        if not self._portal_server_access_logging_account_ready(account):
-            summary["skipped"] = len(metadata_rows)
             return summary
         if effective.server_access_logging_enabled:
             log_bucket = self._ensure_portal_server_access_log_bucket(account, portal_settings=effective)
