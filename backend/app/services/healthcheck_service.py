@@ -126,7 +126,7 @@ class HealthCheckService:
         return EndpointCheckTarget(
             endpoint_id=endpoint.id,
             name=endpoint.name,
-            endpoint_url=(endpoint.endpoint_url or "").strip(),
+            endpoint_url=endpoint.endpoint_url,
             force_path_style=endpoint.force_path_style,
             verify_tls=endpoint.verify_tls,
             region=endpoint.region,

@@ -99,10 +99,7 @@ class S3ConnectionValidationService:
             endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == payload.storage_endpoint_id).first()
             if not endpoint:
                 raise KeyError("Storage endpoint not found")
-            endpoint_url = (endpoint.endpoint_url or "").strip().rstrip("/")
-            if not endpoint_url:
-                raise ValueError("Endpoint URL is required.")
-            return endpoint_url, endpoint.region, bool(getattr(endpoint, "force_path_style", False)), True
+            return endpoint.endpoint_url, endpoint.region, endpoint.force_path_style, True
 
         endpoint_url = (payload.endpoint_url or "").strip().rstrip("/")
         if not endpoint_url:
