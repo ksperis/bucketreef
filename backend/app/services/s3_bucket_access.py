@@ -8,6 +8,7 @@ from typing import Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.services.s3_bucket_config_delete import delete_bucket_configuration
 from app.services.s3_client import get_s3_client
 from app.utils.aws_errors import aws_error_code
 
@@ -91,16 +92,13 @@ def delete_bucket_cors(
         force_path_style=force_path_style,
         verify_tls=verify_tls,
     )
-    try:
-        client.delete_bucket_cors(Bucket=bucket_name)
-    except ClientError as exc:
-        code = aws_error_code(exc, lowercase=True)
-        if code in {"nosuchcorsconfiguration", "nosuchbucket"}:
-            return
-        raise RuntimeError(f"Unable to delete bucket CORS for '{bucket_name}': {exc}") from exc
-    except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to delete bucket CORS for '{bucket_name}': {exc}") from exc
-    logger.debug("Deleted CORS for bucket %s", bucket_name)
+    deleted = delete_bucket_configuration(
+        operation=lambda: client.delete_bucket_cors(Bucket=bucket_name),
+        missing_error_codes={"nosuchcorsconfiguration", "nosuchbucket"},
+        error_message=f"Unable to delete bucket CORS for '{bucket_name}'",
+    )
+    if deleted:
+        logger.debug("Deleted CORS for bucket %s", bucket_name)
 
 
 def get_bucket_website(
@@ -184,16 +182,13 @@ def delete_bucket_website(
         force_path_style=force_path_style,
         verify_tls=verify_tls,
     )
-    try:
-        client.delete_bucket_website(Bucket=bucket_name)
-    except ClientError as exc:
-        code = aws_error_code(exc, lowercase=True)
-        if code in {"nosuchwebsiteconfiguration", "nosuchbucket"}:
-            return
-        raise RuntimeError(f"Unable to delete bucket website for '{bucket_name}': {exc}") from exc
-    except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to delete bucket website for '{bucket_name}': {exc}") from exc
-    logger.debug("Deleted bucket website for bucket %s", bucket_name)
+    deleted = delete_bucket_configuration(
+        operation=lambda: client.delete_bucket_website(Bucket=bucket_name),
+        missing_error_codes={"nosuchwebsiteconfiguration", "nosuchbucket"},
+        error_message=f"Unable to delete bucket website for '{bucket_name}'",
+    )
+    if deleted:
+        logger.debug("Deleted bucket website for bucket %s", bucket_name)
 
 
 def get_bucket_policy(
@@ -279,13 +274,10 @@ def delete_bucket_policy(
         force_path_style=force_path_style,
         verify_tls=verify_tls,
     )
-    try:
-        client.delete_bucket_policy(Bucket=bucket_name)
-    except ClientError as exc:
-        code = aws_error_code(exc, lowercase=True)
-        if code in {"nosuchbucketpolicy", "nosuchbucket"}:
-            return
-        raise RuntimeError(f"Unable to delete bucket policy for '{bucket_name}': {exc}") from exc
-    except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to delete bucket policy for '{bucket_name}': {exc}") from exc
-    logger.debug("Deleted policy for bucket %s", bucket_name)
+    deleted = delete_bucket_configuration(
+        operation=lambda: client.delete_bucket_policy(Bucket=bucket_name),
+        missing_error_codes={"nosuchbucketpolicy", "nosuchbucket"},
+        error_message=f"Unable to delete bucket policy for '{bucket_name}'",
+    )
+    if deleted:
+        logger.debug("Deleted policy for bucket %s", bucket_name)
