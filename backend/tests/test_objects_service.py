@@ -70,6 +70,25 @@ def test_list_objects_filters_folder_marker_and_returns_prefixes(monkeypatch):
     assert fake.calls[0][0] == "list_objects_v2"
 
 
+def test_list_objects_preserves_distinct_repeated_slash_markers(monkeypatch):
+    service = ObjectsService()
+    fake = _FakeS3Client()
+    fake.list_payload = {
+        "Contents": [
+            {"Key": "logs/", "Size": 0},
+            {"Key": "logs//", "Size": 0},
+            {"Key": "logs///", "Size": 0},
+        ],
+        "CommonPrefixes": [],
+        "IsTruncated": False,
+    }
+    monkeypatch.setattr("app.services.objects_service.get_s3_client", lambda *args, **kwargs: fake)
+
+    result = service.list_objects("bucket-1", _account(), prefix="logs/")
+
+    assert [item.key for item in result.objects] == ["logs//", "logs///"]
+
+
 def test_list_objects_wraps_errors(monkeypatch):
     service = ObjectsService()
     fake = _FakeS3Client()

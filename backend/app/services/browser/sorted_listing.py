@@ -9,6 +9,10 @@ from typing import Any, Callable
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.models.browser import BrowserObject, BrowserObjectSortBy, BrowserObjectSortDir
+from app.services.object_listing_identity import (
+    is_current_folder_marker,
+    recursive_prefixes_for_key,
+)
 from app.services.object_listing_temp_store import TemporarySqliteStore
 
 
@@ -183,7 +187,11 @@ class SortedObjectSnapshotBuilder:
         if not isinstance(key, str) or not key:
             return
         size = int(item.get("Size") or 0)
-        if self.options.prefix and key.rstrip("/") == self.options.prefix.rstrip("/") and size == 0:
+        if is_current_folder_marker(
+            key=key,
+            prefix=self.options.prefix,
+            size=size,
+        ):
             return
         is_folder_marker = key.endswith("/") and size == 0
         if self.options.recursive and self.options.item_type != "file":
@@ -219,15 +227,13 @@ class SortedObjectSnapshotBuilder:
         key: str,
         is_folder_marker: bool,
     ) -> None:
-        if is_folder_marker and key != self.options.prefix and self.matches_query(key):
-            self._insert_prefix(store, key)
-        relative = key[len(self.options.prefix):] if key.startswith(self.options.prefix) else key
-        segments = [segment for segment in relative.split("/") if segment]
-        running = self.options.prefix
-        for segment in segments[:-1]:
-            running = f"{running}{segment}/"
-            if self.matches_query(running):
-                self._insert_prefix(store, running)
+        for prefix in recursive_prefixes_for_key(
+            key,
+            current_prefix=self.options.prefix,
+            is_folder_marker=is_folder_marker,
+        ):
+            if self.matches_query(prefix):
+                self._insert_prefix(store, prefix)
 
     def _insert_common_prefixes(self, store: TemporarySqliteStore, response: dict) -> None:
         if self.options.recursive or self.options.item_type == "file":

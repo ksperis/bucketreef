@@ -10,6 +10,10 @@ from typing import Any
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.models.browser import BrowserObject, ListBrowserObjectsResponse
+from app.services.object_listing_identity import (
+    is_current_folder_marker,
+    recursive_prefixes_for_key,
+)
 
 from ._shared import OBJECT_LIST_SCAN_PAGE_BUDGET, OBJECT_LIST_SCAN_TIME_BUDGET_MS
 
@@ -67,17 +71,21 @@ class _FilteredObjectListing:
             if not key:
                 continue
             size = int(entry.get("Size") or 0)
-            if (
-                self.options.prefix
-                and key.rstrip("/") == self.options.prefix.rstrip("/")
-                and size == 0
+            if is_current_folder_marker(
+                key=key,
+                prefix=self.options.prefix,
+                size=size,
             ):
                 continue
             is_folder_marker = key.endswith("/") and size == 0
 
             if self.options.recursive and self.options.item_type != "file":
                 recursive_prefixes.update(
-                    self._recursive_prefixes_for_key(key, is_folder_marker)
+                    recursive_prefixes_for_key(
+                        key,
+                        current_prefix=self.options.prefix,
+                        is_folder_marker=is_folder_marker,
+                    )
                 )
 
             if self.options.item_type == "folder" or (
@@ -101,22 +109,6 @@ class _FilteredObjectListing:
                 )
             )
         return recursive_prefixes
-
-    def _recursive_prefixes_for_key(self, key: str, is_folder_marker: bool) -> set[str]:
-        prefixes: set[str] = set()
-        if is_folder_marker and key != self.options.prefix:
-            prefixes.add(key)
-        relative = (
-            key[len(self.options.prefix) :]
-            if self.options.prefix and key.startswith(self.options.prefix)
-            else key
-        )
-        segments = [segment for segment in relative.split("/") if segment]
-        running = self.options.prefix
-        for segment in segments[:-1]:
-            running = f"{running}{segment}/"
-            prefixes.add(running)
-        return prefixes
 
     def _add_prefixes(self, candidates: list[str]) -> None:
         for prefix in candidates:
@@ -190,10 +182,10 @@ class DefaultObjectListingLoader:
             if not key:
                 continue
             size = int(item.get("Size") or 0)
-            if (
-                self.options.prefix
-                and key.rstrip("/") == self.options.prefix.rstrip("/")
-                and size == 0
+            if is_current_folder_marker(
+                key=key,
+                prefix=self.options.prefix,
+                size=size,
             ):
                 continue
             objects.append(

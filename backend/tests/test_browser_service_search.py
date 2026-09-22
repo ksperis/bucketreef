@@ -151,6 +151,71 @@ def test_list_objects_recursive_folder_filter_builds_prefixes(monkeypatch):
     assert "Delimiter" not in captured["kwargs"]
 
 
+@pytest.mark.parametrize(
+    "sort_by,sort_dir",
+    [("name", "asc"), ("size", "asc")],
+)
+def test_recursive_folder_listing_preserves_empty_path_segments(monkeypatch, sort_by, sort_dir):
+    class FakeClient:
+        def list_objects_v2(self, **_kwargs):  # noqa: ANN001
+            return {
+                "Contents": [
+                    {"Key": "/root.txt", "Size": 1},
+                    {"Key": "//nested.txt", "Size": 2},
+                    {"Key": "docs//report.csv", "Size": 3},
+                ],
+                "IsTruncated": False,
+                "NextContinuationToken": None,
+            }
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
+
+    result = service.list_objects(
+        "bucket-a",
+        _account(),
+        recursive=True,
+        item_type="folder",
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+
+    assert result.objects == []
+    assert result.prefixes == ["/", "//", "docs/", "docs//"]
+
+
+@pytest.mark.parametrize(
+    "sort_by,sort_dir",
+    [("name", "asc"), ("size", "asc")],
+)
+def test_listing_skips_only_exact_selected_folder_marker(monkeypatch, sort_by, sort_dir):
+    class FakeClient:
+        def list_objects_v2(self, **_kwargs):  # noqa: ANN001
+            return {
+                "Contents": [
+                    {"Key": "docs/", "Size": 0},
+                    {"Key": "docs//", "Size": 0},
+                    {"Key": "docs///", "Size": 0},
+                    {"Key": "docs/file.txt", "Size": 4},
+                ],
+                "IsTruncated": False,
+                "NextContinuationToken": None,
+            }
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
+
+    result = service.list_objects(
+        "bucket-a",
+        _account(),
+        prefix="docs/",
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+
+    assert [item.key for item in result.objects] == ["docs//", "docs///", "docs/file.txt"]
+
+
 def test_list_objects_force_refresh_invalidates_cached_listing(monkeypatch):
     calls: list[dict] = []
 

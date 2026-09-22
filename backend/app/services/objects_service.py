@@ -8,6 +8,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.object import ListObjectsResponse, S3Object
+from app.services.object_listing_identity import is_current_folder_marker
 from app.services.s3_client import get_s3_client
 from app.services.s3_execution_client import (
     require_s3_execution_credentials,
@@ -59,8 +60,13 @@ class ObjectsService:
             key = obj.get("Key")
             if not key:
                 continue
-            # Skip folder markers (prefix itself)
-            if prefix and key.rstrip("/") == prefix.rstrip("/") and obj.get("Size", 0) == 0:
+            # Skip only the exact marker for the selected prefix. Repeated or
+            # additional slashes are literal S3 key data.
+            if is_current_folder_marker(
+                key=key,
+                prefix=prefix,
+                size=int(obj.get("Size") or 0),
+            ):
                 continue
             objects.append(
                 S3Object(

@@ -107,6 +107,12 @@ whole-bucket listing. Omitted keys retain hierarchical prefix listing. S3 key
 and version markers pass through unchanged, including on pages containing only
 neighboring keys so the caller can continue pagination.
 
+Object listings skip only the zero-byte folder marker whose key exactly equals
+the selected folder prefix. Additional or repeated `/` characters identify
+different keys and prefixes. Recursive folder synthesis scans delimiter
+positions directly, so empty path segments such as `/`, `//`, and `docs//`
+remain distinct in both the default and server-sorted listing paths.
+
 ## Browser mutation cache lifetime
 
 Browser mutations use `BrowserContextMixin._object_mutation` around the storage
