@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.2.6 - 2026-09-22
+
+### Added
+
+- Added a guided, resumable administrator onboarding flow with live endpoint capability and credential validation, explicit workspace access choices, and a review step before applying storage configuration.
+- Added Portal project-setting change requests so delegated managers can request administrator-owned configuration changes without widening their platform permissions.
+- Added explicit project controls for Portal-user external sharing and published the confirmed historical release index and release notes.
+
+### Changed
+
+- Simplified Portal navigation, storage-health summaries, Manager bucket feature workflows, profile connection tables, and shared top-bar controls.
+- Canonicalized backend S3 account, user, endpoint, IAM, quota, billing, monitoring, topic, and onboarding identity resolution to remove redundant compatibility paths.
+- Strengthened release qualification so final distribution reuses the exact tested multi-architecture images, scan receipts, chart, bundles, and public release artifacts for the qualified commit.
+
+### Fixed/Security
+
+- Preserved literal S3 object keys, prefixes, folder segments, version identities, and tag pairs across Browser, Portal, Manager, copy, multipart, deleted-object, and bucket-configuration workflows.
+- Made SQLite schema upgrades safe with foreign-key enforcement, including recovery from interrupted Alembic batch-table rebuilds.
+- Hardened RGW account-name validation, endpoint credential feedback, onboarding audit transitions, private-connection and association-role validation, and protection of unsaved configuration drafts.
+- Started scheduled operational jobs in QuickStart by default and fixed multi-architecture CI digest handling plus narrowly reviewed historical secret-scan fixtures.
+
+### Breaking changes
+
+- The Admin onboarding draft/apply API now uses the version-2 contract; the former onboarding verify/attest endpoints were removed.
+- The root `/profile` frontend alias was removed. Use the workspace-specific `/<workspace>/profile` route.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path; this release includes the Portal setting-change request migration and does not create a new schema baseline because `0.2.6` is a patch release.
+- Clients or automation using the Admin onboarding API must migrate to the version-2 draft/apply contract before upgrading.
+- Update bookmarks or integrations that still use `/profile` to the workspace-scoped profile route.
+
+### Tests
+
+- Expanded onboarding, Portal authorization/settings, endpoint, migration, literal-S3-identity, Browser/Manager configuration, QuickStart, CI, release-distribution, and documentation coverage.
+- CI qualification validates AMD64 and ARM64 images, runtime checks, vulnerability scans, immutable digests, Ceph integration, Kind, release bundles, and Helm distribution before publication.
+
 ## 0.2.5 - 2026-09-20
 
 ### Added
