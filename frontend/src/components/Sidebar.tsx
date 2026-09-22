@@ -5,15 +5,9 @@
 import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { PRODUCT_NAME } from "../constants/product";
+import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
 import BrandMark from "./BrandMark";
 import { SIDEBAR_COMPACT_WIDTH, SIDEBAR_DEFAULT_WIDTH } from "./sidebarSizing";
-
-const WORKSPACE_ROOTS = ["admin", "ceph-admin", "storage-ops", "manager", "browser", "portal"] as const;
-
-export function resolveWorkspaceProfilePath(pathname: string): string {
-  const workspace = WORKSPACE_ROOTS.find((root) => pathname === `/${root}` || pathname.startsWith(`/${root}/`));
-  return workspace ? `/${workspace}/profile` : "/profile";
-}
 
 export type SidebarLink = {
   to: string;

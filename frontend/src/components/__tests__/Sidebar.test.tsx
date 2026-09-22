@@ -186,7 +186,7 @@ describe("Sidebar", () => {
       "src",
       "/brand/bucketreef-mark-256.png",
     );
-    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/profile");
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/");
     expect(screen.queryByRole("button", { name: /collapse sidebar|expand sidebar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("separator", { name: "Resize sidebar" })).not.toBeInTheDocument();
   });
@@ -363,7 +363,7 @@ describe("Sidebar", () => {
 
   it("marks the fixed profile action active and keeps it accessible when compact", () => {
     render(
-      <MemoryRouter initialEntries={["/profile"]}>
+      <MemoryRouter initialEntries={["/manager/profile"]}>
         <Sidebar compact sections={[{ label: "Overview", links: [{ to: "/portal", label: "Dashboard" }] }]} />
       </MemoryRouter>
     );

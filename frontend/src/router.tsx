@@ -299,7 +299,6 @@ export function createAppRoutes() {
     <Route element={<Outlet />} errorElement={<RouteErrorPage />}>
       <Route element={<RequireAuth />}>
         <Route index element={<RoleRedirect />} />
-        <Route path="/profile" element={<Navigate to="/" replace />} />
 
         <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE]} />}>
           <Route path="/admin" element={<AdminLayoutShell />}>

@@ -160,13 +160,13 @@ describe("Topbar account menu", () => {
 
   it("links profile and private connections to the shared profile page", async () => {
     const user = userEvent.setup();
-    render(<Topbar userEmail="admin@example.com" />);
+    render(<Topbar userEmail="admin@example.com" profilePath="/admin/profile" />);
 
     await user.click(resolveAccountTrigger());
-    expect(await screen.findByRole("menuitem", { name: /user profile/i })).toHaveAttribute("href", "/profile?tab=profile");
+    expect(await screen.findByRole("menuitem", { name: /user profile/i })).toHaveAttribute("href", "/admin/profile?tab=profile");
     expect(screen.getByRole("menuitem", { name: /private s3 connections/i })).toHaveAttribute(
       "href",
-      "/profile?tab=connections"
+      "/admin/profile?tab=connections"
     );
     expect(screen.queryByRole("dialog", { name: /user profile|private s3 connections/i })).not.toBeInTheDocument();
   });

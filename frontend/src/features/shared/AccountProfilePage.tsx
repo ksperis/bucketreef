@@ -19,6 +19,7 @@ import SecurityPage from "./SecurityPage";
 import {
   buildWorkspaceBreadcrumbs,
   resolveWorkspaceIdFromPath,
+  workspaceProfilePath,
 } from "../../navigation/workspacePages";
 
 type AccountTab = "profile" | "security" | "connections";
@@ -45,6 +46,7 @@ export default function AccountProfilePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingTab, setPendingTab] = useState<AccountTab | null>(null);
   const workspace = resolveWorkspaceIdFromPath(location.pathname);
+  const profilePath = workspaceProfilePath(workspace);
   const [connectionActionsTarget, setConnectionActionsTarget] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -95,10 +97,10 @@ export default function AccountProfilePage() {
       />
       <PageTabPanel idPrefix="account-profile" tabId={activeTab}>
         {activeTab === "profile" ? (
-          <ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
+          <ProfilePage profilePath={profilePath} showPageHeader={false} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "connections" ? (
-          <ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection
+          <ProfilePage profilePath={profilePath} showPageHeader={false} showSettingsCards={false} showConnectionsSection
             listPresentation={workspace !== "browser"} headerActionsTarget={connectionActionsTarget}
             onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
