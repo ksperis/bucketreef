@@ -45,7 +45,6 @@ from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.quota_stats import bytes_to_gb, extract_quota_limits, parse_positive_limit
 from app.utils.size_units import size_to_bytes
 from app.utils.name_ordering import name_order_by
-from app.utils.normalize import normalize_storage_provider
 from app.utils.usage_stats import aggregate_bucket_usage
 
 logger = logging.getLogger(__name__)
@@ -67,10 +66,7 @@ class S3UsersService:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == storage_endpoint_id).first()
         if not endpoint:
             raise ValueError("Storage endpoint not found.")
-        if (
-            normalize_storage_provider(endpoint.provider)
-            != StorageProvider.CEPH
-        ):
+        if endpoint.provider != StorageProvider.CEPH.value:
             raise ValueError("Only Ceph endpoints are allowed for S3 users.")
         if not resolve_feature_flags(endpoint).admin_enabled:
             raise ValueError("Admin operations are disabled for this endpoint.")

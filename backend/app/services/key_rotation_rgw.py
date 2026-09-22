@@ -8,7 +8,7 @@ from typing import Callable, Optional
 from app.db import StorageEndpoint, StorageProvider
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
-from app.utils.normalize import normalize_optional_string, normalize_storage_provider
+from app.utils.normalize import normalize_optional_string
 from app.utils.storage_endpoint_features import (
     resolve_admin_endpoint,
     resolve_feature_flags,
@@ -24,8 +24,7 @@ class RgwAccessKeyRotator:
         self._client_factory = client_factory
 
     def validate_ceph_admin_api(self, endpoint: StorageEndpoint) -> Optional[str]:
-        provider = normalize_storage_provider(endpoint.provider)
-        if provider != StorageProvider.CEPH:
+        if endpoint.provider != StorageProvider.CEPH.value:
             return "Key rotation is only supported for Ceph endpoints."
         if not resolve_feature_flags(endpoint).admin_enabled:
             return "Admin feature is disabled."

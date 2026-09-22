@@ -19,7 +19,6 @@ from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.storage_endpoint_admin_permissions import (
     resolve_storage_endpoint_admin_ops_permissions,
 )
-from app.utils.normalize import normalize_storage_provider
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 
@@ -30,7 +29,7 @@ ManagerCephManagementSurface = Literal["manager", "browser"]
 def _resolve_endpoint_admin_ops_permissions(endpoint: StorageEndpoint) -> StorageEndpointAdminOpsPermissions:
     return resolve_storage_endpoint_admin_ops_permissions(
         endpoint,
-        provider=normalize_storage_provider(endpoint.provider),
+        provider=StorageProvider(endpoint.provider),
         capabilities={"admin": resolve_feature_flags(endpoint).admin_enabled},
         client_factory=get_rgw_admin_client,
     )
@@ -56,7 +55,7 @@ class ManagerCephManagementAccessService:
     def _endpoint_supports_ceph_admin(endpoint: StorageEndpoint | None) -> bool:
         if endpoint is None:
             return False
-        if normalize_storage_provider(endpoint.provider) != StorageProvider.CEPH:
+        if endpoint.provider != StorageProvider.CEPH.value:
             return False
         if not resolve_feature_flags(endpoint).admin_enabled:
             return False

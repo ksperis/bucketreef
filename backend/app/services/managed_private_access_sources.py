@@ -18,7 +18,6 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessForbidden,
 )
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.utils.normalize import normalize_storage_provider
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import (
     build_custom_endpoint_config,
@@ -158,7 +157,7 @@ class ManagedPrivateAccessSourceResolver:
         if (
             not s3_user.allow_managed_private_connection_provisioning
             or endpoint is None
-            or normalize_storage_provider(endpoint.provider) != StorageProvider.CEPH
+            or endpoint.provider != StorageProvider.CEPH.value
             or not resolve_feature_flags(endpoint).admin_enabled
             or not (endpoint.admin_access_key or "").strip()
             or not (endpoint.admin_secret_key or "").strip()

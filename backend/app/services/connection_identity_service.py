@@ -17,7 +17,6 @@ from app.services.endpoint_read_credentials import resolve_endpoint_read_credent
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client
 from app.utils.normalize import (
     normalize_optional_string,
-    normalize_storage_provider,
 )
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
@@ -125,7 +124,7 @@ class ConnectionIdentityService:
                 reason="RGW identity is unavailable: this connection must target a configured storage endpoint.",
             )
 
-        if normalize_storage_provider(endpoint.provider) != StorageProvider.CEPH:
+        if endpoint.provider != StorageProvider.CEPH.value:
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
                 rgw_account_id=None,
@@ -228,7 +227,7 @@ class ConnectionIdentityService:
                 reason="Metrics are unavailable: this connection must target a configured storage endpoint.",
             )
 
-        if normalize_storage_provider(endpoint.provider) != StorageProvider.CEPH:
+        if endpoint.provider != StorageProvider.CEPH.value:
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
                 rgw_account_id=None,
