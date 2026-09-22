@@ -5,7 +5,9 @@ import {
   CEPH_ADMIN_PAGE_CONTRACTS,
   buildWorkspaceBreadcrumbs,
   buildWorkspacePageBreadcrumbs,
+  resolveWorkspaceProfilePath,
   resolveWorkspaceIdFromPath,
+  workspaceProfilePath,
 } from "./workspacePages";
 
 describe("workspace breadcrumb contracts", () => {
@@ -42,5 +44,11 @@ describe("workspace breadcrumb contracts", () => {
     expect(resolveWorkspaceIdFromPath("/browser/profile")).toBe("browser");
     expect(resolveWorkspaceIdFromPath("/storage-ops/buckets/example")).toBe("storage-ops");
     expect(resolveWorkspaceIdFromPath("/unknown/path")).toBe("admin");
+  });
+
+  it("builds profile links from canonical workspace paths", () => {
+    expect(workspaceProfilePath("manager")).toBe("/manager/profile");
+    expect(resolveWorkspaceProfilePath("/portal/storage-spaces")).toBe("/portal/profile");
+    expect(resolveWorkspaceProfilePath("/unknown/path")).toBe("/");
   });
 });

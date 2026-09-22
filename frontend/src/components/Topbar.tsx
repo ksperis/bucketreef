@@ -126,7 +126,7 @@ export default function Topbar({
   onMobileMenuToggle,
   showWorkspaceSwitcher = true,
   workspaceSwitcher,
-  profilePath = "/profile",
+  profilePath = "/",
 }: TopbarProps) {
   const [storedUser, setStoredUser] = useState<StoredTopbarUser | null>(
     () => readStoredUser() as StoredTopbarUser | null,

@@ -21,7 +21,6 @@ describe("route snapshot", () => {
   it("preserves the public frontend route contract", () => {
     expect(collectRoutePaths(createAppRoutes())).toEqual([
       "/#index",
-      "/profile",
       "/admin",
       "/admin#index",
       "/admin/onboarding",
@@ -117,6 +116,14 @@ describe("route snapshot", () => {
 
   it.each(["/admin/accounts", "/admin/accounts/", "/admin/accounts?search=helios"])(
     "uses the unknown-route fallback for the removed alias %s",
+    (path) => {
+      const matches = matchRoutes(createAppRoutes(), path);
+      expect(matches?.at(-1)?.route.path).toBe("*");
+    },
+  );
+
+  it.each(["/profile", "/profile/", "/profile?tab=security"])(
+    "uses the unknown-route fallback for the removed profile alias %s",
     (path) => {
       const matches = matchRoutes(createAppRoutes(), path);
       expect(matches?.at(-1)?.route.path).toBe("*");

@@ -93,6 +93,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 type ProfilePageProps = {
+  profilePath?: string;
   showPageHeader?: boolean;
   /** Opt in outside Browser; the shared Browser profile keeps its existing header. */
   listPresentation?: boolean;
@@ -103,6 +104,7 @@ type ProfilePageProps = {
 };
 
 export default function ProfilePage({
+  profilePath = "/",
   showPageHeader = true,
   listPresentation = false,
   headerActionsTarget,
@@ -1093,7 +1095,7 @@ export default function ProfilePage({
         <WorkflowPage
           title="Add private S3 connection"
           description="Configure endpoint access, credentials, and workspace availability for this private connection."
-          breadcrumbs={[{ label: "Profile", to: "/profile" }, { label: "Private connections", to: "/profile?view=connections" }, { label: "Create" }]}
+          breadcrumbs={[{ label: "Profile", to: profilePath }, { label: "Private connections", to: `${profilePath}?tab=connections` }, { label: "Create" }]}
           backLabel="Back to connections"
           onBack={createConnectionCloseGuard.requestClose}
           backDisabled={creatingConnection}
@@ -1145,7 +1147,7 @@ export default function ProfilePage({
           description={editingConnection.server_managed
             ? "Manage the name, tags, status, and workspace availability. Endpoint and credentials are controlled by server provisioning."
             : "Manage endpoint access, credentials, and workspace availability for this private connection."}
-          breadcrumbs={[{ label: "Profile", to: "/profile" }, { label: "Private connections", to: "/profile?view=connections" }, { label: "Edit" }]}
+          breadcrumbs={[{ label: "Profile", to: profilePath }, { label: "Private connections", to: `${profilePath}?tab=connections` }, { label: "Edit" }]}
           backLabel="Back to connections"
           onBack={editConnectionCloseGuard.requestClose}
           backDisabled={savingConnectionBusyId === editingConnection.id}

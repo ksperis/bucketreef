@@ -24,14 +24,25 @@ export const WORKSPACE_CONTRACTS: Record<WorkspaceId, WorkspaceContract> = {
   browser: { label: "Browser", path: "/browser" },
 };
 
+function isWorkspaceId(value: string | undefined): value is WorkspaceId {
+  return Boolean(value && Object.prototype.hasOwnProperty.call(WORKSPACE_CONTRACTS, value));
+}
+
 export function resolveWorkspaceIdFromPath(
   pathname: string,
   fallback: WorkspaceId = "admin",
 ): WorkspaceId {
   const segment = pathname.split("/")[1] as WorkspaceId | undefined;
-  return segment && Object.prototype.hasOwnProperty.call(WORKSPACE_CONTRACTS, segment)
-    ? segment
-    : fallback;
+  return isWorkspaceId(segment) ? segment : fallback;
+}
+
+export function workspaceProfilePath(workspace: WorkspaceId): string {
+  return `${WORKSPACE_CONTRACTS[workspace].path}/profile`;
+}
+
+export function resolveWorkspaceProfilePath(pathname: string): string {
+  const segment = pathname.split("/")[1];
+  return isWorkspaceId(segment) ? workspaceProfilePath(segment) : "/";
 }
 
 export const ADMIN_PAGE_CONTRACTS = {
