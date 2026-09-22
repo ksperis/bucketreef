@@ -673,7 +673,7 @@ class S3AccountsService:
                     payload.quota_max_objects,
                     payload.quota_max_size_unit,
                 )
-            elif account.rgw_account_id:
+            else:
                 endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
                 if endpoint.provider == StorageProvider.CEPH.value and resolve_feature_flags(endpoint).admin_enabled:
                     self._apply_account_quota(
