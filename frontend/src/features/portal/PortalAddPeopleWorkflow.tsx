@@ -70,7 +70,7 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
       }
     }}>
     {requestMessage && <UiInlineMessage tone="success" role="status">{requestMessage} {" "}
-      <Link to="/portal/requests" className="text-primary hover:underline">{t({ en: "Open Help requests", fr: "Ouvrir les demandes d'aide", de: "Hilfeanfragen öffnen", zh: "打开帮助请求" })}</Link>
+      <Link to="/portal/requests" className="text-primary hover:underline">{t({ en: "Open Help requests", fr: "Ouvrir la page Demandes", de: "Hilfeanfragen öffnen", zh: "打开帮助请求" })}</Link>
     </UiInlineMessage>}
     <SettingsSection presentation="compact" title={t({ en: "People", fr: "Personnes", de: "Personen", zh: "人员" })}
       description={t({
@@ -91,7 +91,7 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
           await createPortalRequest(accountId, { request_type: "portal_user_access", target_name: targetName, target_email: targetEmail });
           setRequestMessage(t({
             en: `Request sent. Track it in Help requests, then return to ${spaceName} to finish the invitation.`,
-            fr: `Demande envoyée. Suivez-la dans Demandes d'aide, puis revenez dans ${spaceName} pour terminer l'invitation.`,
+            fr: `Demande envoyée. Suivez-la dans la page Demandes, puis revenez dans ${spaceName} pour terminer l'invitation.`,
             de: `Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen und kehren Sie danach zu ${spaceName} zurück, um die Einladung abzuschließen.`,
             zh: `请求已发送。请在帮助请求中跟踪进度，然后返回 ${spaceName} 完成邀请。`,
           }));

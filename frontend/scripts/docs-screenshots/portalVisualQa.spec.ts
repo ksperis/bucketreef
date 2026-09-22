@@ -81,7 +81,7 @@ const portalRoutes = [
     path: "/portal/requests",
     expected: {
       en: "Help requests",
-      fr: "Demandes d'aide",
+      fr: "Demandes",
       de: "Hilfeanfragen",
     },
   },

@@ -273,7 +273,7 @@ export default function PortalCollaboratorAccessPage() {
       setMessage(
         t({
           en: "Project removal request sent. Track it in Help requests.",
-          fr: "Demande de retrait du projet envoyée. Suivez-la dans les demandes d'aide.",
+          fr: "Demande de retrait du projet envoyée. Suivez-la dans la page Demandes.",
           de: "Anfrage zur Projektentfernung gesendet. Verfolgen Sie sie unter Hilfeanfragen.",
           zh: "已发送移出项目的请求。可在“帮助请求”中查看进度。",
         }),

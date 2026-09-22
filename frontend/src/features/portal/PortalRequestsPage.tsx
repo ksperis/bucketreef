@@ -659,7 +659,7 @@ export default function PortalRequestsPage() {
     <PageShell actionPresentation="listing"
         title={t({
           en: "Help requests",
-          fr: "Demandes d'aide",
+          fr: "Demandes",
           de: "Hilfeanfragen",
           zh: "帮助请求",
         })}
@@ -672,7 +672,7 @@ export default function PortalRequestsPage() {
         breadcrumbs={portalBreadcrumbs({
           label: t({
             en: "Help requests",
-            fr: "Demandes d'aide",
+            fr: "Demandes",
             de: "Hilfeanfragen",
             zh: "帮助请求",
           }),
@@ -731,7 +731,7 @@ export default function PortalRequestsPage() {
         onChange={(tabId) => setActiveTab(tabId as RequestsTab)}
         ariaLabel={t({
           en: "Help request views",
-          fr: "Vues des demandes d'aide",
+          fr: "Vues des demandes",
           de: "Ansichten der Hilfeanfragen",
           zh: "帮助请求视图",
         })}
@@ -895,7 +895,7 @@ export default function PortalRequestsPage() {
           <ListPageSection
             title={t({
               en: "My help requests",
-              fr: "Mes demandes d'aide",
+              fr: "Mes demandes",
               de: "Meine Hilfeanfragen",
               zh: "我的帮助请求",
             })}

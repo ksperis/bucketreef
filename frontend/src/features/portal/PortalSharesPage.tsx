@@ -422,7 +422,7 @@ export default function PortalSharesPage() {
       setSharesMessage(
         t({
           en: "Member request sent. Track it in Help requests.",
-          fr: "Demande d'ajout envoyée. Suivez-la dans les demandes d'aide.",
+          fr: "Demande d'ajout envoyée. Suivez-la dans la page Demandes.",
           de: "Mitgliedsanfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen.",
           zh: "成员请求已发送。可在“帮助请求”中查看进度。",
         }),

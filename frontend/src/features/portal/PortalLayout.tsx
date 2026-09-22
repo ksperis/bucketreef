@@ -101,7 +101,7 @@ function usePortalNavSections(): SidebarSection[] {
                   to: "/portal/requests",
                   label: t({
                     en: "Help requests",
-                    fr: "Demandes d'aide",
+                    fr: "Demandes",
                     de: "Hilfeanfragen",
                     zh: "帮助请求",
                   }),
