@@ -164,7 +164,10 @@ export const buildAdminNav = (
       disabledHint: !portalEnabled ? "Portal feature is disabled in General settings." : undefined,
     },
     workspacePageLink(ADMIN_PAGE_CONTRACTS["key-rotation"]),
-    workspacePageLink(ADMIN_PAGE_CONTRACTS["api-tokens"]),
+    {
+      ...workspacePageLink(ADMIN_PAGE_CONTRACTS["api-tokens"]),
+      iconName: "key" as const,
+    },
   ];
 
   return [
@@ -172,7 +175,14 @@ export const buildAdminNav = (
       label: "Overview",
       links: [
         { ...workspacePageLink(ADMIN_PAGE_CONTRACTS.dashboard), end: true },
-        ...(showOnboarding ? [workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding)] : []),
+        ...(showOnboarding
+          ? [
+              {
+                ...workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding),
+                iconName: "tools" as const,
+              },
+            ]
+          : []),
       ],
     },
     {
