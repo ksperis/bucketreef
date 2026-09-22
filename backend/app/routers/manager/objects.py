@@ -8,7 +8,10 @@ from app.core.sensitive_data import sanitize_error_detail
 from app.models.access_context import ManagerActor
 from app.models.object import ListObjectsResponse
 from app.routers.dependencies import get_account_context, get_current_account_admin
-from app.services.objects_service import ObjectsService, get_objects_service
+from app.services.manager_object_listing_service import (
+    ManagerObjectListingService,
+    get_manager_object_listing_service,
+)
 from app.services.s3_execution_context import S3ExecutionContext
 
 router = APIRouter(prefix="/manager/buckets/{bucket_name}/objects", tags=["manager-objects"])
@@ -20,7 +23,7 @@ def list_objects(
     prefix: str = "",
     continuation_token: Optional[str] = None,
     account: S3ExecutionContext = Depends(get_account_context),
-    service: ObjectsService = Depends(get_objects_service),
+    service: ManagerObjectListingService = Depends(get_manager_object_listing_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ):
     try:
