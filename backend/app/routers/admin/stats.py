@@ -47,19 +47,13 @@ def _resolve_endpoint(
             )
     if not endpoint:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No Ceph endpoint available.")
-    try:
-        provider = StorageProvider(endpoint.provider)
-    except Exception:
-        provider = StorageProvider.OTHER
-    if provider != StorageProvider.CEPH:
+    if endpoint.provider != StorageProvider.CEPH.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This endpoint is not a Ceph endpoint.")
     features = normalize_features_config(endpoint.provider, endpoint.features_config)
     if require_storage_metrics and not features["metrics"]["enabled"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
     if require_usage_logs and not features["usage"]["enabled"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage logs are disabled for this endpoint")
-    if not endpoint.endpoint_url:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Endpoint URL is missing.")
     if not endpoint.supervision_access_key or not endpoint.supervision_secret_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

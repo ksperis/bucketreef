@@ -34,11 +34,7 @@ def _resolve_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
     endpoint = db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
     if not endpoint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found")
-    try:
-        provider = StorageProvider(endpoint.provider)
-    except Exception:
-        provider = StorageProvider.OTHER
-    if provider != StorageProvider.CEPH:
+    if endpoint.provider != StorageProvider.CEPH.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This endpoint is not a Ceph endpoint")
     return endpoint
 
