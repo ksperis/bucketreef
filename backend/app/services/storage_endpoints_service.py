@@ -45,7 +45,6 @@ from app.utils.tagging import (
     TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
     TAG_DOMAIN_ENDPOINT,
 )
-from app.utils.normalize import normalize_storage_provider
 from app.utils.s3_endpoint import configured_s3_endpoint, normalize_s3_endpoint
 from app.utils.name_ordering import name_order_by
 from app.utils.storage_endpoint_features import (
@@ -75,7 +74,7 @@ class StorageEndpointsService:
         *,
         include_admin_ops_permissions: bool = True,
     ) -> StorageEndpointSchema:
-        provider = normalize_storage_provider(endpoint.provider)
+        provider = StorageProvider(endpoint.provider)
         features = normalize_features_config(
             provider,
             endpoint.features_config,

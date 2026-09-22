@@ -18,7 +18,6 @@ from app.services.rgw_admin_identity import (
     classify_rgw_credential_failure,
     extract_ceph_admin_flags,
 )
-from app.utils.normalize import normalize_storage_provider
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
     normalize_features_config,
@@ -120,8 +119,7 @@ def _resolve_ceph_admin_workspace_endpoint(db: Session, endpoint_id: int) -> Sto
     endpoint = db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
     if not endpoint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
-    provider = normalize_storage_provider(endpoint.provider)
-    if provider != StorageProvider.CEPH:
+    if endpoint.provider != StorageProvider.CEPH.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
     return endpoint
 

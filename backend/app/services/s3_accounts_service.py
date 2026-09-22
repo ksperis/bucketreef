@@ -53,7 +53,6 @@ from app.utils.usage_stats import aggregate_bucket_usage
 from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
 from app.utils.size_units import size_to_bytes
 from app.utils.name_ordering import name_order_by
-from app.utils.normalize import normalize_storage_provider
 
 
 logger = logging.getLogger(__name__)
@@ -86,18 +85,12 @@ class S3AccountsService:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == storage_endpoint_id).first()
         if not endpoint:
             raise ValueError("Storage endpoint not found.")
-        if (
-            require_ceph
-            and normalize_storage_provider(endpoint.provider) != StorageProvider.CEPH
-        ):
+        if require_ceph and endpoint.provider != StorageProvider.CEPH.value:
             raise ValueError("This endpoint is not a Ceph endpoint.")
         return endpoint
 
     def _admin_for_endpoint(self, endpoint: StorageEndpoint, allow_missing: bool = False) -> Optional[RGWAdminClient]:
-        if (
-            normalize_storage_provider(endpoint.provider)
-            != StorageProvider.CEPH
-        ):
+        if endpoint.provider != StorageProvider.CEPH.value:
             if allow_missing:
                 return None
             raise ValueError("This endpoint does not support Ceph admin operations.")
@@ -682,10 +675,7 @@ class S3AccountsService:
                 )
             elif account.rgw_account_id:
                 endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
-                if (
-                    normalize_storage_provider(endpoint.provider) == StorageProvider.CEPH
-                    and resolve_feature_flags(endpoint).admin_enabled
-                ):
+                if endpoint.provider == StorageProvider.CEPH.value and resolve_feature_flags(endpoint).admin_enabled:
                     self._apply_account_quota(
                         account,
                         payload.quota_max_size_gb,

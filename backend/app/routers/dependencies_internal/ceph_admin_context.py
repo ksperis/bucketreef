@@ -10,7 +10,6 @@ from app.models.account_capabilities import AccountCapabilities
 from app.services import app_settings_service, effective_access_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoints_service import get_storage_endpoints_service
-from app.utils.normalize import normalize_storage_provider
 
 
 def _build_ceph_admin_browser_context(endpoint: StorageEndpoint) -> S3ExecutionContext:
@@ -48,8 +47,7 @@ def _resolve_ceph_admin_browser_context(
     endpoint = db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
     if not endpoint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
-    provider = normalize_storage_provider(endpoint.provider)
-    if provider != StorageProvider.CEPH:
+    if endpoint.provider != StorageProvider.CEPH.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
 
     access_key = endpoint.ceph_admin_access_key
