@@ -446,8 +446,6 @@ class AdminMetricsService:
     ) -> list[dict]:
         s3_user_usage: list[dict] = []
         for user in s3_users:
-            if not user.rgw_user_uid:
-                continue
             usage = usage_index.usage_for(user.rgw_user_uid)
             if usage.used_bytes is None and usage.object_count is None:
                 continue
@@ -538,8 +536,7 @@ class AdminMetricsService:
             allowed.add(acc.rgw_account_id.strip().lower())
             allowed.add(acc.rgw_user_uid.strip().lower())
         for user in s3_users:
-            if user.rgw_user_uid:
-                allowed.add(user.rgw_user_uid.strip().lower())
+            allowed.add(user.rgw_user_uid.strip().lower())
         return accounts, s3_users, allowed
 
     def _filter_buckets(self, buckets: Iterable[Dict], allowed: set[str]) -> list[dict]:
