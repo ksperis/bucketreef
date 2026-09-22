@@ -25,10 +25,12 @@ from app.models.portal_requests import (
     PortalAdminRequestMessageOut,
     PortalAdminRequestOut,
     PortalAdminRequestType,
+    PortalSettingChangeRequestCreate,
     PortalUserAccessRequestCreate,
     PortalUserRemovalRequestCreate,
 )
 from app.models.access_context import AccountAccess
+from app.models.app_settings import PortalSettingsOverride
 from app.models.s3_account import S3AccountUpdate
 from app.core.sensitive_data import sanitize_error_detail
 from app.services.audit_service import AuditService
@@ -42,6 +44,23 @@ from app.utils.time import utcnow
 REQUEST_FINAL_STATUSES = {"approved", "rejected", "failed"}
 ADMIN_ROLES = {UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value}
 logger = logging.getLogger(__name__)
+
+PORTAL_DIRECT_SETTING_KEYS = {
+    "browser_access_enabled",
+    "allow_private_storage_space_create",
+    "allow_portal_named_bucket_create",
+    "allow_portal_user_access_key_create",
+    "allow_portal_user_external_sharing",
+    "server_access_logging_enabled",
+    "storage_space_version_cleanup_enabled",
+}
+PORTAL_BUCKET_SETTING_KEYS = {
+    "bucket_defaults.versioning": "versioning",
+    "bucket_defaults.enable_lifecycle": "enable_lifecycle",
+    "bucket_defaults.enable_cors": "enable_cors",
+    "bucket_defaults.noncurrent_version_expiration_days": "noncurrent_version_expiration_days",
+    "bucket_defaults.cors_allowed_origins": "cors_allowed_origins",
+}
 
 
 class PortalRequestNotFound(ValueError):
@@ -77,6 +96,11 @@ class PortalRequestsService:
         request_type, payload_data = self._normalize_create_payload(payload)
         if isinstance(payload, PortalAccountQuotaChangeRequestCreate):
             self._validate_quota_request_against_current_usage(actor, access, payload)
+        if isinstance(payload, PortalSettingChangeRequestCreate):
+            if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
+                raise ValueError("Portal manager rights required for project setting requests")
+            if access.account.portal_settings_delegated:
+                raise ValueError("Portal settings are already delegated to Portal managers")
         row = PortalAdminRequest(
             account_id=int(access.account.id),
             requester_user_id=int(actor.id),
@@ -340,6 +364,8 @@ class PortalRequestsService:
             return self._execute_user_removal(row)
         if row.request_type == "account_quota_change":
             return self._execute_quota_change(row)
+        if row.request_type == "portal_setting_change":
+            return self._execute_setting_change(row)
         raise ValueError("Unsupported Portal request type")
 
     def _execute_user_access(self, row: PortalAdminRequest) -> dict[str, Any]:
@@ -458,6 +484,59 @@ class PortalRequestsService:
             "target_quota_value": target_value,
             "target_quota_unit": target_unit,
             "target_quota_bytes": target_bytes,
+        }
+
+    def _execute_setting_change(self, row: PortalAdminRequest) -> dict[str, Any]:
+        payload = PortalSettingChangeRequestCreate.model_validate(
+            {
+                "request_type": "portal_setting_change",
+                **self._decode_json(row.payload_json),
+            },
+            strict=True,
+        )
+        portal_service = PortalService(self.db)
+        account_settings = portal_service.get_portal_account_settings(row.account)
+        override_payload = account_settings.admin_override.model_dump(
+            mode="json",
+            exclude_unset=True,
+            exclude_none=True,
+        )
+
+        if payload.setting in PORTAL_DIRECT_SETTING_KEYS:
+            if payload.mode == "inherit":
+                override_payload.pop(payload.setting, None)
+            else:
+                override_payload[payload.setting] = payload.value
+        else:
+            nested_key = PORTAL_BUCKET_SETTING_KEYS.get(payload.setting)
+            if nested_key is None:
+                raise ValueError("Unsupported Portal setting")
+            bucket_defaults = dict(override_payload.get("bucket_defaults") or {})
+            if payload.mode == "inherit":
+                bucket_defaults.pop(nested_key, None)
+            else:
+                bucket_defaults[nested_key] = payload.value
+            if bucket_defaults:
+                override_payload["bucket_defaults"] = bucket_defaults
+            else:
+                override_payload.pop("bucket_defaults", None)
+
+        updated = portal_service.update_admin_portal_settings_override(
+            row.account,
+            PortalSettingsOverride.model_validate(override_payload, strict=True),
+        )
+        effective_payload = updated.effective.model_dump(mode="json")
+        if payload.setting in PORTAL_DIRECT_SETTING_KEYS:
+            effective_value = effective_payload[payload.setting]
+        else:
+            effective_value = effective_payload["bucket_defaults"][
+                PORTAL_BUCKET_SETTING_KEYS[payload.setting]
+            ]
+        return {
+            "setting": payload.setting,
+            "mode": payload.mode,
+            "requested_value": payload.value,
+            "effective_value": effective_value,
         }
 
     def _validate_quota_request_against_current_usage(
@@ -579,6 +658,8 @@ class PortalRequestsService:
         if isinstance(payload, PortalUserRemovalRequestCreate):
             return payload.request_type, payload.model_dump(mode="json", exclude={"request_type"}, exclude_none=True)
         if isinstance(payload, PortalAccountQuotaChangeRequestCreate):
+            return payload.request_type, payload.model_dump(mode="json", exclude={"request_type"}, exclude_none=True)
+        if isinstance(payload, PortalSettingChangeRequestCreate):
             return payload.request_type, payload.model_dump(mode="json", exclude={"request_type"}, exclude_none=True)
         raise ValueError("Unsupported Portal request payload")
 

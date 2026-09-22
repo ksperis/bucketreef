@@ -144,4 +144,22 @@ describe("AdminPortalRequestsPage", () => {
       expect(mocks.addAdminPortalRequestMessage).toHaveBeenCalledWith(7, { message: "Need more context" });
     });
   });
+
+  it("offers project-setting requests in the type filter", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("Jane Viewer <jane@example.org>");
+    await user.selectOptions(screen.getByLabelText("Filter by type"), "portal_setting_change");
+
+    await waitFor(() => {
+      expect(mocks.listAdminPortalRequests).toHaveBeenLastCalledWith({
+        status: "pending",
+        request_type: "portal_setting_change",
+        account_id: "all",
+        search: "",
+        limit: 200,
+      });
+    });
+  });
 });

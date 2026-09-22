@@ -7,10 +7,29 @@ import type { S3AccountSelector } from "./accountParams";
 import { withS3AccountParam } from "./accountParams";
 import { notifyAdminPendingRequestsRefresh } from "../utils/adminPendingRequestsRefresh";
 
-export type PortalAdminRequestType = "portal_user_access" | "portal_user_removal" | "account_quota_change";
+export type PortalAdminRequestType =
+  | "portal_user_access"
+  | "portal_user_removal"
+  | "account_quota_change"
+  | "portal_setting_change";
 export type PortalAdminRequestStatus = "pending" | "processing" | "approved" | "rejected" | "failed";
 export type PortalQuotaDirection = "increase" | "decrease";
 export type PortalQuotaUnit = "MiB" | "GiB" | "TiB";
+export type PortalSettingChangeMode = "inherit" | "override";
+export type PortalSettingKey =
+  | "browser_access_enabled"
+  | "allow_private_storage_space_create"
+  | "allow_portal_named_bucket_create"
+  | "allow_portal_user_access_key_create"
+  | "allow_portal_user_external_sharing"
+  | "server_access_logging_enabled"
+  | "storage_space_version_cleanup_enabled"
+  | "bucket_defaults.versioning"
+  | "bucket_defaults.enable_lifecycle"
+  | "bucket_defaults.enable_cors"
+  | "bucket_defaults.noncurrent_version_expiration_days"
+  | "bucket_defaults.cors_allowed_origins";
+export type PortalSettingValue = boolean | number | string[];
 
 type PortalUserAccessRequestCreate = {
   request_type: "portal_user_access";
@@ -34,10 +53,19 @@ type PortalAccountQuotaChangeRequestCreate = {
   reason?: string | null;
 };
 
+export type PortalSettingChangeRequestCreate = {
+  request_type: "portal_setting_change";
+  setting: PortalSettingKey;
+  mode: PortalSettingChangeMode;
+  value?: PortalSettingValue | null;
+  reason?: string | null;
+};
+
 type PortalAdminRequestCreate =
   | PortalUserAccessRequestCreate
   | PortalUserRemovalRequestCreate
-  | PortalAccountQuotaChangeRequestCreate;
+  | PortalAccountQuotaChangeRequestCreate
+  | PortalSettingChangeRequestCreate;
 
 export type PortalAdminRequestMessage = {
   id: number;
