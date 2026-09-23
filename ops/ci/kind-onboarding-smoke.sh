@@ -222,7 +222,10 @@ unset bootstrap_token admin_password
 [[ "$(jq -r '.status' "${temporary_directory}/response.json")" == "authenticated" ]]
 grep -Eqi '^set-cookie: ui_access=' "${temporary_directory}/response.headers"
 grep -Eqi '^set-cookie: refresh_token=' "${temporary_directory}/response.headers"
-! grep -Eqi '^set-cookie: pre_auth=' "${temporary_directory}/response.headers"
+if grep -Eqi '^set-cookie: pre_auth=' "${temporary_directory}/response.headers"; then
+  echo "Unexpected pre_auth cookie after successful first-admin bootstrap" >&2
+  exit 1
+fi
 
 status_after="$(
   curl --fail --silent \
