@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 
+import pytest
+from pydantic import ValidationError
+
 from app.core.config import Settings
 from app.scripts.check_production_hardening import run
 from app.services.production_hardening import check_production_hardening, hardening_exit_code
@@ -99,3 +102,38 @@ def test_cli_json_output_contains_no_secret_values():
     assert parsed
     assert settings.internal_cron_token not in output
     assert settings.credential_keys[0] not in output
+
+
+def test_ceph_admin_high_security_profile_passes_with_dedicated_contract():
+    settings = _production_settings(
+        ceph_admin_high_security_mode=True,
+        feature_admin_enabled=False,
+        feature_ceph_admin_enabled=True,
+        feature_storage_ops_enabled=False,
+        feature_manager_enabled=False,
+        feature_portal_enabled=False,
+        feature_browser_enabled=False,
+        scheduled_jobs_enabled=False,
+        internal_cron_token=None,
+        public_origins=[],
+        webauthn_origins=[],
+        public_origin="https://ceph-admin.example.test",
+        webauthn_origin="https://ceph-admin.example.test",
+        webauthn_rp_id="ceph-admin.example.test",
+        allowed_hosts=["ceph-admin.example.test"],
+        cors_origins=["https://ceph-admin.example.test"],
+    )
+    findings = check_production_hardening(settings, profile="ceph-admin-high-security")
+    assert hardening_exit_code(findings) == 0
+    assert all(finding.level == "pass" for finding in findings)
+
+
+def test_high_security_mode_rejects_wider_surface_contract():
+    with pytest.raises(ValidationError, match="dedicated Ceph Admin surface contract"):
+        Settings(
+            _env_file=None,
+            ceph_admin_high_security_mode=True,
+            feature_ceph_admin_enabled=True,
+            feature_admin_enabled=True,
+            scheduled_jobs_enabled=False,
+        )

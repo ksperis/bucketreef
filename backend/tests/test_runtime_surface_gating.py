@@ -73,3 +73,50 @@ print(json.dumps(sorted(app.openapi()["paths"])))
 
     assert "/api/auth/session" in paths
     assert "/health" in paths
+
+
+def test_ceph_admin_high_security_mounts_only_ceph_admin_runtime_surface() -> None:
+    env = os.environ.copy()
+    env.update(
+        {
+            "APP_ENV": "test",
+            "CEPH_ADMIN_HIGH_SECURITY_MODE": "true",
+            "FEATURE_ADMIN_ENABLED": "false",
+            "FEATURE_CEPH_ADMIN_ENABLED": "true",
+            "FEATURE_STORAGE_OPS_ENABLED": "false",
+            "FEATURE_MANAGER_ENABLED": "false",
+            "FEATURE_PORTAL_ENABLED": "false",
+            "FEATURE_BROWSER_ENABLED": "false",
+            "SCHEDULED_JOBS_ENABLED": "false",
+        }
+    )
+    code = """
+import json
+from app.main import app
+print(json.dumps(sorted(app.openapi()["paths"])))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=os.path.dirname(os.path.dirname(__file__)),
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    paths = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert any(path.startswith("/api/ceph-admin/") for path in paths)
+    for prefix in (
+        "/api/admin",
+        "/api/storage-ops",
+        "/api/manager",
+        "/api/portal",
+        "/api/browser",
+        "/api/internal/",
+        "/api/connections",
+        "/api/me/execution-contexts",
+    ):
+        assert not any(path == prefix.rstrip("/") or path.startswith(prefix) for path in paths)
+
+    assert "/api/auth/session" in paths
+    assert "/api/users/me" in paths

@@ -9,7 +9,8 @@ image:
     pullPolicy: IfNotPresent
 
 # Runtime surface profile for this release. Use separate releases with `admin`
-# and `user` when splitting the control plane from end-user surfaces.
+# and `user` when splitting the control plane from end-user surfaces, or
+# `ceph-admin-high-security` for a dedicated Ceph Admin instance.
 deploymentProfile: full
 
 backend:
@@ -18,7 +19,8 @@ backend:
   # Exact ingress/reverse-proxy pod CIDRs. Required by the production profile.
   trustedProxyCidrs: []
   # Existing Secret is mandatory. It must contain database-url, ui-jwt-keys,
-  # api-jwt-keys, credential-keys and internal-cron-token.
+  # api-jwt-keys and credential-keys. internal-cron-token is additionally
+  # required by the full/admin deployment profiles.
   existingSecret: ""
   secretKeys:
     databaseUrl: database-url

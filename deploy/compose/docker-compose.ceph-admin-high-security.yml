@@ -1,0 +1,11 @@
+services:
+  backend:
+    environment:
+      CEPH_ADMIN_HIGH_SECURITY_MODE: "true"
+      FEATURE_ADMIN_ENABLED: "false"
+      FEATURE_CEPH_ADMIN_ENABLED: "true"
+      FEATURE_STORAGE_OPS_ENABLED: "false"
+      FEATURE_MANAGER_ENABLED: "false"
+      FEATURE_PORTAL_ENABLED: "false"
+      FEATURE_BROWSER_ENABLED: "false"
+      SCHEDULED_JOBS_ENABLED: "false"

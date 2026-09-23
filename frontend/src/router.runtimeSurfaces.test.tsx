@@ -47,4 +47,24 @@ describe("runtime surface routes", () => {
     expect(declaresPath(routes, "/browser")).toBe(false);
     expect(declaresPath(routes, "browser")).toBe(false);
   });
+
+  it("keeps only Ceph Admin routes for the high-security runtime surface set", () => {
+    const routes = createAppRoutes({
+      ...DEFAULT_RUNTIME_SURFACES,
+      admin: false,
+      ceph_admin: true,
+      storage_ops: false,
+      manager: false,
+      portal: false,
+      browser: false,
+    });
+
+    expect(declaresPath(routes, "/admin")).toBe(false);
+    expect(declaresPath(routes, "/ceph-admin")).toBe(true);
+    expect(declaresPath(routes, "/storage-ops")).toBe(false);
+    expect(declaresPath(routes, "/manager")).toBe(false);
+    expect(declaresPath(routes, "/portal")).toBe(false);
+    expect(declaresPath(routes, "/browser")).toBe(false);
+    expect(declaresPath(routes, "browser")).toBe(false);
+  });
 });

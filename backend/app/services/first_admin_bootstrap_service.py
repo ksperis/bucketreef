@@ -12,6 +12,7 @@ from sqlalchemy import exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings, get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.core.security import get_password_hash
 from app.db import FirstAdminBootstrap, User
@@ -46,8 +47,9 @@ class CreatedFirstAdmin:
 
 
 class FirstAdminBootstrapService:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, settings: Optional[Settings] = None) -> None:
         self.db = db
+        self.settings = settings or get_settings()
 
     @staticmethod
     def _digest(token: str) -> str:
@@ -303,8 +305,8 @@ class FirstAdminBootstrapService:
         )
         return CreatedFirstAdmin(user_id=user_id, email=normalized_email)
 
-    @staticmethod
     def _new_user(
+        self,
         email: str,
         full_name: Optional[str],
         password: str,
@@ -317,4 +319,5 @@ class FirstAdminBootstrapService:
             role=UserRole.UI_SUPERADMIN.value,
             is_active=True,
             auth_version=1,
+            can_access_ceph_admin=self.settings.ceph_admin_high_security_mode,
         )

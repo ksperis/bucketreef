@@ -202,6 +202,14 @@ sets `SCHEDULED_JOBS_ENABLED=false`, and chart rendering fails if any built-in
 CronJob is enabled on that release. Run the production hardening checker in one
 backend pod from each release before exposing the ingresses.
 
+For a dedicated Ceph Admin boundary, set
+`deploymentProfile=ceph-admin-high-security` (or use
+`values-ceph-admin-high-security.yaml`) in a separate release. The profile
+mounts Ceph Admin only, disables jobs, and does not consume
+`internal-cron-token`. Point `backend.existingSecret` at the shared Secret or a
+dedicated Secret with an isolated database/key ring. See
+[Ceph Admin high-security deployment](ceph-admin-high-security.md).
+
 ## Container images
 
 Published images:

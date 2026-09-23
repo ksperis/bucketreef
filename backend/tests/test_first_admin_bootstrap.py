@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.db import AuditLog, Base, FirstAdminBootstrap, User, UserRole
 from app.routers import auth_common
 from app.scripts import create_first_admin as create_first_admin_script
@@ -126,6 +126,33 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
             full_name=None,
             password=PASSWORD,
         )
+
+
+def test_high_security_bootstrap_grants_ceph_admin_access(db_session):
+    settings = Settings(
+        _env_file=None,
+        ceph_admin_high_security_mode=True,
+        feature_admin_enabled=False,
+        feature_ceph_admin_enabled=True,
+        feature_storage_ops_enabled=False,
+        feature_manager_enabled=False,
+        feature_portal_enabled=False,
+        feature_browser_enabled=False,
+        scheduled_jobs_enabled=False,
+    )
+    service = FirstAdminBootstrapService(db_session, settings=settings)
+    issued = service.issue_token()
+    created = service.create_with_token(
+        token=issued.token,
+        email="isolated-ceph-admin@example.com",
+        full_name="Isolated Ceph Admin",
+        password=PASSWORD,
+    )
+
+    user = db_session.get(User, created.user_id)
+    assert user is not None
+    assert user.role == UserRole.UI_SUPERADMIN.value
+    assert user.can_access_ceph_admin is True
 
 
 def test_failed_user_insert_rolls_back_token_consumption(db_session, monkeypatch):

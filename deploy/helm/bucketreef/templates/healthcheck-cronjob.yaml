@@ -1,4 +1,4 @@
-{{- if and .Values.healthcheckCronJob.enabled (ne (include "bucketreef.deploymentProfile" .) "user") }}
+{{- if and .Values.healthcheckCronJob.enabled (not (has (include "bucketreef.deploymentProfile" .) (list "user" "ceph-admin-high-security"))) }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:

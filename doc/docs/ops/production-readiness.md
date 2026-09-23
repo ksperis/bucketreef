@@ -46,7 +46,7 @@ Do not publish the URL broadly until these gates are explicit:
 
 1. Deploy with Docker Compose or Helm using pinned images.
 2. Set `APP_ENV=production` and configure distinct secrets, exact origin/hosts, secure cookies, WebAuthn, trusted proxies, ingress/TLS, and database persistence.
-3. Run `python -m app.scripts.check_production_hardening --profile <full|admin|user>` inside each backend runtime and keep the successful output with the deployment evidence.
+3. Run `python -m app.scripts.check_production_hardening --profile <full|admin|user|ceph-admin-high-security>` inside each backend runtime and keep the successful output with the deployment evidence.
 4. Configure the first endpoint and run healthchecks.
 5. Create or import the first account/context.
 6. Enable only the intended workspaces and feature flags.

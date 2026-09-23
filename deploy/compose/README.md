@@ -29,6 +29,11 @@ project names, and point both stacks at the same PostgreSQL database. Only the
 admin stack should enable the `operations` profile. See the deployment guide
 for the shared origin/WebAuthn requirements and hardening checker commands.
 
+`docker-compose.ceph-admin-high-security.yml` provides a third, Ceph Admin-only
+profile. Use a distinct project/env file when you want an isolated PostgreSQL
+database and independent JWT/credential key rings; reuse the main values when
+only the runtime/network surface should be isolated.
+
 Before upgrading, stop services and back up the complete volume and matching
 `.env`; preserve project name `bucketreef`. Verify the target release bundle,
 review migration notes, replace only bundle files, and deliberately update
