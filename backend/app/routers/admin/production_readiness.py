@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.database import get_db
 from app.db import User
 from app.models.production_readiness import (
     ProductionReadinessFinding,
     ProductionReadinessResponse,
 )
 from app.routers.dependencies import get_current_ui_superadmin
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.production_hardening import (
     check_production_hardening,
     hardening_counts,
@@ -26,8 +29,13 @@ router = APIRouter(prefix="/admin/production-readiness", tags=["admin-production
 def get_production_readiness(
     _: User = Depends(get_current_ui_superadmin),
     settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
 ) -> ProductionReadinessResponse:
-    findings = check_production_hardening(settings)
+    try:
+        app_settings = load_app_settings_for_db(db)
+    except Exception:
+        app_settings = None
+    findings = check_production_hardening(settings, app_settings=app_settings)
     return ProductionReadinessResponse(
         environment=settings.app_env,
         profile=settings.deployment_profile,

@@ -9,6 +9,7 @@ import FirstAdminSetupPage from "./FirstAdminSetupPage";
 const mocks = vi.hoisted(() => ({
   bootstrapFirstAdmin: vi.fn(),
   fetchFirstAdminBootstrapStatus: vi.fn(),
+  refreshSession: vi.fn(),
 }));
 
 vi.mock("../../api/auth", () => ({
@@ -16,6 +17,10 @@ vi.mock("../../api/auth", () => ({
     mocks.bootstrapFirstAdmin(...args),
   fetchFirstAdminBootstrapStatus: (...args: unknown[]) =>
     mocks.fetchFirstAdminBootstrapStatus(...args),
+}));
+
+vi.mock("../../auth/SessionProvider", () => ({
+  useSession: () => ({ refresh: mocks.refreshSession }),
 }));
 
 function LocationProbe() {
@@ -30,6 +35,7 @@ function renderSetup() {
         <Routes>
           <Route path="/setup/first-admin" element={<FirstAdminSetupPage />} />
           <Route path="/login" element={<LocationProbe />} />
+          <Route path="/" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>
     </StrictMode>,
@@ -44,7 +50,7 @@ describe("FirstAdminSetupPage", () => {
     window.sessionStorage.clear();
     mocks.fetchFirstAdminBootstrapStatus.mockResolvedValue({ available: true });
     mocks.bootstrapFirstAdmin.mockResolvedValue({
-      status: "mfa_enrollment_required",
+      status: "authenticated",
       user: {
         id: 1,
         email: "admin@example.com",
@@ -55,6 +61,7 @@ describe("FirstAdminSetupPage", () => {
         s3_connection_details: [],
       },
     });
+    mocks.refreshSession.mockResolvedValue({ authenticated: true });
   });
 
   it("removes the token fragment immediately and never persists it", async () => {
@@ -66,7 +73,7 @@ describe("FirstAdminSetupPage", () => {
     expect(await screen.findByRole("heading", { name: "Create the first administrator" })).toBeVisible();
   });
 
-  it("submits the in-memory token and continues directly to passkey enrollment", async () => {
+  it("submits the in-memory token and enters the authenticated application", async () => {
     const user = userEvent.setup();
     renderSetup();
 
@@ -85,11 +92,37 @@ describe("FirstAdminSetupPage", () => {
         }),
       );
     });
+    expect(await screen.findByText("Location: /")).toBeVisible();
+    expect(mocks.refreshSession).toHaveBeenCalledOnce();
+    expect(window.localStorage.getItem("token")).toBeNull();
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("continues to passkey enrollment when an existing policy requires it", async () => {
+    mocks.bootstrapFirstAdmin.mockResolvedValue({
+      status: "mfa_enrollment_required",
+      user: {
+        id: 1,
+        email: "admin@example.com",
+        role: "ui_superadmin",
+        is_admin: true,
+        account_links: [],
+        s3_user_details: [],
+        s3_connection_details: [],
+      },
+    });
+    const user = userEvent.setup();
+    renderSetup();
+
+    await user.type(await screen.findByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Password", { exact: true }), "correct horse battery staple");
+    await user.type(screen.getByLabelText("Confirm password"), "correct horse battery staple");
+    await user.click(screen.getByRole("button", { name: "Create administrator" }));
+
     expect(
       await screen.findByText("Location: /login?mfa=mfa_enrollment_required"),
     ).toBeVisible();
-    expect(window.localStorage.getItem("token")).toBeNull();
-    expect(window.sessionStorage.length).toBe(0);
+    expect(mocks.refreshSession).not.toHaveBeenCalled();
   });
 
   it("keeps mismatched passwords client-side", async () => {

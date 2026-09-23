@@ -24,9 +24,10 @@ The report mirrors the runtime production checks for trusted origins and
 WebAuthn RP ID, secure host-only authentication cookies, registered S3 login
 endpoints, CORS/allowed-host/trusted-proxy boundaries, secret key rings,
 configured seed secrets, and environment-defined OIDC/LDAP providers. It also
-checks database suitability, scheduled-job ownership and token strength,
-runtime surfaces, split-origin coverage, and Ceph Admin high-security mode when
-the selected profile requires them.
+checks the application-level administrator passkey policy, database suitability,
+scheduled-job ownership and token strength, runtime surfaces, split-origin
+coverage, and Ceph Admin high-security mode when the selected profile requires
+them.
 
 These checks are deliberately instance-local. A successful report does **not**
 prove that two split instances use the same PostgreSQL database or compatible
@@ -62,6 +63,10 @@ Do not publish the URL broadly until these gates are explicit:
 - In `development` or `test`, the `APP_ENV` finding remains `Fail` by design.
   Use the other findings as a preflight, switch to `APP_ENV=production`, then
   rerun the checker before publishing the deployment.
+- `admin-passkey-policy` remains `Fail` until an administrator has enrolled a
+  passkey and **Require passkeys for administrators** is enabled. This check is
+  applied to every deployment profile because the privileged identity policy is
+  shared even when an instance does not expose the Admin surface.
 - The OIDC/LDAP runtime checks cover environment-defined providers. UI-managed
   provider configuration is validated when it is saved, but a real login flow
   remains part of the manual acceptance test.
@@ -84,15 +89,16 @@ Do not publish the URL broadly until these gates are explicit:
 ## First rollout sequence
 
 1. Deploy with Docker Compose or Helm using pinned images.
-2. Set `APP_ENV=production` and configure distinct secrets, exact origin/hosts, secure cookies, WebAuthn, trusted proxies, ingress/TLS, and database persistence.
-3. Review **Admin > Settings > Production readiness** where available, then run `python -m app.scripts.check_production_hardening` inside every backend runtime (including user-only or Ceph Admin high-security instances). Compare the shared database/key-ring/origin contract between split instances and keep the successful output with the deployment evidence.
-4. Configure the first endpoint and run healthchecks.
-5. Create or import the first account/context.
-6. Enable only the intended workspaces and feature flags.
-7. Run the [Storage Admin Runbook](../user/admin-runbook-storage-admin.md).
-8. Verify scheduled jobs and observability pages. In split mode, only the admin instance owns jobs.
-9. Communicate the user start page and support-report format.
-10. Confirm that browser storage contains no token and that session/API-token revocation is immediate.
+2. Enroll an administrator passkey from **Profile > Security**, then enable **Require passkeys for administrators**.
+3. Set `APP_ENV=production` and configure distinct secrets, exact origin/hosts, secure cookies, WebAuthn, trusted proxies, ingress/TLS, and database persistence.
+4. Review **Admin > Settings > Production readiness** where available, then run `python -m app.scripts.check_production_hardening` inside every backend runtime (including user-only or Ceph Admin high-security instances). Compare the shared database/key-ring/origin contract between split instances and keep the successful output with the deployment evidence.
+5. Configure the first endpoint and run healthchecks.
+6. Create or import the first account/context.
+7. Enable only the intended workspaces and feature flags.
+8. Run the [Storage Admin Runbook](../user/admin-runbook-storage-admin.md).
+9. Verify scheduled jobs and observability pages. In split mode, only the admin instance owns jobs.
+10. Communicate the user start page and support-report format.
+11. Confirm that browser storage contains no token and that session/API-token revocation is immediate.
 
 ## Evidence folder
 

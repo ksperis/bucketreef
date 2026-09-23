@@ -192,8 +192,15 @@ def test_logout_revokes_refresh_family_when_access_cookie_is_unavailable(auth_cl
         AuthSessionService(db_session).rotate(credentials.refresh_token)
 
 
-def test_enrolled_passkey_requires_mfa_for_a_non_admin_login(auth_client, db_session):
-    user = _user(db_session, email="passkey-user@example.com")
+@pytest.mark.parametrize("role", [UserRole.UI_USER.value, UserRole.UI_ADMIN.value])
+def test_enrolled_passkey_requires_mfa_even_when_role_policy_is_optional(
+    auth_client,
+    db_session,
+    role,
+):
+    _set_general_setting(db_session, "require_passkey_for_admins", False)
+    _set_general_setting(db_session, "require_passkey_for_users", False)
+    user = _user(db_session, email=f"passkey-{role}@example.com", role=role)
     db_session.add(
         WebAuthnCredential(
             id="passkey-user-credential",
@@ -254,6 +261,7 @@ def test_profile_webauthn_step_up_renews_current_session_without_issuing_tokens(
     db_session,
     monkeypatch,
 ):
+    _set_general_setting(db_session, "require_passkey_for_admins", True)
     superadmin = _user(
         db_session,
         email="step-up@example.com",
@@ -729,6 +737,7 @@ def test_argon2_accepts_long_passwords_and_legacy_bcrypt_is_rehashed(db_session)
 
 
 def test_promotion_to_admin_revokes_existing_session_and_forces_passkey_enrollment(auth_client, db_session):
+    _set_general_setting(db_session, "require_passkey_for_admins", True)
     user = _user(db_session, email="promoted-admin@example.com")
     credentials = authenticate_ui_client(auth_client, db_session, user, mfa_verified=False)
 

@@ -22,9 +22,11 @@ runbooks.
 3. **Create and secure the first administrator.**
    Issue a temporary web URL with
    `python -m app.scripts.issue_first_admin_bootstrap`, or use
-   `create_first_admin` as a direct CLI fallback. Complete passkey enrollment
-   before treating the installation as ready. Keep no bootstrap URL in tickets,
-   logs, shell history exports, or shared notes.
+   `create_first_admin` as a direct CLI fallback. A fresh installation allows
+   the first Admin session without a passkey so onboarding can continue. Before
+   production, open **Profile > Security**, enroll a passkey, then enable
+   **Require passkeys for administrators** in Authentication settings. Keep no
+   bootstrap URL in tickets, logs, shell history exports, or shared notes.
 
 4. **Use the optional guided setup.**
    Open **Admin → Getting started** (`/admin/onboarding`), also available from
@@ -56,8 +58,8 @@ runbooks.
 
 ## Guided application setup
 
-The guide has four stages and leaves first-administrator creation and passkey
-enrollment unchanged:
+The guide has four stages and does not change the first-administrator or
+passkey policy. Secure the Admin identity separately before production:
 
 1. **Connect storage.** Reuse an existing endpoint or add a Ceph RGW endpoint.
    This step only identifies the endpoint; it does not request privileged
@@ -105,9 +107,10 @@ identity providers and group assignments stay in the standard administration
 pages.
 
 Only a platform superadministrator can apply configuration changes, and apply
-uses the normal recent-passkey sensitive-action guard. Submitted keys are never
-stored in onboarding progress. Partial provisioning checkpoints resource IDs so
-the same operation can be retried without deliberately creating duplicates.
+uses the normal Admin sensitive-action guard. Recent WebAuthn is required when
+the Admin passkey policy is enabled. Submitted keys are never stored in
+onboarding progress. Partial provisioning checkpoints resource IDs so the same
+operation can be retried without deliberately creating duplicates.
 
 After a successful apply, **Getting started** disappears from the dashboard and
 left navigation. It also disappears when the administrator chooses **Hide

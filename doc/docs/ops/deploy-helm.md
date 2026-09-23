@@ -276,13 +276,14 @@ browser E2E suite.
 
 1. Confirm backend, frontend, and scheduler pods are running.
 2. Confirm secrets are injected from Kubernetes Secrets or an external secret manager.
-3. Issue the bootstrap URL, create the first administrator, enroll a passkey and verify `/admin`.
-4. Optionally configure the first storage endpoint.
-5. Optionally create or import the first account or connection.
-6. Verify the healthcheck CronJob runs and endpoint status updates when storage is configured.
-7. Verify billing, quota monitoring, usage-history, and notification-retention CronJobs are enabled or intentionally disabled.
-8. Check Browser and Portal feature flags before giving access to users.
-9. Review [Operations: security](operations-security.md) and [Operations: observability](operations-observability.md) before publishing the URL broadly.
+3. Issue the bootstrap URL, create the first administrator and verify `/admin`.
+4. Enroll the administrator passkey from **Profile > Security**, enable **Require passkeys for administrators**, and confirm Production readiness no longer reports `admin-passkey-policy` as `Fail`.
+5. Optionally configure the first storage endpoint.
+6. Optionally create or import the first account or connection.
+7. Verify the healthcheck CronJob runs and endpoint status updates when storage is configured.
+8. Verify billing, quota monitoring, usage-history, and notification-retention CronJobs are enabled or intentionally disabled.
+9. Check Browser and Portal feature flags before giving access to users.
+10. Review [Operations: security](operations-security.md) and [Operations: observability](operations-observability.md) before publishing the URL broadly.
 
 ## Related pages
 

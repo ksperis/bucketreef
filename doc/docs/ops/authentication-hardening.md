@@ -18,7 +18,7 @@ Browser requests must never send a Bearer token. A request containing both a UI 
 
 ## WebAuthn and recovery
 
-Passkey enrollment is controlled by `AppSettings.general`: `require_passkey_for_admins` defaults to `true` for `ui_admin` and `ui_superadmin`, while `require_passkey_for_users` defaults to `false` for `ui_user` and `ui_none`. Direct S3 sessions are excluded. Any user who voluntarily enrolls a passkey is challenged on subsequent logins as well. Enabling a requirement takes effect at the next authentication and does not terminate existing sessions. The RP ID and origin must exactly match `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGIN`; user verification is required, attestation is `none`, and challenges are single-use for five minutes.
+Passkey enrollment is controlled by `AppSettings.general`: both `require_passkey_for_admins` and `require_passkey_for_users` default to `false` on a fresh installation. Direct S3 sessions are excluded. Any user who voluntarily enrolls a passkey is challenged on subsequent logins as well. Before production, an administrator should enroll a passkey from **Profile > Security**, then enable **Require passkeys for administrators** in Authentication settings; the Production readiness report remains `Fail` until that policy is enabled. Enabling a requirement takes effect at the next authentication and does not terminate existing sessions. Persisted settings created by older releases keep their historical Admin requirement when the field is absent. The RP ID and origin must exactly match the configured WebAuthn origins and RP ID; user verification is required, attestation is `none`, and challenges are single-use for five minutes.
 
 After enrollment, ten recovery codes are displayed once. Store them outside the browser. Each code is hashed in the database and can be consumed once. Admin revalidation follows a balanced action-based policy. Security inventories, link-request lists, authentication details, and API-token lists require an interactive Admin session but not recent WebAuthn. Defensive actions that only remove access—rejecting a link request, revoking a session, or revoking an API token—also use the active interactive session, while preserving authorization, confirmation, and audit controls.
 
@@ -49,9 +49,10 @@ python -m app.scripts.issue_first_admin_bootstrap
 
 The 256-bit token expires after 15 minutes, is stored only as a SHA-256 digest,
 travels in the URL fragment and then in `X-BucketReef-Bootstrap-Token`, and is
-consumed atomically with creation of the sole first super-administrator. The
-response sets a five-minute pre-authentication cookie and continues directly to
-passkey enrollment.
+consumed atomically with creation of the sole first super-administrator. On a
+fresh installation the response creates the authenticated Admin session
+directly. If the Admin passkey policy is already enabled, bootstrap instead
+continues through the five-minute pre-authentication enrollment flow.
 
 Use the interactive CLI as an independent fallback:
 
@@ -62,7 +63,8 @@ python -m app.scripts.create_first_admin --email exact-admin@example.com --full-
 
 No automatic or default administrator exists in any environment. Initial setup
 closes permanently as soon as any user exists; recovery of an existing
-administrator is a separate operator action.
+administrator is a separate operator action. The CLI reminds the operator to
+enroll a passkey and enable the Admin passkey policy before production.
 
 ## Federation
 

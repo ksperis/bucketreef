@@ -7,6 +7,7 @@ from typing import Literal
 
 from app.core.config import DeploymentProfile, Settings
 from app.core.runtime_surfaces import RuntimeSurface, runtime_surface_enabled
+from app.models.app_settings import AppSettings
 
 
 HardeningLevel = Literal["pass", "warning", "fail"]
@@ -49,6 +50,8 @@ _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
 
 _FINDING_LABELS: dict[str, str] = {
     "app-env": "Production environment",
+    "app-settings": "Application settings",
+    "admin-passkey-policy": "Administrator passkey policy",
     "trusted-origins": "Trusted browser origins",
     "authentication-boundary": "Authentication boundary",
     "network-boundary": "Network boundary",
@@ -110,6 +113,7 @@ def _is_postgresql(url: str) -> bool:
 def check_production_hardening(
     settings: Settings,
     *,
+    app_settings: AppSettings | None,
     profile: DeploymentProfile | None = None,
 ) -> list[HardeningFinding]:
     profile = profile or settings.deployment_profile
@@ -133,6 +137,29 @@ def check_production_hardening(
                 code,
                 "fail" if failure else "pass",
                 failure or pass_message,
+            )
+        )
+
+    if app_settings is None:
+        findings.append(
+            HardeningFinding(
+                "app-settings",
+                "fail",
+                "Application settings could not be loaded; production readiness cannot verify the administrator passkey policy.",
+            )
+        )
+    else:
+        admin_passkeys_required = app_settings.general.require_passkey_for_admins
+        findings.append(
+            HardeningFinding(
+                "admin-passkey-policy",
+                "pass" if admin_passkeys_required else "fail",
+                "Administrator passkeys are required."
+                if admin_passkeys_required
+                else (
+                    "Enroll an administrator passkey, then enable "
+                    "'Require passkeys for administrators' before production."
+                ),
             )
         )
 
