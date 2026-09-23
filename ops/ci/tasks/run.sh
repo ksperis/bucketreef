@@ -15,6 +15,9 @@ case "${1:?Validation name required}" in
     python3 ops/release/schema_baseline.py "$version" --check
     cd backend
     PYTHONPATH=. python3 -m pytest tests -q --junit-xml=../gl-test-reports/backend-junit.xml ;;
+  backend-security-contract)
+    python3 backend/scripts/backend_sensitive_route_matrix.py --check \
+      --output gl-security-reports/backend-sensitive-routes.md ;;
   backend-postgresql-tests)
     cd backend
     python3 -m alembic upgrade head

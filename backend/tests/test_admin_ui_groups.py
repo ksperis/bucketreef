@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import base64
 
+import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
@@ -24,12 +25,29 @@ from app.main import app
 from app.routers import dependencies, execution_contexts
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.users_service import UsersService
+from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 from tests.s3_account_factory import make_s3_account
 
 
 PNG_1X1 = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_superadmin_session(client: TestClient, db_session):
+    session_user = User(
+        id=999,
+        email="admin@example.com",
+        full_name="Admin",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+    db_session.add(session_user)
+    db_session.commit()
+    credentials = authenticate_ui_client(client, db_session, session_user, mfa_verified=True)
+    client.headers.update(trusted_origin_headers(csrf_token=credentials.csrf_token))
 
 
 def _user(db_session, *, email: str = "group-user@example.com", role: str = UserRole.UI_USER.value) -> User:

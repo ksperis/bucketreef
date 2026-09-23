@@ -4,6 +4,10 @@
  */
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  isRecentWebAuthnVerificationCancelled,
+  useRecentWebAuthnStepUp,
+} from "../../auth/useRecentWebAuthnStepUp";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageHeader from "../../components/PageHeader";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
@@ -86,6 +90,7 @@ function getConnectionSearchCandidates(connection: S3ConnectionAdminItem): Array
 const selectionCheckboxClass = "h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary";
 
 export default function S3ConnectionsPage() {
+  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const [items, setItems] = useState<S3ConnectionAdminItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -634,13 +639,15 @@ export default function S3ConnectionsPage() {
     setCreating(true);
     setCreateError(null);
     try {
-      await createAdminS3Connection(prepared.payload);
+      await runWithStepUp(() => createAdminS3Connection(prepared.payload));
       setShowCreateModal(false);
       resetCreateForm();
       setActionMessage("Connection created.");
       await fetchItems();
     } catch (err) {
-      setCreateError(extractError(err));
+      if (!isRecentWebAuthnVerificationCancelled(err)) {
+        setCreateError(extractError(err));
+      }
     } finally {
       setCreating(false);
     }
@@ -657,13 +664,15 @@ export default function S3ConnectionsPage() {
     setEditBusy(true);
     setEditError(null);
     try {
-      await updateAdminS3Connection(editing.id, prepared.payload);
+      await runWithStepUp(() => updateAdminS3Connection(editing.id, prepared.payload));
       setEditCredentials({ access_key_id: "", secret_access_key: "" });
       setActionMessage("Connection updated.");
       await fetchItems();
       closeEditModal();
     } catch (err) {
-      setEditError(extractError(err));
+      if (!isRecentWebAuthnVerificationCancelled(err)) {
+        setEditError(extractError(err));
+      }
     } finally {
       setEditBusy(false);
     }
@@ -691,13 +700,15 @@ export default function S3ConnectionsPage() {
       setStatusBusyId(conn.id);
       setError(null);
       try {
-        await updateAdminS3Connection(conn.id, {
+        await runWithStepUp(() => updateAdminS3Connection(conn.id, {
           remediation_action: "activate_manager",
-        });
+        }));
         setActionMessage("Connection remediated and activated for Manager.");
         await fetchItems();
       } catch (err) {
-        setError(extractError(err));
+        if (!isRecentWebAuthnVerificationCancelled(err)) {
+          setError(extractError(err));
+        }
       } finally {
         setStatusBusyId(null);
       }
@@ -708,11 +719,15 @@ export default function S3ConnectionsPage() {
     setError(null);
     setActionMessage(null);
     try {
-      await updateAdminS3Connection(conn.id, { is_active: nextIsActive });
+      await (nextIsActive
+        ? runWithStepUp(() => updateAdminS3Connection(conn.id, { is_active: true }))
+        : updateAdminS3Connection(conn.id, { is_active: false }));
       setActionMessage(nextIsActive ? "Connection activated." : "Connection disabled.");
       await fetchItems();
     } catch (err) {
-      setError(extractError(err));
+      if (!isRecentWebAuthnVerificationCancelled(err)) {
+        setError(extractError(err));
+      }
     } finally {
       setStatusBusyId(null);
     }
@@ -747,17 +762,23 @@ export default function S3ConnectionsPage() {
     setBulkActivateBusy(true);
     setError(null);
     setActionMessage(null);
-    const results = await Promise.allSettled(
-      selectedIds.map((connectionId) => {
+    const failedIds: number[] = [];
+    for (const connectionId of selectedIds) {
+      try {
         const connection = items.find((item) => item.id === connectionId);
-        return connection?.execution_status === "remediation_required"
+        await runWithStepUp(() => connection?.execution_status === "remediation_required"
           ? updateAdminS3Connection(connectionId, {
               remediation_action: "activate_manager",
             })
-          : updateAdminS3Connection(connectionId, { is_active: true });
-      })
-    );
-    const failedIds = selectedIds.filter((_, index) => results[index].status === "rejected");
+          : updateAdminS3Connection(connectionId, { is_active: true }));
+      } catch (err) {
+        if (isRecentWebAuthnVerificationCancelled(err)) {
+          setBulkActivateBusy(false);
+          return;
+        }
+        failedIds.push(connectionId);
+      }
+    }
     const successCount = selectedIds.length - failedIds.length;
     setSelectedIds(failedIds);
     if (successCount > 0) {
@@ -1393,6 +1414,7 @@ export default function S3ConnectionsPage() {
           onConfirm={() => void submitDelete()}
         />
       )}
+      {verificationDialog}
     </div>
   );
 }

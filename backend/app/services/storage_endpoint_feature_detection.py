@@ -25,6 +25,7 @@ from app.services.storage_endpoint_admin_permissions import (
 )
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_endpoint import normalize_s3_endpoint
+from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
 RGWAdminClientFactory = Callable[..., RGWAdminClient]
 settings = get_settings()
@@ -85,6 +86,29 @@ class StorageEndpointFeatureDetector:
             normalized_secret_key,
         )
 
+    @staticmethod
+    def _stored_secret_reuse_allowed(
+        stored_endpoint: Optional[StorageEndpoint],
+        *,
+        endpoint_url: str,
+        admin_endpoint: str,
+        region: Optional[str],
+        verify_tls: bool,
+    ) -> bool:
+        if stored_endpoint is None:
+            return False
+        stored_endpoint_url = normalize_s3_endpoint(stored_endpoint.endpoint_url)
+        stored_admin_endpoint = normalize_s3_endpoint(
+            resolve_rgw_admin_api_endpoint(stored_endpoint)
+        ) or stored_endpoint_url
+        stored_region = normalize_optional_string(stored_endpoint.region)
+        return (
+            endpoint_url == stored_endpoint_url
+            and admin_endpoint == stored_admin_endpoint
+            and region == stored_region
+            and verify_tls == bool(getattr(stored_endpoint, "verify_tls", True))
+        )
+
     def _context(
         self,
         payload: StorageEndpointFeatureDetectionRequest,
@@ -104,7 +128,7 @@ class StorageEndpointFeatureDetector:
                 raise ValueError("Endpoint not found.")
 
         region = normalize_optional_string(payload.region) or (
-            stored_endpoint.region if stored_endpoint else None
+            normalize_optional_string(stored_endpoint.region) if stored_endpoint else None
         )
         admin_endpoint = normalize_s3_endpoint(payload.admin_endpoint) or endpoint_url
         if payload.verify_tls is not None:
@@ -114,34 +138,54 @@ class StorageEndpointFeatureDetector:
         else:
             verify_tls = True
 
+        allow_stored_secret_reuse = self._stored_secret_reuse_allowed(
+            stored_endpoint,
+            endpoint_url=endpoint_url,
+            admin_endpoint=admin_endpoint,
+            region=region,
+            verify_tls=verify_tls,
+        )
+
         admin_credentials = self._credentials(
             payload.admin_access_key,
             payload.admin_secret_key,
             stored_access_key=(
-                stored_endpoint.admin_access_key if stored_endpoint else None
+                stored_endpoint.admin_access_key
+                if stored_endpoint and allow_stored_secret_reuse
+                else None
             ),
             stored_secret_key=(
-                stored_endpoint.admin_secret_key if stored_endpoint else None
+                stored_endpoint.admin_secret_key
+                if stored_endpoint and allow_stored_secret_reuse
+                else None
             ),
         )
         supervision_credentials = self._credentials(
             payload.supervision_access_key,
             payload.supervision_secret_key,
             stored_access_key=(
-                stored_endpoint.supervision_access_key if stored_endpoint else None
+                stored_endpoint.supervision_access_key
+                if stored_endpoint and allow_stored_secret_reuse
+                else None
             ),
             stored_secret_key=(
-                stored_endpoint.supervision_secret_key if stored_endpoint else None
+                stored_endpoint.supervision_secret_key
+                if stored_endpoint and allow_stored_secret_reuse
+                else None
             ),
         )
         ceph_admin_credentials = self._credentials(
             payload.ceph_admin_access_key,
             payload.ceph_admin_secret_key,
             stored_access_key=(
-                stored_endpoint.ceph_admin_access_key if stored_endpoint else None
+                stored_endpoint.ceph_admin_access_key
+                if stored_endpoint and allow_stored_secret_reuse
+                else None
             ),
             stored_secret_key=(
-                stored_endpoint.ceph_admin_secret_key if stored_endpoint else None
+                stored_endpoint.ceph_admin_secret_key
+                if stored_endpoint and allow_stored_secret_reuse
+                else None
             ),
         )
         return _FeatureDetectionContext(

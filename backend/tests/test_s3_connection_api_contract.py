@@ -23,6 +23,7 @@ from app.db import (
 from app.main import app
 from app.routers import dependencies
 from app.services.tags_service import TagsService
+from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 
 
 @pytest.fixture
@@ -50,6 +51,10 @@ def contract_client(db_session):
     app.dependency_overrides[dependencies.get_current_super_admin] = lambda: user
     app.dependency_overrides[dependencies.get_current_account_admin] = lambda: user
     with TestClient(app) as test_client:
+        credentials = authenticate_ui_client(test_client, db_session, user, mfa_verified=True)
+        test_client.headers.update(
+            trusted_origin_headers(csrf_token=credentials.csrf_token)
+        )
         yield test_client, db_session, user
     app.dependency_overrides = {}
 

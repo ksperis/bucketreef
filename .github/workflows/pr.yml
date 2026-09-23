@@ -52,6 +52,13 @@ jobs:
     uses: ./.github/workflows/validate-task.yml
     with:
       task: backend-tests
+  backend-security-contract:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'backend-security-contract') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: backend-security-contract
   backend-postgresql-tests:
     needs:
     - plan
@@ -138,6 +145,7 @@ jobs:
     - ci-contract
     - secret-scan
     - backend-tests
+    - backend-security-contract
     - backend-postgresql-tests
     - backend-deadcode
     - backend-vuln-scan

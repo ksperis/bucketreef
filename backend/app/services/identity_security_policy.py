@@ -5,12 +5,25 @@ from __future__ import annotations
 from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.db import AuthSession, User, UserRole, is_admin_ui_role, is_superadmin_ui_role
+from app.db import (
+    AuthSession,
+    S3Connection,
+    UiGroup,
+    UiGroupS3Connection,
+    User,
+    UserRole,
+    is_admin_ui_role,
+    is_superadmin_ui_role,
+)
+from app.models.s3_connection_admin import S3ConnectionAdminUpdate
+from app.models.ui_group import UiGroupCreate, UiGroupUpdate
 from app.models.user import UserUpdate
 from app.routers.auth_session_guards import current_auth_session, require_recent_mfa, require_recent_primary_auth
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.manager_tool_access import read_manager_tool_access
 from app.services.webauthn_service import WebAuthnService
+from app.utils.normalize import normalize_optional_string
+from app.utils.s3_connection_endpoint import resolve_connection_details
 
 
 STANDARD_UI_ROLES = {UserRole.UI_USER.value, UserRole.UI_NONE.value}
@@ -22,6 +35,16 @@ _DIRECT_ACCESS_FIELDS = (
     "can_provision_managed_private_connections",
     "browser_advanced_features_enabled",
 )
+_GROUP_DIRECT_ACCESS_FIELDS = _DIRECT_ACCESS_FIELDS
+
+
+def _manager_tool_access_enabled(value: object) -> bool:
+    if value is None:
+        return False
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return any(bool(enabled) for enabled in model_dump().values())
+    return False
 
 
 def passkey_required_for_role(db: Session, role: str) -> bool:
@@ -129,6 +152,115 @@ def admin_user_update_requires_step_up(user: User, payload: UserUpdate) -> bool:
         requested_group_ids = {int(group_id) for group_id in payload.group_ids}
         if persisted_group_ids != requested_group_ids:
             return True
+    return False
+
+
+def admin_group_create_requires_step_up(payload: UiGroupCreate) -> bool:
+    """Return whether group creation introduces access-bearing state."""
+    if payload.user_ids or payload.account_links or payload.s3_user_links or payload.s3_connection_ids:
+        return True
+    if any(bool(getattr(payload, field)) for field in _GROUP_DIRECT_ACCESS_FIELDS):
+        return True
+    return _manager_tool_access_enabled(payload.manager_tool_access)
+
+
+def _group_account_links_changed(group: UiGroup, payload: UiGroupUpdate) -> bool:
+    if payload.account_links is None:
+        return False
+    persisted = {
+        (
+            int(link.account_id),
+            link.manager_role,
+            link.portal_role,
+            bool(link.allow_manager_browser_data_access),
+        )
+        for link in group.account_links
+    }
+    requested = {
+        (
+            int(link.account_id),
+            link.manager_role,
+            link.portal_role,
+            bool(link.allow_manager_browser_data_access),
+        )
+        for link in payload.account_links
+    }
+    return persisted != requested
+
+
+def _group_s3_user_links_changed(group: UiGroup, payload: UiGroupUpdate) -> bool:
+    if payload.s3_user_links is None:
+        return False
+    persisted = {
+        (int(link.s3_user_id), bool(link.allow_manager_browser_data_access))
+        for link in group.s3_user_links
+    }
+    requested = {
+        (int(link.s3_user_id), bool(link.allow_manager_browser_data_access))
+        for link in payload.s3_user_links
+    }
+    return persisted != requested
+
+
+def admin_group_update_requires_step_up(group: UiGroup, payload: UiGroupUpdate) -> bool:
+    """Return whether a group update changes effective access or security state."""
+    for field in _GROUP_DIRECT_ACCESS_FIELDS:
+        requested = getattr(payload, field)
+        if requested is not None and bool(requested) != bool(getattr(group, field)):
+            return True
+    if payload.manager_tool_access is not None and read_manager_tool_access(group) != payload.manager_tool_access:
+        return True
+    if payload.user_ids is not None:
+        persisted_user_ids = {int(link.user_id) for link in group.user_links}
+        if persisted_user_ids != {int(user_id) for user_id in payload.user_ids}:
+            return True
+    if _group_account_links_changed(group, payload) or _group_s3_user_links_changed(group, payload):
+        return True
+    if payload.s3_connection_ids is not None:
+        persisted_connection_ids = {int(link.s3_connection_id) for link in group.s3_connection_links}
+        if persisted_connection_ids != {int(connection_id) for connection_id in payload.s3_connection_ids}:
+            return True
+    return False
+
+
+def admin_s3_connection_update_requires_step_up(
+    db: Session,
+    connection: S3Connection,
+    payload: S3ConnectionAdminUpdate,
+) -> bool:
+    """Return whether a shared-connection update expands or changes sensitive access state."""
+    if payload.remediation_action is not None or payload.credentials is not None:
+        return True
+    if payload.is_active is True and not bool(connection.is_active):
+        return True
+    if payload.user_ids is not None:
+        persisted_user_ids = {int(link.user_id) for link in connection.user_links}
+        if persisted_user_ids != {int(user_id) for user_id in payload.user_ids}:
+            return True
+    if payload.group_ids is not None:
+        persisted_group_ids = {
+            int(group_id)
+            for (group_id,) in db.query(UiGroupS3Connection.group_id)
+            .filter(UiGroupS3Connection.s3_connection_id == connection.id)
+            .all()
+        }
+        if persisted_group_ids != {int(group_id) for group_id in payload.group_ids}:
+            return True
+
+    details = resolve_connection_details(connection)
+    fields_set = payload.model_fields_set
+    if "storage_endpoint_id" in fields_set and payload.storage_endpoint_id != connection.storage_endpoint_id:
+        return True
+    if "endpoint_url" in fields_set and normalize_optional_string(payload.endpoint_url) != normalize_optional_string(details.endpoint_url):
+        return True
+    if "region" in fields_set and normalize_optional_string(payload.region) != normalize_optional_string(details.region):
+        return True
+    if "force_path_style" in fields_set and bool(payload.force_path_style) != bool(details.force_path_style):
+        return True
+    if "verify_tls" in fields_set and bool(payload.verify_tls) != bool(details.verify_tls):
+        return True
+    if "provider_hint" in fields_set and normalize_optional_string(payload.provider_hint) != normalize_optional_string(details.provider):
+        return True
     return False
 
 

@@ -11,12 +11,12 @@ ROOT = Path(__file__).resolve().parents[2]
 COMPONENTS = ("backend", "frontend", "scheduler")
 PUBLIC = (
     "project-naming", "ci-contract", "secret-scan", "backend-tests",
-    "backend-postgresql-tests", "backend-deadcode", "backend-vuln-scan",
+    "backend-security-contract", "backend-postgresql-tests", "backend-deadcode", "backend-vuln-scan",
     "frontend-quality", "frontend-tests", "frontend-browser-e2e",
     "frontend-vuln-scan", "helm-contract", "compose-contract", "docs-build",
     "docs-screenshots", "scheduler-contract",
 )
-BACKEND = {"backend-tests", "backend-postgresql-tests", "backend-deadcode"}
+BACKEND = {"backend-tests", "backend-security-contract", "backend-postgresql-tests", "backend-deadcode"}
 FRONTEND = {"frontend-quality", "frontend-tests"}
 DOCS = {"docs-build", "docs-screenshots"}
 DEPLOY = {"backend-tests", "helm-contract", "compose-contract"}

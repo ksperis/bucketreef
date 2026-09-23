@@ -36,8 +36,11 @@ parent and child pipeline with verifiable `integration.json`. A docs deployment,
 maintenance run or release tag cannot become that baseline. The read API failing
 is an error; an available API with no previous evidence triggers a full selection.
 
-Backend changes select pytest, PostgreSQL/migrations and Vulture; runtime changes
-also select browser checks, Ceph and image tests. Frontend selects the existing
+Backend changes select pytest, the Admin sensitive-route security contract,
+PostgreSQL/migrations and Vulture; runtime changes also select browser checks,
+Ceph and image tests. The security contract scans every mutating `/admin` route,
+requires an explicit guard classification, detects guard downgrades/drift, and
+publishes `gl-security-reports/backend-sensitive-routes.md`. Frontend selects the existing
 quality suite, Vitest and browser tests. Dependency changes add the corresponding
 Trivy scans; `npm audit --omit=dev --audit-level=high` remains in frontend quality.
 Release scripts select Python tests and Helm/Compose contracts. Deploy changes
@@ -181,6 +184,7 @@ python3 -m pytest ops/ci/tests -q
 sh ops/ci/tasks/lint.sh
 # With application dependencies installed:
 sh ops/ci/tasks/run.sh backend-tests
+sh ops/ci/tasks/run.sh backend-security-contract
 sh ops/ci/tasks/run.sh frontend-quality
 sh ops/ci/tasks/run.sh frontend-tests
 sh ops/ci/tasks/run.sh docs-build

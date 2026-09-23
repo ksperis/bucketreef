@@ -4,7 +4,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import exists, func
 from sqlalchemy.orm import Session, aliased
 
@@ -33,6 +33,10 @@ from app.models.s3_connection_admin import (
 )
 from app.routers.dependencies import get_audit_service, get_current_super_admin
 from app.services.audit_service import AuditService
+from app.services.identity_security_policy import (
+    admin_s3_connection_update_requires_step_up,
+    require_admin_sensitive_action,
+)
 from app.services.mappers.s3_connection import mask_access_key_id
 from app.services.s3_connections_service import (
     ACTIVE_MANAGED_SOURCE_CREDENTIALS_ERROR,
@@ -323,6 +327,7 @@ def validate_s3_connection_credentials(
 
 @router.post("", response_model=S3ConnectionAdminItem, status_code=status.HTTP_201_CREATED)
 def create_s3_connection(
+    request: Request,
     payload: S3ConnectionAdminCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_super_admin),
@@ -330,6 +335,7 @@ def create_s3_connection(
 ) -> S3ConnectionAdminItem:
     service = S3ConnectionsService(db)
     tags_service = service.tags
+    require_admin_sensitive_action(request, db, current_user)
     try:
         conn = service.create_admin_shared(current_user.id, payload)
     except StorageEndpointNotFoundError as exc:
@@ -378,6 +384,7 @@ def create_s3_connection(
 
 @router.put("/{connection_id}", response_model=S3ConnectionAdminItem)
 def update_s3_connection(
+    request: Request,
     connection_id: int,
     payload: S3ConnectionAdminUpdate,
     db: Session = Depends(get_db),
@@ -387,6 +394,8 @@ def update_s3_connection(
     service = S3ConnectionsService(db)
     tags_service = service.tags
     conn = _get_admin_shared_connection(db, connection_id)
+    if admin_s3_connection_update_requires_step_up(db, conn, payload):
+        require_admin_sensitive_action(request, db, current_user)
     try:
         conn = service.update_admin_shared(conn, payload)
     except StorageEndpointNotFoundError as exc:
