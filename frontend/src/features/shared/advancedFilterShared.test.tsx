@@ -37,7 +37,8 @@ describe("advancedFilterShared", () => {
   });
 
   it("returns stable advanced-filter control classes", () => {
-    expect(advancedFilterControlClass()).toContain("focus:ring-primary/30");
+    expect(advancedFilterControlClass()).toContain("ui-control-compact");
+    expect(advancedFilterControlClass()).toContain("ui-list-control");
     expect(advancedFilterControlClass("mt-2 w-full")).toContain("mt-2 w-full");
     expect(advancedFilterControlClass("", true)).toContain("disabled:cursor-not-allowed");
   });

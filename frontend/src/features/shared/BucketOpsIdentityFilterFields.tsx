@@ -2,26 +2,20 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { ReactNode } from "react";
+import AdvancedFilterTextMatchField from "./AdvancedFilterTextMatchField";
 import {
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
   advancedFilterMatchModeButtonClass,
   renderFilterCostIndicator,
-  type FilterCostLevel,
 } from "./advancedFilterShared";
 import {
   BOOLEAN_FILTER_OPTIONS,
   type AdvancedFilterState,
-  type TextMatchMode,
 } from "./bucketOpsAdvancedFilterModel";
-import type { buildAdvancedFilterFieldState } from "./bucketOpsAdvancedFilterUiProjection";
 import type { useBucketOpsFilterController } from "./useBucketOpsFilterController";
 
 type FilterController = ReturnType<typeof useBucketOpsFilterController>;
-type AdvancedFilterFieldState = ReturnType<
-  typeof buildAdvancedFilterFieldState
->;
 
 type IdentityFilterController = Pick<
   FilterController,
@@ -43,86 +37,6 @@ type IdentityFilterController = Pick<
   | "updateAdvancedOwnerNameScope"
   | "updateAdvancedOwnerSuspended"
 >;
-
-type TextMatchFilterFieldProps = {
-  children?: ReactNode;
-  className?: string;
-  costLevel: FilterCostLevel;
-  costTooltip: string;
-  fieldState: AdvancedFilterFieldState;
-  forcesExact: boolean;
-  label: string;
-  matchMode: TextMatchMode;
-  onChange: (value: string) => void;
-  onMatchModeChange: (value: TextMatchMode) => void;
-  placeholder: string;
-  value: string;
-};
-
-function TextMatchFilterField({
-  children,
-  className,
-  costLevel,
-  costTooltip,
-  fieldState,
-  forcesExact,
-  label,
-  matchMode,
-  onChange,
-  onMatchModeChange,
-  placeholder,
-  value,
-}: TextMatchFilterFieldProps) {
-  return (
-    <div className={advancedFilterFieldCardClass(className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <label
-          className={`ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${fieldState.labelClass}`}
-        >
-          <span className="inline-flex items-center gap-1">
-            <span>{label}</span>
-            {renderFilterCostIndicator(costLevel, costTooltip)}
-          </span>
-        </label>
-        <div className="inline-flex items-center gap-1">
-          <button
-            type="button"
-            disabled={forcesExact}
-            onClick={() => onMatchModeChange("contains")}
-            className={advancedFilterMatchModeButtonClass(
-              matchMode === "contains",
-              forcesExact,
-            )}
-          >
-            Contains
-          </button>
-          <button
-            type="button"
-            disabled={forcesExact}
-            onClick={() => onMatchModeChange("exact")}
-            className={advancedFilterMatchModeButtonClass(
-              matchMode === "exact",
-              forcesExact,
-            )}
-          >
-            Exact
-          </button>
-        </div>
-      </div>
-      <textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => event.stopPropagation()}
-        placeholder={placeholder}
-        rows={2}
-        className={advancedFilterControlClass(
-          `mt-2 w-full resize-y px-2 py-1.5 font-normal ${fieldState.fieldClass}`,
-        )}
-      />
-      {children}
-    </div>
-  );
-}
 
 type BucketOpsIdentityFilterFieldsProps = {
   advancedDraft: AdvancedFilterState;
@@ -155,7 +69,7 @@ export default function BucketOpsIdentityFilterFields({
 
   return (
     <>
-      <TextMatchFilterField
+      <AdvancedFilterTextMatchField
         costLevel="low"
         costTooltip="Low cost: tenant filter runs on direct bucket metadata."
         fieldState={tenantFieldState}
@@ -170,7 +84,7 @@ export default function BucketOpsIdentityFilterFields({
         value={advancedDraft.tenant}
       />
 
-      <TextMatchFilterField
+      <AdvancedFilterTextMatchField
         costLevel="low"
         costTooltip="Low cost: owner filter runs on direct bucket metadata."
         fieldState={ownerFieldState}
@@ -290,7 +204,7 @@ export default function BucketOpsIdentityFilterFields({
         </select>
       </div>
 
-      <TextMatchFilterField
+      <AdvancedFilterTextMatchField
         className="md:col-span-2"
         costLevel="high"
         costTooltip="High cost: S3 tag filters require bucket tag retrieval."
@@ -309,7 +223,7 @@ export default function BucketOpsIdentityFilterFields({
           Comma or newline separated expressions. Format examples:{" "}
           <code>key=value</code>, <code>env</code>.
         </p>
-      </TextMatchFilterField>
+      </AdvancedFilterTextMatchField>
     </>
   );
 }

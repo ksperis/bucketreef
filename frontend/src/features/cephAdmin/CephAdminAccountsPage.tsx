@@ -35,11 +35,10 @@ import CephAdminAdminOpsModal from "./CephAdminAdminOpsModal";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
+import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
   FILTER_COST_LABEL,
   advancedFilterControlClass,
-  advancedFilterFieldCardClass,
-  advancedFilterMatchModeButtonClass,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   advancedFilterToolbarButtonClass,
@@ -874,89 +873,31 @@ export default function CephAdminAccountsPage() {
                               Identity
                             </p>
                             <div className="grid gap-3 md:grid-cols-2">
-                              <div className={advancedFilterFieldCardClass()}>
-                                <div className="flex items-center justify-between gap-2">
-                                  <label
-                                    className={`ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${accountNameFieldState.labelClass}`}
-                                  >
-                                    <span className="inline-flex items-center gap-1">
-                                      <span>Account name</span>
-                                      {renderFilterCostIndicator(
-                                        "medium",
-                                        "Medium cost: account name filters may require per-account profile lookups."
-                                      )}
-                                    </span>
-                                  </label>
-                                  <div className="inline-flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      disabled={accountNameDraftForcesExact}
-                                      onClick={() => updateAdvancedMatchMode("accountNameMatchMode", "contains")}
-                                      className={advancedFilterMatchModeButtonClass(accountNameDraftMode === "contains", accountNameDraftForcesExact)}
-                                    >
-                                      Contains
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={accountNameDraftForcesExact}
-                                      onClick={() => updateAdvancedMatchMode("accountNameMatchMode", "exact")}
-                                      className={advancedFilterMatchModeButtonClass(accountNameDraftMode === "exact", accountNameDraftForcesExact)}
-                                    >
-                                      Exact
-                                    </button>
-                                  </div>
-                                </div>
-                                <textarea
-                                  value={advancedDraft.accountName}
-                                  onChange={(e) => updateAdvancedField("accountName", e.target.value)}
-                                  onKeyDown={(event) => event.stopPropagation()}
-                                  placeholder="account-a, account-b"
-                                  rows={2}
-                                  className={advancedFilterControlClass(`mt-2 w-full resize-y px-2 py-1.5 font-normal ${accountNameFieldState.fieldClass}`)}
-                                />
-                              </div>
+                              <AdvancedFilterTextMatchField
+                                label="Account name"
+                                costLevel="medium"
+                                costTooltip="Medium cost: account name filters may require per-account profile lookups."
+                                fieldState={accountNameFieldState}
+                                forcesExact={accountNameDraftForcesExact}
+                                matchMode={accountNameDraftMode}
+                                onChange={(value) => updateAdvancedField("accountName", value)}
+                                onMatchModeChange={(value) => updateAdvancedMatchMode("accountNameMatchMode", value)}
+                                placeholder="account-a, account-b"
+                                value={advancedDraft.accountName}
+                              />
 
-                              <div className={advancedFilterFieldCardClass()}>
-                                <div className="flex items-center justify-between gap-2">
-                                  <label
-                                    className={`ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${emailFieldState.labelClass}`}
-                                  >
-                                    <span className="inline-flex items-center gap-1">
-                                      <span>Email</span>
-                                      {renderFilterCostIndicator(
-                                        "medium",
-                                        "Medium cost: email filters may require per-account profile lookups."
-                                      )}
-                                    </span>
-                                  </label>
-                                  <div className="inline-flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      disabled={emailDraftForcesExact}
-                                      onClick={() => updateAdvancedMatchMode("emailMatchMode", "contains")}
-                                      className={advancedFilterMatchModeButtonClass(emailDraftMode === "contains", emailDraftForcesExact)}
-                                    >
-                                      Contains
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={emailDraftForcesExact}
-                                      onClick={() => updateAdvancedMatchMode("emailMatchMode", "exact")}
-                                      className={advancedFilterMatchModeButtonClass(emailDraftMode === "exact", emailDraftForcesExact)}
-                                    >
-                                      Exact
-                                    </button>
-                                  </div>
-                                </div>
-                                <textarea
-                                  value={advancedDraft.email}
-                                  onChange={(e) => updateAdvancedField("email", e.target.value)}
-                                  onKeyDown={(event) => event.stopPropagation()}
-                                  placeholder="ops@example.com"
-                                  rows={2}
-                                  className={advancedFilterControlClass(`mt-2 w-full resize-y px-2 py-1.5 font-normal ${emailFieldState.fieldClass}`)}
-                                />
-                              </div>
+                              <AdvancedFilterTextMatchField
+                                label="Email"
+                                costLevel="medium"
+                                costTooltip="Medium cost: email filters may require per-account profile lookups."
+                                fieldState={emailFieldState}
+                                forcesExact={emailDraftForcesExact}
+                                matchMode={emailDraftMode}
+                                onChange={(value) => updateAdvancedField("email", value)}
+                                onMatchModeChange={(value) => updateAdvancedMatchMode("emailMatchMode", value)}
+                                placeholder="ops@example.com"
+                                value={advancedDraft.email}
+                              />
                             </div>
                           </section>
 
