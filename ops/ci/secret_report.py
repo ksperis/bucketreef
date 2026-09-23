@@ -65,6 +65,24 @@ def is_placeholder_commit_sha(commit_sha):
     return isinstance(commit_sha, str) and bool(commit_sha) and set(commit_sha) == {"0"}
 
 
+def finding_metadata(item):
+    location = item.get("location", {})
+    extract = item.get("raw_source_code_extract")
+    rules = sorted(
+        identifier.get("value")
+        for identifier in item.get("identifiers", [])
+        if identifier.get("type") == "gitleaks_rule_id" and identifier.get("value")
+    )
+    return {
+        "file": location.get("file"),
+        "line": location.get("start_line"),
+        "commit_sha": location.get("commit", {}).get("sha"),
+        "extract_length": len(extract) if isinstance(extract, str) else None,
+        "extract_sha256": hashlib.sha256(extract.encode()).hexdigest() if isinstance(extract, str) else None,
+        "rules": rules,
+    }
+
+
 def is_test_fixture(item):
     location = item.get("location", {})
     path = location.get("file")
@@ -106,4 +124,7 @@ if __name__ == "__main__":
     print(json.dumps(result))
     print(f"Known public fixture findings: {sum(is_test_fixture(item) for item in report['vulnerabilities'])}")
     if result:
+        for item in report["vulnerabilities"]:
+            if not is_test_fixture(item):
+                print("Unresolved finding metadata: " + json.dumps(finding_metadata(item), sort_keys=True))
         raise SystemExit("Secret detection found unresolved findings")
