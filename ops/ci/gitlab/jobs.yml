@@ -457,6 +457,25 @@ recover-gitlab-release:
   environment:
     name: ci-orchestration
     action: verify
+bootstrap-release-bundles:
+  stage: promote
+  image: python:3.12-alpine
+  needs: []
+  variables:
+    GIT_DEPTH: '0'
+  resource_group: public-release
+  before_script:
+  - apk add --no-cache curl git
+  - sh ops/ci/install-oras.sh
+  script:
+  - python3 ops/release/bootstrap_bundle_registry.py
+  environment:
+    name: release-public
+    action: prepare
+  artifacts:
+    paths:
+    - bundle-distribution.json
+    expire_in: 30 days
 release-bundle-smoke:
   stage: deploy
   image: docker:27-cli

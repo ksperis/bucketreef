@@ -311,9 +311,12 @@ def test_node_browser_and_all_images_are_locked():
 
 def test_assembled_graphs_are_acyclic_and_dependencies_never_point_to_later_stages():
     from render_gitlab import templates
-    for profile in ('integration','qualify','release','docs','security','regression','recover-release','secrets-history'):
+    for profile in ('integration','qualify','release','docs','security','regression','recover-release','secrets-history','bootstrap-release-bundles'):
         for ref in ('main','dev') if profile == 'integration' else ('main',):
-            config = render({**select(profile,None,ref=ref),'sha':'a'*40,'parent_id':1})
+            plan = {**select(profile,None,ref=ref),'sha':'a'*40,'parent_id':1}
+            if profile == 'bootstrap-release-bundles':
+                plan['bootstrap_version'] = '1.2.3'
+            config = render(plan)
             stages = config['stages']
             def resolve(name):
                 job = config[name]

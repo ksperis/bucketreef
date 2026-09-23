@@ -52,6 +52,11 @@ def gitlab_plan(env, api=None):
         if value not in {"true", "false"}:
             raise ValueError("RELEASE_HISTORY_APPLY must be true or false")
         plan["history_apply"] = value == "true"
+    if profile == "bootstrap-release-bundles":
+        value = env.get("BUNDLE_BOOTSTRAP_VERSION", "")
+        if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
+            raise ValueError("BUNDLE_BOOTSTRAP_VERSION must be X.Y.Z")
+        plan["bootstrap_version"] = value
     return {**plan, "base_sha": base, "head_sha": sha, "sha": sha,
             "parent_id": int(env["CI_PIPELINE_ID"]), "tag": env.get("CI_COMMIT_TAG", "")}
 

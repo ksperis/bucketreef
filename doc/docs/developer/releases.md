@@ -129,6 +129,16 @@ must equal the GitHub assets. Application images, the chart package and the new
 administrator visibility change followed by a retry. ORAS is pinned in the tool
 lock. It stores bundles in the existing GHCR registry, not a new service.
 
+If the first `publish-release-bundles` attempt stops before creating the
+`bucketreef-bundles` package, keep the stable tag unchanged. From protected
+`main`, run a web pipeline with `CI_MODE=bootstrap-release-bundles` and
+`BUNDLE_BOOTSTRAP_VERSION=X.Y.Z`. The bootstrap verifies that the GitHub and
+GitLab tags resolve to the same commit, reconstructs the four deterministic
+bundle files from that immutable tag, and publishes only the versioned OCI
+bundle artifact. Make the newly created package public, then retry the original
+tag pipeline trigger so the complete release pipeline revalidates the public
+bundles and finalizes normally.
+
 Alias decisions compare numeric versions under the publication lock, using
 stable releases that are actually published on both platforms. Merely creating a
 higher Git tag does not advance an alias. A replay of an older pipeline cannot
