@@ -5,7 +5,8 @@
 import { ListActionButton, ListActionLink } from "./list/ListControls";
 import { ReactNode, type MouseEventHandler } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
+import UiButton, { UiButtonLink, type UiButtonVariant } from "./ui/UiButton";
+import { cx, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
 
 export type PageBreadcrumb = { label: string; to?: string; onClick?: MouseEventHandler<HTMLAnchorElement> };
 type Action = {
@@ -59,40 +60,30 @@ export default function PageHeader({
           </ListActionButton>
         );
       }
-      const classes =
-        action.variant === "danger"
-          ? uiButtonVariants.danger
-          : action.variant === "secondary"
-            ? uiButtonVariants.secondary
-            : action.variant === "ghost"
-              ? uiButtonVariants.ghost
-              : action.variant === "neutral"
-                ? uiButtonVariants.neutral
-                : uiButtonVariants.primary;
-      const base = cx(uiButtonBaseClass, "h-8 px-3 py-1.5 text-xs", action.disabled && "pointer-events-none opacity-60");
+      const variant: UiButtonVariant = action.variant ?? "primary";
       if (action.to) {
         return (
-          <Link
+          <UiButtonLink
             key={action.label}
             to={action.to}
-            aria-disabled={action.disabled ? true : undefined}
-            tabIndex={action.disabled ? -1 : undefined}
-            className={cx(base, classes)}
+            variant={variant}
+            size="sm"
+            disabled={action.disabled}
           >
             {action.label}
-          </Link>
+          </UiButtonLink>
         );
       }
       return (
-        <button
+        <UiButton
           key={action.label}
           onClick={action.onClick}
-          className={cx(base, classes)}
-          type="button"
+          variant={variant}
+          size="sm"
           disabled={action.disabled}
         >
           {action.label}
-        </button>
+        </UiButton>
       );
     });
 

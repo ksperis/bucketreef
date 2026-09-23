@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiCardClass, type UiTone, uiToneBadgeClasses } from "./ui/styles";
+import UiButton, { UiButtonLink } from "./ui/UiButton";
+import { cx, uiCardClass, type UiTone, uiToneBadgeClasses } from "./ui/styles";
 
 type PageEmptyStateAction = {
   label: string;
@@ -26,18 +26,17 @@ type PageEmptyStateProps = {
 
 function renderAction(action: PageEmptyStateAction) {
   const variant = action.variant ?? "primary";
-  const classes = cx(uiButtonBaseClass, uiButtonVariants[variant], "rounded-lg px-4 py-2");
   if (action.to) {
     return (
-      <Link key={action.label} to={action.to} className={classes}>
+      <UiButtonLink key={action.label} to={action.to} variant={variant}>
         {action.label}
-      </Link>
+      </UiButtonLink>
     );
   }
   return (
-    <button key={action.label} type="button" onClick={action.onClick} className={classes}>
+    <UiButton key={action.label} onClick={action.onClick} variant={variant}>
       {action.label}
-    </button>
+    </UiButton>
   );
 }
 

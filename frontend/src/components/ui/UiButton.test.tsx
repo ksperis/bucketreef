@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 
-import UiButton from "./UiButton";
+import UiButton, { UiButtonLink } from "./UiButton";
 import UiIconButton from "./UiIconButton";
 
 describe("UiButton", () => {
@@ -18,6 +20,24 @@ describe("UiButton", () => {
     render(<UiButton loading>Saving</UiButton>);
 
     expect(screen.getByRole("button", { name: "Saving" })).toBeDisabled();
+  });
+
+  it("uses the same shared presentation for navigation actions", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <UiButtonLink to="/next" variant="secondary" size="sm" disabled>
+          Open
+        </UiButtonLink>
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole("link", { name: "Open" });
+    expect(link).toHaveClass("ui-button-base", "ui-button-secondary", "h-8");
+    expect(link).toHaveAttribute("aria-disabled", "true");
+    expect(link).toHaveAttribute("tabindex", "-1");
+    await user.click(link);
+    expect(link).toHaveAttribute("href", "/next");
   });
 });
 

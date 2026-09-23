@@ -10,7 +10,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import type { PortalCollaborator } from "../../api/portalCollaborators";
 import {
   listPortalStorageSpacePublicLinks,
@@ -28,14 +28,13 @@ import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
 import { PortalMemberRequestFields } from "./PortalRequestFields";
 
 import UiBadge from "../../components/ui/UiBadge";
+import { UiButtonLink } from "../../components/ui/UiButton";
 import UiCard from "../../components/ui/UiCard";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import UserAvatar from "../../components/UserAvatar";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiMutedTextClass,
   uiPanelMutedClass,
 } from "../../components/ui/styles";
@@ -644,22 +643,19 @@ export default function PortalSharesPage() {
                       zh: `当前视图中有 ${activePublicLinkCount} 个有效链接`,
                     })}
                   </div>
-                  <Link
+                  <UiButtonLink
                     to={
                       selectedPublicLinkSpace
                         ? `${storageSpacePath(selectedPublicLinkSpace)}#space-files`
                         : "/portal/storage-spaces"
                     }
-                    className={cx(
-                      uiButtonBaseClass,
-                      uiButtonVariants.primary,
-                      "h-9 px-3 py-1.5 text-xs",
-                    )}
+                    size="sm"
+                    className="h-9"
                   >
                     {selectedPublicLinkSpace
                       ? t({ en: "Open files", fr: "Ouvrir les fichiers", de: "Dateien öffnen", zh: "打开文件" })
                       : t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen", zh: "打开空间列表" })}
-                  </Link>
+                  </UiButtonLink>
                 </div>
               ) : (
                 <PageBanner tone="info">

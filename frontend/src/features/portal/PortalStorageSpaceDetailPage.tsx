@@ -4,7 +4,7 @@
  */
 import PortalAddPeopleWorkflow from "./PortalAddPeopleWorkflow";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   deletePortalStorageSpace,
   restorePortalStorageSpaceObject,
@@ -29,13 +29,11 @@ import { workflowPageHostClass } from "../../components/WorkflowPage";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
 import UiBadge from "../../components/ui/UiBadge";
-import UiButton from "../../components/ui/UiButton";
+import UiButton, { UiButtonLink } from "../../components/ui/UiButton";
 import UiCard from "../../components/ui/UiCard";
 import UiSelect from "../../components/ui/UiSelect";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiMutedTextClass,
   uiPanelMutedClass,
   uiTitleTextClass,
@@ -793,12 +791,12 @@ function StorageSpaceDetail() {
             </p>
           </div>
           <div className="mt-3">
-            <Link
+            <UiButtonLink
               to={`${storageSpacePath(space)}#space-files`}
-              className={cx(uiButtonBaseClass, uiButtonVariants.primary, "h-8 px-3 py-1.5 text-xs")}
+              size="sm"
             >
               {t({ en: "Add files", fr: "Ajouter des fichiers", de: "Dateien hinzufügen", zh: "添加文件" })}
-            </Link>
+            </UiButtonLink>
           </div>
         </li>
         <li className="flex min-h-[112px] flex-col justify-between rounded-md border border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] p-3">
@@ -827,16 +825,16 @@ function StorageSpaceDetail() {
           </div>
           <div className="mt-3">
             {canInvitePeople && savedAccessMode === "restricted" ? (
-              <button
-                type="button"
+              <UiButton
+                size="sm"
+                variant="secondary"
                 onClick={() => {
                   selectSpaceDetailTab("collaborators");
                   setAccessPeopleDialogOpen(true);
                 }}
-                className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "h-8 px-3 py-1.5 text-xs")}
               >
                 {t({ en: "Invite people", fr: "Inviter", de: "Einladen", zh: "邀请人员" })}
-              </button>
+              </UiButton>
             ) : (
               <span className={cx("text-xs font-semibold", uiMutedTextClass)}>
                 {t({ en: "Private for now", fr: "Privé pour l'instant", de: "Vorerst privat", zh: "目前为私有" })}

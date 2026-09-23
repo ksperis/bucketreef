@@ -4,11 +4,7 @@
  */
 import type { ReactNode } from "react";
 import UiButton from "../../components/ui/UiButton";
-import {
-  cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
-} from "../../components/ui/styles";
+import { cx } from "../../components/ui/styles";
 import { ChevronDownIcon } from "../browser/browserIcons";
 import {
   advancedFilterAccordionClass,
@@ -202,17 +198,13 @@ export default function BucketOpsAdvancedFilterDrawer({
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
+              <UiButton
+                size="xs"
+                variant="secondary"
                 onClick={advancedFilterCloseGuard.requestClose}
-                className={cx(
-                  uiButtonBaseClass,
-                  uiButtonVariants.secondary,
-                  "rounded-md px-2.5 py-1.5 ui-caption",
-                )}
               >
                 Close
-              </button>
+              </UiButton>
             </div>
           </div>
 

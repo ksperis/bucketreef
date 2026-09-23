@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiCardClass } from "./ui/styles";
+import UiButton, { UiButtonLink } from "./ui/UiButton";
+import { cx, uiCardClass } from "./ui/styles";
 
 type FullPageStatusAction = {
   label: string;
@@ -23,20 +23,19 @@ type FullPageStatusProps = {
 
 function renderAction(action: FullPageStatusAction) {
   const variant = action.variant ?? "secondary";
-  const className = cx(uiButtonBaseClass, uiButtonVariants[variant], "min-w-36 px-4 py-2 ui-body");
 
   if (action.to) {
     return (
-      <Link key={action.label} to={action.to} className={className}>
+      <UiButtonLink key={action.label} to={action.to} variant={variant} className="min-w-36">
         {action.label}
-      </Link>
+      </UiButtonLink>
     );
   }
 
   return (
-    <button key={action.label} type="button" onClick={action.onClick} className={className}>
+    <UiButton key={action.label} onClick={action.onClick} variant={variant} className="min-w-36">
       {action.label}
-    </button>
+    </UiButton>
   );
 }
 

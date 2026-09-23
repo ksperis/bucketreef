@@ -8,10 +8,10 @@ import type { HealthCheckStatus } from "../api/healthchecks";
 import type { ManagerUsageTrendBaseline } from "../api/stats";
 import { formatBytes } from "../utils/format";
 import UiBadge from "./ui/UiBadge";
-import UiButton from "./ui/UiButton";
+import UiButton, { UiButtonLink } from "./ui/UiButton";
 import "./compactDashboard.css";
 import UiMeterBar from "./ui/UiMeterBar";
-import { cx, uiButtonBaseClass, uiButtonVariants, uiCardClass, uiMutedTextClass } from "./ui/styles";
+import { cx, uiCardClass, uiMutedTextClass } from "./ui/styles";
 
 export type WorkspaceDashboardFeature = {
   id: string;
@@ -646,7 +646,7 @@ export function WorkspaceDashboardAction({ className, ...props }: ComponentProps
 }
 
 export function WorkspaceDashboardActionLink({ className, variant = "secondary", ...props }: ComponentProps<typeof Link> & { variant?: "primary" | "secondary" }) {
-  return <Link {...props} className={cx(uiButtonBaseClass, uiButtonVariants[variant], "ui-dashboard-action", className)} />;
+  return <UiButtonLink {...props} size="xs" variant={variant} className={cx("ui-dashboard-action", className)} />;
 }
 
 export function WorkspaceDashboardLinkRow({ className, ...props }: ComponentProps<typeof Link>) {

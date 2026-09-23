@@ -15,7 +15,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   createPortalStorageSpace,
   importPortalStorageSpace,
@@ -37,14 +37,12 @@ import PageShell from "../../components/PageShell";
 import StorageSpaceIcon from "../../components/StorageSpaceIcon";
 
 import UiBadge from "../../components/ui/UiBadge";
-import UiButton from "../../components/ui/UiButton";
+import UiButton, { UiButtonLink } from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { UserAvatarStack } from "../../components/UserAvatar";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiMutedTextClass,
   uiPanelMutedClass,
   uiTitleTextClass,
@@ -827,14 +825,9 @@ export default function PortalStorageSpacesPage() {
               })}
               action={
                 canCreate ? (
-                  <button
-                    type="button"
+                  <UiButton
+                    size="sm"
                     onClick={() => setShowCreate(true)}
-                    className={cx(
-                      uiButtonBaseClass,
-                      uiButtonVariants.primary,
-                      "h-8 px-3 py-1.5 text-xs",
-                    )}
                   >
                     {t({
                       en: "Start a new space",
@@ -842,7 +835,7 @@ export default function PortalStorageSpacesPage() {
                       de: "Neuen Bereich starten",
                       zh: "新建空间",
                     })}
-                  </button>
+                  </UiButton>
                 ) : (
                   <span
                     className={cx("text-xs font-semibold", uiMutedTextClass)}
@@ -873,13 +866,10 @@ export default function PortalStorageSpacesPage() {
               })}
               action={
                 firstWritableSpace ? (
-                  <Link
+                  <UiButtonLink
                     to={`${storageSpacePath(firstWritableSpace)}#space-files`}
-                    className={cx(
-                      uiButtonBaseClass,
-                      uiButtonVariants.secondary,
-                      "h-8 px-3 py-1.5 text-xs",
-                    )}
+                    size="sm"
+                    variant="secondary"
                   >
                     {t({
                       en: "Open files",
@@ -887,7 +877,7 @@ export default function PortalStorageSpacesPage() {
                       de: "Dateien öffnen",
                       zh: "打开文件",
                     })}
-                  </Link>
+                  </UiButtonLink>
                 ) : (
                   <span
                     className={cx("text-xs font-semibold", uiMutedTextClass)}
@@ -918,16 +908,13 @@ export default function PortalStorageSpacesPage() {
               })}
               action={
                 firstManagedTeamSpace ? (
-                  <Link
+                  <UiButtonLink
                     to={`/portal/storage-spaces/${encodeURIComponent(firstManagedTeamSpace.id)}?tab=collaborators`}
-                    className={cx(
-                      uiButtonBaseClass,
-                      uiButtonVariants.secondary,
-                      "h-8 px-3 py-1.5 text-xs",
-                    )}
+                    size="sm"
+                    variant="secondary"
                   >
                     {t({ en: "Invite people", fr: "Inviter", de: "Einladen", zh: "邀请人员" })}
-                  </Link>
+                  </UiButtonLink>
                 ) : (
                   <span
                     className={cx("text-xs font-semibold", uiMutedTextClass)}
@@ -958,13 +945,10 @@ export default function PortalStorageSpacesPage() {
               })}
               action={
                 firstManagedTeamSpace ? (
-                  <Link
+                  <UiButtonLink
                     to={`${storageSpacePath(firstManagedTeamSpace)}#space-files`}
-                    className={cx(
-                      uiButtonBaseClass,
-                      uiButtonVariants.secondary,
-                      "h-8 px-3 py-1.5 text-xs",
-                    )}
+                    size="sm"
+                    variant="secondary"
                   >
                     {t({
                       en: "Choose file",
@@ -972,7 +956,7 @@ export default function PortalStorageSpacesPage() {
                       de: "Datei wählen",
                       zh: "选择文件",
                     })}
-                  </Link>
+                  </UiButtonLink>
                 ) : (
                   <span
                     className={cx("text-xs font-semibold", uiMutedTextClass)}
