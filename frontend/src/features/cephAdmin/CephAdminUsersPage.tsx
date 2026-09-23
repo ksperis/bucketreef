@@ -35,11 +35,11 @@ import CephAdminUserEditModal from "./CephAdminUserEditModal";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
+import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
   FILTER_COST_LABEL,
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
-  advancedFilterMatchModeButtonClass,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   advancedFilterToolbarButtonClass,
@@ -1039,44 +1039,19 @@ export default function CephAdminUsersPage() {
                                   costTooltip: "Medium cost: email filters require per-user profile lookups.",
                                 },
                               ].map((field) => (
-                                <div key={field.id} className={advancedFilterFieldCardClass()}>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <label
-                                      className={`ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${field.fieldState.labelClass}`}
-                                    >
-                                      <span className="inline-flex items-center gap-1">
-                                        <span>{field.label}</span>
-                                        {renderFilterCostIndicator(field.costLevel, field.costTooltip)}
-                                      </span>
-                                    </label>
-                                    <div className="inline-flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        disabled={field.locked}
-                                        onClick={() => field.setMode("contains")}
-                                        className={advancedFilterMatchModeButtonClass(field.mode === "contains", field.locked)}
-                                      >
-                                        Contains
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={field.locked}
-                                        onClick={() => field.setMode("exact")}
-                                        className={advancedFilterMatchModeButtonClass(field.mode === "exact", field.locked)}
-                                      >
-                                        Exact
-                                      </button>
-                                    </div>
-                                  </div>
-                                  <textarea
-                                    value={field.value}
-                                    onChange={(e) => updateAdvancedField(field.id, e.target.value)}
-                                    onKeyDown={(event) => event.stopPropagation()}
-                                    placeholder={field.placeholder}
-                                    rows={2}
-                                    className={advancedFilterControlClass(`mt-2 w-full resize-y px-2 py-1.5 font-normal ${field.fieldState.fieldClass}`)}
-                                  />
-                                </div>
+                                <AdvancedFilterTextMatchField
+                                  key={field.id}
+                                  label={field.label}
+                                  costLevel={field.costLevel}
+                                  costTooltip={field.costTooltip}
+                                  fieldState={field.fieldState}
+                                  forcesExact={field.locked}
+                                  matchMode={field.mode}
+                                  onChange={(value) => updateAdvancedField(field.id, value)}
+                                  onMatchModeChange={field.setMode}
+                                  placeholder={field.placeholder}
+                                  value={field.value}
+                                />
                               ))}
 
                               <div className={advancedFilterFieldCardClass()}>

@@ -33,10 +33,10 @@ import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalActivityPanel from "./PortalActivityPanel";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
+import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
-  advancedFilterMatchModeButtonClass,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   advancedFilterToolbarButtonClass,
@@ -911,70 +911,36 @@ export default function PortalHistoryPage() {
                             ))}
                           </select>
                         </div>
-                        <div className={advancedFilterFieldCardClass("md:col-span-2")}>
-                          <div className="flex items-center justify-between gap-2">
-                            <label className={cx(uiLabelClass, pathFieldState.labelClass)} htmlFor="portal-server-log-path-filter">
-                              {t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" })}
-                            </label>
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() => updateServerLogAdvancedMatchMode("pathMatchMode", "contains")}
-                                className={advancedFilterMatchModeButtonClass(pathDraftMode === "contains", pathDraftForcesExact)}
-                                disabled={pathDraftForcesExact}
-                              >
-                                ~
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updateServerLogAdvancedMatchMode("pathMatchMode", "exact")}
-                                className={advancedFilterMatchModeButtonClass(pathDraftMode === "exact", pathDraftForcesExact)}
-                                disabled={pathDraftForcesExact}
-                              >
-                                =
-                              </button>
-                            </div>
-                          </div>
-                          <textarea
-                            id="portal-server-log-path-filter"
-                            value={serverLogAdvancedDraft.path}
-                            onChange={(event) => updateServerLogAdvancedField("path", event.target.value)}
-                            rows={3}
-                            className={advancedFilterControlClass(`mt-2 w-full resize-y px-2 py-1.5 font-normal ${pathFieldState.fieldClass}`)}
-                          />
-                        </div>
-                        <div className={advancedFilterFieldCardClass("md:col-span-4")}>
-                          <div className="flex items-center justify-between gap-2">
-                            <label className={cx(uiLabelClass, identityFieldState.labelClass)} htmlFor="portal-server-log-identity-filter">
-                              {t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" })}
-                            </label>
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() => updateServerLogAdvancedMatchMode("identityMatchMode", "contains")}
-                                className={advancedFilterMatchModeButtonClass(identityDraftMode === "contains", identityDraftForcesExact)}
-                                disabled={identityDraftForcesExact}
-                              >
-                                ~
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updateServerLogAdvancedMatchMode("identityMatchMode", "exact")}
-                                className={advancedFilterMatchModeButtonClass(identityDraftMode === "exact", identityDraftForcesExact)}
-                                disabled={identityDraftForcesExact}
-                              >
-                                =
-                              </button>
-                            </div>
-                          </div>
-                          <textarea
-                            id="portal-server-log-identity-filter"
-                            value={serverLogAdvancedDraft.identity}
-                            onChange={(event) => updateServerLogAdvancedField("identity", event.target.value)}
-                            rows={3}
-                            className={advancedFilterControlClass(`mt-2 w-full resize-y px-2 py-1.5 font-normal ${identityFieldState.fieldClass}`)}
-                          />
-                        </div>
+                        <AdvancedFilterTextMatchField
+                          className="md:col-span-2"
+                          label={t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" })}
+                          fieldState={pathFieldState}
+                          forcesExact={pathDraftForcesExact}
+                          matchMode={pathDraftMode}
+                          onChange={(value) => updateServerLogAdvancedField("path", value)}
+                          onMatchModeChange={(value) => updateServerLogAdvancedMatchMode("pathMatchMode", value)}
+                          containsLabel="~"
+                          exactLabel="="
+                          containsAriaLabel={t({ en: "Contains", fr: "Contient", de: "Enthält", zh: "包含" })}
+                          exactAriaLabel={t({ en: "Exact", fr: "Exact", de: "Exakt", zh: "精确" })}
+                          rows={3}
+                          value={serverLogAdvancedDraft.path}
+                        />
+                        <AdvancedFilterTextMatchField
+                          className="md:col-span-4"
+                          label={t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" })}
+                          fieldState={identityFieldState}
+                          forcesExact={identityDraftForcesExact}
+                          matchMode={identityDraftMode}
+                          onChange={(value) => updateServerLogAdvancedField("identity", value)}
+                          onMatchModeChange={(value) => updateServerLogAdvancedMatchMode("identityMatchMode", value)}
+                          containsLabel="~"
+                          exactLabel="="
+                          containsAriaLabel={t({ en: "Contains", fr: "Contient", de: "Enthält", zh: "包含" })}
+                          exactAriaLabel={t({ en: "Exact", fr: "Exact", de: "Exakt", zh: "精确" })}
+                          rows={3}
+                          value={serverLogAdvancedDraft.identity}
+                        />
                       </div>
                     </section>
                 </div>
