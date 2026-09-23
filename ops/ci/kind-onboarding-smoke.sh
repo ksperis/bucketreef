@@ -219,10 +219,10 @@ curl --fail --silent --show-error \
   "http://127.0.0.1:${FRONTEND_PORT}/api/auth/bootstrap/first-admin"
 unset bootstrap_token admin_password
 
-[[ "$(jq -r '.status' "${temporary_directory}/response.json")" == "mfa_enrollment_required" ]]
-grep -Eqi '^set-cookie: pre_auth=' "${temporary_directory}/response.headers"
-grep -Eqi '^set-cookie: pre_auth=.*Max-Age=300' "${temporary_directory}/response.headers"
-grep -Eqi '^set-cookie: pre_auth=.*HttpOnly' "${temporary_directory}/response.headers"
+[[ "$(jq -r '.status' "${temporary_directory}/response.json")" == "authenticated" ]]
+grep -Eqi '^set-cookie: ui_access=' "${temporary_directory}/response.headers"
+grep -Eqi '^set-cookie: refresh_token=' "${temporary_directory}/response.headers"
+! grep -Eqi '^set-cookie: pre_auth=' "${temporary_directory}/response.headers"
 
 status_after="$(
   curl --fail --silent \
