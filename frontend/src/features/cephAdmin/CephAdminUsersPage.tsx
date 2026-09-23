@@ -35,11 +35,11 @@ import CephAdminUserEditModal from "./CephAdminUserEditModal";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
+import AdvancedFilterNumberRangeField from "../shared/AdvancedFilterNumberRangeField";
 import AdvancedFilterSelectField from "../shared/AdvancedFilterSelectField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
   FILTER_COST_LABEL,
-  advancedFilterControlClass,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   advancedFilterToolbarButtonClass,
@@ -53,7 +53,6 @@ import {
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
   renderAdvancedSearchProgress,
-  renderFilterCostIndicator,
   type FilterCostLevel,
   type TextMatchMode,
 } from "../shared/advancedFilterShared";
@@ -127,6 +126,11 @@ type AdvancedNumericField =
   | "maxQuotaUsageSizePercent"
   | "minQuotaUsageObjectPercent"
   | "maxQuotaUsageObjectPercent";
+type AdvancedNumericRangeField = {
+  label: string;
+  minKey: AdvancedNumericField;
+  maxKey: AdvancedNumericField;
+};
 type AdvancedField = AdvancedTextField | AdvancedNumericField | "suspended";
 type ActiveFilterRemoveAction = { type: "quick" } | { type: "advanced"; field: AdvancedField };
 type ActiveFilterSummaryItem = {
@@ -445,20 +449,29 @@ export default function CephAdminUsersPage() {
   const suspendedPending = suspendedDraftValue !== suspendedAppliedValue;
   const suspendedFieldState = advancedFilterFieldHighlight(suspendedAppliedValue !== "any", suspendedPending);
 
-  const numericFields = useMemo<Array<{ key: AdvancedNumericField; label: string }>>(() => [
-    { key: "minMaxBuckets", label: "Max buckets >=" },
-    { key: "maxMaxBuckets", label: "Max buckets <=" },
-    { key: "minQuotaBytes", label: "Quota bytes >=" },
-    { key: "maxQuotaBytes", label: "Quota bytes <=" },
-    { key: "minQuotaObjects", label: "Quota objects >=" },
-    { key: "maxQuotaObjects", label: "Quota objects <=" },
+  const numericRangeFields = useMemo<AdvancedNumericRangeField[]>(() => [
+    { label: "Max buckets", minKey: "minMaxBuckets", maxKey: "maxMaxBuckets" },
+    { label: "Quota bytes", minKey: "minQuotaBytes", maxKey: "maxQuotaBytes" },
+    { label: "Quota objects", minKey: "minQuotaObjects", maxKey: "maxQuotaObjects" },
   ], []);
-  const usageNumericFields = useMemo<Array<{ key: AdvancedNumericField; label: string; format: "percent" }>>(() => [
-    { key: "minQuotaUsageSizePercent", label: "Quota usage size % >=", format: "percent" },
-    { key: "maxQuotaUsageSizePercent", label: "Quota usage size % <=", format: "percent" },
-    { key: "minQuotaUsageObjectPercent", label: "Quota usage objects % >=", format: "percent" },
-    { key: "maxQuotaUsageObjectPercent", label: "Quota usage objects % <=", format: "percent" },
+  const usageNumericRangeFields = useMemo<AdvancedNumericRangeField[]>(() => [
+    { label: "Quota usage size %", minKey: "minQuotaUsageSizePercent", maxKey: "maxQuotaUsageSizePercent" },
+    { label: "Quota usage objects %", minKey: "minQuotaUsageObjectPercent", maxKey: "maxQuotaUsageObjectPercent" },
   ], []);
+  const numericFields = useMemo<Array<{ key: AdvancedNumericField; label: string }>>(
+    () => numericRangeFields.flatMap(({ label, minKey, maxKey }) => [
+      { key: minKey, label: `${label} >=` },
+      { key: maxKey, label: `${label} <=` },
+    ]),
+    [numericRangeFields],
+  );
+  const usageNumericFields = useMemo<Array<{ key: AdvancedNumericField; label: string; format: "percent" }>>(
+    () => usageNumericRangeFields.flatMap(({ label, minKey, maxKey }) => [
+      { key: minKey, label: `${label} >=`, format: "percent" as const },
+      { key: maxKey, label: `${label} <=`, format: "percent" as const },
+    ]),
+    [usageNumericRangeFields],
+  );
   const numericFieldStates = useMemo(() => {
     const states = {} as Record<AdvancedNumericField, { labelClass: string; fieldClass: string }>;
     [...numericFields, ...usageNumericFields].forEach(({ key }) => {
@@ -468,6 +481,16 @@ export default function CephAdminUsersPage() {
     });
     return states;
   }, [advancedDraft, advancedApplied, numericFields, usageNumericFields]);
+  const numericRangeFieldState = (minKey: AdvancedNumericField, maxKey: AdvancedNumericField) => {
+    const minDraft = (advancedDraft[minKey] as string).trim();
+    const maxDraft = (advancedDraft[maxKey] as string).trim();
+    const minApplied = (advancedApplied?.[minKey] as string | undefined)?.trim() ?? "";
+    const maxApplied = (advancedApplied?.[maxKey] as string | undefined)?.trim() ?? "";
+    return advancedFilterFieldHighlight(
+      Boolean(minApplied || maxApplied),
+      minDraft !== minApplied || maxDraft !== maxApplied,
+    );
+  };
 
   const toggleQuickFilterMode = () => {
     if (quickFilterDraftForcesExact) return;
@@ -1073,23 +1096,21 @@ export default function CephAdminUsersPage() {
                             <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                               Limits and Quotas
                             </p>
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              {numericFields.map((field) => (
-                                <label
-                                  key={field.key}
-                                  className={`flex flex-col gap-1 ui-caption font-medium text-slate-600 dark:text-slate-200 ${numericFieldStates[field.key].labelClass}`}
-                                >
-                                  <span className="inline-flex items-center gap-1">
-                                    <span>{field.label}</span>
-                                    {renderFilterCostIndicator("medium", "Medium cost: numeric filters rely on limits/quota counters.")}
-                                  </span>
-                                  <input
-                                    type="number"
-                                    value={advancedDraft[field.key]}
-                                    onChange={(e) => updateAdvancedField(field.key, e.target.value)}
-                                    className={advancedFilterControlClass(`px-2 py-1.5 ${numericFieldStates[field.key].fieldClass}`)}
-                                  />
-                                </label>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {numericRangeFields.map((field) => (
+                                <AdvancedFilterNumberRangeField
+                                  key={`${field.minKey}:${field.maxKey}`}
+                                  label={field.label}
+                                  costLevel="medium"
+                                  costTooltip="Medium cost: numeric filters rely on limits/quota counters."
+                                  fieldState={numericRangeFieldState(field.minKey, field.maxKey)}
+                                  minFieldState={numericFieldStates[field.minKey]}
+                                  maxFieldState={numericFieldStates[field.maxKey]}
+                                  minValue={advancedDraft[field.minKey]}
+                                  maxValue={advancedDraft[field.maxKey]}
+                                  onMinChange={(value) => updateAdvancedField(field.minKey, value)}
+                                  onMaxChange={(value) => updateAdvancedField(field.maxKey, value)}
+                                />
                               ))}
                             </div>
                             {canViewMetrics && (
@@ -1097,24 +1118,22 @@ export default function CephAdminUsersPage() {
                                 <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                   Quota usage %
                                 </p>
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                  {usageNumericFields.map((field) => (
-                                    <label
-                                      key={field.key}
-                                      className={`flex flex-col gap-1 ui-caption font-medium text-slate-600 dark:text-slate-200 ${numericFieldStates[field.key].labelClass}`}
-                                    >
-                                      <span className="inline-flex items-center gap-1">
-                                        <span>{field.label}</span>
-                                        {renderFilterCostIndicator("medium", "Medium cost: usage percentage filters require bucket metrics aggregation.")}
-                                      </span>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        value={advancedDraft[field.key]}
-                                        onChange={(e) => updateAdvancedField(field.key, e.target.value)}
-                                        className={advancedFilterControlClass(`px-2 py-1.5 ${numericFieldStates[field.key].fieldClass}`)}
-                                      />
-                                    </label>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  {usageNumericRangeFields.map((field) => (
+                                    <AdvancedFilterNumberRangeField
+                                      key={`${field.minKey}:${field.maxKey}`}
+                                      label={field.label}
+                                      costLevel="medium"
+                                      costTooltip="Medium cost: usage percentage filters require bucket metrics aggregation."
+                                      fieldState={numericRangeFieldState(field.minKey, field.maxKey)}
+                                      minFieldState={numericFieldStates[field.minKey]}
+                                      maxFieldState={numericFieldStates[field.maxKey]}
+                                      minValue={advancedDraft[field.minKey]}
+                                      maxValue={advancedDraft[field.maxKey]}
+                                      inputMin={0}
+                                      onMinChange={(value) => updateAdvancedField(field.minKey, value)}
+                                      onMaxChange={(value) => updateAdvancedField(field.maxKey, value)}
+                                    />
                                   ))}
                                 </div>
                               </div>

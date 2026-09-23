@@ -149,7 +149,7 @@ describe("CephAdminAccountsPage", () => {
     expect(await screen.findByText("No accounts.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /advanced filter/i }));
-    fireEvent.change(screen.getByLabelText("Quota usage size % >="), { target: { value: "80" } });
+    fireEvent.change(screen.getByLabelText("Quota usage size % minimum"), { target: { value: "80" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
 
     await waitFor(() => {
