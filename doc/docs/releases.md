@@ -166,7 +166,7 @@ Compare v0.2.1 → v0.2.2: [GitHub](https://github.com/ksperis/bucketreef/compar
 
 - Migration `0122_split_account_access_roles` replaces association `role` and root flags with `manager_role` and `portal_role`. Deploy the migration, backend, frontend, and automation clients together; legacy role fields are rejected.
 - Rootless images use fixed identities, the frontend container listens on port `8080`, and existing root-owned backend volume files may require a one-time ownership migration to UID/GID `10001:10001` after backup.
-- Helm's strict NetworkPolicy profile requires ingress/DNS selectors, explicit egress rules, and `backend.trustedProxyCidrs`. The chart keeps this stricter deployment requirement even though the application-level readiness check treats an empty trusted-proxy boundary as a Warning and rejects only globally trusted address space.
+- Helm's strict NetworkPolicy profile now requires ingress/DNS selectors, explicit egress rules, and `backend.trustedProxyCidrs`; production startup rejects an empty trusted-proxy boundary.
 - Production user-supplied S3 endpoints and migration webhooks now fail closed unless their hosts are covered by `USER_SUPPLIED_S3_ENDPOINT_ALLOWED_HOSTS` and `BUCKET_MIGRATION_WEBHOOK_ALLOWED_HOSTS`.
 
 ### Tests
