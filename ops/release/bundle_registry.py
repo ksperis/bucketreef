@@ -33,12 +33,14 @@ def publish(version, sha, directory):
     with tempfile.TemporaryDirectory() as temporary:
         layout = str(Path(temporary) / "layout")
         manifest = Path(temporary) / "manifest.json"
+        annotations = [
+            "--artifact-type", "application/vnd.bucketreef.bundles.v1",
+            "--annotation", "org.opencontainers.image.created=1970-01-01T00:00:00Z",
+            "--annotation", f"org.opencontainers.image.revision={sha}",
+        ]
         # Fix the creation annotation, otherwise ORAS embeds the current time.
         run(["push", "--oci-layout", f"{layout}:{version}",
-             "--artifact-type", "application/vnd.bucketreef.bundles.v1",
-             "--annotation", "org.opencontainers.image.created=1970-01-01T00:00:00Z",
-             "--annotation", f"org.opencontainers.image.revision={sha}",
-             "--export-manifest", str(manifest), *ASSETS], cwd=directory)
+             *annotations, "--export-manifest", str(manifest), *ASSETS], cwd=directory)
         digest = "sha256:" + hashlib.sha256(manifest.read_bytes()).hexdigest()
         auth = ["--username", os.environ["GHCR_USERNAME"], "--password", os.environ["GHCR_TOKEN"]]
         target = f"{REPOSITORY}:{version}"
@@ -46,8 +48,14 @@ def publish(version, sha, directory):
         if current is not None and current.decode().strip() != digest:
             raise ValueError("Refusing to replace different immutable release bundles")
         if current is None:
-            run(["copy", "--from-oci-layout", f"{layout}:{version}", target,
-                 "--to-username", os.environ["GHCR_USERNAME"], "--to-password", os.environ["GHCR_TOKEN"]])
+            # A first GHCR package may reject `oras copy --from-oci-layout` before
+            # the repository exists. Push the same deterministic manifest directly;
+            # the resolve below still proves the immutable digest before returning.
+            remote_manifest = Path(temporary) / "remote-manifest.json"
+            run(["push", *auth, *annotations, "--export-manifest", str(remote_manifest),
+                 target, *ASSETS], cwd=directory)
+            if "sha256:" + hashlib.sha256(remote_manifest.read_bytes()).hexdigest() != digest:
+                raise ValueError("Remote bundle manifest differs from deterministic bundle manifest")
         if run(["resolve", *auth, target]).decode().strip() != digest:
             raise ValueError("Published bundle manifest differs")
         return {"schema": 1, "sha": sha, "version": version, "digest": digest, "files": hashes(directory)}
