@@ -8,7 +8,7 @@ import UiBadge from "../../../components/ui/UiBadge";
 import { cx } from "../../../components/ui/styles";
 import type { BucketFeatureMode, BucketFeatureVisualState } from "./bucketFeatureState";
 
-export type BucketFeaturePresentation = "simple" | "workbench";
+type BucketFeaturePresentation = "simple" | "workbench";
 
 type BucketFeatureSectionProps = {
   title: string;
