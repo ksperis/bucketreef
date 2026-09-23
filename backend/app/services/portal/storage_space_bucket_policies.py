@@ -161,32 +161,13 @@ class PortalStorageSpaceBucketPoliciesMixin:
             **kwargs,
         )
         policy = self._storage_space_bucket_policy(account, bucket_name, metadata, existing_policy)
-        if policy is not None:
-            s3_bucket_access.put_bucket_policy(
-                bucket_name,
-                policy=policy,
-                access_key=access_key,
-                secret_key=secret_key,
-                **kwargs,
-            )
-            return
-        if self._without_storage_space_policy_statements(existing_policy) is None and isinstance(existing_policy, dict):
-            s3_bucket_access.delete_bucket_policy(
-                bucket_name,
-                access_key=access_key,
-                secret_key=secret_key,
-                **kwargs,
-            )
-        elif isinstance(existing_policy, dict):
-            cleaned = self._without_storage_space_policy_statements(existing_policy)
-            if cleaned is not None:
-                s3_bucket_access.put_bucket_policy(
-                    bucket_name,
-                    policy=cleaned,
-                    access_key=access_key,
-                    secret_key=secret_key,
-                    **kwargs,
-                )
+        s3_bucket_access.put_bucket_policy(
+            bucket_name,
+            policy=policy,
+            access_key=access_key,
+            secret_key=secret_key,
+            **kwargs,
+        )
 
     def _sync_account_storage_space_bucket_policies(self, account: S3Account) -> None:
         metadata_rows = (
