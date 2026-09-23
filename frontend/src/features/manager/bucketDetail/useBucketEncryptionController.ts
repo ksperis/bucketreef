@@ -28,14 +28,6 @@ type UseBucketEncryptionControllerOptions = {
   endpointId?: number | null;
 };
 
-export const defaultEncryptionExample = `[
-  {
-    "ApplyServerSideEncryptionByDefault": {
-      "SSEAlgorithm": "AES256"
-    }
-  }
-]`;
-
 export function useBucketEncryptionController({
   accountId,
   bucketName,

@@ -42,11 +42,12 @@ import {
   BucketFeatureModeToggle,
   BucketAclFeature,
   BucketCorsFeature,
+  BucketEncryptionFeature,
+  EndpointFeatureDisabledNotice,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
   buildNotificationExample,
   type BucketQuotaUnit,
-  defaultEncryptionExample,
   defaultNotificationTemplate,
   resolveFeatureVisualState,
   useBucketAccessLoggingController,
@@ -240,7 +241,6 @@ function BucketDetailPageContent({
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
   const [showNotificationExample, setShowNotificationExample] = useState(false);
   const [showWebsiteRulesExample, setShowWebsiteRulesExample] = useState(false);
-  const [showEncryptionExample, setShowEncryptionExample] = useState(false);
   const [showLifecycleJsonExample, setShowLifecycleJsonExample] = useState(false);
   const [showReplicationExample, setShowReplicationExample] = useState(false);
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
@@ -491,27 +491,20 @@ function BucketDetailPageContent({
     }
     return selectedS3Account?.storage_endpoint_capabilities?.sse === true;
   }, [isCephAdmin, selectedEndpoint, selectedS3Account]);
-  const {
-    clearStatus: clearEncryptionStatus,
-    configured: encryptionConfigured,
-    deleting: deletingEncryption,
-    dirty: encryptionDirty,
-    error: encryptionError,
-    load: loadEncryption,
-    loading: encryptionLoading,
-    remove: clearEncryption,
-    save: saveEncryption,
-    saving: savingEncryption,
-    setText: setEncryptionText,
-    status: encryptionStatus,
-    text: encryptionText,
-  } = useBucketEncryptionController({
+  const encryptionController = useBucketEncryptionController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext && sseFeatureEnabled,
     endpointId,
   });
+  const {
+    configured: encryptionConfigured,
+    dirty: encryptionDirty,
+    error: encryptionError,
+    load: loadEncryption,
+    loading: encryptionLoading,
+  } = encryptionController;
   const {
     addCleanupExample: addLifecycleCleanupExample,
     addExpirationExample: addLifecycleExpirationExample,
@@ -694,7 +687,7 @@ function BucketDetailPageContent({
     acl: bucketAclController.saving,
     cors: corsController.saving || corsController.deleting,
     replication: savingReplication || clearingReplication,
-    encryption: savingEncryption || deletingEncryption,
+    encryption: encryptionController.saving || encryptionController.deleting,
     publicAccess: publicAccessController.saving,
     website: savingWebsite || clearingWebsite,
     accessLogging: savingAccessLogging || clearingAccessLogging,
@@ -907,7 +900,6 @@ function BucketDetailPageContent({
   const objectLockNotImplemented = isApiFeatureNotImplemented(objectLockLoadError);
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const tagsNotImplemented = isApiFeatureNotImplemented(bucketTagsError);
-  const encryptionNotImplemented = isApiFeatureNotImplemented(encryptionError);
   const websiteNotImplemented = isApiFeatureNotImplemented(websiteError);
   const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
   const accessLoggingNotImplemented = isApiFeatureNotImplemented(accessLoggingError);
@@ -916,11 +908,6 @@ function BucketDetailPageContent({
     disabled: versioningNotImplemented,
     configured: versioningIsEnabled,
     unsaved: versioningDirty,
-  });
-  const encryptionCardState = resolveFeatureVisualState({
-    disabled: !sseFeatureEnabled || encryptionNotImplemented,
-    configured: encryptionConfigured,
-    unsaved: encryptionDirty,
   });
   const objectLockCardState = resolveFeatureVisualState({
     disabled: objectLockNotImplemented,
@@ -1285,7 +1272,7 @@ function BucketDetailPageContent({
     if (!pendingConfigurationDelete) return;
     try {
       if (pendingConfigurationDelete === "cors") await corsController.remove();
-      if (pendingConfigurationDelete === "encryption") await clearEncryption();
+      if (pendingConfigurationDelete === "encryption") await encryptionController.remove();
       if (pendingConfigurationDelete === "tags") await clearBucketTags();
       if (pendingConfigurationDelete === "notifications") await clearNotifications();
       if (pendingConfigurationDelete === "replication") await clearReplication();
@@ -1306,7 +1293,7 @@ function BucketDetailPageContent({
     pendingConfigurationDelete === "cors"
       ? corsController.deleting
       : pendingConfigurationDelete === "encryption"
-        ? deletingEncryption
+        ? encryptionController.deleting
         : pendingConfigurationDelete === "tags"
           ? deletingBucketTags
           : pendingConfigurationDelete === "notifications"
@@ -1633,66 +1620,11 @@ function BucketDetailPageContent({
                       </p>
                     )}
                   </BucketFeatureSection>
-                  <BucketFeatureSection
-                    title="Server-side encryption"
-                    description="Bucket default encryption rules (S3 API Rules array)."
-                    mode="json"
-                    visualState={encryptionCardState}
-                    presentation="workbench"
-                    successMessage={encryptionStatus}
-                    busy={savingEncryption || deletingEncryption || encryptionLoading}
-                    testId="bucket-feature-encryption"
-                    actions={
-                      <div className={bucketDetailInlineActionsClass}>
-                        <SettingsButton
-                          type="button"
-                          onClick={() => setPendingConfigurationDelete("encryption")}
-                          disabled={!sseFeatureEnabled || encryptionNotImplemented || deletingEncryption || !encryptionConfigured}
-                          variant="danger"
-                        >
-                          {deletingEncryption ? "Disabling..." : "Disable"}
-                        </SettingsButton>
-                        <SettingsButton
-                          type="button"
-                          onClick={saveEncryption}
-                          disabled={!sseFeatureEnabled || encryptionNotImplemented || savingEncryption || encryptionLoading || !encryptionDirty}
-                          variant="primary"
-                        >
-                          {savingEncryption ? "Saving..." : "Save"}
-                        </SettingsButton>
-                      </div>
-                    }
-                  >
-                    {!sseFeatureEnabled && <EndpointFeatureDisabledNotice featureLabel="Server-side encryption" />}
-                    {encryptionError && (
-                      <UiInlineMessage tone="error">{encryptionError}</UiInlineMessage>
-                    )}
-                    <UiTextarea label="Encryption rules (JSON)" rows={6}
-                      value={encryptionText}
-                      onChange={(e) => {
-                        setEncryptionText(e.target.value);
-                        if (encryptionStatus) {
-                          clearEncryptionStatus();
-                        }
-                      }}
-                      className="settings-control font-mono"
-                      placeholder='[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]'
-                      spellCheck={false}
-                      disabled={!sseFeatureEnabled || encryptionNotImplemented || encryptionLoading || savingEncryption || deletingEncryption}
-                    />
-                    <BucketFeatureJsonExample
-                      show={showEncryptionExample}
-                      onToggle={() => setShowEncryptionExample((prev) => !prev)}
-                      example={defaultEncryptionExample}
-                      onUseExample={() => setEncryptionText(defaultEncryptionExample)}
-                      disabled={!sseFeatureEnabled || encryptionNotImplemented}
-                      helperText={
-                        <span className={bucketDetailHintClass}>
-                          Leave <code>Rules</code> empty to disable default encryption.
-                        </span>
-                      }
-                    />
-                  </BucketFeatureSection>
+                  <BucketEncryptionFeature
+                    controller={encryptionController}
+                    enabled={sseFeatureEnabled}
+                    onRequestDelete={() => setPendingConfigurationDelete("encryption")}
+                  />
                   <BucketFeatureSection
                     title="Object Lock"
                     description="WORM / default retention."
@@ -2862,13 +2794,5 @@ function BucketDetailPageContent({
       )}
 
     </div>
-  );
-}
-
-function EndpointFeatureDisabledNotice({ featureLabel }: { featureLabel: string }) {
-  return (
-    <UiInlineMessage>
-      {featureLabel} is disabled on this endpoint.
-    </UiInlineMessage>
   );
 }

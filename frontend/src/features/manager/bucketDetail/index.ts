@@ -7,14 +7,13 @@ export { default as BucketFeatureJsonExample } from "./BucketFeatureJsonExample"
 export { default as BucketFeatureModeToggle } from "./BucketFeatureModeToggle";
 export { default as BucketAclFeature } from "./BucketAclFeature";
 export { default as BucketCorsFeature } from "./BucketCorsFeature";
+export { default as BucketEncryptionFeature } from "./BucketEncryptionFeature";
+export { default as EndpointFeatureDisabledNotice } from "./EndpointFeatureDisabledNotice";
 export { default as BucketPublicAccessFeature } from "./BucketPublicAccessFeature";
 export { default as BucketPolicyFeature } from "./BucketPolicyFeature";
 export { useBucketPolicyController } from "./useBucketPolicyController";
 export { useBucketCorsController } from "./useBucketCorsController";
-export {
-  defaultEncryptionExample,
-  useBucketEncryptionController,
-} from "./useBucketEncryptionController";
+export { useBucketEncryptionController } from "./useBucketEncryptionController";
 export { useBucketAccessLoggingController } from "./useBucketAccessLoggingController";
 export {
   buildNotificationExample,
