@@ -359,6 +359,10 @@ class Settings(BaseSettings):
     oidc_state_ttl_seconds: int = Field(600, description="Validity of OIDC login state (seconds)")
     ldap_providers: dict[str, LDAPProviderSettings] = Field(default_factory=dict)
 
+    feature_admin_enabled: Optional[bool] = Field(
+        None,
+        description="Force Admin surface on/off (FEATURE_ADMIN_ENABLED)",
+    )
     feature_manager_enabled: Optional[bool] = Field(
         None,
         description="Force Manager feature on/off (FEATURE_MANAGER_ENABLED)",
