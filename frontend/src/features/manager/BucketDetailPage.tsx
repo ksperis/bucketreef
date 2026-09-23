@@ -2,24 +2,15 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { ListActionButton, ListActions } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState, useCallback, useId, useRef } from "react";
 import { useParams } from "react-router-dom";
-import {
-  cx,
-  uiCardMutedClass,
-  uiDataTableClass,
-  uiInputClass,
-  uiTableContainerClass,
-} from "../../components/ui/styles";
+import { uiDataTableClass, uiTableContainerClass } from "../../components/ui/styles";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageHeader from "../../components/PageHeader";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { settingsLabels } from "../../components/settings/settingsLabels";
 import { useI18n } from "../../i18n";
-import UiTextarea from "../../components/ui/UiTextarea";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
 import SplitView from "../../components/SplitView";
@@ -35,13 +26,11 @@ import BucketUsageStatsPanel from "../shared/BucketUsageStatsPanel";
 import PropertySummaryChip, { PropertySummaryTone } from "../../components/PropertySummaryChip";
 import { useCephAdminEndpoint } from "../cephAdmin/CephAdminEndpointContext";
 import {
-  BucketFeatureSection,
-  BucketFeatureJsonExample,
-  BucketFeatureModeToggle,
   BucketAclFeature,
   BucketAccessLoggingFeature,
   BucketCorsFeature,
   BucketEncryptionFeature,
+  BucketLifecycleFeature,
   BucketNotificationsFeature,
   BucketObjectLockFeature,
   BucketTagsFeature,
@@ -51,7 +40,6 @@ import {
   BucketPublicAccessFeature,
   BucketQuotaFeature,
   BucketReplicationFeature,
-  resolveFeatureVisualState,
   useBucketAccessLoggingController,
   useBucketAclController,
   useBucketCorsController,
@@ -71,14 +59,6 @@ import {
   useBucketWebsiteController,
 } from "./bucketDetail";
 import {
-  describeLifecycleActions,
-  lifecycleFilterLabel,
-  lifecycleRuleId,
-  lifecycleRulePrefix,
-  lifecycleRuleStatus,
-  type LifecycleRuleRecord,
-} from "./bucketLifecycle";
-import {
   buildBucketDetailBreadcrumbs,
   resolveBucketDetailSurface,
   resolveBucketDetailTabs,
@@ -87,18 +67,10 @@ import {
 } from "./bucketDetail/bucketDetailSurface";
 import {
   bucketConfigurationDeleteCopy,
-  defaultLifecycleJsonExample,
   type BucketConfigurationDeleteKind,
 } from "./bucketDetail/bucketDetailConstants";
-import { isApiFeatureNotImplemented } from "../../utils/apiError";
 import { formatBytes } from "../../utils/format";
 import type { UiRole } from "../../api/users";
-
-type LifecycleTableRow = {
-  key: string;
-  index: number;
-  rule: LifecycleRuleRecord;
-};
 
 function getUserRole(): UiRole | null {
   return readStoredUser()?.role ?? null;
@@ -110,18 +82,12 @@ type PropertySummary = {
   tone: PropertySummaryTone;
 };
 
-const bucketFeatureInputClass = cx(uiInputClass, "settings-control");
 const bucketDetailHintClass = "settings-description";
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
 
 const bucketDetailDividerClass =
   "divide-y divide-slate-200 dark:divide-slate-800";
-const bucketDetailEndActionClass = "mt-2 flex justify-end";
-const bucketDetailFieldStackClass = "settings-label flex flex-col gap-1";
-const bucketDetailMutedBodyClass = "settings-description";
-const bucketDetailMutedTitleClass = "settings-label";
 const bucketDetailSectionStackClass = "space-y-4";
-const bucketDetailStackClass = "space-y-3";
 
 const bucketDetailTightStackClass = "space-y-1";
 const bucketDetailWrapActionsClass = "flex flex-wrap gap-2";
@@ -236,7 +202,6 @@ function BucketDetailPageContent({
     managerBucketQuotaEnabled,
   } = s3AccountContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
-  const [showLifecycleJsonExample, setShowLifecycleJsonExample] = useState(false);
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
 
   const selectedS3Account = useMemo(() => {
@@ -440,40 +405,20 @@ function BucketDetailPageContent({
     load: loadEncryption,
     loading: encryptionLoading,
   } = encryptionController;
-  const {
-    addCleanupExample: addLifecycleCleanupExample,
-    addExpirationExample: addLifecycleExpirationExample,
-    addTransitionExample: addLifecycleTransitionExample,
-    deleteRule: deleteLifecycleRule,
-    dirty: lifecycleDirty,
-    editorVisible: showLifecycleEditor,
-    error: lifecycleError,
-    expirationDraft: lifecycleExpirationDraft,
-    hasRules: hasLifecycleRules,
-    load: loadLifecycle,
-    loading: lifecycleLoading,
-    mode: lifecycleMode,
-    ruleCount: lifecycleRuleCount,
-    rules: lifecycleRules,
-    save: saveLifecycle,
-    saving: savingLifecycle,
-    status: lifecycleStatus,
-    text: lifecycleText,
-    toggleEditor: toggleLifecycleEditor,
-    toggleRuleStatus: toggleLifecycleRuleStatus,
-    transitionDraft: lifecycleTransitionDraft,
-    updateExpirationDraft: updateLifecycleExpirationDraft,
-    updateMode: updateLifecycleMode,
-    updateText: updateLifecycleText,
-    updateTransitionDraft: updateLifecycleTransitionDraft,
-    warning: simpleLifecycleWarning,
-  } = useBucketLifecycleController({
+  const lifecycleController = useBucketLifecycleController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
+  const {
+    dirty: lifecycleDirty,
+    error: lifecycleError,
+    hasRules: hasLifecycleRules,
+    load: loadLifecycle,
+    loading: lifecycleLoading,
+  } = lifecycleController;
   const {
     error: usageStatsError,
     load: loadUsageStats,
@@ -586,7 +531,7 @@ function BucketDetailPageContent({
   const mutations = {
     versioning: versioningController.saving,
     objectLock: objectLockController.saving,
-    lifecycle: savingLifecycle,
+    lifecycle: lifecycleController.saving,
     policy: policyController.saving || policyController.deleting,
     acl: bucketAclController.saving,
     cors: corsController.saving || corsController.deleting,
@@ -799,86 +744,6 @@ function BucketDetailPageContent({
     return null;
   }, [bucket?.owner, bucketAcl?.owner]);
 
-  const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
-  const lifecycleCardState = resolveFeatureVisualState({
-    disabled: lifecycleNotImplemented,
-    configured: hasLifecycleRules,
-    unsaved: lifecycleDirty,
-  });
-  const lifecycleTableRows = useMemo<LifecycleTableRow[]>(
-    () =>
-      lifecycleRules.map((rawRule, index) => {
-        const rule = rawRule as LifecycleRuleRecord;
-        const ruleId = lifecycleRuleId(rule);
-        return {
-          key: `${ruleId ?? lifecycleRulePrefix(rule) ?? "rule"}-${index}`,
-          index,
-          rule,
-        };
-      }),
-    [lifecycleRules],
-  );
-  const lifecycleTableColumns: Array<DataTableColumn<LifecycleTableRow>> = [
-    {
-      id: "id",
-      label: "ID",
-      primary: true,
-      headerClassName: "min-w-48",
-      cellClassName: "min-w-48",
-      render: ({ rule }) => lifecycleRuleId(rule) ?? "(no ID)",
-    },
-    {
-      id: "status",
-      label: "Status",
-      headerClassName: "w-px whitespace-nowrap",
-      cellClassName: "w-px whitespace-nowrap",
-      render: ({ index, rule }) => {
-        const status = lifecycleRuleStatus(rule);
-        return (
-          <ListActionButton
-            type="button"
-            onClick={() => toggleLifecycleRuleStatus(index)}
-            variant={status === "Disabled" ? "secondary" : "success"}
-            disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
-          >
-            {status}
-          </ListActionButton>
-        );
-      },
-    },
-    {
-      id: "filter",
-      label: "Filter",
-      headerClassName: "min-w-32 whitespace-nowrap",
-      cellClassName: "min-w-32",
-      render: ({ rule }) => lifecycleFilterLabel(rule.Filter),
-    },
-    {
-      id: "actions",
-      label: "Rule actions",
-      mobileLabel: "Rule actions",
-      headerClassName: "min-w-72",
-      cellClassName: "min-w-72",
-      render: ({ rule }) => describeLifecycleActions(rule),
-    },
-    {
-      id: "manage",
-      label: "Manage",
-      mobileRole: "actions",
-      render: ({ index }) => (
-        <ListActions>
-          <ListActionButton
-            variant="danger"
-            type="button"
-            onClick={() => deleteLifecycleRule(index)}
-            disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
-          >
-            Delete
-          </ListActionButton>
-        </ListActions>
-      ),
-    },
-  ];
   const hasUnsavedChanges = Object.values(drafts).some(Boolean);
   const configurationBusy = Object.values(mutations).some(Boolean);
 
@@ -1424,278 +1289,8 @@ function BucketDetailPageContent({
                     controller={objectLockController}
                     onEnableVersioningDraft={() => updateVersioningDraft(true)}
                   />
-                  <BucketFeatureSection
-                      title="Lifecycle rules"
-                      description="S3-side expiration/clean-up."
-                      mode="hybrid"
-                      visualState={lifecycleCardState}
-                      presentation="workbench"
-                      successMessage={lifecycleStatus}
-                      busy={savingLifecycle || lifecycleLoading}
-                      testId="bucket-feature-lifecycle"
-                      actions={
-                        <div className={bucketDetailWrapActionsClass}>
-                          <span className={bucketDetailHintClass}>
-                            {lifecycleRuleCount === 1 ? "1 rule" : `${lifecycleRuleCount} rules`}
-                          </span>
-                          <SettingsButton
-                            type="button"
-                            onClick={toggleLifecycleEditor}
-                            variant="secondary"
-                            disabled={lifecycleNotImplemented}
-                          >
-                            {showLifecycleEditor ? "Hide editor" : "Show editor"}
-                          </SettingsButton>
-                          <SettingsButton
-                            type="button"
-                            onClick={saveLifecycle}
-                            disabled={
-                              lifecycleNotImplemented ||
-                              savingLifecycle ||
-                              lifecycleLoading ||
-                              !lifecycleDirty ||
-                              lifecycleMode !== "json"
-                            }
-                            title={
-                              lifecycleMode === "simple"
-                                ? "Quick add actions save immediately."
-                                : undefined
-                            }
-                            variant="primary"
-                          >
-                            {savingLifecycle ? "Saving..." : "Save"}
-                          </SettingsButton>
-                        </div>
-                      }
-                    >
-                      {lifecycleError && (
-                        <UiInlineMessage tone="error" className="mt-2">{lifecycleError}</UiInlineMessage>
-                      )}
-                      <DataTableShell
-                        columns={lifecycleTableColumns}
-                        rows={lifecycleTableRows}
-                        rowKey={(row) => row.key}
-                        status={
-                          lifecycleLoading && lifecycleTableRows.length === 0
-                            ? "loading"
-                            : lifecycleTableRows.length === 0
-                              ? "empty"
-                              : "ready"
-                        }
-                        loadingMessage="Loading lifecycle rules..."
-                        errorMessage="Unable to load lifecycle rules."
-                        emptyMessage="No rules configured on this bucket."
-                        primaryColumnId="id"
-                        responsiveCards
-                      />
-
-                      {showLifecycleEditor && (
-                        <>
-                          <div className="mt-3">
-                            <BucketFeatureModeToggle
-                              value={lifecycleMode}
-                              options={[
-                                { value: "json", label: "JSON mode" },
-                                { value: "simple", label: "Quick add" },
-                              ]}
-                              onChange={updateLifecycleMode}
-                              disabled={lifecycleNotImplemented}
-                            />
-                          </div>
-                          {lifecycleMode === "simple" ? (
-                            <div className="mt-3 space-y-3">
-                              {simpleLifecycleWarning && (
-                                <UiInlineMessage tone="warning">{simpleLifecycleWarning}</UiInlineMessage>
-                              )}
-                              <p className={bucketDetailMutedBodyClass}>
-                                Quickly add one of the preconfigured rules below (appended to the existing configuration).
-                              </p>
-                              <div className={bucketDetailStackClass}>
-                                <div className={cx(uiCardMutedClass, "px-3 py-2")}>
-                                  <p className={bucketDetailMutedTitleClass}>
-                                    Rule 1: noncurrent 90d + multipart 30d + delete markers (explicit)
-                                  </p>
-                                  <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                                    Cleans noncurrent versions after 90d, removes incomplete multipart uploads after 30d, and deletes expired delete markers.
-                                  </p>
-                                  <div className={bucketDetailEndActionClass}>
-                                    <SettingsButton
-                                      type="button"
-                                      onClick={() => void addLifecycleCleanupExample()}
-                                      variant="secondary"
-                                      disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
-                                    >
-                                      Add
-                                    </SettingsButton>
-                                  </div>
-                                </div>
-
-                                <div className={cx(uiCardMutedClass, "px-3 py-2")}>
-                                  <p className={bucketDetailMutedTitleClass}>Rule 2: current/noncurrent transitions</p>
-                                  <div className="mt-2 flex flex-wrap items-end gap-3 ui-caption">
-                                    <label className={bucketDetailFieldStackClass}>
-                                      Current versions expiration (days)
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        value={lifecycleTransitionDraft.currentDays}
-                                        onChange={(e) =>
-                                          updateLifecycleTransitionDraft({
-                                            currentDays: e.target.value,
-                                          })
-                                        }
-                                        className={cx(bucketFeatureInputClass, "w-28")}
-                                        disabled={lifecycleNotImplemented}
-                                      />
-                                    </label>
-                                    <label className={bucketDetailFieldStackClass}>
-                                      Noncurrent versions expiration (days)
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        value={lifecycleTransitionDraft.noncurrentDays}
-                                        onChange={(e) =>
-                                          updateLifecycleTransitionDraft({
-                                            noncurrentDays: e.target.value,
-                                          })
-                                        }
-                                        className={cx(bucketFeatureInputClass, "w-28")}
-                                        disabled={lifecycleNotImplemented}
-                                      />
-                                    </label>
-                                    <label className={bucketDetailFieldStackClass}>
-                                      Storage class
-                                      <input
-                                        type="text"
-                                        value={lifecycleTransitionDraft.storageClass}
-                                        onChange={(e) =>
-                                          updateLifecycleTransitionDraft({
-                                            storageClass: e.target.value,
-                                          })
-                                        }
-                                        className={cx(bucketFeatureInputClass, "w-32")}
-                                        placeholder="GLACIER"
-                                        disabled={lifecycleNotImplemented}
-                                      />
-                                    </label>
-                                    <label className={bucketDetailFieldStackClass}>
-                                      Prefix (optional)
-                                      <input
-                                        type="text"
-                                        value={lifecycleTransitionDraft.prefix}
-                                        onChange={(e) =>
-                                          updateLifecycleTransitionDraft({
-                                            prefix: e.target.value,
-                                          })
-                                        }
-                                        className={cx(bucketFeatureInputClass, "w-32")}
-                                        placeholder="logs/"
-                                        disabled={lifecycleNotImplemented}
-                                      />
-                                    </label>
-                                  </div>
-                                  <div className={bucketDetailEndActionClass}>
-                                    <SettingsButton
-                                      type="button"
-                                      onClick={() => void addLifecycleTransitionExample()}
-                                      variant="secondary"
-                                      disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
-                                    >
-                                      Add
-                                    </SettingsButton>
-                                  </div>
-                                </div>
-
-                                <div className={cx(uiCardMutedClass, "px-3 py-2")}>
-                                  <p className={bucketDetailMutedTitleClass}>Rule 3: current/noncurrent expiration</p>
-                                  <div className="mt-2 flex flex-wrap items-end gap-3 ui-caption">
-                                    <label className={bucketDetailFieldStackClass}>
-                                      Current versions expiration (days)
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        value={lifecycleExpirationDraft.currentDays}
-                                        onChange={(e) =>
-                                          updateLifecycleExpirationDraft({
-                                            currentDays: e.target.value,
-                                          })
-                                        }
-                                        className={cx(bucketFeatureInputClass, "w-32")}
-                                        disabled={lifecycleNotImplemented}
-                                      />
-                                    </label>
-                                    <label className={bucketDetailFieldStackClass}>
-                                      Noncurrent versions expiration (days)
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        value={lifecycleExpirationDraft.noncurrentDays}
-                                        onChange={(e) =>
-                                          updateLifecycleExpirationDraft({
-                                            noncurrentDays: e.target.value,
-                                          })
-                                        }
-                                        className={cx(bucketFeatureInputClass, "w-32")}
-                                        disabled={lifecycleNotImplemented}
-                                      />
-                                    </label>
-                                    <label className={bucketDetailFieldStackClass}>
-                                      Prefix (optional)
-                                      <input
-                                        type="text"
-                                        value={lifecycleExpirationDraft.prefix}
-                                        onChange={(e) =>
-                                          updateLifecycleExpirationDraft({
-                                            prefix: e.target.value,
-                                          })
-                                        }
-                                        className={cx(bucketFeatureInputClass, "w-32")}
-                                        placeholder="archive/"
-                                        disabled={lifecycleNotImplemented}
-                                      />
-                                    </label>
-                                  </div>
-                                  <div className={bucketDetailEndActionClass}>
-                                    <SettingsButton
-                                      type="button"
-                                      onClick={() => void addLifecycleExpirationExample()}
-                                      variant="secondary"
-                                      disabled={lifecycleNotImplemented || savingLifecycle || lifecycleLoading}
-                                    >
-                                      Add
-                                    </SettingsButton>
-                                  </div>
-                                </div>
-                              </div>
-                              <p className={bucketDetailHintClass}>
-                                Use JSON mode to customize or edit rules.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="mt-3 space-y-2">
-                              <p className={bucketDetailHintClass}>
-                                Paste a JSON array that matches the S3 API (<code>Rules</code>). Existing rules are listed above.
-                              </p>
-                              <UiTextarea label="Lifecycle rules (JSON)"
-                                value={lifecycleText}
-                                onChange={(e) => updateLifecycleText(e.target.value)}
-                                rows={10}
-                                className="settings-control font-mono"
-                                disabled={lifecycleNotImplemented}
-                              />
-                              <BucketFeatureJsonExample
-                                show={showLifecycleJsonExample}
-                                onToggle={() => setShowLifecycleJsonExample((prev) => !prev)}
-                                example={defaultLifecycleJsonExample}
-                                onUseExample={() => updateLifecycleText(defaultLifecycleJsonExample)}
-                                disabled={lifecycleNotImplemented}
-                              />
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </BucketFeatureSection>
-                    <BucketTagsFeature
+                  <BucketLifecycleFeature controller={lifecycleController} />
+                  <BucketTagsFeature
                       controller={bucketTagsController}
                       onRequestClear={() => setPendingConfigurationDelete("tags")}
                     />

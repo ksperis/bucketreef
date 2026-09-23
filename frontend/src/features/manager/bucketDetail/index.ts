@@ -2,13 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-export { default as BucketFeatureSection } from "./BucketFeatureSection";
-export { default as BucketFeatureJsonExample } from "./BucketFeatureJsonExample";
-export { default as BucketFeatureModeToggle } from "./BucketFeatureModeToggle";
 export { default as BucketAclFeature } from "./BucketAclFeature";
 export { default as BucketAccessLoggingFeature } from "./BucketAccessLoggingFeature";
 export { default as BucketCorsFeature } from "./BucketCorsFeature";
 export { default as BucketEncryptionFeature } from "./BucketEncryptionFeature";
+export { default as BucketLifecycleFeature } from "./BucketLifecycleFeature";
 export { default as BucketObjectLockFeature } from "./BucketObjectLockFeature";
 export { default as BucketNotificationsFeature } from "./BucketNotificationsFeature";
 export { default as BucketTagsFeature } from "./BucketTagsFeature";
@@ -35,6 +33,3 @@ export { useBucketTagsController } from "./useBucketTagsController";
 export { useBucketUsageStatsController } from "./useBucketUsageStatsController";
 export { useBucketVersioningController } from "./useBucketVersioningController";
 export { useBucketWebsiteController } from "./useBucketWebsiteController";
-export {
-  resolveFeatureVisualState,
-} from "./bucketFeatureState";

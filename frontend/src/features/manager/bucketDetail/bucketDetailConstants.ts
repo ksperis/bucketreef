@@ -65,12 +65,3 @@ export const bucketConfigurationDeleteCopy: Record<
     impacts: ["Existing log objects remain in the target bucket, but no new access logs will be delivered."],
   },
 };
-
-export const defaultLifecycleJsonExample = `[
-  {
-    "ID": "expire-logs",
-    "Status": "Enabled",
-    "Filter": { "Prefix": "logs/" },
-    "Expiration": { "Days": 30 }
-  }
-]`;
