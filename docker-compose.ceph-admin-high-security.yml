@@ -1,6 +1,7 @@
 services:
   backend:
     environment:
+      DEPLOYMENT_PROFILE: "ceph-admin-high-security"
       CEPH_ADMIN_HIGH_SECURITY_MODE: "true"
       FEATURE_ADMIN_ENABLED: "false"
       FEATURE_CEPH_ADMIN_ENABLED: "true"

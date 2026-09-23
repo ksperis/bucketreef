@@ -13,6 +13,20 @@ function getAuditReportingLink(label: string, options: Parameters<typeof buildAd
 }
 
 describe("buildAdminNav", () => {
+  it("exposes Production readiness only to superadmins", () => {
+    const superadminOverview = buildAdminNav(true, true, false, false, false, true).find(
+      (section) => section.label === "Overview"
+    );
+    const adminOverview = buildAdminNav(true, true, false, false, false, false).find(
+      (section) => section.label === "Overview"
+    );
+
+    expect(superadminOverview?.links.find((link) => link.label === "Production readiness")?.to).toBe(
+      "/admin/production-readiness",
+    );
+    expect(adminOverview?.links.find((link) => link.label === "Production readiness")).toBeUndefined();
+  });
+
   it("sets explicit hint for disabled Browser settings link", () => {
     const browserLink = getSettingsLink("Browser", [true, false, false, false, false, true]);
 
@@ -158,7 +172,11 @@ describe("buildAdminNav", () => {
     const managedTenants = adminNav.find((section) => section.label === "Managed Tenants");
     const auditReporting = adminNav.find((section) => section.label === "Audit & Reporting");
 
-    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard", "Getting started"]);
+    expect(overview?.links.map((link) => link.label)).toEqual([
+      "Dashboard",
+      "Getting started",
+      "Production readiness",
+    ]);
     expect(managedTenants?.links.map((link) => link.label)).toEqual([
       "RGW Accounts",
       "RGW Users",
@@ -183,6 +201,6 @@ describe("buildAdminNav", () => {
     const adminNav = buildAdminNav(true, true, false, false, false, true, false, null, false);
     const overview = adminNav.find((section) => section.label === "Overview");
 
-    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard"]);
+    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard", "Production readiness"]);
   });
 });

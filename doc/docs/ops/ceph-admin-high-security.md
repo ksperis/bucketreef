@@ -65,8 +65,7 @@ docker compose --project-name bucketreef-ceph-admin \
   --env-file .env.ceph-admin \
   -f docker-compose.yml \
   -f docker-compose.ceph-admin-high-security.yml \
-  exec backend python -m app.scripts.check_production_hardening \
-    --profile ceph-admin-high-security
+  exec backend python -m app.scripts.check_production_hardening
 ```
 
 ## Helm
@@ -103,8 +102,8 @@ Verify before publication:
 1. `/api/ceph-admin/...` is present while `/api/admin`, `/api/manager`,
    `/api/portal`, `/api/browser`, `/api/storage-ops`, `/api/connections`, and
    `/api/internal/...` are absent.
-2. The hardening checker exits successfully with
-   `--profile ceph-admin-high-security`.
+2. The hardening checker exits successfully using the runtime
+   `DEPLOYMENT_PROFILE=ceph-admin-high-security`.
 3. The ingress is reachable only from the intended administrator network.
 4. Only the required Ceph RGW endpoint credentials are present in this
    instance's secret boundary.

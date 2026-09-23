@@ -20,16 +20,20 @@ runtime environment that will start the application:
 
 ```bash
 cd backend
-python -m app.scripts.check_production_hardening --profile full
+python -m app.scripts.check_production_hardening
 ```
 
-For a split deployment, use `--profile admin` on the control-plane instance and
-`--profile user` on the user-facing instance. A dedicated Ceph Admin instance
-uses `--profile ceph-admin-high-security`. The command exits non-zero when a
-required invariant fails and never prints configured secret values. Split
+The command uses `DEPLOYMENT_PROFILE`; `--profile` remains available as an
+explicit diagnostic override. The command exits non-zero when a required
+invariant fails and never prints configured secret values. Split
 profiles additionally require PostgreSQL, the expected runtime surfaces, and a
 single scheduled-job owner; admin/user instances also verify their shared
 public/WebAuthn origin set.
+
+`ui_superadmin` users can inspect the same read-only checks from **Admin >
+Production readiness** when the Admin surface is present. The page evaluates
+only the backend serving that Admin instance. User-only and Ceph Admin
+high-security runtimes must still be checked in their own runtime with the CLI.
 
 ## Authentication and access
 

@@ -10,6 +10,7 @@ grep -q 'networkPolicy.ingressController.namespaceSelector.matchLabels is requir
 helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth > /tmp/bucketreef-rendered.yaml
 test -s /tmp/bucketreef-rendered.yaml
 grep -q 'name: TRUSTED_PROXY_CIDRS' /tmp/bucketreef-rendered.yaml
+grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-rendered.yaml | grep -q 'value: "full"'
 grep -Fq '[\"10.244.0.0/16\"]' /tmp/bucketreef-rendered.yaml
 chart_version=$(awk '/^appVersion:/ {gsub(/"/, "", $2); print $2}' deploy/helm/bucketreef/Chart.yaml)
 grep -q "ghcr.io/ksperis/bucketreef-backend:$chart_version" /tmp/bucketreef-rendered.yaml
@@ -20,12 +21,14 @@ grep -q 'readOnlyRootFilesystem: true' /tmp/bucketreef-rendered.yaml
 grep -q 'automountServiceAccountToken: false' /tmp/bucketreef-rendered.yaml
 
 helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-admin.yaml --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-admin.yaml
+grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-admin.yaml | grep -q 'value: "admin"'
 grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
 grep -A1 'name: FEATURE_MANAGER_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "false"'
 grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
 grep -q 'kind: CronJob' /tmp/bucketreef-admin.yaml
 
 helm template bucketreef-user deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-user.yaml --set backend.existingSecret=bucketreef-auth > /tmp/bucketreef-user.yaml
+grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-user.yaml | grep -q 'value: "user"'
 grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-user.yaml | grep -q 'value: "false"'
 grep -A1 'name: FEATURE_MANAGER_ENABLED' /tmp/bucketreef-user.yaml | grep -q 'value: "true"'
 grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-user.yaml | grep -q 'value: "false"'
@@ -34,6 +37,7 @@ if helm template bucketreef-user deploy/helm/bucketreef -f ops/ci/helm-secure-va
 grep -q 'deploymentProfile=user cannot own scheduled jobs' /tmp/bucketreef-user-jobs-invalid.err
 
 helm template bucketreef-ceph-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-ceph-admin-high-security.yaml --set backend.existingSecret=bucketreef-ceph-admin-auth > /tmp/bucketreef-ceph-admin.yaml
+grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "ceph-admin-high-security"'
 grep -A1 'name: CEPH_ADMIN_HIGH_SECURITY_MODE' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "true"'
 grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "false"'
 grep -A1 'name: FEATURE_CEPH_ADMIN_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "true"'

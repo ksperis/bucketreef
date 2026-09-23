@@ -4,6 +4,9 @@
 {{- if not (has $deploymentProfile (list "full" "admin" "user" "ceph-admin-high-security")) -}}
 {{- fail "deploymentProfile must be one of: full, admin, user, ceph-admin-high-security." -}}
 {{- end -}}
+{{- if hasKey .Values.backend.env "DEPLOYMENT_PROFILE" -}}
+{{- fail "DEPLOYMENT_PROFILE is controlled by deploymentProfile and must not be set in backend.env." -}}
+{{- end -}}
 {{- if and (has $deploymentProfile (list "user" "ceph-admin-high-security")) (or .Values.billingCronJob.enabled .Values.healthcheckCronJob.enabled .Values.quotaMonitorCronJob.enabled .Values.usageHistoryCronJob.enabled .Values.notificationRetentionCronJob.enabled) -}}
 {{- fail (printf "deploymentProfile=%s cannot own scheduled jobs; enable CronJobs only on the admin/full release." $deploymentProfile) -}}
 {{- end -}}
@@ -78,6 +81,8 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            - name: DEPLOYMENT_PROFILE
+              value: {{ $deploymentProfile | quote }}
             {{- if eq $deploymentProfile "admin" }}
             - name: FEATURE_ADMIN_ENABLED
               value: "true"

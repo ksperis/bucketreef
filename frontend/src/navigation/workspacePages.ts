@@ -48,6 +48,7 @@ export function resolveWorkspaceProfilePath(pathname: string): string {
 export const ADMIN_PAGE_CONTRACTS = {
   dashboard: { label: "Dashboard", path: "/admin" },
   onboarding: { label: "Getting started", path: "/admin/onboarding" },
+  "production-readiness": { label: "Production readiness", path: "/admin/production-readiness" },
   metrics: { label: "Usage & Metrics", path: "/admin/metrics" },
   users: { label: "UI Users", path: "/admin/users" },
   groups: { label: "UI Groups", path: "/admin/groups" },

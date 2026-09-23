@@ -131,6 +131,7 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
 def test_high_security_bootstrap_grants_ceph_admin_access(db_session):
     settings = Settings(
         _env_file=None,
+        deployment_profile="ceph-admin-high-security",
         ceph_admin_high_security_mode=True,
         feature_admin_enabled=False,
         feature_ceph_admin_enabled=True,

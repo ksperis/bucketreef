@@ -69,6 +69,10 @@ Key areas:
   startup requires Ceph Admin on, every other runtime surface off, and scheduled
   jobs off. Deployment profiles set these values automatically.
 - Internal scheduler auth: `INTERNAL_CRON_TOKEN`.
+- Runtime deployment identity: `DEPLOYMENT_PROFILE` (`full`, `admin`, `user`, or
+  `ceph-admin-high-security`). Compose and Helm profiles set it automatically;
+  set it explicitly for custom deployments so runtime readiness checks evaluate
+  the correct surface contract.
 - Billing, quota monitoring, usage history collection, and healthcheck behavior.
 - Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `BILLING_OPERATION_LEASE_TTL_SECONDS`.
 - Shared history retention: `BILLING_DAILY_RETENTION_DAYS`, `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`, `QUOTA_HISTORY_DAILY_RETENTION_DAYS`.
@@ -100,9 +104,12 @@ allowlist. Admin-registered storage endpoints are intentionally excluded.
 Validate the complete runtime boundary with:
 
 ```bash
-python -m app.scripts.check_production_hardening --profile full
-# or --profile admin / --profile user / --profile ceph-admin-high-security
+python -m app.scripts.check_production_hardening
+# Optional diagnostic override:
+python -m app.scripts.check_production_hardening --profile admin
 ```
+
+Without `--profile`, the checker evaluates the runtime `DEPLOYMENT_PROFILE`.
 
 `PUBLIC_ORIGIN` and `WEBAUTHN_ORIGIN` remain the canonical values.
 `PUBLIC_ORIGINS` and `WEBAUTHN_ORIGINS` are JSON lists of additional trusted

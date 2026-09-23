@@ -1,6 +1,7 @@
 services:
   backend:
     environment:
+      DEPLOYMENT_PROFILE: "user"
       FEATURE_ADMIN_ENABLED: "false"
       FEATURE_CEPH_ADMIN_ENABLED: "false"
       FEATURE_STORAGE_OPS_ENABLED: "false"
