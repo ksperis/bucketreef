@@ -103,6 +103,32 @@ def test_github_http_error_identifies_path_without_exposing_token(monkeypatch):
 
     assert "super-secret" not in str(error.value)
 
+
+def test_github_repository_request_uses_canonical_endpoint(monkeypatch):
+    requested = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{"permissions":{"push":true}}'
+
+    def open_request(request, timeout):
+        requested.append((request.full_url, timeout))
+        return Response()
+
+    monkeypatch.setattr(github_release.urllib.request, "urlopen", open_request)
+
+    result = github_release.GitHub("super-secret").request("")
+
+    assert requested == [("https://api.github.com/repos/ksperis/bucketreef", 120)]
+    assert result == {"permissions": {"push": True}}
+
+
 def test_qualify_child_pipeline_contains_release_preflight():
     plan = {**select("qualify", [], ref="main"), "sha": SHA, "parent_id": 1}
     config = render(plan)
