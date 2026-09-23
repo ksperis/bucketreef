@@ -7,7 +7,8 @@ const fetchAppSettingsMock = vi.fn<() => Promise<AppSettings>>();
 const fetchDefaultAppSettingsMock = vi.fn<() => Promise<AppSettings>>();
 const updateAppSettingsMock = vi.fn<(payload: AppSettings) => Promise<AppSettings>>();
 
-vi.mock("../../api/appSettings", () => ({
+vi.mock("../../api/appSettings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../api/appSettings")>()),
   fetchAppSettings: () => fetchAppSettingsMock(),
   fetchDefaultAppSettings: () => fetchDefaultAppSettingsMock(),
   updateAppSettings: (payload: AppSettings) => updateAppSettingsMock(payload),

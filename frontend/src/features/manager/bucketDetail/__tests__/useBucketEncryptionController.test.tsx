@@ -1,9 +1,14 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  defaultEncryptionExample,
-  useBucketEncryptionController,
-} from "../useBucketEncryptionController";
+import { useBucketEncryptionController } from "../useBucketEncryptionController";
+
+const defaultEncryptionExample = `[
+  {
+    "ApplyServerSideEncryptionByDefault": {
+      "SSEAlgorithm": "AES256"
+    }
+  }
+]`;
 
 const apiMocks = vi.hoisted(() => ({
   deleteBucketEncryption: vi.fn(),

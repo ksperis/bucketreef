@@ -1,9 +1,14 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  defaultCorsExample,
-  useBucketCorsController,
-} from "../useBucketCorsController";
+import { useBucketCorsController } from "../useBucketCorsController";
+
+const defaultCorsExample = `[
+  {
+    "AllowedMethods": ["GET", "PUT"],
+    "AllowedOrigins": ["https://app.example.com"],
+    "AllowedHeaders": ["*"]
+  }
+]`;
 
 const apiMocks = vi.hoisted(() => ({
   deleteBucketCors: vi.fn(),

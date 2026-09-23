@@ -40,7 +40,7 @@ def _client(settings: Settings, db, *, authorized: bool = True) -> TestClient:
 
 
 def test_production_readiness_returns_grouped_runtime_summary_without_secrets(monkeypatch, db_session):
-    settings = _settings(deployment_profile="full")
+    settings = _settings(deployment_profile="full", app_env="development")
     app_settings = AppSettings()
     app_settings.general.require_passkey_for_admins = True
     monkeypatch.setattr(
