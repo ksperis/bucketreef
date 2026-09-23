@@ -13,7 +13,7 @@ class PortalIamPolicyDocumentsMixin:
     def _resolve_group_policy(
         self,
         group_key: str,
-    ) -> Optional[dict]:
+    ) -> dict:
         if group_key == "manager":
             return {
                 "Version": "2012-10-17",
@@ -145,14 +145,13 @@ class PortalIamPolicyDocumentsMixin:
         bucket_name: str,
         metadata: PortalStorageSpaceMetadata,
         existing_policy: Optional[dict],
-    ) -> Optional[dict]:
+    ) -> dict:
+        """Preserve external rules and always enforce the space access boundary."""
         policy = self._without_storage_space_policy_statements(existing_policy) or {
             "Version": "2012-10-17",
             "Statement": [],
         }
-        statements = policy.get("Statement") or []
-        if not isinstance(statements, list):
-            statements = [statements]
+        statements = policy["Statement"]
         resources = self._bucket_arns(bucket_name)
         actions = self._storage_space_policy_actions()
         if metadata.archived_at:
@@ -178,11 +177,7 @@ class PortalIamPolicyDocumentsMixin:
             else:
                 statement["Principal"] = "*"
             statements.append(statement)
-        if not statements:
-            return None
         policy["Statement"] = statements
-        if "Version" not in policy:
-            policy["Version"] = "2012-10-17"
         return policy
 
     def _role_precedence(self, role: PortalStorageSpaceRole) -> int:

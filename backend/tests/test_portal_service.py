@@ -7,6 +7,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import sqlalchemy as sa
@@ -512,6 +513,28 @@ def test_portal_manager_group_policy_uses_fixed_account_access(db_session):
     assert statements[1]["Resource"] == ["arn:aws:s3:::*", "arn:aws:s3:::*/*"]
     assert "s3:CreateBucket" not in statements[1]["Action"]
     assert "s3:*" not in statements[1]["Action"]
+
+
+def test_portal_groups_always_receive_their_bootstrap_policies(db_session):
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.list_groups.return_value = []
+    iam_service.list_group_policies.return_value = []
+
+    service._ensure_portal_groups(iam_service)
+
+    policies = {
+        call.args[0]: call.args[2]
+        for call in iam_service.put_group_inline_policy.call_args_list
+    }
+    assert set(policies) == {service._manager_group_name, service._user_group_name}
+    for policy in policies.values():
+        assert policy["Statement"][0]["Action"] == ["s3:ListAllMyBuckets", "sts:GetSessionToken"]
+    assert len(policies[service._user_group_name]["Statement"]) == 1
+    assert policies[service._manager_group_name]["Statement"][1]["Resource"] == [
+        "arn:aws:s3:::*", "arn:aws:s3:::*/*",
+    ]
+    iam_service.delete_group_inline_policy.assert_not_called()
 
 
 def test_manager_group_access_is_protected_before_policy_update(monkeypatch, db_session):
@@ -2123,6 +2146,54 @@ def test_storage_space_bucket_policy_denies_everyone_without_projectable_princip
     statement = _storage_space_policy_statement(policy, service._storage_space_access_sid)
     assert statement["Principal"] == "*"
     assert "NotPrincipal" not in statement
+
+
+@pytest.mark.parametrize("archived", [False, True])
+@pytest.mark.parametrize("existing_shape", ["absent", "single", "list"])
+def test_storage_space_policy_sync_always_keeps_a_deny_boundary(
+    monkeypatch, db_session, archived, existing_shape,
+):
+    account = make_s3_account(
+        db_session, name="policy-sync", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK",
+    )
+    db_session.add(account)
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="restricted-data",
+        visibility="shared",
+        share_scope="restricted",
+        archived_at=utcnow() if archived else None,
+    )
+    external = {"Sid": "ExternalRule", "Effect": "Allow", "Action": "s3:GetObject", "Resource": "*"}
+    existing = None if existing_shape == "absent" else {
+        "Statement": external if existing_shape == "single" else [external],
+    }
+    original = json.dumps(existing)
+    monkeypatch.setattr(s3_bucket_access, "get_bucket_policy", lambda *_args, **_kwargs: existing)
+    put_policy = Mock()
+    delete_policy = Mock()
+    monkeypatch.setattr(s3_bucket_access, "put_bucket_policy", put_policy)
+    monkeypatch.setattr(s3_bucket_access, "delete_bucket_policy", delete_policy)
+
+    service = PortalService(db_session)
+    service._sync_storage_space_bucket_policy(account, metadata.bucket_name, metadata)
+
+    put_policy.assert_called_once()
+    assert put_policy.call_args.args == ("restricted-data",)
+    policy = put_policy.call_args.kwargs["policy"]
+    assert policy["Version"] == "2012-10-17"
+    sid = service._storage_space_archived_sid if archived else service._storage_space_access_sid
+    guard = _storage_space_policy_statement(policy, sid)
+    assert guard["Effect"] == "Deny"
+    assert guard["Principal"] == "*"
+    assert "NotPrincipal" not in guard
+    assert guard["Resource"] == ["arn:aws:s3:::restricted-data", "arn:aws:s3:::restricted-data/*"]
+    assert len(policy["Statement"]) == (1 if existing is None else 2)
+    if existing is not None:
+        assert policy["Statement"][0] == external
+    assert json.dumps(existing) == original
+    delete_policy.assert_not_called()
 
 
 def test_get_storage_space_keeps_bucket_scope_and_returns_none_when_hidden(monkeypatch, db_session):

@@ -166,17 +166,16 @@ class PortalIamMixin:
                 if policy.arn:
                     iam_service.detach_group_policy(group_name, policy.arn)
 
-        manager_policy = self._resolve_group_policy("manager")
-        if manager_policy:
-            iam_service.put_group_inline_policy(self._manager_group_name, self._manager_group_policy_name, manager_policy)
-        else:
-            iam_service.delete_group_inline_policy(self._manager_group_name, self._manager_group_policy_name)
-
-        user_policy = self._resolve_group_policy("user")
-        if user_policy:
-            iam_service.put_group_inline_policy(self._user_group_name, self._inline_policy_name, user_policy)
-        else:
-            iam_service.delete_group_inline_policy(self._user_group_name, self._inline_policy_name)
+        iam_service.put_group_inline_policy(
+            self._manager_group_name,
+            self._manager_group_policy_name,
+            self._resolve_group_policy("manager"),
+        )
+        iam_service.put_group_inline_policy(
+            self._user_group_name,
+            self._inline_policy_name,
+            self._resolve_group_policy("user"),
+        )
 
     def _sync_user_group_membership(
         self,
