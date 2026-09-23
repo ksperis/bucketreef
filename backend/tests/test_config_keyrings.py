@@ -108,6 +108,20 @@ def test_valid_production_authentication_configuration_is_accepted():
     assert settings.app_env == "production"
 
 
+def test_valid_production_multi_origin_webauthn_configuration_is_accepted():
+    settings = _valid_production_settings(
+        public_origin="https://admin.example.test",
+        public_origins=["https://app.example.test"],
+        webauthn_origin="https://admin.example.test",
+        webauthn_origins=["https://app.example.test"],
+        webauthn_rp_id="example.test",
+        allowed_hosts=["admin.example.test", "app.example.test"],
+        cors_origins=["https://admin.example.test", "https://app.example.test"],
+    )
+    assert settings.effective_public_origins() == ["https://admin.example.test", "https://app.example.test"]
+    assert settings.effective_webauthn_origins() == ["https://admin.example.test", "https://app.example.test"]
+
+
 def test_valid_production_external_identity_configuration_is_accepted():
     settings = _valid_production_settings(
         oidc_providers=_oidc_provider(),
@@ -170,7 +184,7 @@ def test_disabled_external_identity_providers_do_not_apply_production_security_p
         ),
         (
             {"oidc_providers": _oidc_provider(redirect_uri="https://other.example.test/callback")},
-            "redirect must use PUBLIC_ORIGIN",
+            "redirect must use a configured PUBLIC_ORIGIN",
         ),
         ({"ldap_providers": _ldap_provider(tls_verify=False)}, "production TLS policy"),
         ({"ldap_providers": _ldap_provider(allow_legacy_tls=True)}, "production TLS policy"),
@@ -179,3 +193,11 @@ def test_disabled_external_identity_providers_do_not_apply_production_security_p
 def test_production_authentication_configuration_fails_closed(override, message):
     with pytest.raises(ValidationError, match=message):
         _valid_production_settings(**override)
+
+
+def test_production_rejects_webauthn_origin_outside_public_origins():
+    with pytest.raises(ValidationError, match="must be trusted PUBLIC_ORIGIN"):
+        _valid_production_settings(
+            webauthn_origins=["https://passkeys.example.test"],
+            webauthn_rp_id="example.test",
+        )

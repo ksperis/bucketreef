@@ -134,7 +134,7 @@ def test_registration_verification_uses_exact_origin_rp_and_user_verification(db
 
     assert row.name == "Platform passkey"
     assert captured["expected_rp_id"] == get_settings().webauthn_rp_id
-    assert captured["expected_origin"] == get_settings().webauthn_origin
+    assert captured["expected_origin"] == get_settings().effective_webauthn_origins()
     assert captured["require_user_verification"] is True
 
 
@@ -179,7 +179,7 @@ def test_authentication_updates_counter_and_rejects_counter_replay(db_session, m
     assert result.sign_count == 2
     assert result.last_used_at is not None
     assert captured["expected_rp_id"] == get_settings().webauthn_rp_id
-    assert captured["expected_origin"] == get_settings().webauthn_origin
+    assert captured["expected_origin"] == get_settings().effective_webauthn_origins()
     assert captured["require_user_verification"] is True
 
     service.begin_authentication(user, binding_sid="preauth-replay")

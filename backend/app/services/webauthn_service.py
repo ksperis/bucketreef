@@ -97,7 +97,7 @@ class WebAuthnService:
                 credential=credential,
                 expected_challenge=challenge,
                 expected_rp_id=self.settings.webauthn_rp_id,
-                expected_origin=self.settings.webauthn_origin,
+                expected_origin=self.settings.effective_webauthn_origins(),
                 require_user_verification=True,
             )
         except (InvalidRegistrationResponse, ValueError) as exc:
@@ -169,7 +169,7 @@ class WebAuthnService:
                 credential=credential,
                 expected_challenge=challenge,
                 expected_rp_id=self.settings.webauthn_rp_id,
-                expected_origin=self.settings.webauthn_origin,
+                expected_origin=self.settings.effective_webauthn_origins(),
                 credential_public_key=base64url_to_bytes(row.public_key),
                 credential_current_sign_count=row.sign_count,
                 require_user_verification=True,

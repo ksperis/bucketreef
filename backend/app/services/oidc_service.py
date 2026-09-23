@@ -75,12 +75,19 @@ class OidcService:
                 )
         return providers
 
-    def start_login(self, provider_id: str, redirect_path: Optional[str]) -> dict[str, str]:
+    def start_login(
+        self,
+        provider_id: str,
+        redirect_path: Optional[str],
+        *,
+        request_origin: Optional[str] = None,
+    ) -> dict[str, str]:
         provider_key, provider = self._get_provider(provider_id)
         metadata = self._get_metadata(provider_key, provider)
         authorization_endpoint = metadata.get("authorization_endpoint")
         if not authorization_endpoint:
             raise OIDCConfigurationError("Provider does not expose an authorization endpoint")
+        redirect_uri = self._redirect_uri_for_origin(provider, request_origin)
         self._purge_expired_states()
         state_token = secrets.token_urlsafe(32)
         nonce = secrets.token_urlsafe(32)
@@ -88,7 +95,7 @@ class OidcService:
         params = {
             "response_type": "code",
             "client_id": provider.client_id,
-            "redirect_uri": provider.redirect_uri,
+            "redirect_uri": redirect_uri,
             "scope": " ".join(provider.scopes),
             "state": state_token,
         }
@@ -104,6 +111,7 @@ class OidcService:
             code_verifier=code_verifier,
             nonce=nonce,
             redirect_path=redirect_path,
+            redirect_uri=redirect_uri,
         )
         self.db.add(record)
         self.db.commit()
@@ -115,7 +123,14 @@ class OidcService:
             "state": state_token,
         }
 
-    def complete_login(self, provider_id: str, code: str, state: str):
+    def complete_login(
+        self,
+        provider_id: str,
+        code: str,
+        state: str,
+        *,
+        request_origin: Optional[str] = None,
+    ):
         provider_key, provider = self._get_provider(provider_id)
         login_state = self.db.query(OidcLoginState).filter(OidcLoginState.state == state).first()
         if not login_state or login_state.provider != provider_key:
@@ -125,6 +140,11 @@ class OidcService:
             self.db.delete(login_state)
             self.db.commit()
             raise OIDCStateError("OIDC state expired")
+        redirect_uri = login_state.redirect_uri or provider.redirect_uri
+        if request_origin is not None and self._origin_from_url(redirect_uri) != request_origin.rstrip("/"):
+            self.db.delete(login_state)
+            self.db.commit()
+            raise OIDCStateError("OIDC state origin mismatch")
         code_verifier = login_state.code_verifier
         expected_nonce = login_state.nonce
         redirect_path = login_state.redirect_path
@@ -147,7 +167,7 @@ class OidcService:
         token_request = {
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": provider.redirect_uri,
+            "redirect_uri": redirect_uri,
             "client_id": provider.client_id,
         }
         token_request["code_verifier"] = code_verifier
@@ -211,6 +231,25 @@ class OidcService:
 
         user = self.users_service.mark_last_login(user)
         return user, redirect_path, created
+
+    def _redirect_uri_for_origin(
+        self,
+        provider: OIDCProviderSettings,
+        request_origin: Optional[str],
+    ) -> str:
+        if request_origin is None:
+            return provider.redirect_uri
+        origin = request_origin.strip().rstrip("/")
+        if origin not in self.settings.effective_public_origins():
+            raise OIDCConfigurationError("OIDC request origin is not configured")
+        configured = urlparse(provider.redirect_uri)
+        requested = urlparse(origin)
+        return configured._replace(scheme=requested.scheme, netloc=requested.netloc).geturl()
+
+    @staticmethod
+    def _origin_from_url(value: str) -> str:
+        parsed = urlparse(value)
+        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
 
     def _provider_map(self) -> dict[str, OIDCProviderSettings]:
         return resolve_oidc_provider_map(self.db, self.settings)

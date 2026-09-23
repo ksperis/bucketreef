@@ -42,8 +42,9 @@ def client_ip(request: Request, settings: Optional[Settings] = None) -> str:
     return direct
 
 
-def require_trusted_origin(request: Request, settings: Optional[Settings] = None) -> None:
+def require_trusted_origin(request: Request, settings: Optional[Settings] = None) -> str:
     settings = settings or get_settings()
-    origin = request.headers.get("origin")
-    if origin != settings.public_origin:
+    origin = str(request.headers.get("origin") or "").strip().rstrip("/")
+    if origin not in settings.effective_public_origins():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Untrusted request origin")
+    return origin

@@ -775,7 +775,7 @@ def test_oidc_callback_failure_is_generic_audited_and_never_persists_code_or_sta
     class FailingOidcService:
         db = db_session
 
-        def complete_login(self, provider_id, code, state):
+        def complete_login(self, provider_id, code, state, *, request_origin=None):
             raise OIDCStateError(f"replayed state={state} code={code}")
 
     monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: FailingOidcService())
@@ -796,7 +796,7 @@ def test_oidc_email_collision_creates_an_audited_manual_link_response(auth_clien
     class LinkingOidcService:
         db = db_session
 
-        def complete_login(self, provider_id, code, state):
+        def complete_login(self, provider_id, code, state, *, request_origin=None):
             raise ExternalIdentityLinkRequiredError("link-request-1")
 
     monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: LinkingOidcService())
