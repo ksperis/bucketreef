@@ -6,6 +6,7 @@ export { default as BucketFeatureSection } from "./BucketFeatureSection";
 export { default as BucketFeatureJsonExample } from "./BucketFeatureJsonExample";
 export { default as BucketFeatureModeToggle } from "./BucketFeatureModeToggle";
 export { default as BucketAclFeature } from "./BucketAclFeature";
+export { default as BucketAccessLoggingFeature } from "./BucketAccessLoggingFeature";
 export { default as BucketCorsFeature } from "./BucketCorsFeature";
 export { default as BucketEncryptionFeature } from "./BucketEncryptionFeature";
 export { default as EndpointFeatureDisabledNotice } from "./EndpointFeatureDisabledNotice";
