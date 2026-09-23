@@ -115,7 +115,19 @@ def test_catalog_resolves_annotated_and_lightweight_tags_and_generates_offline(h
     assert 'Historical.' in page and 'Reconstructed' in page
     assert page==documentation(catalog,root)
     assert 'compare/v0.1.0...v0.2.5' in page
+    assert 'github.com/ksperis/bucketreef' in page
+    assert 'gitlab.ksperis.com' not in page
     assert '**Source:**' in notes(catalog['releases'][0],'github',root)
+
+
+def test_release_notes_keep_platform_specific_links(history):
+    root,catalog=history
+    entry=catalog['releases'][0]
+    github_notes=notes(entry,'github',root)
+    gitlab_notes=notes(entry,'gitlab',root)
+    assert 'github.com/ksperis/bucketreef' in github_notes
+    assert 'gitlab.ksperis.com' not in github_notes
+    assert 'gitlab.ksperis.com/laurent/bucketreef' in gitlab_notes
 
 
 @pytest.mark.parametrize('bad',['missing','duplicate','empty','sha'])
