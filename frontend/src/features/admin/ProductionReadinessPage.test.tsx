@@ -15,6 +15,7 @@ vi.mock("../../api/productionReadiness", async () => {
 });
 
 const report: ProductionReadinessResponse = {
+  environment: "production",
   profile: "admin",
   status: "warning",
   counts: { pass: 2, warning: 1, fail: 0 },
@@ -35,7 +36,8 @@ describe("ProductionReadinessPage", () => {
     render(<ProductionReadinessPage />);
 
     expect(await screen.findByText("Runtime summary")).toBeInTheDocument();
-    expect(screen.getByText(/evaluates only this backend instance/i)).toBeInTheDocument();
+    expect(screen.getByText(/evaluates production requirements for this backend instance only/i)).toBeInTheDocument();
+    expect(screen.getAllByText("production").length).toBeGreaterThan(0);
     expect(screen.getAllByText("admin").length).toBeGreaterThan(0);
     expect(screen.getByText("Production environment")).toBeInTheDocument();
     expect(screen.getByText("Scheduled job ownership")).toBeInTheDocument();

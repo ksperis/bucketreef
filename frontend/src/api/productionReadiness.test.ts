@@ -11,6 +11,7 @@ describe("production readiness API", () => {
 
   it("loads the current backend readiness report", async () => {
     const payload = {
+      environment: "production",
       profile: "admin",
       status: "pass",
       counts: { pass: 3, warning: 0, fail: 0 },

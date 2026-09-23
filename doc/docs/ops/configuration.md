@@ -45,8 +45,8 @@ Primary source of truth: `backend/app/core/config.py`.
 
 Key areas:
 
-- Security and auth: `APP_ENV`, distinct `UI_JWT_KEYS`/`API_JWT_KEYS`,
-  `CREDENTIAL_KEYS`, access/session lifetimes, secure host-only cookie settings,
+- Security and auth: `APP_ENV`, mutually distinct `UI_JWT_KEYS`, `API_JWT_KEYS`,
+  and `CREDENTIAL_KEYS`, access/session lifetimes, secure host-only cookie settings,
   `PUBLIC_ORIGIN`, optional `PUBLIC_ORIGINS`, `ALLOWED_HOSTS`,
   `TRUSTED_PROXY_CIDRS`, WebAuthn, and
   OIDC/LDAP environment providers.
@@ -110,6 +110,10 @@ python -m app.scripts.check_production_hardening --profile admin
 ```
 
 Without `--profile`, the checker evaluates the runtime `DEPLOYMENT_PROFILE`.
+It also evaluates the production security boundary independently of the current
+`APP_ENV`, so it can be used as a preflight while a staging instance still runs
+with `APP_ENV=development` or `test`. Once `APP_ENV=production`, the same core
+security invariants are fail-closed at application startup.
 
 `PUBLIC_ORIGIN` and `WEBAUTHN_ORIGIN` remain the canonical values.
 `PUBLIC_ORIGINS` and `WEBAUTHN_ORIGINS` are JSON lists of additional trusted

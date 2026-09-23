@@ -3,7 +3,7 @@
 ## Production hardening checklist
 
 - Use OIDC or LDAP over verified TLS for real users.
-- Set distinct strong UI/API JWT rings, credential-encryption keys, and scheduler secrets.
+- Set strong, mutually distinct UI/API JWT and credential-encryption key rings, plus a strong scheduler secret.
 - Set `APP_ENV=production`; startup then rejects HTTP origins, insecure cookies,
   wildcard hosts, weak keys, insecure providers, empty or broad proxy trust,
   and unregistered S3 login endpoints.
@@ -25,15 +25,20 @@ python -m app.scripts.check_production_hardening
 
 The command uses `DEPLOYMENT_PROFILE`; `--profile` remains available as an
 explicit diagnostic override. The command exits non-zero when a required
-invariant fails and never prints configured secret values. Split
-profiles additionally require PostgreSQL, the expected runtime surfaces, and a
-single scheduled-job owner; admin/user instances also verify their shared
-public/WebAuthn origin set.
+invariant fails and never prints configured secret values. It evaluates the
+production origin/WebAuthn, authentication-cookie, network-boundary, key-ring,
+seed-secret, and environment OIDC/LDAP rules even before `APP_ENV` is switched
+to `production`. Split profiles additionally require PostgreSQL, the expected
+runtime surfaces, and the correct per-profile scheduled-job ownership;
+admin/user instances also verify their shared public/WebAuthn origin set.
 
 `ui_superadmin` users can inspect the same read-only checks from **Admin >
 Settings > Production readiness** when the Admin surface is present. The page evaluates
 only the backend serving that Admin instance. User-only and Ceph Admin
 high-security runtimes must still be checked in their own runtime with the CLI.
+Cross-instance properties such as using the same PostgreSQL database and
+compatible shared key rings cannot be proven from a single runtime and must be
+compared explicitly.
 
 ## Authentication and access
 

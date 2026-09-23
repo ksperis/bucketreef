@@ -94,6 +94,70 @@ def test_split_profile_requires_postgresql_and_all_shared_origins():
     assert {"app-env", "keyrings", "database", "shared-origins"} <= failed_codes
 
 
+@pytest.mark.parametrize(
+    ("overrides", "expected_code"),
+    [
+        (
+            {
+                "app_env": "development",
+                "public_origin": "http://admin.example.test",
+                "webauthn_origin": "http://admin.example.test",
+            },
+            "trusted-origins",
+        ),
+        ({"app_env": "development", "refresh_token_cookie_secure": False}, "authentication-boundary"),
+        ({"app_env": "development", "allowed_hosts": ["*"]}, "network-boundary"),
+        (
+            {
+                "app_env": "development",
+                "credential_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"],
+            },
+            "keyrings",
+        ),
+        (
+            {"app_env": "development", "seed_s3_endpoint": "http://seed.example.test"},
+            "seed-security",
+        ),
+        (
+            {
+                "app_env": "development",
+                "oidc_providers": {
+                    "corporate": {
+                        "display_name": "Corporate",
+                        "discovery_url": "https://idp.example.test/.well-known/openid-configuration",
+                        "client_id": "bucketreef",
+                        "redirect_uri": "https://admin.example.test/api/auth/oidc/corporate/callback",
+                        "use_pkce": False,
+                    }
+                },
+            },
+            "oidc-security",
+        ),
+        (
+            {
+                "app_env": "development",
+                "ldap_providers": {
+                    "corporate": {
+                        "display_name": "Corporate",
+                        "url": "ldaps://ldap.example.test",
+                        "user_base_dn": "ou=users,dc=example,dc=test",
+                        "tls_verify": False,
+                    }
+                },
+            },
+            "ldap-security",
+        ),
+    ],
+)
+def test_checker_exposes_production_security_failures_before_app_env_switch(overrides, expected_code):
+    settings = _production_settings(**overrides)
+
+    findings = check_production_hardening(settings, profile="admin")
+
+    failed_codes = {finding.code for finding in findings if finding.level == "fail"}
+    assert expected_code in failed_codes
+
+
 def test_cli_json_output_contains_no_secret_values():
     settings = _production_settings()
     exit_code, output = run(profile="admin", json_output=True, settings=settings)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from app.core.config import DeploymentProfile, Settings, is_weak_secret_value
+from app.core.config import DeploymentProfile, Settings
 from app.core.runtime_surfaces import RuntimeSurface, runtime_surface_enabled
 
 
@@ -49,13 +49,34 @@ _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
 
 _FINDING_LABELS: dict[str, str] = {
     "app-env": "Production environment",
+    "trusted-origins": "Trusted browser origins",
+    "authentication-boundary": "Authentication boundary",
+    "network-boundary": "Network boundary",
     "keyrings": "Secret key rings",
+    "seed-security": "Seed configuration",
+    "oidc-security": "Environment OIDC providers",
+    "ldap-security": "Environment LDAP providers",
     "database": "Database",
     "job-owner": "Scheduled job ownership",
     "cron-token": "Scheduler token",
     "high-security-mode": "Ceph Admin high-security mode",
     "shared-origins": "Trusted public origins",
     "webauthn-origins": "WebAuthn origins",
+}
+
+_PRODUCTION_SECURITY_PASS_MESSAGES: dict[str, str] = {
+    "trusted-origins": (
+        "Public and WebAuthn origins use HTTPS, are mutually trusted, and the WebAuthn RP ID covers each WebAuthn origin."
+    ),
+    "authentication-boundary": (
+        "Authentication cookies are secure and host-only, and S3 login endpoints must be administratively registered."
+    ),
+    "network-boundary": "CORS, allowed hosts, and trusted proxy CIDRs match the public origin boundary.",
+    "keyrings": "UI JWT, API JWT, and credential key rings are strong and mutually distinct.",
+    "seed-security": "Configured seed endpoints and seed secrets satisfy the production policy.",
+    "cron-token": "Internal scheduler token satisfies the production policy.",
+    "oidc-security": "Enabled environment OIDC providers satisfy the production transport and callback policy.",
+    "ldap-security": "Enabled environment LDAP providers satisfy the production TLS policy.",
 }
 
 
@@ -86,10 +107,6 @@ def _is_postgresql(url: str) -> bool:
     return text.startswith("postgresql") or text.startswith("postgres")
 
 
-def _secret_ring_is_strong(values: list[str]) -> bool:
-    return bool(values) and all(not is_weak_secret_value(value) for value in values)
-
-
 def check_production_hardening(
     settings: Settings,
     *,
@@ -108,21 +125,16 @@ def check_production_hardening(
         )
     )
 
-    keyrings_ok = (
-        _secret_ring_is_strong(settings.effective_ui_jwt_keys())
-        and _secret_ring_is_strong(settings.effective_api_jwt_keys())
-        and _secret_ring_is_strong(settings.credential_keys)
-        and not (set(settings.effective_ui_jwt_keys()) & set(settings.effective_api_jwt_keys()))
-    )
-    findings.append(
-        HardeningFinding(
-            "keyrings",
-            "pass" if keyrings_ok else "fail",
-            "UI/API JWT and credential key rings are strong and separated."
-            if keyrings_ok
-            else "Use strong credential keys and distinct UI/API JWT key rings.",
+    production_security_errors = settings.production_security_validation_errors()
+    for code, pass_message in _PRODUCTION_SECURITY_PASS_MESSAGES.items():
+        failure = production_security_errors.get(code)
+        findings.append(
+            HardeningFinding(
+                code,
+                "fail" if failure else "pass",
+                failure or pass_message,
+            )
         )
-    )
 
     postgresql = _is_postgresql(settings.database_url)
     if profile in {"admin", "user", "ceph-admin-high-security"}:
@@ -185,18 +197,6 @@ def check_production_hardening(
                 "This instance owns scheduled jobs."
                 if settings.scheduled_jobs_enabled
                 else "Scheduled jobs are disabled on this full-profile instance.",
-            )
-        )
-
-    if settings.scheduled_jobs_enabled:
-        cron_token_ok = not is_weak_secret_value(settings.internal_cron_token)
-        findings.append(
-            HardeningFinding(
-                "cron-token",
-                "pass" if cron_token_ok else "fail",
-                "Internal scheduler token is strong."
-                if cron_token_ok
-                else "INTERNAL_CRON_TOKEN must be a strong non-default secret when scheduled jobs are enabled.",
             )
         )
 

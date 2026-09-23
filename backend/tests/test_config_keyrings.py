@@ -24,6 +24,7 @@ def _valid_production_settings(**overrides):
         "ui_jwt_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "api_jwt_keys": ["api-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "credential_keys": ["credential-key-that-is-at-least-32-bytes"],
+        "internal_cron_token": "internal-cron-token-that-is-at-least-32-bytes",
         "seed_s3_endpoint": "https://s3-storage.example.test",
         "seed_s3_secret_key": "seed-s3-secret-that-is-at-least-32-bytes",
     }
@@ -173,9 +174,14 @@ def test_disabled_external_identity_providers_do_not_apply_production_security_p
             {"api_jwt_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"]},
             "distinct",
         ),
+        (
+            {"credential_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"]},
+            "mutually distinct",
+        ),
         ({"seed_s3_endpoint": "http://s3-storage.example.test"}, "SEED_S3_ENDPOINT"),
         ({"seed_s3_secret_key": "minio123"}, "SEED_S3_SECRET_KEY"),
         ({"internal_cron_token": "change-me"}, "INTERNAL_CRON_TOKEN"),
+        ({"internal_cron_token": None}, "INTERNAL_CRON_TOKEN"),
         ({"oidc_providers": _oidc_provider(use_pkce=False)}, "PKCE and nonce"),
         ({"oidc_providers": _oidc_provider(use_nonce=False)}, "PKCE and nonce"),
         (

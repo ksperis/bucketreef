@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.core.config import DeploymentProfile
+from app.core.config import AppEnvironment, DeploymentProfile
 from app.models.base import ApiModel
 
 
@@ -19,6 +19,7 @@ class ProductionReadinessFinding(ApiModel):
 
 
 class ProductionReadinessResponse(ApiModel):
+    environment: AppEnvironment
     profile: DeploymentProfile
     status: HardeningLevel
     counts: dict[HardeningLevel, int]

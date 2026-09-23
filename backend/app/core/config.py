@@ -728,8 +728,11 @@ class Settings(BaseSettings):
         for name, values in key_sets.items():
             if not values or any(is_weak_secret_value(value) for value in values):
                 raise ValueError(f"{name} must contain strong non-default keys in production")
-        if set(self.ui_jwt_keys) & set(self.api_jwt_keys):
-            raise ValueError("UI and API JWT key rings must be distinct in production")
+        ui_keys = set(self.ui_jwt_keys)
+        api_keys = set(self.api_jwt_keys)
+        credential_keys = set(self.credential_keys)
+        if ui_keys & api_keys or ui_keys & credential_keys or api_keys & credential_keys:
+            raise ValueError("UI JWT, API JWT, and credential key rings must be mutually distinct in production")
 
     def _validate_production_seed_configuration(self) -> None:
         seed_endpoint_configured = "seed_s3_endpoint" in self.model_fields_set
@@ -741,11 +744,18 @@ class Settings(BaseSettings):
             "SEED_RGW_ADMIN_SECRET_KEY": self.seed_rgw_admin_secret_key,
             "SEED_SUPERVISION_SECRET_KEY": self.seed_supervision_secret_key,
             "SEED_CEPH_ADMIN_SECRET_KEY": self.seed_ceph_admin_secret_key,
-            "INTERNAL_CRON_TOKEN": self.internal_cron_token,
         }
         for name, value in production_secrets.items():
             if value is not None and is_weak_secret_value(value):
                 raise ValueError(f"{name} must be a strong non-default secret in production")
+
+    def _validate_production_scheduler_token(self) -> None:
+        if self.scheduled_jobs_enabled and is_weak_secret_value(self.internal_cron_token):
+            raise ValueError(
+                "INTERNAL_CRON_TOKEN must be a strong non-default secret when scheduled jobs are enabled in production"
+            )
+        if self.internal_cron_token is not None and is_weak_secret_value(self.internal_cron_token):
+            raise ValueError("INTERNAL_CRON_TOKEN must be a strong non-default secret in production")
 
     def _validate_production_oidc(self, public_origins: list[ParseResult]) -> None:
         allowed_redirect_origins = {
@@ -778,12 +788,56 @@ class Settings(BaseSettings):
             ):
                 raise ValueError(f"LDAP provider {provider_id} violates the production TLS policy")
 
+    def production_security_validation_errors(self) -> dict[str, str]:
+        """Return production-policy failures without requiring APP_ENV=production."""
+        errors: dict[str, str] = {}
+        public_origins: list[ParseResult] | None = None
+
+        try:
+            public_origins = self._validate_production_origins()
+        except ValueError as exc:
+            errors["trusted-origins"] = str(exc)
+
+        independent_checks = (
+            ("authentication-boundary", self._validate_production_authentication_boundary),
+            ("keyrings", self._validate_production_keyrings),
+            ("seed-security", self._validate_production_seed_configuration),
+            ("cron-token", self._validate_production_scheduler_token),
+            ("ldap-security", self._validate_production_ldap),
+        )
+        for code, validator in independent_checks:
+            try:
+                validator()
+            except ValueError as exc:
+                errors[code] = str(exc)
+
+        if public_origins is None:
+            errors["network-boundary"] = (
+                "Trusted public origins must be valid before the CORS, host, and proxy boundary can be fully validated."
+            )
+            if any(provider.enabled for provider in self.oidc_providers.values()):
+                errors["oidc-security"] = (
+                    "Trusted public origins must be valid before OIDC redirect origins can be fully validated."
+                )
+        else:
+            try:
+                self._validate_production_network_boundary(public_origins)
+            except ValueError as exc:
+                errors["network-boundary"] = str(exc)
+            try:
+                self._validate_production_oidc(public_origins)
+            except ValueError as exc:
+                errors["oidc-security"] = str(exc)
+
+        return errors
+
     def _validate_production_security(self) -> None:
         public_origins = self._validate_production_origins()
         self._validate_production_authentication_boundary()
         self._validate_production_network_boundary(public_origins)
         self._validate_production_keyrings()
         self._validate_production_seed_configuration()
+        self._validate_production_scheduler_token()
         self._validate_production_oidc(public_origins)
         self._validate_production_ldap()
 

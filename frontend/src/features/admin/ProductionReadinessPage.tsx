@@ -84,14 +84,16 @@ export default function ProductionReadinessPage() {
       {report ? (
         <>
           <PageBanner tone={statusBannerTone(report.status)}>
-            This report evaluates only this backend instance using the <strong>{report.profile}</strong> deployment profile.
-            It does not certify other split instances or manual operational gates such as backup restore, network exposure,
-            observability, and support readiness.
+            This report evaluates production requirements for this backend instance only. Current environment:{" "}
+            <strong>{report.environment}</strong>; deployment profile: <strong>{report.profile}</strong>. It does not certify other
+            split instances or manual operational gates such as backup restore, network exposure, observability, and support
+            readiness.
           </PageBanner>
 
           <UiCard title="Runtime summary" description="Current configuration hardening result for this instance.">
             <InlineSummary
               items={[
+                { label: "Environment", value: report.environment },
                 { label: "Profile", value: report.profile },
                 { label: "Overall", value: levelLabel[report.status] },
                 { label: "Passed", value: report.counts.pass },
