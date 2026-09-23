@@ -235,8 +235,24 @@ def test_missing_bundle_repository_denial_is_treated_as_absent(monkeypatch):
     )
     monkeypatch.setattr(bundle_registry.subprocess, 'run', lambda *args, **kwargs: result)
     assert bundle_registry.run(['resolve', 'fixture'], missing_ok=True) is None
-    with pytest.raises(RuntimeError, match='response withheld'):
+    with pytest.raises(RuntimeError, match='Bundle registry resolve failed'):
         bundle_registry.run(['resolve', 'fixture'])
+
+
+def test_bundle_registry_error_reports_operation_without_secrets(monkeypatch):
+    monkeypatch.setenv('GHCR_TOKEN', 'top-secret-token')
+    result = SimpleNamespace(
+        returncode=1,
+        stderr=b'401 unauthorized top-secret-token',
+    )
+    monkeypatch.setattr(bundle_registry.subprocess, 'run', lambda *args, **kwargs: result)
+    with pytest.raises(RuntimeError) as error:
+        bundle_registry.run(['push', '--password', 'top-secret-token', 'fixture'])
+    message = str(error.value)
+    assert 'Bundle registry push failed (exit 1)' in message
+    assert '401 unauthorized [REDACTED]' in message
+    assert 'top-secret-token' not in message
+    assert '--password' not in message
 
 
 def test_bundle_bootstrap_uses_immutable_tag_source(monkeypatch, tmp_path):
