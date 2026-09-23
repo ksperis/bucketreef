@@ -79,6 +79,24 @@ export type GeneralSettings = {
   allow_user_external_identity_unlink: boolean;
 };
 
+export type RuntimeSurfaces = {
+  admin: boolean;
+  ceph_admin: boolean;
+  storage_ops: boolean;
+  manager: boolean;
+  portal: boolean;
+  browser: boolean;
+};
+
+export const DEFAULT_RUNTIME_SURFACES: RuntimeSurfaces = {
+  admin: true,
+  ceph_admin: true,
+  storage_ops: true,
+  manager: true,
+  portal: true,
+  browser: true,
+};
+
 export type GeneralFeatureLock = {
   forced: boolean;
   value?: boolean | null;
@@ -182,6 +200,13 @@ export async function fetchGeneralFeatureLocks(): Promise<GeneralFeatureLocks> {
 
 export async function fetchGeneralSettings(): Promise<GeneralSettings> {
   const { data } = await client.get<GeneralSettings>("/settings/general", {
+    timeout: timeoutForRequestProfile("interactive"),
+  });
+  return data;
+}
+
+export async function fetchRuntimeSurfaces(): Promise<RuntimeSurfaces> {
+  const { data } = await client.get<RuntimeSurfaces>("/settings/runtime-surfaces", {
     timeout: timeoutForRequestProfile("interactive"),
   });
   return data;

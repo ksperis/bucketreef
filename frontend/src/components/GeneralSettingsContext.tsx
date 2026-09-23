@@ -3,7 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { fetchGeneralSettings, GeneralSettings } from "../api/appSettings";
+import {
+  DEFAULT_RUNTIME_SURFACES,
+  fetchGeneralSettings,
+  fetchRuntimeSurfaces,
+  GeneralSettings,
+  type RuntimeSurfaces,
+} from "../api/appSettings";
 import { CLIENT_STORAGE_KEYS, readClientJson, writeClientJson } from "../utils/clientStorage";
 import { useSession } from "../auth/SessionProvider";
 
@@ -40,6 +46,8 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
 
 type GeneralSettingsContextValue = {
   generalSettings: GeneralSettings;
+  runtimeSurfaces: RuntimeSurfaces;
+  runtimeSurfacesLoading: boolean;
   loading: boolean;
   refresh: () => Promise<void>;
   setGeneralSettings: (settings: GeneralSettings) => void;
@@ -47,6 +55,8 @@ type GeneralSettingsContextValue = {
 
 const GeneralSettingsContext = createContext<GeneralSettingsContextValue>({
   generalSettings: DEFAULT_GENERAL_SETTINGS,
+  runtimeSurfaces: DEFAULT_RUNTIME_SURFACES,
+  runtimeSurfacesLoading: true,
   loading: false,
   refresh: async () => {},
   setGeneralSettings: () => {},
@@ -57,6 +67,8 @@ export function GeneralSettingsProvider({ children }: { children: ReactNode }) {
   const [cachedSettings] = useState(() => readClientJson<GeneralSettings>(CLIENT_STORAGE_KEYS.generalSettingsCache));
   const [generalSettings, setGeneralSettingsState] = useState<GeneralSettings>(cachedSettings ?? DEFAULT_GENERAL_SETTINGS);
   const [loading, setLoading] = useState(() => cachedSettings == null);
+  const [runtimeSurfaces, setRuntimeSurfaces] = useState<RuntimeSurfaces>(DEFAULT_RUNTIME_SURFACES);
+  const [runtimeSurfacesLoading, setRuntimeSurfacesLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (sessionLoading) return;
@@ -86,14 +98,33 @@ export function GeneralSettingsProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    let active = true;
+    fetchRuntimeSurfaces()
+      .then((surfaces) => {
+        if (active) setRuntimeSurfaces(surfaces);
+      })
+      .catch(() => {
+        // Runtime route gating remains backend-authoritative if this public hint cannot be loaded.
+      })
+      .finally(() => {
+        if (active) setRuntimeSurfacesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const value = useMemo(
     () => ({
       generalSettings,
+      runtimeSurfaces,
+      runtimeSurfacesLoading,
       loading,
       refresh,
       setGeneralSettings,
     }),
-    [generalSettings, loading, refresh, setGeneralSettings]
+    [generalSettings, loading, refresh, runtimeSurfaces, runtimeSurfacesLoading, setGeneralSettings]
   );
 
   return <GeneralSettingsContext.Provider value={value}>{children}</GeneralSettingsContext.Provider>;
@@ -103,4 +134,4 @@ export function useGeneralSettings() {
   return useContext(GeneralSettingsContext);
 }
 
-export { DEFAULT_GENERAL_SETTINGS };
+export { DEFAULT_GENERAL_SETTINGS, DEFAULT_RUNTIME_SURFACES };

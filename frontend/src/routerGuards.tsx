@@ -73,8 +73,11 @@ export function RequireRole({ roles }: { roles: string[] }) {
 
 export function RoleRedirect() {
   const { user } = useSession();
-  const { generalSettings, loading } = useGeneralSettings();
-  const destination = loading ? null : resolvePostLoginPath(user, generalSettings);
+  const { generalSettings, runtimeSurfaces, loading, runtimeSurfacesLoading } = useGeneralSettings();
+  const destination =
+    loading || runtimeSurfacesLoading
+      ? null
+      : resolvePostLoginPath(user, generalSettings, runtimeSurfaces);
   useEffect(() => {
     if (!destination) return;
     prefetchWorkspaceBranch(destination);

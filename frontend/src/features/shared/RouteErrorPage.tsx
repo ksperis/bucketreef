@@ -11,9 +11,9 @@ import { reportRuntimeError } from "../../utils/runtimeDiagnostics";
 
 export default function RouteErrorPage() {
   const error = useRouteError();
-  const { generalSettings } = useGeneralSettings();
+  const { generalSettings, runtimeSurfaces } = useGeneralSettings();
   const errorKind = classifyRouteError(error);
-  const homePath = resolveRouteErrorHomePath(generalSettings);
+  const homePath = resolveRouteErrorHomePath(generalSettings, runtimeSurfaces);
   const isBackendUnavailable = errorKind === "backend_unavailable";
 
   useEffect(() => {

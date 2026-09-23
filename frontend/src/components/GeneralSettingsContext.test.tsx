@@ -15,11 +15,12 @@ vi.mock("../api/appSettings", async () => {
   return {
     ...actual,
     fetchGeneralSettings: vi.fn(),
+    fetchRuntimeSurfaces: vi.fn(),
   };
 });
 
 function Probe() {
-  const { generalSettings, loading, setGeneralSettings } = useGeneralSettings();
+  const { generalSettings, loading, runtimeSurfaces, runtimeSurfacesLoading, setGeneralSettings } = useGeneralSettings();
   return (
     <div>
       <span data-testid="migration">{String(generalSettings.bucket_migration_enabled)}</span>
@@ -29,6 +30,8 @@ function Probe() {
       <span data-testid="portal-browser">{String(generalSettings.browser_portal_enabled)}</span>
       <span data-testid="bucket-quota-management">{String(generalSettings.bucket_quota_management_enabled)}</span>
       <span data-testid="loading">{String(loading)}</span>
+      <span data-testid="runtime-loading">{String(runtimeSurfacesLoading)}</span>
+      <span data-testid="runtime-admin">{String(runtimeSurfaces.admin)}</span>
       <button
         type="button"
         onClick={() => setGeneralSettings({ ...generalSettings, bucket_migration_enabled: true })}
@@ -44,6 +47,15 @@ describe("GeneralSettingsProvider fallbacks", () => {
     sessionState.authenticated = false;
     window.localStorage.clear();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(appSettingsApi.fetchRuntimeSurfaces).mockReset();
+    vi.mocked(appSettingsApi.fetchRuntimeSurfaces).mockResolvedValue({
+      admin: false,
+      ceph_admin: false,
+      storage_ops: false,
+      manager: true,
+      portal: true,
+      browser: true,
+    });
   });
 
   afterEach(() => {
@@ -94,6 +106,10 @@ describe("GeneralSettingsProvider fallbacks", () => {
     expect(screen.getByTestId("portal-browser").textContent).toBe("true");
     expect(screen.getByTestId("bucket-quota-management").textContent).toBe("false");
     expect(fetchGeneralSettings).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByTestId("runtime-loading").textContent).toBe("false");
+    });
+    expect(screen.getByTestId("runtime-admin").textContent).toBe("false");
   });
 
   it("falls back to local defaults when settings fetch fails", async () => {

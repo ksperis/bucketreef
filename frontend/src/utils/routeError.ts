@@ -4,7 +4,7 @@
  */
 import { isApiError } from "../api/client";
 import { isRouteErrorResponse } from "react-router-dom";
-import type { GeneralSettings } from "../api/appSettings";
+import type { GeneralSettings, RuntimeSurfaces } from "../api/appSettings";
 import { readStoredUser, resolvePostLoginPath } from "./workspaces";
 
 const BACKEND_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
@@ -53,8 +53,11 @@ export function classifyRouteError(error: unknown): RouteErrorKind {
   return "generic";
 }
 
-export function resolveRouteErrorHomePath(generalSettings: GeneralSettings): string {
-  const nextPath = resolvePostLoginPath(readStoredUser(), generalSettings);
+export function resolveRouteErrorHomePath(
+  generalSettings: GeneralSettings,
+  runtimeSurfaces?: RuntimeSurfaces,
+): string {
+  const nextPath = resolvePostLoginPath(readStoredUser(), generalSettings, runtimeSurfaces);
   if (nextPath === "/login" || nextPath === "/unauthorized") {
     return "/login";
   }
