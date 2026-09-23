@@ -6,7 +6,6 @@ import {
   cx,
   uiButtonBaseClass,
   uiButtonVariants,
-  uiIconButtonClass,
 } from "../../components/ui/styles";
 
 export const bulkDangerClasses =
@@ -15,8 +14,6 @@ export const toolbarButtonClasses =
   cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5");
 export const toolbarPrimaryClasses =
   cx(uiButtonBaseClass, uiButtonVariants.primary, "px-2.5 py-1.5");
-export const toolbarIconButtonClasses =
-  cx(uiIconButtonClass, "h-7 w-7");
 export const filterChipClasses =
   cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5");
 export const countBadgeClasses =

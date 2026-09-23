@@ -26,6 +26,7 @@ function isTopModal(modalId: string) {
 
 type ModalProps = {
   title: string;
+  variant?: "dialog" | "bottom-sheet";
   className?: string;
   titleAs?: "h2" | "h3";
   onClose: () => void;
@@ -47,12 +48,13 @@ type ModalProps = {
 
 export default function Modal({
   title,
+  variant = "dialog",
   className,
   titleAs: Title = "h3",
   onClose,
   children,
-  maxWidthClass = "max-w-2xl",
-  maxBodyHeightClass = "max-h-[70vh]",
+  maxWidthClass,
+  maxBodyHeightClass,
   zIndexClass = "z-50",
   ariaLabelledby,
   ariaDescribedby,
@@ -70,6 +72,9 @@ export default function Modal({
   const fallbackTitleId = `${modalId}-title`;
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [, setModalStackVersion] = useState(0);
+  const bottomSheet = variant === "bottom-sheet";
+  const resolvedMaxWidthClass = maxWidthClass ?? (bottomSheet ? "max-w-none" : "max-w-2xl");
+  const resolvedMaxBodyHeightClass = maxBodyHeightClass ?? (bottomSheet ? "max-h-none" : "max-h-[70vh]");
 
   useEffect(() => {
     const rerenderOnModalStackChange = () => setModalStackVersion((version) => version + 1);
@@ -138,7 +143,11 @@ export default function Modal({
 
   return (
     <div
-      className={cx(`modal-surface fixed inset-0 ${zIndexClass} flex items-center justify-center bg-black/50 px-4 py-6`, className)}
+      className={cx(
+        `modal-surface fixed inset-0 ${zIndexClass} flex bg-black/50`,
+        bottomSheet ? "items-end justify-center p-0" : "items-center justify-center px-4 py-6",
+        className,
+      )}
       role="presentation"
       onMouseDown={(event) => {
         if (!isTopModal(modalId)) return;
@@ -158,7 +167,8 @@ export default function Modal({
         className={cx(
           "modal-dialog w-full whitespace-normal text-left shadow-[var(--shell-menu-shadow)]",
           uiCardClass,
-          maxWidthClass,
+          resolvedMaxWidthClass,
+          bottomSheet && "modal-dialog-bottom-sheet",
         )}
       >
         <div className={cx("modal-header flex items-center justify-between border-b px-6 py-4", uiDividerClass)}>
@@ -169,7 +179,15 @@ export default function Modal({
             {closeLabel}
           </UiButton>
         </div>
-        <div className={`modal-body ${maxBodyHeightClass} overflow-y-auto px-6 py-4`}>{children}</div>
+        <div
+          className={cx(
+            "modal-body overflow-y-auto px-6 py-4",
+            resolvedMaxBodyHeightClass,
+            bottomSheet && "modal-body-bottom-sheet",
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

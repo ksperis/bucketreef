@@ -66,6 +66,18 @@ describe("Modal", () => {
     expect(screen.getByRole("button", { name: "Fermer la fenêtre" })).toHaveTextContent("Fermer");
   });
 
+  it("supports the shared mobile bottom-sheet presentation", () => {
+    render(
+      <Modal title="Selection actions" variant="bottom-sheet" onClose={() => undefined}>
+        <p>Available actions</p>
+      </Modal>
+    );
+
+    expect(screen.getByRole("presentation")).toHaveClass("items-end", "p-0");
+    expect(screen.getByRole("dialog", { name: "Selection actions" })).toHaveClass("modal-dialog-bottom-sheet");
+    expect(screen.getByText("Available actions").closest(".modal-body")).toHaveClass("modal-body-bottom-sheet");
+  });
+
   it("does not inherit compact table text presentation from its trigger context", () => {
     render(
       <div className="whitespace-nowrap text-right">
