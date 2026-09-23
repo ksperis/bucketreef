@@ -2,11 +2,12 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ButtonHTMLAttributes, ReactNode } from "react";
+import { ButtonHTMLAttributes, ReactNode, type ComponentProps, type MouseEventHandler } from "react";
+import { Link } from "react-router-dom";
 import { cx, uiButtonBaseClass, uiButtonVariants } from "./styles";
 
-type UiButtonVariant = keyof typeof uiButtonVariants;
-type UiButtonSize = "xs" | "sm" | "md";
+export type UiButtonVariant = keyof typeof uiButtonVariants;
+export type UiButtonSize = "xs" | "sm" | "md";
 
 const uiButtonSizeClasses: Record<UiButtonSize, string> = {
   xs: "h-7 px-2 py-1 ui-caption",
@@ -23,6 +24,24 @@ type UiButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
 };
 
+type UiButtonLinkProps = ComponentProps<typeof Link> & {
+  variant?: UiButtonVariant;
+  size?: UiButtonSize;
+  disabled?: boolean;
+};
+
+export function uiButtonClassName({
+  variant = "primary",
+  size = "md",
+  className,
+}: {
+  variant?: UiButtonVariant;
+  size?: UiButtonSize;
+  className?: string;
+}) {
+  return cx(uiButtonBaseClass, uiButtonVariants[variant], uiButtonSizeClasses[size], className);
+}
+
 export default function UiButton({
   variant = "primary",
   size = "md",
@@ -38,7 +57,7 @@ export default function UiButton({
   return (
     <button
       type={type}
-      className={cx(uiButtonBaseClass, uiButtonVariants[variant], uiButtonSizeClasses[size], className)}
+      className={uiButtonClassName({ variant, size, className })}
       disabled={disabled || loading}
       {...props}
     >
@@ -46,5 +65,37 @@ export default function UiButton({
       {children}
       {rightIcon ? <span aria-hidden="true">{rightIcon}</span> : null}
     </button>
+  );
+}
+
+export function UiButtonLink({
+  variant = "primary",
+  size = "md",
+  className,
+  disabled = false,
+  onClick,
+  tabIndex,
+  ...props
+}: UiButtonLinkProps) {
+  const handleClick: MouseEventHandler<HTMLAnchorElement> = (event) => {
+    if (disabled) {
+      event.preventDefault();
+      return;
+    }
+    onClick?.(event);
+  };
+
+  return (
+    <Link
+      {...props}
+      className={uiButtonClassName({
+        variant,
+        size,
+        className: cx(disabled && "pointer-events-none opacity-60", className),
+      })}
+      aria-disabled={disabled || undefined}
+      tabIndex={disabled ? -1 : tabIndex}
+      onClick={handleClick}
+    />
   );
 }

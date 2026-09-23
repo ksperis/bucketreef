@@ -12,11 +12,10 @@ import UiActionMenu, { type UiActionMenuSection } from "../../components/ui/UiAc
 import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
+import { uiButtonClassName } from "../../components/ui/UiButton";
 import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiInputClass,
   uiMutedTextClass,
   uiTitleTextClass,
@@ -229,7 +228,7 @@ export default function BucketSelectionActionsBar({
         <UiActionMenu
           ariaLabel={`Actions for ${selectedCount} selected bucket${selectedCount > 1 ? "s" : ""}`}
           trigger="Actions…"
-          triggerClassName={cx(uiButtonBaseClass, uiButtonVariants.primary, "h-8 px-3 py-1.5 text-xs")}
+          triggerClassName={uiButtonClassName({ size: "sm" })}
           sections={sections}
           minWidth={320}
           menuClassName="w-80"

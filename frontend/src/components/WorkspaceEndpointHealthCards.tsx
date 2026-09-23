@@ -2,15 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { Link } from "react-router-dom";
 import type { WorkspaceEndpointHealthOverviewResponse } from "../api/healthchecks";
 import { formatLocalDateTime } from "../utils/dateTime";
 import { WorkspaceDashboardActionLink, WorkspaceStatusCounter, WorkspaceStatusDot, WorkspaceStatusPill } from "./WorkspaceDashboardKit";
 import WorkspaceIncidentsCard from "./WorkspaceIncidentsCard";
+import { UiButtonLink } from "./ui/UiButton";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiCardClass,
   uiMutedTextClass,
   uiPanelMutedClass,
@@ -73,14 +71,13 @@ export default function WorkspaceEndpointHealthCards({
                 Updated {formatLocalDateTime(data.generated_at)}
               </span>
             )}
-            {action && (compact ? <WorkspaceDashboardActionLink to={action.to}>{action.label}</WorkspaceDashboardActionLink> :
-              <Link
-                to={action.to}
-                className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "rounded-md px-2.5 py-1.5 ui-caption")}
-              >
+            {action && (compact ? (
+              <WorkspaceDashboardActionLink to={action.to}>{action.label}</WorkspaceDashboardActionLink>
+            ) : (
+              <UiButtonLink to={action.to} variant="secondary" size="xs">
                 {action.label}
-              </Link>
-            )}
+              </UiButtonLink>
+            ))}
           </div>
         </div>
 
