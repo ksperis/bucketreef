@@ -69,8 +69,12 @@ def _provider(*, enabled: bool = True, use_pkce: bool = True, use_nonce: bool = 
     )
 
 
-def _settings(provider: OIDCProviderSettings) -> Settings:
-    return Settings(oidc_providers={"google": provider}, oidc_state_ttl_seconds=60)
+def _settings(provider: OIDCProviderSettings, **overrides) -> Settings:
+    return Settings(
+        oidc_providers={"google": provider},
+        oidc_state_ttl_seconds=60,
+        **overrides,
+    )
 
 
 def _service(db_session, settings: Settings | None = None):
@@ -130,6 +134,59 @@ def test_start_login_generates_authorization_url_and_persists_state(db_session, 
     assert stored is not None
     assert stored.redirect_path == "/manager"
     assert db_session.query(OidcLoginState).filter(OidcLoginState.state == "expired-state").first() is None
+
+
+def test_start_login_selects_redirect_uri_for_trusted_public_origin(db_session, monkeypatch):
+    settings = _settings(
+        _provider(),
+        public_origin="https://admin.example.test",
+        public_origins=["https://app.example.test"],
+    )
+    service, _ = _service(db_session, settings=settings)
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {"authorization_endpoint": "https://issuer.example.test/auth"},
+    )
+
+    result = service.start_login(
+        "google",
+        "/admin",
+        request_origin="https://admin.example.test",
+    )
+    query = parse_qs(urlparse(result["authorization_url"]).query)
+    expected_redirect = "https://admin.example.test/oidc/google/callback"
+    assert query["redirect_uri"] == [expected_redirect]
+    stored = db_session.query(OidcLoginState).filter(OidcLoginState.state == result["state"]).one()
+    assert stored.redirect_uri == expected_redirect
+
+
+def test_complete_login_rejects_callback_on_different_public_origin(db_session, monkeypatch):
+    settings = _settings(
+        _provider(),
+        public_origin="https://admin.example.test",
+        public_origins=["https://app.example.test"],
+    )
+    service, _ = _service(db_session, settings=settings)
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {"authorization_endpoint": "https://issuer.example.test/auth"},
+    )
+    started = service.start_login(
+        "google",
+        "/admin",
+        request_origin="https://admin.example.test",
+    )
+
+    with pytest.raises(OIDCStateError, match="origin mismatch"):
+        service.complete_login(
+            "google",
+            "auth-code",
+            started["state"],
+            request_origin="https://app.example.test",
+        )
+    assert db_session.query(OidcLoginState).filter(OidcLoginState.state == started["state"]).first() is None
 
 
 def test_start_login_provider_not_found_when_disabled(db_session):

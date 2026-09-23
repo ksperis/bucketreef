@@ -237,6 +237,10 @@ class Settings(BaseSettings):
     refresh_token_cookie_secure: bool = Field(False, description="Secure flag for refresh cookie")
     refresh_token_cookie_samesite: str = Field("lax", description="SameSite policy for refresh cookie")
     public_origin: str = Field("http://localhost:5173", description="Canonical browser origin")
+    public_origins: list[str] = Field(
+        default_factory=list,
+        description="Additional trusted browser origins sharing the deployment boundary",
+    )
     allowed_hosts: list[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1", "testserver"])
     trusted_proxy_cidrs: list[str] = Field(default_factory=list)
     user_supplied_s3_endpoint_allowed_hosts: list[str] = Field(
@@ -250,6 +254,10 @@ class Settings(BaseSettings):
     webauthn_rp_id: str = "localhost"
     webauthn_rp_name: str = "BucketReef"
     webauthn_origin: str = "http://localhost:5173"
+    webauthn_origins: list[str] = Field(
+        default_factory=list,
+        description="Additional WebAuthn origins accepted for the shared RP ID",
+    )
     content_security_policy: str = (
         "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
         "img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; "
@@ -622,16 +630,33 @@ class Settings(BaseSettings):
     def effective_api_jwt_keys(self) -> list[str]:
         return list(self.api_jwt_keys or self.jwt_keys)
 
-    def _validate_production_origins(self) -> ParseResult:
-        public = urlparse(self.public_origin)
-        if public.scheme != "https" or not public.hostname or public.path not in {"", "/"}:
-            raise ValueError("PUBLIC_ORIGIN must be an HTTPS origin without a path in production")
-        webauthn = urlparse(self.webauthn_origin)
-        if self.webauthn_origin.rstrip("/") != self.public_origin.rstrip("/"):
-            raise ValueError("WEBAUTHN_ORIGIN must exactly match PUBLIC_ORIGIN in production")
-        if webauthn.hostname != self.webauthn_rp_id:
-            raise ValueError("WEBAUTHN_RP_ID must match the WebAuthn origin host in production")
-        return public
+    def effective_public_origins(self) -> list[str]:
+        return _deduplicate_origins([self.public_origin, *self.public_origins])
+
+    def effective_webauthn_origins(self) -> list[str]:
+        return _deduplicate_origins([self.webauthn_origin, *self.webauthn_origins])
+
+    def _validate_production_origins(self) -> list[ParseResult]:
+        public_origins = self.effective_public_origins()
+        parsed_public = [_parse_production_origin(origin, "PUBLIC_ORIGIN/PUBLIC_ORIGINS") for origin in public_origins]
+        public_set = set(public_origins)
+
+        webauthn_origins = self.effective_webauthn_origins()
+        parsed_webauthn = [
+            _parse_production_origin(origin, "WEBAUTHN_ORIGIN/WEBAUTHN_ORIGINS")
+            for origin in webauthn_origins
+        ]
+        if not set(webauthn_origins).issubset(public_set):
+            raise ValueError("WEBAUTHN_ORIGIN/WEBAUTHN_ORIGINS must be trusted PUBLIC_ORIGIN/PUBLIC_ORIGINS")
+
+        rp_id = self.webauthn_rp_id.strip().lower().rstrip(".")
+        if not rp_id or ":" in rp_id or "/" in rp_id:
+            raise ValueError("WEBAUTHN_RP_ID must be a DNS domain in production")
+        for webauthn in parsed_webauthn:
+            host = (webauthn.hostname or "").lower().rstrip(".")
+            if host != rp_id and not host.endswith(f".{rp_id}"):
+                raise ValueError("WEBAUTHN_RP_ID must be the WebAuthn origin host or a common parent domain")
+        return parsed_public
 
     def _validate_production_authentication_boundary(self) -> None:
         if not self.refresh_token_cookie_secure:
@@ -643,13 +668,14 @@ class Settings(BaseSettings):
         if not self.require_registered_s3_login_endpoints:
             raise ValueError("Production requires administratively registered S3 login endpoints")
 
-    def _validate_production_network_boundary(self, public: ParseResult) -> None:
+    def _validate_production_network_boundary(self, public_origins: list[ParseResult]) -> None:
         if not self.allowed_hosts or any(host.strip() == "*" for host in self.allowed_hosts):
             raise ValueError("Explicit ALLOWED_HOSTS are mandatory in production")
-        if public.hostname not in {host.strip().lower() for host in self.allowed_hosts}:
-            raise ValueError("ALLOWED_HOSTS must include the PUBLIC_ORIGIN host in production")
-        if self.cors_origins != [self.public_origin]:
-            raise ValueError("CORS_ORIGINS must contain only PUBLIC_ORIGIN in production")
+        allowed_hosts = {host.strip().lower() for host in self.allowed_hosts}
+        if any((public.hostname or "").lower() not in allowed_hosts for public in public_origins):
+            raise ValueError("ALLOWED_HOSTS must include every PUBLIC_ORIGIN/PUBLIC_ORIGINS host in production")
+        if set(_deduplicate_origins(self.cors_origins)) != set(self.effective_public_origins()):
+            raise ValueError("CORS_ORIGINS must match PUBLIC_ORIGIN/PUBLIC_ORIGINS in production")
         if not self.trusted_proxy_cidrs:
             raise ValueError("Production requires a non-empty TRUSTED_PROXY_CIDRS boundary")
         for cidr in self.trusted_proxy_cidrs:
@@ -685,7 +711,11 @@ class Settings(BaseSettings):
             if value is not None and is_weak_secret_value(value):
                 raise ValueError(f"{name} must be a strong non-default secret in production")
 
-    def _validate_production_oidc(self, public: ParseResult) -> None:
+    def _validate_production_oidc(self, public_origins: list[ParseResult]) -> None:
+        allowed_redirect_origins = {
+            f"{origin.scheme}://{origin.netloc}".rstrip("/")
+            for origin in public_origins
+        }
         for provider_id, provider in self.oidc_providers.items():
             if not provider.enabled:
                 continue
@@ -694,8 +724,9 @@ class Settings(BaseSettings):
             if urlparse(provider.discovery_url).scheme != "https":
                 raise ValueError(f"OIDC provider {provider_id} discovery URL must use HTTPS")
             redirect = urlparse(provider.redirect_uri)
-            if redirect.scheme != "https" or redirect.netloc != public.netloc:
-                raise ValueError(f"OIDC provider {provider_id} redirect must use PUBLIC_ORIGIN")
+            redirect_origin = f"{redirect.scheme}://{redirect.netloc}".rstrip("/")
+            if redirect.scheme != "https" or redirect_origin not in allowed_redirect_origins:
+                raise ValueError(f"OIDC provider {provider_id} redirect must use a configured PUBLIC_ORIGIN")
 
     def _validate_production_ldap(self) -> None:
         for provider_id, provider in self.ldap_providers.items():
@@ -712,12 +743,12 @@ class Settings(BaseSettings):
                 raise ValueError(f"LDAP provider {provider_id} violates the production TLS policy")
 
     def _validate_production_security(self) -> None:
-        public = self._validate_production_origins()
+        public_origins = self._validate_production_origins()
         self._validate_production_authentication_boundary()
-        self._validate_production_network_boundary(public)
+        self._validate_production_network_boundary(public_origins)
         self._validate_production_keyrings()
         self._validate_production_seed_configuration()
-        self._validate_production_oidc(public)
+        self._validate_production_oidc(public_origins)
         self._validate_production_ldap()
 
 
@@ -776,6 +807,29 @@ def collect_secret_warnings(settings: Settings) -> list[str]:
             f"{', '.join(sorted(legacy_tls_ldap))}. Prefer modern ECDHE cipher suites on the LDAP server."
         )
     return warnings
+
+
+def _deduplicate_origins(origins: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for raw_origin in origins:
+        origin = str(raw_origin or "").strip().rstrip("/")
+        if origin and origin not in normalized:
+            normalized.append(origin)
+    return normalized
+
+
+def _parse_production_origin(origin: str, setting_name: str) -> ParseResult:
+    parsed = urlparse(origin)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.path not in {"", "/"}
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(f"{setting_name} must contain HTTPS origins without paths in production")
+    return parsed
 
 
 def is_local_origin(origin: str) -> bool:

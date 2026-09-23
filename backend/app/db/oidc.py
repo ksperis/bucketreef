@@ -17,6 +17,7 @@ class OidcLoginState(Base):
     code_verifier = Column(String, nullable=False)
     nonce = Column(String, nullable=True)
     redirect_path = Column(String, nullable=True)
+    redirect_uri = Column(String, nullable=True)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
 
 

@@ -68,10 +68,11 @@ def _validate_production_payload(payload: OIDCProviderAdminPayload, settings: Op
         return
     discovery = urlparse(payload.discovery_url)
     redirect = urlparse(payload.redirect_uri)
+    redirect_origin = f"{redirect.scheme}://{redirect.netloc}".rstrip("/")
     if discovery.scheme != "https" or not discovery.hostname:
         raise ValueError("OIDC discovery must use HTTPS in production")
-    if redirect.scheme != "https" or redirect.netloc != urlparse(settings.public_origin).netloc:
-        raise ValueError("OIDC redirect must use PUBLIC_ORIGIN in production")
+    if redirect.scheme != "https" or redirect_origin not in set(settings.effective_public_origins()):
+        raise ValueError("OIDC redirect must use a configured PUBLIC_ORIGIN in production")
     if not payload.use_pkce or not payload.use_nonce:
         raise ValueError("OIDC PKCE and nonce are mandatory in production")
 

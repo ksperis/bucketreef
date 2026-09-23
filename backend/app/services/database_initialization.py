@@ -28,13 +28,17 @@ _POSTGRES_ALEMBIC_VERSION_LENGTH = 255
 def _validate_persisted_auth_providers(db: Session) -> None:
     if settings.app_env != "production":
         return
+    public_origins = set(settings.effective_public_origins())
     for provider in db.query(OidcProvider).filter(OidcProvider.enabled.is_(True)).all():
         discovery = urlparse(provider.discovery_url)
         redirect = urlparse(provider.redirect_uri)
+        redirect_origin = f"{redirect.scheme}://{redirect.netloc}".rstrip("/")
         if discovery.scheme != "https" or not discovery.hostname:
             raise RuntimeError(f"OIDC provider {provider.provider_id} must use HTTPS discovery in production")
-        if redirect.scheme != "https" or redirect.netloc != urlparse(settings.public_origin).netloc:
-            raise RuntimeError(f"OIDC provider {provider.provider_id} redirect must use PUBLIC_ORIGIN in production")
+        if redirect.scheme != "https" or redirect_origin not in public_origins:
+            raise RuntimeError(
+                f"OIDC provider {provider.provider_id} redirect must use a configured PUBLIC_ORIGIN in production"
+            )
         if not provider.use_pkce or not provider.use_nonce:
             raise RuntimeError(f"OIDC provider {provider.provider_id} must require PKCE and nonce in production")
     for provider in db.query(LdapProvider).filter(LdapProvider.enabled.is_(True)).all():

@@ -57,7 +57,7 @@ def start_oidc_login(
     payload: Optional[OIDCStartRequest] = None,
     oidc_service: OidcService = Depends(get_oidc_service_dependency),
 ) -> dict[str, str]:
-    require_trusted_origin(request)
+    request_origin = require_trusted_origin(request)
     ip_address, _, _ = request_context(request, settings=settings)
     account_key = f"oidc-start:{provider_id.lower()}"
     limiter = AuthRateLimitService(oidc_service.db, settings=settings)
@@ -70,7 +70,11 @@ def start_oidc_login(
             headers={"Retry-After": str(exc.retry_after)},
         ) from exc
     try:
-        result = oidc_service.start_login(provider_id, payload.redirect_path if payload else None)
+        result = oidc_service.start_login(
+            provider_id,
+            payload.redirect_path if payload else None,
+            request_origin=request_origin,
+        )
         limiter.record_failure(account=account_key, ip_address=ip_address)
         return result
     except OIDCProviderNotFoundError as exc:
@@ -91,7 +95,7 @@ def complete_oidc_login(
     users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuthenticationResponse:
-    require_trusted_origin(request)
+    request_origin = require_trusted_origin(request)
     ip_address, user_agent, request_id = request_context(request, settings=settings)
     account_key = f"oidc-callback:{provider_id.lower()}"
     limiter = AuthRateLimitService(oidc_service.db, settings=settings)
@@ -113,7 +117,12 @@ def complete_oidc_login(
         )
         raise HTTPException(status_code=429, detail="Too many authentication attempts", headers={"Retry-After": str(exc.retry_after)}) from exc
     try:
-        user, redirect_path, created = oidc_service.complete_login(provider_id, payload.code, payload.state)
+        user, redirect_path, created = oidc_service.complete_login(
+            provider_id,
+            payload.code,
+            payload.state,
+            request_origin=request_origin,
+        )
     except ExternalIdentityLinkRequiredError as exc:
         limiter.clear_account(account=account_key, ip_address=ip_address)
         audit_service.record_action(
