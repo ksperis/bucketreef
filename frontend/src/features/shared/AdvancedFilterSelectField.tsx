@@ -20,6 +20,7 @@ type AdvancedFilterSelectFieldProps = {
   costTooltip?: string;
   disabled?: boolean;
   fieldState: AdvancedFilterFieldState;
+  hint?: ReactNode;
   label: ReactNode;
   onChange: (value: string) => void;
   selectClassName?: string;
@@ -34,6 +35,7 @@ export default function AdvancedFilterSelectField({
   costTooltip,
   disabled = false,
   fieldState,
+  hint,
   label,
   onChange,
   selectClassName,
@@ -41,6 +43,7 @@ export default function AdvancedFilterSelectField({
   value,
 }: AdvancedFilterSelectFieldProps) {
   const controlId = useId();
+  const hintId = hint ? `${controlId}-hint` : undefined;
 
   return (
     <div className={advancedFilterFieldCardClass(className)}>
@@ -56,6 +59,7 @@ export default function AdvancedFilterSelectField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
+        aria-describedby={hintId}
         title={title}
         className={advancedFilterControlClass(
           cx("mt-2 w-full px-2 py-1.5 font-normal", fieldState.fieldClass, selectClassName),
@@ -64,6 +68,11 @@ export default function AdvancedFilterSelectField({
       >
         {children}
       </select>
+      {hint ? (
+        <p id={hintId} className="mt-1 ui-caption text-[var(--ui-text-muted)]">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

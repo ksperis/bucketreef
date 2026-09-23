@@ -52,4 +52,22 @@ describe("AdvancedFilterSelectField", () => {
     expect(screen.getByRole("combobox", { name: "Owner suspended" })).toBeDisabled();
     expect(screen.getByRole("combobox")).toHaveClass("disabled:cursor-not-allowed");
   });
+
+  it("associates optional field guidance with the select", () => {
+    render(
+      <AdvancedFilterSelectField
+        label="Versioning"
+        hint="Versioning is disabled on this endpoint."
+        fieldState={fieldState}
+        value="any"
+        onChange={() => undefined}
+      >
+        <option value="any">Any</option>
+      </AdvancedFilterSelectField>,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Versioning" });
+    const hint = screen.getByText("Versioning is disabled on this endpoint.");
+    expect(select).toHaveAttribute("aria-describedby", hint.id);
+  });
 });

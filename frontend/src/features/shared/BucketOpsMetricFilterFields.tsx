@@ -2,10 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import {
-  advancedFilterControlClass,
-  advancedFilterFieldCardClass,
-} from "./advancedFilterShared";
+import AdvancedFilterNumberRangeField from "./AdvancedFilterNumberRangeField";
+import { advancedFilterFieldCardClass } from "./advancedFilterShared";
 import {
   type AdvancedFilterState,
   type AdvancedNumericField,
@@ -147,7 +145,7 @@ export default function BucketOpsMetricFilterFields({
                   Requires bucket stats.
                 </p>
               )}
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {section.rows.map((row) => {
                   const minApplied = (advancedApplied?.[row.minId] ?? "").trim();
                   const minDraft = advancedDraft[row.minId].trim();
@@ -166,47 +164,20 @@ export default function BucketOpsMetricFilterFields({
                     maxDraft !== maxApplied,
                   );
                   return (
-                    <div key={`${section.title}:${row.label}`}>
-                      <label
-                        className={`ui-caption font-medium text-slate-600 dark:text-slate-300 ${rowState.labelClass}`}
-                      >
-                        {row.label}
-                      </label>
-                      <div className="mt-1 grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          min="0"
-                          inputMode="numeric"
-                          value={advancedDraft[row.minId]}
-                          onChange={(event) =>
-                            onFieldChange(row.minId, event.target.value)
-                          }
-                          aria-label={`${section.title} ${row.label} minimum`}
-                          placeholder="min"
-                          disabled={disabled}
-                          className={advancedFilterControlClass(
-                            `w-full px-2 py-1.5 font-normal ${minState.fieldClass}`,
-                            disabled,
-                          )}
-                        />
-                        <input
-                          type="number"
-                          min="0"
-                          inputMode="numeric"
-                          value={advancedDraft[row.maxId]}
-                          onChange={(event) =>
-                            onFieldChange(row.maxId, event.target.value)
-                          }
-                          aria-label={`${section.title} ${row.label} maximum`}
-                          placeholder="max"
-                          disabled={disabled}
-                          className={advancedFilterControlClass(
-                            `w-full px-2 py-1.5 font-normal ${maxState.fieldClass}`,
-                            disabled,
-                          )}
-                        />
-                      </div>
-                    </div>
+                    <AdvancedFilterNumberRangeField
+                      key={`${section.title}:${row.label}`}
+                      label={row.label}
+                      accessibleLabel={`${section.title} ${row.label}`}
+                      disabled={disabled}
+                      fieldState={rowState}
+                      minFieldState={minState}
+                      maxFieldState={maxState}
+                      minValue={advancedDraft[row.minId]}
+                      maxValue={advancedDraft[row.maxId]}
+                      inputMin={0}
+                      onMinChange={(value) => onFieldChange(row.minId, value)}
+                      onMaxChange={(value) => onFieldChange(row.maxId, value)}
+                    />
                   );
                 })}
               </div>
