@@ -15,7 +15,7 @@ between teams or clients.
 Do not use the number of enabled features as a completion criterion.
 
 The automated production-hardening report is available to superadministrators
-at **Admin > Production readiness**. It checks configuration invariants for the
+at **Admin > Settings > Production readiness**. It checks configuration invariants for the
 backend instance serving that page; it does not certify manual gates in this
 checklist or any other instance in a split deployment.
 
@@ -51,7 +51,7 @@ Do not publish the URL broadly until these gates are explicit:
 
 1. Deploy with Docker Compose or Helm using pinned images.
 2. Set `APP_ENV=production` and configure distinct secrets, exact origin/hosts, secure cookies, WebAuthn, trusted proxies, ingress/TLS, and database persistence.
-3. Review **Admin > Production readiness** where available, then run `python -m app.scripts.check_production_hardening` inside every backend runtime (including user-only or Ceph Admin high-security instances) and keep the successful output with the deployment evidence.
+3. Review **Admin > Settings > Production readiness** where available, then run `python -m app.scripts.check_production_hardening` inside every backend runtime (including user-only or Ceph Admin high-security instances) and keep the successful output with the deployment evidence.
 4. Configure the first endpoint and run healthchecks.
 5. Create or import the first account/context.
 6. Enable only the intended workspaces and feature flags.

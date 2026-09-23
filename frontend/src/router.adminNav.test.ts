@@ -13,18 +13,20 @@ function getAuditReportingLink(label: string, options: Parameters<typeof buildAd
 }
 
 describe("buildAdminNav", () => {
-  it("exposes Production readiness only to superadmins", () => {
-    const superadminOverview = buildAdminNav(true, true, false, false, false, true).find(
-      (section) => section.label === "Overview"
-    );
-    const adminOverview = buildAdminNav(true, true, false, false, false, false).find(
-      (section) => section.label === "Overview"
-    );
+  it("exposes Production readiness in Settings only to superadmins", () => {
+    const superadminNav = buildAdminNav(true, true, false, false, false, true);
+    const adminNav = buildAdminNav(true, true, false, false, false, false);
+    const productionReadinessLink = superadminNav
+      .find((section) => section.label === "Settings")
+      ?.links.find((link) => link.label === "Production readiness");
 
-    expect(superadminOverview?.links.find((link) => link.label === "Production readiness")?.to).toBe(
-      "/admin/production-readiness",
-    );
-    expect(adminOverview?.links.find((link) => link.label === "Production readiness")).toBeUndefined();
+    expect(productionReadinessLink?.to).toBe("/admin/production-readiness");
+    expect(
+      superadminNav
+        .find((section) => section.label === "Overview")
+        ?.links.find((link) => link.label === "Production readiness"),
+    ).toBeUndefined();
+    expect(adminNav.find((section) => section.label === "Settings")).toBeUndefined();
   });
 
   it("sets explicit hint for disabled Browser settings link", () => {
@@ -59,6 +61,23 @@ describe("buildAdminNav", () => {
     const authenticationLink = getSettingsLink("Authentication", [true, true, false, false, false, true]);
 
     expect(authenticationLink?.to).toBe("/admin/authentication-settings");
+  });
+
+  it("places Production readiness with the deployment settings", () => {
+    const settingsSection = buildAdminNav(true, true, false, false, false, true).find(
+      (section) => section.label === "Settings",
+    );
+
+    expect(settingsSection?.links.map((link) => link.label)).toEqual([
+      "General",
+      "Authentication",
+      "Manager",
+      "Browser",
+      "Portal",
+      "Production readiness",
+      "Key Rotation",
+      "API tokens",
+    ]);
   });
 
   it("groups identity administration with a dedicated security icon", () => {
@@ -172,11 +191,7 @@ describe("buildAdminNav", () => {
     const managedTenants = adminNav.find((section) => section.label === "Managed Tenants");
     const auditReporting = adminNav.find((section) => section.label === "Audit & Reporting");
 
-    expect(overview?.links.map((link) => link.label)).toEqual([
-      "Dashboard",
-      "Getting started",
-      "Production readiness",
-    ]);
+    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard", "Getting started"]);
     expect(managedTenants?.links.map((link) => link.label)).toEqual([
       "RGW Accounts",
       "RGW Users",
@@ -201,6 +216,6 @@ describe("buildAdminNav", () => {
     const adminNav = buildAdminNav(true, true, false, false, false, true, false, null, false);
     const overview = adminNav.find((section) => section.label === "Overview");
 
-    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard", "Production readiness"]);
+    expect(overview?.links.map((link) => link.label)).toEqual(["Dashboard"]);
   });
 });

@@ -31,7 +31,7 @@ single scheduled-job owner; admin/user instances also verify their shared
 public/WebAuthn origin set.
 
 `ui_superadmin` users can inspect the same read-only checks from **Admin >
-Production readiness** when the Admin surface is present. The page evaluates
+Settings > Production readiness** when the Admin surface is present. The page evaluates
 only the backend serving that Admin instance. User-only and Ceph Admin
 high-security runtimes must still be checked in their own runtime with the CLI.
 

@@ -133,6 +133,7 @@ const ADMIN_SETTINGS_PATHS = [
   "/admin/manager-settings",
   "/admin/browser-settings",
   "/admin/portal-settings",
+  "/admin/production-readiness",
   "/admin/key-rotation",
   "/admin/api-tokens",
 ];
@@ -168,6 +169,10 @@ export const buildAdminNav = (
       disabled: !portalEnabled,
       disabledHint: !portalEnabled ? "Portal feature is disabled in General settings." : undefined,
     },
+    {
+      ...workspacePageLink(ADMIN_PAGE_CONTRACTS["production-readiness"]),
+      iconName: "shield" as const,
+    },
     workspacePageLink(ADMIN_PAGE_CONTRACTS["key-rotation"]),
     {
       ...workspacePageLink(ADMIN_PAGE_CONTRACTS["api-tokens"]),
@@ -185,14 +190,6 @@ export const buildAdminNav = (
               {
                 ...workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding),
                 iconName: "tools" as const,
-              },
-            ]
-          : []),
-        ...(isSuperAdmin
-          ? [
-              {
-                ...workspacePageLink(ADMIN_PAGE_CONTRACTS["production-readiness"]),
-                iconName: "shield" as const,
               },
             ]
           : []),
