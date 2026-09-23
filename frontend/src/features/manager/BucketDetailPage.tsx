@@ -33,7 +33,6 @@ import { useS3AccountContext } from "./S3AccountContext";
 import TrafficAnalytics from "./TrafficAnalytics";
 import BucketUsageStatsPanel from "../shared/BucketUsageStatsPanel";
 import PropertySummaryChip, { PropertySummaryTone } from "../../components/PropertySummaryChip";
-import { SettingsChoiceRow } from "../../components/settings/SettingsLayout";
 import { useCephAdminEndpoint } from "../cephAdmin/CephAdminEndpointContext";
 import {
   BucketFeatureSection,
@@ -48,6 +47,7 @@ import {
   BucketObjectLockFeature,
   BucketTagsFeature,
   BucketVersioningFeature,
+  BucketWebsiteFeature,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
   type BucketQuotaUnit,
@@ -89,7 +89,6 @@ import {
   bucketConfigurationDeleteCopy,
   defaultLifecycleJsonExample,
   defaultReplicationJsonExample,
-  defaultWebsiteRoutingRulesExample,
   type BucketConfigurationDeleteKind,
 } from "./bucketDetail/bucketDetailConstants";
 import { isApiFeatureNotImplemented } from "../../utils/apiError";
@@ -241,7 +240,6 @@ function BucketDetailPageContent({
     managerBucketQuotaEnabled,
   } = s3AccountContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
-  const [showWebsiteRulesExample, setShowWebsiteRulesExample] = useState(false);
   const [showLifecycleJsonExample, setShowLifecycleJsonExample] = useState(false);
   const [showReplicationExample, setShowReplicationExample] = useState(false);
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
@@ -413,36 +411,20 @@ function BucketDetailPageContent({
     }
     return selectedS3Account?.storage_endpoint_capabilities?.static_website === true;
   }, [isCephAdmin, selectedEndpoint, selectedS3Account]);
-  const {
-    clear: clearWebsite,
-    clearing: clearingWebsite,
-    configured: websiteConfigured,
-    dirty: websiteDirty,
-    error: websiteError,
-    errorDocument: websiteErrorDocument,
-    indexDocument: websiteIndexDocument,
-    load: loadWebsite,
-    loading: websiteLoading,
-    mode: websiteMode,
-    redirectHost: websiteRedirectHost,
-    redirectProtocol: websiteRedirectProtocol,
-    routingRules: websiteRoutingRules,
-    save: saveWebsite,
-    saving: savingWebsite,
-    status: websiteStatus,
-    updateErrorDocument: updateWebsiteErrorDocument,
-    updateIndexDocument: updateWebsiteIndexDocument,
-    updateMode: updateWebsiteMode,
-    updateRedirectHost: updateWebsiteRedirectHost,
-    updateRedirectProtocol: updateWebsiteRedirectProtocol,
-    updateRoutingRules: updateWebsiteRoutingRules,
-  } = useBucketWebsiteController({
+  const websiteController = useBucketWebsiteController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext && staticWebsiteEnabled,
     endpointId,
   });
+  const {
+    configured: websiteConfigured,
+    dirty: websiteDirty,
+    error: websiteError,
+    load: loadWebsite,
+    loading: websiteLoading,
+  } = websiteController;
   const sseFeatureEnabled = useMemo(() => {
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.sse === true;
@@ -579,7 +561,6 @@ function BucketDetailPageContent({
   }, [isCephAdmin, selectedEndpoint, selectedS3Account]);
   const canViewBucketMetrics = hasContext;
   const canViewLiveBucketMetrics = Boolean(isCephEndpoint && usageFeatureEnabled);
-  const staticWebsiteBlocked = !staticWebsiteEnabled;
   const exampleS3AccountId = selectedS3Account?.rgw_account_id || "ACCOUNT00000000000000001";
 
   useEffect(() => {
@@ -645,7 +626,7 @@ function BucketDetailPageContent({
     replication: savingReplication || clearingReplication,
     encryption: encryptionController.saving || encryptionController.deleting,
     publicAccess: publicAccessController.saving,
-    website: savingWebsite || clearingWebsite,
+    website: websiteController.saving || websiteController.clearing,
     accessLogging: accessLoggingController.saving || accessLoggingController.clearing,
     notifications: notificationsController.saving || notificationsController.clearing,
     tags: bucketTagsController.saving || bucketTagsController.clearing,
@@ -853,17 +834,11 @@ function BucketDetailPageContent({
 
   const replicationBlocked = !replicationFeatureEnabled;
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
-  const websiteNotImplemented = isApiFeatureNotImplemented(websiteError);
   const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
   const lifecycleCardState = resolveFeatureVisualState({
     disabled: lifecycleNotImplemented,
     configured: hasLifecycleRules,
     unsaved: lifecycleDirty,
-  });
-  const websiteCardState = resolveFeatureVisualState({
-    disabled: staticWebsiteBlocked || websiteNotImplemented,
-    configured: websiteConfigured,
-    unsaved: websiteDirty,
   });
   const replicationCardState = resolveFeatureVisualState({
     disabled: replicationBlocked || replicationNotImplemented,
@@ -1202,7 +1177,7 @@ function BucketDetailPageContent({
       if (pendingConfigurationDelete === "tags") await bucketTagsController.clear();
       if (pendingConfigurationDelete === "notifications") await notificationsController.clear();
       if (pendingConfigurationDelete === "replication") await clearReplication();
-      if (pendingConfigurationDelete === "website") await clearWebsite();
+      if (pendingConfigurationDelete === "website") await websiteController.clear();
       if (pendingConfigurationDelete === "policy") await policyController.remove();
       if (pendingConfigurationDelete === "access-logging") await accessLoggingController.clear();
     } finally {
@@ -1227,7 +1202,7 @@ function BucketDetailPageContent({
             : pendingConfigurationDelete === "replication"
               ? clearingReplication
               : pendingConfigurationDelete === "website"
-                ? clearingWebsite
+                ? websiteController.clearing
                 : pendingConfigurationDelete === "policy"
                   ? policyController.deleting
                   : pendingConfigurationDelete === "access-logging"
@@ -1806,138 +1781,12 @@ function BucketDetailPageContent({
             label: "Advanced",
             content: (
               <div className="settings-compact">
-                <BucketFeatureSection
-                  title="Static website"
-                  description="Host a static website from this bucket or redirect all requests."
-                  mode="hybrid"
-                  visualState={websiteCardState}
-                  presentation="workbench"
-                  successMessage={websiteStatus}
-                  busy={savingWebsite || clearingWebsite || websiteLoading}
-                  testId="bucket-feature-website"
-                  actions={
-                    <div className={bucketDetailWrapActionsClass}>
-                      <SettingsButton
-                        type="button"
-                        onClick={() => setPendingConfigurationDelete("website")}
-                        disabled={websiteNotImplemented || clearingWebsite || staticWebsiteBlocked || !websiteConfigured}
-                        variant="danger"
-                      >
-                        {clearingWebsite ? "Deleting..." : "Delete"}
-                      </SettingsButton>
-                      <SettingsButton
-                        type="button"
-                        onClick={saveWebsite}
-                        disabled={websiteNotImplemented || savingWebsite || websiteLoading || staticWebsiteBlocked || !websiteDirty}
-                        variant="primary"
-                      >
-                        {savingWebsite ? "Saving..." : "Save"}
-                      </SettingsButton>
-                    </div>
-                  }
-                >
-                  {staticWebsiteBlocked && <EndpointFeatureDisabledNotice featureLabel="Static website" />}
-                  {websiteError && (
-                    <UiInlineMessage tone="error">{websiteError}</UiInlineMessage>
-                  )}
-                  <fieldset className="space-y-2">
-                    <legend className="settings-label">Website mode</legend>
-                    <SettingsChoiceRow
-                        type="radio"
-                        name={`website-mode-${bucketName}`}
-                        title="Host a website"
-                        description="Serve index and error documents from this bucket."
-                        checked={websiteMode === "hosting"}
-                        onChange={() => updateWebsiteMode("hosting")}
-                        disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                    />
-                    <SettingsChoiceRow
-                        type="radio"
-                        name={`website-mode-${bucketName}`}
-                        title="Redirect all requests"
-                        description="Point every request to another host or domain."
-                        checked={websiteMode === "redirect"}
-                        onChange={() => updateWebsiteMode("redirect")}
-                        disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                    />
-                  </fieldset>
-                  {websiteMode === "hosting" ? (
-                    <div className={bucketDetailStackClass}>
-                      <div className={bucketDetailTwoColumnGridClass}>
-                        <label className={bucketFeatureLabelClass}>
-                          Index document
-                          <input
-                            type="text"
-                            value={websiteIndexDocument}
-                            onChange={(e) => updateWebsiteIndexDocument(e.target.value)}
-                            className={bucketFeatureInputClass}
-                            placeholder="index.html"
-                            disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                          />
-                        </label>
-                        <label className={bucketFeatureLabelClass}>
-                          Error document (optional)
-                          <input
-                            type="text"
-                            value={websiteErrorDocument}
-                            onChange={(e) => updateWebsiteErrorDocument(e.target.value)}
-                            className={bucketFeatureInputClass}
-                            placeholder="error.html"
-                            disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                          />
-                        </label>
-                      </div>
-                      <div className={bucketDetailCompactStackClass}>
-                        <UiTextarea label="Routing rules (JSON array)"
-                          value={websiteRoutingRules}
-                          onChange={(e) => updateWebsiteRoutingRules(e.target.value)}
-                          rows={6}
-                          className="settings-control font-mono"
-                          placeholder="[]"
-                          spellCheck={false}
-                          disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                        />
-                        <div className="ui-caption">
-                          <BucketFeatureJsonExample
-                            show={showWebsiteRulesExample}
-                            onToggle={() => setShowWebsiteRulesExample((prev) => !prev)}
-                            example={defaultWebsiteRoutingRulesExample}
-                            onUseExample={() => updateWebsiteRoutingRules(defaultWebsiteRoutingRulesExample)}
-                            disabled={websiteNotImplemented}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={bucketDetailTwoColumnGridClass}>
-                      <label className={bucketFeatureLabelClass}>
-                        Redirect hostname
-                        <input
-                          type="text"
-                          value={websiteRedirectHost}
-                          onChange={(e) => updateWebsiteRedirectHost(e.target.value)}
-                          className={bucketFeatureInputClass}
-                          placeholder="www.example.com"
-                          disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                        />
-                      </label>
-                      <label className={bucketFeatureLabelClass}>
-                        Protocol (optional)
-                        <input
-                          type="text"
-                          value={websiteRedirectProtocol}
-                          onChange={(e) => updateWebsiteRedirectProtocol(e.target.value)}
-                          className={bucketFeatureInputClass}
-                          placeholder="https"
-                          disabled={websiteNotImplemented || websiteLoading || savingWebsite || clearingWebsite || staticWebsiteBlocked}
-                        />
-                      </label>
-                      <p className="md:col-span-2 ui-caption text-slate-500 dark:text-slate-400">
-                        All requests will redirect to the host above. Index and routing rules are ignored.
-                      </p>
-                    </div>
-                  )}
-                </BucketFeatureSection>
+                <BucketWebsiteFeature
+                  blocked={!staticWebsiteEnabled}
+                  bucketName={bucketName}
+                  controller={websiteController}
+                  onRequestDelete={() => setPendingConfigurationDelete("website")}
+                />
                 {isCephEndpoint && (
                   <BucketFeatureSection
                     title="Replication / multisite"
