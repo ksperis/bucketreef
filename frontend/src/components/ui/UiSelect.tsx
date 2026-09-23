@@ -18,16 +18,17 @@ type UiSelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> & {
   hint?: ReactNode;
   error?: ReactNode;
   fieldClassName?: string;
+  labelClassName?: string;
   size?: UiSelectSize;
 };
 
 const UiSelect = forwardRef<HTMLSelectElement, UiSelectProps>(function UiSelect(
-  { label, hint, error, fieldClassName, className, id, size = "md", children,
+  { label, hint, error, fieldClassName, labelClassName, className, id, size = "md", children,
     "aria-describedby": describedBy, "aria-invalid": ariaInvalid, ...props },
   ref
 ) {
   return (
-    <UiField label={label} hint={hint} error={error} htmlFor={id} describedBy={describedBy} className={fieldClassName}>
+    <UiField label={label} hint={hint} error={error} htmlFor={id} describedBy={describedBy} className={fieldClassName} labelClassName={labelClassName}>
       {({ id: resolvedId, describedBy, invalid }) => (
         <select
           id={resolvedId}
