@@ -366,6 +366,10 @@ class Settings(BaseSettings):
     oidc_providers: dict[str, OIDCProviderSettings] = Field(default_factory=dict)
     oidc_state_ttl_seconds: int = Field(600, description="Validity of OIDC login state (seconds)")
     ldap_providers: dict[str, LDAPProviderSettings] = Field(default_factory=dict)
+    scheduled_jobs_enabled: bool = Field(
+        True,
+        description="Mount internal scheduled-job endpoints on this backend instance",
+    )
 
     feature_admin_enabled: Optional[bool] = Field(
         None,

@@ -255,11 +255,12 @@ if runtime_surface_enabled(settings, "storage_ops"):
     app.include_router(storage_ops_integrity.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
     app.include_router(storage_ops_purge.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
     app.include_router(storage_ops_usage_stats.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_storage_ops_enabled)])
-app.include_router(internal_billing.router, prefix=settings.api_v1_prefix)
-app.include_router(internal_healthchecks.router, prefix=settings.api_v1_prefix)
-app.include_router(internal_quota_monitor.router, prefix=settings.api_v1_prefix)
-app.include_router(internal_usage_history.router, prefix=settings.api_v1_prefix)
-app.include_router(internal_user_notifications.router, prefix=settings.api_v1_prefix)
+if settings.scheduled_jobs_enabled:
+    app.include_router(internal_billing.router, prefix=settings.api_v1_prefix)
+    app.include_router(internal_healthchecks.router, prefix=settings.api_v1_prefix)
+    app.include_router(internal_quota_monitor.router, prefix=settings.api_v1_prefix)
+    app.include_router(internal_usage_history.router, prefix=settings.api_v1_prefix)
+    app.include_router(internal_user_notifications.router, prefix=settings.api_v1_prefix)
 if runtime_surface_enabled(settings, "manager"):
     app.include_router(
         manager_context.router,

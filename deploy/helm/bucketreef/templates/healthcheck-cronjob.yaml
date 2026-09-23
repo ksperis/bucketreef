@@ -1,4 +1,4 @@
-{{- if .Values.healthcheckCronJob.enabled }}
+{{- if and .Values.healthcheckCronJob.enabled (ne (include "bucketreef.deploymentProfile" .) "user") }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:

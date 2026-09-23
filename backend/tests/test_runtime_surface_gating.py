@@ -38,6 +38,7 @@ def test_disabled_runtime_surfaces_are_not_mounted() -> None:
             "FEATURE_MANAGER_ENABLED": "false",
             "FEATURE_PORTAL_ENABLED": "false",
             "FEATURE_BROWSER_ENABLED": "false",
+            "SCHEDULED_JOBS_ENABLED": "false",
         }
     )
     code = """
@@ -61,6 +62,11 @@ print(json.dumps(sorted(app.openapi()["paths"])))
         "/api/manager",
         "/api/portal",
         "/api/browser",
+        "/api/internal/billing",
+        "/api/internal/healthchecks",
+        "/api/internal/quota-monitor",
+        "/api/internal/usage-history",
+        "/api/internal/notifications",
     )
     for prefix in disabled_prefixes:
         assert not any(path == prefix or path.startswith(f"{prefix}/") for path in paths)

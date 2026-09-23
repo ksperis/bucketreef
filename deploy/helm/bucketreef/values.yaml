@@ -8,6 +8,10 @@ image:
     tag: "" # Defaults to Chart.appVersion.
     pullPolicy: IfNotPresent
 
+# Runtime surface profile for this release. Use separate releases with `admin`
+# and `user` when splitting the control plane from end-user surfaces.
+deploymentProfile: full
+
 backend:
   replicas: 1
   databaseType: postgresql
@@ -27,6 +31,7 @@ backend:
     APP_ENV: production
     API_V1_PREFIX: /api
     PUBLIC_ORIGIN: https://bucketreef.local
+    PUBLIC_ORIGINS: '[]'
     CORS_ORIGINS: '["https://bucketreef.local"]'
     ALLOWED_HOSTS: '["bucketreef.local"]'
     USER_SUPPLIED_S3_ENDPOINT_ALLOWED_HOSTS: '[]'
@@ -35,6 +40,7 @@ backend:
     REFRESH_TOKEN_COOKIE_SECURE: "true"
     REQUIRE_REGISTERED_S3_LOGIN_ENDPOINTS: "true"
     WEBAUTHN_ORIGIN: https://bucketreef.local
+    WEBAUTHN_ORIGINS: '[]'
     WEBAUTHN_RP_ID: bucketreef.local
     # No implicit storage seed is created in production. Configure endpoints
     # administratively after startup or provide an explicit HTTPS seed.
