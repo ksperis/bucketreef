@@ -97,8 +97,9 @@ With an isolated empty database, issue the normal first-admin token from the
 high-security backend. After login, the only workspace available to that user
 should be Ceph Admin. Enroll the administrator passkey from **Profile >
 Security**, then enable **Require passkeys for administrators** before running
-the production hardening check; the high-security profile uses the same
-blocking Admin passkey policy as the other deployment profiles.
+the production readiness check. The Admin passkey policy is Critical before
+publication but does not block startup; the high-security runtime/profile,
+surface, and scheduler boundary remains startup-blocking.
 
 Verify before publication:
 

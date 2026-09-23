@@ -10,12 +10,13 @@ from typing import Sequence
 from pydantic import ValidationError
 
 from app.core.config import DeploymentProfile, Settings
+from app.core.database import SessionLocal
 from app.models.app_settings import AppSettings
-from app.services.app_settings_service import load_app_settings
-from app.services.production_hardening import (
-    HardeningFinding,
-    check_production_hardening,
-    hardening_exit_code,
+from app.services.app_settings_service import load_app_settings, load_app_settings_for_db_readonly
+from app.services.deployment_checks import (
+    DeploymentCheckFinding,
+    deployment_exit_code,
+    run_deployment_checks,
 )
 
 
@@ -27,14 +28,26 @@ def _validation_messages(exc: ValidationError) -> list[str]:
     return messages
 
 
-def _render_text(findings: list[HardeningFinding]) -> str:
-    return "\n".join(f"{finding.level.upper():7} {finding.code}: {finding.message}" for finding in findings)
+def _render_text(findings: list[DeploymentCheckFinding]) -> str:
+    return "\n".join(
+        f"{finding.level.upper():8} {finding.code}: {finding.message} [{finding.documentation_url}]"
+        for finding in findings
+    )
 
 
-def _render_json(findings: list[HardeningFinding]) -> str:
+def _render_json(findings: list[DeploymentCheckFinding]) -> str:
     return json.dumps(
         [
-            {"code": finding.code, "level": finding.level, "message": finding.message}
+            {
+                "code": finding.code,
+                "label": finding.label,
+                "result": finding.result,
+                "severity": finding.severity,
+                "level": finding.level,
+                "message": finding.message,
+                "documentation_url": finding.documentation_url,
+                "blocks_startup": finding.blocks_startup,
+            }
             for finding in findings
         ],
         indent=2,
@@ -53,24 +66,44 @@ def run(
         runtime = settings or Settings()
     except ValidationError as exc:
         findings = [
-            HardeningFinding("settings", "fail", message)
+            DeploymentCheckFinding(
+                code="settings",
+                label="Runtime configuration",
+                result="fail",
+                severity="blocker",
+                message=message,
+                documentation_url="https://docs.bucketreef.ksperis.com/ops/configuration/",
+                blocks_startup=True,
+            )
             for message in _validation_messages(exc)
         ]
         return 1, _render_json(findings) if json_output else _render_text(findings)
 
-    try:
-        effective_app_settings = app_settings or load_app_settings()
-    except Exception:
-        effective_app_settings = None
-
     selected_profile = profile or runtime.deployment_profile
-    findings = check_production_hardening(
-        runtime,
-        app_settings=effective_app_settings,
-        profile=selected_profile,
-    )
+    if settings is None:
+        with SessionLocal() as db:
+            try:
+                effective_app_settings = app_settings or load_app_settings_for_db_readonly(db)
+            except Exception:
+                effective_app_settings = None
+            findings = run_deployment_checks(
+                runtime,
+                app_settings=effective_app_settings,
+                profile=selected_profile,
+                db=db,
+            )
+    else:
+        try:
+            effective_app_settings = app_settings or load_app_settings()
+        except Exception:
+            effective_app_settings = None
+        findings = run_deployment_checks(
+            runtime,
+            app_settings=effective_app_settings,
+            profile=selected_profile,
+        )
     output = _render_json(findings) if json_output else _render_text(findings)
-    return hardening_exit_code(findings), output
+    return deployment_exit_code(findings), output
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

@@ -112,8 +112,10 @@ python -m app.scripts.check_production_hardening --profile admin
 Without `--profile`, the checker evaluates the runtime `DEPLOYMENT_PROFILE`.
 It also evaluates the production security boundary independently of the current
 `APP_ENV`, so it can be used as a preflight while a staging instance still runs
-with `APP_ENV=development` or `test`. Once `APP_ENV=production`, the same core
-security invariants are fail-closed at application startup.
+with `APP_ENV=development` or `test`. Once `APP_ENV=production`, only findings
+classified as startup security blockers stop the backend; Critical and Warning
+findings remain visible without taking the application offline. See
+[Production checks reference](production-checks-reference.md).
 
 `PUBLIC_ORIGIN` and `WEBAUTHN_ORIGIN` remain the canonical values.
 `PUBLIC_ORIGINS` and `WEBAUTHN_ORIGINS` are JSON lists of additional trusted
@@ -246,7 +248,7 @@ persisted setting.
 Managed from Admin UI:
 
 - General feature toggles (`manager_enabled`, `portal_enabled`, `browser_enabled`, `ceph_admin_enabled`, `storage_ops_enabled`, `billing_enabled`, `endpoint_status_enabled`).
-- Authentication settings (`allow_login_access_keys`, endpoint selection for access-key login, custom login endpoints, `require_passkey_for_admins`, `require_passkey_for_users`, `allow_user_profile_name_edit`, and `allow_user_external_identity_unlink`). Fresh installations leave both passkey requirements disabled to simplify onboarding and keep both self-service permissions disabled. Before production, enroll an administrator passkey from **Profile > Security** and enable `require_passkey_for_admins`; Production readiness treats the disabled policy as a blocking failure. Persisted settings from older releases keep the historical Admin requirement when this field is absent.
+- Authentication settings (`allow_login_access_keys`, endpoint selection for access-key login, custom login endpoints, `require_passkey_for_admins`, `require_passkey_for_users`, `allow_user_profile_name_edit`, and `allow_user_external_identity_unlink`). Fresh installations leave both passkey requirements disabled to simplify onboarding and keep both self-service permissions disabled. Before production, enroll an administrator passkey from **Profile > Security** and enable `require_passkey_for_admins`; Production readiness treats the disabled policy as a Critical publication finding, not a startup blocker. Persisted settings from older releases keep the historical Admin requirement when this field is absent.
 - Quota supervision toggles (`quota_alerts_enabled`, `usage_history_enabled`).
 - Browser sub-flags (`browser_root_enabled`, `browser_manager_enabled`, `browser_portal_enabled`, `browser_ceph_admin_enabled`).
 - Portal settings (`portal`): standalone Browser access (`browser_access_enabled`, disabled by default), IAM key availability, private Storage Space creation, portal user access-key creation, Portal User external sharing (`allow_portal_user_external_sharing`, disabled by default), server access log retention for newly created technical log buckets, max portal user keys, and bucket defaults. When external sharing is enabled, a `portal_user` may create public links and external S3 credentials only for an owned Storage Space; disabling it blocks new creation while existing links and credentials remain manageable. Portal Managers keep their existing behavior independently of this flag. Portal settings can be overridden per account by a super-admin. The per-account `portal_settings_delegated` flag is disabled by default; when enabled, project Portal Managers can edit the same shared override from `/portal/settings`. Disabling delegation keeps the stored override effective but read-only in Portal. `bucket_defaults.noncurrent_version_expiration_days` is the internal key for **Version history retention**; it is a positive integer (90 by default) and applies only when provisioning a new Storage Space with the default lifecycle enabled. Existing buckets are not reconciled automatically.

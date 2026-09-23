@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.app_settings import AppSettings
 from app.scripts.check_production_hardening import run
-from app.services.production_hardening import check_production_hardening, hardening_exit_code
+from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
+from app.services.production_hardening import (
+    HardeningFinding,
+    check_production_hardening,
+    hardening_counts,
+    hardening_exit_code,
+    hardening_status,
+)
 
 
 def _production_settings(**overrides) -> Settings:
@@ -53,26 +61,49 @@ def _app_settings(*, admin_passkeys_required: bool = True) -> AppSettings:
 
 
 def _check(settings: Settings, *, profile: str, admin_passkeys_required: bool = True):
-    return check_production_hardening(
+    return run_deployment_checks(
         settings,
         app_settings=_app_settings(admin_passkeys_required=admin_passkeys_required),
         profile=profile,
+        include_manual=False,
     )
 
 
-def test_admin_profile_passes_hardening_checker():
+def _finding(findings, code: str):
+    return next(finding for finding in findings if finding.code == code)
+
+
+def test_legacy_hardening_facade_preserves_three_level_contract():
+    warning = HardeningFinding("legacy-check", "warning", "Review this setting.")
+
+    assert hardening_status([warning]) == "warning"
+    assert hardening_counts([warning]) == {"pass": 0, "warning": 1, "fail": 0}
+    assert hardening_exit_code([warning]) == 0
+
+    findings = check_production_hardening(
+        _production_settings(),
+        app_settings=_app_settings(),
+        profile="admin",
+    )
+    assert findings
+    assert all(finding.level in {"pass", "warning", "fail"} for finding in findings)
+
+
+def test_admin_profile_passes_automated_deployment_checks():
     findings = _check(_production_settings(), profile="admin")
-    assert hardening_exit_code(findings) == 0
-    assert all(finding.level == "pass" for finding in findings)
+
+    assert deployment_exit_code(findings) == 0
+    assert all(finding.level == "ok" for finding in findings)
 
 
-def test_user_profile_rejects_admin_surfaces_and_job_ownership():
+def test_user_profile_reports_topology_mismatches_as_critical_without_startup_block():
     findings = _check(_production_settings(), profile="user")
-    failed_codes = {finding.code for finding in findings if finding.level == "fail"}
-    assert "job-owner" in failed_codes
-    assert "surface-admin" in failed_codes
-    assert "surface-manager" in failed_codes
-    assert hardening_exit_code(findings) == 1
+
+    assert _finding(findings, "job-owner").level == "critical"
+    assert _finding(findings, "surface-admin").level == "critical"
+    assert _finding(findings, "surface-manager").level == "critical"
+    assert not _finding(findings, "surface-admin").blocks_startup
+    assert deployment_exit_code(findings) == 1
 
 
 def test_user_profile_passes_with_user_surface_contract():
@@ -86,11 +117,14 @@ def test_user_profile_passes_with_user_surface_contract():
         scheduled_jobs_enabled=False,
         internal_cron_token=None,
     )
+
     findings = _check(settings, profile="user")
-    assert hardening_exit_code(findings) == 0
+
+    assert deployment_exit_code(findings) == 0
+    assert all(finding.level == "ok" for finding in findings)
 
 
-def test_split_profile_requires_postgresql_and_all_shared_origins():
+def test_split_profile_requires_postgresql_and_shared_origins_as_critical_findings():
     settings = Settings(
         _env_file=None,
         database_url="sqlite:////tmp/bucketreef.db",
@@ -104,13 +138,17 @@ def test_split_profile_requires_postgresql_and_all_shared_origins():
         feature_browser_enabled=True,
         scheduled_jobs_enabled=False,
     )
+
     findings = _check(settings, profile="user")
-    failed_codes = {finding.code for finding in findings if finding.level == "fail"}
-    assert {"app-env", "keyrings", "database", "shared-origins"} <= failed_codes
+
+    assert _finding(findings, "app-env").level == "critical"
+    assert _finding(findings, "trusted-origins").level == "critical"
+    assert _finding(findings, "database").level == "critical"
+    assert _finding(findings, "shared-origins").level == "critical"
 
 
 @pytest.mark.parametrize(
-    ("overrides", "expected_code"),
+    ("overrides", "expected_code", "expected_level"),
     [
         (
             {
@@ -119,19 +157,26 @@ def test_split_profile_requires_postgresql_and_all_shared_origins():
                 "webauthn_origin": "http://admin.example.test",
             },
             "trusted-origins",
+            "critical",
         ),
-        ({"app_env": "development", "refresh_token_cookie_secure": False}, "authentication-boundary"),
-        ({"app_env": "development", "allowed_hosts": ["*"]}, "network-boundary"),
+        (
+            {"app_env": "development", "refresh_token_cookie_secure": False},
+            "authentication-cookie-secure",
+            "blocked",
+        ),
+        ({"app_env": "development", "allowed_hosts": ["*"]}, "allowed-hosts", "critical"),
         (
             {
                 "app_env": "development",
                 "credential_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"],
             },
-            "keyrings",
+            "key-separation",
+            "critical",
         ),
         (
             {"app_env": "development", "seed_s3_endpoint": "http://seed.example.test"},
             "seed-security",
+            "critical",
         ),
         (
             {
@@ -146,7 +191,8 @@ def test_split_profile_requires_postgresql_and_all_shared_origins():
                     }
                 },
             },
-            "oidc-security",
+            "environment-oidc-integrity",
+            "critical",
         ),
         (
             {
@@ -160,17 +206,75 @@ def test_split_profile_requires_postgresql_and_all_shared_origins():
                     }
                 },
             },
-            "ldap-security",
+            "environment-ldap-transport",
+            "blocked",
         ),
     ],
 )
-def test_checker_exposes_production_security_failures_before_app_env_switch(overrides, expected_code):
+def test_checker_exposes_production_target_risks_before_app_env_switch(overrides, expected_code, expected_level):
     settings = _production_settings(**overrides)
 
     findings = _check(settings, profile="admin")
 
-    failed_codes = {finding.code for finding in findings if finding.level == "fail"}
-    assert expected_code in failed_codes
+    assert _finding(findings, expected_code).level == expected_level
+
+
+def test_blocker_only_blocks_startup_in_production_for_general_security_checks():
+    development = _production_settings(
+        app_env="development",
+        refresh_token_cookie_secure=False,
+    )
+    production = _production_settings(refresh_token_cookie_secure=False)
+
+    dev_finding = _finding(_check(development, profile="admin"), "authentication-cookie-secure")
+    prod_finding = _finding(_check(production, profile="admin"), "authentication-cookie-secure")
+
+    assert dev_finding.level == "blocked"
+    assert dev_finding.blocks_startup is False
+    assert prod_finding.level == "blocked"
+    assert prod_finding.blocks_startup is True
+
+
+def test_empty_trusted_proxy_boundary_is_warning_not_startup_blocker():
+    findings = _check(_production_settings(trusted_proxy_cidrs=[]), profile="admin")
+
+    finding = _finding(findings, "trusted-proxies")
+    assert finding.level == "warning"
+    assert finding.blocks_startup is False
+
+
+def test_single_full_profile_sqlite_database_is_warning():
+    findings = _check(
+        _production_settings(
+            deployment_profile="full",
+            database_url="sqlite:////tmp/bucketreef.db",
+            feature_admin_enabled=None,
+            feature_ceph_admin_enabled=None,
+            feature_storage_ops_enabled=None,
+            feature_manager_enabled=None,
+            feature_portal_enabled=None,
+            feature_browser_enabled=None,
+        ),
+        profile="full",
+    )
+
+    finding = _finding(findings, "database")
+    assert finding.level == "warning"
+    assert finding.blocks_startup is False
+
+
+def test_global_trusted_proxy_boundary_is_security_blocker():
+    findings = _check(_production_settings(trusted_proxy_cidrs=["0.0.0.0/0"]), profile="admin")
+
+    finding = _finding(findings, "trusted-proxies")
+    assert finding.level == "blocked"
+    assert finding.blocks_startup is True
+
+
+def test_samesite_strict_is_accepted_as_secure_cookie_scope():
+    findings = _check(_production_settings(refresh_token_cookie_samesite="strict"), profile="admin")
+
+    assert _finding(findings, "authentication-cookie-scope").level == "ok"
 
 
 def test_cli_json_output_contains_no_secret_values():
@@ -181,11 +285,13 @@ def test_cli_json_output_contains_no_secret_values():
         settings=settings,
         app_settings=_app_settings(),
     )
+
     assert exit_code == 0
     parsed = json.loads(output)
     assert parsed
     assert settings.internal_cron_token not in output
     assert settings.credential_keys[0] not in output
+    assert all("documentation_url" in item for item in parsed)
 
 
 def test_cli_uses_runtime_deployment_profile_when_not_overridden():
@@ -208,7 +314,7 @@ def test_cli_uses_runtime_deployment_profile_when_not_overridden():
 
     assert exit_code == 0
     assert "surface-manager" in output
-    assert "must be disabled" not in output
+    assert "CRITICAL surface-manager" not in output
 
 
 def test_ceph_admin_high_security_profile_passes_with_dedicated_contract():
@@ -231,19 +337,18 @@ def test_ceph_admin_high_security_profile_passes_with_dedicated_contract():
         allowed_hosts=["ceph-admin.example.test"],
         cors_origins=["https://ceph-admin.example.test"],
     )
+
     findings = _check(settings, profile="ceph-admin-high-security")
-    assert hardening_exit_code(findings) == 0
-    assert all(finding.level == "pass" for finding in findings)
-    database_finding = next(finding for finding in findings if finding.code == "database")
-    assert database_finding.message == "Dedicated Ceph Admin deployment uses PostgreSQL."
+
+    assert deployment_exit_code(findings) == 0
+    assert all(finding.level == "ok" for finding in findings)
 
 
-def test_ceph_admin_high_security_database_failure_allows_shared_or_isolated_database():
-    settings = Settings(
-        _env_file=None,
+def test_ceph_admin_high_security_database_mismatch_is_critical_but_not_boot_blocking():
+    settings = _production_settings(
         deployment_profile="ceph-admin-high-security",
-        database_url="sqlite:////tmp/bucketreef.db",
         ceph_admin_high_security_mode=True,
+        database_url="sqlite:////tmp/bucketreef.db",
         feature_admin_enabled=False,
         feature_ceph_admin_enabled=True,
         feature_storage_ops_enabled=False,
@@ -251,30 +356,130 @@ def test_ceph_admin_high_security_database_failure_allows_shared_or_isolated_dat
         feature_portal_enabled=False,
         feature_browser_enabled=False,
         scheduled_jobs_enabled=False,
+        internal_cron_token=None,
+        public_origins=[],
+        webauthn_origins=[],
+        public_origin="https://ceph-admin.example.test",
+        webauthn_origin="https://ceph-admin.example.test",
+        webauthn_rp_id="ceph-admin.example.test",
+        allowed_hosts=["ceph-admin.example.test"],
+        cors_origins=["https://ceph-admin.example.test"],
     )
 
-    findings = _check(settings, profile="ceph-admin-high-security")
-    database_finding = next(finding for finding in findings if finding.code == "database")
+    finding = _finding(_check(settings, profile="ceph-admin-high-security"), "database")
 
-    assert database_finding.level == "fail"
-    assert "may be shared or isolated" in database_finding.message
+    assert finding.level == "critical"
+    assert finding.blocks_startup is False
 
 
 @pytest.mark.parametrize("profile", ["full", "admin", "user", "ceph-admin-high-security"])
-def test_admin_passkey_policy_is_required_for_every_profile(profile):
-    findings = _check(
-        _production_settings(),
-        profile=profile,
-        admin_passkeys_required=False,
+def test_admin_passkey_policy_is_critical_not_startup_blocking(profile):
+    settings = _production_settings()
+    if profile == "ceph-admin-high-security":
+        settings = _production_settings(
+            deployment_profile="ceph-admin-high-security",
+            ceph_admin_high_security_mode=True,
+            feature_admin_enabled=False,
+            feature_ceph_admin_enabled=True,
+            feature_storage_ops_enabled=False,
+            feature_manager_enabled=False,
+            feature_portal_enabled=False,
+            feature_browser_enabled=False,
+            scheduled_jobs_enabled=False,
+            internal_cron_token=None,
+            public_origins=[],
+            webauthn_origins=[],
+            public_origin="https://ceph-admin.example.test",
+            webauthn_origin="https://ceph-admin.example.test",
+            webauthn_rp_id="ceph-admin.example.test",
+            allowed_hosts=["ceph-admin.example.test"],
+            cors_origins=["https://ceph-admin.example.test"],
+        )
+
+    finding = _finding(
+        _check(settings, profile=profile, admin_passkeys_required=False),
+        "admin-passkey-policy",
     )
 
-    finding = next(finding for finding in findings if finding.code == "admin-passkey-policy")
-    assert finding.level == "fail"
-    assert "Require passkeys for administrators" in finding.message
-    assert hardening_exit_code(findings) == 1
+    assert finding.level == "critical"
+    assert finding.blocks_startup is False
 
 
-def test_cli_reports_app_settings_load_failure(monkeypatch):
+def test_high_security_surface_contract_is_reported_as_startup_blocker_instead_of_settings_parse_failure():
+    settings = _production_settings(
+        deployment_profile="ceph-admin-high-security",
+        ceph_admin_high_security_mode=True,
+        feature_admin_enabled=True,
+        feature_ceph_admin_enabled=True,
+        feature_storage_ops_enabled=False,
+        feature_manager_enabled=False,
+        feature_portal_enabled=False,
+        feature_browser_enabled=False,
+        scheduled_jobs_enabled=False,
+        internal_cron_token=None,
+    )
+
+    finding = _finding(_check(settings, profile="ceph-admin-high-security"), "surface-admin")
+
+    assert finding.level == "blocked"
+    assert finding.blocks_startup is True
+
+
+def test_high_security_mode_profile_mismatch_is_startup_blocker():
+    settings = _production_settings(
+        deployment_profile="full",
+        ceph_admin_high_security_mode=True,
+    )
+
+    finding = _finding(_check(settings, profile="full"), "high-security-mode")
+
+    assert finding.level == "blocked"
+    assert finding.blocks_startup is True
+
+
+def test_manual_checks_are_reported_without_affecting_cli_exit_code():
+    findings = run_deployment_checks(
+        _production_settings(),
+        app_settings=_app_settings(),
+        profile="admin",
+        include_manual=True,
+    )
+
+    manual = [finding for finding in findings if finding.level == "manual"]
+    assert manual
+    assert deployment_exit_code(findings) == 0
+    assert all(finding.documentation_url.startswith("https://docs.bucketreef.ksperis.com/") for finding in manual)
+
+
+def test_every_reported_check_links_to_an_existing_documentation_anchor(db_session):
+    documentation = (
+        Path(__file__).resolve().parents[2] / "doc" / "docs" / "ops" / "production-checks-reference.md"
+    ).read_text(encoding="utf-8")
+    anchors: set[str] = set()
+    for line in documentation.splitlines():
+        if not line.startswith("#"):
+            continue
+        heading = line.lstrip("#").strip().replace("`", "").lower()
+        anchor = re.sub(r"[^a-z0-9 -]", "", heading).replace(" ", "-")
+        anchor = re.sub(r"-+", "-", anchor).strip("-")
+        if anchor:
+            anchors.add(anchor)
+
+    for profile in ("full", "admin", "user", "ceph-admin-high-security"):
+        findings = run_deployment_checks(
+            _production_settings(),
+            app_settings=_app_settings(),
+            profile=profile,
+            db=db_session,
+            include_manual=True,
+        )
+
+        for finding in findings:
+            fragment = finding.documentation_url.partition("#")[2]
+            assert fragment in anchors, f"Missing documentation anchor for {profile}/{finding.code}: {fragment}"
+
+
+def test_cli_reports_app_settings_load_failure_as_critical(monkeypatch):
     def fail_load():
         raise RuntimeError("database unavailable")
 
@@ -283,32 +488,5 @@ def test_cli_reports_app_settings_load_failure(monkeypatch):
     exit_code, output = run(profile="admin", settings=_production_settings())
 
     assert exit_code == 1
-    assert "FAIL    app-settings:" in output
+    assert "CRITICAL app-settings:" in output
     assert "database unavailable" not in output
-
-
-def test_high_security_mode_rejects_wider_surface_contract():
-    with pytest.raises(ValidationError, match="dedicated Ceph Admin surface contract"):
-        Settings(
-            _env_file=None,
-            deployment_profile="ceph-admin-high-security",
-            ceph_admin_high_security_mode=True,
-            feature_ceph_admin_enabled=True,
-            feature_admin_enabled=True,
-            scheduled_jobs_enabled=False,
-        )
-
-
-def test_high_security_mode_requires_matching_runtime_profile():
-    with pytest.raises(ValidationError, match="DEPLOYMENT_PROFILE=ceph-admin-high-security"):
-        Settings(
-            _env_file=None,
-            ceph_admin_high_security_mode=True,
-            feature_ceph_admin_enabled=True,
-            feature_admin_enabled=False,
-            feature_storage_ops_enabled=False,
-            feature_manager_enabled=False,
-            feature_portal_enabled=False,
-            feature_browser_enabled=False,
-            scheduled_jobs_enabled=False,
-        )

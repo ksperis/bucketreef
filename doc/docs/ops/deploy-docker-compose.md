@@ -249,7 +249,7 @@ initial setup.
    from **Profile > Security**.
 3. Before production, enable **Require passkeys for administrators** in
    Authentication settings and verify Production readiness no longer reports
-   `admin-passkey-policy` as `Fail`.
+   `admin-passkey-policy` as `Critical`.
 4. For production, set `APP_ENV=production`, mutually distinct `UI_JWT_KEYS`,
    `API_JWT_KEYS`, and `CREDENTIAL_KEYS`, the exact origin/hosts, secure cookies,
    WebAuthn, trusted proxy CIDRs, and the scheduler token in `.env`.

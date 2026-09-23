@@ -14,15 +14,64 @@ vi.mock("../../api/productionReadiness", async () => {
   };
 });
 
+const docs = "https://docs.bucketreef.ksperis.com/ops/production-checks-reference/";
+
 const report: ProductionReadinessResponse = {
   environment: "production",
   profile: "admin",
-  status: "warning",
-  counts: { pass: 2, warning: 1, fail: 0 },
+  status: "critical",
+  counts: { blocked: 0, critical: 1, warning: 1, manual: 1, ok: 2 },
   findings: [
-    { code: "app-env", label: "Production environment", level: "pass", message: "APP_ENV is production." },
-    { code: "database", label: "Database", level: "pass", message: "Split deployment uses PostgreSQL." },
-    { code: "job-owner", label: "Scheduled job ownership", level: "warning", message: "Review scheduled jobs." },
+    {
+      code: "app-env",
+      label: "Production environment",
+      result: "pass",
+      severity: "critical",
+      level: "ok",
+      message: "APP_ENV is production.",
+      documentation_url: docs + "#app-env",
+      blocks_startup: false,
+    },
+    {
+      code: "admin-passkey-policy",
+      label: "Administrator passkey policy",
+      result: "fail",
+      severity: "critical",
+      level: "critical",
+      message: "Enable administrator passkeys.",
+      documentation_url: docs + "#admin-passkey-policy",
+      blocks_startup: false,
+    },
+    {
+      code: "database",
+      label: "Database topology",
+      result: "pass",
+      severity: "critical",
+      level: "ok",
+      message: "PostgreSQL is configured.",
+      documentation_url: docs + "#database-topology",
+      blocks_startup: false,
+    },
+    {
+      code: "job-owner",
+      label: "Scheduled job ownership",
+      result: "fail",
+      severity: "warning",
+      level: "warning",
+      message: "Review scheduled jobs.",
+      documentation_url: docs + "#scheduled-job-ownership",
+      blocks_startup: false,
+    },
+    {
+      code: "manual-backup-restore",
+      label: "Backup and restore test",
+      result: "manual",
+      severity: null,
+      level: "manual",
+      message: "Confirm restore evidence.",
+      documentation_url: docs + "#manual-backup-restore",
+      blocks_startup: false,
+    },
   ],
 };
 
@@ -32,16 +81,18 @@ describe("ProductionReadinessPage", () => {
     fetchProductionReadinessMock.mockResolvedValue(report);
   });
 
-  it("shows the current-instance scope, profile, counts and findings", async () => {
+  it("groups blockers, critical findings, warnings, manual checks and OK results", async () => {
     render(<ProductionReadinessPage />);
 
     expect(await screen.findByText("Runtime summary")).toBeInTheDocument();
-    expect(screen.getByText(/evaluates production requirements for this backend instance only/i)).toBeInTheDocument();
-    expect(screen.getAllByText("production").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("admin").length).toBeGreaterThan(0);
-    expect(screen.getByText("Production environment")).toBeInTheDocument();
-    expect(screen.getByText("Scheduled job ownership")).toBeInTheDocument();
-    expect(screen.getByText("Failures").parentElement).toHaveTextContent("0");
+    expect(screen.getByText(/evaluates the production target for this backend instance/i)).toBeInTheDocument();
+    expect(screen.getByText("Administrator passkey policy")).toBeInTheDocument();
+    expect(screen.getByText("Backup and restore test")).toBeInTheDocument();
+    expect(screen.getByText("Critical", { selector: "dt" }).parentElement).toHaveTextContent("1");
+    expect(screen.getByText("Manual", { selector: "dt" }).parentElement).toHaveTextContent("1");
+    const successfulChecks = screen.getByText("Show 2 successful checks").closest("details");
+    expect(successfulChecks).not.toHaveAttribute("open");
+    expect(screen.getAllByRole("link", { name: "Documentation" })).toHaveLength(report.findings.length);
   });
 
   it("refreshes the report on demand", async () => {
