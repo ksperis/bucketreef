@@ -199,9 +199,13 @@ def health_check():
 # API routers
 app.include_router(auth.router, prefix=settings.api_v1_prefix)
 app.include_router(users.router, prefix=settings.api_v1_prefix)
-app.include_router(execution_contexts.router, prefix=settings.api_v1_prefix)
-app.include_router(user_connections.router, prefix=settings.api_v1_prefix)
 app.include_router(public_settings.router, prefix=settings.api_v1_prefix)
+if any(
+    runtime_surface_enabled(settings, surface)
+    for surface in ("manager", "portal", "browser")
+):
+    app.include_router(execution_contexts.router, prefix=settings.api_v1_prefix)
+    app.include_router(user_connections.router, prefix=settings.api_v1_prefix)
 if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_s3_accounts.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_s3_users.router, prefix=settings.api_v1_prefix)

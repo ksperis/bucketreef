@@ -370,6 +370,10 @@ class Settings(BaseSettings):
         True,
         description="Mount internal scheduled-job endpoints on this backend instance",
     )
+    ceph_admin_high_security_mode: bool = Field(
+        False,
+        description="Run this backend as a dedicated Ceph Admin high-security instance",
+    )
 
     feature_admin_enabled: Optional[bool] = Field(
         None,
@@ -624,6 +628,23 @@ class Settings(BaseSettings):
                 ipaddress.ip_network(value, strict=False)
             except ValueError as exc:
                 raise ValueError(f"Invalid trusted proxy CIDR: {value}") from exc
+        if self.ceph_admin_high_security_mode:
+            expected_surface_settings = {
+                "FEATURE_ADMIN_ENABLED": self.feature_admin_enabled is False,
+                "FEATURE_CEPH_ADMIN_ENABLED": self.feature_ceph_admin_enabled is True,
+                "FEATURE_STORAGE_OPS_ENABLED": self.feature_storage_ops_enabled is False,
+                "FEATURE_MANAGER_ENABLED": self.feature_manager_enabled is False,
+                "FEATURE_PORTAL_ENABLED": self.feature_portal_enabled is False,
+                "FEATURE_BROWSER_ENABLED": self.feature_browser_enabled is False,
+            }
+            invalid = [name for name, valid in expected_surface_settings.items() if not valid]
+            if invalid:
+                raise ValueError(
+                    "CEPH_ADMIN_HIGH_SECURITY_MODE requires the dedicated Ceph Admin surface contract; "
+                    f"fix: {', '.join(invalid)}"
+                )
+            if self.scheduled_jobs_enabled:
+                raise ValueError("CEPH_ADMIN_HIGH_SECURITY_MODE requires SCHEDULED_JOBS_ENABLED=false")
         if self.app_env == "production":
             self._validate_production_security()
         return self

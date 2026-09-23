@@ -1,14 +1,14 @@
 {{- $backendReplicas := int (.Values.backend.replicas | default 1) -}}
 {{- $backendAccessMode := lower (toString (.Values.backend.persistence.accessMode | default "ReadWriteOnce")) -}}
 {{- $deploymentProfile := include "bucketreef.deploymentProfile" . -}}
-{{- if not (has $deploymentProfile (list "full" "admin" "user")) -}}
-{{- fail "deploymentProfile must be one of: full, admin, user." -}}
+{{- if not (has $deploymentProfile (list "full" "admin" "user" "ceph-admin-high-security")) -}}
+{{- fail "deploymentProfile must be one of: full, admin, user, ceph-admin-high-security." -}}
 {{- end -}}
-{{- if and (eq $deploymentProfile "user") (or .Values.billingCronJob.enabled .Values.healthcheckCronJob.enabled .Values.quotaMonitorCronJob.enabled .Values.usageHistoryCronJob.enabled .Values.notificationRetentionCronJob.enabled) -}}
-{{- fail "deploymentProfile=user cannot own scheduled jobs; enable CronJobs only on the admin release." -}}
+{{- if and (has $deploymentProfile (list "user" "ceph-admin-high-security")) (or .Values.billingCronJob.enabled .Values.healthcheckCronJob.enabled .Values.quotaMonitorCronJob.enabled .Values.usageHistoryCronJob.enabled .Values.notificationRetentionCronJob.enabled) -}}
+{{- fail (printf "deploymentProfile=%s cannot own scheduled jobs; enable CronJobs only on the admin/full release." $deploymentProfile) -}}
 {{- end -}}
 {{- if ne $deploymentProfile "full" -}}
-{{- range $featureName := list "FEATURE_ADMIN_ENABLED" "FEATURE_CEPH_ADMIN_ENABLED" "FEATURE_STORAGE_OPS_ENABLED" "FEATURE_MANAGER_ENABLED" "FEATURE_PORTAL_ENABLED" "FEATURE_BROWSER_ENABLED" "SCHEDULED_JOBS_ENABLED" -}}
+{{- range $featureName := list "CEPH_ADMIN_HIGH_SECURITY_MODE" "FEATURE_ADMIN_ENABLED" "FEATURE_CEPH_ADMIN_ENABLED" "FEATURE_STORAGE_OPS_ENABLED" "FEATURE_MANAGER_ENABLED" "FEATURE_PORTAL_ENABLED" "FEATURE_BROWSER_ENABLED" "SCHEDULED_JOBS_ENABLED" -}}
 {{- if hasKey $.Values.backend.env $featureName -}}
 {{- fail (printf "%s is controlled by deploymentProfile=%s and must not be set in backend.env." $featureName $deploymentProfile) -}}
 {{- end -}}
@@ -108,6 +108,23 @@ spec:
               value: "true"
             - name: SCHEDULED_JOBS_ENABLED
               value: "false"
+            {{- else if eq $deploymentProfile "ceph-admin-high-security" }}
+            - name: CEPH_ADMIN_HIGH_SECURITY_MODE
+              value: "true"
+            - name: FEATURE_ADMIN_ENABLED
+              value: "false"
+            - name: FEATURE_CEPH_ADMIN_ENABLED
+              value: "true"
+            - name: FEATURE_STORAGE_OPS_ENABLED
+              value: "false"
+            - name: FEATURE_MANAGER_ENABLED
+              value: "false"
+            - name: FEATURE_PORTAL_ENABLED
+              value: "false"
+            - name: FEATURE_BROWSER_ENABLED
+              value: "false"
+            - name: SCHEDULED_JOBS_ENABLED
+              value: "false"
             {{- end }}
             - name: TRUSTED_PROXY_CIDRS
               value: {{ .Values.backend.trustedProxyCidrs | toJson | quote }}
@@ -135,11 +152,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.backend.existingSecret | quote }}
                   key: {{ .Values.backend.secretKeys.credentialKeys | quote }}
+            {{- if has $deploymentProfile (list "full" "admin") }}
             - name: INTERNAL_CRON_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.backend.existingSecret | quote }}
                   key: {{ .Values.backend.secretKeys.internalCronToken | quote }}
+            {{- end }}
             - name: SMTP_PASSWORD
               valueFrom:
                 secretKeyRef:

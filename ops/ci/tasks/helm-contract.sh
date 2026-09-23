@@ -33,6 +33,16 @@ if grep -q 'kind: CronJob' /tmp/bucketreef-user.yaml; then echo "user profile mu
 if helm template bucketreef-user deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-user.yaml --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-user-jobs-invalid.yaml 2>/tmp/bucketreef-user-jobs-invalid.err; then echo "expected user profile with jobs enabled to fail"; exit 1; fi
 grep -q 'deploymentProfile=user cannot own scheduled jobs' /tmp/bucketreef-user-jobs-invalid.err
 
+helm template bucketreef-ceph-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-ceph-admin-high-security.yaml --set backend.existingSecret=bucketreef-ceph-admin-auth > /tmp/bucketreef-ceph-admin.yaml
+grep -A1 'name: CEPH_ADMIN_HIGH_SECURITY_MODE' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "true"'
+grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "false"'
+grep -A1 'name: FEATURE_CEPH_ADMIN_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "true"'
+grep -A1 'name: FEATURE_MANAGER_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "false"'
+grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "false"'
+if grep -q 'kind: CronJob' /tmp/bucketreef-ceph-admin.yaml; then echo "Ceph Admin high-security profile must not render scheduled jobs"; exit 1; fi
+if helm template bucketreef-ceph-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-ceph-admin-high-security.yaml --set backend.existingSecret=bucketreef-ceph-admin-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-ceph-admin-jobs-invalid.yaml 2>/tmp/bucketreef-ceph-admin-jobs-invalid.err; then echo "expected Ceph Admin high-security profile with jobs enabled to fail"; exit 1; fi
+grep -q 'deploymentProfile=ceph-admin-high-security cannot own scheduled jobs' /tmp/bucketreef-ceph-admin-jobs-invalid.err
+
 helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set backend.replicas=2 --set backend.persistence.enabled=false > /tmp/bucketreef-multi-backend.yaml
 test -s /tmp/bucketreef-multi-backend.yaml
 helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set-string image.backend.repository="$CI_REGISTRY_IMAGE/backend" --set-string image.backend.tag="$CI_COMMIT_SHA" --set-string image.frontend.repository="$CI_REGISTRY_IMAGE/frontend" --set-string image.frontend.tag="$CI_COMMIT_SHA" > /tmp/bucketreef-commit-images.yaml

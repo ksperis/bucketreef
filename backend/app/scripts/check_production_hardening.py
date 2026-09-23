@@ -63,7 +63,11 @@ def run(
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--profile", choices=("full", "admin", "user"), default="full")
+    parser.add_argument(
+        "--profile",
+        choices=("full", "admin", "user", "ceph-admin-high-security"),
+        default="full",
+    )
     parser.add_argument("--json", action="store_true", dest="json_output")
     return parser.parse_args(argv)
 

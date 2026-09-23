@@ -21,6 +21,9 @@ def package_bundles(version: str, destination: Path) -> list[Path]:
         "docker-compose.yml": (ROOT / "deploy/compose/docker-compose.yml").read_bytes(),
         "docker-compose.admin.yml": (ROOT / "deploy/compose/docker-compose.admin.yml").read_bytes(),
         "docker-compose.user.yml": (ROOT / "deploy/compose/docker-compose.user.yml").read_bytes(),
+        "docker-compose.ceph-admin-high-security.yml": (
+            ROOT / "deploy/compose/docker-compose.ceph-admin-high-security.yml"
+        ).read_bytes(),
         ".env.example": re.sub(
             r"(?m)^BUCKETREEF_TAG=.*$", f"BUCKETREEF_TAG={version}",
             (ROOT / "deploy/compose/.env.example").read_text(),

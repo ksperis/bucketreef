@@ -10,7 +10,7 @@ from app.core.runtime_surfaces import RuntimeSurface, runtime_surface_enabled
 
 
 HardeningLevel = Literal["pass", "warning", "fail"]
-DeploymentProfile = Literal["full", "admin", "user"]
+DeploymentProfile = Literal["full", "admin", "user", "ceph-admin-high-security"]
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,14 @@ _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
         "manager": True,
         "portal": True,
         "browser": True,
+    },
+    "ceph-admin-high-security": {
+        "admin": False,
+        "ceph_admin": True,
+        "storage_ops": False,
+        "manager": False,
+        "portal": False,
+        "browser": False,
     },
 }
 
@@ -84,7 +92,7 @@ def check_production_hardening(
     )
 
     postgresql = _is_postgresql(settings.database_url)
-    if profile in {"admin", "user"}:
+    if profile in {"admin", "user", "ceph-admin-high-security"}:
         findings.append(
             HardeningFinding(
                 "database",
@@ -113,7 +121,7 @@ def check_production_hardening(
             )
         )
 
-    if profile in {"admin", "user"}:
+    if profile in {"admin", "user", "ceph-admin-high-security"}:
         expected_jobs = profile == "admin"
         findings.append(
             HardeningFinding(
@@ -124,7 +132,7 @@ def check_production_hardening(
                 else (
                     "The admin profile must own scheduled jobs."
                     if expected_jobs
-                    else "The user profile must disable scheduled jobs."
+                    else "This profile must disable scheduled jobs."
                 ),
             )
         )
@@ -160,6 +168,17 @@ def check_production_hardening(
                 f"Runtime surface {surface} is {'enabled' if expected else 'disabled'} as required by profile {profile}."
                 if enabled is expected
                 else f"Runtime surface {surface} must be {'enabled' if expected else 'disabled'} for profile {profile}.",
+            )
+        )
+
+    if profile == "ceph-admin-high-security":
+        findings.append(
+            HardeningFinding(
+                "high-security-mode",
+                "pass" if settings.ceph_admin_high_security_mode else "fail",
+                "Ceph Admin high-security runtime mode is enabled."
+                if settings.ceph_admin_high_security_mode
+                else "CEPH_ADMIN_HIGH_SECURITY_MODE must be enabled for this profile.",
             )
         )
 

@@ -200,6 +200,11 @@ docker compose --project-name bucketreef-user -f docker-compose.yml -f docker-co
 Do not use SQLite for this topology. The two projects must point at the same
 PostgreSQL database; only the admin project should start the scheduler.
 
+For an additional Ceph Admin-only security boundary, use
+`docker-compose.ceph-admin-high-security.yml`. It can either reuse the shared
+PostgreSQL/key rings or use a dedicated database and distinct key rings through
+a separate env file. See [Ceph Admin high-security deployment](ceph-admin-high-security.md).
+
 LDAP is configured on the backend with `LDAP_PROVIDERS__<key>__...`
 environment variables. Put bind passwords in your local `.env` or secret
 injection mechanism, use provider keys matching `[a-z0-9_-]+`, and use LDAPS

@@ -65,6 +65,9 @@ Key areas:
 - CORS: `CORS_ORIGINS`.
 - Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
 - Runtime job ownership: `SCHEDULED_JOBS_ENABLED`. A split deployment enables it only on the admin instance.
+- Dedicated Ceph Admin boundary: `CEPH_ADMIN_HIGH_SECURITY_MODE`. When enabled,
+  startup requires Ceph Admin on, every other runtime surface off, and scheduled
+  jobs off. Deployment profiles set these values automatically.
 - Internal scheduler auth: `INTERNAL_CRON_TOKEN`.
 - Billing, quota monitoring, usage history collection, and healthcheck behavior.
 - Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `BILLING_OPERATION_LEASE_TTL_SECONDS`.
@@ -98,7 +101,7 @@ Validate the complete runtime boundary with:
 
 ```bash
 python -m app.scripts.check_production_hardening --profile full
-# or --profile admin / --profile user for split deployments
+# or --profile admin / --profile user / --profile ceph-admin-high-security
 ```
 
 `PUBLIC_ORIGIN` and `WEBAUTHN_ORIGIN` remain the canonical values.

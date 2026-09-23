@@ -24,10 +24,12 @@ python -m app.scripts.check_production_hardening --profile full
 ```
 
 For a split deployment, use `--profile admin` on the control-plane instance and
-`--profile user` on the user-facing instance. The command exits non-zero when a
+`--profile user` on the user-facing instance. A dedicated Ceph Admin instance
+uses `--profile ceph-admin-high-security`. The command exits non-zero when a
 required invariant fails and never prints configured secret values. Split
-profiles additionally require PostgreSQL, both public/WebAuthn origins on each
-backend, the expected runtime surfaces, and a single scheduled-job owner.
+profiles additionally require PostgreSQL, the expected runtime surfaces, and a
+single scheduled-job owner; admin/user instances also verify their shared
+public/WebAuthn origin set.
 
 ## Authentication and access
 
@@ -35,6 +37,10 @@ backend, the expected runtime surfaces, and a single scheduled-job owner.
 - For LDAP, require LDAPS or StartTLS with certificate verification and keep the bind account least-privilege. Email linking is never automatic.
 - Require WebAuthn for every admin and use the manual superadmin approval queue for OIDC/LDAP email collisions.
 - Restrict admin surface access by network/ingress policy.
+- For a separately exposed RGW control plane, use the
+  [Ceph Admin high-security deployment](ceph-admin-high-security.md) and choose
+  explicitly whether database and credential-key isolation are shared or
+  independent.
 - Use least privilege for UI users and storage credentials.
 
 ## Secret management
