@@ -20,7 +20,6 @@ import SettingsNavigationGuard from "../../components/settings/SettingsNavigatio
 import { settingsLabels } from "../../components/settings/settingsLabels";
 import { useI18n } from "../../i18n";
 import UiTextarea from "../../components/ui/UiTextarea";
-import UiBadge from "../../components/ui/UiBadge";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
 import SplitView from "../../components/SplitView";
@@ -44,6 +43,7 @@ import {
   BucketCorsFeature,
   BucketEncryptionFeature,
   EndpointFeatureDisabledNotice,
+  BucketVersioningFeature,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
   buildNotificationExample,
@@ -264,27 +264,23 @@ function BucketDetailPageContent({
   const endpointId = selectedEndpointId ?? null;
   const hasCephContext = Boolean(endpointId);
   const hasContext = isCephAdmin ? hasCephContext : hasAccountContext;
-  const {
-    dirty: versioningDirty,
-    draftEnabled: versioningDraftEnabled,
-    isEnabled: versioningIsEnabled,
-    isSuspended: versioningIsSuspended,
-    load: loadVersioning,
-    loadError: versioningLoadError,
-    loading: versioningLoading,
-    markEnabled: markVersioningEnabled,
-    save: saveVersioning,
-    saveError: versioningSaveError,
-    saving: updatingVersioning,
-    status: versioningStatus,
-    updateDraft: updateVersioningDraft,
-  } = useBucketVersioningController({
+  const versioningController = useBucketVersioningController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
+  const {
+    dirty: versioningDirty,
+    isEnabled: versioningIsEnabled,
+    load: loadVersioning,
+    loadError: versioningLoadError,
+    loading: versioningLoading,
+    markEnabled: markVersioningEnabled,
+    status: versioningStatus,
+    updateDraft: updateVersioningDraft,
+  } = versioningController;
   const policyController = useBucketPolicyController({
     accountId,
     bucketName,
@@ -680,7 +676,7 @@ function BucketDetailPageContent({
   });
 
   const mutations = {
-    versioning: updatingVersioning,
+    versioning: versioningController.saving,
     objectLock: savingObjectLock,
     lifecycle: savingLifecycle,
     policy: policyController.saving || policyController.deleting,
@@ -896,7 +892,6 @@ function BucketDetailPageContent({
   }, [bucket?.owner, bucketAcl?.owner]);
 
   const replicationBlocked = !replicationFeatureEnabled;
-  const versioningNotImplemented = isApiFeatureNotImplemented(versioningLoadError);
   const objectLockNotImplemented = isApiFeatureNotImplemented(objectLockLoadError);
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const tagsNotImplemented = isApiFeatureNotImplemented(bucketTagsError);
@@ -904,11 +899,6 @@ function BucketDetailPageContent({
   const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
   const accessLoggingNotImplemented = isApiFeatureNotImplemented(accessLoggingError);
   const notificationsNotImplemented = isApiFeatureNotImplemented(notificationsError);
-  const versioningCardState = resolveFeatureVisualState({
-    disabled: versioningNotImplemented,
-    configured: versioningIsEnabled,
-    unsaved: versioningDirty,
-  });
   const objectLockCardState = resolveFeatureVisualState({
     disabled: objectLockNotImplemented,
     configured: objectLockPersistentlyEnabled,
@@ -1560,66 +1550,10 @@ function BucketDetailPageContent({
             content: (
               <div className="settings-compact">
                 <div>
-                  <BucketFeatureSection
-                    title="Versioning"
-                    description="Enable or suspend S3 object versioning."
-                    mode="graphical"
-                    visualState={versioningCardState}
-                    busy={updatingVersioning || versioningLoading}
-                    testId="bucket-feature-versioning"
-                    actions={
-                      <SettingsButton
-                        type="button"
-                        onClick={() => void saveVersioning(versioningDisableBlocked)}
-                        disabled={
-                          updatingVersioning ||
-                          versioningLoading ||
-                          Boolean(versioningLoadError) ||
-                          versioningDisableBlocked ||
-                          !versioningDirty
-                        }
-                        title={versioningDisableBlocked ? "Disable Object Lock to change versioning." : undefined}
-                        variant="primary"
-                      >
-                        {updatingVersioning ? "Saving..." : "Save"}
-                      </SettingsButton>
-                    }
-                  >
-                    <div className={bucketDetailCompactStackClass}>
-                      {versioningLoading && (
-                        <UiInlineMessage>Loading versioning...</UiInlineMessage>
-                      )}
-                      {versioningLoadError && (
-                        <UiInlineMessage tone="error">{versioningLoadError}</UiInlineMessage>
-                      )}
-                      {versioningSaveError && (
-                        <UiInlineMessage tone="error">{versioningSaveError}</UiInlineMessage>
-                      )}
-                      <SettingsItem
-                        compact
-                        title="Enable versioning"
-                        description="Keeps object history for restores and is required for Object Lock."
-                        action={<div className="flex items-center gap-2">
-                          {versioningIsSuspended && (
-                            <UiBadge tone="warning">
-                              Suspended
-                            </UiBadge>
-                          )}
-                          <SettingsSwitch
-                            checked={versioningDraftEnabled}
-                            disabled={updatingVersioning || versioningLoading || Boolean(versioningLoadError) || versioningDisableBlocked}
-                            ariaLabel="Enable versioning"
-                            onChange={updateVersioningDraft}
-                          />
-                        </div>}
-                      />
-                    </div>
-                    {versioningDisableBlocked && (
-                      <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
-                        Versioning cannot be disabled while Object Lock is enabled.
-                      </p>
-                    )}
-                  </BucketFeatureSection>
+                  <BucketVersioningFeature
+                    controller={versioningController}
+                    disableBlocked={versioningDisableBlocked}
+                  />
                   <BucketEncryptionFeature
                     controller={encryptionController}
                     enabled={sseFeatureEnabled}

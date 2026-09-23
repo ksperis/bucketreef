@@ -9,6 +9,7 @@ export { default as BucketAclFeature } from "./BucketAclFeature";
 export { default as BucketCorsFeature } from "./BucketCorsFeature";
 export { default as BucketEncryptionFeature } from "./BucketEncryptionFeature";
 export { default as EndpointFeatureDisabledNotice } from "./EndpointFeatureDisabledNotice";
+export { default as BucketVersioningFeature } from "./BucketVersioningFeature";
 export { default as BucketPublicAccessFeature } from "./BucketPublicAccessFeature";
 export { default as BucketPolicyFeature } from "./BucketPolicyFeature";
 export { useBucketPolicyController } from "./useBucketPolicyController";
