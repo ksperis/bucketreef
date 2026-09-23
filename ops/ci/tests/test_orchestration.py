@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from gitlab_api import expected_names, successful_jobs, latest_baseline
 from plan import ROOT, PUBLIC, select
 from render_gitlab import render
-from secret_report import AWS_FIXTURES, FIXTURE_LOCATIONS, HISTORICAL_ENV_EXAMPLES, summarize
+from secret_report import AWS_FIXTURES, FIXTURE_LOCATIONS, HISTORICAL_ENV_EXAMPLES, finding_metadata, summarize
 from ceph_result import verify
 
 
@@ -56,6 +56,20 @@ def test_secret_findings_are_redacted_and_invalid_report_fails():
     report = {'scan':{'status':'success'},'vulnerabilities':[{'description':'SENSITIVE','raw_source_code_extract':'SECRET','location':{'file':'a.py','start_line':1},'identifiers':[{'type':'gitleaks','value':'SECRET'}]}]}
     assert 'SECRET' not in json.dumps(summarize(report))
     with pytest.raises(ValueError): summarize({})
+
+
+def test_secret_finding_metadata_never_exposes_extract():
+    finding = {
+        'raw_source_code_extract': 'SENSITIVE-VALUE',
+        'location': {'file': 'a.py', 'start_line': 4, 'commit': {'sha': '0' * 40}},
+        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
+    }
+    metadata = finding_metadata(finding)
+    assert 'SENSITIVE-VALUE' not in json.dumps(metadata)
+    assert metadata['file'] == 'a.py'
+    assert metadata['line'] == 4
+    assert metadata['commit_sha'] == '0' * 40
+    assert metadata['extract_length'] == len('SENSITIVE-VALUE')
 
 
 @pytest.mark.parametrize('path,extract', [(path, url) for path, urls in FIXTURE_LOCATIONS.items() for url in urls])
