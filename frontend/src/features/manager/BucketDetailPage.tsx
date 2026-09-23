@@ -50,6 +50,7 @@ import {
   BucketWebsiteFeature,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
+  BucketReplicationFeature,
   type BucketQuotaUnit,
   resolveFeatureVisualState,
   useBucketAccessLoggingController,
@@ -88,7 +89,6 @@ import {
 import {
   bucketConfigurationDeleteCopy,
   defaultLifecycleJsonExample,
-  defaultReplicationJsonExample,
   type BucketConfigurationDeleteKind,
 } from "./bucketDetail/bucketDetailConstants";
 import { isApiFeatureNotImplemented } from "../../utils/apiError";
@@ -116,7 +116,6 @@ const bucketFeatureLabelClass = "settings-label flex flex-col gap-1";
 const bucketDetailHintClass = "settings-description";
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
 
-const bucketDetailCompactStackClass = "space-y-2";
 const bucketDetailDividerClass =
   "divide-y divide-slate-200 dark:divide-slate-800";
 const bucketDetailEndActionClass = "mt-2 flex justify-end";
@@ -241,7 +240,6 @@ function BucketDetailPageContent({
   } = s3AccountContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
   const [showLifecycleJsonExample, setShowLifecycleJsonExample] = useState(false);
-  const [showReplicationExample, setShowReplicationExample] = useState(false);
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
 
   const selectedS3Account = useMemo(() => {
@@ -522,37 +520,20 @@ function BucketDetailPageContent({
     }
     return selectedS3Account?.storage_endpoint_capabilities?.replication === true;
   }, [isCephAdmin, isCephEndpoint, selectedEndpoint, selectedS3Account]);
-  const {
-    addRule: addReplicationRule,
-    busy: replicationBusy,
-    clear: clearReplication,
-    clearing: clearingReplication,
-    configured: replicationConfigured,
-    dirty: replicationDirty,
-    error: replicationError,
-    hasUnsupportedZone: replicationHasUnsupportedZone,
-    load: loadReplication,
-    loading: replicationLoading,
-    mode: replicationMode,
-    removeRule: removeReplicationRule,
-    role: replicationRole,
-    rules: replicationRules,
-    save: saveReplication,
-    saving: savingReplication,
-    status: replicationStatus,
-    text: replicationText,
-    updateMode: updateReplicationMode,
-    updateRole: updateReplicationRole,
-    updateRule: updateReplicationRule,
-    updateText: updateReplicationText,
-    warning: replicationWarning,
-  } = useBucketReplicationController({
+  const replicationController = useBucketReplicationController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext && isCephEndpoint && replicationFeatureEnabled,
     endpointId,
   });
+  const {
+    configured: replicationConfigured,
+    dirty: replicationDirty,
+    error: replicationError,
+    load: loadReplication,
+    loading: replicationLoading,
+  } = replicationController;
   const usageFeatureEnabled = useMemo(() => {
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.metrics ?? true;
@@ -623,7 +604,7 @@ function BucketDetailPageContent({
     policy: policyController.saving || policyController.deleting,
     acl: bucketAclController.saving,
     cors: corsController.saving || corsController.deleting,
-    replication: savingReplication || clearingReplication,
+    replication: replicationController.saving || replicationController.clearing,
     encryption: encryptionController.saving || encryptionController.deleting,
     publicAccess: publicAccessController.saving,
     website: websiteController.saving || websiteController.clearing,
@@ -832,18 +813,11 @@ function BucketDetailPageContent({
     return null;
   }, [bucket?.owner, bucketAcl?.owner]);
 
-  const replicationBlocked = !replicationFeatureEnabled;
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
-  const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
   const lifecycleCardState = resolveFeatureVisualState({
     disabled: lifecycleNotImplemented,
     configured: hasLifecycleRules,
     unsaved: lifecycleDirty,
-  });
-  const replicationCardState = resolveFeatureVisualState({
-    disabled: replicationBlocked || replicationNotImplemented,
-    configured: replicationConfigured,
-    unsaved: replicationDirty,
   });
   const lifecycleTableRows = useMemo<LifecycleTableRow[]>(
     () =>
@@ -1176,7 +1150,7 @@ function BucketDetailPageContent({
       if (pendingConfigurationDelete === "encryption") await encryptionController.remove();
       if (pendingConfigurationDelete === "tags") await bucketTagsController.clear();
       if (pendingConfigurationDelete === "notifications") await notificationsController.clear();
-      if (pendingConfigurationDelete === "replication") await clearReplication();
+      if (pendingConfigurationDelete === "replication") await replicationController.clear();
       if (pendingConfigurationDelete === "website") await websiteController.clear();
       if (pendingConfigurationDelete === "policy") await policyController.remove();
       if (pendingConfigurationDelete === "access-logging") await accessLoggingController.clear();
@@ -1200,7 +1174,7 @@ function BucketDetailPageContent({
           : pendingConfigurationDelete === "notifications"
             ? notificationsController.clearing
             : pendingConfigurationDelete === "replication"
-              ? clearingReplication
+              ? replicationController.clearing
               : pendingConfigurationDelete === "website"
                 ? websiteController.clearing
                 : pendingConfigurationDelete === "policy"
@@ -1788,199 +1762,11 @@ function BucketDetailPageContent({
                   onRequestDelete={() => setPendingConfigurationDelete("website")}
                 />
                 {isCephEndpoint && (
-                  <BucketFeatureSection
-                    title="Replication / multisite"
-                    description="Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup."
-                    mode="hybrid"
-                    visualState={replicationCardState}
-                    presentation="workbench"
-                    successMessage={replicationStatus}
-                    busy={replicationBusy}
-                    testId="bucket-feature-replication"
-                    actions={
-                      <div className={bucketDetailWrapActionsClass}>
-                        <SettingsButton
-                          type="button"
-                          onClick={() => setPendingConfigurationDelete("replication")}
-                          disabled={replicationBlocked || replicationNotImplemented || replicationBusy || !replicationConfigured}
-                          variant="danger"
-                        >
-                          {clearingReplication ? "Clearing..." : "Clear"}
-                        </SettingsButton>
-                        <SettingsButton
-                          type="button"
-                          onClick={saveReplication}
-                          disabled={replicationBlocked || replicationNotImplemented || replicationBusy || !replicationDirty}
-                          variant="primary"
-                        >
-                          {savingReplication ? "Saving..." : "Save"}
-                        </SettingsButton>
-                      </div>
-                    }
-                  >
-                    <BucketFeatureModeToggle
-                      value={replicationMode}
-                      options={[
-                        { value: "graphical", label: "Graphical mode" },
-                        { value: "json", label: "JSON mode" },
-                      ]}
-                      onChange={updateReplicationMode}
-                      disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                    />
-                    {replicationBlocked && <EndpointFeatureDisabledNotice featureLabel="Bucket replication" />}
-                    {replicationError && (
-                      <UiInlineMessage tone="error">{replicationError}</UiInlineMessage>
-                    )}
-                    {replicationWarning && (
-                      <UiInlineMessage tone="warning">{replicationWarning}</UiInlineMessage>
-                    )}
-                    {replicationLoading ? (
-                      <UiInlineMessage>Loading replication configuration...</UiInlineMessage>
-                    ) : replicationMode === "graphical" ? (
-                      <div className={bucketDetailStackClass}>
-                        <label className={bucketFeatureLabelClass}>
-                          Role ARN
-                          <input
-                            type="text"
-                            value={replicationRole}
-                            onChange={(e) => updateReplicationRole(e.target.value)}
-                            className={bucketFeatureInputClass}
-                            placeholder="arn:aws:iam::123456789012:role/replication-role"
-                            disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                          />
-                        </label>
-                        <div className={bucketDetailStackClass}>
-                          {replicationRules.map((rule, index) => (
-                            <div
-                              key={rule.uiId}
-                              className={cx(uiCardMutedClass, "space-y-3 p-3")}
-                            >
-                              <div className="flex items-center justify-between">
-                                <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Rule {index + 1}</p>
-                                <SettingsButton
-                                  type="button"
-                                  onClick={() => removeReplicationRule(rule.uiId)}
-                                  disabled={replicationBlocked || replicationNotImplemented || replicationBusy || replicationRules.length <= 1}
-                                  variant="danger"
-                                >
-                                  Remove
-                                </SettingsButton>
-                              </div>
-                              <div className={bucketDetailTwoColumnGridClass}>
-                                <label className={bucketFeatureLabelClass}>
-                                  ID
-                                  <input
-                                    type="text"
-                                    value={rule.id}
-                                    onChange={(e) => updateReplicationRule(rule.uiId, { id: e.target.value })}
-                                    className={bucketFeatureInputClass}
-                                    placeholder={`rule-${index + 1}`}
-                                    disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                                  />
-                                </label>
-                                <label className={bucketFeatureLabelClass}>
-                                  Status
-                                  <select
-                                    value={rule.status}
-                                    onChange={(e) => updateReplicationRule(rule.uiId, { status: e.target.value as "Enabled" | "Disabled" })}
-                                    className={bucketFeatureInputClass}
-                                    disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                                  >
-                                    <option value="Enabled">Enabled</option>
-                                    <option value="Disabled">Disabled</option>
-                                  </select>
-                                </label>
-                                <label className={bucketFeatureLabelClass}>
-                                  Priority
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step={1}
-                                    value={rule.priority}
-                                    onChange={(e) => updateReplicationRule(rule.uiId, { priority: e.target.value })}
-                                    className={bucketFeatureInputClass}
-                                    placeholder="1"
-                                    disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                                  />
-                                </label>
-                                <label className={bucketFeatureLabelClass}>
-                                  Prefix (optional)
-                                  <input
-                                    type="text"
-                                    value={rule.prefix}
-                                    onChange={(e) => updateReplicationRule(rule.uiId, { prefix: e.target.value })}
-                                    className={bucketFeatureInputClass}
-                                    placeholder="logs/"
-                                    disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                                  />
-                                </label>
-                                <label className={bucketFeatureLabelClass}>
-                                  Destination bucket ARN
-                                  <input
-                                    type="text"
-                                    value={rule.destinationBucket}
-                                    onChange={(e) => updateReplicationRule(rule.uiId, { destinationBucket: e.target.value })}
-                                    className={bucketFeatureInputClass}
-                                    placeholder="arn:aws:s3:::target-bucket"
-                                    disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                                  />
-                                </label>
-                                <label className={bucketFeatureLabelClass}>
-                                  Delete marker replication
-                                  <select
-                                    value={rule.deleteMarkerStatus}
-                                    onChange={(e) =>
-                                      updateReplicationRule(rule.uiId, {
-                                        deleteMarkerStatus: e.target.value as "Enabled" | "Disabled",
-                                      })
-                                    }
-                                    className={bucketFeatureInputClass}
-                                    disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                                  >
-                                    <option value="Disabled">Disabled</option>
-                                    <option value="Enabled">Enabled</option>
-                                  </select>
-                                </label>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div>
-                          <SettingsButton
-                            type="button"
-                            onClick={addReplicationRule}
-                            disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                            variant="secondary"
-                          >
-                            Add rule
-                          </SettingsButton>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={bucketDetailCompactStackClass}>
-                        <UiTextarea label="Replication configuration (JSON)"
-                          value={replicationText}
-                          onChange={(e) => updateReplicationText(e.target.value)}
-                          rows={14}
-                          className="settings-control font-mono"
-                          spellCheck={false}
-                          disabled={replicationBlocked || replicationNotImplemented || replicationBusy}
-                        />
-                        {replicationHasUnsupportedZone && (
-                          <p className="ui-caption text-rose-700 dark:text-rose-200">
-                            Destination.Zone is not supported in V1 and must be removed before saving.
-                          </p>
-                        )}
-                        <BucketFeatureJsonExample
-                          show={showReplicationExample}
-                          onToggle={() => setShowReplicationExample((prev) => !prev)}
-                          example={defaultReplicationJsonExample}
-                          onUseExample={() => updateReplicationText(defaultReplicationJsonExample)}
-                          disabled={replicationBlocked || replicationNotImplemented}
-                        />
-                      </div>
-                    )}
-                  </BucketFeatureSection>
+                  <BucketReplicationFeature
+                    blocked={!replicationFeatureEnabled}
+                    controller={replicationController}
+                    onRequestClear={() => setPendingConfigurationDelete("replication")}
+                  />
                 )}
                 <BucketAccessLoggingFeature
                   controller={accessLoggingController}
