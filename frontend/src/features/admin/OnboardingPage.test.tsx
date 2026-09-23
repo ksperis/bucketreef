@@ -275,6 +275,7 @@ describe("simplified onboarding", () => {
     expect(screen.getByRole("checkbox", { name: /Enable monitoring \/ metrics/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Ceph Admin/ })).toBeEnabled();
     expect(screen.getAllByText("Recommended")).toHaveLength(2);
+    expect(screen.getByText("Experimental")).toBeInTheDocument();
     expect(mocks.saveOnboardingJourney).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ endpoint_id: 3, manager: true, portal: false, supervision: true }),
