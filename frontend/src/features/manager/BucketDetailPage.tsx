@@ -41,6 +41,7 @@ import {
   BucketFeatureJsonExample,
   BucketFeatureModeToggle,
   BucketAclFeature,
+  BucketPublicAccessFeature,
   buildNotificationExample,
   type BucketQuotaUnit,
   buildPolicyExample,
@@ -86,7 +87,6 @@ import {
   defaultLifecycleJsonExample,
   defaultReplicationJsonExample,
   defaultWebsiteRoutingRulesExample,
-  publicAccessOptions,
   type BucketConfigurationDeleteKind,
 } from "./bucketDetail/bucketDetailConstants";
 import { isApiFeatureNotImplemented } from "../../utils/apiError";
@@ -370,25 +370,21 @@ function BucketDetailPageContent({
     enabled: hasContext,
     endpointId,
   });
-  const {
-    config: publicAccessBlock,
-    dirty: publicAccessDirty,
-    error: publicAccessError,
-    fullyEnabled: publicAccessBlockEnabled,
-    load: loadPublicAccessBlock,
-    loading: publicAccessLoading,
-    partiallyEnabled: publicAccessBlockPartial,
-    save: savePublicAccessBlock,
-    saving: savingPublicAccess,
-    status: publicAccessStatus,
-    update: updatePublicAccessField,
-  } = useBucketPublicAccessController({
+  const publicAccessController = useBucketPublicAccessController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
+  const {
+    dirty: publicAccessDirty,
+    error: publicAccessError,
+    fullyEnabled: publicAccessBlockEnabled,
+    load: loadPublicAccessBlock,
+    loading: publicAccessLoading,
+    partiallyEnabled: publicAccessBlockPartial,
+  } = publicAccessController;
   const bucketAclController = useBucketAclController({
     accountId,
     bucketName,
@@ -712,7 +708,7 @@ function BucketDetailPageContent({
     cors: savingCors || deletingCors,
     replication: savingReplication || clearingReplication,
     encryption: savingEncryption || deletingEncryption,
-    publicAccess: savingPublicAccess,
+    publicAccess: publicAccessController.saving,
     website: savingWebsite || clearingWebsite,
     accessLogging: savingAccessLogging || clearingAccessLogging,
     notifications: savingNotifications || clearingNotifications,
@@ -924,7 +920,6 @@ function BucketDetailPageContent({
   const objectLockNotImplemented = isApiFeatureNotImplemented(objectLockLoadError);
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const tagsNotImplemented = isApiFeatureNotImplemented(bucketTagsError);
-  const publicAccessNotImplemented = isApiFeatureNotImplemented(publicAccessError);
   const policyNotImplemented = isApiFeatureNotImplemented(policyError);
   const corsNotImplemented = isApiFeatureNotImplemented(corsError);
   const encryptionNotImplemented = isApiFeatureNotImplemented(encryptionError);
@@ -956,11 +951,6 @@ function BucketDetailPageContent({
     disabled: tagsNotImplemented,
     configured: bucketTagsConfigured,
     unsaved: tagsDirty,
-  });
-  const publicAccessCardState = resolveFeatureVisualState({
-    disabled: publicAccessNotImplemented,
-    configured: publicAccessBlockEnabled || publicAccessBlockPartial,
-    unsaved: publicAccessDirty,
   });
   const policyCardState = resolveFeatureVisualState({
     disabled: policyNotImplemented,
@@ -2227,45 +2217,7 @@ function BucketDetailPageContent({
             label: "Permissions",
             content: (
               <div className="settings-compact">
-                <BucketFeatureSection
-                  title="Block public access"
-                  description="Manage the four S3 public access block flags. Configure each option below."
-                  mode="graphical"
-                  visualState={publicAccessCardState}
-                  successMessage={publicAccessStatus}
-                  busy={savingPublicAccess || publicAccessLoading}
-                  testId="bucket-feature-block-public-access"
-                  actions={
-                    <SettingsButton
-                      type="button"
-                      onClick={savePublicAccessBlock}
-                      disabled={publicAccessNotImplemented || publicAccessLoading || savingPublicAccess || !publicAccessDirty}
-                      variant="primary"
-                    >
-                      {savingPublicAccess ? "Saving..." : "Save"}
-                    </SettingsButton>
-                  }
-                >
-                  {publicAccessError && (
-                    <UiInlineMessage tone="error">{publicAccessError}</UiInlineMessage>
-                  )}
-                  <div>
-                    {publicAccessOptions.map((option) => (
-                      <SettingsItem
-                        key={option.key}
-                        compact
-                        title={option.label}
-                        description={option.description}
-                        action={<SettingsSwitch
-                          checked={Boolean(publicAccessBlock[option.key])}
-                          ariaLabel={option.label}
-                          onChange={(checked) => updatePublicAccessField(option.key, checked)}
-                          disabled={publicAccessNotImplemented || publicAccessLoading || savingPublicAccess}
-                        />}
-                      />
-                    ))}
-                  </div>
-                </BucketFeatureSection>
+                <BucketPublicAccessFeature controller={publicAccessController} />
 
                 <BucketAclFeature controller={bucketAclController} />
 

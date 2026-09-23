@@ -2,8 +2,6 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { BucketPublicAccessBlock } from "../../../api/bucketContracts";
-
 export type BucketConfigurationDeleteKind =
   | "cors"
   | "encryption"
@@ -67,33 +65,6 @@ export const bucketConfigurationDeleteCopy: Record<
     impacts: ["Existing log objects remain in the target bucket, but no new access logs will be delivered."],
   },
 };
-
-export const publicAccessOptions: {
-  key: keyof BucketPublicAccessBlock;
-  label: string;
-  description: string;
-}[] = [
-  {
-    key: "block_public_acls",
-    label: "BlockPublicAcls",
-    description: "S3 rejects new PUT ACLs that grant public access to buckets or objects.",
-  },
-  {
-    key: "ignore_public_acls",
-    label: "IgnorePublicAcls",
-    description: "Ignores any existing ACLs that grant public permissions on objects.",
-  },
-  {
-    key: "block_public_policy",
-    label: "BlockPublicPolicy",
-    description: "Prevents bucket policies that grant public access from being set.",
-  },
-  {
-    key: "restrict_public_buckets",
-    label: "RestrictPublicBuckets",
-    description: "Blocks access to buckets with public policies for all but the bucket owner.",
-  },
-];
 
 export const defaultLifecycleJsonExample = `[
   {

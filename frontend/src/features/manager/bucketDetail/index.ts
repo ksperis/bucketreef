@@ -6,6 +6,7 @@ export { default as BucketFeatureSection } from "./BucketFeatureSection";
 export { default as BucketFeatureJsonExample } from "./BucketFeatureJsonExample";
 export { default as BucketFeatureModeToggle } from "./BucketFeatureModeToggle";
 export { default as BucketAclFeature } from "./BucketAclFeature";
+export { default as BucketPublicAccessFeature } from "./BucketPublicAccessFeature";
 export {
   buildPolicyExample,
   useBucketPolicyController,
