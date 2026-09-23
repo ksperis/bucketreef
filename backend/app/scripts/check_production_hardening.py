@@ -10,6 +10,8 @@ from typing import Sequence
 from pydantic import ValidationError
 
 from app.core.config import DeploymentProfile, Settings
+from app.models.app_settings import AppSettings
+from app.services.app_settings_service import load_app_settings
 from app.services.production_hardening import (
     HardeningFinding,
     check_production_hardening,
@@ -45,6 +47,7 @@ def run(
     profile: DeploymentProfile | None = None,
     json_output: bool = False,
     settings: Settings | None = None,
+    app_settings: AppSettings | None = None,
 ) -> tuple[int, str]:
     try:
         runtime = settings or Settings()
@@ -55,8 +58,17 @@ def run(
         ]
         return 1, _render_json(findings) if json_output else _render_text(findings)
 
+    try:
+        effective_app_settings = app_settings or load_app_settings()
+    except Exception:
+        effective_app_settings = None
+
     selected_profile = profile or runtime.deployment_profile
-    findings = check_production_hardening(runtime, profile=selected_profile)
+    findings = check_production_hardening(
+        runtime,
+        app_settings=effective_app_settings,
+        profile=selected_profile,
+    )
     output = _render_json(findings) if json_output else _render_text(findings)
     return hardening_exit_code(findings), output
 

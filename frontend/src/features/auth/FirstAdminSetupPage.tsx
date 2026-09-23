@@ -9,6 +9,7 @@ import {
   bootstrapFirstAdmin,
   fetchFirstAdminBootstrapStatus,
 } from "../../api/auth";
+import { useSession } from "../../auth/SessionProvider";
 import BrandMark from "../../components/BrandMark";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { PRODUCT_NAME } from "../../constants/product";
@@ -38,6 +39,7 @@ function clearBootstrapTokenFragment(): void {
 
 export default function FirstAdminSetupPage() {
   const navigate = useNavigate();
+  const { refresh: refreshSession } = useSession();
   const [token] = useState(readBootstrapTokenFragment);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -105,10 +107,19 @@ export default function FirstAdminSetupPage() {
         password,
         password_confirmation: passwordConfirmation,
       });
-      if (response.status !== "mfa_enrollment_required") {
-        throw new Error("Administrator passkey enrollment was not started.");
+      if (response.status === "authenticated") {
+        const session = await refreshSession();
+        if (!session) {
+          throw new Error("The administrator session could not be loaded.");
+        }
+        navigate("/", { replace: true });
+        return;
       }
-      navigate("/login?mfa=mfa_enrollment_required", { replace: true });
+      if (response.status === "mfa_enrollment_required") {
+        navigate("/login?mfa=mfa_enrollment_required", { replace: true });
+        return;
+      }
+      throw new Error("Administrator authentication did not complete.");
     } catch (submitError) {
       setError(
         extractApiError(
@@ -138,7 +149,8 @@ export default function FirstAdminSetupPage() {
         </h1>
         <p className="mt-3 ui-body text-slate-600">
           This one-time setup creates the platform super-administrator. A
-          passkey will be required immediately afterward.
+          passkey is optional during onboarding and should be enabled before
+          production.
         </p>
 
         {error ? (

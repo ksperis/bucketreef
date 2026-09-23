@@ -372,6 +372,7 @@ def test_stale_admin_session_can_read_security_data_and_revoke_access(auth_clien
 
 
 def test_stale_admin_session_rejects_only_critical_link_decision(auth_client, db_session):
+    _set_admin_passkey_policy(db_session, True)
     admin = _user(db_session, email="decision-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
     target = _user(db_session, email="decision-target@example.com", role=UserRole.UI_USER.value)
     now = utcnow()
@@ -423,6 +424,7 @@ def test_stale_admin_session_rejects_only_critical_link_decision(auth_client, db
 
 
 def test_user_update_step_up_depends_on_persisted_security_change(auth_client, db_session):
+    _set_admin_passkey_policy(db_session, True)
     admin = _user(db_session, email="user-guard-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
     target = _user(db_session, email="user-guard-target@example.com", role=UserRole.UI_USER.value)
     credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
@@ -706,6 +708,7 @@ def test_each_manager_tool_mutation_requires_recent_mfa(auth_client, db_session,
 
 
 def test_stale_session_must_step_up_for_user_creation_and_deletion(auth_client, db_session):
+    _set_admin_passkey_policy(db_session, True)
     admin = _user(db_session, email="user-mutation-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
     target = _user(db_session, email="user-mutation-target@example.com", role=UserRole.UI_USER.value)
     credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
@@ -733,6 +736,7 @@ def test_authentication_setting_change_is_guarded_before_side_effects(auth_clien
         yield db_session
 
     monkeypatch.setattr(app_settings_service, "_open_settings_session", settings_session)
+    _set_admin_passkey_policy(db_session, True)
     admin = _user(db_session, email="settings-guard-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
     credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
     headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
@@ -851,6 +855,7 @@ def test_bearer_token_cannot_perform_sensitive_access_mutations(auth_client, db_
     ],
 )
 def test_oidc_and_ldap_mutations_require_recent_passkey(auth_client, db_session, path, payload):
+    _set_admin_passkey_policy(db_session, True)
     admin = _user(db_session, email=f"provider-guard-{payload['provider_id']}@example.com", role=UserRole.UI_SUPERADMIN.value)
     credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
 

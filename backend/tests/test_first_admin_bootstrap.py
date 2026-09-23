@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
@@ -12,7 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import Settings, get_settings
-from app.db import AuditLog, Base, FirstAdminBootstrap, User, UserRole
+from app.db import AppSetting, AuditLog, Base, FirstAdminBootstrap, User, UserRole
+from app.models.app_settings import AppSettings
 from app.routers import auth_common
 from app.scripts import create_first_admin as create_first_admin_script
 from app.services.first_admin_bootstrap_service import (
@@ -118,6 +120,7 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
             ],
         )
     )
+    assert json.loads(audit.metadata_json)["passkey_enrollment_required"] is False
 
     with pytest.raises(FirstAdminBootstrapUnavailableError):
         service.create_with_token(
@@ -252,11 +255,12 @@ def test_create_first_admin_cli_prints_after_session_close(monkeypatch, db_sessi
 
     assert (
         capsys.readouterr().out
-        == "Created cli-admin@example.com. Passkey enrollment is mandatory at first login.\n"
+        == "Created cli-admin@example.com. Passkey enrollment is optional during onboarding; enroll one and enable "
+        "'Require passkeys for administrators' before production.\n"
     )
 
 
-def test_bootstrap_api_creates_admin_and_sets_five_minute_pre_auth_cookie(client, db_session):
+def test_bootstrap_api_authenticates_admin_without_passkey_by_default(client, db_session):
     settings = get_settings()
     issued = FirstAdminBootstrapService(db_session).issue_token()
 
@@ -274,15 +278,40 @@ def test_bootstrap_api_creates_admin_and_sets_five_minute_pre_auth_cookie(client
     )
 
     assert response.status_code == 201
+    assert response.json()["status"] == "authenticated"
+    cookies = response.headers.get_list("set-cookie")
+    assert any(value.startswith(f"{settings.access_token_cookie_name}=") for value in cookies)
+    assert any(value.startswith(f"{settings.refresh_token_cookie_name}=") for value in cookies)
+    assert not any(value.startswith(f"{settings.pre_auth_cookie_name}=") for value in cookies)
+    assert client.get("/api/auth/bootstrap/first-admin/status").json() == {"available": False}
+
+
+def test_bootstrap_api_requires_passkey_when_admin_policy_is_enabled(client, db_session):
+    settings = AppSettings()
+    settings.general.require_passkey_for_admins = True
+    db_session.add(AppSetting(key="default", payload_json=settings.model_dump_json()))
+    db_session.commit()
+    runtime = get_settings()
+    issued = FirstAdminBootstrapService(db_session).issue_token()
+
+    response = client.post(
+        "/api/auth/bootstrap/first-admin",
+        json=_payload(),
+        headers={
+            **trusted_origin_headers(),
+            "X-BucketReef-Bootstrap-Token": issued.token,
+        },
+    )
+
+    assert response.status_code == 201
     assert response.json()["status"] == "mfa_enrollment_required"
     pre_auth_cookie = next(
         value
         for value in response.headers.get_list("set-cookie")
-        if value.startswith(f"{settings.pre_auth_cookie_name}=")
+        if value.startswith(f"{runtime.pre_auth_cookie_name}=")
     )
     assert "HttpOnly" in pre_auth_cookie
     assert "Max-Age=300" in pre_auth_cookie
-    assert client.get("/api/auth/bootstrap/first-admin/status").json() == {"available": False}
 
 
 def test_bootstrap_api_rejects_untrusted_origin_and_uses_generic_token_error(client, db_session):

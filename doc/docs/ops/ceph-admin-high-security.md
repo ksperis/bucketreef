@@ -94,8 +94,11 @@ the high-security release's private egress policy.
 ## Bootstrap and verification
 
 With an isolated empty database, issue the normal first-admin token from the
-high-security backend and enroll a passkey. After login, the only workspace
-available to that user should be Ceph Admin.
+high-security backend. After login, the only workspace available to that user
+should be Ceph Admin. Enroll the administrator passkey from **Profile >
+Security**, then enable **Require passkeys for administrators** before running
+the production hardening check; the high-security profile uses the same
+blocking Admin passkey policy as the other deployment profiles.
 
 Verify before publication:
 

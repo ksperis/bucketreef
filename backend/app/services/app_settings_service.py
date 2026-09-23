@@ -35,7 +35,7 @@ def _load_persisted_settings_from_disk(settings_path: Path) -> AppSettings:
     if not settings_path.exists():
         return AppSettings()
     data = json.loads(settings_path.read_text(encoding="utf-8"))
-    return AppSettings.model_validate(data)
+    return AppSettings.model_validate(_normalize_legacy_persisted_settings(data))
 
 
 def _open_settings_session():
@@ -44,8 +44,27 @@ def _open_settings_session():
     return SessionLocal()
 
 
+def _normalize_legacy_persisted_settings(data: object) -> object:
+    """Keep the historical admin-passkey policy for payloads saved before the field existed."""
+    if not isinstance(data, dict):
+        return data
+    normalized = dict(data)
+    general = normalized.get("general")
+    if "general" not in normalized:
+        general = {}
+    if isinstance(general, dict) and "require_passkey_for_admins" not in general:
+        general = dict(general)
+        general["require_passkey_for_admins"] = True
+        normalized["general"] = general
+    return normalized
+
+
 def _parse_settings_payload(payload: str) -> AppSettings:
-    return AppSettings.model_validate_json(payload)
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return AppSettings.model_validate_json(payload)
+    return AppSettings.model_validate(_normalize_legacy_persisted_settings(data))
 
 
 def _settings_to_json(settings: AppSettings) -> str:
@@ -130,6 +149,17 @@ def load_persisted_app_settings() -> AppSettings:
 def load_app_settings_for_db(db) -> AppSettings:
     """Load effective settings through an existing request transaction."""
     return _apply_general_feature_overrides(_load_persisted_settings_from_db(db))
+
+
+def load_app_settings_for_db_readonly(db) -> AppSettings:
+    """Load effective settings without importing defaults into the database."""
+    row = db.query(AppSetting).filter(AppSetting.key == APP_SETTINGS_DB_KEY).first()
+    persisted = (
+        _parse_settings_payload(row.payload_json)
+        if row is not None
+        else _load_persisted_settings_from_disk(_settings_path())
+    )
+    return _apply_general_feature_overrides(persisted)
 
 
 def load_default_app_settings() -> AppSettings:

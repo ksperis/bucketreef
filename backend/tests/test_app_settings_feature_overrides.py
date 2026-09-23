@@ -214,13 +214,33 @@ def test_managed_private_connection_provisioning_flag_default_disabled():
     assert settings.general.managed_private_connection_provisioning_enabled is False
 
 
-def test_legacy_app_settings_payload_gets_restrictive_identity_security_defaults():
-    settings = AppSettings.model_validate({"general": {"manager_enabled": False}})
+def test_fresh_app_settings_defaults_admin_passkeys_to_optional():
+    settings = AppSettings()
+
+    assert settings.general.require_passkey_for_admins is False
+    assert settings.general.require_passkey_for_users is False
+    assert settings.general.allow_user_profile_name_edit is False
+    assert settings.general.allow_user_external_identity_unlink is False
+
+
+def test_legacy_persisted_app_settings_payload_keeps_restrictive_admin_passkey_policy():
+    settings = app_settings_service._parse_settings_payload(
+        json.dumps({"general": {"manager_enabled": False}})
+    )
 
     assert settings.general.require_passkey_for_admins is True
     assert settings.general.require_passkey_for_users is False
     assert settings.general.allow_user_profile_name_edit is False
     assert settings.general.allow_user_external_identity_unlink is False
+
+
+@pytest.mark.parametrize("required", [True, False])
+def test_persisted_admin_passkey_policy_preserves_explicit_value(required):
+    settings = app_settings_service._parse_settings_payload(
+        json.dumps({"general": {"require_passkey_for_admins": required}})
+    )
+
+    assert settings.general.require_passkey_for_admins is required
 
 
 def test_manager_rgw_usage_metrics_flag_default_enabled():

@@ -64,7 +64,8 @@ def main() -> None:
         db.close()
     print(
         f"Created {created_email}. "
-        "Passkey enrollment is mandatory at first login."
+        "Passkey enrollment is optional during onboarding; enroll one and enable "
+        "'Require passkeys for administrators' before production."
     )
 
 

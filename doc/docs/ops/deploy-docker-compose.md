@@ -224,8 +224,10 @@ docker compose exec backend python -m app.scripts.issue_first_admin_bootstrap
 
 The command refuses a non-empty user database, stores only a SHA-256 token
 digest and prints a `PUBLIC_ORIGIN` URL whose token is in the fragment. Open it
-within 15 minutes, create the super-administrator and enroll a passkey. If it
-expires before use, run the command again to revoke it and issue another.
+within 15 minutes and create the super-administrator. Fresh installations start
+with the Admin passkey requirement disabled, so the first session can continue
+directly. If the token expires before use, run the command again to revoke it
+and issue another.
 
 For a console-only fallback:
 
@@ -241,17 +243,21 @@ initial setup.
 
 ## After deploy checklist
 
-1. Issue the one-time bootstrap URL, create the first administrator and enroll
-   its passkey, or use the direct CLI fallback.
-2. Open the frontend and verify `/admin` after passkey authentication.
-3. For production, set `APP_ENV=production`, mutually distinct `UI_JWT_KEYS`,
+1. Issue the one-time bootstrap URL and create the first administrator, or use
+   the direct CLI fallback.
+2. Open the frontend, verify `/admin`, then enroll the administrator passkey
+   from **Profile > Security**.
+3. Before production, enable **Require passkeys for administrators** in
+   Authentication settings and verify Production readiness no longer reports
+   `admin-passkey-policy` as `Fail`.
+4. For production, set `APP_ENV=production`, mutually distinct `UI_JWT_KEYS`,
    `API_JWT_KEYS`, and `CREDENTIAL_KEYS`, the exact origin/hosts, secure cookies,
    WebAuthn, trusted proxy CIDRs, and the scheduler token in `.env`.
-4. Optionally configure the first storage endpoint from **Admin > Storage Backends**.
-5. Optionally create or import the first account or connection.
-6. If storage is configured, run or wait for the first endpoint healthcheck.
-7. Verify the Browser and Portal feature flags match the intended user rollout.
-8. Open [User troubleshooting](../user/troubleshooting.md) and [Operations: observability](operations-observability.md) so support teams know what to capture.
+5. Optionally configure the first storage endpoint from **Admin > Storage Backends**.
+6. Optionally create or import the first account or connection.
+7. If storage is configured, run or wait for the first endpoint healthcheck.
+8. Verify the Browser and Portal feature flags match the intended user rollout.
+9. Open [User troubleshooting](../user/troubleshooting.md) and [Operations: observability](operations-observability.md) so support teams know what to capture.
 
 ## Related pages
 

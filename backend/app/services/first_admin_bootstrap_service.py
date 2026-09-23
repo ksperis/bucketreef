@@ -18,6 +18,7 @@ from app.core.security import get_password_hash
 from app.db import FirstAdminBootstrap, User
 from app.db.enums import UserRole
 from app.models.user import validate_password_policy
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.audit_service import AuditService
 from app.utils.time import utcnow
 
@@ -182,6 +183,9 @@ class FirstAdminBootstrapService:
             raise FirstAdminBootstrapUnavailableError(
                 "First administrator bootstrap is unavailable"
             )
+        passkey_enrollment_required = bool(
+            load_app_settings_for_db_readonly(self.db).general.require_passkey_for_admins
+        )
 
         changed = self.db.execute(
             update(FirstAdminBootstrap)
@@ -224,7 +228,10 @@ class FirstAdminBootstrapService:
             action="first_admin_bootstrap_completed",
             entity_type="user",
             entity_id=str(user_id),
-            metadata={"method": "web", "passkey_enrollment_required": True},
+            metadata={
+                "method": "web",
+                "passkey_enrollment_required": passkey_enrollment_required,
+            },
             ip_address=ip_address,
             user_agent=user_agent,
             request_id=request_id,
@@ -251,6 +258,9 @@ class FirstAdminBootstrapService:
                 "The database already contains users; "
                 "create administrators through the UI"
             )
+        passkey_enrollment_required = bool(
+            load_app_settings_for_db_readonly(self.db).general.require_passkey_for_admins
+        )
 
         now = utcnow()
         row = self.db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
@@ -301,7 +311,10 @@ class FirstAdminBootstrapService:
             action="operator_create_first_superadmin",
             entity_type="user",
             entity_id=str(user_id),
-            metadata={"method": "cli", "passkey_enrollment_required": True},
+            metadata={
+                "method": "cli",
+                "passkey_enrollment_required": passkey_enrollment_required,
+            },
         )
         return CreatedFirstAdmin(user_id=user_id, email=normalized_email)
 
