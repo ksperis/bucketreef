@@ -46,13 +46,14 @@ Do not publish the URL broadly until these gates are explicit:
 
 1. Deploy with Docker Compose or Helm using pinned images.
 2. Set `APP_ENV=production` and configure distinct secrets, exact origin/hosts, secure cookies, WebAuthn, trusted proxies, ingress/TLS, and database persistence.
-3. Configure the first endpoint and run healthchecks.
-4. Create or import the first account/context.
-5. Enable only the intended workspaces and feature flags.
-6. Run the [Storage Admin Runbook](../user/admin-runbook-storage-admin.md).
-7. Verify scheduled jobs and observability pages.
-8. Communicate the user start page and support-report format.
-9. Confirm that browser storage contains no token and that session/API-token revocation is immediate.
+3. Run `python -m app.scripts.check_production_hardening --profile <full|admin|user>` inside each backend runtime and keep the successful output with the deployment evidence.
+4. Configure the first endpoint and run healthchecks.
+5. Create or import the first account/context.
+6. Enable only the intended workspaces and feature flags.
+7. Run the [Storage Admin Runbook](../user/admin-runbook-storage-admin.md).
+8. Verify scheduled jobs and observability pages. In split mode, only the admin instance owns jobs.
+9. Communicate the user start page and support-report format.
+10. Confirm that browser storage contains no token and that session/API-token revocation is immediate.
 
 ## Evidence folder
 

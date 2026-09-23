@@ -23,6 +23,12 @@ the [deployment guide](https://docs.bucketreef.ksperis.com/ops/deploy-docker-com
 Enable the optional scheduler with `docker compose --profile operations up -d --wait`.
 No S3 service or endpoint is created automatically.
 
+For a split deployment, combine the base file with either
+`docker-compose.admin.yml` or `docker-compose.user.yml`, use distinct Compose
+project names, and point both stacks at the same PostgreSQL database. Only the
+admin stack should enable the `operations` profile. See the deployment guide
+for the shared origin/WebAuthn requirements and hardening checker commands.
+
 Before upgrading, stop services and back up the complete volume and matching
 `.env`; preserve project name `bucketreef`. Verify the target release bundle,
 review migration notes, replace only bundle files, and deliberately update
