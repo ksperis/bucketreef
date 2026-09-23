@@ -41,10 +41,10 @@ import {
   BucketFeatureJsonExample,
   BucketFeatureModeToggle,
   BucketAclFeature,
+  BucketPolicyFeature,
   BucketPublicAccessFeature,
   buildNotificationExample,
   type BucketQuotaUnit,
-  buildPolicyExample,
   defaultCorsExample,
   defaultEncryptionExample,
   defaultNotificationTemplate,
@@ -245,7 +245,6 @@ function BucketDetailPageContent({
   const [showReplicationExample, setShowReplicationExample] = useState(false);
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
 
-  const [showPolicyExample, setShowPolicyExample] = useState(false);
   const [showCorsExample, setShowCorsExample] = useState(false);
   const selectedS3Account = useMemo(() => {
     if (isCephAdmin) return null;
@@ -287,26 +286,20 @@ function BucketDetailPageContent({
     enabled: hasContext,
     endpointId,
   });
-  const {
-    configured: policyConfigured,
-    deleting: deletingPolicy,
-    dirty: policyDirty,
-    error: policyError,
-    load: loadPolicy,
-    loading: policyLoading,
-    remove: removePolicy,
-    save: savePolicy,
-    saving: savingPolicy,
-    setText: setPolicyText,
-    text: policyText,
-  } = useBucketPolicyController({
+  const policyController = useBucketPolicyController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
-  const policyExample = buildPolicyExample(bucketName);
+  const {
+    configured: policyConfigured,
+    dirty: policyDirty,
+    error: policyError,
+    load: loadPolicy,
+    loading: policyLoading,
+  } = policyController;
   const {
     configured: corsConfigured,
     deleting: deletingCors,
@@ -703,7 +696,7 @@ function BucketDetailPageContent({
     versioning: updatingVersioning,
     objectLock: savingObjectLock,
     lifecycle: savingLifecycle,
-    policy: savingPolicy || deletingPolicy,
+    policy: policyController.saving || policyController.deleting,
     acl: bucketAclController.saving,
     cors: savingCors || deletingCors,
     replication: savingReplication || clearingReplication,
@@ -920,7 +913,6 @@ function BucketDetailPageContent({
   const objectLockNotImplemented = isApiFeatureNotImplemented(objectLockLoadError);
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const tagsNotImplemented = isApiFeatureNotImplemented(bucketTagsError);
-  const policyNotImplemented = isApiFeatureNotImplemented(policyError);
   const corsNotImplemented = isApiFeatureNotImplemented(corsError);
   const encryptionNotImplemented = isApiFeatureNotImplemented(encryptionError);
   const websiteNotImplemented = isApiFeatureNotImplemented(websiteError);
@@ -951,11 +943,6 @@ function BucketDetailPageContent({
     disabled: tagsNotImplemented,
     configured: bucketTagsConfigured,
     unsaved: tagsDirty,
-  });
-  const policyCardState = resolveFeatureVisualState({
-    disabled: policyNotImplemented,
-    configured: policyConfigured,
-    unsaved: policyDirty,
   });
   const websiteCardState = resolveFeatureVisualState({
     disabled: staticWebsiteBlocked || websiteNotImplemented,
@@ -1315,7 +1302,7 @@ function BucketDetailPageContent({
       if (pendingConfigurationDelete === "notifications") await clearNotifications();
       if (pendingConfigurationDelete === "replication") await clearReplication();
       if (pendingConfigurationDelete === "website") await clearWebsite();
-      if (pendingConfigurationDelete === "policy") await removePolicy();
+      if (pendingConfigurationDelete === "policy") await policyController.remove();
       if (pendingConfigurationDelete === "access-logging") await clearAccessLogging();
     } finally {
       setPendingConfigurationDelete(null);
@@ -1341,7 +1328,7 @@ function BucketDetailPageContent({
               : pendingConfigurationDelete === "website"
                 ? clearingWebsite
                 : pendingConfigurationDelete === "policy"
-                  ? deletingPolicy
+                  ? policyController.deleting
                   : pendingConfigurationDelete === "access-logging"
                     ? clearingAccessLogging
                     : false;
@@ -2221,54 +2208,11 @@ function BucketDetailPageContent({
 
                 <BucketAclFeature controller={bucketAclController} />
 
-                <BucketFeatureSection
-                  title="Bucket policy"
-                  description="IAM-like JSON applied directly on the bucket."
-                  mode="json"
-                  visualState={policyCardState}
-                  presentation="workbench"
-                  busy={savingPolicy || deletingPolicy || policyLoading}
-                  testId="bucket-feature-policy"
-                  actions={
-                    <div className={bucketDetailInlineActionsClass}>
-                      <SettingsButton
-                        type="button"
-                        onClick={() => setPendingConfigurationDelete("policy")}
-                        disabled={policyNotImplemented || deletingPolicy || !policyConfigured}
-                        variant="danger"
-                      >
-                        {deletingPolicy ? "Deleting..." : "Delete"}
-                      </SettingsButton>
-                      <SettingsButton
-                        type="button"
-                        onClick={savePolicy}
-                        disabled={policyNotImplemented || savingPolicy || policyLoading || !policyDirty}
-                        variant="primary"
-                      >
-                        {savingPolicy ? "Saving..." : "Save"}
-                      </SettingsButton>
-                    </div>
-                  }
-                >
-                  {policyError && (
-                    <UiInlineMessage tone="error">{policyError}</UiInlineMessage>
-                  )}
-                  <UiTextarea label="Bucket policy (JSON)" rows={12}
-                    value={policyText}
-                    onChange={(e) => setPolicyText(e.target.value)}
-                    className="settings-control font-mono"
-                    placeholder='{"Version":"2012-10-17","Statement":[...]}'
-                    spellCheck={false}
-                    disabled={policyNotImplemented}
-                  />
-                  <BucketFeatureJsonExample
-                    show={showPolicyExample}
-                    onToggle={() => setShowPolicyExample((prev) => !prev)}
-                    example={policyExample}
-                    onUseExample={() => setPolicyText(policyExample)}
-                    disabled={policyNotImplemented}
-                  />
-                </BucketFeatureSection>
+                <BucketPolicyFeature
+                  bucketName={bucketName}
+                  controller={policyController}
+                  onRequestDelete={() => setPendingConfigurationDelete("policy")}
+                />
 
                 <BucketFeatureSection
                   title="CORS"

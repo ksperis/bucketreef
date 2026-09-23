@@ -7,10 +7,8 @@ export { default as BucketFeatureJsonExample } from "./BucketFeatureJsonExample"
 export { default as BucketFeatureModeToggle } from "./BucketFeatureModeToggle";
 export { default as BucketAclFeature } from "./BucketAclFeature";
 export { default as BucketPublicAccessFeature } from "./BucketPublicAccessFeature";
-export {
-  buildPolicyExample,
-  useBucketPolicyController,
-} from "./useBucketPolicyController";
+export { default as BucketPolicyFeature } from "./BucketPolicyFeature";
+export { useBucketPolicyController } from "./useBucketPolicyController";
 export {
   defaultCorsExample,
   useBucketCorsController,

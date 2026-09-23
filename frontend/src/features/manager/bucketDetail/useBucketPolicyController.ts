@@ -28,20 +28,6 @@ type UseBucketPolicyControllerOptions = {
   endpointId?: number | null;
 };
 
-export function buildPolicyExample(bucketName?: string) {
-  return `{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::${bucketName || "bucket"}/*"
-    }
-  ]
-}`;
-}
-
 export function useBucketPolicyController({
   accountId,
   bucketName,
