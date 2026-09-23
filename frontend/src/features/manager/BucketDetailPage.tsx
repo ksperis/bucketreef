@@ -40,7 +40,7 @@ import {
   BucketFeatureSection,
   BucketFeatureJsonExample,
   BucketFeatureModeToggle,
-  bucketAclOptions,
+  BucketAclFeature,
   buildNotificationExample,
   type BucketQuotaUnit,
   buildPolicyExample,
@@ -389,27 +389,19 @@ function BucketDetailPageContent({
     enabled: hasContext,
     endpointId,
   });
-  const {
-    acl: bucketAcl,
-    configured: aclConfigured,
-    custom: bucketAclCustom,
-    dirty: aclDirty,
-    error: bucketAclError,
-    load: loadBucketAcl,
-    loading: bucketAclLoading,
-    preset: bucketAclPreset,
-    save: saveBucketAcl,
-    saving: savingBucketAcl,
-    status: bucketAclStatus,
-    updateCustom: updateBucketAclCustom,
-    updatePreset: updateBucketAclPreset,
-  } = useBucketAclController({
+  const bucketAclController = useBucketAclController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
+  const {
+    acl: bucketAcl,
+    dirty: aclDirty,
+    load: loadBucketAcl,
+    loading: bucketAclLoading,
+  } = bucketAclController;
   const {
     active: objectLockActive,
     configuration: objectLockConfig,
@@ -716,7 +708,7 @@ function BucketDetailPageContent({
     objectLock: savingObjectLock,
     lifecycle: savingLifecycle,
     policy: savingPolicy || deletingPolicy,
-    acl: savingBucketAcl,
+    acl: bucketAclController.saving,
     cors: savingCors || deletingCors,
     replication: savingReplication || clearingReplication,
     encryption: savingEncryption || deletingEncryption,
@@ -933,7 +925,6 @@ function BucketDetailPageContent({
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const tagsNotImplemented = isApiFeatureNotImplemented(bucketTagsError);
   const publicAccessNotImplemented = isApiFeatureNotImplemented(publicAccessError);
-  const aclNotImplemented = isApiFeatureNotImplemented(bucketAclError);
   const policyNotImplemented = isApiFeatureNotImplemented(policyError);
   const corsNotImplemented = isApiFeatureNotImplemented(corsError);
   const encryptionNotImplemented = isApiFeatureNotImplemented(encryptionError);
@@ -970,11 +961,6 @@ function BucketDetailPageContent({
     disabled: publicAccessNotImplemented,
     configured: publicAccessBlockEnabled || publicAccessBlockPartial,
     unsaved: publicAccessDirty,
-  });
-  const aclCardState = resolveFeatureVisualState({
-    disabled: aclNotImplemented,
-    configured: aclConfigured,
-    unsaved: aclDirty,
   });
   const policyCardState = resolveFeatureVisualState({
     disabled: policyNotImplemented,
@@ -2281,104 +2267,7 @@ function BucketDetailPageContent({
                   </div>
                 </BucketFeatureSection>
 
-                <BucketFeatureSection
-                  title="Access control list"
-                  description="Configure a canned ACL and review resulting grants."
-                  mode="graphical"
-                  visualState={aclCardState}
-                  presentation="workbench"
-                  successMessage={bucketAclStatus}
-                  busy={savingBucketAcl || bucketAclLoading}
-                  testId="bucket-feature-acl"
-                  actions={
-                    <SettingsButton
-                      type="button"
-                      onClick={saveBucketAcl}
-                      variant="primary"
-                      disabled={aclNotImplemented || savingBucketAcl || bucketAclLoading || !aclDirty}
-                    >
-                      {savingBucketAcl ? "Saving..." : "Save"}
-                    </SettingsButton>
-                  }
-                >
-                  {bucketAclError && (
-                    <UiInlineMessage tone="error">{bucketAclError}</UiInlineMessage>
-                  )}
-                  <div className={bucketDetailTwoColumnGridClass}>
-                    <label className={bucketFeatureLabelClass}>
-                      Canned ACL
-                      <select
-                        value={bucketAclPreset}
-                        onChange={(e) => updateBucketAclPreset(e.target.value)}
-                        className={bucketFeatureInputClass}
-                        disabled={aclNotImplemented || bucketAclLoading || savingBucketAcl}
-                      >
-                        {bucketAclOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {bucketAclPreset === "custom" && (
-                      <label className={bucketFeatureLabelClass}>
-                        Custom ACL
-                        <input
-                          type="text"
-                          value={bucketAclCustom}
-                          onChange={(e) => updateBucketAclCustom(e.target.value)}
-                          className={bucketFeatureInputClass}
-                          placeholder="e.g. private"
-                          disabled={aclNotImplemented || bucketAclLoading || savingBucketAcl}
-                        />
-                      </label>
-                    )}
-                  </div>
-                  <p className={bucketDetailHintClass}>
-                    Saving a canned ACL replaces the current ACL grants.
-                  </p>
-                  {bucketAclLoading ? (
-                    <UiInlineMessage>Loading ACL...</UiInlineMessage>
-                  ) : (
-                    <div className={bucketDetailStackClass}>
-                      <p className={bucketDetailHintClass}>
-                        Owner: <span className="font-semibold text-slate-700 dark:text-slate-200">{bucketAcl?.owner ?? "Unknown"}</span>
-                      </p>
-                      {(bucketAcl?.grants?.length ?? 0) > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800">
-                            <thead className="bg-slate-50 ui-caption uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
-                              <tr>
-                                <th className="text-left">Grantee</th>
-                                <th className="text-left">Type</th>
-                                <th className="text-left">Permission</th>
-                              </tr>
-                            </thead>
-                            <tbody className={bucketDetailDividerClass}>
-                              {bucketAcl?.grants.map((grant, index) => {
-                                const { grantee } = grant;
-                                const label =
-                                  grantee.display_name ||
-                                  grantee.id ||
-                                  (grantee.uri ? grantee.uri.split("/").pop() : null) ||
-                                  grantee.type;
-                                return (
-                                  <tr key={`${grantee.type}-${grantee.id ?? grantee.uri ?? index}`}>
-                                    <td>{label}</td>
-                                    <td className="ui-table-secondary">{grantee.type}</td>
-                                    <td className="ui-table-primary">{grant.permission}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p className="ui-body text-slate-600 dark:text-slate-300">No explicit ACL grants on this bucket.</p>
-                      )}
-                    </div>
-                  )}
-                </BucketFeatureSection>
+                <BucketAclFeature controller={bucketAclController} />
 
                 <BucketFeatureSection
                   title="Bucket policy"

@@ -5,6 +5,7 @@
 export { default as BucketFeatureSection } from "./BucketFeatureSection";
 export { default as BucketFeatureJsonExample } from "./BucketFeatureJsonExample";
 export { default as BucketFeatureModeToggle } from "./BucketFeatureModeToggle";
+export { default as BucketAclFeature } from "./BucketAclFeature";
 export {
   buildPolicyExample,
   useBucketPolicyController,
@@ -26,10 +27,7 @@ export {
 export { useBucketPublicAccessController } from "./useBucketPublicAccessController";
 export { useBucketLifecycleController } from "./useBucketLifecycleController";
 export { useBucketReplicationController } from "./useBucketReplicationController";
-export {
-  bucketAclOptions,
-  useBucketAclController,
-} from "./useBucketAclController";
+export { useBucketAclController } from "./useBucketAclController";
 export { useBucketObjectLockController } from "./useBucketObjectLockController";
 export { useBucketMetadataController } from "./useBucketMetadataController";
 export { useBucketObjectsController } from "./useBucketObjectsController";
