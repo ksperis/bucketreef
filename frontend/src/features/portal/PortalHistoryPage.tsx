@@ -32,16 +32,11 @@ import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalActivityPanel from "./PortalActivityPanel";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
+import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
 import {
-  advancedFilterBackdropClass,
-  advancedFilterBodyClass,
   advancedFilterControlClass,
-  advancedFilterDrawerClass,
   advancedFilterFieldCardClass,
-  advancedFilterFooterClass,
-  advancedFilterHeaderClass,
   advancedFilterMatchModeButtonClass,
-  advancedFilterRootClass,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   advancedFilterToolbarButtonClass,
@@ -52,7 +47,7 @@ import {
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
   type TextMatchMode,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "../shared/advancedFilterShared";
 
 type HistoryTab = "activity" | "access";
 type ServerLogActionFilter = "" | "upload" | "download" | "delete" | "list" | "metadata" | "other";
@@ -853,34 +848,32 @@ export default function PortalHistoryPage() {
           ) : null}</>}
         >
           {showServerLogAdvancedFilter ? (
-            <div className={advancedFilterRootClass}>
-              <button
-                type="button"
-                onClick={serverLogAdvancedFilterCloseGuard.requestClose}
-                className={advancedFilterBackdropClass}
-                aria-label={t({ en: "Close advanced filter drawer", fr: "Fermer le panneau de filtre avancé", de: "Erweiterten Filter schließen", zh: "关闭高级筛选面板" })}
-              />
-              <div className={advancedFilterDrawerClass}>
-                <div className={advancedFilterHeaderClass}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">
-                        {t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter", zh: "高级筛选" })}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {renderAdvancedFilterRuleCountBadge(serverLogAdvancedDraftActiveCount)}
-                        <span className={advancedFilterSyncBadgeClass(hasPendingServerLogAdvancedChanges)}>
-                          {formatAdvancedFilterSyncLabel(hasPendingServerLogAdvancedChanges)}
-                        </span>
-                      </div>
-                    </div>
-                    <UiButton variant="secondary" size="sm" onClick={serverLogAdvancedFilterCloseGuard.requestClose}>
-                      {t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" })}
+            <>
+              <AdvancedFilterDrawerShell
+                title={t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter", zh: "高级筛选" })}
+                badges={
+                  <>
+                    {renderAdvancedFilterRuleCountBadge(serverLogAdvancedDraftActiveCount)}
+                    <span className={advancedFilterSyncBadgeClass(hasPendingServerLogAdvancedChanges)}>
+                      {formatAdvancedFilterSyncLabel(hasPendingServerLogAdvancedChanges)}
+                    </span>
+                  </>
+                }
+                closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" })}
+                closeAriaLabel={t({ en: "Close advanced filter drawer", fr: "Fermer le panneau de filtre avancé", de: "Erweiterten Filter schließen", zh: "关闭高级筛选面板" })}
+                onClose={serverLogAdvancedFilterCloseGuard.requestClose}
+                footer={
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <UiButton variant="secondary" size="sm" onClick={resetServerLogAdvancedFilter} disabled={!hasAnyServerLogAdvancedToClear}>
+                      {t({ en: "Reset", fr: "Réinitialiser", de: "Zurücksetzen", zh: "重置" })}
+                    </UiButton>
+                    <UiButton size="sm" onClick={applyServerLogAdvancedFilter}>
+                      {t({ en: "Apply filter", fr: "Appliquer le filtre", de: "Filter anwenden", zh: "应用筛选" })}
                     </UiButton>
                   </div>
-                </div>
-                <div className={advancedFilterBodyClass}>
-                  <div className="space-y-3">
+                }
+              >
+                <div className="space-y-3">
                     {renderAdvancedFilterDraftSummary(serverLogAdvancedDraftSummaryItems)}
                     <section className={advancedFilterSectionClass}>
                       <div className="grid gap-3 md:grid-cols-4">
@@ -984,21 +977,10 @@ export default function PortalHistoryPage() {
                         </div>
                       </div>
                     </section>
-                  </div>
                 </div>
-                <div className={advancedFilterFooterClass}>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <UiButton variant="secondary" size="sm" onClick={resetServerLogAdvancedFilter} disabled={!hasAnyServerLogAdvancedToClear}>
-                      {t({ en: "Reset", fr: "Réinitialiser", de: "Zurücksetzen", zh: "重置" })}
-                    </UiButton>
-                    <UiButton size="sm" onClick={applyServerLogAdvancedFilter}>
-                      {t({ en: "Apply filter", fr: "Appliquer le filtre", de: "Filter anwenden", zh: "应用筛选" })}
-                    </UiButton>
-                  </div>
-                </div>
-              </div>
+              </AdvancedFilterDrawerShell>
               {serverLogAdvancedFilterCloseGuard.confirmationDialog}
-            </div>
+            </>
           ) : null}
           {serverLogsError && <PageBanner tone="error" className="mt-3">{serverLogsError}</PageBanner>}
           <div>

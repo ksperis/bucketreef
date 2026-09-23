@@ -101,7 +101,7 @@ import {
 } from "./bucketOpsFilterSummary";
 import {
   renderAdvancedSearchProgress,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 import { FEATURE_STATE_OPTIONS, type FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import { type ColumnId, type SortField } from "./bucketOpsListState";
 import { extractApiError } from "../../utils/apiError";

@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
-import type { TextMatchMode } from "./advancedFilterShared";
+import type { TextMatchMode } from "../../shared/advancedFilterShared";
 
 type StringState<State> = {
   [Field in keyof State]: string;

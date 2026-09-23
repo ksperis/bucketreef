@@ -12,7 +12,7 @@ import {
 import {
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 import {
   BOOLEAN_FILTER_OPTIONS,
   NUMERIC_FILTER_OPTIONS,

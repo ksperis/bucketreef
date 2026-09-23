@@ -8,7 +8,7 @@ import {
   formatTextFilterSummary,
   formatTextMatchModeLabel,
   parseExactListInput,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 import {
   FEATURE_LABELS,
   formatFeatureFilterStateLabel,

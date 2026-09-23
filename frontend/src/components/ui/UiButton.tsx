@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 import { cx, uiButtonBaseClass, uiButtonVariants } from "./styles";
 
 export type UiButtonVariant = keyof typeof uiButtonVariants;
-export type UiButtonSize = "xs" | "sm" | "md";
+type UiButtonSize = "xs" | "sm" | "md";
 
 const uiButtonSizeClasses: Record<UiButtonSize, string> = {
   xs: "h-7 px-2 py-1 ui-caption",

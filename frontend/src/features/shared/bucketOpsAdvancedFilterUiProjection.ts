@@ -11,7 +11,7 @@ import { featureDetailSummary } from "../cephAdmin/filtering/bucketAdvancedFilte
 import {
   FILTER_COST_LABEL,
   type FilterCostLevel,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 import {
   BUCKET_STATS_NUMERIC_FILTER_FIELDS,
   OWNER_QUOTA_NUMERIC_FILTER_FIELDS,

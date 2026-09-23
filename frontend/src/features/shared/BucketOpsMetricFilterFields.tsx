@@ -5,7 +5,7 @@
 import {
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 import {
   type AdvancedFilterState,
   type AdvancedNumericField,

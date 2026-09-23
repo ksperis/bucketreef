@@ -9,7 +9,7 @@ import {
   INACTIVE_ADVANCED_PROGRESS,
   progressFromAdvancedSearchEvent,
   type AdvancedSearchProgress,
-} from "../filtering/advancedFilterShared";
+} from "../../shared/advancedFilterShared";
 
 type SortDirection = "asc" | "desc";
 

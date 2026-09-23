@@ -34,17 +34,12 @@ import CephAdminUserCreateModal from "./CephAdminUserCreateModal";
 import CephAdminUserEditModal from "./CephAdminUserEditModal";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
+import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
 import {
   FILTER_COST_LABEL,
-  advancedFilterBackdropClass,
-  advancedFilterBodyClass,
   advancedFilterControlClass,
-  advancedFilterDrawerClass,
-  advancedFilterFooterClass,
   advancedFilterFieldCardClass,
-  advancedFilterHeaderClass,
   advancedFilterMatchModeButtonClass,
-  advancedFilterRootClass,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   advancedFilterToolbarButtonClass,
@@ -61,7 +56,7 @@ import {
   renderFilterCostIndicator,
   type FilterCostLevel,
   type TextMatchMode,
-} from "./filtering/advancedFilterShared";
+} from "../shared/advancedFilterShared";
 import {
   advancedFilterFieldHighlight,
   appendNumericFilterRule,
@@ -946,35 +941,35 @@ export default function CephAdminUsersPage() {
                 />
 
                 {showAdvancedFilter && (
-                  <div className={advancedFilterRootClass}>
-                    <button
-                      type="button"
-                      onClick={advancedFilterCloseGuard.requestClose}
-                      className={advancedFilterBackdropClass}
-                      aria-label="Close advanced filter drawer"
-                    />
-                    <div className={advancedFilterDrawerClass}>
-                      <div className={advancedFilterHeaderClass}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">Advanced filter</p>
-                            <p className="ui-caption text-slate-500 dark:text-slate-400">RGW Users listing</p>
-                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                              {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount)}
-                              {renderAdvancedFilterCostBadge(advancedDraftGlobalCostLevel, advancedDraftGlobalCostTooltip)}
-                              <span className={advancedFilterSyncBadgeClass(hasPendingAdvancedChanges)}>
-                                {formatAdvancedFilterSyncLabel(hasPendingAdvancedChanges)}
-                              </span>
-                            </div>
-                          </div>
-                          <ListActionButton variant="secondary"  onClick={advancedFilterCloseGuard.requestClose}>
-                            Close
-                          </ListActionButton>
-                        </div>
+                  <AdvancedFilterDrawerShell
+                    title="Advanced filter"
+                    subtitle="RGW Users listing"
+                    badges={
+                      <>
+                        {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount)}
+                        {renderAdvancedFilterCostBadge(advancedDraftGlobalCostLevel, advancedDraftGlobalCostTooltip)}
+                        <span className={advancedFilterSyncBadgeClass(hasPendingAdvancedChanges)}>
+                          {formatAdvancedFilterSyncLabel(hasPendingAdvancedChanges)}
+                        </span>
+                      </>
+                    }
+                    onClose={advancedFilterCloseGuard.requestClose}
+                    footer={
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <ListActionButton
+                          variant="secondary"
+                          onClick={resetAdvancedFilter}
+                          disabled={!hasAnyAdvancedToClear}
+                        >
+                          Clear
+                        </ListActionButton>
+                        <ListActionButton variant="primary" onClick={applyAdvancedFilter}>
+                          Apply filter
+                        </ListActionButton>
                       </div>
-
-                      <div className={advancedFilterBodyClass}>
-                        <div className="space-y-4">
+                    }
+                  >
+                    <div className="space-y-4">
                           {renderAdvancedFilterDraftSummary(advancedDraftSummaryItems)}
 
                           <section className={advancedFilterSectionClass}>
@@ -1157,25 +1152,8 @@ export default function CephAdminUsersPage() {
                               </div>
                             )}
                           </section>
-                        </div>
-                      </div>
-
-                      <div className={advancedFilterFooterClass}>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          <ListActionButton
-                            variant="secondary"
-                            onClick={resetAdvancedFilter}
-                            disabled={!hasAnyAdvancedToClear}
-                          >
-                            Clear
-                          </ListActionButton>
-                          <ListActionButton variant="primary"  onClick={applyAdvancedFilter}>
-                            Apply filter
-                          </ListActionButton>
-                        </div>
-                      </div>
                     </div>
-                  </div>
+                  </AdvancedFilterDrawerShell>
                 )}
               </>
               ) : null

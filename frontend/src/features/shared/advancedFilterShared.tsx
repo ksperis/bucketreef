@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
-import UiProgressBar from "../../../components/ui/UiProgressBar";
-import { toolbarCompactButtonClasses } from "../../../components/toolbarControlClasses";
+import UiProgressBar from "../../components/ui/UiProgressBar";
+import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
 
 export type TextMatchMode = "contains" | "exact";
 export type FilterCostLevel = "none" | "low" | "medium" | "high";
@@ -41,25 +41,25 @@ export const advancedFilterRootClass = "fixed inset-x-0 bottom-0 top-14 z-[46]";
 export const advancedFilterBackdropClass = "absolute inset-0 bg-black/50";
 
 export const advancedFilterDrawerClass =
-  "absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col border-l border-[color:var(--ui-border)] bg-white text-[var(--ui-text)] shadow-[var(--shell-menu-shadow)] dark:bg-neutral-950 dark:text-slate-100";
+  "absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-[var(--shell-menu-shadow)]";
 
 export const advancedFilterHeaderClass = "border-b border-[color:var(--ui-border-soft)] px-4 py-3";
 
 export const advancedFilterBodyClass = "flex-1 overflow-y-auto px-4 py-4";
 
-export const advancedFilterFooterClass = "border-t border-[color:var(--ui-border-soft)] bg-white px-4 py-3 dark:bg-neutral-950";
+export const advancedFilterFooterClass = "border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] px-4 py-3";
 
 const advancedFilterSummaryClass =
-  "rounded-lg border border-[color:var(--ui-border)] bg-neutral-50 p-3 text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)] dark:bg-neutral-900/80";
+  "rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)]";
 
 export const advancedFilterSectionClass =
-  "rounded-lg border border-[color:var(--ui-border)] bg-white p-3 text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)] dark:bg-neutral-900/70";
+  "rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-3 text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)]";
 
 export const advancedFilterAccordionClass =
-  "rounded-lg border border-[color:var(--ui-border)] bg-white text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)] dark:bg-neutral-900/70";
+  "rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)]";
 
 export const advancedFilterFieldCardClass = (className: string = "") =>
-  `rounded-lg border border-slate-200 p-3 dark:border-slate-700${className ? ` ${className}` : ""}`;
+  `rounded-lg border border-[color:var(--ui-border-soft)] p-3${className ? ` ${className}` : ""}`;
 
 const advancedFilterControlBaseClass =
   "ui-list-control rounded-md border border-slate-200 ui-caption text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";

@@ -18,7 +18,7 @@ import {
 import {
   buildTextFieldRules,
   parseExactListInput,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 
 export type FeatureKey =
   | "versioning"

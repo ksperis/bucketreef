@@ -1569,6 +1569,18 @@ export function buildBaseRules(): MockRule[] {
       body: GENERAL_SETTINGS,
     },
     {
+      id: "settings-runtime-surfaces",
+      path: /^\/settings\/runtime-surfaces$/,
+      body: {
+        admin: true,
+        ceph_admin: true,
+        storage_ops: true,
+        manager: true,
+        portal: true,
+        browser: true,
+      },
+    },
+    {
       id: "settings-login",
       path: /^\/settings\/login$/,
       body: LOGIN_SETTINGS,

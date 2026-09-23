@@ -1,4 +1,4 @@
-import { toolbarMatchModeButtonClasses } from "../../../components/toolbarControlClasses";
+import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
 import { render, screen } from "@testing-library/react";
 
 import {
@@ -30,9 +30,9 @@ describe("advancedFilterShared", () => {
   });
 
   it("returns stable advanced-filter field card classes", () => {
-    expect(advancedFilterFieldCardClass()).toBe("rounded-lg border border-slate-200 p-3 dark:border-slate-700");
+    expect(advancedFilterFieldCardClass()).toBe("rounded-lg border border-[color:var(--ui-border-soft)] p-3");
     expect(advancedFilterFieldCardClass("md:col-span-2")).toBe(
-      "rounded-lg border border-slate-200 p-3 dark:border-slate-700 md:col-span-2"
+      "rounded-lg border border-[color:var(--ui-border-soft)] p-3 md:col-span-2"
     );
   });
 
