@@ -192,9 +192,9 @@ Run the hardening checker in both backends before publishing either URL:
 
 ```bash
 docker compose --project-name bucketreef-admin -f docker-compose.yml -f docker-compose.admin.yml \
-  exec backend python -m app.scripts.check_production_hardening --profile admin
+  exec backend python -m app.scripts.check_production_hardening
 docker compose --project-name bucketreef-user -f docker-compose.yml -f docker-compose.user.yml \
-  exec backend python -m app.scripts.check_production_hardening --profile user
+  exec backend python -m app.scripts.check_production_hardening
 ```
 
 Do not use SQLite for this topology. The two projects must point at the same

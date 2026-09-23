@@ -5,12 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from app.core.config import Settings, is_weak_secret_value
+from app.core.config import DeploymentProfile, Settings, is_weak_secret_value
 from app.core.runtime_surfaces import RuntimeSurface, runtime_surface_enabled
 
 
 HardeningLevel = Literal["pass", "warning", "fail"]
-DeploymentProfile = Literal["full", "admin", "user", "ceph-admin-high-security"]
 
 
 @dataclass(frozen=True)
@@ -48,6 +47,39 @@ _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
     },
 }
 
+_FINDING_LABELS: dict[str, str] = {
+    "app-env": "Production environment",
+    "keyrings": "Secret key rings",
+    "database": "Database",
+    "job-owner": "Scheduled job ownership",
+    "cron-token": "Scheduler token",
+    "high-security-mode": "Ceph Admin high-security mode",
+    "shared-origins": "Trusted public origins",
+    "webauthn-origins": "WebAuthn origins",
+}
+
+
+def hardening_finding_label(code: str) -> str:
+    if code.startswith("surface-"):
+        surface = code.removeprefix("surface-").replace("-", " ")
+        return f"Runtime surface: {surface.title()}"
+    return _FINDING_LABELS.get(code, code.replace("-", " ").title())
+
+
+def hardening_status(findings: list[HardeningFinding]) -> HardeningLevel:
+    if any(finding.level == "fail" for finding in findings):
+        return "fail"
+    if any(finding.level == "warning" for finding in findings):
+        return "warning"
+    return "pass"
+
+
+def hardening_counts(findings: list[HardeningFinding]) -> dict[HardeningLevel, int]:
+    counts: dict[HardeningLevel, int] = {"pass": 0, "warning": 0, "fail": 0}
+    for finding in findings:
+        counts[finding.level] += 1
+    return counts
+
 
 def _is_postgresql(url: str) -> bool:
     text = str(url or "").strip().lower()
@@ -61,8 +93,9 @@ def _secret_ring_is_strong(values: list[str]) -> bool:
 def check_production_hardening(
     settings: Settings,
     *,
-    profile: DeploymentProfile = "full",
+    profile: DeploymentProfile | None = None,
 ) -> list[HardeningFinding]:
+    profile = profile or settings.deployment_profile
     findings: list[HardeningFinding] = []
 
     findings.append(
@@ -97,9 +130,17 @@ def check_production_hardening(
             HardeningFinding(
                 "database",
                 "pass" if postgresql else "fail",
-                "Split deployment uses PostgreSQL."
+                (
+                    "Dedicated Ceph Admin deployment uses PostgreSQL."
+                    if profile == "ceph-admin-high-security"
+                    else "Split deployment uses PostgreSQL."
+                )
                 if postgresql
-                else "Split admin/user deployments require the same PostgreSQL database.",
+                else (
+                    "Ceph Admin high-security deployments require PostgreSQL; the database may be shared or isolated."
+                    if profile == "ceph-admin-high-security"
+                    else "Split admin/user deployments require PostgreSQL and must use the same database."
+                ),
             )
         )
     elif settings.backend_replicas > 1 and not postgresql:

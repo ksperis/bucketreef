@@ -6,6 +6,7 @@ services:
       context: backend
     environment:
       APP_ENV: ${APP_ENV:-development}
+      DEPLOYMENT_PROFILE: ${DEPLOYMENT_PROFILE:-full}
       UI_JWT_KEYS: '${UI_JWT_KEYS:-["change-me"]}'
       API_JWT_KEYS: '${API_JWT_KEYS:-["change-me"]}'
       CREDENTIAL_KEYS: '${CREDENTIAL_KEYS:-["change-me"]}'

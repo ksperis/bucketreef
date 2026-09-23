@@ -80,6 +80,7 @@ def test_ceph_admin_high_security_mounts_only_ceph_admin_runtime_surface() -> No
     env.update(
         {
             "APP_ENV": "test",
+            "DEPLOYMENT_PROFILE": "ceph-admin-high-security",
             "CEPH_ADMIN_HIGH_SECURITY_MODE": "true",
             "FEATURE_ADMIN_ENABLED": "false",
             "FEATURE_CEPH_ADMIN_ENABLED": "true",

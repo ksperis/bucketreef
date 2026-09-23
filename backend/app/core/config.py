@@ -20,6 +20,9 @@ from app.utils.ldap_validation import (
 )
 
 
+DeploymentProfile = Literal["full", "admin", "user", "ceph-admin-high-security"]
+
+
 class OIDCProviderSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -370,6 +373,10 @@ class Settings(BaseSettings):
         True,
         description="Mount internal scheduled-job endpoints on this backend instance",
     )
+    deployment_profile: DeploymentProfile = Field(
+        "full",
+        description="Deployment profile for this backend runtime (DEPLOYMENT_PROFILE)",
+    )
     ceph_admin_high_security_mode: bool = Field(
         False,
         description="Run this backend as a dedicated Ceph Admin high-security instance",
@@ -629,6 +636,10 @@ class Settings(BaseSettings):
             except ValueError as exc:
                 raise ValueError(f"Invalid trusted proxy CIDR: {value}") from exc
         if self.ceph_admin_high_security_mode:
+            if self.deployment_profile != "ceph-admin-high-security":
+                raise ValueError(
+                    "CEPH_ADMIN_HIGH_SECURITY_MODE requires DEPLOYMENT_PROFILE=ceph-admin-high-security"
+                )
             expected_surface_settings = {
                 "FEATURE_ADMIN_ENABLED": self.feature_admin_enabled is False,
                 "FEATURE_CEPH_ADMIN_ENABLED": self.feature_ceph_admin_enabled is True,

@@ -54,6 +54,7 @@ const GroupsPage = lazy(() => import("./features/admin/GroupsPage"));
 const IdentitySecurityPage = lazy(() => import("./features/admin/IdentitySecurityPage"));
 const AdminDashboard = lazy(() => import("./features/admin/AdminDashboard"));
 const OnboardingPage = lazy(() => import("./features/admin/OnboardingPage"));
+const ProductionReadinessPage = lazy(() => import("./features/admin/ProductionReadinessPage"));
 const AdminMetricsPage = lazy(() => import("./features/admin/AdminMetricsPage"));
 const AdminPortalRequestsPage = lazy(() => import("./features/admin/AdminPortalRequestsPage"));
 const BillingPage = lazy(() => import("./features/admin/BillingPage"));
@@ -184,6 +185,14 @@ export const buildAdminNav = (
               {
                 ...workspacePageLink(ADMIN_PAGE_CONTRACTS.onboarding),
                 iconName: "tools" as const,
+              },
+            ]
+          : []),
+        ...(isSuperAdmin
+          ? [
+              {
+                ...workspacePageLink(ADMIN_PAGE_CONTRACTS["production-readiness"]),
+                iconName: "shield" as const,
               },
             ]
           : []),
@@ -344,6 +353,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
               <Route path="billing" element={<AdminBillingRoute />} />
               <Route path="usage-history" element={<AdminUsageHistoryRoute />} />
               <Route element={<RequireRole roles={[SUPERADMIN_ROLE]} />}>
+                <Route path="production-readiness" element={<ProductionReadinessPage />} />
                 <Route path="general-settings" element={<GeneralSettingsPage />} />
                 <Route path="authentication-settings" element={<AuthenticationSettingsPage />} />
                 <Route path="authentication-settings/oidc/new" element={<AuthProviderPage kind="oidc" />} />

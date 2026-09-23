@@ -41,6 +41,7 @@ describe("route snapshot", () => {
       "/admin/portal-requests",
       "/admin/billing",
       "/admin/usage-history",
+      "/admin/production-readiness",
       "/admin/general-settings",
       "/admin/authentication-settings",
       "/admin/authentication-settings/oidc/new",

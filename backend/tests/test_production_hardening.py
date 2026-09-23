@@ -104,8 +104,28 @@ def test_cli_json_output_contains_no_secret_values():
     assert settings.credential_keys[0] not in output
 
 
+def test_cli_uses_runtime_deployment_profile_when_not_overridden():
+    settings = _production_settings(
+        deployment_profile="user",
+        feature_admin_enabled=False,
+        feature_ceph_admin_enabled=False,
+        feature_storage_ops_enabled=False,
+        feature_manager_enabled=True,
+        feature_portal_enabled=True,
+        feature_browser_enabled=True,
+        scheduled_jobs_enabled=False,
+        internal_cron_token=None,
+    )
+    exit_code, output = run(json_output=False, settings=settings)
+
+    assert exit_code == 0
+    assert "surface-manager" in output
+    assert "must be disabled" not in output
+
+
 def test_ceph_admin_high_security_profile_passes_with_dedicated_contract():
     settings = _production_settings(
+        deployment_profile="ceph-admin-high-security",
         ceph_admin_high_security_mode=True,
         feature_admin_enabled=False,
         feature_ceph_admin_enabled=True,
@@ -126,14 +146,54 @@ def test_ceph_admin_high_security_profile_passes_with_dedicated_contract():
     findings = check_production_hardening(settings, profile="ceph-admin-high-security")
     assert hardening_exit_code(findings) == 0
     assert all(finding.level == "pass" for finding in findings)
+    database_finding = next(finding for finding in findings if finding.code == "database")
+    assert database_finding.message == "Dedicated Ceph Admin deployment uses PostgreSQL."
+
+
+def test_ceph_admin_high_security_database_failure_allows_shared_or_isolated_database():
+    settings = Settings(
+        _env_file=None,
+        deployment_profile="ceph-admin-high-security",
+        database_url="sqlite:////tmp/bucketreef.db",
+        ceph_admin_high_security_mode=True,
+        feature_admin_enabled=False,
+        feature_ceph_admin_enabled=True,
+        feature_storage_ops_enabled=False,
+        feature_manager_enabled=False,
+        feature_portal_enabled=False,
+        feature_browser_enabled=False,
+        scheduled_jobs_enabled=False,
+    )
+
+    findings = check_production_hardening(settings, profile="ceph-admin-high-security")
+    database_finding = next(finding for finding in findings if finding.code == "database")
+
+    assert database_finding.level == "fail"
+    assert "may be shared or isolated" in database_finding.message
 
 
 def test_high_security_mode_rejects_wider_surface_contract():
     with pytest.raises(ValidationError, match="dedicated Ceph Admin surface contract"):
         Settings(
             _env_file=None,
+            deployment_profile="ceph-admin-high-security",
             ceph_admin_high_security_mode=True,
             feature_ceph_admin_enabled=True,
             feature_admin_enabled=True,
+            scheduled_jobs_enabled=False,
+        )
+
+
+def test_high_security_mode_requires_matching_runtime_profile():
+    with pytest.raises(ValidationError, match="DEPLOYMENT_PROFILE=ceph-admin-high-security"):
+        Settings(
+            _env_file=None,
+            ceph_admin_high_security_mode=True,
+            feature_ceph_admin_enabled=True,
+            feature_admin_enabled=False,
+            feature_storage_ops_enabled=False,
+            feature_manager_enabled=False,
+            feature_portal_enabled=False,
+            feature_browser_enabled=False,
             scheduled_jobs_enabled=False,
         )

@@ -9,9 +9,8 @@ from typing import Sequence
 
 from pydantic import ValidationError
 
-from app.core.config import Settings
+from app.core.config import DeploymentProfile, Settings
 from app.services.production_hardening import (
-    DeploymentProfile,
     HardeningFinding,
     check_production_hardening,
     hardening_exit_code,
@@ -43,7 +42,7 @@ def _render_json(findings: list[HardeningFinding]) -> str:
 
 def run(
     *,
-    profile: DeploymentProfile,
+    profile: DeploymentProfile | None = None,
     json_output: bool = False,
     settings: Settings | None = None,
 ) -> tuple[int, str]:
@@ -56,7 +55,8 @@ def run(
         ]
         return 1, _render_json(findings) if json_output else _render_text(findings)
 
-    findings = check_production_hardening(runtime, profile=profile)
+    selected_profile = profile or runtime.deployment_profile
+    findings = check_production_hardening(runtime, profile=selected_profile)
     output = _render_json(findings) if json_output else _render_text(findings)
     return hardening_exit_code(findings), output
 
@@ -66,7 +66,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--profile",
         choices=("full", "admin", "user", "ceph-admin-high-security"),
-        default="full",
+        default=None,
+        help="Override DEPLOYMENT_PROFILE for this check.",
     )
     parser.add_argument("--json", action="store_true", dest="json_output")
     return parser.parse_args(argv)
