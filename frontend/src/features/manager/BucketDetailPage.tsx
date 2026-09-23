@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { ListActionButton, ListActions, ListBadge } from "../../components/list/ListControls";
+import { ListActionButton, ListActions } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState, useCallback, useId, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -42,7 +42,6 @@ import {
   BucketAccessLoggingFeature,
   BucketCorsFeature,
   BucketEncryptionFeature,
-  EndpointFeatureDisabledNotice,
   BucketNotificationsFeature,
   BucketObjectLockFeature,
   BucketTagsFeature,
@@ -50,8 +49,8 @@ import {
   BucketWebsiteFeature,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
+  BucketQuotaFeature,
   BucketReplicationFeature,
-  type BucketQuotaUnit,
   resolveFeatureVisualState,
   useBucketAccessLoggingController,
   useBucketAclController,
@@ -112,7 +111,6 @@ type PropertySummary = {
 };
 
 const bucketFeatureInputClass = cx(uiInputClass, "settings-control");
-const bucketFeatureLabelClass = "settings-label flex flex-col gap-1";
 const bucketDetailHintClass = "settings-description";
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
 
@@ -120,7 +118,6 @@ const bucketDetailDividerClass =
   "divide-y divide-slate-200 dark:divide-slate-800";
 const bucketDetailEndActionClass = "mt-2 flex justify-end";
 const bucketDetailFieldStackClass = "settings-label flex flex-col gap-1";
-const bucketDetailInlineActionsClass = "flex flex-wrap items-center gap-2";
 const bucketDetailMutedBodyClass = "settings-description";
 const bucketDetailMutedTitleClass = "settings-label";
 const bucketDetailSectionStackClass = "space-y-4";
@@ -554,9 +551,7 @@ function BucketDetailPageContent({
   const canEditQuota =
     quotaFeatureEnabled &&
     ((isCephAdmin && isAdmin && hasCephContext) || (!isCephAdmin && hasAccountContext));
-  const quotaSectionRestricted = quotaFeatureEnabled && !canEditQuota;
   const versioningDisableBlocked = objectLockActive && versioningIsEnabled;
-  const quotaFormId = "bucket-quota-form";
 
   const {
     bucket,
@@ -572,20 +567,7 @@ function BucketDetailPageContent({
     withStats: usageFeatureEnabled,
   });
 
-  const {
-    configured: quotaConfigured,
-    dirty: quotaDirty,
-    error: quotaError,
-    maxObjects: quotaObjects,
-    maxSize: quotaSizeGb,
-    save: saveQuota,
-    saving: updatingQuota,
-    status: quotaStatus,
-    unit: quotaSizeUnit,
-    updateMaxObjects: updateQuotaObjects,
-    updateMaxSize: updateQuotaSize,
-    updateUnit: updateQuotaSizeUnit,
-  } = useBucketQuotaController({
+  const quotaController = useBucketQuotaController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
@@ -596,6 +578,10 @@ function BucketDetailPageContent({
     maxSizeBytes: bucket?.quota_max_size_bytes,
     onSaved: refreshBucketMeta,
   });
+  const {
+    configured: quotaConfigured,
+    dirty: quotaDirty,
+  } = quotaController;
 
   const mutations = {
     versioning: versioningController.saving,
@@ -611,7 +597,7 @@ function BucketDetailPageContent({
     accessLogging: accessLoggingController.saving || accessLoggingController.clearing,
     notifications: notificationsController.saving || notificationsController.clearing,
     tags: bucketTagsController.saving || bucketTagsController.clearing,
-    quota: updatingQuota,
+    quota: quotaController.saving,
   };
   const drafts = {
     versioning: versioningDirty,
@@ -893,11 +879,6 @@ function BucketDetailPageContent({
       ),
     },
   ];
-  const quotaCardState = resolveFeatureVisualState({
-    disabled: !quotaFeatureEnabled || quotaSectionRestricted,
-    configured: quotaConfigured,
-    unsaved: quotaDirty,
-  });
   const hasUnsavedChanges = Object.values(drafts).some(Boolean);
   const configurationBusy = Object.values(mutations).some(Boolean);
 
@@ -1157,11 +1138,6 @@ function BucketDetailPageContent({
     } finally {
       setPendingConfigurationDelete(null);
     }
-  };
-
-  const handleUpdateQuota = (e: React.FormEvent) => {
-    e.preventDefault();
-    void saveQuota();
   };
 
   const configurationDeleteLoading =
@@ -1854,95 +1830,12 @@ function BucketDetailPageContent({
                   label: isCephAdmin ? "Ceph Admin" : "Privileged Ceph",
                   content: (
                     <div className="settings-compact">
-                      <BucketFeatureSection
-                        title="Quota"
-                        description="Allowed bucket size and object count."
-                        mode="graphical"
-                        visualState={quotaCardState}
-                        successMessage={quotaStatus}
-                        busy={updatingQuota || loadingBucket}
-                        testId="bucket-feature-quota"
-                        actions={
-                          quotaSectionRestricted ? (
-                            <ListBadge tone="neutral">
-                              Restricted
-                            </ListBadge>
-                          ) : canEditQuota ? (
-                            <SettingsButton
-                              type="submit"
-                              form={quotaFormId}
-                              disabled={updatingQuota || !canEditQuota || !quotaDirty}
-                              variant="primary"
-                              title={
-                                !quotaFeatureEnabled
-                                  ? "Unavailable on this endpoint"
-                                  : !canEditQuota
-                                    ? "Privileged Ceph access required"
-                                    : undefined
-                              }
-                            >
-                              {updatingQuota ? "Saving..." : "Save"}
-                            </SettingsButton>
-                          ) : null
-                        }
-                      >
-                  {!quotaFeatureEnabled && <EndpointFeatureDisabledNotice featureLabel="Quota" />}
-                  <form
-                    id={quotaFormId}
-                    className={`mt-2 space-y-2 ${quotaSectionRestricted ? "pointer-events-none" : ""}`}
-                    onSubmit={handleUpdateQuota}
-                  >
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <label className={bucketFeatureLabelClass}>
-                        Size
-                        <div className={bucketDetailInlineActionsClass}>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            value={quotaSizeGb}
-                            onChange={(e) => updateQuotaSize(e.target.value)}
-                            className={cx(bucketFeatureInputClass, "flex-1")}
-                            placeholder="e.g. 100"
-                            disabled={!canEditQuota}
-                          />
-                          <select
-                            value={quotaSizeUnit}
-                            aria-label="Quota size unit"
-                            onChange={(e) => updateQuotaSizeUnit(e.target.value as BucketQuotaUnit)}
-                            className={cx(bucketFeatureInputClass, "w-20")}
-                            disabled={!canEditQuota}
-                          >
-                            <option value="MiB">MiB</option>
-                            <option value="GiB">GiB</option>
-                            <option value="TiB">TiB</option>
-                          </select>
-                        </div>
-                      </label>
-                      <label className={bucketFeatureLabelClass}>
-                        Object count
-                        <input
-                          type="number"
-                          min={0}
-                          step="1"
-                          value={quotaObjects}
-                          onChange={(e) => updateQuotaObjects(e.target.value)}
-                          className={bucketFeatureInputClass}
-                          placeholder="e.g. 1000000"
-                          disabled={!canEditQuota}
-                        />
-                      </label>
-                    </div>
-                    {quotaError && (
-                      <UiInlineMessage tone="error">{quotaError}</UiInlineMessage>
-                    )}
-                  </form>
-                  <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                    {quotaFeatureEnabled
-                      ? `Leave empty to remove the quota. ${canEditQuota ? "" : "(Privileged Ceph access required.)"}`
-                      : "Quota management is unavailable on this endpoint."}
-                  </p>
-                      </BucketFeatureSection>
+                      <BucketQuotaFeature
+                        controller={quotaController}
+                        editable={canEditQuota}
+                        featureEnabled={quotaFeatureEnabled}
+                        loading={loadingBucket}
+                      />
                     </div>
                   ),
                 },

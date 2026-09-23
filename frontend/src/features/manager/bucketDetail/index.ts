@@ -9,13 +9,13 @@ export { default as BucketAclFeature } from "./BucketAclFeature";
 export { default as BucketAccessLoggingFeature } from "./BucketAccessLoggingFeature";
 export { default as BucketCorsFeature } from "./BucketCorsFeature";
 export { default as BucketEncryptionFeature } from "./BucketEncryptionFeature";
-export { default as EndpointFeatureDisabledNotice } from "./EndpointFeatureDisabledNotice";
 export { default as BucketObjectLockFeature } from "./BucketObjectLockFeature";
 export { default as BucketNotificationsFeature } from "./BucketNotificationsFeature";
 export { default as BucketTagsFeature } from "./BucketTagsFeature";
 export { default as BucketVersioningFeature } from "./BucketVersioningFeature";
 export { default as BucketWebsiteFeature } from "./BucketWebsiteFeature";
 export { default as BucketPublicAccessFeature } from "./BucketPublicAccessFeature";
+export { default as BucketQuotaFeature } from "./BucketQuotaFeature";
 export { default as BucketReplicationFeature } from "./BucketReplicationFeature";
 export { default as BucketPolicyFeature } from "./BucketPolicyFeature";
 export { useBucketPolicyController } from "./useBucketPolicyController";
@@ -30,10 +30,7 @@ export { useBucketAclController } from "./useBucketAclController";
 export { useBucketObjectLockController } from "./useBucketObjectLockController";
 export { useBucketMetadataController } from "./useBucketMetadataController";
 export { useBucketObjectsController } from "./useBucketObjectsController";
-export {
-  useBucketQuotaController,
-  type BucketQuotaUnit,
-} from "./useBucketQuotaController";
+export { useBucketQuotaController } from "./useBucketQuotaController";
 export { useBucketTagsController } from "./useBucketTagsController";
 export { useBucketUsageStatsController } from "./useBucketUsageStatsController";
 export { useBucketVersioningController } from "./useBucketVersioningController";
