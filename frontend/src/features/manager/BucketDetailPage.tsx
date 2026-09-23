@@ -43,6 +43,7 @@ import {
   BucketCorsFeature,
   BucketEncryptionFeature,
   EndpointFeatureDisabledNotice,
+  BucketObjectLockFeature,
   BucketVersioningFeature,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
@@ -381,28 +382,7 @@ function BucketDetailPageContent({
     load: loadBucketAcl,
     loading: bucketAclLoading,
   } = bucketAclController;
-  const {
-    active: objectLockActive,
-    configuration: objectLockConfig,
-    days: objectLockDays,
-    dirty: objectLockDirty,
-    enabled: objectLockEnabled,
-    error: objectLockError,
-    load: loadObjectLock,
-    loadError: objectLockLoadError,
-    loading: objectLockLoading,
-    mode: objectLockMode,
-    persistentlyEnabled: objectLockPersistentlyEnabled,
-    reset: resetObjectLock,
-    save: saveObjectLock,
-    saving: savingObjectLock,
-    status: objectLockStatus,
-    updateDays: updateObjectLockDays,
-    updateEnabled: updateObjectLockEnabled,
-    updateMode: updateObjectLockMode,
-    updateYears: updateObjectLockYears,
-    years: objectLockYears,
-  } = useBucketObjectLockController({
+  const objectLockController = useBucketObjectLockController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
@@ -411,6 +391,14 @@ function BucketDetailPageContent({
     onVersioningEnabled: markVersioningEnabled,
     versioningEnabled: versioningIsEnabled,
   });
+  const {
+    active: objectLockActive,
+    dirty: objectLockDirty,
+    load: loadObjectLock,
+    loadError: objectLockLoadError,
+    loading: objectLockLoading,
+    persistentlyEnabled: objectLockPersistentlyEnabled,
+  } = objectLockController;
   const {
     add: addBucketTag,
     clear: clearBucketTags,
@@ -633,7 +621,6 @@ function BucketDetailPageContent({
     ((isCephAdmin && isAdmin && hasCephContext) || (!isCephAdmin && hasAccountContext));
   const quotaSectionRestricted = quotaFeatureEnabled && !canEditQuota;
   const versioningDisableBlocked = objectLockActive && versioningIsEnabled;
-  const objectLockFormId = "bucket-object-lock-form";
   const quotaFormId = "bucket-quota-form";
 
   const {
@@ -677,7 +664,7 @@ function BucketDetailPageContent({
 
   const mutations = {
     versioning: versioningController.saving,
-    objectLock: savingObjectLock,
+    objectLock: objectLockController.saving,
     lifecycle: savingLifecycle,
     policy: policyController.saving || policyController.deleting,
     acl: bucketAclController.saving,
@@ -892,18 +879,12 @@ function BucketDetailPageContent({
   }, [bucket?.owner, bucketAcl?.owner]);
 
   const replicationBlocked = !replicationFeatureEnabled;
-  const objectLockNotImplemented = isApiFeatureNotImplemented(objectLockLoadError);
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const tagsNotImplemented = isApiFeatureNotImplemented(bucketTagsError);
   const websiteNotImplemented = isApiFeatureNotImplemented(websiteError);
   const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
   const accessLoggingNotImplemented = isApiFeatureNotImplemented(accessLoggingError);
   const notificationsNotImplemented = isApiFeatureNotImplemented(notificationsError);
-  const objectLockCardState = resolveFeatureVisualState({
-    disabled: objectLockNotImplemented,
-    configured: objectLockPersistentlyEnabled,
-    unsaved: objectLockDirty,
-  });
   const lifecycleCardState = resolveFeatureVisualState({
     disabled: lifecycleNotImplemented,
     configured: hasLifecycleRules,
@@ -1559,137 +1540,10 @@ function BucketDetailPageContent({
                     enabled={sseFeatureEnabled}
                     onRequestDelete={() => setPendingConfigurationDelete("encryption")}
                   />
-                  <BucketFeatureSection
-                    title="Object Lock"
-                    description="WORM / default retention."
-                    mode="graphical"
-                    visualState={objectLockCardState}
-                    successMessage={objectLockStatus}
-                    busy={savingObjectLock || objectLockLoading}
-                    testId="bucket-feature-object-lock"
-                    actions={
-                      <div className="flex flex-wrap items-center gap-2">
-                        <SettingsButton
-                          type="button"
-                          onClick={resetObjectLock}
-                          variant="secondary"
-                          disabled={objectLockLoading || Boolean(objectLockLoadError) || savingObjectLock || !objectLockDirty}
-                        >
-                          Reset
-                        </SettingsButton>
-                        <SettingsButton
-                          type="submit"
-                          form={objectLockFormId}
-                          disabled={savingObjectLock || objectLockLoading || Boolean(objectLockLoadError) || !objectLockDirty}
-                          variant="primary"
-                        >
-                          {savingObjectLock ? "Saving..." : "Save"}
-                        </SettingsButton>
-                      </div>
-                    }
-                  >
-                    <div className={bucketDetailCompactStackClass}>
-                      {objectLockLoading && (
-                        <UiInlineMessage>Loading Object Lock configuration...</UiInlineMessage>
-                      )}
-                      {objectLockLoadError && (
-                        <UiInlineMessage tone="error">{objectLockLoadError}</UiInlineMessage>
-                      )}
-                      {objectLockError && (
-                        <UiInlineMessage tone="error">{objectLockError}</UiInlineMessage>
-                      )}
-                      <form
-                        id={objectLockFormId}
-                        className={bucketDetailCompactStackClass}
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void saveObjectLock();
-                        }}
-                      >
-                        <SettingsItem
-                          compact
-                          title="Enable Object Lock"
-                          description="Write-once retention controls for bucket objects."
-                          action={<SettingsSwitch
-                            checked={objectLockEnabled ?? false}
-                            disabled={objectLockPersistentlyEnabled || objectLockLoading || Boolean(objectLockLoadError) || objectLockNotImplemented}
-                            ariaLabel="Enable object lock"
-                            onChange={(checked) => {
-                              if (objectLockPersistentlyEnabled) return;
-                              updateObjectLockEnabled(checked);
-                              if (checked) {
-                                updateVersioningDraft(true);
-                              }
-                            }}
-                          />}
-                        />
-                        <p className={bucketDetailHintClass}>
-                          Enabling Object Lock automatically enables bucket versioning.
-                        </p>
-                        {objectLockPersistentlyEnabled && (
-                          <p className={bucketDetailHintClass}>
-                            Object Lock cannot be disabled once it has been enabled on the bucket. Update only the default retention below.
-                          </p>
-                        )}
-                        {objectLockActive && (
-                          <UiInlineMessage tone="warning">
-                            Warning: while Object Lock is enabled, objects cannot be deleted until the specified retention period ends. Review mode and retention before saving changes.
-                          </UiInlineMessage>
-                        )}
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                          <label className={bucketFeatureLabelClass}>
-                            Mode
-                            <select
-                              value={objectLockMode}
-                              onChange={(e) => updateObjectLockMode(e.target.value)}
-                              className={bucketFeatureInputClass}
-                              disabled={objectLockNotImplemented}
-                            >
-                              <option value="">(none)</option>
-                              <option value="GOVERNANCE">Governance</option>
-                              <option value="COMPLIANCE">Compliance</option>
-                            </select>
-                          </label>
-                          <label className={bucketFeatureLabelClass}>
-                            Retention (days)
-                            <input
-                              type="number"
-                              min={0}
-                              step="1"
-                              value={objectLockDays}
-                              onChange={(e) => updateObjectLockDays(e.target.value)}
-                              className={bucketFeatureInputClass}
-                              placeholder="e.g. 30"
-                              disabled={objectLockNotImplemented}
-                            />
-                          </label>
-                          <label className={bucketFeatureLabelClass}>
-                            Retention (years)
-                            <input
-                              type="number"
-                              min={0}
-                              step="1"
-                              value={objectLockYears}
-                              onChange={(e) => updateObjectLockYears(e.target.value)}
-                              className={bucketFeatureInputClass}
-                              placeholder="e.g. 1"
-                              disabled={objectLockNotImplemented}
-                            />
-                          </label>
-                        </div>
-                        {objectLockConfig?.mode && (objectLockConfig.days != null || objectLockConfig.years != null) && (
-                          <p className={bucketDetailMutedBodyClass}>
-                            Current retention: {objectLockConfig.mode}
-                            {objectLockConfig.days != null ? ` · ${objectLockConfig.days} day(s)` : ""}
-                            {objectLockConfig.years != null ? ` · ${objectLockConfig.years} year(s)` : ""}
-                          </p>
-                        )}
-                      </form>
-                    </div>
-                    <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                      Choose a mode plus days or years. Leave it empty to remove the default retention (Object Lock must already be enabled on the bucket).
-                    </p>
-                  </BucketFeatureSection>
+                  <BucketObjectLockFeature
+                    controller={objectLockController}
+                    onEnableVersioningDraft={() => updateVersioningDraft(true)}
+                  />
                   <BucketFeatureSection
                       title="Lifecycle rules"
                       description="S3-side expiration/clean-up."
