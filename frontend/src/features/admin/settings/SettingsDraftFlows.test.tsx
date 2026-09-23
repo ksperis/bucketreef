@@ -24,7 +24,8 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   branding: vi.fn(),
 }));
-vi.mock("../../../api/appSettings", () => ({
+vi.mock("../../../api/appSettings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../api/appSettings")>()),
   fetchAppSettings: () => mocks.fetch(),
   fetchDefaultAppSettings: () => mocks.defaults(),
   updateAppSettings: (value: AppSettings) => mocks.save(value),

@@ -1,9 +1,20 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  buildPolicyExample,
-  useBucketPolicyController,
-} from "../useBucketPolicyController";
+import { useBucketPolicyController } from "../useBucketPolicyController";
+
+function buildPolicyExample(bucketName?: string) {
+  return `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${bucketName || "bucket"}/*"
+    }
+  ]
+}`;
+}
 
 const apiMocks = vi.hoisted(() => ({
   deleteBucketPolicy: vi.fn(),

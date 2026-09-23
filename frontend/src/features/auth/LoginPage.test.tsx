@@ -24,7 +24,8 @@ vi.mock("../../api/auth", () => ({
   startOidcLogin: vi.fn(),
 }));
 
-vi.mock("../../api/appSettings", () => ({
+vi.mock("../../api/appSettings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../api/appSettings")>()),
   fetchGeneralSettings: (...args: unknown[]) => mocks.fetchGeneralSettings(...args),
   fetchLoginSettings: (...args: unknown[]) => mocks.fetchLoginSettings(...args),
 }));

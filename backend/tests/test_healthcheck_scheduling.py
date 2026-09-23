@@ -20,6 +20,7 @@ from app.services import healthcheck_service
 from app.services.billing_collection_service import BillingCollector
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import HEALTHCHECK_RUN_OPERATION, OperationLeaseService
+from tests.auth_test_utils import authenticate_ui_client
 
 
 @pytest.fixture
@@ -50,11 +51,15 @@ def _forbid_call(*args, **kwargs):
     raise AssertionError("This operation must not run")
 
 
-def _allow_superadmin():
-    app.dependency_overrides[dependencies.get_current_ui_superadmin] = lambda: User(
+def _allow_superadmin(client, db_session):
+    actor = User(
         id=999, email="admin@example.test", hashed_password="x",
         is_active=True, role=UserRole.UI_SUPERADMIN.value,
     )
+    db_session.add(actor)
+    db_session.commit()
+    authenticate_ui_client(client, db_session, actor, mfa_verified=True)
+    app.dependency_overrides[dependencies.get_current_ui_superadmin] = lambda: actor
 
 
 @pytest.mark.parametrize(
@@ -164,7 +169,7 @@ def test_initial_failure_is_logged_and_does_not_retain_the_lease(
 
 
 def test_endpoint_creation_runs_initial_check_after_persisting(client, db_session, monkeypatch, scheduled_settings):
-    _allow_superadmin()
+    _allow_superadmin(client, db_session)
     monkeypatch.setattr(admin_endpoints, "run_initial_healthchecks", background.run_initial_healthchecks)
     monkeypatch.setattr(healthcheck_service.requests, "get", lambda *args, **kwargs: SimpleNamespace(status_code=200))
 
@@ -181,7 +186,7 @@ def test_endpoint_creation_runs_initial_check_after_persisting(client, db_sessio
 def test_initial_failure_keeps_endpoint_creation_successful(
     client, db_session, monkeypatch, scheduled_settings, caplog,
 ):
-    _allow_superadmin()
+    _allow_superadmin(client, db_session)
     monkeypatch.setattr(admin_endpoints, "run_initial_healthchecks", background.run_initial_healthchecks)
     monkeypatch.setattr(HealthCheckService, "run_checks", Mock(side_effect=RuntimeError("Probe failed")))
 
@@ -197,9 +202,9 @@ def test_initial_failure_keeps_endpoint_creation_successful(
 
 @pytest.mark.parametrize("before,after,expected_runs", [(False, True, 1), (True, True, 0), (True, False, 0), (False, False, 0)])
 def test_settings_only_trigger_initial_check_on_effective_activation(
-    client, monkeypatch, scheduled_settings, before, after, expected_runs,
+    client, db_session, monkeypatch, scheduled_settings, before, after, expected_runs,
 ):
-    _allow_superadmin()
+    _allow_superadmin(client, db_session)
     current = AppSettings()
     current.general.endpoint_status_enabled = before
     saved = AppSettings()
@@ -218,8 +223,10 @@ def test_settings_only_trigger_initial_check_on_effective_activation(
     assert len(runs) == expected_runs
 
 
-def test_environment_lock_prevents_initial_check_on_requested_activation(client, monkeypatch, scheduled_settings):
-    _allow_superadmin()
+def test_environment_lock_prevents_initial_check_on_requested_activation(
+    client, db_session, monkeypatch, scheduled_settings,
+):
+    _allow_superadmin(client, db_session)
     locked = AppSettings()
     locked.general.endpoint_status_enabled = False
     requested = AppSettings()

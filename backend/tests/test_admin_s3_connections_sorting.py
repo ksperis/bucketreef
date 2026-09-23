@@ -7,6 +7,7 @@ import json
 
 from app.db import S3Connection, UiGroup, UiGroupS3Connection, User, UserRole, UserS3Connection
 from app.services.tags_service import TagsService
+from tests.auth_test_utils import authenticate_ui_client
 
 
 def _seed_connection(
@@ -187,6 +188,18 @@ def test_admin_s3_connections_search_matches_linked_ui_user_email(client, db_ses
 
 
 def test_admin_s3_connections_update_replaces_direct_group_links(client, db_session):
+    session_user = User(
+        id=999,
+        email="admin@example.com",
+        full_name="Admin",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+    db_session.add(session_user)
+    db_session.commit()
+    authenticate_ui_client(client, db_session, session_user, mfa_verified=True)
+
     connection = _seed_connection(db_session, name="group-edit-connection", is_shared=True)
     old_group = UiGroup(name="Old Connection Group")
     new_group = UiGroup(name="New Connection Group")
