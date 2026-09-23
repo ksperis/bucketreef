@@ -128,6 +128,34 @@ def test_interrupted_finalization_can_resume_and_older_retries_do_not_move_alias
     assert calls == ['github','gitlab','github','gitlab']
 
 
+def test_public_release_verification_retries_only_transient_visibility(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('RELEASE_VERSION', '1.2.3')
+    monkeypatch.setenv('CI_COMMIT_SHA', SHA)
+    Path('dist/release-notes').mkdir(parents=True)
+    Path('dist/release-notes/github.md').write_text('Notes')
+    attempts = []
+    sleeps = []
+
+    def verify(*args, **kwargs):
+        attempts.append(kwargs['expected_files'])
+        if len(attempts) == 1:
+            raise RuntimeError('Missing public release asset: bucketreef-compose.tar.gz')
+
+    monkeypatch.setattr(dist, 'verify_public_release', verify)
+    monkeypatch.setattr(dist.time, 'sleep', sleeps.append)
+    expected = {'bucketreef-compose.tar.gz': 'digest'}
+    dist.verify_published_github_release(expected)
+    assert attempts == [expected, expected]
+    assert sleeps == [dist.PUBLIC_RELEASE_VERIFY_DELAY_SECONDS]
+
+    monkeypatch.setattr(dist, 'verify_public_release', lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError('Public release asset differs')))
+    sleeps.clear()
+    with pytest.raises(RuntimeError, match='differs'):
+        dist.verify_published_github_release(expected)
+    assert sleeps == []
+
+
 def test_child_graphs_cover_every_profile_without_optional_or_dangling_edges():
     for profile in ('qualify', 'release', 'docs', 'recover-release', 'security', 'regression', 'secrets-history', 'bootstrap-release-bundles'):
         plan = {**select(profile, []), 'sha': SHA, 'parent_id': 9}
