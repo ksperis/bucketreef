@@ -88,14 +88,3 @@ export const defaultReplicationJsonExample = `{
     }
   ]
 }`;
-
-export const defaultWebsiteRoutingRulesExample = `[
-  {
-    "Condition": { "KeyPrefixEquals": "docs/" },
-    "Redirect": { "ReplaceKeyPrefixWith": "documents/" }
-  },
-  {
-    "Condition": { "HttpErrorCodeReturnedEquals": "404" },
-    "Redirect": { "ReplaceKeyWith": "error.html" }
-  }
-]`;
