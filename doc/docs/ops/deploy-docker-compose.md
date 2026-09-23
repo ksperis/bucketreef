@@ -164,6 +164,42 @@ History retention / SMTP knobs:
 - `USER_NOTIFICATIONS_RETENTION_DAYS` (default `90`; `0` disables purge)
 - `SMTP_PASSWORD`
 
+## Split admin and user instances
+
+The release bundle contains `docker-compose.admin.yml` and
+`docker-compose.user.yml`. Use two distinct Compose project names, different
+published ports/origins, the same PostgreSQL `DATABASE_URL`, and the same UI/API
+JWT and credential key rings. Each backend must trust both public origins so
+WebAuthn and OIDC can operate across the split deployment.
+
+The admin profile exposes Admin, Ceph Admin and Storage Ops and owns scheduled
+jobs. The user profile exposes Manager, Portal and Browser and disables the
+internal scheduled-job endpoints.
+
+```bash
+# admin instance
+docker compose --project-name bucketreef-admin \
+  -f docker-compose.yml -f docker-compose.admin.yml \
+  --profile operations up -d --wait
+
+# user instance: do not enable the operations profile
+docker compose --project-name bucketreef-user \
+  -f docker-compose.yml -f docker-compose.user.yml \
+  up -d --wait backend frontend
+```
+
+Run the hardening checker in both backends before publishing either URL:
+
+```bash
+docker compose --project-name bucketreef-admin -f docker-compose.yml -f docker-compose.admin.yml \
+  exec backend python -m app.scripts.check_production_hardening --profile admin
+docker compose --project-name bucketreef-user -f docker-compose.yml -f docker-compose.user.yml \
+  exec backend python -m app.scripts.check_production_hardening --profile user
+```
+
+Do not use SQLite for this topology. The two projects must point at the same
+PostgreSQL database; only the admin project should start the scheduler.
+
 LDAP is configured on the backend with `LDAP_PROVIDERS__<key>__...`
 environment variables. Put bind passwords in your local `.env` or secret
 injection mechanism, use provider keys matching `[a-z0-9_-]+`, and use LDAPS

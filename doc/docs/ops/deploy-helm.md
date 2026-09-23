@@ -175,6 +175,33 @@ The chart injects `BACKEND_REPLICAS` into the backend container unless you set i
 explicitly in `backend.env`; startup logs warn if multiple replicas are run on
 SQLite outside Helm safeguards.
 
+## Split admin and user releases
+
+The chart provides `values-admin.yaml` and `values-user.yaml` profiles. Install
+them as separate Helm releases with distinct ingress hosts and a shared external
+PostgreSQL database/secret set. Configure both public origins and WebAuthn
+origins on both releases, with one shared `WEBAUTHN_RP_ID`.
+
+```bash
+helm upgrade --install bucketreef-admin oci://ghcr.io/ksperis/charts/bucketreef \
+  --version X.Y.Z \
+  --values production-security-values-admin.yaml \
+  --set deploymentProfile=admin \
+  --set backend.existingSecret=bucketreef-auth
+
+helm upgrade --install bucketreef-user oci://ghcr.io/ksperis/charts/bucketreef \
+  --version X.Y.Z \
+  --values production-security-values-user.yaml \
+  --set deploymentProfile=user \
+  --set backend.existingSecret=bucketreef-auth
+```
+
+`deploymentProfile=admin` mounts Admin/Ceph Admin/Storage Ops and permits this
+release to own CronJobs. `deploymentProfile=user` mounts Manager/Portal/Browser,
+sets `SCHEDULED_JOBS_ENABLED=false`, and chart rendering fails if any built-in
+CronJob is enabled on that release. Run the production hardening checker in one
+backend pod from each release before exposing the ingresses.
+
 ## Container images
 
 Published images:

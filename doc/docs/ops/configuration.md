@@ -47,7 +47,8 @@ Key areas:
 
 - Security and auth: `APP_ENV`, distinct `UI_JWT_KEYS`/`API_JWT_KEYS`,
   `CREDENTIAL_KEYS`, access/session lifetimes, secure host-only cookie settings,
-  `PUBLIC_ORIGIN`, `ALLOWED_HOSTS`, `TRUSTED_PROXY_CIDRS`, WebAuthn, and
+  `PUBLIC_ORIGIN`, optional `PUBLIC_ORIGINS`, `ALLOWED_HOSTS`,
+  `TRUSTED_PROXY_CIDRS`, WebAuthn, and
   OIDC/LDAP environment providers.
   Production requires a non-empty `TRUSTED_PROXY_CIDRS` list containing the
   precise ingress or reverse-proxy CIDRs. Forwarded client addresses are
@@ -62,7 +63,8 @@ Key areas:
   host allowlist entry.
 - Database: `DATABASE_URL` (SQLite defaults to `backend/app.db`; relative SQLite paths are normalized against `backend/`). Multi-backend deployments require PostgreSQL.
 - CORS: `CORS_ORIGINS`.
-- Feature force-locks: `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
+- Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
+- Runtime job ownership: `SCHEDULED_JOBS_ENABLED`. A split deployment enables it only on the admin instance.
 - Internal scheduler auth: `INTERNAL_CRON_TOKEN`.
 - Billing, quota monitoring, usage history collection, and healthcheck behavior.
 - Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `BILLING_OPERATION_LEASE_TTL_SECONDS`.
@@ -91,6 +93,21 @@ python -m app.scripts.preflight_outbound_targets
 The command reports only uncovered hostnames and exits non-zero while an
 existing user-created S3 connection or migration webhook is outside its
 allowlist. Admin-registered storage endpoints are intentionally excluded.
+
+Validate the complete runtime boundary with:
+
+```bash
+python -m app.scripts.check_production_hardening --profile full
+# or --profile admin / --profile user for split deployments
+```
+
+`PUBLIC_ORIGIN` and `WEBAUTHN_ORIGIN` remain the canonical values.
+`PUBLIC_ORIGINS` and `WEBAUTHN_ORIGINS` are JSON lists of additional trusted
+origins. In production every origin must be HTTPS. For split admin/user
+deployments, configure both origins on each backend and use a shared
+`WEBAUTHN_RP_ID` that is the common DNS parent (or exact host) of every
+WebAuthn origin. `CORS_ORIGINS` and `ALLOWED_HOSTS` must cover the same public
+boundary.
 
 ## First-administrator bootstrap
 

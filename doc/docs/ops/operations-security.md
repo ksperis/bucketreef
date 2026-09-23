@@ -15,6 +15,20 @@
   enable provider S3 access logging for object-level evidence.
 - Run the documented CI or local security scans before publishing images.
 
+Before exposing an instance, run the backend hardening checker from the same
+runtime environment that will start the application:
+
+```bash
+cd backend
+python -m app.scripts.check_production_hardening --profile full
+```
+
+For a split deployment, use `--profile admin` on the control-plane instance and
+`--profile user` on the user-facing instance. The command exits non-zero when a
+required invariant fails and never prints configured secret values. Split
+profiles additionally require PostgreSQL, both public/WebAuthn origins on each
+backend, the expected runtime surfaces, and a single scheduled-job owner.
+
 ## Authentication and access
 
 - Prefer enterprise OIDC.
