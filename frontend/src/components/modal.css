@@ -39,6 +39,19 @@
   overscroll-behavior: contain;
 }
 
+.modal-dialog-bottom-sheet {
+  max-height: 75dvh;
+  border-bottom: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.modal-body-bottom-sheet {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+}
+
 .modal-actions {
   display: flex;
   flex-wrap: wrap;
