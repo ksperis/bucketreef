@@ -17,7 +17,7 @@ import {
   type FeatureDetailFilterKey,
   type FeatureDetailFilters,
 } from "../cephAdmin/filtering/bucketAdvancedFilter";
-import { parseExactListInput } from "../cephAdmin/filtering/advancedFilterShared";
+import { parseExactListInput } from "./advancedFilterShared";
 import {
   buildAdvancedFilterPayload,
   buildAdvancedFilterSecondarySectionState,

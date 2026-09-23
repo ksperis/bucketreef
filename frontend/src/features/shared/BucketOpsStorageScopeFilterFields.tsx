@@ -10,7 +10,7 @@ import {
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
   renderFilterCostIndicator,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 import { buildAdvancedFilterFieldState } from "./bucketOpsAdvancedFilterUiProjection";
 import { formatBucketNamesPreview } from "./bucketOpsPresentation";
 import type { useBucketOpsStorageScopeFilters } from "./useBucketOpsStorageScopeFilters";

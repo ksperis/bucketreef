@@ -9,7 +9,7 @@ import {
   advancedFilterMatchModeButtonClass,
   renderFilterCostIndicator,
   type FilterCostLevel,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 import {
   BOOLEAN_FILTER_OPTIONS,
   type AdvancedFilterState,

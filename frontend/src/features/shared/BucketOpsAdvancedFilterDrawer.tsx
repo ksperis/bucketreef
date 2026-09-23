@@ -6,23 +6,18 @@ import type { ReactNode } from "react";
 import UiButton from "../../components/ui/UiButton";
 import { cx } from "../../components/ui/styles";
 import { ChevronDownIcon } from "../browser/browserIcons";
+import AdvancedFilterDrawerShell from "./AdvancedFilterDrawerShell";
 import {
   advancedFilterAccordionClass,
-  advancedFilterBackdropClass,
-  advancedFilterBodyClass,
-  advancedFilterDrawerClass,
-  advancedFilterFooterClass,
-  advancedFilterHeaderClass,
   formatAdvancedFilterSyncLabel,
   advancedFilterSyncBadgeClass,
-  advancedFilterRootClass,
   advancedFilterSectionClass,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
   renderFilterCostIndicator,
   type FilterCostLevel,
-} from "../cephAdmin/filtering/advancedFilterShared";
+} from "./advancedFilterShared";
 import {
   type AdvancedFilterSecondarySectionId,
   type AdvancedFilterState,
@@ -166,50 +161,63 @@ export default function BucketOpsAdvancedFilterDrawer({
 
   return (
     <>
-      <div className={advancedFilterRootClass}>
-        <button
-          type="button"
-          onClick={advancedFilterCloseGuard.requestClose}
-          className={advancedFilterBackdropClass}
-          aria-label="Close advanced filter drawer"
-        />
-        <div className={advancedFilterDrawerClass}>
-          <div className={advancedFilterHeaderClass}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="ui-body font-semibold text-slate-900 dark:text-slate-100">
-                  Advanced filter
-                </p>
-                <p className="ui-caption text-slate-500 dark:text-slate-400">
-                  Buckets listing
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount)}
-                  {renderAdvancedFilterCostBadge(
-                    advancedDraftGlobalCostLevel,
-                    advancedDraftGlobalCostTooltip,
-                  )}
-                  <span
-                    className={advancedFilterSyncBadgeClass(
-                      hasPendingAdvancedChanges,
-                    )}
-                  >
-                    {formatAdvancedFilterSyncLabel(hasPendingAdvancedChanges)}
-                  </span>
-                </div>
-              </div>
+      <AdvancedFilterDrawerShell
+        title="Advanced filter"
+        subtitle="Buckets listing"
+        badges={
+          <>
+            {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount)}
+            {renderAdvancedFilterCostBadge(
+              advancedDraftGlobalCostLevel,
+              advancedDraftGlobalCostTooltip,
+            )}
+            <span className={advancedFilterSyncBadgeClass(hasPendingAdvancedChanges)}>
+              {formatAdvancedFilterSyncLabel(hasPendingAdvancedChanges)}
+            </span>
+          </>
+        }
+        onClose={advancedFilterCloseGuard.requestClose}
+        footer={
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="ui-caption text-slate-500 dark:text-slate-400">
+              {hasPendingAdvancedChanges
+                ? "Draft has unapplied changes."
+                : advancedDraftActiveCount > 0
+                  ? "Draft matches applied filters."
+                  : "No advanced filter configured."}
+            </p>
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <UiButton
-                size="xs"
+                type="button"
+                onClick={resetAdvancedFilter}
+                disabled={!hasAnyAdvancedToClear}
                 variant="secondary"
+                size="sm"
+              >
+                Clear
+              </UiButton>
+              <UiButton
+                type="button"
                 onClick={advancedFilterCloseGuard.requestClose}
+                variant="secondary"
+                size="sm"
               >
                 Close
               </UiButton>
+              <UiButton
+                type="button"
+                onClick={applyAdvancedFilter}
+                disabled={!hasPendingAdvancedChanges}
+                variant="primary"
+                size="sm"
+              >
+                Apply filters
+              </UiButton>
             </div>
           </div>
-
-          <div className={advancedFilterBodyClass}>
-            <div className="space-y-4">
+        }
+      >
+        <div className="space-y-4">
               {renderAdvancedFilterDraftSummary(draftSummaryItems)}
 
               <section className={advancedFilterSectionClass}>
@@ -292,50 +300,8 @@ export default function BucketOpsAdvancedFilterDrawer({
                   sseFeatureEnabled={sseFeatureEnabled}
                 />
               </AdvancedFilterSection>
-            </div>
-          </div>
-
-          <div className={advancedFilterFooterClass}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="ui-caption text-slate-500 dark:text-slate-400">
-                {hasPendingAdvancedChanges
-                  ? "Draft has unapplied changes."
-                  : advancedDraftActiveCount > 0
-                    ? "Draft matches applied filters."
-                    : "No advanced filter configured."}
-              </p>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <UiButton
-                  type="button"
-                  onClick={resetAdvancedFilter}
-                  disabled={!hasAnyAdvancedToClear}
-                  variant="secondary"
-                  size="sm"
-                >
-                  Clear
-                </UiButton>
-                <UiButton
-                  type="button"
-                  onClick={advancedFilterCloseGuard.requestClose}
-                  variant="secondary"
-                  size="sm"
-                >
-                  Close
-                </UiButton>
-                <UiButton
-                  type="button"
-                  onClick={applyAdvancedFilter}
-                  disabled={!hasPendingAdvancedChanges}
-                  variant="primary"
-                  size="sm"
-                >
-                  Apply filters
-                </UiButton>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
+      </AdvancedFilterDrawerShell>
       {advancedFilterCloseGuard.confirmationDialog}
     </>
   );
