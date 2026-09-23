@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.7 - 2026-09-23
+
+### Added
+
+- Added split Admin and user deployment profiles for Compose and Helm, plus a Ceph Admin high-security profile with a deliberately reduced runtime surface.
+- Added Admin Production Readiness diagnostics, a reusable hardening checker, and operator documentation for security and deployment checks.
+- Added shared multi-origin authentication support for split deployments, including OIDC login-state binding to the selected public redirect origin.
+
+### Changed
+
+- Refactored Manager bucket configuration features into dedicated views while preserving the existing S3 and IAM behavior.
+- Hardened release qualification so prepared version metadata triggers a complete qualification and `release-preflight` verifies release credentials, synchronized GitHub/GitLab `main` refs, changelog/schema metadata, and public distribution prerequisites before tagging.
+- Added an idempotent release-tag workflow that verifies the qualified `main` SHA and publishes the immutable tag to GitHub first and GitLab second.
+
+### Fixed/Security
+
+- Strengthened Admin privilege-boundary checks, production security evaluation, and validation of Portal IAM policy documents and storage-endpoint configuration.
+- Deferred mandatory administrator passkey enforcement until production readiness while retaining explicit readiness diagnostics for deployments that require the stronger policy.
+- Centralized deployment checks so startup-blocking failures and operator-visible readiness findings use the same evaluated security contracts.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path; migration `0129_oidc_login_state_redirect_uri` adds the public redirect URI to OIDC login state for multi-origin deployments.
+- This patch release does not create a new schema baseline. Existing single-instance deployments may keep their current surface profile; the split and Ceph Admin high-security profiles are opt-in deployment choices.
+
+### Tests
+
+- Expanded runtime-surface, production-readiness, authentication, deployment-profile, Manager bucket feature, release-preflight, tagging, distribution, Compose, Helm, and documentation coverage.
+- Release qualification validates the exact prepared SHA across the full autonomous suite, mandatory Ceph checks, multi-architecture images and scans, runtime/Kind checks, and public release prerequisites before publication.
+
 ## 0.2.6 - 2026-09-22
 
 ### Added
