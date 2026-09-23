@@ -167,7 +167,18 @@ flows unless the pathway is explicit, authorized, and audited.
 
 ### Security is non-negotiable
 
-- Never log or return secrets such as access keys, tokens, or passwords.
+- Never put secret keys, passwords, bearer or session tokens, or recovery codes
+  in logs, audit metadata, error messages, or ordinary read/list responses.
+  Access-key IDs are identifiers, not secret keys; they may identify an
+  authorized key-management action in the application audit.
+- Return secret material only through the existing, explicitly authorized
+  authentication or credential-delivery contract. This includes newly issued
+  S3 keys, API tokens, recovery codes, and session-scoped Browser STS credentials.
+  Preserve each flow's authorization, scope, and applicable MFA, no-store
+  headers, and one-time presentation requirements. These exceptions do not authorize a
+  generic secret-reveal API or disclosure of Portal runtime keys. See
+  [Portal external tools](../user/portal-access-keys.md) and
+  [Profile security](../user/profile.md) for the user-facing handoff contracts.
 - Server-managed private access provisioning must never return the generated
   secret to the frontend. Store it only in the encrypted S3 Connection field;
   keep durable provenance and compensation state secret-free, and route remote
