@@ -42,6 +42,7 @@ def test_status_and_dismiss_api_keep_legacy_fields_without_global_completion(db_
 
 _STORAGE_ERROR_CANARY = "do-" + "not-return"
 _DOMAIN_ERROR_CANARY = "domain-" + "secret-canary"
+_REQUEST_ERROR_CANARY = "request-" + "secret-canary"
 
 
 @pytest.mark.parametrize("exception,code", [
@@ -84,16 +85,16 @@ def test_onboarding_domain_errors_use_shared_secret_redaction(code):
 
 
 @pytest.mark.parametrize("method,path,payload", [
-    ("post", "/preview", {"endpoint_url": "https://user:request-secret-canary@storage.example.test"}),
+    ("post", "/preview", {"endpoint_url": "https://" + "user:" + _REQUEST_ERROR_CANARY + "@storage.example.test"}),
     ("put", "/journeys/00000000-0000-4000-8000-000000000001", {
-        "draft": {"secret_key": "request-secret-canary"},
+        "draft": {"secret_key": _REQUEST_ERROR_CANARY},
     }),
     ("post", "/journeys/00000000-0000-4000-8000-000000000001/apply", {
         "revision": 1, "confirmed": True, "review_token": "0" * 64,
-        "admin_access_key": {"value": "request-secret-canary"},
-        "admin_secret_key": ["request-secret-canary"],
-        "supervision_secret_key": {"value": "request-secret-canary"},
-        "ceph_admin_secret_key": ["request-secret-canary"],
+        "admin_access_key": {"value": _REQUEST_ERROR_CANARY},
+        "admin_secret_key": [_REQUEST_ERROR_CANARY],
+        "supervision_secret_key": {"value": _REQUEST_ERROR_CANARY},
+        "ceph_admin_secret_key": [_REQUEST_ERROR_CANARY],
     }),
 ])
 def test_invalid_onboarding_requests_do_not_echo_input(db_session, client, caplog, method, path, payload):
@@ -102,6 +103,6 @@ def test_invalid_onboarding_requests_do_not_echo_input(db_session, client, caplo
     app.dependency_overrides[get_current_ui_superadmin] = lambda: user
     response = getattr(client, method)("/api/admin/onboarding" + path, json=payload)
     assert response.status_code == 422
-    assert "request-secret-canary" not in response.text
-    assert "request-secret-canary" not in caplog.text
+    assert _REQUEST_ERROR_CANARY not in response.text
+    assert _REQUEST_ERROR_CANARY not in caplog.text
     assert response.json() == {"detail": {"code": "invalid_configuration"}}

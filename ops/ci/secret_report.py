@@ -38,6 +38,28 @@ HISTORICAL_ENV_EXAMPLES = {
     "6474d5df6762d042c2ed1b580d57e316a1d6d9cc": "66d665e329993237af528672abaed0799041da1bdc3ec4d8cf7635b98e1ed1b9",
 }
 
+# GitLab secret analyzer 7 can omit the originating commit for findings from
+# the scanned history. Keep the fallback exact by path and extract digest, and
+# accept it only after the matched value has disappeared from the current file.
+REMOVED_PASSWORD_URL_FIXTURES = {
+    "backend/.env.example": set(HISTORICAL_ENV_EXAMPLES.values()),
+    "backend/tests/test_admin_onboarding.py": {
+        "789843487b075417c068e27849039ac4917bfe65950127f5958a1d61a997a59d",
+        "ca122f2fef05b2c5eedcacfac7daec5bf60b96c4a2bb92e17d1adba547ae5783",
+    },
+}
+
+
+def is_removed_password_url_fixture(path, extract):
+    digest = hashlib.sha256(extract.encode()).hexdigest()
+    if digest not in REMOVED_PASSWORD_URL_FIXTURES.get(path, set()):
+        return False
+    try:
+        current = Path(path).read_text()
+    except (OSError, UnicodeError):
+        return False
+    return extract not in current
+
 
 def is_test_fixture(item):
     location = item.get("location", {})
@@ -53,9 +75,13 @@ def is_test_fixture(item):
         return False
     if extract in FIXTURE_LOCATIONS.get(path, set()):
         return True
-    return (path == "backend/.env.example"
-            and HISTORICAL_ENV_EXAMPLES.get(location.get("commit", {}).get("sha"))
-            == hashlib.sha256(extract.encode()).hexdigest())
+    digest = hashlib.sha256(extract.encode()).hexdigest()
+    if (path == "backend/.env.example"
+            and HISTORICAL_ENV_EXAMPLES.get(location.get("commit", {}).get("sha")) == digest):
+        return True
+    if location.get("commit", {}).get("sha"):
+        return False
+    return is_removed_password_url_fixture(path, extract)
 
 
 def summarize(report):

@@ -100,7 +100,7 @@ def test_synthetic_aws_identifiers_require_exact_value_rule_and_file(path, extra
 
 
 @pytest.mark.parametrize('commit', HISTORICAL_ENV_EXAMPLES)
-def test_removed_localhost_examples_are_bound_to_the_original_commit(commit):
+def test_removed_localhost_examples_are_bound_to_the_original_commit(commit, monkeypatch):
     # Exercise the actual historic example without copying retired identifiers
     # or example credentials into current source files and scanner findings.
     source = subprocess.check_output(['git', 'show', f'{commit}:backend/.env.example'], cwd=ROOT, text=True)
@@ -110,9 +110,14 @@ def test_removed_localhost_examples_are_bound_to_the_original_commit(commit):
                'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}]}
     report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
     assert summarize(report) == []
+    without_commit = copy.deepcopy(report)
+    without_commit['vulnerabilities'][0]['location'].pop('commit')
+    assert summarize(without_commit) == []
+    with monkeypatch.context() as scoped:
+        scoped.setattr(Path, 'read_text', lambda self: extract)
+        assert len(summarize(without_commit)) == 1
     for field, value in (
         ('location', {'file': 'backend/.env.example', 'commit': {'sha': 'a' * 40}}),
-        ('location', {'file': 'backend/.env.example'}),
         ('location', {'file': 'backend/app/config.py', 'commit': {'sha': commit}}),
         ('raw_source_code_extract', extract + '.example.com'),
         ('identifiers', [{'type': 'gitleaks_rule_id', 'value': 'AWS'}]),
@@ -120,6 +125,28 @@ def test_removed_localhost_examples_are_bound_to_the_original_commit(commit):
         changed = copy.deepcopy(report)
         changed['vulnerabilities'][0][field] = value
         assert len(summarize(changed)) == 1
+
+
+@pytest.mark.parametrize('commit,line', [
+    ('c89e196026d1e085d3c31746d2390ab4d0f8015a', 55),
+    ('e013194c9439fc2f728ba7d16035c4e77edada4a', 68),
+])
+def test_removed_onboarding_password_urls_work_without_report_commit(commit, line):
+    source = subprocess.check_output(
+        ['git', 'show', f'{commit}:backend/tests/test_admin_onboarding.py'],
+        cwd=ROOT, text=True,
+    ).splitlines()[line - 1]
+    extract, = re.findall(r'https://[^"\s]+', source)
+    finding = {
+        'location': {'file': 'backend/tests/test_admin_onboarding.py', 'start_line': line},
+        'raw_source_code_extract': extract,
+        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
+    }
+    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
+    assert summarize(report) == []
+    changed = copy.deepcopy(report)
+    changed['vulnerabilities'][0]['raw_source_code_extract'] = extract + '.changed'
+    assert len(summarize(changed)) == 1
 
 
 @pytest.mark.parametrize('body', ['', '<skipped/>', '<failure/>', '<error/>'])
