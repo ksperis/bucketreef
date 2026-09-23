@@ -212,10 +212,14 @@ def test_bundle_publication_resumes_identical_manifest_but_rejects_conflicts(mon
             assert 'org.opencontainers.image.created=1970-01-01T00:00:00Z' in args
             if '--oci-layout' not in args:
                 assert f'{bundle_registry.REPOSITORY}:1.2.3' in args
-                assert '--username' in args and '--password' in args
+                assert '--username' in args and '--password-stdin' in args and '--password' not in args
+                assert kwargs['input_data'] == b'fixture'
                 state['writes'] += 1
                 state['remote'] = digest.encode()
-        elif args[0] == 'resolve': return state['remote']
+        elif args[0] == 'resolve':
+            assert '--password-stdin' in args and '--password' not in args
+            assert kwargs['input_data'] == b'fixture'
+            return state['remote']
         else: raise AssertionError(args)
     monkeypatch.setattr(bundle_registry, 'run', run)
     receipt = bundle_registry.publish('1.2.3', SHA, tmp_path)
@@ -237,6 +241,15 @@ def test_missing_bundle_repository_denial_is_treated_as_absent(monkeypatch):
     assert bundle_registry.run(['resolve', 'fixture'], missing_ok=True) is None
     with pytest.raises(RuntimeError, match='Bundle registry resolve failed'):
         bundle_registry.run(['resolve', 'fixture'])
+
+
+def test_missing_bundle_repository_not_found_is_treated_as_absent(monkeypatch):
+    result = SimpleNamespace(
+        returncode=1,
+        stderr=b'Error response from registry: failed to resolve digest: ghcr.io/ksperis/bucketreef-bundles:0.2.6: not found',
+    )
+    monkeypatch.setattr(bundle_registry.subprocess, 'run', lambda *args, **kwargs: result)
+    assert bundle_registry.run(['resolve', 'fixture'], missing_ok=True) is None
 
 
 def test_bundle_registry_error_reports_operation_without_secrets(monkeypatch):

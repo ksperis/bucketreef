@@ -21,11 +21,11 @@ def _safe_error(stderr):
     return message[:1000]
 
 
-def run(arguments, *, cwd=None, missing_ok=False):
-    result = subprocess.run(["oras", *arguments], cwd=cwd, capture_output=True)
+def run(arguments, *, cwd=None, missing_ok=False, input_data=None):
+    result = subprocess.run(["oras", *arguments], cwd=cwd, input=input_data, capture_output=True)
     if result.returncode:
         if missing_ok and re.search(
-            rb"manifest unknown|name unknown|NOT_FOUND|\b404\b|denied: requested access to the resource is denied",
+            rb"manifest unknown|name unknown|NOT_FOUND|\b404\b|\bnot found\b|denied: requested access to the resource is denied",
             result.stderr,
             re.IGNORECASE,
         ):
@@ -54,9 +54,10 @@ def publish(version, sha, directory):
         run(["push", "--oci-layout", f"{layout}:{version}",
              *annotations, "--export-manifest", str(manifest), *ASSETS], cwd=directory)
         digest = "sha256:" + hashlib.sha256(manifest.read_bytes()).hexdigest()
-        auth = ["--username", os.environ["GHCR_USERNAME"], "--password", os.environ["GHCR_TOKEN"]]
+        auth = ["--username", os.environ["GHCR_USERNAME"], "--password-stdin"]
+        secret = os.environ["GHCR_TOKEN"].encode()
         target = f"{REPOSITORY}:{version}"
-        current = run(["resolve", *auth, target], missing_ok=True)
+        current = run(["resolve", *auth, target], missing_ok=True, input_data=secret)
         if current is not None and current.decode().strip() != digest:
             raise ValueError("Refusing to replace different immutable release bundles")
         if current is None:
@@ -65,10 +66,10 @@ def publish(version, sha, directory):
             # the resolve below still proves the immutable digest before returning.
             remote_manifest = Path(temporary) / "remote-manifest.json"
             run(["push", *auth, *annotations, "--export-manifest", str(remote_manifest),
-                 target, *ASSETS], cwd=directory)
+                 target, *ASSETS], cwd=directory, input_data=secret)
             if "sha256:" + hashlib.sha256(remote_manifest.read_bytes()).hexdigest() != digest:
                 raise ValueError("Remote bundle manifest differs from deterministic bundle manifest")
-        if run(["resolve", *auth, target]).decode().strip() != digest:
+        if run(["resolve", *auth, target], input_data=secret).decode().strip() != digest:
             raise ValueError("Published bundle manifest differs")
         return {"schema": 1, "sha": sha, "version": version, "digest": digest, "files": hashes(directory)}
 
