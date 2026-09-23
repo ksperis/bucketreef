@@ -61,4 +61,23 @@ describe("AdvancedFilterNumberRangeField", () => {
     expect(screen.getByRole("spinbutton", { name: "Quota usage size % minimum" })).toHaveClass("min-state");
     expect(screen.getByRole("spinbutton", { name: "Quota usage size % maximum" })).toHaveClass("max-state");
   });
+
+  it("supports a more specific accessible label than the visible range label", () => {
+    render(
+      <AdvancedFilterNumberRangeField
+        label="Bytes"
+        accessibleLabel="Usage Bytes"
+        fieldState={fieldState}
+        minFieldState={minFieldState}
+        maxFieldState={maxFieldState}
+        minValue=""
+        maxValue=""
+        onMinChange={() => undefined}
+        onMaxChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("Bytes")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Usage Bytes minimum" })).toBeInTheDocument();
+  });
 });

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { advancedFilterControlClass } from "./advancedFilterShared";
+import AdvancedFilterSelectField from "./AdvancedFilterSelectField";
 import {
   formatFeatureFilterStateLabel,
   type AdvancedFilterState,
@@ -68,46 +68,25 @@ export default function BucketOpsFeatureStateFilterFields({
             feature.id === "versioning"
               ? VERSIONING_FILTER_STATES
               : BINARY_FEATURE_FILTER_STATES;
-          const fieldId = `bucket-ops-feature-state-${feature.id}`;
-
           return (
-            <div
+            <AdvancedFilterSelectField
               key={feature.id}
-              className={`rounded-lg border border-slate-200 p-2.5 dark:border-slate-700 ${disabled ? "opacity-60" : ""}`}
+              label={feature.label}
+              className={disabled ? "opacity-60" : undefined}
+              disabled={disabled}
+              fieldState={state}
+              value={draftValue}
+              onChange={(value) =>
+                onFeatureChange(feature.id, value as FeatureFilterState)
+              }
+              hint={disabled ? `${feature.label} is disabled on this endpoint.` : undefined}
             >
-              <label
-                htmlFor={fieldId}
-                className={`ui-caption font-medium text-slate-700 dark:text-slate-200 ${state.labelClass}`}
-              >
-                {feature.label}
-              </label>
-              <select
-                id={fieldId}
-                value={draftValue}
-                onChange={(event) =>
-                  onFeatureChange(
-                    feature.id,
-                    event.target.value as FeatureFilterState,
-                  )
-                }
-                className={advancedFilterControlClass(
-                  `mt-1 w-full px-2 py-1.5 font-normal ${state.fieldClass}`,
-                  disabled,
-                )}
-                disabled={disabled}
-              >
-                {filterStates.map((filterState) => (
-                  <option key={filterState} value={filterState}>
-                    {formatFeatureFilterStateLabel(filterState)}
-                  </option>
-                ))}
-              </select>
-              {disabled && (
-                <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                  {feature.label} is disabled on this endpoint.
-                </p>
-              )}
-            </div>
+              {filterStates.map((filterState) => (
+                <option key={filterState} value={filterState}>
+                  {formatFeatureFilterStateLabel(filterState)}
+                </option>
+              ))}
+            </AdvancedFilterSelectField>
           );
         })}
       </div>

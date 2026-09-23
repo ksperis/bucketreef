@@ -14,6 +14,7 @@ import {
 } from "./advancedFilterShared";
 
 type AdvancedFilterNumberRangeFieldProps = {
+  accessibleLabel?: string;
   className?: string;
   costLevel?: FilterCostLevel;
   costTooltip?: string;
@@ -30,6 +31,7 @@ type AdvancedFilterNumberRangeFieldProps = {
 };
 
 export default function AdvancedFilterNumberRangeField({
+  accessibleLabel,
   className,
   costLevel,
   costTooltip,
@@ -47,6 +49,7 @@ export default function AdvancedFilterNumberRangeField({
   const fieldId = useId();
   const minId = `${fieldId}-min`;
   const maxId = `${fieldId}-max`;
+  const controlLabel = accessibleLabel ?? label;
 
   return (
     <div className={advancedFilterFieldCardClass(className)}>
@@ -65,7 +68,7 @@ export default function AdvancedFilterNumberRangeField({
           min={inputMin}
           value={minValue}
           onChange={(event) => onMinChange(event.target.value)}
-          aria-label={`${label} minimum`}
+          aria-label={`${controlLabel} minimum`}
           placeholder="Min"
           disabled={disabled}
           className={advancedFilterControlClass(
@@ -80,7 +83,7 @@ export default function AdvancedFilterNumberRangeField({
           min={inputMin}
           value={maxValue}
           onChange={(event) => onMaxChange(event.target.value)}
-          aria-label={`${label} maximum`}
+          aria-label={`${controlLabel} maximum`}
           placeholder="Max"
           disabled={disabled}
           className={advancedFilterControlClass(
