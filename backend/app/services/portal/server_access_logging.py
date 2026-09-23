@@ -25,7 +25,6 @@ SERVER_ACCESS_LOGGING_SID = "BucketReefPortalServerAccessLogging"
 SERVER_ACCESS_LOGGING_MANAGER_DENY_SID = "BucketReefPortalManagerDeny"
 SERVER_ACCESS_LOGGING_PREFIX_ROOT = "portal-server-access/"
 SERVER_ACCESS_LOGGING_RETENTION_RULE_ID = "ExpirePortalServerAccessLogs"
-SERVER_ACCESS_LOGGING_RETENTION_DEFAULT_DAYS = 30
 
 
 class PortalServerAccessLoggingMixin:
@@ -49,27 +48,13 @@ class PortalServerAccessLoggingMixin:
             **self._s3_client_kwargs(account),
         )
 
-    def _portal_server_access_log_retention_days(self, portal_settings: PortalSettings) -> int:
-        try:
-            retention_days = int(
-                getattr(
-                    portal_settings,
-                    "server_access_log_retention_days",
-                    SERVER_ACCESS_LOGGING_RETENTION_DEFAULT_DAYS,
-                )
-                or SERVER_ACCESS_LOGGING_RETENTION_DEFAULT_DAYS
-            )
-        except (TypeError, ValueError):
-            retention_days = SERVER_ACCESS_LOGGING_RETENTION_DEFAULT_DAYS
-        return max(1, retention_days)
-
     def _portal_server_access_log_lifecycle_rules(self, portal_settings: PortalSettings) -> list[dict]:
         return [
             {
                 "ID": SERVER_ACCESS_LOGGING_RETENTION_RULE_ID,
                 "Status": "Enabled",
                 "Prefix": SERVER_ACCESS_LOGGING_PREFIX_ROOT,
-                "Expiration": {"Days": self._portal_server_access_log_retention_days(portal_settings)},
+                "Expiration": {"Days": portal_settings.server_access_log_retention_days},
             }
         ]
 

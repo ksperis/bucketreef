@@ -3187,7 +3187,8 @@ def test_portal_server_access_log_bucket_policy_removes_manager_deny_when_no_man
     assert not any(statement.get("Sid") == "BucketReefPortalManagerDeny" for statement in policy["Statement"])
 
 
-def test_portal_server_access_log_bucket_creation_sets_retention_lifecycle(monkeypatch, db_session):
+@pytest.mark.parametrize("retention_days", [1, 30, 45])
+def test_portal_server_access_log_bucket_creation_sets_retention_lifecycle(monkeypatch, db_session, retention_days):
     account = make_s3_account(db_session,
         name="portal-log-retention",
         rgw_account_id="rgw-log-retention",
@@ -3219,7 +3220,7 @@ def test_portal_server_access_log_bucket_creation_sets_retention_lifecycle(monke
 
     log_bucket = service._ensure_portal_server_access_log_bucket(
         account,
-        portal_settings=PortalSettings(server_access_log_retention_days=45),
+        portal_settings=PortalSettings(server_access_log_retention_days=retention_days),
     )
 
     assert log_bucket == service._portal_server_access_log_bucket_name(account)
@@ -3245,7 +3246,7 @@ def test_portal_server_access_log_bucket_creation_sets_retention_lifecycle(monke
                         "ID": "ExpirePortalServerAccessLogs",
                         "Status": "Enabled",
                         "Prefix": "portal-server-access/",
-                        "Expiration": {"Days": 45},
+                        "Expiration": {"Days": retention_days},
                     }
                 ],
                 "access_key": "ROOT-AK",
