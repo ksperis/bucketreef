@@ -37,6 +37,7 @@ import {
   resolvePostLoginPathWithWorkspaceAccess,
   type SessionUser,
 } from "../../utils/workspaces";
+import { AuthButton, AuthInput, AuthSelect } from "./AuthFormControls";
 
 type LoginMode = "password" | "keys" | "ldap";
 
@@ -359,13 +360,6 @@ export default function LoginPage() {
   ];
   const loginBrandingLogoUrl = loginSettings?.login_logo_url ?? null;
   const shouldShowLeftLogo = Boolean(loginBrandingLogoUrl && !loginBrandingLogoFailed);
-  const inputClasses =
-    "mt-1 w-full rounded-xl border border-slate-200/90 bg-white/90 px-3 py-2.5 ui-body text-slate-800 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30";
-  const buttonClasses =
-    "w-full rounded-xl bg-primary px-4 py-2.5 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60";
-  const providerButtonClasses =
-    "flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 ui-body font-medium text-slate-700 shadow-sm transition hover:border-primary hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50";
-
   useEffect(() => {
     if (!allowAccessKeys && mode === "keys") {
       setMode("password");
@@ -392,16 +386,15 @@ export default function LoginPage() {
           </p>
           {error && <div className="mt-4"><UiInlineMessage tone="error">{error}</UiInlineMessage></div>}
           {!pendingEnrollment && (
-            <button type="button" className={`${buttonClasses} mt-6`} disabled={loading} onClick={() => void completePasskey()}>
+            <AuthButton type="button" className="mt-6" disabled={loading} onClick={() => void completePasskey()}>
               {mfaStage === "mfa_enrollment_required" ? "Create passkey" : "Use passkey"}
-            </button>
+            </AuthButton>
           )}
           {mfaStage === "mfa_required" && !pendingEnrollment && (
             <div className="mt-6 border-t border-slate-200 pt-5">
-              <label className="ui-body font-medium" htmlFor="recovery-code">Recovery code</label>
-              <input
+              <AuthInput
                 id="recovery-code"
-                className={inputClasses}
+                label="Recovery code"
                 value={recoveryCode}
                 onChange={(event) => setRecoveryCode(event.target.value)}
                 autoComplete="one-time-code"
@@ -417,14 +410,14 @@ export default function LoginPage() {
               <ul className="mt-2 grid grid-cols-2 gap-1 font-mono text-sm">
                 {recoveryCodes.map((code) => <li key={code}>{code}</li>)}
               </ul>
-              <button
+              <AuthButton
                 type="button"
-                className={`${buttonClasses} mt-5`}
+                className="mt-5"
                 disabled={loading || !pendingEnrollment}
                 onClick={() => pendingEnrollment && void finishLogin(pendingEnrollment, "password")}
               >
                 I saved these recovery codes
-              </button>
+              </AuthButton>
             </div>
           )}
         </section>
@@ -519,133 +512,49 @@ export default function LoginPage() {
             {mode === "ldap" && hasLdapProviders ? (
               <form onSubmit={handleLdapLogin} className="space-y-4">
                 {ldapProviders.length > 1 && (
-                  <div>
-                    <label htmlFor="ldap-provider" className="ui-body font-medium text-slate-700">
-                      Directory
-                    </label>
-                    <select
-                      id="ldap-provider"
-                      value={selectedLdapProvider || ldapProviders[0]?.id || ""}
-                      onChange={(e) => setSelectedLdapProvider(e.target.value)}
-                      className={inputClasses}
-                      required
-                    >
-                      {ldapProviders.map((provider) => (
-                        <option key={provider.id} value={provider.id}>
-                          {provider.display_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <AuthSelect
+                    id="ldap-provider"
+                    label="Directory"
+                    value={selectedLdapProvider || ldapProviders[0]?.id || ""}
+                    onChange={(e) => setSelectedLdapProvider(e.target.value)}
+                    required
+                  >
+                    {ldapProviders.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.display_name}
+                      </option>
+                    ))}
+                  </AuthSelect>
                 )}
-                <div>
-                  <label htmlFor="ldap-username" className="ui-body font-medium text-slate-700">
-                    Username
-                  </label>
-                  <input
-                    id="ldap-username"
-                    type="text"
-                    autoComplete="username"
-                    value={ldapUsername}
-                    onChange={(e) => setLdapUsername(e.target.value)}
-                    className={inputClasses}
-                    placeholder="jane.doe or jane@example.com"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="ldap-password" className="ui-body font-medium text-slate-700">
-                    Password
-                  </label>
-                  <input
-                    id="ldap-password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={ldapPassword}
-                    onChange={(e) => setLdapPassword(e.target.value)}
-                    className={inputClasses}
-                    required
-                  />
-                </div>
+                <AuthInput id="ldap-username" label="Username" type="text" autoComplete="username" value={ldapUsername} onChange={(e) => setLdapUsername(e.target.value)} placeholder="jane.doe or jane@example.com" required />
+                <AuthInput id="ldap-password" label="Password" type="password" autoComplete="current-password" value={ldapPassword} onChange={(e) => setLdapPassword(e.target.value)} required />
                 {(error || ldapError) && (
                   <UiInlineMessage tone="error">{error || ldapError}</UiInlineMessage>
                 )}
-                <button type="submit" disabled={loading} className={buttonClasses}>
+                <AuthButton type="submit" disabled={loading}>
                   {loading ? "Signing in..." : "Sign in with directory"}
-                </button>
+                </AuthButton>
               </form>
             ) : mode === "password" || !allowAccessKeys ? (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
-                <div>
-                  <label htmlFor="login-email" className="ui-body font-medium text-slate-700">Email</label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    autoComplete="username"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClasses}
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="login-password" className="ui-body font-medium text-slate-700">Password</label>
-                  <input
-                    id="login-password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={inputClasses}
-                    required
-                  />
-                </div>
+                <AuthInput id="login-email" label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <AuthInput id="login-password" label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 {error && (
                   <UiInlineMessage tone="error">{error}</UiInlineMessage>
                 )}
-                <button type="submit" disabled={loading} className={buttonClasses}>
+                <AuthButton type="submit" disabled={loading}>
                   {loading ? "Signing in..." : "Sign in"}
-                </button>
+                </AuthButton>
               </form>
             ) : (
               <form onSubmit={handleKeyLogin} className="space-y-4">
-                <div>
-                  <label htmlFor="login-access-key" className="ui-body font-medium text-slate-700">Access key</label>
-                  <input
-                    id="login-access-key"
-                    type="text"
-                    autoComplete="username"
-                    value={accessKey}
-                    onChange={(e) => setAccessKey(e.target.value)}
-                    className={inputClasses}
-                    placeholder="ACCESS_KEY"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="login-secret-key" className="ui-body font-medium text-slate-700">Secret key</label>
-                  <input
-                    id="login-secret-key"
-                    type="password"
-                    autoComplete="current-password"
-                    value={secretKey}
-                    onChange={(e) => setSecretKey(e.target.value)}
-                    className={inputClasses}
-                    required
-                  />
-                </div>
+                <AuthInput id="login-access-key" label="Access key" type="text" autoComplete="username" value={accessKey} onChange={(e) => setAccessKey(e.target.value)} placeholder="ACCESS_KEY" required />
+                <AuthInput id="login-secret-key" label="Secret key" type="password" autoComplete="current-password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} required />
                 {(allowEndpointList || allowCustomEndpoint) && (
                   <div className="space-y-3">
                     {allowEndpointList && (
                       <div>
-                        <label htmlFor="login-endpoint" className="ui-body font-medium text-slate-700">Endpoint</label>
-                        <select
-                          id="login-endpoint"
-                          value={selectedEndpoint}
-                          onChange={(e) => setSelectedEndpoint(e.target.value)}
-                          disabled={endpointLoading}
-                          className={`${inputClasses} disabled:opacity-60`}
-                        >
+                        <AuthSelect id="login-endpoint" label="Endpoint" value={selectedEndpoint} onChange={(e) => setSelectedEndpoint(e.target.value)} disabled={endpointLoading}>
                           {endpointLoading && <option value="">Loading endpoints...</option>}
                           {!endpointLoading && <option value="">Select endpoint</option>}
                           {!endpointLoading &&
@@ -654,7 +563,7 @@ export default function LoginPage() {
                                 {endpoint.is_default ? `${endpoint.name} (default)` : endpoint.name}
                               </option>
                             ))}
-                        </select>
+                        </AuthSelect>
                         {!endpointLoading && endpointOptions.length === 0 && (
                           <p className="mt-1 ui-caption text-slate-500">
                             {allowCustomEndpoint
@@ -666,16 +575,7 @@ export default function LoginPage() {
                     )}
                     {allowCustomEndpoint && (
                       <div>
-                        <label htmlFor="login-custom-endpoint" className="ui-body font-medium text-slate-700">Custom endpoint URL (optional)</label>
-                        <input
-                          id="login-custom-endpoint"
-                          type="url"
-                          autoComplete="url"
-                          value={customEndpoint}
-                          onChange={(e) => setCustomEndpoint(e.target.value)}
-                          className={inputClasses}
-                          placeholder="https://s3.example.com"
-                        />
+                        <AuthInput id="login-custom-endpoint" label="Custom endpoint URL (optional)" type="url" autoComplete="url" value={customEndpoint} onChange={(e) => setCustomEndpoint(e.target.value)} placeholder="https://s3.example.com" />
                         {allowEndpointList && (
                           <p className="mt-1 ui-caption text-slate-500">Custom endpoint overrides the selection above.</p>
                         )}
@@ -689,9 +589,9 @@ export default function LoginPage() {
                 {error && (
                   <UiInlineMessage tone="error">{error}</UiInlineMessage>
                 )}
-                <button type="submit" disabled={loading} className={buttonClasses}>
+                <AuthButton type="submit" disabled={loading}>
                   {loading ? "Connecting..." : "Connect with keys"}
-                </button>
+                </AuthButton>
               </form>
             )}
 
@@ -703,15 +603,15 @@ export default function LoginPage() {
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
                 {oidcProviders.map((provider) => (
-                  <button
+                  <AuthButton
                     key={provider.id}
                     type="button"
                     onClick={() => startOidcFlow(provider.id)}
                     disabled={Boolean(oidcLoading)}
-                    className={providerButtonClasses}
+                    presentation="provider"
                   >
                     {oidcLoading === provider.id ? "Redirecting..." : `Continue with ${provider.display_name}`}
-                  </button>
+                  </AuthButton>
                 ))}
                 {oidcError && (
                   <UiInlineMessage tone="error">{oidcError}</UiInlineMessage>

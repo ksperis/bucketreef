@@ -14,11 +14,8 @@ import BrandMark from "../../components/BrandMark";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { PRODUCT_NAME } from "../../constants/product";
 import { extractApiError } from "../../utils/apiError";
+import { AuthButton, AuthInput } from "./AuthFormControls";
 
-const inputClasses =
-  "mt-1 w-full rounded-xl border border-slate-200/90 bg-white/90 px-3 py-2.5 ui-body text-slate-800 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30";
-const buttonClasses =
-  "w-full rounded-xl bg-primary px-4 py-2.5 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60";
 
 function readBootstrapTokenFragment(): string {
   if (typeof window === "undefined") return "";
@@ -165,44 +162,26 @@ export default function FirstAdminSetupPage() {
           </p>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <label
-              className="block ui-body font-medium"
-              htmlFor="bootstrap-full-name"
-            >
-              Full name
-              <input
-                id="bootstrap-full-name"
-                className={inputClasses}
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                autoComplete="name"
-              />
-            </label>
-            <label
-              className="block ui-body font-medium"
-              htmlFor="bootstrap-email"
-            >
-              Email
-              <input
-                id="bootstrap-email"
-                className={inputClasses}
-                type="email"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                autoComplete="username"
-              />
-            </label>
+            <AuthInput
+              id="bootstrap-full-name"
+              label="Full name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              autoComplete="name"
+            />
+            <AuthInput
+              id="bootstrap-email"
+              label="Email"
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="username"
+            />
             <div>
-              <label
-                className="block ui-body font-medium"
-                htmlFor="bootstrap-password"
-              >
-                Password
-              </label>
-              <input
+              <AuthInput
                 id="bootstrap-password"
-                className={inputClasses}
+                label="Password"
                 type="password"
                 required
                 minLength={12}
@@ -218,27 +197,18 @@ export default function FirstAdminSetupPage() {
                 Use at least 12 characters.
               </span>
             </div>
-            <label
-              className="block ui-body font-medium"
-              htmlFor="bootstrap-password-confirmation"
-            >
-              Confirm password
-              <input
-                id="bootstrap-password-confirmation"
-                className={inputClasses}
-                type="password"
-                required
-                minLength={12}
-                value={passwordConfirmation}
-                onChange={(event) =>
-                  setPasswordConfirmation(event.target.value)
-                }
-                autoComplete="new-password"
-              />
-            </label>
-            <button
+            <AuthInput
+              id="bootstrap-password-confirmation"
+              label="Confirm password"
+              type="password"
+              required
+              minLength={12}
+              value={passwordConfirmation}
+              onChange={(event) => setPasswordConfirmation(event.target.value)}
+              autoComplete="new-password"
+            />
+            <AuthButton
               type="submit"
-              className={buttonClasses}
               disabled={
                 submitting ||
                 !token ||
@@ -250,7 +220,7 @@ export default function FirstAdminSetupPage() {
               {submitting
                 ? "Creating administrator…"
                 : "Create administrator"}
-            </button>
+            </AuthButton>
           </form>
         )}
         <p className="mt-5 ui-caption text-slate-500">

@@ -18,16 +18,17 @@ type UiInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   hint?: ReactNode;
   error?: ReactNode;
   fieldClassName?: string;
+  labelClassName?: string;
   size?: UiInputSize;
 };
 
 const UiInput = forwardRef<HTMLInputElement, UiInputProps>(function UiInput(
-  { label, hint, error, fieldClassName, className, id, size = "md",
+  { label, hint, error, fieldClassName, labelClassName, className, id, size = "md",
     "aria-describedby": describedBy, "aria-invalid": ariaInvalid, ...props },
   ref
 ) {
   return (
-    <UiField label={label} hint={hint} error={error} htmlFor={id} describedBy={describedBy} className={fieldClassName}>
+    <UiField label={label} hint={hint} error={error} htmlFor={id} describedBy={describedBy} className={fieldClassName} labelClassName={labelClassName}>
       {({ id: resolvedId, describedBy, invalid }) => (
         <input
           id={resolvedId}
