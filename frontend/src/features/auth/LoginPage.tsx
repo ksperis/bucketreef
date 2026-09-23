@@ -42,7 +42,7 @@ type LoginMode = "password" | "keys" | "ldap";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { setGeneralSettings } = useGeneralSettings();
+  const { runtimeSurfaces, setGeneralSettings } = useGeneralSettings();
   const { setLanguagePreference } = useLanguage();
   const { setTheme } = useTheme();
   const { acceptAuthentication } = useSession();
@@ -92,10 +92,15 @@ export default function LoginPage() {
   ): Promise<string> => {
     try {
       const workspaceAccess = await getWorkspaceAccess();
-      return resolvePostLoginPathWithWorkspaceAccess(sessionUser, settings, workspaceAccess);
+      return resolvePostLoginPathWithWorkspaceAccess(
+        sessionUser,
+        settings,
+        workspaceAccess,
+        runtimeSurfaces,
+      );
     } catch (workspaceError) {
       console.error(workspaceError);
-      return resolvePostLoginPath(sessionUser, settings);
+      return resolvePostLoginPath(sessionUser, settings, runtimeSurfaces);
     }
   };
 

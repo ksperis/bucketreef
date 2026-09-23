@@ -26,7 +26,7 @@ export default function OidcCallbackPage() {
   const { provider } = useParams<{ provider: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { setGeneralSettings } = useGeneralSettings();
+  const { runtimeSurfaces, setGeneralSettings } = useGeneralSettings();
   const { setLanguagePreference } = useLanguage();
   const { setTheme } = useTheme();
   const [error, setError] = useState<string | null>(null);
@@ -84,13 +84,14 @@ export default function OidcCallbackPage() {
         } catch (loadError) {
           console.error(loadError);
         }
-        let baseDestination = resolvePostLoginPath(sessionUser, settings);
+        let baseDestination = resolvePostLoginPath(sessionUser, settings, runtimeSurfaces);
         try {
           const workspaceAccess = await getWorkspaceAccess();
           baseDestination = resolvePostLoginPathWithWorkspaceAccess(
             sessionUser,
             settings,
-            workspaceAccess
+            workspaceAccess,
+            runtimeSurfaces,
           );
         } catch (workspaceError) {
           console.error(workspaceError);
@@ -111,7 +112,7 @@ export default function OidcCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [acceptAuthentication, navigate, provider, searchParams, setGeneralSettings, setLanguagePreference, setTheme]);
+  }, [acceptAuthentication, navigate, provider, runtimeSurfaces, searchParams, setGeneralSettings, setLanguagePreference, setTheme]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">

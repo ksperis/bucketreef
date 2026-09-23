@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { GeneralSettings } from "../api/appSettings";
+import { DEFAULT_RUNTIME_SURFACES, type GeneralSettings } from "../api/appSettings";
 import type { SessionUser } from "./workspaces";
 import { resolveAvailableWorkspacesWithFlags, resolvePostLoginPath } from "./workspaces";
 
@@ -60,6 +60,24 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
 
     expect(workspaces.find((workspace) => workspace.id === "admin")?.label).toBe("Admin (platform)");
     expect(workspaces.find((workspace) => workspace.id === "browser")?.label).toBe("Browser (objects)");
+  });
+
+  it("hides runtime-disabled surfaces even when database features are enabled", () => {
+    const workspaces = resolveAvailableWorkspacesWithFlags(
+      adminUser,
+      { ...baseSettings, storage_ops_enabled: true, portal_enabled: true },
+      { manager: true, browser: true, portal: true },
+      {
+        ...DEFAULT_RUNTIME_SURFACES,
+        admin: false,
+        ceph_admin: false,
+        storage_ops: false,
+      },
+    );
+
+    expect(workspaces.map((workspace) => workspace.id)).not.toContain("admin");
+    expect(workspaces.map((workspace) => workspace.id)).not.toContain("ceph-admin");
+    expect(workspaces.map((workspace) => workspace.id)).not.toContain("storage-ops");
   });
 
   it("hides Storage Ops for admin-like users when feature flag is disabled", () => {

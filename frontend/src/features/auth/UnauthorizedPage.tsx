@@ -8,8 +8,11 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { readStoredUser, resolvePostLoginPath } from "../../utils/workspaces";
 
 export default function UnauthorizedPage() {
-  const { generalSettings } = useGeneralSettings();
-  const homePath = useMemo(() => resolvePostLoginPath(readStoredUser(), generalSettings), [generalSettings]);
+  const { generalSettings, runtimeSurfaces } = useGeneralSettings();
+  const homePath = useMemo(
+    () => resolvePostLoginPath(readStoredUser(), generalSettings, runtimeSurfaces),
+    [generalSettings, runtimeSurfaces],
+  );
   const canReturnToWorkspace = homePath !== "/login" && homePath !== "/unauthorized";
 
   return (

@@ -35,6 +35,10 @@ import {
 } from "./navigation/workspacePages";
 import { useAdminPendingRequestCounts } from "./hooks/useAdminPendingRequestCounts";
 import type { AdminPendingRequestCounts } from "./api/adminNavigation";
+import {
+  DEFAULT_RUNTIME_SURFACES,
+  type RuntimeSurfaces,
+} from "./api/appSettings";
 import { useOnboardingStatus } from "./features/admin/useOnboardingStatus";
 
 export { RequireManagerFeatureRulesTool, RequirePortalAccess } from "./routerGuards";
@@ -311,146 +315,162 @@ function AdminEndpointStatusDetailRoute() {
     : <FeatureDisabledPage feature="Endpoint Status" />;
 }
 
-export function createAppRoutes() {
+export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTIME_SURFACES) {
   return createRoutesFromElements(
     <Route element={<Outlet />} errorElement={<RouteErrorPage />}>
       <Route element={<RequireAuth />}>
         <Route index element={<RoleRedirect />} />
 
-        <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE]} />}>
-          <Route path="/admin" element={<AdminLayoutShell />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="onboarding" element={<OnboardingPage />} />
-            <Route path="profile" element={<AccountProfilePage />} />
-            <Route path="s3-accounts" element={<S3AccountsPage />} />
-            <Route path="s3-users" element={<S3UsersPage />} />
-            <Route path="s3-connections" element={<S3ConnectionsPage />} />
-            <Route path="s3-users/:userId/keys" element={<S3UserKeysPage />} />
-            <Route path="storage-endpoints" element={<StorageEndpointsPage />} />
-            <Route path="storage-endpoints/:endpointId" element={<StorageEndpointsPage />} />
-            <Route path="endpoint-status" element={<AdminEndpointStatusRoute />} />
-            <Route path="endpoint-status/:endpointId" element={<AdminEndpointStatusDetailRoute />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="groups" element={<GroupsPage />} />
-            <Route path="identity-security" element={<IdentitySecurityPage />} />
-            <Route path="audit" element={<AuditLogsPage />} />
-            <Route path="metrics" element={<AdminMetricsPage />} />
-            <Route path="portal-requests" element={<AdminPortalRequestsPage />} />
-            <Route path="billing" element={<AdminBillingRoute />} />
-            <Route path="usage-history" element={<AdminUsageHistoryRoute />} />
-            <Route element={<RequireRole roles={[SUPERADMIN_ROLE]} />}>
-              <Route path="general-settings" element={<GeneralSettingsPage />} />
-              <Route path="authentication-settings" element={<AuthenticationSettingsPage />} />
-              <Route path="authentication-settings/oidc/new" element={<AuthProviderPage kind="oidc" />} />
-              <Route path="authentication-settings/oidc/providers/:providerId" element={<AuthProviderPage kind="oidc" />} />
-              <Route path="authentication-settings/ldap/new" element={<AuthProviderPage kind="ldap" />} />
-              <Route path="authentication-settings/ldap/providers/:providerId" element={<AuthProviderPage kind="ldap" />} />
-              <Route path="manager-settings" element={<ManagerSettingsPage />} />
-              <Route path="portal-settings" element={<AdminPortalSettingsRoute />} />
-              <Route path="browser-settings" element={<BrowserSettingsPage />} />
-              <Route path="key-rotation" element={<KeyRotationPage />} />
-              <Route path="api-tokens" element={<ApiTokensPage />} />
-            </Route>
-          </Route>
-        </Route>
-
-        <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE]} />}>
-          <Route element={<RequireCephAdminFeature />}>
-            <Route path="/ceph-admin" element={<CephAdminLayout />}>
-              <Route index element={<CephAdminDashboard />} />
+        {runtimeSurfaces.admin ? (
+          <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE]} />}>
+            <Route path="/admin" element={<AdminLayoutShell />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="profile" element={<AccountProfilePage />} />
-              <Route path="metrics" element={<CephAdminMetricsPage />} />
-              <Route path="accounts" element={<CephAdminAccountsPage />} />
-              <Route path="users" element={<CephAdminUsersPage />} />
-              <Route path="buckets" element={<CephAdminBucketsPage />} />
-              <Route path="buckets/:bucketName" element={<CephAdminBucketDetailPage />} />
-              <Route element={<RequireBrowserSurface surface="ceph_admin" />}>
-                <Route path="browser" element={<CephAdminBrowserPage />} />
+              <Route path="s3-accounts" element={<S3AccountsPage />} />
+              <Route path="s3-users" element={<S3UsersPage />} />
+              <Route path="s3-connections" element={<S3ConnectionsPage />} />
+              <Route path="s3-users/:userId/keys" element={<S3UserKeysPage />} />
+              <Route path="storage-endpoints" element={<StorageEndpointsPage />} />
+              <Route path="storage-endpoints/:endpointId" element={<StorageEndpointsPage />} />
+              <Route path="endpoint-status" element={<AdminEndpointStatusRoute />} />
+              <Route path="endpoint-status/:endpointId" element={<AdminEndpointStatusDetailRoute />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="groups" element={<GroupsPage />} />
+              <Route path="identity-security" element={<IdentitySecurityPage />} />
+              <Route path="audit" element={<AuditLogsPage />} />
+              <Route path="metrics" element={<AdminMetricsPage />} />
+              <Route path="portal-requests" element={<AdminPortalRequestsPage />} />
+              <Route path="billing" element={<AdminBillingRoute />} />
+              <Route path="usage-history" element={<AdminUsageHistoryRoute />} />
+              <Route element={<RequireRole roles={[SUPERADMIN_ROLE]} />}>
+                <Route path="general-settings" element={<GeneralSettingsPage />} />
+                <Route path="authentication-settings" element={<AuthenticationSettingsPage />} />
+                <Route path="authentication-settings/oidc/new" element={<AuthProviderPage kind="oidc" />} />
+                <Route path="authentication-settings/oidc/providers/:providerId" element={<AuthProviderPage kind="oidc" />} />
+                <Route path="authentication-settings/ldap/new" element={<AuthProviderPage kind="ldap" />} />
+                <Route path="authentication-settings/ldap/providers/:providerId" element={<AuthProviderPage kind="ldap" />} />
+                <Route path="manager-settings" element={<ManagerSettingsPage />} />
+                <Route path="portal-settings" element={<AdminPortalSettingsRoute />} />
+                <Route path="browser-settings" element={<BrowserSettingsPage />} />
+                <Route path="key-rotation" element={<KeyRotationPage />} />
+                <Route path="api-tokens" element={<ApiTokensPage />} />
               </Route>
             </Route>
           </Route>
-        </Route>
+        ) : null}
 
-        <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE, USER_ROLE]} />}>
-          <Route element={<RequireStorageOpsFeature />}>
-            <Route path="/storage-ops" element={<StorageOpsLayout />}>
-              <Route index element={<StorageOpsDashboard />} />
-              <Route path="profile" element={<AccountProfilePage />} />
-              <Route path="buckets" element={<StorageOpsBucketsPage />} />
-              <Route path="buckets/:bucketName" element={<StorageOpsBucketDetailPage />} />
+        {runtimeSurfaces.ceph_admin ? (
+          <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE]} />}>
+            <Route element={<RequireCephAdminFeature />}>
+              <Route path="/ceph-admin" element={<CephAdminLayout />}>
+                <Route index element={<CephAdminDashboard />} />
+                <Route path="profile" element={<AccountProfilePage />} />
+                <Route path="metrics" element={<CephAdminMetricsPage />} />
+                <Route path="accounts" element={<CephAdminAccountsPage />} />
+                <Route path="users" element={<CephAdminUsersPage />} />
+                <Route path="buckets" element={<CephAdminBucketsPage />} />
+                <Route path="buckets/:bucketName" element={<CephAdminBucketDetailPage />} />
+                {runtimeSurfaces.browser ? (
+                  <Route element={<RequireBrowserSurface surface="ceph_admin" />}>
+                    <Route path="browser" element={<CephAdminBrowserPage />} />
+                  </Route>
+                ) : null}
+              </Route>
             </Route>
           </Route>
-        </Route>
+        ) : null}
 
-        <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE, USER_ROLE]} />}>
-          <Route element={<RequireManagerFeature />}>
-            <Route path="/manager" element={<ManagerLayout />}>
-              <Route index element={<ManagerDashboard />} />
-              <Route path="profile" element={<AccountProfilePage />} />
-              <Route path="buckets" element={<BucketsPage />} />
-              <Route path="buckets/:bucketName" element={<BucketDetailPage />} />
-              <Route element={<RequireBrowserSurface surface="manager" />}>
-                <Route path="browser" element={<ManagerBrowserPage />} />
-              </Route>
-              <Route path="metrics" element={<ManagerMetricsPage />} />
-              <Route element={<RequireManagerIamFeature />}>
-                <Route path="users" element={<ManagerUsersPage />} />
-                <Route path="users/:userName/keys" element={<ManagerUserKeysPage />} />
-                <Route path="users/:userName/policies" element={<ManagerUserPoliciesPage />} />
-                <Route path="groups" element={<ManagerGroupsPage />} />
-                <Route path="groups/:groupName/policies" element={<ManagerGroupPoliciesPage />} />
-                <Route path="groups/:groupName/users" element={<ManagerGroupUsersPage />} />
-                <Route path="roles" element={<ManagerRolesPage />} />
-                <Route path="roles/:roleName/policies" element={<ManagerRolePoliciesPage />} />
-                <Route path="iam/policies" element={<PoliciesPage />} />
-              </Route>
-              <Route path="topics" element={<TopicsPage />} />
-              <Route path="ceph/keys" element={<ManagerCephKeysPage />} />
-              <Route element={<RequireManagerBucketCompareFeature />}>
-                <Route path="bucket-compare" element={<ManagerBucketComparePage />} />
-              </Route>
-              <Route element={<RequireManagerBucketIntegrityFeature />}>
-                <Route path="bucket-integrity" element={<ManagerBucketIntegrityPage />} />
-              </Route>
-              <Route element={<RequireManagerBucketPurgeFeature />}>
-                <Route path="bucket-purge" element={<ManagerBucketPurgePage />} />
-              </Route>
-              <Route element={<RequireManagerFeatureRulesTool />}>
-                <Route path="feature-rules" element={<ManagerFeatureRulesPage />} />
-              </Route>
-              <Route element={<RequireManagerMigrationFeature />}>
-                <Route path="migrations" element={<ManagerMigrationsPage />} />
-                <Route path="migrations/new" element={<ManagerMigrationWizardPage />} />
-                <Route path="migrations/:migrationId" element={<ManagerMigrationDetailPage />} />
+        {runtimeSurfaces.storage_ops ? (
+          <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE, USER_ROLE]} />}>
+            <Route element={<RequireStorageOpsFeature />}>
+              <Route path="/storage-ops" element={<StorageOpsLayout />}>
+                <Route index element={<StorageOpsDashboard />} />
+                <Route path="profile" element={<AccountProfilePage />} />
+                <Route path="buckets" element={<StorageOpsBucketsPage />} />
+                <Route path="buckets/:bucketName" element={<StorageOpsBucketDetailPage />} />
               </Route>
             </Route>
           </Route>
-
-          <Route element={<RequireBrowserSurface surface="root" />}>
-            <Route path="/browser" element={<BrowserLayout />}>
-              <Route index element={<BrowserPage />} />
-              <Route path="profile" element={<AccountProfilePage />} />
-            </Route>
-          </Route>
-        </Route>
+        ) : null}
 
         <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE, USER_ROLE]} />}>
-          <Route element={<RequirePortalAccess />}>
-            <Route path="/portal" element={<PortalLayout />}>
-              <Route index element={<PortalDashboard />} />
-              <Route path="profile" element={<AccountProfilePage />} />
-              <Route path="storage-spaces" element={<PortalStorageSpacesPage />} />
-              <Route path="storage-spaces/:spaceId" element={<PortalStorageSpaceDetailPage />} />
-              <Route path="access-keys" element={<PortalAccessKeysPage />} />
-              <Route path="shares" element={<PortalSharesPage />} />
-              <Route path="shares/:userId" element={<PortalCollaboratorAccessPage />} />
-              <Route path="requests" element={<PortalRequestsPage />} />
-              <Route path="history" element={<PortalHistoryPage />} />
-              <Route path="usage" element={<PortalUsagePage />} />
-              <Route path="settings" element={<PortalSettingsPage />} />
+          {runtimeSurfaces.manager ? (
+            <Route element={<RequireManagerFeature />}>
+              <Route path="/manager" element={<ManagerLayout />}>
+                <Route index element={<ManagerDashboard />} />
+                <Route path="profile" element={<AccountProfilePage />} />
+                <Route path="buckets" element={<BucketsPage />} />
+                <Route path="buckets/:bucketName" element={<BucketDetailPage />} />
+                {runtimeSurfaces.browser ? (
+                  <Route element={<RequireBrowserSurface surface="manager" />}>
+                    <Route path="browser" element={<ManagerBrowserPage />} />
+                  </Route>
+                ) : null}
+                <Route path="metrics" element={<ManagerMetricsPage />} />
+                <Route element={<RequireManagerIamFeature />}>
+                  <Route path="users" element={<ManagerUsersPage />} />
+                  <Route path="users/:userName/keys" element={<ManagerUserKeysPage />} />
+                  <Route path="users/:userName/policies" element={<ManagerUserPoliciesPage />} />
+                  <Route path="groups" element={<ManagerGroupsPage />} />
+                  <Route path="groups/:groupName/policies" element={<ManagerGroupPoliciesPage />} />
+                  <Route path="groups/:groupName/users" element={<ManagerGroupUsersPage />} />
+                  <Route path="roles" element={<ManagerRolesPage />} />
+                  <Route path="roles/:roleName/policies" element={<ManagerRolePoliciesPage />} />
+                  <Route path="iam/policies" element={<PoliciesPage />} />
+                </Route>
+                <Route path="topics" element={<TopicsPage />} />
+                <Route path="ceph/keys" element={<ManagerCephKeysPage />} />
+                <Route element={<RequireManagerBucketCompareFeature />}>
+                  <Route path="bucket-compare" element={<ManagerBucketComparePage />} />
+                </Route>
+                <Route element={<RequireManagerBucketIntegrityFeature />}>
+                  <Route path="bucket-integrity" element={<ManagerBucketIntegrityPage />} />
+                </Route>
+                <Route element={<RequireManagerBucketPurgeFeature />}>
+                  <Route path="bucket-purge" element={<ManagerBucketPurgePage />} />
+                </Route>
+                <Route element={<RequireManagerFeatureRulesTool />}>
+                  <Route path="feature-rules" element={<ManagerFeatureRulesPage />} />
+                </Route>
+                <Route element={<RequireManagerMigrationFeature />}>
+                  <Route path="migrations" element={<ManagerMigrationsPage />} />
+                  <Route path="migrations/new" element={<ManagerMigrationWizardPage />} />
+                  <Route path="migrations/:migrationId" element={<ManagerMigrationDetailPage />} />
+                </Route>
+              </Route>
+            </Route>
+          ) : null}
+
+          {runtimeSurfaces.browser ? (
+            <Route element={<RequireBrowserSurface surface="root" />}>
+              <Route path="/browser" element={<BrowserLayout />}>
+                <Route index element={<BrowserPage />} />
+                <Route path="profile" element={<AccountProfilePage />} />
+              </Route>
+            </Route>
+          ) : null}
+        </Route>
+
+        {runtimeSurfaces.portal ? (
+          <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE, USER_ROLE]} />}>
+            <Route element={<RequirePortalAccess />}>
+              <Route path="/portal" element={<PortalLayout />}>
+                <Route index element={<PortalDashboard />} />
+                <Route path="profile" element={<AccountProfilePage />} />
+                <Route path="storage-spaces" element={<PortalStorageSpacesPage />} />
+                <Route path="storage-spaces/:spaceId" element={<PortalStorageSpaceDetailPage />} />
+                <Route path="access-keys" element={<PortalAccessKeysPage />} />
+                <Route path="shares" element={<PortalSharesPage />} />
+                <Route path="shares/:userId" element={<PortalCollaboratorAccessPage />} />
+                <Route path="requests" element={<PortalRequestsPage />} />
+                <Route path="history" element={<PortalHistoryPage />} />
+                <Route path="usage" element={<PortalUsagePage />} />
+                <Route path="settings" element={<PortalSettingsPage />} />
+              </Route>
             </Route>
           </Route>
-        </Route>
+        ) : null}
       </Route>
 
       <Route path="/login" element={<LoginPage />} />
@@ -463,11 +483,15 @@ export function createAppRoutes() {
 }
 
 export default function AppRouter() {
+  const { runtimeSurfaces, runtimeSurfacesLoading } = useGeneralSettings();
   const router = useMemo(() => {
-    return createBrowserRouter(createAppRoutes(), {
+    return createBrowserRouter(createAppRoutes(runtimeSurfaces), {
       future: { v7_relativeSplatPath: true },
     });
-  }, []);
+  }, [runtimeSurfaces]);
+  if (runtimeSurfacesLoading) {
+    return <RouteFallback />;
+  }
   return (
     <Suspense fallback={<RouteFallback />}>
       <RouterProvider router={router} />

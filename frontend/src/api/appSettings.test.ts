@@ -9,7 +9,7 @@ vi.mock("./client", () => ({
   timeoutForRequestProfile: () => 15_000,
 }));
 
-import { fetchBrandingSettings, fetchLoginSettings } from "./appSettings";
+import { fetchBrandingSettings, fetchLoginSettings, fetchRuntimeSurfaces } from "./appSettings";
 
 describe("public settings API", () => {
   beforeEach(() => {
@@ -37,5 +37,20 @@ describe("public settings API", () => {
 
     await expect(fetchBrandingSettings()).resolves.toBe(settings);
     expect(clientMock.get).toHaveBeenCalledWith("/settings/branding");
+  });
+
+  it("returns runtime surface availability", async () => {
+    const surfaces = {
+      admin: false,
+      ceph_admin: false,
+      storage_ops: false,
+      manager: true,
+      portal: true,
+      browser: true,
+    };
+    clientMock.get.mockResolvedValue({ data: surfaces });
+
+    await expect(fetchRuntimeSurfaces()).resolves.toBe(surfaces);
+    expect(clientMock.get).toHaveBeenCalledWith("/settings/runtime-surfaces", { timeout: 15_000 });
   });
 });

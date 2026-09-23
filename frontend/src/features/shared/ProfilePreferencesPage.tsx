@@ -31,7 +31,7 @@ type Preferences = {
 
 export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onUnsavedChangesChange?: (dirty: boolean) => void }) {
   const { text } = useProfileI18n();
-  const { generalSettings } = useGeneralSettings();
+  const { generalSettings, runtimeSurfaces } = useGeneralSettings();
   const { theme, setTheme } = useTheme();
   const observedTheme = useRef(theme);
   const nameInput = useRef<HTMLInputElement>(null);
@@ -43,7 +43,16 @@ export default function ProfilePreferencesPage({ onUnsavedChangesChange }: { onU
   const [workspaceAccess, setWorkspaceAccess] = useState<WorkspaceContextAvailability>({ manager: false, browser: false, portal: false });
   const [workspaceLoading, setWorkspaceLoading] = useState(!isS3Session);
   const [workspaceError, setWorkspaceError] = useState(false);
-  const workspaces = useMemo(() => resolveAvailableWorkspacesWithFlags(storedUser, generalSettings, isS3Session ? undefined : workspaceAccess), [storedUser, generalSettings, isS3Session, workspaceAccess]);
+  const workspaces = useMemo(
+    () =>
+      resolveAvailableWorkspacesWithFlags(
+        storedUser,
+        generalSettings,
+        isS3Session ? undefined : workspaceAccess,
+        runtimeSurfaces,
+      ),
+    [storedUser, generalSettings, isS3Session, runtimeSurfaces, workspaceAccess],
+  );
   const loadWorkspaces = useCallback(async () => {
     if (isS3Session) return;
     setWorkspaceLoading(true);

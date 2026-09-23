@@ -2,7 +2,11 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { GeneralSettings } from "../api/appSettings";
+import {
+  DEFAULT_RUNTIME_SURFACES,
+  type GeneralSettings,
+  type RuntimeSurfaces,
+} from "../api/appSettings";
 import type { AccountAccessGrant } from "../api/accountAccess";
 import type { WorkspaceAccess } from "../api/executionContexts";
 import type {
@@ -231,15 +235,23 @@ function resolveAvailableWorkspaces(
 export function resolveAvailableWorkspacesWithFlags(
   user: SessionUser | null,
   generalSettings: GeneralSettings,
-  contextAvailability?: WorkspaceContextAvailability
+  contextAvailability?: WorkspaceContextAvailability,
+  runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTIME_SURFACES,
 ): WorkspaceOption[] {
   const filtered = resolveAvailableWorkspaces(user, contextAvailability).filter((workspace) => {
-    if (workspace.id === "ceph-admin") return generalSettings.ceph_admin_enabled;
-    if (workspace.id === "storage-ops") return generalSettings.storage_ops_enabled;
-    if (workspace.id === "portal") return generalSettings.portal_enabled;
-    if (workspace.id === "manager") return generalSettings.manager_enabled;
-    if (workspace.id === "browser") return generalSettings.browser_enabled && generalSettings.browser_root_enabled;
-    return true;
+    if (workspace.id === "admin") return runtimeSurfaces.admin;
+    if (workspace.id === "ceph-admin") {
+      return runtimeSurfaces.ceph_admin && generalSettings.ceph_admin_enabled;
+    }
+    if (workspace.id === "storage-ops") {
+      return runtimeSurfaces.storage_ops && generalSettings.storage_ops_enabled;
+    }
+    if (workspace.id === "portal") return runtimeSurfaces.portal && generalSettings.portal_enabled;
+    if (workspace.id === "manager") return runtimeSurfaces.manager && generalSettings.manager_enabled;
+    if (workspace.id === "browser") {
+      return runtimeSurfaces.browser && generalSettings.browser_enabled && generalSettings.browser_root_enabled;
+    }
+    return false;
   });
   return filtered;
 }
@@ -250,15 +262,25 @@ export function resolveWorkspaceFromPath(pathname: string, options: WorkspaceOpt
   return active ?? null;
 }
 
-function resolveRoleHomePath(user: SessionUser | null, generalSettings: GeneralSettings): string {
+function resolveRoleHomePath(
+  user: SessionUser | null,
+  generalSettings: GeneralSettings,
+  runtimeSurfaces: RuntimeSurfaces,
+): string {
   if (!user || !user.role) return "/login";
-  if (isAdminLikeRole(user.role)) return "/admin";
-  if (user.role !== USER_ROLE) return "/unauthorized";
+  const adminLike = isAdminLikeRole(user.role);
+  if (adminLike && runtimeSurfaces.admin) return "/admin";
+  if (!adminLike && user.role !== USER_ROLE) return "/unauthorized";
   if (user.authType === "s3_session") {
     const canManager = user.capabilities?.can_manage_iam !== false;
     const canBrowser = user.capabilities?.access_browser !== false;
-    if (generalSettings.manager_enabled && canManager) return "/manager";
-    if (generalSettings.browser_enabled && generalSettings.browser_root_enabled && canBrowser) {
+    if (runtimeSurfaces.manager && generalSettings.manager_enabled && canManager) return "/manager";
+    if (
+      runtimeSurfaces.browser &&
+      generalSettings.browser_enabled &&
+      generalSettings.browser_root_enabled &&
+      canBrowser
+    ) {
       return "/browser";
     }
     return "/unauthorized";
@@ -278,10 +300,25 @@ function resolveRoleHomePath(user: SessionUser | null, generalSettings: GeneralS
     hasManagerConnectionAccess ||
     hasS3UserAccess;
 
-  if (generalSettings.manager_enabled && hasManagerAccess) return "/manager";
-  if (generalSettings.storage_ops_enabled && canAccessStorageOps(user)) return "/storage-ops";
-  if (generalSettings.portal_enabled && hasPortalAccess) return "/portal";
   if (
+    adminLike &&
+    runtimeSurfaces.ceph_admin &&
+    generalSettings.ceph_admin_enabled &&
+    canAccessCephAdmin(user)
+  ) {
+    return "/ceph-admin";
+  }
+  if (runtimeSurfaces.manager && generalSettings.manager_enabled && hasManagerAccess) return "/manager";
+  if (
+    runtimeSurfaces.storage_ops &&
+    generalSettings.storage_ops_enabled &&
+    canAccessStorageOps(user)
+  ) {
+    return "/storage-ops";
+  }
+  if (runtimeSurfaces.portal && generalSettings.portal_enabled && hasPortalAccess) return "/portal";
+  if (
+    runtimeSurfaces.browser &&
     generalSettings.browser_enabled &&
     (
       generalSettings.browser_root_enabled && hasBrowserAccess
@@ -292,12 +329,21 @@ function resolveRoleHomePath(user: SessionUser | null, generalSettings: GeneralS
   return "/unauthorized";
 }
 
-export function resolvePostLoginPath(user: SessionUser | null, generalSettings: GeneralSettings): string {
-  const fallbackPath = resolveRoleHomePath(user, generalSettings);
+export function resolvePostLoginPath(
+  user: SessionUser | null,
+  generalSettings: GeneralSettings,
+  runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTIME_SURFACES,
+): string {
+  const fallbackPath = resolveRoleHomePath(user, generalSettings, runtimeSurfaces);
   if (fallbackPath === "/login" || fallbackPath === "/unauthorized") {
     return fallbackPath;
   }
-  const availableWorkspaces = resolveAvailableWorkspacesWithFlags(user, generalSettings);
+  const availableWorkspaces = resolveAvailableWorkspacesWithFlags(
+    user,
+    generalSettings,
+    undefined,
+    runtimeSurfaces,
+  );
   const preferredWorkspaceId = readStoredWorkspaceId();
   if (preferredWorkspaceId) {
     const preferred = availableWorkspaces.find((workspace) => workspace.id === preferredWorkspaceId);
@@ -311,16 +357,17 @@ export function resolvePostLoginPath(user: SessionUser | null, generalSettings: 
 export function resolvePostLoginPathWithWorkspaceAccess(
   user: SessionUser | null,
   generalSettings: GeneralSettings,
-  access: WorkspaceAccess
+  access: WorkspaceAccess,
+  runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTIME_SURFACES,
 ): string {
   if (user?.authType === "s3_session") {
-    return resolvePostLoginPath(user, generalSettings);
+    return resolvePostLoginPath(user, generalSettings, runtimeSurfaces);
   }
   const available = resolveAvailableWorkspacesWithFlags(user, generalSettings, {
     manager: access.manager.available,
     browser: access.browser.available,
     portal: access.portal.available,
-  }).filter((workspace) => {
+  }, runtimeSurfaces).filter((workspace) => {
     if (workspace.id === "admin") return access.admin.available;
     if (workspace.id === "ceph-admin") return access.ceph_admin.available;
     if (workspace.id === "storage-ops") return access.storage_ops.available;

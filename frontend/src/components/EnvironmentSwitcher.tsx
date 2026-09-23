@@ -42,7 +42,7 @@ export function useWorkspaceSwitcherModel(): WorkspaceSwitcherModel | null {
     userKey: null,
     availability: { manager: false, browser: false, portal: false },
   });
-  const { generalSettings } = useGeneralSettings();
+  const { generalSettings, runtimeSurfaces } = useGeneralSettings();
   const { authenticated, user: sessionUser } = useSession();
 
   useEffect(() => {
@@ -76,8 +76,13 @@ export function useWorkspaceSwitcherModel(): WorkspaceSwitcherModel | null {
         : contextUserKey
           ? { manager: false, browser: false }
           : undefined;
-    return resolveAvailableWorkspacesWithFlags(user, generalSettings, contextAvailability);
-  }, [contextUserKey, generalSettings, resolvedContextAvailability, user]);
+    return resolveAvailableWorkspacesWithFlags(
+      user,
+      generalSettings,
+      contextAvailability,
+      runtimeSurfaces,
+    );
+  }, [contextUserKey, generalSettings, resolvedContextAvailability, runtimeSurfaces, user]);
   const current = resolveWorkspaceFromPath(location.pathname, environments);
 
   useEffect(() => {

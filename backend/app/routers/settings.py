@@ -3,15 +3,31 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.runtime_surfaces import runtime_surface_enabled
 from app.models.access_context import ManagerActor
 from app.models.app_settings import BrandingSettings, GeneralSettings, LoginSettings
+from app.models.runtime_surfaces import RuntimeSurfaces
 from app.models.storage_endpoint import StorageEndpointPublic
 from app.routers.dependencies import get_current_actor
 from app.services.app_settings_service import load_app_settings
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+
+@router.get("/runtime-surfaces", response_model=RuntimeSurfaces)
+def get_runtime_surfaces() -> RuntimeSurfaces:
+    runtime = get_settings()
+    return RuntimeSurfaces(
+        admin=runtime_surface_enabled(runtime, "admin"),
+        ceph_admin=runtime_surface_enabled(runtime, "ceph_admin"),
+        storage_ops=runtime_surface_enabled(runtime, "storage_ops"),
+        manager=runtime_surface_enabled(runtime, "manager"),
+        portal=runtime_surface_enabled(runtime, "portal"),
+        browser=runtime_surface_enabled(runtime, "browser"),
+    )
 
 
 @router.get("/general", response_model=GeneralSettings)
