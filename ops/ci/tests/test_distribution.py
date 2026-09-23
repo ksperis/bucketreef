@@ -210,10 +210,12 @@ def test_bundle_publication_resumes_identical_manifest_but_rejects_conflicts(mon
         if args[0] == 'push':
             Path(args[args.index('--export-manifest')+1]).write_bytes(b'{}')
             assert 'org.opencontainers.image.created=1970-01-01T00:00:00Z' in args
+            if '--oci-layout' not in args:
+                assert f'{bundle_registry.REPOSITORY}:1.2.3' in args
+                assert '--username' in args and '--password' in args
+                state['writes'] += 1
+                state['remote'] = digest.encode()
         elif args[0] == 'resolve': return state['remote']
-        elif args[0] == 'copy':
-            state['writes'] += 1
-            state['remote'] = digest.encode()
         else: raise AssertionError(args)
     monkeypatch.setattr(bundle_registry, 'run', run)
     receipt = bundle_registry.publish('1.2.3', SHA, tmp_path)
