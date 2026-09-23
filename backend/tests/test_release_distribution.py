@@ -23,7 +23,15 @@ def test_bundles_are_reproducible_versioned_and_source_free(tmp_path):
     assert [p.read_bytes() for p in first] == [p.read_bytes() for p in second]
     for archive in first[::2]:
         with tarfile.open(archive) as tar:
-            expected = {"VERSION", "LICENSE", "README.md", ".env.example", "docker-compose.yml"}
+            expected = {
+                "VERSION",
+                "LICENSE",
+                "README.md",
+                ".env.example",
+                "docker-compose.yml",
+                "docker-compose.admin.yml",
+                "docker-compose.user.yml",
+            }
             if "quickstart" in archive.name:
                 expected.add("bucketreef-quickstart")
             assert set(tar.getnames()) == expected

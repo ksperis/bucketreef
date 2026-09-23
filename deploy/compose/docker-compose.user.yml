@@ -1,0 +1,10 @@
+services:
+  backend:
+    environment:
+      FEATURE_ADMIN_ENABLED: "false"
+      FEATURE_CEPH_ADMIN_ENABLED: "false"
+      FEATURE_STORAGE_OPS_ENABLED: "false"
+      FEATURE_MANAGER_ENABLED: "true"
+      FEATURE_PORTAL_ENABLED: "true"
+      FEATURE_BROWSER_ENABLED: "true"
+      SCHEDULED_JOBS_ENABLED: "false"
