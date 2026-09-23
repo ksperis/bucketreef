@@ -15,7 +15,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { ListActionButton } from "../../components/list/ListControls";
-import { cx, type UiTone, uiLabelClass, uiMutedTextClass } from "../../components/ui/styles";
+import { cx, type UiTone, uiMutedTextClass } from "../../components/ui/styles";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useI18n } from "../../i18n";
 import {
@@ -33,10 +33,9 @@ import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalActivityPanel from "./PortalActivityPanel";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
+import AdvancedFilterSelectField from "../shared/AdvancedFilterSelectField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
-  advancedFilterControlClass,
-  advancedFilterFieldCardClass,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   advancedFilterToolbarButtonClass,
@@ -877,40 +876,30 @@ export default function PortalHistoryPage() {
                     {renderAdvancedFilterDraftSummary(serverLogAdvancedDraftSummaryItems)}
                     <section className={advancedFilterSectionClass}>
                       <div className="grid gap-3 md:grid-cols-4">
-                        <div className={advancedFilterFieldCardClass()}>
-                          <label className={cx(uiLabelClass, actionFieldState.labelClass)} htmlFor="portal-server-log-action-filter">
-                            {t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" })}
-                          </label>
-                          <select
-                            id="portal-server-log-action-filter"
-                            value={serverLogAdvancedDraft.action}
-                            onChange={(event) => updateServerLogAdvancedField("action", event.target.value as ServerLogActionFilter)}
-                            className={advancedFilterControlClass(`mt-2 w-full px-2 py-1.5 ${actionFieldState.fieldClass}`)}
-                          >
-                            {serverLogActionOptions.map((option) => (
-                              <option key={option.value || "any"} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className={advancedFilterFieldCardClass()}>
-                          <label className={cx(uiLabelClass, resultFieldState.labelClass)} htmlFor="portal-server-log-result-filter">
-                            {t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" })}
-                          </label>
-                          <select
-                            id="portal-server-log-result-filter"
-                            value={serverLogAdvancedDraft.result}
-                            onChange={(event) => updateServerLogAdvancedField("result", event.target.value as ServerLogResultFilter)}
-                            className={advancedFilterControlClass(`mt-2 w-full px-2 py-1.5 ${resultFieldState.fieldClass}`)}
-                          >
-                            {serverLogResultOptions.map((option) => (
-                              <option key={option.value || "any"} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        <AdvancedFilterSelectField
+                          label={t({ en: "Action", fr: "Action", de: "Aktion", zh: "操作" })}
+                          fieldState={actionFieldState}
+                          value={serverLogAdvancedDraft.action}
+                          onChange={(value) => updateServerLogAdvancedField("action", value as ServerLogActionFilter)}
+                        >
+                          {serverLogActionOptions.map((option) => (
+                            <option key={option.value || "any"} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </AdvancedFilterSelectField>
+                        <AdvancedFilterSelectField
+                          label={t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" })}
+                          fieldState={resultFieldState}
+                          value={serverLogAdvancedDraft.result}
+                          onChange={(value) => updateServerLogAdvancedField("result", value as ServerLogResultFilter)}
+                        >
+                          {serverLogResultOptions.map((option) => (
+                            <option key={option.value || "any"} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </AdvancedFilterSelectField>
                         <AdvancedFilterTextMatchField
                           className="md:col-span-2"
                           label={t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" })}

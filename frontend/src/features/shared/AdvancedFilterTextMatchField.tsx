@@ -4,20 +4,16 @@
  */
 import { useId, type ReactNode } from "react";
 
-import { cx, uiLabelClass } from "../../components/ui/styles";
+import { cx } from "../../components/ui/styles";
+import AdvancedFilterFieldLabel from "./AdvancedFilterFieldLabel";
 import {
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
   advancedFilterMatchModeButtonClass,
-  renderFilterCostIndicator,
+  type AdvancedFilterFieldState,
   type FilterCostLevel,
   type TextMatchMode,
 } from "./advancedFilterShared";
-
-type AdvancedFilterFieldState = {
-  fieldClass: string;
-  labelClass: string;
-};
 
 type AdvancedFilterTextMatchFieldProps = {
   children?: ReactNode;
@@ -65,12 +61,13 @@ export default function AdvancedFilterTextMatchField({
   return (
     <div className={advancedFilterFieldCardClass(className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <label htmlFor={controlId} className={cx(uiLabelClass, fieldState.labelClass)}>
-          <span className="inline-flex items-center gap-1">
-            <span>{label}</span>
-            {costLevel && costTooltip ? renderFilterCostIndicator(costLevel, costTooltip) : null}
-          </span>
-        </label>
+        <AdvancedFilterFieldLabel
+          costLevel={costLevel}
+          costTooltip={costTooltip}
+          fieldState={fieldState}
+          htmlFor={controlId}
+          label={label}
+        />
         <div className="inline-flex items-center gap-1">
           <button
             type="button"

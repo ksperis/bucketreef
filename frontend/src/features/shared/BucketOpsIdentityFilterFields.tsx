@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import AdvancedFilterTextMatchField from "./AdvancedFilterTextMatchField";
+import AdvancedFilterSelectField from "./AdvancedFilterSelectField";
 import {
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
@@ -173,36 +174,24 @@ export default function BucketOpsIdentityFilterFields({
         </div>
       </div>
 
-      <div className={advancedFilterFieldCardClass()}>
-        <label
-          className={`ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${ownerSuspendedFieldState.labelClass}`}
-        >
-          <span className="inline-flex items-center gap-1">
-            <span>Owner suspended</span>
-            {renderFilterCostIndicator(
-              "medium",
-              "Medium cost: owner-suspended filters require owner status lookups.",
-            )}
-          </span>
-        </label>
-        <select
-          value={advancedDraft.ownerSuspended}
-          onChange={(event) =>
-            updateAdvancedOwnerSuspended(
-              event.target.value as AdvancedFilterState["ownerSuspended"],
-            )
-          }
-          className={advancedFilterControlClass(
-            `mt-2 w-full px-2 py-1.5 font-normal ${ownerSuspendedFieldState.fieldClass}`,
-          )}
-        >
-          {BOOLEAN_FILTER_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <AdvancedFilterSelectField
+        label="Owner suspended"
+        costLevel="medium"
+        costTooltip="Medium cost: owner-suspended filters require owner status lookups."
+        fieldState={ownerSuspendedFieldState}
+        value={advancedDraft.ownerSuspended}
+        onChange={(value) =>
+          updateAdvancedOwnerSuspended(
+            value as AdvancedFilterState["ownerSuspended"],
+          )
+        }
+      >
+        {BOOLEAN_FILTER_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </AdvancedFilterSelectField>
 
       <AdvancedFilterTextMatchField
         className="md:col-span-2"
