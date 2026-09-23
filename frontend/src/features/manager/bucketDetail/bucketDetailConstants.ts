@@ -74,17 +74,3 @@ export const defaultLifecycleJsonExample = `[
     "Expiration": { "Days": 30 }
   }
 ]`;
-
-export const defaultReplicationJsonExample = `{
-  "Role": "arn:aws:iam::123456789012:role/replication-role",
-  "Rules": [
-    {
-      "ID": "rule-1",
-      "Status": "Enabled",
-      "Priority": 1,
-      "Filter": { "Prefix": "logs/" },
-      "Destination": { "Bucket": "arn:aws:s3:::target-bucket" },
-      "DeleteMarkerReplication": { "Status": "Disabled" }
-    }
-  ]
-}`;

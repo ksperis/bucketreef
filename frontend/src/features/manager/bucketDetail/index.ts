@@ -16,6 +16,7 @@ export { default as BucketTagsFeature } from "./BucketTagsFeature";
 export { default as BucketVersioningFeature } from "./BucketVersioningFeature";
 export { default as BucketWebsiteFeature } from "./BucketWebsiteFeature";
 export { default as BucketPublicAccessFeature } from "./BucketPublicAccessFeature";
+export { default as BucketReplicationFeature } from "./BucketReplicationFeature";
 export { default as BucketPolicyFeature } from "./BucketPolicyFeature";
 export { useBucketPolicyController } from "./useBucketPolicyController";
 export { useBucketCorsController } from "./useBucketCorsController";
