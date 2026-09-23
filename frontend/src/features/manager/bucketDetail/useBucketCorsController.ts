@@ -28,14 +28,6 @@ type UseBucketCorsControllerOptions = {
   endpointId?: number | null;
 };
 
-export const defaultCorsExample = `[
-  {
-    "AllowedMethods": ["GET", "PUT"],
-    "AllowedOrigins": ["https://app.example.com"],
-    "AllowedHeaders": ["*"]
-  }
-]`;
-
 export function useBucketCorsController({
   accountId,
   bucketName,

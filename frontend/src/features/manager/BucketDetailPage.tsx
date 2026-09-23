@@ -41,11 +41,11 @@ import {
   BucketFeatureJsonExample,
   BucketFeatureModeToggle,
   BucketAclFeature,
+  BucketCorsFeature,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
   buildNotificationExample,
   type BucketQuotaUnit,
-  defaultCorsExample,
   defaultEncryptionExample,
   defaultNotificationTemplate,
   resolveFeatureVisualState,
@@ -245,7 +245,6 @@ function BucketDetailPageContent({
   const [showReplicationExample, setShowReplicationExample] = useState(false);
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
 
-  const [showCorsExample, setShowCorsExample] = useState(false);
   const selectedS3Account = useMemo(() => {
     if (isCephAdmin) return null;
     if (accountIdOverride) {
@@ -300,25 +299,20 @@ function BucketDetailPageContent({
     load: loadPolicy,
     loading: policyLoading,
   } = policyController;
-  const {
-    configured: corsConfigured,
-    deleting: deletingCors,
-    dirty: corsDirty,
-    error: corsError,
-    load: loadCors,
-    loading: corsLoading,
-    remove: removeCors,
-    save: saveCors,
-    saving: savingCors,
-    setText: setCorsText,
-    text: corsText,
-  } = useBucketCorsController({
+  const corsController = useBucketCorsController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
+  const {
+    configured: corsConfigured,
+    dirty: corsDirty,
+    error: corsError,
+    load: loadCors,
+    loading: corsLoading,
+  } = corsController;
   const {
     clear: clearAccessLogging,
     clearing: clearingAccessLogging,
@@ -698,7 +692,7 @@ function BucketDetailPageContent({
     lifecycle: savingLifecycle,
     policy: policyController.saving || policyController.deleting,
     acl: bucketAclController.saving,
-    cors: savingCors || deletingCors,
+    cors: corsController.saving || corsController.deleting,
     replication: savingReplication || clearingReplication,
     encryption: savingEncryption || deletingEncryption,
     publicAccess: publicAccessController.saving,
@@ -913,7 +907,6 @@ function BucketDetailPageContent({
   const objectLockNotImplemented = isApiFeatureNotImplemented(objectLockLoadError);
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const tagsNotImplemented = isApiFeatureNotImplemented(bucketTagsError);
-  const corsNotImplemented = isApiFeatureNotImplemented(corsError);
   const encryptionNotImplemented = isApiFeatureNotImplemented(encryptionError);
   const websiteNotImplemented = isApiFeatureNotImplemented(websiteError);
   const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
@@ -953,11 +946,6 @@ function BucketDetailPageContent({
     disabled: replicationBlocked || replicationNotImplemented,
     configured: replicationConfigured,
     unsaved: replicationDirty,
-  });
-  const corsCardState = resolveFeatureVisualState({
-    disabled: corsNotImplemented,
-    configured: corsConfigured,
-    unsaved: corsDirty,
   });
   const accessLoggingCardState = resolveFeatureVisualState({
     disabled: accessLoggingNotImplemented,
@@ -1296,7 +1284,7 @@ function BucketDetailPageContent({
   const confirmPendingConfigurationDelete = async () => {
     if (!pendingConfigurationDelete) return;
     try {
-      if (pendingConfigurationDelete === "cors") await removeCors();
+      if (pendingConfigurationDelete === "cors") await corsController.remove();
       if (pendingConfigurationDelete === "encryption") await clearEncryption();
       if (pendingConfigurationDelete === "tags") await clearBucketTags();
       if (pendingConfigurationDelete === "notifications") await clearNotifications();
@@ -1316,7 +1304,7 @@ function BucketDetailPageContent({
 
   const configurationDeleteLoading =
     pendingConfigurationDelete === "cors"
-      ? deletingCors
+      ? corsController.deleting
       : pendingConfigurationDelete === "encryption"
         ? deletingEncryption
         : pendingConfigurationDelete === "tags"
@@ -2214,54 +2202,10 @@ function BucketDetailPageContent({
                   onRequestDelete={() => setPendingConfigurationDelete("policy")}
                 />
 
-                <BucketFeatureSection
-                  title="CORS"
-                  description="CORS rules in AWS format (CORSRules)."
-                  mode="json"
-                  visualState={corsCardState}
-                  presentation="workbench"
-                  busy={savingCors || deletingCors || corsLoading}
-                  testId="bucket-feature-cors"
-                  actions={
-                    <div className={bucketDetailInlineActionsClass}>
-                      <SettingsButton
-                        type="button"
-                        onClick={() => setPendingConfigurationDelete("cors")}
-                        disabled={corsNotImplemented || deletingCors || !corsConfigured}
-                        variant="danger"
-                      >
-                        {deletingCors ? "Deleting..." : "Delete"}
-                      </SettingsButton>
-                      <SettingsButton
-                        type="button"
-                        onClick={saveCors}
-                        disabled={corsNotImplemented || savingCors || corsLoading || !corsDirty}
-                        variant="primary"
-                      >
-                        {savingCors ? "Saving..." : "Save"}
-                      </SettingsButton>
-                    </div>
-                  }
-                >
-                  {corsError && (
-                    <UiInlineMessage tone="error">{corsError}</UiInlineMessage>
-                  )}
-                  <UiTextarea label="CORS rules (JSON)" rows={8}
-                    value={corsText}
-                    onChange={(e) => setCorsText(e.target.value)}
-                    className="settings-control font-mono"
-                    placeholder='[{"AllowedMethods":["GET"],"AllowedOrigins":["*"]}]'
-                    spellCheck={false}
-                    disabled={corsNotImplemented}
-                  />
-                  <BucketFeatureJsonExample
-                    show={showCorsExample}
-                    onToggle={() => setShowCorsExample((prev) => !prev)}
-                    example={defaultCorsExample}
-                    onUseExample={() => setCorsText(defaultCorsExample)}
-                    disabled={corsNotImplemented}
-                  />
-                </BucketFeatureSection>
+                <BucketCorsFeature
+                  controller={corsController}
+                  onRequestDelete={() => setPendingConfigurationDelete("cors")}
+                />
 
               </div>
             ),
