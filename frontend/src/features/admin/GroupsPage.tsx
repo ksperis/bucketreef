@@ -5,6 +5,10 @@
 import TableSortControls from "../../components/list/TableSortControls";
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import {
+  isRecentWebAuthnVerificationCancelled,
+  useRecentWebAuthnStepUp,
+} from "../../auth/useRecentWebAuthnStepUp";
+import {
   type Dispatch,
   type FormEvent,
   type SetStateAction,
@@ -129,6 +133,7 @@ export default function GroupsPage() {
   type SortField = "name" | "created_at" | "updated_at";
 
   const { generalSettings } = useGeneralSettings();
+  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const showPortalRole = Boolean(generalSettings.portal_enabled);
   const principalEditRequest = useMemo(
     () => readAdminPrincipalEditRequest(typeof window === "undefined" ? "" : window.location.search),
@@ -449,10 +454,10 @@ export default function GroupsPage() {
     try {
       let savedGroup: UiGroup;
       if (editingGroup) {
-        savedGroup = await updateGroup(editingGroup.id, payload);
+        savedGroup = await runWithStepUp(() => updateGroup(editingGroup.id, payload));
         setActionMessage("Group updated");
       } else {
-        savedGroup = await createGroup(payload);
+        savedGroup = await runWithStepUp(() => createGroup(payload));
         setActionMessage("Group created");
       }
       if (avatarFile) {
@@ -463,7 +468,9 @@ export default function GroupsPage() {
       closeModal();
       await fetchGroups();
     } catch (err) {
-      setActionError(extractApiError(err, "Unable to save group."));
+      if (!isRecentWebAuthnVerificationCancelled(err)) {
+        setActionError(extractApiError(err, "Unable to save group."));
+      }
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -1406,6 +1413,7 @@ export default function GroupsPage() {
           onConfirm={() => void confirmDelete()}
         />
       )}
+      {verificationDialog}
     </div>
   );
 }

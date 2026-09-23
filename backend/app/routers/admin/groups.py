@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,6 +18,11 @@ from app.models.ui_group import (
 from app.routers.dependencies import get_audit_service, get_current_super_admin
 from app.services.audit_service import AuditService
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
+from app.services.identity_security_policy import (
+    admin_group_create_requires_step_up,
+    admin_group_update_requires_step_up,
+    require_admin_sensitive_action,
+)
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService, get_ui_groups_service
 
@@ -74,6 +79,7 @@ def list_groups_minimal(
 
 @router.post("", response_model=UiGroupOut, status_code=status.HTTP_201_CREATED)
 def create_group(
+    request: Request,
     payload: UiGroupCreate,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
     current_user: User = Depends(get_current_super_admin),
@@ -83,6 +89,8 @@ def create_group(
         current_user,
         can_access_ceph_admin=payload.can_access_ceph_admin,
     )
+    if admin_group_create_requires_step_up(payload):
+        require_admin_sensitive_action(request, groups_service.db, current_user)
     try:
         group = groups_service.create_group(payload)
         audit_service.record_action(
@@ -108,6 +116,7 @@ def create_group(
 
 @router.put("/{group_id}", response_model=UiGroupOut)
 def update_group(
+    request: Request,
     group_id: int,
     payload: UiGroupUpdate,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
@@ -119,6 +128,11 @@ def update_group(
         can_access_ceph_admin=payload.can_access_ceph_admin,
     )
     try:
+        existing_group = groups_service.get_group(group_id)
+        if existing_group is None:
+            raise ValueError("UI group not found")
+        if admin_group_update_requires_step_up(existing_group, payload):
+            require_admin_sensitive_action(request, groups_service.db, current_user)
         group = groups_service.update_group(group_id, payload)
         audit_service.record_action(
             user=current_user,

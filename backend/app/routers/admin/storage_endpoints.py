@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -19,6 +19,10 @@ from app.models.storage_endpoint import (
 from app.routers.dependencies import get_audit_service, get_current_super_admin, get_current_ui_superadmin
 from app.services.audit_service import AuditService
 from app.services.healthcheck_background_service import run_initial_healthchecks
+from app.services.identity_security_policy import (
+    require_admin_interactive_session,
+    require_admin_sensitive_action,
+)
 from app.services.storage_endpoints_service import (
     StorageEndpointsService,
     get_storage_endpoints_service,
@@ -53,10 +57,12 @@ def get_storage_endpoints_meta(
 
 @router.post("/detect-features", response_model=StorageEndpointFeatureDetectionResult)
 def detect_storage_endpoint_features(
+    request: Request,
     payload: StorageEndpointFeatureDetectionRequest,
     service: StorageEndpointsService = Depends(get_service),
-    _: User = Depends(get_current_ui_superadmin),
+    current_user: User = Depends(get_current_ui_superadmin),
 ) -> StorageEndpointFeatureDetectionResult:
+    require_admin_interactive_session(request, service.db, current_user)
     try:
         return service.detect_features(payload)
     except ValueError as exc:
@@ -78,12 +84,14 @@ def get_storage_endpoint(
 
 @router.post("", response_model=StorageEndpoint, status_code=status.HTTP_201_CREATED)
 def create_storage_endpoint(
+    request: Request,
     payload: StorageEndpointCreate,
     background_tasks: BackgroundTasks,
     service: StorageEndpointsService = Depends(get_service),
     audit_service: AuditService = Depends(get_audit_service),
     current_user: User = Depends(get_current_ui_superadmin),
 ) -> StorageEndpoint:
+    require_admin_sensitive_action(request, service.db, current_user)
     try:
         created = service.create_endpoint(payload)
         audit_service.record_action(
@@ -108,12 +116,14 @@ def create_storage_endpoint(
 
 @router.put("/{endpoint_id}", response_model=StorageEndpoint)
 def update_storage_endpoint(
+    request: Request,
     endpoint_id: int,
     payload: StorageEndpointUpdate,
     service: StorageEndpointsService = Depends(get_service),
     audit_service: AuditService = Depends(get_audit_service),
     current_user: User = Depends(get_current_ui_superadmin),
 ) -> StorageEndpoint:
+    require_admin_sensitive_action(request, service.db, current_user)
     try:
         updated = service.update_endpoint(endpoint_id, payload)
         audit_service.record_action(

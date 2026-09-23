@@ -6,6 +6,10 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useNavigate, useParams } from "react-router-dom";
 import { flushSync } from "react-dom";
 import {
+  isRecentWebAuthnVerificationCancelled,
+  useRecentWebAuthnStepUp,
+} from "../../auth/useRecentWebAuthnStepUp";
+import {
   createStorageEndpoint,
   deleteStorageEndpoint,
   fetchStorageEndpointsMeta,
@@ -84,6 +88,7 @@ export default function StorageEndpointsPage() {
   const navigate = useNavigate();
   const { endpointId: endpointIdParam } = useParams();
   const { generalSettings } = useGeneralSettings();
+  const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const currentUser = useMemo(() => readStoredUser(), []);
   const canEditEndpoints = isSuperAdminRole(currentUser?.role);
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
@@ -506,9 +511,12 @@ export default function StorageEndpointsPage() {
       const normalizedTags = normalizeUiTags(form.tags);
       let targetId = editingId;
       if (submission?.payload) {
-        savedEndpoint = targetId === null
-          ? await createStorageEndpoint(submission.payload)
-          : await updateStorageEndpoint(targetId, submission.payload);
+        if (targetId === null) {
+          savedEndpoint = await runWithStepUp(() => createStorageEndpoint(submission.payload));
+        } else {
+          const existingEndpointId = targetId;
+          savedEndpoint = await runWithStepUp(() => updateStorageEndpoint(existingEndpointId, submission.payload));
+        }
         targetId = savedEndpoint.id;
         const savedForm = createFormFromEndpoint(savedEndpoint);
         // Configuration and tags have separate API commits. Retain the saved identity
@@ -530,9 +538,11 @@ export default function StorageEndpointsPage() {
         navigate("/admin/storage-endpoints");
       }
     } catch (err) {
-      setFormError(savedEndpoint
-        ? `Endpoint ${editingId === null ? "created" : "updated"}, but tags could not be saved. Your tag changes are kept; retry to save them. ${extractError(err)}`
-        : extractError(err));
+      if (!isRecentWebAuthnVerificationCancelled(err)) {
+        setFormError(savedEndpoint
+          ? `Endpoint ${editingId === null ? "created" : "updated"}, but tags could not be saved. Your tag changes are kept; retry to save them. ${extractError(err)}`
+          : extractError(err));
+      }
     } finally {
       mutationPending.current = false;
       setSaving(false);
@@ -732,6 +742,7 @@ export default function StorageEndpointsPage() {
           onConfirm={() => void handleDelete()}
         />
       )}
+      {verificationDialog}
     </div>
   );
 }

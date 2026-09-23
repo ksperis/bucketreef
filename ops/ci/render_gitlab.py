@@ -61,7 +61,7 @@ def render(plan):
             job.setdefault("variables", {})["BUNDLE_BOOTSTRAP_VERSION"] = plan["bootstrap_version"]
         dependencies = job.get("needs", [])
         if name.startswith("build-"):
-            dependencies = sorted(set(plan["jobs"]) & {"backend-tests", "backend-postgresql-tests", "backend-deadcode", "frontend-quality", "frontend-tests", "frontend-browser-e2e", "helm-contract", "compose-contract", "ci-contract", "project-naming", "secret-scan"})
+            dependencies = sorted(set(plan["jobs"]) & {"backend-tests", "backend-security-contract", "backend-postgresql-tests", "backend-deadcode", "frontend-quality", "frontend-tests", "frontend-browser-e2e", "helm-contract", "compose-contract", "ci-contract", "project-naming", "secret-scan"})
         if name == "integration-ready":
             dependencies = plan["jobs"]
         if name.startswith("promote-") and name.endswith("-dev"):

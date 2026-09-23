@@ -16,7 +16,10 @@ from app.db import (
     ExternalIdentity,
     ExternalIdentityLinkRequest,
     RecoveryCode,
+    S3Connection,
     S3Session,
+    StorageEndpoint,
+    StorageProvider,
     User,
     UserRole,
     WebAuthnCredential,
@@ -457,6 +460,214 @@ def test_user_update_step_up_depends_on_persisted_security_change(auth_client, d
     assert role_change_without_policy.json()["role"] == UserRole.UI_NONE.value
 
 
+def test_storage_endpoint_mutations_require_recent_webauthn_and_detection_rejects_bearer(
+    auth_client,
+    db_session,
+    monkeypatch,
+):
+    _set_admin_passkey_policy(db_session, True)
+    admin = _user(db_session, email="endpoint-guard-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
+    endpoint = StorageEndpoint(
+        name="endpoint-guard",
+        endpoint_url="https://endpoint-guard.example.test",
+        provider=StorageProvider.CEPH.value,
+        is_default=False,
+        is_editable=True,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+    db_session.refresh(endpoint)
+    credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
+    headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
+
+    blocked_update = auth_client.put(
+        f"/api/admin/storage-endpoints/{endpoint.id}",
+        json={"name": "endpoint-guard-renamed"},
+        headers=headers,
+    )
+    blocked_create = auth_client.post(
+        "/api/admin/storage-endpoints",
+        json={
+            "name": "endpoint-guard-new",
+            "endpoint_url": "https://endpoint-guard-new.example.test",
+            "provider": "ceph",
+        },
+        headers=headers,
+    )
+    assert blocked_update.status_code == 403
+    assert blocked_update.json()["detail"] == "Recent WebAuthn verification required"
+    assert blocked_create.status_code == 403
+    assert blocked_create.json()["detail"] == "Recent WebAuthn verification required"
+
+    clear_ui_client(auth_client)
+    api_token, _ = ApiTokenService(db_session).create_for_user(
+        admin,
+        name="endpoint-detect-bearer",
+        scopes=["admin:read", "admin:write"],
+    )
+    bearer_detection = auth_client.post(
+        "/api/admin/storage-endpoints/detect-features",
+        json={"endpoint_url": endpoint.endpoint_url},
+        headers={"Authorization": f"Bearer {api_token}"},
+    )
+    assert bearer_detection.status_code == 401
+    assert bearer_detection.json()["detail"] == "UI session required"
+
+    verified = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=True)
+    monkeypatch.setattr(
+        "app.routers.admin.storage_endpoints.run_initial_healthchecks",
+        lambda **_kwargs: None,
+    )
+    verified_update = auth_client.put(
+        f"/api/admin/storage-endpoints/{endpoint.id}",
+        json={"name": "endpoint-guard-renamed"},
+        headers=trusted_origin_headers(csrf_token=verified.csrf_token),
+    )
+    assert verified_update.status_code == 200
+    assert verified_update.json()["name"] == "endpoint-guard-renamed"
+
+
+def test_group_access_mutations_require_recent_webauthn_but_descriptive_changes_do_not(
+    auth_client,
+    db_session,
+):
+    _set_admin_passkey_policy(db_session, True)
+    admin = _user(db_session, email="group-guard-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
+    credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
+    headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
+
+    descriptive_create = auth_client.post(
+        "/api/admin/groups",
+        json={"name": "Descriptive group", "description": "No access yet"},
+        headers=headers,
+    )
+    assert descriptive_create.status_code == 201
+    group_id = descriptive_create.json()["id"]
+
+    descriptive_update = auth_client.put(
+        f"/api/admin/groups/{group_id}",
+        json={"description": "Still descriptive"},
+        headers=headers,
+    )
+    assert descriptive_update.status_code == 200
+
+    blocked_update = auth_client.put(
+        f"/api/admin/groups/{group_id}",
+        json={"can_access_storage_ops": True},
+        headers=headers,
+    )
+    blocked_create = auth_client.post(
+        "/api/admin/groups",
+        json={"name": "Sensitive group", "can_access_storage_ops": True},
+        headers=headers,
+    )
+    assert blocked_update.status_code == 403
+    assert blocked_update.json()["detail"] == "Recent WebAuthn verification required"
+    assert blocked_create.status_code == 403
+    assert blocked_create.json()["detail"] == "Recent WebAuthn verification required"
+
+    clear_ui_client(auth_client)
+    verified = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=True)
+    verified_update = auth_client.put(
+        f"/api/admin/groups/{group_id}",
+        json={"can_access_storage_ops": True},
+        headers=trusted_origin_headers(csrf_token=verified.csrf_token),
+    )
+    assert verified_update.status_code == 200
+    assert verified_update.json()["can_access_storage_ops"] is True
+
+
+def test_shared_connection_expansion_requires_recent_webauthn_but_revocation_does_not(
+    auth_client,
+    db_session,
+):
+    _set_admin_passkey_policy(db_session, True)
+    admin = _user(db_session, email="connection-guard-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
+    connection = S3Connection(
+        created_by_user_id=admin.id,
+        name="guarded-shared",
+        is_shared=True,
+        is_active=True,
+        access_manager=True,
+        access_browser=False,
+        access_key_id="GUARDED-AK",
+        secret_access_key="GUARDED-SK",
+        custom_endpoint_config=(
+            '{"endpoint_url":"https://guarded-shared.example.test",'
+            '"force_path_style":false,"provider":null,"region":null,'
+            '"verify_tls":true}'
+        ),
+    )
+    removable = S3Connection(
+        created_by_user_id=admin.id,
+        name="guarded-removable",
+        is_shared=True,
+        is_active=True,
+        access_manager=True,
+        access_browser=False,
+        access_key_id="REMOVABLE-AK",
+        secret_access_key="REMOVABLE-SK",
+        custom_endpoint_config=(
+            '{"endpoint_url":"https://guarded-removable.example.test",'
+            '"force_path_style":false,"provider":null,"region":null,'
+            '"verify_tls":true}'
+        ),
+    )
+    db_session.add_all([connection, removable])
+    db_session.commit()
+    db_session.refresh(connection)
+    db_session.refresh(removable)
+    credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
+    headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
+
+    name_only = auth_client.put(
+        f"/api/admin/s3-connections/{connection.id}",
+        json={"name": "guarded-shared-renamed"},
+        headers=headers,
+    )
+    deactivated = auth_client.put(
+        f"/api/admin/s3-connections/{connection.id}",
+        json={"is_active": False},
+        headers=headers,
+    )
+    deleted = auth_client.delete(
+        f"/api/admin/s3-connections/{removable.id}",
+        headers=headers,
+    )
+    blocked_reactivation = auth_client.put(
+        f"/api/admin/s3-connections/{connection.id}",
+        json={"is_active": True},
+        headers=headers,
+    )
+    blocked_create = auth_client.post(
+        "/api/admin/s3-connections",
+        json={
+            "name": "guarded-created",
+            "endpoint_url": "https://guarded-created.example.test",
+            "access_key_id": "CREATED-AK",
+            "secret_access_key": "CREATED-SK",
+        },
+        headers=headers,
+    )
+
+    assert name_only.status_code == 200
+    assert deactivated.status_code == 200
+    assert deleted.status_code == 204
+    assert blocked_reactivation.status_code == 403
+    assert blocked_reactivation.json()["detail"] == "Recent WebAuthn verification required"
+    assert blocked_create.status_code == 403
+    assert blocked_create.json()["detail"] == "Recent WebAuthn verification required"
+
+    clear_ui_client(auth_client)
+    verified = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=True)
+    reactivated = auth_client.put(
+        f"/api/admin/s3-connections/{connection.id}",
+        json={"is_active": True},
+        headers=trusted_origin_headers(csrf_token=verified.csrf_token),
+    )
+    assert reactivated.status_code == 200
+
+
 @pytest.mark.parametrize("tool", list(ManagerToolAccess.model_fields))
 @pytest.mark.parametrize("current", [False, True])
 def test_each_manager_tool_mutation_requires_recent_mfa(auth_client, db_session, tool, current):
@@ -559,6 +770,46 @@ def test_bearer_token_is_denied_on_direct_identity_routes(auth_client, db_sessio
     direct = auth_client.get("/api/admin/users/minimal", headers=authorization)
     assert direct.status_code == 401
     assert direct.json()["detail"] == "UI session required"
+
+
+def test_bearer_token_cannot_perform_sensitive_access_mutations(auth_client, db_session):
+    admin = _user(db_session, email="sensitive-bearer@example.com", role=UserRole.UI_SUPERADMIN.value)
+    api_token, _ = ApiTokenService(db_session).create_for_user(
+        admin,
+        name="sensitive-bearer",
+        scopes=["admin:read", "admin:write"],
+    )
+    clear_ui_client(auth_client)
+    authorization = {"Authorization": f"Bearer {api_token}"}
+
+    group_response = auth_client.post(
+        "/api/admin/groups",
+        json={"name": "Bearer sensitive group", "can_access_storage_ops": True},
+        headers=authorization,
+    )
+    connection_response = auth_client.post(
+        "/api/admin/s3-connections",
+        json={
+            "name": "Bearer sensitive connection",
+            "endpoint_url": "https://bearer-sensitive.example.test",
+            "access_key_id": "BEARER-AK",
+            "secret_access_key": "BEARER-SK",
+        },
+        headers=authorization,
+    )
+    endpoint_response = auth_client.post(
+        "/api/admin/storage-endpoints",
+        json={
+            "name": "Bearer sensitive endpoint",
+            "endpoint_url": "https://bearer-endpoint.example.test",
+            "provider": "ceph",
+        },
+        headers=authorization,
+    )
+
+    for response in (group_response, connection_response, endpoint_response):
+        assert response.status_code == 401
+        assert response.json()["detail"] == "UI session required"
 
 
 @pytest.mark.parametrize(

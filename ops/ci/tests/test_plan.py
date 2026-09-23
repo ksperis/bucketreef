@@ -14,7 +14,7 @@ from required import check
     ("README.md", {"docs-build", "docs-screenshots"}, {"backend-tests", "build-backend"}),
     ("ops/release/prepare.py", {"backend-tests", "helm-contract"}, {"frontend-tests"}),
     ("ops/cron/run-billing.sh", {"build-scheduler", "compose-contract"}, {"build-frontend"}),
-    ("backend/app/main.py", {"backend-tests", "backend-postgresql-tests", "ceph-functional-tests", "build-frontend"}, {"build-scheduler"}),
+    ("backend/app/main.py", {"backend-tests", "backend-security-contract", "backend-postgresql-tests", "ceph-functional-tests", "build-frontend"}, {"build-scheduler"}),
     ("frontend/src/main.tsx", {"frontend-quality", "frontend-tests", "frontend-browser-e2e"}, {"ceph-functional-tests"}),
     ("frontend/scripts/docs-screenshots/check.mjs", {"docs-build", "frontend-quality"}, {"build-backend"}),
 ])

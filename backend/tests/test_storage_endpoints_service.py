@@ -1407,3 +1407,51 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
     assert result.credential_checks.admin.status == "valid"
     assert result.credential_checks.supervision.status == "valid"
     assert result.credential_checks.ceph_admin.status == "valid"
+
+
+@pytest.mark.parametrize(
+    "target_override",
+    [
+        {"endpoint_url": "https://other-rgw.example.test"},
+        {"admin_endpoint": "https://other-admin.example.test"},
+        {"region": "eu-west-3"},
+        {"verify_tls": False},
+    ],
+)
+def test_detect_features_never_reuses_stored_secrets_for_a_changed_target(
+    db_session,
+    monkeypatch,
+    target_override,
+):
+    endpoint = _create_ceph_endpoint_with_full_credentials(
+        db_session,
+        name="ceph-edit-target-binding",
+    )
+    endpoint.region = "us-east-1"
+    endpoint.verify_tls = True
+    db_session.add(endpoint)
+    db_session.commit()
+    db_session.refresh(endpoint)
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("Persisted secrets must not be used against a changed target")
+        ),
+    )
+    payload = {
+        "endpoint_id": endpoint.id,
+        "endpoint_url": endpoint.endpoint_url,
+        "region": endpoint.region,
+        "verify_tls": endpoint.verify_tls,
+        "admin_access_key": endpoint.admin_access_key,
+    }
+    payload.update(target_override)
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(**payload)
+    )
+
+    assert result.admin is False
+    assert result.credential_checks.admin.status == "incomplete"
+    assert result.admin_error == "Admin detection requires both access key and secret key."
