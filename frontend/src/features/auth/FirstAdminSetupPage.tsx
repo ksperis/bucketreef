@@ -15,6 +15,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { PRODUCT_NAME } from "../../constants/product";
 import { extractApiError } from "../../utils/apiError";
 import { AuthButton, AuthInput } from "./AuthFormControls";
+import { AuthCard, AuthCenteredPage } from "./AuthSurface";
 
 
 function readBootstrapTokenFragment(): string {
@@ -130,13 +131,8 @@ export default function FirstAdminSetupPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-10">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-[-7rem] h-80 w-80 rounded-full bg-primary-500/20 blur-3xl" />
-        <div className="auth-brand-glow-coral absolute -right-24 bottom-[-7rem] h-96 w-96 rounded-full blur-3xl" />
-        <div className="auth-brand-radial absolute inset-0" />
-      </div>
-      <section className="relative w-full max-w-lg rounded-3xl bg-white p-7 text-slate-900 shadow-2xl sm:p-8">
+    <AuthCenteredPage radial className="py-10">
+      <AuthCard className="max-w-lg p-7 sm:p-8">
         <BrandMark alt={PRODUCT_NAME} className="mb-5 h-16 w-16" />
         <p className="ui-caption font-semibold uppercase tracking-wide text-primary-700">
           Initial setup
@@ -229,7 +225,7 @@ export default function FirstAdminSetupPage() {
             Return to sign in
           </Link>
         </p>
-      </section>
-    </div>
+      </AuthCard>
+    </AuthCenteredPage>
   );
 }

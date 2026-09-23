@@ -21,6 +21,8 @@ import {
   resolvePostLoginPathWithWorkspaceAccess,
   type SessionUser,
 } from "../../utils/workspaces";
+import { AuthButton } from "./AuthFormControls";
+import { AuthCard, AuthCenteredPage } from "./AuthSurface";
 
 export default function OidcCallbackPage() {
   const { provider } = useParams<{ provider: string }>();
@@ -115,31 +117,24 @@ export default function OidcCallbackPage() {
   }, [acceptAuthentication, navigate, provider, runtimeSurfaces, searchParams, setGeneralSettings, setLanguagePreference, setTheme]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-[-7rem] h-80 w-80 rounded-full bg-primary-500/20 blur-3xl" />
-        <div className="auth-brand-glow-coral absolute -right-24 bottom-[-7rem] h-96 w-96 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-3xl border border-white/70 bg-white/95 p-8 text-center shadow-2xl">
+    <AuthCenteredPage>
+      <AuthCard className="max-w-md p-8 text-center">
           <BrandMark alt={PRODUCT_NAME} className="mx-auto mb-5 h-16 w-16" />
           <h1 className="mb-2 text-2xl font-semibold text-slate-900">Signing you in</h1>
           {processing && <p className="ui-body text-slate-500">Please wait...</p>}
           {error && (
             <>
               <UiInlineMessage tone="error">{error}</UiInlineMessage>
-              <button
+              <AuthButton
                 type="button"
-                className="mt-6 w-full rounded-xl bg-primary px-4 py-2.5 ui-body font-semibold text-white shadow-sm transition hover:bg-primary-600"
+                className="mt-6"
                 onClick={() => navigate("/login", { replace: true })}
               >
                 Back to login
-              </button>
+              </AuthButton>
             </>
           )}
-        </div>
-      </div>
-    </div>
+      </AuthCard>
+    </AuthCenteredPage>
   );
 }

@@ -38,6 +38,7 @@ import {
   type SessionUser,
 } from "../../utils/workspaces";
 import { AuthButton, AuthInput, AuthSelect } from "./AuthFormControls";
+import { AuthBrandBackdrop, AuthCard, AuthCenteredPage } from "./AuthSurface";
 
 type LoginMode = "password" | "keys" | "ldap";
 
@@ -371,12 +372,8 @@ export default function LoginPage() {
 
   if (mfaStage) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-24 top-[-7rem] h-80 w-80 rounded-full bg-primary-500/20 blur-3xl" />
-          <div className="auth-brand-glow-coral absolute -right-24 bottom-[-7rem] h-96 w-96 rounded-full blur-3xl" />
-        </div>
-        <section className="relative w-full max-w-md rounded-3xl bg-white p-8 text-slate-900 shadow-2xl">
+      <AuthCenteredPage>
+        <AuthCard className="max-w-md p-8">
           <BrandMark alt={PRODUCT_NAME} className="mb-5 h-16 w-16" />
           <h1 className="text-2xl font-semibold">
             {mfaStage === "mfa_enrollment_required" ? "Create your administrator passkey" : "Verify your passkey"}
@@ -420,18 +417,14 @@ export default function LoginPage() {
               </AuthButton>
             </div>
           )}
-        </section>
-      </div>
+        </AuthCard>
+      </AuthCenteredPage>
     );
   }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-[-7rem] h-80 w-80 rounded-full bg-primary-500/20 blur-3xl" />
-        <div className="auth-brand-glow-coral absolute -right-24 bottom-[-7rem] h-96 w-96 rounded-full blur-3xl" />
-        <div className="auth-brand-radial absolute inset-0" />
-      </div>
+      <AuthBrandBackdrop radial />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 sm:px-6">
         <div className="grid w-full items-stretch gap-6 lg:grid-cols-[1.05fr_0.95fr]">
@@ -481,7 +474,7 @@ export default function LoginPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-white/70 bg-white/95 p-6 shadow-2xl sm:p-8">
+          <AuthCard className="p-6 sm:p-8">
             <div className="mb-6">
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1 ui-caption font-semibold uppercase tracking-wide text-slate-500 lg:hidden">
                 <BrandMark className="h-7 w-7" />
@@ -618,7 +611,7 @@ export default function LoginPage() {
                 )}
               </div>
             )}
-          </section>
+          </AuthCard>
         </div>
       </div>
     </div>
