@@ -2,10 +2,10 @@
 set -eu
 temporary=$(mktemp -d)
 trap 'rm -rf "$temporary" gl-secret-detection-report.json' EXIT
-SECRET_DETECTION_LOG_OPTIONS=$(python3 -c 'import json; p=json.load(open("ci-plan.json")); print((p["base_sha"]+".."+p["sha"]) if p.get("base_sha") else "--all")')
-export SECRET_DETECTION_LOG_OPTIONS
-SECRET_DETECTION_HISTORIC_SCAN=$(python3 -c 'import json; p=json.load(open("ci-plan.json")); print("true" if p["profile"] == "secrets-history" or not p.get("base_sha") else "false")')
-export SECRET_DETECTION_HISTORIC_SCAN
+scan_options=$(PYTHONPATH=ops/ci python3 -c 'import json; from plan import secret_scan_options; print(*secret_scan_options(json.load(open("ci-plan.json"))))')
+SECRET_DETECTION_LOG_OPTIONS=${scan_options% *}
+SECRET_DETECTION_HISTORIC_SCAN=${scan_options##* }
+export SECRET_DETECTION_LOG_OPTIONS SECRET_DETECTION_HISTORIC_SCAN
 # The same analyzer also runs outside GitLab on public hosted runners.
 CI_COMMIT_SHA=$(python3 -c 'import json; print(json.load(open("ci-plan.json"))["sha"])')
 CI_COMMIT_BRANCH=${CI_COMMIT_BRANCH:-public-validation}

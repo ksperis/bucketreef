@@ -32,6 +32,8 @@ def render(plan):
         names = {"bootstrap-release-bundles"}
     elif profile in {"integration", "qualify"}:
         names.add("integration-ready")
+        if profile == "qualify" and plan["ref"] == "main":
+            names.add("release-preflight")
         if plan["ref"] == "dev":
             names.update(f"promote-{c}-dev" for c in plan["images"])
     payload = base64.b64encode(json.dumps(plan).encode()).decode()

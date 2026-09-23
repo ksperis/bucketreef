@@ -18,9 +18,9 @@ integration and changes to CI select all relevant checks conservatively.
 | Event | Profile and work |
 |---|---|
 | GitHub PR into main/dev or merge queue | Impact-selected autonomous checks, hosted ephemeral runners, read-only token |
-| Protected GitLab main/dev push | Compare to the last successful integration on that same branch, revalidate selected work |
+| Protected GitLab main/dev push | Compare to the last successful integration on that branch, or the current SHA parent when no baseline exists, then revalidate selected work |
 | Effective version metadata change on main | Complete qualification, including Ceph and all official images |
-| Web pipeline on main, `CI_MODE=qualify` | Complete qualification of the pipeline's exact main SHA, including docs-only revisions |
+| Web pipeline on main, `CI_MODE=qualify` | Complete qualification of the pipeline's exact main SHA, including docs-only revisions, plus the release preflight |
 | Protected stable `vX.Y.Z` push | Check qualification, rescan and distribute existing artifacts; no image rebuild |
 | Schedule on main, `CI_MODE=regression` | All autonomous checks and Ceph, without producing official images |
 | Schedule on main, `CI_MODE=security` | Dependency/secret checks and both architectures of the latest qualified public images |
@@ -34,7 +34,9 @@ edit as a new release. Cancellation or failure does not advance the integration
 baseline: the next integration compares against the previous completed successful
 parent and child pipeline with verifiable `integration.json`. A docs deployment,
 maintenance run or release tag cannot become that baseline. The read API failing
-is an error; an available API with no previous evidence triggers a full selection.
+is an error. Integration and manual qualification always carry an explicit baseline;
+when no successful baseline exists yet, they use the current commit's parent.
+Only the scheduled `secrets-history` profile enables the detector's full-history mode.
 
 Backend changes select pytest, the Admin sensitive-route security contract,
 PostgreSQL/migrations and Vulture; runtime changes also select browser checks,
@@ -62,6 +64,12 @@ Every selected dependency is mandatory, with no `optional` or `allow_failure`
 escape. The parent uses `strategy: depend` for GitLab CE 18.1 compatibility.
 `integration-ready` and `release-ready` also inspect real API job results,
 including both named members of scan/smoke matrices and each job's commit SHA.
+Every complete `qualify` child also runs `release-preflight`. It verifies the four
+release credentials are available, validates GitLab read access and GitHub write
+authority, requires the same `main` SHA on both forges, checks prepared version,
+changelog and schema metadata, and proves the expected GHCR packages are reachable.
+The chart and bundle repositories are additionally checked without credentials.
+The read-only result is stored as `release-preflight.json`.
 
 ## Trust and credentials
 
@@ -76,11 +84,12 @@ Configure protected, masked/hidden variables with these environment scopes:
 | Environment | Credentials and purpose |
 |---|---|
 | `ci-ceph` | Dedicated Ceph lab credentials used only by `ceph-functional-tests` |
-| `ci-orchestration` | Project `GITLAB_CI_READ_API_TOKEN` with `read_api`, for selection and evidence; no production credentials |
-| `release-public` | GHCR package token, GitHub release Contents-write token; read_api token for the final evidence recheck |
+| Common protected scope (`*`) | One Project `GITLAB_CI_READ_API_TOKEN`, Reporter + `read_api`, used by protected orchestration, preflight and release evidence jobs |
+| `release-public` | `GHCR_USERNAME` / `GHCR_TOKEN` with package publication rights and `GITHUB_RELEASE_TOKEN` with repository Contents-write rights |
 | `docs-production` | Cloudflare Pages token limited to the documentation project and account |
 
-Use two environment-scoped entries for the read token if needed. GitLab 18.1's
+Keep a single protected, masked/hidden read token instead of duplicating it per
+environment; rotate that one variable when necessary. GitLab 18.1's
 `CI_JOB_TOKEN` cannot perform the general pipeline/job reads used for evidence.
 Keep it for Git transport, built-in registry operations and supported Release API
 operations. Do not store a personal administrator token. Pipeline variables are
@@ -157,7 +166,9 @@ does not apply them remotely:
    closed until the read token and required lab configuration are present.
 5. Keep explicit, fast-forward synchronization of main/dev and matching tags
    between GitHub and GitLab. Preserve commit SHAs; never recreate commits or move
-   published tags. Tag GitHub first, then GitLab, after main qualification succeeds.
+   published tags. After qualification and `release-preflight` succeed, use
+   `ops/release/tag.py X.Y.Z` to verify both `main` refs and push GitHub first,
+   then GitLab idempotently.
 6. Keep qualification and distribution manifests, reports, bundles and referenced
    image digests indefinitely (`expire_in: never` on evidence jobs). Exclude their
    registry tags/manifests from cleanup. Back up GitLab artifacts and registry;
@@ -165,8 +176,9 @@ does not apply them remotely:
    rebuild. Set storage quotas/retention for routine one-week reports separately.
 7. Make the GHCR application images, `charts/bucketreef` and `bucketreef-bundles`
    packages public. Configure the three explicit schedule profiles on main with
-   a trusted owner. Avoid duplicate schedules; start security maintenance only
-   after the first qualified release is available.
+   a trusted owner; keep `secrets-history` as a weekly full-history audit. Avoid
+   duplicate schedules; start security maintenance only after the first qualified
+   release is available.
 
 No branch or tag is pushed as part of local implementation. After settings and
 synchronization, exercise one fork PR, one merge-group run if enabled, main/dev

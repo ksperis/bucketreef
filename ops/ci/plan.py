@@ -164,3 +164,13 @@ def require_results(expected: list[str], results: dict) -> None:
     failures = [name for name in expected if results.get(name) != "success"]
     if failures:
         raise ValueError("Required validations did not succeed: " + ", ".join(failures))
+
+
+def secret_scan_options(plan: dict) -> tuple[str, str]:
+    if plan.get("profile") == "secrets-history":
+        return "--all", "true"
+    base = plan.get("base_sha") or ""
+    sha = plan.get("sha") or ""
+    if not re.fullmatch(r"[0-9a-f]{40}", base) or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ValueError("Secret scan requires an explicit baseline outside secrets-history")
+    return f"{base}..{sha}", "false"

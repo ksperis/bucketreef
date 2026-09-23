@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 
 from plan import ROOT, changes, classify, git, select, version_changed
 
@@ -37,9 +38,14 @@ def gitlab_plan(env, api=None):
     if git("rev-parse", "HEAD") != sha:
         raise ValueError("Checkout differs from GitLab revision")
     base = None
-    if profile == "integration":
+    if profile in {"integration", "qualify"}:
         from gitlab_api import GitLabAPI, latest_baseline
         base = latest_baseline(api or GitLabAPI(), ref)
+        if base is None:
+            try:
+                base = git("rev-parse", f"{sha}^")
+            except subprocess.CalledProcessError as error:
+                raise ValueError("No CI baseline exists and the commit parent cannot be resolved") from error
     paths = changes(base, sha)
     plan = select(profile, paths, ref=ref, version=profile == "integration" and version_changed(base, sha, paths))
     if profile == "recover-release" and env.get("GITLAB_RELEASE_RECOVERY_VERSION"):
