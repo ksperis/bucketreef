@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 
 
 # These public credentials belong only to disposable PostgreSQL CI services.
@@ -48,6 +49,10 @@ REMOVED_PASSWORD_URL_FIXTURES = {
         "ca122f2fef05b2c5eedcacfac7daec5bf60b96c4a2bb92e17d1adba547ae5783",
     },
 }
+REMOVED_PASSWORD_URL_BOUNDARIES = {
+    "backend/.env.example": "20928ea6415bf5bd5ee23fe271d7ffaea4764bd5",
+    "backend/tests/test_admin_onboarding.py": "54e42de088d8ba3208657410e984cd307c4c1f8e",
+}
 
 
 def is_removed_password_url_fixture(path, extract):
@@ -63,6 +68,24 @@ def is_removed_password_url_fixture(path, extract):
 
 def is_placeholder_commit_sha(commit_sha):
     return isinstance(commit_sha, str) and bool(commit_sha) and set(commit_sha) == {"0"}
+
+
+def is_pre_removal_commit(path, commit_sha):
+    if not commit_sha or is_placeholder_commit_sha(commit_sha):
+        return True
+    boundary = REMOVED_PASSWORD_URL_BOUNDARIES.get(path)
+    if not boundary:
+        return False
+    try:
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", commit_sha, f"{boundary}^"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return True
 
 
 def finding_metadata(item):
@@ -102,7 +125,7 @@ def is_test_fixture(item):
             and HISTORICAL_ENV_EXAMPLES.get(location.get("commit", {}).get("sha")) == digest):
         return True
     commit_sha = location.get("commit", {}).get("sha")
-    if commit_sha and not is_placeholder_commit_sha(commit_sha):
+    if not is_pre_removal_commit(path, commit_sha):
         return False
     return is_removed_password_url_fixture(path, extract)
 
