@@ -34,8 +34,12 @@ class GitHub:
         except urllib.error.HTTPError as error:
             if error.code == 404 and missing_ok:
                 return None
-            # Do not print request headers, tokens, or arbitrary API response bodies.
-            raise RuntimeError(f"GitHub {method} failed with HTTP {error.code}") from None
+            # Include only the repository-relative request target; never print headers,
+            # tokens, or arbitrary API response bodies.
+            target = path or "<repository>"
+            if target.startswith("https://uploads.github.com/"):
+                target = "<uploads>"
+            raise RuntimeError(f"GitHub {method} {target} failed with HTTP {error.code}") from None
 
 
 def resolve_tag(api, tag: str) -> str:
