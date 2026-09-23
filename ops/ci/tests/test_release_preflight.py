@@ -2,12 +2,15 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "ops/release"))
 sys.path.insert(0, str(ROOT / "ops/ci"))
 
 import preflight
+import publish_github_release as github_release
 from plan import select
 from render_gitlab import render
 
@@ -86,6 +89,19 @@ def test_preflight_fails_before_tag_when_variable_or_remote_is_invalid(monkeypat
     assert "github-token" not in json.dumps(record)
     assert "gitlab-token" not in json.dumps(record)
 
+
+def test_github_http_error_identifies_path_without_exposing_token(monkeypatch):
+    def fail(request, timeout):
+        assert request.get_header("Authorization") == "Bearer super-secret"
+        raise github_release.urllib.error.HTTPError(request.full_url, 404, "missing", None, None)
+
+    monkeypatch.setattr(github_release.urllib.request, "urlopen", fail)
+    api = github_release.GitHub("super-secret")
+
+    with pytest.raises(RuntimeError, match=r"GitHub GET git/ref/heads/main failed with HTTP 404") as error:
+        api.request("git/ref/heads/main")
+
+    assert "super-secret" not in str(error.value)
 
 def test_qualify_child_pipeline_contains_release_preflight():
     plan = {**select("qualify", [], ref="main"), "sha": SHA, "parent_id": 1}
