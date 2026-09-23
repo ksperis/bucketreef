@@ -33,13 +33,14 @@ import { useS3AccountContext } from "./S3AccountContext";
 import TrafficAnalytics from "./TrafficAnalytics";
 import BucketUsageStatsPanel from "../shared/BucketUsageStatsPanel";
 import PropertySummaryChip, { PropertySummaryTone } from "../../components/PropertySummaryChip";
-import { SettingsChoiceRow, SettingsItem, SettingsSwitch } from "../../components/settings/SettingsLayout";
+import { SettingsChoiceRow } from "../../components/settings/SettingsLayout";
 import { useCephAdminEndpoint } from "../cephAdmin/CephAdminEndpointContext";
 import {
   BucketFeatureSection,
   BucketFeatureJsonExample,
   BucketFeatureModeToggle,
   BucketAclFeature,
+  BucketAccessLoggingFeature,
   BucketCorsFeature,
   BucketEncryptionFeature,
   EndpointFeatureDisabledNotice,
@@ -311,30 +312,20 @@ function BucketDetailPageContent({
     load: loadCors,
     loading: corsLoading,
   } = corsController;
-  const {
-    clear: clearAccessLogging,
-    clearing: clearingAccessLogging,
-    configured: accessLoggingConfigured,
-    dirty: accessLoggingDirty,
-    error: accessLoggingError,
-    load: loadAccessLogging,
-    loading: accessLoggingLoading,
-    loggingEnabled: accessLoggingEnabled,
-    save: saveAccessLogging,
-    saving: savingAccessLogging,
-    status: accessLoggingStatus,
-    targetBucket: accessLoggingTargetBucket,
-    targetPrefix: accessLoggingTargetPrefix,
-    updateEnabled: updateAccessLoggingEnabled,
-    updateTargetBucket: updateAccessLoggingTargetBucket,
-    updateTargetPrefix: updateAccessLoggingTargetPrefix,
-  } = useBucketAccessLoggingController({
+  const accessLoggingController = useBucketAccessLoggingController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
+  const {
+    configured: accessLoggingConfigured,
+    dirty: accessLoggingDirty,
+    error: accessLoggingError,
+    load: loadAccessLogging,
+    loading: accessLoggingLoading,
+  } = accessLoggingController;
   const {
     clear: clearNotifications,
     clearing: clearingNotifications,
@@ -664,7 +655,7 @@ function BucketDetailPageContent({
     encryption: encryptionController.saving || encryptionController.deleting,
     publicAccess: publicAccessController.saving,
     website: savingWebsite || clearingWebsite,
-    accessLogging: savingAccessLogging || clearingAccessLogging,
+    accessLogging: accessLoggingController.saving || accessLoggingController.clearing,
     notifications: savingNotifications || clearingNotifications,
     tags: bucketTagsController.saving || bucketTagsController.clearing,
     quota: updatingQuota,
@@ -873,7 +864,6 @@ function BucketDetailPageContent({
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const websiteNotImplemented = isApiFeatureNotImplemented(websiteError);
   const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
-  const accessLoggingNotImplemented = isApiFeatureNotImplemented(accessLoggingError);
   const notificationsNotImplemented = isApiFeatureNotImplemented(notificationsError);
   const lifecycleCardState = resolveFeatureVisualState({
     disabled: lifecycleNotImplemented,
@@ -889,11 +879,6 @@ function BucketDetailPageContent({
     disabled: replicationBlocked || replicationNotImplemented,
     configured: replicationConfigured,
     unsaved: replicationDirty,
-  });
-  const accessLoggingCardState = resolveFeatureVisualState({
-    disabled: accessLoggingNotImplemented,
-    configured: accessLoggingConfigured,
-    unsaved: accessLoggingDirty,
   });
   const notificationsCardState = resolveFeatureVisualState({
     disabled: notificationsNotImplemented,
@@ -1234,7 +1219,7 @@ function BucketDetailPageContent({
       if (pendingConfigurationDelete === "replication") await clearReplication();
       if (pendingConfigurationDelete === "website") await clearWebsite();
       if (pendingConfigurationDelete === "policy") await policyController.remove();
-      if (pendingConfigurationDelete === "access-logging") await clearAccessLogging();
+      if (pendingConfigurationDelete === "access-logging") await accessLoggingController.clear();
     } finally {
       setPendingConfigurationDelete(null);
     }
@@ -1261,7 +1246,7 @@ function BucketDetailPageContent({
                 : pendingConfigurationDelete === "policy"
                   ? policyController.deleting
                   : pendingConfigurationDelete === "access-logging"
-                    ? clearingAccessLogging
+                    ? accessLoggingController.clearing
                     : false;
 
   return (
@@ -2163,77 +2148,10 @@ function BucketDetailPageContent({
                     )}
                   </BucketFeatureSection>
                 )}
-                <BucketFeatureSection
-                  title="Server access logging"
-                  description="Deliver S3 server access logs to another bucket."
-                  mode="graphical"
-                  visualState={accessLoggingCardState}
-                  successMessage={accessLoggingStatus}
-                  busy={savingAccessLogging || clearingAccessLogging || accessLoggingLoading}
-                  testId="bucket-feature-access-logging"
-                  actions={
-                    <div className={bucketDetailWrapActionsClass}>
-                      <SettingsButton
-                        type="button"
-                        onClick={() => setPendingConfigurationDelete("access-logging")}
-                        disabled={accessLoggingNotImplemented || clearingAccessLogging || !accessLoggingConfigured}
-                        variant="danger"
-                      >
-                        {clearingAccessLogging ? "Disabling..." : "Disable"}
-                      </SettingsButton>
-                      <SettingsButton
-                        type="button"
-                        onClick={saveAccessLogging}
-                        disabled={accessLoggingNotImplemented || savingAccessLogging || accessLoggingLoading || !accessLoggingDirty}
-                        variant="primary"
-                      >
-                        {savingAccessLogging ? "Saving..." : "Save"}
-                      </SettingsButton>
-                    </div>
-                  }
-                >
-                  {accessLoggingError && (
-                    <UiInlineMessage tone="error">{accessLoggingError}</UiInlineMessage>
-                  )}
-                  <SettingsItem
-                    compact
-                    title="Enable server access logging"
-                    action={<SettingsSwitch
-                      ariaLabel="Enable server access logging"
-                      checked={accessLoggingEnabled}
-                      onChange={updateAccessLoggingEnabled}
-                      disabled={accessLoggingNotImplemented || accessLoggingLoading || savingAccessLogging || clearingAccessLogging}
-                    />}
-                  />
-                  <div className={bucketDetailTwoColumnGridClass}>
-                    <label className={bucketFeatureLabelClass}>
-                      Target bucket
-                      <input
-                        type="text"
-                        value={accessLoggingTargetBucket}
-                        onChange={(e) => updateAccessLoggingTargetBucket(e.target.value)}
-                        className={bucketFeatureInputClass}
-                        placeholder="logs-bucket"
-                        disabled={accessLoggingNotImplemented || accessLoggingLoading || savingAccessLogging || clearingAccessLogging}
-                      />
-                    </label>
-                    <label className={bucketFeatureLabelClass}>
-                      Target prefix (optional)
-                      <input
-                        type="text"
-                        value={accessLoggingTargetPrefix}
-                        onChange={(e) => updateAccessLoggingTargetPrefix(e.target.value)}
-                        className={bucketFeatureInputClass}
-                        placeholder="access-logs/"
-                        disabled={accessLoggingNotImplemented || accessLoggingLoading || savingAccessLogging || clearingAccessLogging}
-                      />
-                    </label>
-                  </div>
-                  <p className={bucketDetailHintClass}>
-                    The target bucket must allow log delivery (e.g., ACL <code className="font-mono ui-caption">log-delivery-write</code>
-                    or an equivalent policy).
-                  </p>
-                </BucketFeatureSection>
+                <BucketAccessLoggingFeature
+                  controller={accessLoggingController}
+                  onRequestDisable={() => setPendingConfigurationDelete("access-logging")}
+                />
                 <BucketFeatureSection
                   title="Notifications / SNS topics"
                   description={
