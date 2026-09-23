@@ -20,7 +20,8 @@ class GitHub:
         self.token = token
 
     def request(self, path: str, *, method="GET", data=None, binary=False, missing_ok=False):
-        url = path if path.startswith("https://uploads.github.com/") else f"https://api.github.com/repos/{REPOSITORY}/{path}"
+        base = f"https://api.github.com/repos/{REPOSITORY}"
+        url = path if path.startswith("https://uploads.github.com/") else base if not path else f"{base}/{path}"
         headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
