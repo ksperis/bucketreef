@@ -44,14 +44,13 @@ import {
   BucketCorsFeature,
   BucketEncryptionFeature,
   EndpointFeatureDisabledNotice,
+  BucketNotificationsFeature,
   BucketObjectLockFeature,
   BucketTagsFeature,
   BucketVersioningFeature,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
-  buildNotificationExample,
   type BucketQuotaUnit,
-  defaultNotificationTemplate,
   resolveFeatureVisualState,
   useBucketAccessLoggingController,
   useBucketAclController,
@@ -242,7 +241,6 @@ function BucketDetailPageContent({
     managerBucketQuotaEnabled,
   } = s3AccountContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
-  const [showNotificationExample, setShowNotificationExample] = useState(false);
   const [showWebsiteRulesExample, setShowWebsiteRulesExample] = useState(false);
   const [showLifecycleJsonExample, setShowLifecycleJsonExample] = useState(false);
   const [showReplicationExample, setShowReplicationExample] = useState(false);
@@ -326,26 +324,20 @@ function BucketDetailPageContent({
     load: loadAccessLogging,
     loading: accessLoggingLoading,
   } = accessLoggingController;
-  const {
-    clear: clearNotifications,
-    clearing: clearingNotifications,
-    configured: notificationsConfigured,
-    dirty: notificationsDirty,
-    error: notificationsError,
-    load: loadNotifications,
-    loading: notificationsLoading,
-    save: saveNotifications,
-    saving: savingNotifications,
-    status: notificationsStatus,
-    text: notificationText,
-    updateText: updateNotificationText,
-  } = useBucketNotificationsController({
+  const notificationsController = useBucketNotificationsController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
+  const {
+    configured: notificationsConfigured,
+    dirty: notificationsDirty,
+    error: notificationsError,
+    load: loadNotifications,
+    loading: notificationsLoading,
+  } = notificationsController;
   const publicAccessController = useBucketPublicAccessController({
     accountId,
     bucketName,
@@ -595,7 +587,6 @@ function BucketDetailPageContent({
       onActiveTabChange("overview");
     }
   }, [activeTab, canViewBucketMetrics, onActiveTabChange]);
-  const notificationExample = buildNotificationExample(exampleS3AccountId);
   const userRole = getUserRole();
   const isAdmin = isAdminLikeRole(userRole);
   const canEditQuota =
@@ -656,7 +647,7 @@ function BucketDetailPageContent({
     publicAccess: publicAccessController.saving,
     website: savingWebsite || clearingWebsite,
     accessLogging: accessLoggingController.saving || accessLoggingController.clearing,
-    notifications: savingNotifications || clearingNotifications,
+    notifications: notificationsController.saving || notificationsController.clearing,
     tags: bucketTagsController.saving || bucketTagsController.clearing,
     quota: updatingQuota,
   };
@@ -864,7 +855,6 @@ function BucketDetailPageContent({
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
   const websiteNotImplemented = isApiFeatureNotImplemented(websiteError);
   const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
-  const notificationsNotImplemented = isApiFeatureNotImplemented(notificationsError);
   const lifecycleCardState = resolveFeatureVisualState({
     disabled: lifecycleNotImplemented,
     configured: hasLifecycleRules,
@@ -879,11 +869,6 @@ function BucketDetailPageContent({
     disabled: replicationBlocked || replicationNotImplemented,
     configured: replicationConfigured,
     unsaved: replicationDirty,
-  });
-  const notificationsCardState = resolveFeatureVisualState({
-    disabled: notificationsNotImplemented,
-    configured: notificationsConfigured,
-    unsaved: notificationsDirty,
   });
   const lifecycleTableRows = useMemo<LifecycleTableRow[]>(
     () =>
@@ -1215,7 +1200,7 @@ function BucketDetailPageContent({
       if (pendingConfigurationDelete === "cors") await corsController.remove();
       if (pendingConfigurationDelete === "encryption") await encryptionController.remove();
       if (pendingConfigurationDelete === "tags") await bucketTagsController.clear();
-      if (pendingConfigurationDelete === "notifications") await clearNotifications();
+      if (pendingConfigurationDelete === "notifications") await notificationsController.clear();
       if (pendingConfigurationDelete === "replication") await clearReplication();
       if (pendingConfigurationDelete === "website") await clearWebsite();
       if (pendingConfigurationDelete === "policy") await policyController.remove();
@@ -1238,7 +1223,7 @@ function BucketDetailPageContent({
         : pendingConfigurationDelete === "tags"
           ? bucketTagsController.clearing
           : pendingConfigurationDelete === "notifications"
-            ? clearingNotifications
+            ? notificationsController.clearing
             : pendingConfigurationDelete === "replication"
               ? clearingReplication
               : pendingConfigurationDelete === "website"
@@ -2152,67 +2137,11 @@ function BucketDetailPageContent({
                   controller={accessLoggingController}
                   onRequestDisable={() => setPendingConfigurationDelete("access-logging")}
                 />
-                <BucketFeatureSection
-                  title="Notifications / SNS topics"
-                  description={
-                    "Configure S3 events delivered to SNS topics."
-                  }
-                  mode="json"
-                  visualState={notificationsCardState}
-                  presentation="workbench"
-                  successMessage={notificationsStatus}
-                  busy={savingNotifications || clearingNotifications || notificationsLoading}
-                  testId="bucket-feature-notifications"
-                  actions={
-                    <div className={bucketDetailWrapActionsClass}>
-                      <SettingsButton
-                        type="button"
-                        onClick={() => setPendingConfigurationDelete("notifications")}
-                        disabled={notificationsNotImplemented || clearingNotifications || !notificationsConfigured}
-                        variant="danger"
-                      >
-                        {clearingNotifications ? "Clearing..." : "Clear"}
-                      </SettingsButton>
-                      <SettingsButton
-                        type="button"
-                        onClick={saveNotifications}
-                        disabled={notificationsNotImplemented || savingNotifications || notificationsLoading || !notificationsDirty}
-                        variant="primary"
-                      >
-                        {savingNotifications ? "Saving..." : "Save"}
-                      </SettingsButton>
-                    </div>
-                  }
-                >
-                  {notificationsError && (
-                    <UiInlineMessage tone="error">{notificationsError}</UiInlineMessage>
-                  )}
-                  <UiTextarea label="Notification configuration (JSON)" rows={10}
-                    value={notificationText}
-                    onChange={(e) => updateNotificationText(e.target.value)}
-                    className="settings-control font-mono"
-                    placeholder={defaultNotificationTemplate}
-                    spellCheck={false}
-                    disabled={notificationsNotImplemented}
-                  />
-                  <BucketFeatureJsonExample
-                    show={showNotificationExample}
-                    onToggle={() => setShowNotificationExample((prev) => !prev)}
-                    example={notificationExample}
-                    onUseExample={() => updateNotificationText(notificationExample)}
-                    disabled={notificationsNotImplemented}
-                    helperText={
-                      <span className={bucketDetailHintClass}>
-                        Need a topic? Create it in the Topics section.
-                      </span>
-                    }
-                  />
-                  <p className={bucketDetailHintClass}>
-                    Only topic-based notifications are supported. Each entry should include{" "}
-                    <code className="font-mono ui-caption">TopicArn</code>, <code className="font-mono ui-caption">Events</code>, and
-                    an optional filter.
-                  </p>
-                </BucketFeatureSection>
+                <BucketNotificationsFeature
+                  controller={notificationsController}
+                  exampleAccountId={exampleS3AccountId}
+                  onRequestClear={() => setPendingConfigurationDelete("notifications")}
+                />
               </div>
             ),
           },

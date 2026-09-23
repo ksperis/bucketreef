@@ -31,25 +31,6 @@ type UseBucketNotificationsControllerOptions = {
 
 export const defaultNotificationTemplate = '{\n  "TopicConfigurations": []\n}';
 
-export function buildNotificationExample(accountId: string) {
-  return `{
-  "TopicConfigurations": [
-    {
-      "Id": "ObjectCreateAll",
-      "TopicArn": "arn:aws:sns:default:${accountId}:example-topic",
-      "Events": ["s3:ObjectCreated:*"],
-      "Filter": {
-        "Key": {
-          "FilterRules": [
-            { "Name": "prefix", "Value": "uploads/" }
-          ]
-        }
-      }
-    }
-  ]
-}`;
-}
-
 export function useBucketNotificationsController({
   accountId,
   bucketName,

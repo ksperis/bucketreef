@@ -1,7 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildNotificationExample,
   defaultNotificationTemplate,
   useBucketNotificationsController,
 } from "../useBucketNotificationsController";
@@ -81,7 +80,7 @@ describe("useBucketNotificationsController", () => {
     expect(result.current.status).toBe("Notifications updated.");
     expect(result.current.dirty).toBe(false);
 
-    act(() => result.current.updateText(buildNotificationExample("ACCOUNT1")));
+    act(() => result.current.updateText('{"TopicConfigurations":[{"Id":"example"}]}'));
     expect(result.current.status).toBeNull();
   });
 

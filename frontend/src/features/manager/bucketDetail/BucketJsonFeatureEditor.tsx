@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { SettingsButton } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiTextarea from "../../../components/ui/UiTextarea";
@@ -25,24 +25,34 @@ type BucketJsonFeatureController = {
 
 type BucketJsonFeatureEditorProps = {
   controller: BucketJsonFeatureController;
+  deleteLabel?: string;
+  deletingLabel?: string;
   description: string;
   example: string;
+  exampleHelperText?: ReactNode;
+  footer?: ReactNode;
   label: string;
   onRequestDelete: () => void;
   placeholder: string;
   rows: number;
+  successMessage?: string | null;
   testId: string;
   title: string;
 };
 
 export default function BucketJsonFeatureEditor({
   controller,
+  deleteLabel = "Delete",
+  deletingLabel = "Deleting...",
   description,
   example,
+  exampleHelperText,
+  footer,
   label,
   onRequestDelete,
   placeholder,
   rows,
+  successMessage,
   testId,
   title,
 }: BucketJsonFeatureEditorProps) {
@@ -72,6 +82,7 @@ export default function BucketJsonFeatureEditor({
       mode="json"
       visualState={visualState}
       presentation="workbench"
+      successMessage={successMessage}
       busy={saving || deleting || loading}
       testId={testId}
       actions={
@@ -82,7 +93,7 @@ export default function BucketJsonFeatureEditor({
             disabled={notImplemented || deleting || !configured}
             variant="danger"
           >
-            {deleting ? "Deleting..." : "Delete"}
+            {deleting ? deletingLabel : deleteLabel}
           </SettingsButton>
           <SettingsButton
             type="button"
@@ -112,7 +123,9 @@ export default function BucketJsonFeatureEditor({
         example={example}
         onUseExample={() => setText(example)}
         disabled={notImplemented}
+        helperText={exampleHelperText}
       />
+      {footer}
     </BucketFeatureSection>
   );
 }
