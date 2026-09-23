@@ -27,6 +27,7 @@ integration and changes to CI select all relevant checks conservatively.
 | Schedule on main, `CI_MODE=secrets-history` | Full-history secret scan only |
 | Web pipeline on main, `CI_MODE=docs` | Strict docs build, screenshot inventory and Cloudflare deployment only |
 | Web pipeline on main, `CI_MODE=recover-release` | Recover GitLab metadata for an existing public release only |
+| Web pipeline on main, `CI_MODE=bootstrap-release-bundles` | Create the immutable OCI bundle package from an already-published stable tag; requires `BUNDLE_BOOTSTRAP_VERSION=X.Y.Z` |
 
 Version detection compares version fields, rather than treating every lockfile
 edit as a new release. Cancellation or failure does not advance the integration

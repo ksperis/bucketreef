@@ -12,6 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'release'))
 import distribution as dist
 import bundle_registry
+import bootstrap_bundle_registry as bootstrap_registry
 import qualification
 import registry
 from gitlab_api import expected_names
@@ -128,8 +129,11 @@ def test_interrupted_finalization_can_resume_and_older_retries_do_not_move_alias
 
 
 def test_child_graphs_cover_every_profile_without_optional_or_dangling_edges():
-    for profile in ('qualify', 'release', 'docs', 'recover-release', 'security', 'regression', 'secrets-history'):
-        config = render({**select(profile, []), 'sha': SHA, 'parent_id': 9})
+    for profile in ('qualify', 'release', 'docs', 'recover-release', 'security', 'regression', 'secrets-history', 'bootstrap-release-bundles'):
+        plan = {**select(profile, []), 'sha': SHA, 'parent_id': 9}
+        if profile == 'bootstrap-release-bundles':
+            plan['bootstrap_version'] = '1.2.3'
+        config = render(plan)
         for name, job in config.items():
             if name.startswith('.') or not isinstance(job, dict): continue
             for need in job.get('needs', []):
@@ -220,6 +224,43 @@ def test_bundle_publication_resumes_identical_manifest_but_rejects_conflicts(mon
     with pytest.raises(ValueError, match='immutable'):
         bundle_registry.publish('1.2.3', SHA, tmp_path)
     assert state['writes'] == 1
+
+
+def test_missing_bundle_repository_denial_is_treated_as_absent(monkeypatch):
+    result = SimpleNamespace(
+        returncode=1,
+        stderr=b'Error response from registry: denied: requested access to the resource is denied',
+    )
+    monkeypatch.setattr(bundle_registry.subprocess, 'run', lambda *args, **kwargs: result)
+    assert bundle_registry.run(['resolve', 'fixture'], missing_ok=True) is None
+    with pytest.raises(RuntimeError, match='response withheld'):
+        bundle_registry.run(['resolve', 'fixture'])
+
+
+def test_bundle_bootstrap_uses_immutable_tag_source(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('GITHUB_RELEASE_TOKEN', 'fixture')
+    monkeypatch.setattr(bootstrap_registry, 'git', lambda *args: SHA)
+    monkeypatch.setattr(bootstrap_registry, 'resolve_git_tag', lambda *args, **kwargs: SHA)
+    monkeypatch.setattr(bootstrap_registry, 'resolve_tag', lambda *args, **kwargs: SHA)
+    exported = []
+    monkeypatch.setattr(bootstrap_registry, 'export_tag', lambda tag, destination: exported.append(tag))
+    commands = []
+    monkeypatch.setattr(
+        bootstrap_registry.subprocess,
+        'run',
+        lambda args, **kwargs: commands.append(args) or SimpleNamespace(returncode=0),
+    )
+    monkeypatch.setattr(
+        bundle_registry,
+        'publish',
+        lambda version, sha, directory: {'schema': 1, 'version': version, 'sha': sha},
+    )
+    record = bootstrap_registry.bootstrap('1.2.3')
+    assert exported == ['v1.2.3']
+    assert record == {'schema': 1, 'version': '1.2.3', 'sha': SHA}
+    assert commands and commands[0][1].endswith('/ops/release/package_bundles.py')
+    assert json.loads(Path('bundle-distribution.json').read_text()) == record
 
 
 def test_global_gate_records_files_and_rechecks_original_qualification(monkeypatch, tmp_path):

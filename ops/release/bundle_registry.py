@@ -15,7 +15,11 @@ REPOSITORY = "ghcr.io/ksperis/bucketreef-bundles"
 def run(arguments, *, cwd=None, missing_ok=False):
     result = subprocess.run(["oras", *arguments], cwd=cwd, capture_output=True)
     if result.returncode:
-        if missing_ok and re.search(rb"manifest unknown|name unknown|NOT_FOUND|\b404\b", result.stderr):
+        if missing_ok and re.search(
+            rb"manifest unknown|name unknown|NOT_FOUND|\b404\b|denied: requested access to the resource is denied",
+            result.stderr,
+            re.IGNORECASE,
+        ):
             return None
         raise RuntimeError("Bundle registry operation failed (response withheld)")
     return result.stdout
