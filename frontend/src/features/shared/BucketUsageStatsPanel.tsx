@@ -5,7 +5,7 @@
 import type { BucketUsageStatsSnapshot } from "../../api/bucketUsageStats";
 import { MetricsCard, MetricsEmptyState } from "../../components/MetricsCard";
 import PageBanner from "../../components/PageBanner";
-import { cx, uiButtonBaseClass, uiButtonVariants } from "../../components/ui/styles";
+import UiButton from "../../components/ui/UiButton";
 import { formatCompactNumber } from "../../utils/format";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { BucketUsageStatsCompositionVisuals } from "./BucketUsageStatsVisuals";
@@ -34,24 +34,24 @@ export default function BucketUsageStatsPanel({
       actions={
         <>
           {onRefresh && (
-            <button
-              type="button"
+            <UiButton
+              size="sm"
+              variant="secondary"
               onClick={onRefresh}
               disabled={loading || recalculating}
-              className={cx(uiButtonBaseClass, uiButtonVariants.secondary)}
             >
               {loading ? "Loading..." : "Refresh"}
-            </button>
+            </UiButton>
           )}
           {onRecalculate && (
-            <button
-              type="button"
+            <UiButton
+              size="sm"
+              variant="primary"
               onClick={onRecalculate}
               disabled={recalculating}
-              className={cx(uiButtonBaseClass, uiButtonVariants.primary)}
             >
               {recalculating ? "Calculating..." : "Recalculate"}
-            </button>
+            </UiButton>
           )}
         </>
       }

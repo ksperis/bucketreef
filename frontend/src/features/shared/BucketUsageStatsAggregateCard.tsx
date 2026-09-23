@@ -5,10 +5,9 @@
 import type { BucketUsageStatsAggregate } from "../../api/bucketUsageStats";
 import { MetricsCard, MetricsEmptyState } from "../../components/MetricsCard";
 import PageBanner from "../../components/PageBanner";
+import UiButton from "../../components/ui/UiButton";
 import {
   cx,
-  uiButtonBaseClass,
-  uiButtonVariants,
   uiMutedTextClass,
   uiTitleTextClass,
 } from "../../components/ui/styles";
@@ -67,14 +66,15 @@ export default function BucketUsageStatsAggregateCard({
       className={className}
       actions={
         onRecalculate ? (
-          <button
-            type="button"
+          <UiButton
+            size="sm"
+            variant="secondary"
             onClick={onRecalculate}
             disabled={loading || recalculating}
-            className={cx(uiButtonBaseClass, uiButtonVariants.secondary, "shrink-0")}
+            className="shrink-0"
           >
             {recalculating ? "Calculating..." : recalculateLabel}
-          </button>
+          </UiButton>
         ) : null
       }
     >
