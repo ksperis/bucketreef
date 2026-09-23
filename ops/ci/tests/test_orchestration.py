@@ -113,6 +113,9 @@ def test_removed_localhost_examples_are_bound_to_the_original_commit(commit, mon
     without_commit = copy.deepcopy(report)
     without_commit['vulnerabilities'][0]['location'].pop('commit')
     assert summarize(without_commit) == []
+    placeholder_commit = copy.deepcopy(report)
+    placeholder_commit['vulnerabilities'][0]['location']['commit'] = {'sha': '0000000'}
+    assert summarize(placeholder_commit) == []
     with monkeypatch.context() as scoped:
         scoped.setattr(Path, 'read_text', lambda self: extract)
         assert len(summarize(without_commit)) == 1
@@ -143,6 +146,8 @@ def test_removed_onboarding_password_urls_work_without_report_commit(commit, lin
         'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
     }
     report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
+    assert summarize(report) == []
+    finding['location']['commit'] = {'sha': '0000000'}
     assert summarize(report) == []
     changed = copy.deepcopy(report)
     changed['vulnerabilities'][0]['raw_source_code_extract'] = extract + '.changed'

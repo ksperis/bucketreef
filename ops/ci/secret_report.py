@@ -79,7 +79,8 @@ def is_test_fixture(item):
     if (path == "backend/.env.example"
             and HISTORICAL_ENV_EXAMPLES.get(location.get("commit", {}).get("sha")) == digest):
         return True
-    if location.get("commit", {}).get("sha"):
+    commit_sha = location.get("commit", {}).get("sha")
+    if commit_sha and commit_sha != "0000000":
         return False
     return is_removed_password_url_fixture(path, extract)
 
