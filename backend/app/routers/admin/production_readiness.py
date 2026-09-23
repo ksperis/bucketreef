@@ -29,6 +29,7 @@ def get_production_readiness(
 ) -> ProductionReadinessResponse:
     findings = check_production_hardening(settings)
     return ProductionReadinessResponse(
+        environment=settings.app_env,
         profile=settings.deployment_profile,
         status=hardening_status(findings),
         counts=hardening_counts(findings),

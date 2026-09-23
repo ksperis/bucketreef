@@ -43,6 +43,7 @@ def test_production_readiness_returns_runtime_profile_summary_without_secrets():
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["environment"] == "development"
     assert payload["profile"] == "full"
     assert payload["status"] in {"pass", "warning", "fail"}
     assert sum(payload["counts"].values()) == len(payload["findings"])

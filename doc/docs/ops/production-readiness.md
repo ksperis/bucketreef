@@ -15,9 +15,25 @@ between teams or clients.
 Do not use the number of enabled features as a completion criterion.
 
 The automated production-hardening report is available to superadministrators
-at **Admin > Settings > Production readiness**. It checks configuration invariants for the
-backend instance serving that page; it does not certify manual gates in this
-checklist or any other instance in a split deployment.
+at **Admin > Settings > Production readiness**. It evaluates the production
+security policy even when the current runtime still uses `APP_ENV=development`
+or `test`, then applies the deployment-profile checks for the backend instance
+serving that page. This makes it useful before the final production switch.
+
+The report mirrors the runtime production checks for trusted origins and
+WebAuthn RP ID, secure host-only authentication cookies, registered S3 login
+endpoints, CORS/allowed-host/trusted-proxy boundaries, secret key rings,
+configured seed secrets, and environment-defined OIDC/LDAP providers. It also
+checks database suitability, scheduled-job ownership and token strength,
+runtime surfaces, split-origin coverage, and Ceph Admin high-security mode when
+the selected profile requires them.
+
+These checks are deliberately instance-local. A successful report does **not**
+prove that two split instances use the same PostgreSQL database or compatible
+key rings, that only one deployment actually runs the schedulers, or that the
+ingress, backups, external identity provider, storage endpoint, observability,
+audit retention, and support process work end to end. Keep those as manual
+publish gates below.
 
 ## Publish gates
 
@@ -32,12 +48,30 @@ Do not publish the URL broadly until these gates are explicit:
 | Storage backend | Which endpoint is the first supported backend and which capabilities are expected? |
 | Support | Where should users report workspace, permission, upload/download, billing, or quota problems? |
 
+## Automated report interpretation
+
+- `Fail` means at least one required production or profile invariant is not
+  satisfied. The CLI exits non-zero.
+- `Warning` is currently used only where the topology can still be valid but
+  deserves operator review, such as SQLite on a single-instance `full` profile
+  or disabled scheduled jobs on that profile. Warnings do not make the CLI
+  exit non-zero.
+- `Pass` applies only to the current backend instance. In a split deployment,
+  run the CLI in every backend runtime and compare the shared database, key
+  rings, origins, and job ownership explicitly.
+- In `development` or `test`, the `APP_ENV` finding remains `Fail` by design.
+  Use the other findings as a preflight, switch to `APP_ENV=production`, then
+  rerun the checker before publishing the deployment.
+- The OIDC/LDAP runtime checks cover environment-defined providers. UI-managed
+  provider configuration is validated when it is saved, but a real login flow
+  remains part of the manual acceptance test.
+
 ## Readiness checklist
 
 | Area | Required decision | Evidence to keep |
 |---|---|---|
 | Version | Use a pinned stable image tag for production-like deployments. | Image tag, image digest, Git tag, release notes. |
-| Secrets | Distinct UI/API JWT rings, credential encryption, scheduler token, SMTP, LDAP/OIDC, and storage credentials are non-default. | Secret manager paths and rotation owner. |
+| Secrets | UI/API JWT and credential-encryption rings are strong and mutually distinct; scheduler, SMTP, LDAP/OIDC, and storage credentials are non-default. | Secret manager paths and rotation owner. |
 | Authentication | Admin WebAuthn, recovery storage, session limits, scoped API tokens, and external-identity approvals are operational. | Enrollment and revocation evidence without credential values. |
 | Network | TLS is enforced; origin, CORS, Host, cookie, WebAuthn, CSP, and trusted-proxy settings are exact. | Ingress/reverse-proxy config and negative startup tests. |
 | Database | Persistent database storage, backup schedule, restore test, and migration procedure are documented. | Latest backup and restore-test result. |
@@ -51,7 +85,7 @@ Do not publish the URL broadly until these gates are explicit:
 
 1. Deploy with Docker Compose or Helm using pinned images.
 2. Set `APP_ENV=production` and configure distinct secrets, exact origin/hosts, secure cookies, WebAuthn, trusted proxies, ingress/TLS, and database persistence.
-3. Review **Admin > Settings > Production readiness** where available, then run `python -m app.scripts.check_production_hardening` inside every backend runtime (including user-only or Ceph Admin high-security instances) and keep the successful output with the deployment evidence.
+3. Review **Admin > Settings > Production readiness** where available, then run `python -m app.scripts.check_production_hardening` inside every backend runtime (including user-only or Ceph Admin high-security instances). Compare the shared database/key-ring/origin contract between split instances and keep the successful output with the deployment evidence.
 4. Configure the first endpoint and run healthchecks.
 5. Create or import the first account/context.
 6. Enable only the intended workspaces and feature flags.

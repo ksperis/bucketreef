@@ -5,6 +5,7 @@
 import client from "./client";
 
 export type DeploymentProfile = "full" | "admin" | "user" | "ceph-admin-high-security";
+export type AppEnvironment = "development" | "test" | "production";
 export type HardeningLevel = "pass" | "warning" | "fail";
 
 export type ProductionReadinessFinding = {
@@ -15,6 +16,7 @@ export type ProductionReadinessFinding = {
 };
 
 export type ProductionReadinessResponse = {
+  environment: AppEnvironment;
   profile: DeploymentProfile;
   status: HardeningLevel;
   counts: Record<HardeningLevel, number>;

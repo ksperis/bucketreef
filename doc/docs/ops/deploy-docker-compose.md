@@ -244,8 +244,8 @@ initial setup.
 1. Issue the one-time bootstrap URL, create the first administrator and enroll
    its passkey, or use the direct CLI fallback.
 2. Open the frontend and verify `/admin` after passkey authentication.
-3. For production, set `APP_ENV=production`, distinct `UI_JWT_KEYS` and
-   `API_JWT_KEYS`, `CREDENTIAL_KEYS`, the exact origin/hosts, secure cookies,
+3. For production, set `APP_ENV=production`, mutually distinct `UI_JWT_KEYS`,
+   `API_JWT_KEYS`, and `CREDENTIAL_KEYS`, the exact origin/hosts, secure cookies,
    WebAuthn, trusted proxy CIDRs, and the scheduler token in `.env`.
 4. Optionally configure the first storage endpoint from **Admin > Storage Backends**.
 5. Optionally create or import the first account or connection.
