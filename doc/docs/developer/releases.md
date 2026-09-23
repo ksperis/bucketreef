@@ -121,6 +121,8 @@ Distribution proceeds in this order:
 6. `finalize-release` takes the shared `public-release` lock, rechecks jobs,
    qualification and files, publishes GitHub, verifies its public downloads,
    publishes GitLab metadata, then moves eligible minor/latest image aliases.
+   The anonymous GitHub asset check allows a short bounded propagation window
+   after publication, while content mismatches still fail immediately.
 
 GitHub draft assets are not anonymously downloadable. The OCI candidate supplies
 an anonymous distribution surface before finalization, and its checksummed bytes

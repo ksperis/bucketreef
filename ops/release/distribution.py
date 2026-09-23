@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import sys
 import tarfile
+import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ci"))
 from gitlab_api import GitLabAPI, expected_names, successful_jobs
@@ -28,6 +29,9 @@ REQUIRED = ["release-tag-metadata", "release-source-images-ready", "release-bund
             "release-public-bundles-check",
             "release-public-images-check", "release-kind-onboarding-smoke", "release-bundle-smoke",
             *(f"{c}-release-image-vuln-scan" for c in COMPONENTS)]
+
+PUBLIC_RELEASE_VERIFY_ATTEMPTS = 6
+PUBLIC_RELEASE_VERIFY_DELAY_SECONDS = 5
 
 
 def read(path):
@@ -157,6 +161,27 @@ def published_versions(github_api, gitlab_api):
         page += 1
 
 
+def verify_published_github_release(expected_files):
+    """Allow the anonymous GitHub release view a short propagation window."""
+    for attempt in range(PUBLIC_RELEASE_VERIFY_ATTEMPTS):
+        try:
+            verify_public_release(
+                PublicGitHub(), version(), os.environ["CI_COMMIT_SHA"],
+                Path("dist/release-notes/github.md").read_text(),
+                expected_files=expected_files,
+            )
+            return
+        except RuntimeError as error:
+            if not str(error).startswith("Missing public release asset:"):
+                raise
+            transient = error
+        except OSError as error:
+            transient = error
+        if attempt + 1 == PUBLIC_RELEASE_VERIFY_ATTEMPTS:
+            raise transient
+        time.sleep(PUBLIC_RELEASE_VERIFY_DELAY_SECONDS)
+
+
 def finalize():
     # Run under the single public-release resource group. Recheck evidence inside
     # the lock, including retries that have replaced an earlier validation job.
@@ -167,8 +192,7 @@ def finalize():
     gh = GitHub(os.environ["GITHUB_RELEASE_TOKEN"])
     gl = GitLab(os.environ["CI_API_V4_URL"], os.environ["CI_PROJECT_ID"], os.environ["CI_JOB_TOKEN"])
     github(finalize=True, latest=True)
-    verify_public_release(PublicGitHub(), version(), os.environ["CI_COMMIT_SHA"],
-                          Path("dist/release-notes/github.md").read_text(), expected_files=expected["bundles"]["files"])
+    verify_published_github_release(expected["bundles"]["files"])
     publish_gitlab(gl, version(), os.environ["CI_COMMIT_SHA"], Path("dist/release-notes/gitlab.md").read_text())
     for alias in aliases(version(), published_versions(gh, gl)):
         for component, image in source_record()["images"].items():
