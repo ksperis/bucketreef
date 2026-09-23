@@ -12,6 +12,15 @@ from publish_github_release import ASSETS
 REPOSITORY = "ghcr.io/ksperis/bucketreef-bundles"
 
 
+def _safe_error(stderr):
+    message = stderr.decode(errors="replace").strip() or "no error output"
+    for name in ("GHCR_TOKEN", "GITHUB_RELEASE_TOKEN"):
+        secret = os.environ.get(name)
+        if secret:
+            message = message.replace(secret, "[REDACTED]")
+    return message[:1000]
+
+
 def run(arguments, *, cwd=None, missing_ok=False):
     result = subprocess.run(["oras", *arguments], cwd=cwd, capture_output=True)
     if result.returncode:
@@ -21,7 +30,10 @@ def run(arguments, *, cwd=None, missing_ok=False):
             re.IGNORECASE,
         ):
             return None
-        raise RuntimeError("Bundle registry operation failed (response withheld)")
+        operation = arguments[0] if arguments else "operation"
+        raise RuntimeError(
+            f"Bundle registry {operation} failed (exit {result.returncode}): {_safe_error(result.stderr)}"
+        )
     return result.stdout
 
 
