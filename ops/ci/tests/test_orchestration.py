@@ -173,6 +173,47 @@ def test_removed_onboarding_password_urls_work_without_report_commit(commit, lin
     assert len(summarize(changed)) == 1
 
 
+def test_removed_password_url_accepts_pre_removal_report_commit_only():
+    source = subprocess.check_output(
+        ['git', 'show', 'c89e196026d1e085d3c31746d2390ab4d0f8015a:backend/tests/test_admin_onboarding.py'],
+        cwd=ROOT, text=True,
+    ).splitlines()[54]
+    extract, = re.findall(r'https://[^"\s]+', source)
+    finding = {
+        'location': {
+            'file': 'backend/tests/test_admin_onboarding.py',
+            'start_line': 55,
+            'commit': {'sha': '0552282df4531a91c60d0f79f2f3697f3f81184d'},
+        },
+        'raw_source_code_extract': extract,
+        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
+    }
+    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
+    assert summarize(report) == []
+    finding['location']['commit'] = {'sha': '54e42de088d8ba3208657410e984cd307c4c1f8e'}
+    assert len(summarize(report)) == 1
+
+
+def test_removed_env_url_accepts_pre_removal_report_commit_only():
+    source = subprocess.check_output(
+        ['git', 'show', '97df1e1e8bd66688d7c1a1313cc42b4d9f3756a8:backend/.env.example'],
+        cwd=ROOT, text=True,
+    )
+    extract, = re.findall(r'postgresql\+psycopg://[^:\s]+:[^@\s]+@[^:/\s]+', source)
+    finding = {
+        'location': {
+            'file': 'backend/.env.example',
+            'commit': {'sha': '00836399fb0a2637718945355d5a7d065e2cc7d8'},
+        },
+        'raw_source_code_extract': extract,
+        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
+    }
+    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
+    assert summarize(report) == []
+    finding['location']['commit'] = {'sha': '20928ea6415bf5bd5ee23fe271d7ffaea4764bd5'}
+    assert len(summarize(report)) == 1
+
+
 @pytest.mark.parametrize('body', ['', '<skipped/>', '<failure/>', '<error/>'])
 def test_ceph_core_is_required(tmp_path, body):
     path=tmp_path/'junit.xml'
