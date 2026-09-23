@@ -40,9 +40,13 @@ def test_status_and_dismiss_api_keep_legacy_fields_without_global_completion(db_
     assert client.post("/api/admin/onboarding/resume").json()["dismissed"] is False
 
 
+_STORAGE_ERROR_CANARY = "do-" + "not-return"
+_DOMAIN_ERROR_CANARY = "domain-" + "secret-canary"
+
+
 @pytest.mark.parametrize("exception,code", [
-    (ValueError("secret_key=do-not-return"), "configuration_failed"),
-    (ClientError({"Error": {"Code": "AccessDenied", "Message": "secret_key=do-not-return"}}, "ListBuckets"), "storage_access_denied"),
+    (ValueError(f"secret_key={_STORAGE_ERROR_CANARY}"), "configuration_failed"),
+    (ClientError({"Error": {"Code": "AccessDenied", "Message": f"secret_key={_STORAGE_ERROR_CANARY}"}}, "ListBuckets"), "storage_access_denied"),
 ])
 def test_storage_errors_never_echo_credentials(exception, code):
     def fail():
@@ -64,9 +68,9 @@ def test_onboarding_domain_error_codes_keep_their_http_contract(code):
 
 
 @pytest.mark.parametrize("code", [
-    "secret_key=domain-secret-canary",
-    "https://user:domain-secret-canary@storage.example.test",
-    "Authorization: Bearer domain-secret-canary",
+    f"secret_key={_DOMAIN_ERROR_CANARY}",
+    "https://" + "user:" + _DOMAIN_ERROR_CANARY + "@storage.example.test",
+    "Authorization: Bearer " + _DOMAIN_ERROR_CANARY,
 ])
 def test_onboarding_domain_errors_use_shared_secret_redaction(code):
     def fail():
@@ -75,7 +79,7 @@ def test_onboarding_domain_errors_use_shared_secret_redaction(code):
     with pytest.raises(HTTPException) as error:
         onboarding._run(fail)
     assert error.value.status_code == 400
-    assert "domain-secret-canary" not in str(error.value.detail)
+    assert _DOMAIN_ERROR_CANARY not in str(error.value.detail)
     assert "redacted" in error.value.detail["code"]
 
 

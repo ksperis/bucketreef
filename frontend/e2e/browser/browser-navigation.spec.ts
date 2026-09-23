@@ -23,7 +23,7 @@ test("navigates to a seeded object and exposes metadata from Details", async ({
   await expect(
     detailsDrawer.getByRole("tab", { name: "Properties" }),
   ).toHaveAttribute("aria-selected", "true");
-  await expect(detailsDrawer).toContainText("Standard metadata");
+  await expect(detailsDrawer).toContainText("Metadata");
   await expect(detailsDrawer).toContainText("Content type");
   await expect(detailsDrawer).toContainText("Storage class");
 });

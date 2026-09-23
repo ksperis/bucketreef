@@ -13,9 +13,11 @@ from app.db import PortalPublicLink, PortalStorageSpaceMetadata, User
 from app.main import app
 from app.models.access_context import AccountAccess
 from app.models.account_capabilities import AccountCapabilities
+from app.models.app_settings import AppSettings
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import get_portal_service_dependency
+from app.services import app_settings_service
 from app.services.portal import public_links
 from app.services.portal_service import PortalService
 from tests.s3_account_factory import make_s3_account
@@ -30,6 +32,9 @@ BASE = "/api/portal/storage-spaces/research/objects"
 
 @pytest.fixture
 def storage(db_session, monkeypatch, client):
+    app_settings = AppSettings()
+    app_settings.general.portal_enabled = True
+    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: app_settings)
     account = make_s3_account(db_session, name="portal-exact-identity")
     user = User(email="exact-identity@example.test", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])

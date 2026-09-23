@@ -19,7 +19,7 @@ export function portalRequestTypeLabel(type: PortalAdminRequestType): string {
   return type;
 }
 
-export function portalSettingLabel(setting: PortalSettingKey | string): string {
+function portalSettingLabel(setting: PortalSettingKey | string): string {
   if (setting === "browser_access_enabled") return "Browser workspace access";
   if (setting === "allow_private_storage_space_create") return "Private Storage Space creation";
   if (setting === "allow_portal_named_bucket_create") return "Named bucket creation";

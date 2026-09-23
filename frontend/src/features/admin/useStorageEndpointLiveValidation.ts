@@ -8,7 +8,7 @@ import {
 } from "../../api/storageEndpoints";
 import { extractApiError } from "../../utils/apiError";
 
-export type StorageEndpointLiveValidationState = {
+type StorageEndpointLiveValidationState = {
   status: "idle" | "loading" | "done";
   result: StorageEndpointFeatureDetectionResult | null;
   error: string | null;
