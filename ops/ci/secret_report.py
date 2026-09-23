@@ -61,6 +61,10 @@ def is_removed_password_url_fixture(path, extract):
     return extract not in current
 
 
+def is_placeholder_commit_sha(commit_sha):
+    return isinstance(commit_sha, str) and bool(commit_sha) and set(commit_sha) == {"0"}
+
+
 def is_test_fixture(item):
     location = item.get("location", {})
     path = location.get("file")
@@ -80,7 +84,7 @@ def is_test_fixture(item):
             and HISTORICAL_ENV_EXAMPLES.get(location.get("commit", {}).get("sha")) == digest):
         return True
     commit_sha = location.get("commit", {}).get("sha")
-    if commit_sha and commit_sha != "0000000":
+    if commit_sha and not is_placeholder_commit_sha(commit_sha):
         return False
     return is_removed_password_url_fixture(path, extract)
 
