@@ -31,17 +31,6 @@ type AclDraft = {
 
 const privateDraft: AclDraft = { custom: "", preset: "private" };
 
-export const bucketAclOptions = [
-  { value: "private", label: "Private (bucket owner full control)" },
-  { value: "public-read", label: "Public read" },
-  { value: "public-read-write", label: "Public read/write" },
-  { value: "authenticated-read", label: "Authenticated users read" },
-  { value: "bucket-owner-read", label: "Bucket owner read" },
-  { value: "bucket-owner-full-control", label: "Bucket owner full control" },
-  { value: "log-delivery-write", label: "Log delivery write" },
-  { value: "custom", label: "Custom canned ACL" },
-];
-
 function inferPreset(acl?: BucketAcl | null): string {
   if (!acl?.grants?.length) return "private";
   const allUsersUri = "http://acs.amazonaws.com/groups/global/AllUsers";
