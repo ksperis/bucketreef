@@ -35,11 +35,11 @@ import CephAdminUserEditModal from "./CephAdminUserEditModal";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
+import AdvancedFilterSelectField from "../shared/AdvancedFilterSelectField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
   FILTER_COST_LABEL,
   advancedFilterControlClass,
-  advancedFilterFieldCardClass,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   advancedFilterToolbarButtonClass,
@@ -1054,25 +1054,18 @@ export default function CephAdminUsersPage() {
                                 />
                               ))}
 
-                              <div className={advancedFilterFieldCardClass()}>
-                                <label
-                                  className={`ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${suspendedFieldState.labelClass}`}
-                                >
-                                  <span className="inline-flex items-center gap-1">
-                                    <span>Status</span>
-                                    {renderFilterCostIndicator("medium", "Medium cost: status filters require per-user status details.")}
-                                  </span>
-                                </label>
-                                <select
-                                  value={advancedDraft.suspended}
-                                  onChange={(e) => updateAdvancedField("suspended", e.target.value as AdvancedStatusFilter)}
-                                  className={advancedFilterControlClass(`mt-2 w-full px-2 py-1.5 ${suspendedFieldState.fieldClass}`)}
-                                >
-                                  <option value="any">Any</option>
-                                  <option value="active">Active</option>
-                                  <option value="suspended">Suspended</option>
-                                </select>
-                              </div>
+                              <AdvancedFilterSelectField
+                                label="Status"
+                                costLevel="medium"
+                                costTooltip="Medium cost: status filters require per-user status details."
+                                fieldState={suspendedFieldState}
+                                value={advancedDraft.suspended}
+                                onChange={(value) => updateAdvancedField("suspended", value as AdvancedStatusFilter)}
+                              >
+                                <option value="any">Any</option>
+                                <option value="active">Active</option>
+                                <option value="suspended">Suspended</option>
+                              </AdvancedFilterSelectField>
                             </div>
                           </section>
 

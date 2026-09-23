@@ -8,6 +8,10 @@ import { toolbarCompactButtonClasses } from "../../components/toolbarControlClas
 
 export type TextMatchMode = "contains" | "exact";
 export type FilterCostLevel = "none" | "low" | "medium" | "high";
+export type AdvancedFilterFieldState = {
+  fieldClass: string;
+  labelClass: string;
+};
 export type AdvancedSearchProgress = {
   active: boolean;
   determinate: boolean;
