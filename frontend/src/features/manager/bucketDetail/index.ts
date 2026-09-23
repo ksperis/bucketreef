@@ -11,6 +11,7 @@ export { default as BucketCorsFeature } from "./BucketCorsFeature";
 export { default as BucketEncryptionFeature } from "./BucketEncryptionFeature";
 export { default as EndpointFeatureDisabledNotice } from "./EndpointFeatureDisabledNotice";
 export { default as BucketObjectLockFeature } from "./BucketObjectLockFeature";
+export { default as BucketNotificationsFeature } from "./BucketNotificationsFeature";
 export { default as BucketTagsFeature } from "./BucketTagsFeature";
 export { default as BucketVersioningFeature } from "./BucketVersioningFeature";
 export { default as BucketPublicAccessFeature } from "./BucketPublicAccessFeature";
@@ -19,11 +20,7 @@ export { useBucketPolicyController } from "./useBucketPolicyController";
 export { useBucketCorsController } from "./useBucketCorsController";
 export { useBucketEncryptionController } from "./useBucketEncryptionController";
 export { useBucketAccessLoggingController } from "./useBucketAccessLoggingController";
-export {
-  buildNotificationExample,
-  defaultNotificationTemplate,
-  useBucketNotificationsController,
-} from "./useBucketNotificationsController";
+export { useBucketNotificationsController } from "./useBucketNotificationsController";
 export { useBucketPublicAccessController } from "./useBucketPublicAccessController";
 export { useBucketLifecycleController } from "./useBucketLifecycleController";
 export { useBucketReplicationController } from "./useBucketReplicationController";
