@@ -112,6 +112,7 @@ export const onboardingCopy = {
     "配置专用只读 RGW 凭据，并为此端点启用使用量和指标采集。",
   ),
   recommended: l("Recommended", "Recommandé", "Empfohlen", "推荐"),
+  experimental: l("Experimental", "Expérimental", "Experimentell", "实验性"),
   privateCredentials: l("Credentials for your private connection", "Clés de votre connexion privée", "Zugangsdaten für Ihre private Verbindung", "私有连接凭据"),
   privateCredentialsHelp: l(
     "Use the S3 identity you want to browse with. These credentials are separate from the endpoint administration keys.",

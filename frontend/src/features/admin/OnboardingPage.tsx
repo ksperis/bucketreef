@@ -105,6 +105,7 @@ function SetupOption({
   disabled,
   disabledReason,
   recommended,
+  experimental,
   onChange,
 }: {
   title: string;
@@ -113,6 +114,7 @@ function SetupOption({
   disabled: boolean;
   disabledReason?: string;
   recommended?: string;
+  experimental?: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
@@ -136,6 +138,7 @@ function SetupOption({
           <span className="flex flex-wrap items-center gap-2">
             <span className="ui-body font-semibold text-[var(--ui-text)]">{title}</span>
             {recommended && <UiBadge tone="neutral">{recommended}</UiBadge>}
+            {experimental && <UiBadge tone="neutral">{experimental}</UiBadge>}
           </span>
           <span className={cx("mt-1 block ui-caption", uiMutedTextClass)}>{description}</span>
           {disabledReason && (
@@ -969,6 +972,7 @@ export default function OnboardingPage() {
                     checked={draft.portal}
                     disabled={!isCeph}
                     disabledReason={!isCeph ? t(onboardingErrors.ceph_endpoint_required) : undefined}
+                    experimental={t(copy.experimental)}
                     onChange={(portal) => change({ portal })}
                   />
                   <SetupOption
