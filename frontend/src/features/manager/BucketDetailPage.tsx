@@ -44,6 +44,7 @@ import {
   BucketEncryptionFeature,
   EndpointFeatureDisabledNotice,
   BucketObjectLockFeature,
+  BucketTagsFeature,
   BucketVersioningFeature,
   BucketPolicyFeature,
   BucketPublicAccessFeature,
@@ -399,28 +400,18 @@ function BucketDetailPageContent({
     loading: objectLockLoading,
     persistentlyEnabled: objectLockPersistentlyEnabled,
   } = objectLockController;
-  const {
-    add: addBucketTag,
-    clear: clearBucketTags,
-    clearing: deletingBucketTags,
-    configured: bucketTagsConfigured,
-    dirty: tagsDirty,
-    error: bucketTagsError,
-    load: loadBucketTags,
-    loading: bucketTagsLoading,
-    remove: removeBucketTag,
-    save: saveBucketTags,
-    saving: savingBucketTags,
-    status: bucketTagsStatus,
-    tags: bucketTags,
-    update: updateBucketTag,
-  } = useBucketTagsController({
+  const bucketTagsController = useBucketTagsController({
     accountId,
     bucketName,
     cephAdmin: isCephAdmin,
     enabled: hasContext,
     endpointId,
   });
+  const {
+    dirty: tagsDirty,
+    load: loadBucketTags,
+    loading: bucketTagsLoading,
+  } = bucketTagsController;
   const quotaFeatureEnabled = isCephAdmin ? isCephEndpoint : Boolean(isCephEndpoint && managerBucketQuotaEnabled);
   const showQuotaTab = !hideQuotaTab && (isCephAdmin || Boolean(quotaFeatureEnabled && hasAccountContext));
   const showObjectsTab = !hideObjectsTab;
@@ -675,7 +666,7 @@ function BucketDetailPageContent({
     website: savingWebsite || clearingWebsite,
     accessLogging: savingAccessLogging || clearingAccessLogging,
     notifications: savingNotifications || clearingNotifications,
-    tags: savingBucketTags || deletingBucketTags,
+    tags: bucketTagsController.saving || bucketTagsController.clearing,
     quota: updatingQuota,
   };
   const drafts = {
@@ -880,7 +871,6 @@ function BucketDetailPageContent({
 
   const replicationBlocked = !replicationFeatureEnabled;
   const lifecycleNotImplemented = isApiFeatureNotImplemented(lifecycleError);
-  const tagsNotImplemented = isApiFeatureNotImplemented(bucketTagsError);
   const websiteNotImplemented = isApiFeatureNotImplemented(websiteError);
   const replicationNotImplemented = isApiFeatureNotImplemented(replicationError);
   const accessLoggingNotImplemented = isApiFeatureNotImplemented(accessLoggingError);
@@ -889,11 +879,6 @@ function BucketDetailPageContent({
     disabled: lifecycleNotImplemented,
     configured: hasLifecycleRules,
     unsaved: lifecycleDirty,
-  });
-  const tagsCardState = resolveFeatureVisualState({
-    disabled: tagsNotImplemented,
-    configured: bucketTagsConfigured,
-    unsaved: tagsDirty,
   });
   const websiteCardState = resolveFeatureVisualState({
     disabled: staticWebsiteBlocked || websiteNotImplemented,
@@ -1244,7 +1229,7 @@ function BucketDetailPageContent({
     try {
       if (pendingConfigurationDelete === "cors") await corsController.remove();
       if (pendingConfigurationDelete === "encryption") await encryptionController.remove();
-      if (pendingConfigurationDelete === "tags") await clearBucketTags();
+      if (pendingConfigurationDelete === "tags") await bucketTagsController.clear();
       if (pendingConfigurationDelete === "notifications") await clearNotifications();
       if (pendingConfigurationDelete === "replication") await clearReplication();
       if (pendingConfigurationDelete === "website") await clearWebsite();
@@ -1266,7 +1251,7 @@ function BucketDetailPageContent({
       : pendingConfigurationDelete === "encryption"
         ? encryptionController.deleting
         : pendingConfigurationDelete === "tags"
-          ? deletingBucketTags
+          ? bucketTagsController.clearing
           : pendingConfigurationDelete === "notifications"
             ? clearingNotifications
             : pendingConfigurationDelete === "replication"
@@ -1815,94 +1800,10 @@ function BucketDetailPageContent({
                         </>
                       )}
                     </BucketFeatureSection>
-                    <BucketFeatureSection
-                      title="Bucket tags"
-                      description="S3 key/value tags associated with this bucket."
-                      mode="graphical"
-                      visualState={tagsCardState}
-                      successMessage={bucketTagsStatus}
-                      busy={savingBucketTags || deletingBucketTags || bucketTagsLoading}
-                      testId="bucket-feature-tags"
-                      actions={
-                        <div className={bucketDetailWrapActionsClass}>
-                          <SettingsButton
-                            type="button"
-                            onClick={() => setPendingConfigurationDelete("tags")}
-                            variant="danger"
-                            disabled={tagsNotImplemented || bucketTagsLoading || savingBucketTags || deletingBucketTags || bucketTags.length === 0}
-                          >
-                            {deletingBucketTags ? "Clearing..." : "Clear"}
-                          </SettingsButton>
-                          <SettingsButton
-                            type="button"
-                            onClick={saveBucketTags}
-                            variant="primary"
-                            disabled={tagsNotImplemented || bucketTagsLoading || savingBucketTags || deletingBucketTags || !tagsDirty}
-                          >
-                            {savingBucketTags ? "Saving..." : "Save"}
-                          </SettingsButton>
-                        </div>
-                      }
-                    >
-                      {bucketTagsError && (
-                        <UiInlineMessage tone="error">{bucketTagsError}</UiInlineMessage>
-                      )}
-                      {bucketTagsLoading ? (
-                        <UiInlineMessage>Loading bucket tags...</UiInlineMessage>
-                      ) : (
-                        <div className={bucketDetailCompactStackClass}>
-                          {bucketTags.length === 0 && (
-                            <p className={bucketDetailHintClass}>No tags configured on this bucket.</p>
-                          )}
-                          {bucketTags.map((tag) => (
-                            <div
-                              key={tag.uiId}
-                              className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
-                            >
-                              <input
-                                type="text"
-                                value={tag.key}
-                                aria-label="Tag key"
-                                onChange={(e) => updateBucketTag(tag.uiId, { key: e.target.value })}
-                                className={bucketFeatureInputClass}
-                                placeholder="Tag key"
-                                disabled={tagsNotImplemented || savingBucketTags || deletingBucketTags}
-                              />
-                              <input
-                                type="text"
-                                value={tag.value}
-                                aria-label="Tag value"
-                                onChange={(e) => updateBucketTag(tag.uiId, { value: e.target.value })}
-                                className={bucketFeatureInputClass}
-                                placeholder="Tag value"
-                                disabled={tagsNotImplemented || savingBucketTags || deletingBucketTags}
-                              />
-                              <SettingsButton
-                                type="button"
-                                onClick={() => removeBucketTag(tag.uiId)}
-                                variant="secondary"
-                                disabled={tagsNotImplemented || savingBucketTags || deletingBucketTags}
-                              >
-                                Remove
-                              </SettingsButton>
-                            </div>
-                          ))}
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                            <SettingsButton
-                              type="button"
-                              onClick={addBucketTag}
-                              variant="secondary"
-                              disabled={tagsNotImplemented || savingBucketTags || deletingBucketTags}
-                            >
-                              Add tag
-                            </SettingsButton>
-                            <p className={bucketDetailHintClass}>
-                              Tag keys must be unique and cannot be empty.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </BucketFeatureSection>
+                    <BucketTagsFeature
+                      controller={bucketTagsController}
+                      onRequestClear={() => setPendingConfigurationDelete("tags")}
+                    />
                 </div>
               </div>
             ),
