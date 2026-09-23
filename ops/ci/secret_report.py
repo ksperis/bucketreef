@@ -48,10 +48,14 @@ REMOVED_PASSWORD_URL_FIXTURES = {
         "789843487b075417c068e27849039ac4917bfe65950127f5958a1d61a997a59d",
         "ca122f2fef05b2c5eedcacfac7daec5bf60b96c4a2bb92e17d1adba547ae5783",
     },
+    "deploy/compose/.env.example": {
+        "41475cc279b00bb2db4a32baa4d8e31525abfed44bb29cbff4f09769e1e89cc6",
+    },
 }
 REMOVED_PASSWORD_URL_BOUNDARIES = {
     "backend/.env.example": "20928ea6415bf5bd5ee23fe271d7ffaea4764bd5",
     "backend/tests/test_admin_onboarding.py": "54e42de088d8ba3208657410e984cd307c4c1f8e",
+    "deploy/compose/.env.example": "3900ea5bfaf9eac3189ce1bf9ce37936ab0f130b",
 }
 
 

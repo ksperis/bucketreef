@@ -214,6 +214,30 @@ def test_removed_env_url_accepts_pre_removal_report_commit_only():
     assert len(summarize(report)) == 1
 
 
+def test_removed_compose_example_is_bound_to_the_removed_historical_value():
+    source = subprocess.check_output(
+        ['git', 'show', '4eafda697620b5f88da52377679c55182ffeada6:deploy/compose/.env.example'],
+        cwd=ROOT,
+        text=True,
+    )
+    extract, = re.findall(r'postgresql\+psycopg://[^:\s]+:[^@\s]+@[^/\s]+', source)
+    finding = {
+        'location': {
+            'file': 'deploy/compose/.env.example',
+            'commit': {'sha': '4eafda697620b5f88da52377679c55182ffeada6'},
+        },
+        'raw_source_code_extract': extract,
+        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
+    }
+    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
+    assert summarize(report) == []
+    changed = copy.deepcopy(report)
+    changed['vulnerabilities'][0]['raw_source_code_extract'] = extract + '.changed'
+    assert len(summarize(changed)) == 1
+    finding['location']['commit'] = {'sha': '3900ea5bfaf9eac3189ce1bf9ce37936ab0f130b'}
+    assert len(summarize(report)) == 1
+
+
 @pytest.mark.parametrize('body', ['', '<skipped/>', '<failure/>', '<error/>'])
 def test_ceph_core_is_required(tmp_path, body):
     path=tmp_path/'junit.xml'
