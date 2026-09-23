@@ -134,4 +134,4 @@ export function useGeneralSettings() {
   return useContext(GeneralSettingsContext);
 }
 
-export { DEFAULT_GENERAL_SETTINGS, DEFAULT_RUNTIME_SURFACES };
+export { DEFAULT_GENERAL_SETTINGS };
