@@ -6,7 +6,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from plan import PUBLIC, changes, classify, select, version_values
+from plan import PUBLIC, changes, classify, secret_scan_options, select, version_values
 from required import check
 
 
@@ -94,3 +94,11 @@ def test_diff_includes_both_sides_of_rename_and_deleted_paths(tmp_path):
 
 def test_dependency_edit_is_not_necessarily_a_version_bump():
     assert version_values('{"version":"1.0.0","dependencies":{"x":"1"}}', "package.json") == version_values('{"version":"1.0.0","dependencies":{"x":"2"}}', "package.json")
+
+
+def test_secret_scan_history_is_explicit_and_normal_scans_require_a_baseline():
+    base, sha = "a" * 40, "b" * 40
+    assert secret_scan_options({"profile": "qualify", "base_sha": base, "sha": sha}) == (f"{base}..{sha}", "false")
+    assert secret_scan_options({"profile": "secrets-history", "base_sha": None, "sha": sha}) == ("--all", "true")
+    with pytest.raises(ValueError):
+        secret_scan_options({"profile": "qualify", "base_sha": None, "sha": sha})

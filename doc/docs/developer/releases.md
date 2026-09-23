@@ -13,13 +13,15 @@ selection, tool locks and required external settings.
 - A separate protected, masked/hidden `GITHUB_RELEASE_TOKEN`, restricted to
   `ksperis/bucketreef` with repository Contents write permission. Its job creates
   drafts, uploads assets and publishes releases; it does not push source branches.
+- One protected, masked/hidden Project Access Token in `GITLAB_CI_READ_API_TOKEN`,
+  with Reporter role and `read_api`, scoped commonly (`*`) so protected CI
+  orchestration, preflight and release evidence jobs reuse the same credential.
 - The exact source commit and `vX.Y.Z` tag must already exist on the public
   GitHub mirror. A missing tag or a different resolved SHA stops publication.
 - Docker-in-Docker runners support privileged binfmt registration. Builds use
   Buildx and QEMU; ARM checks on an AMD64 runner are emulated, not native proof.
-- The `charts/bucketreef` GHCR package must be public. On the first publication,
-  set its visibility to public in GitHub Packages if necessary, then retry
-  `publish-helm-release`. That job deliberately fails until anonymous pull works.
+- The `charts/bucketreef` and `bucketreef-bundles` GHCR packages must remain
+  public. `release-preflight` checks anonymous access before a release tag exists.
 
 ## Prepare a release
 
@@ -34,9 +36,13 @@ selection, tool locks and required external settings.
    any other main SHA, launch a web pipeline with `CI_MODE=qualify`. Wait for
    the successful parent and child: all autonomous tests, mandatory Ceph, three
    AMD64/ARM64 images, runtime checks, six scans and Kind. `qualification.json`
-   binds their exact job IDs, digests and scan receipts to that SHA.
-3. Create the GitHub tag at that exact commit before pushing the same `vX.Y.Z`
-   tag to GitLab, which starts publication. Do not move an existing release tag.
+   binds their exact job IDs, digests and scan receipts to that SHA. The same
+   child must have a green `release-preflight`, proving that release credentials,
+   both `main` refs, public GHCR packages and prepared metadata are ready.
+3. From that synchronized `main`, run
+   `backend/.venv/bin/python ops/release/tag.py X.Y.Z`. It verifies HEAD against
+   GitHub and GitLab, refuses conflicting tags, creates the immutable tag when
+   absent, pushes GitHub first and then GitLab, and safely resumes a partial run.
 4. Wait for all release jobs, including both architecture smoke tests, Helm
    anonymous pull and both GitHub and GitLab Release publication.
 
@@ -126,20 +132,12 @@ Distribution proceeds in this order:
 
 GitHub draft assets are not anonymously downloadable. The OCI candidate supplies
 an anonymous distribution surface before finalization, and its checksummed bytes
-must equal the GitHub assets. Application images, the chart package and the new
-`bucketreef-bundles` package must all be public; first publication can require an
-administrator visibility change followed by a retry. ORAS is pinned in the tool
-lock. It stores bundles in the existing GHCR registry, not a new service.
+must equal the GitHub assets. Application images, the chart package and
+`bucketreef-bundles` must remain public. ORAS is pinned in the tool lock and
+stores bundles in the existing GHCR registry.
 
-If the first `publish-release-bundles` attempt stops before creating the
-`bucketreef-bundles` package, keep the stable tag unchanged. From protected
-`main`, run a web pipeline with `CI_MODE=bootstrap-release-bundles` and
-`BUNDLE_BOOTSTRAP_VERSION=X.Y.Z`. The bootstrap verifies that the GitHub and
-GitLab tags resolve to the same commit, reconstructs the four deterministic
-bundle files from that immutable tag, and publishes only the versioned OCI
-bundle artifact. Make the newly created package public, then retry the original
-tag pipeline trigger so the complete release pipeline revalidates the public
-bundles and finalizes normally.
+Registry bootstrap is an exceptional recovery path; see
+[Recovery / exceptional cases](#recovery-exceptional-cases) below.
 
 Alias decisions compare numeric versions under the publication lock, using
 stable releases that are actually published on both platforms. Merely creating a
@@ -195,6 +193,18 @@ identical existing content and recomputes aliases under the lock. Do not delete 
 move immutable versions to repair a failure. Public GitHub download checks occur
 again after the draft is exposed; an outage there leaves aliases unchanged.
 Metadata-only recovery cannot finish aliases or substitute for qualification.
+
+### Recovery / exceptional cases
+
+`bootstrap-release-bundles` is retained only for registry recovery and is not a
+normal release step. If the OCI bundle package is ever missing and a stable tag
+already exists, keep that tag unchanged. From protected `main`, run a web pipeline
+with `CI_MODE=bootstrap-release-bundles` and `BUNDLE_BOOTSTRAP_VERSION=X.Y.Z`.
+The bootstrap verifies matching GitHub/GitLab tag SHAs, reconstructs the four
+deterministic bundle files from the immutable tag and publishes only that OCI
+artifact. If this is a genuinely new package, make it public once, then retry the
+original tag pipeline so normal release validation resumes.
+
 ## Historical notes and the documentation index
 
 Historical publication is separate from artifact distribution. On protected

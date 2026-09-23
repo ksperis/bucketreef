@@ -607,6 +607,25 @@ secret-scan:
     paths:
     - gl-security-reports/secrets-redacted.json
     expire_in: 1 week
+release-preflight:
+  stage: test
+  image: python:3.12-slim
+  variables:
+    GIT_DEPTH: '0'
+  environment:
+    name: release-public
+    action: verify
+  before_script:
+  - apt-get update && apt-get install --yes --no-install-recommends curl git
+  - sh ops/ci/install-oras.sh
+  - version=$(python3 -c 'import json; print(json.load(open("frontend/package.json"))["version"])'); case "$version" in 0.*.1) python3 -m pip install -r backend/requirements.txt ;; esac
+  script:
+  - python3 ops/release/preflight.py
+  artifacts:
+    when: always
+    paths:
+    - release-preflight.json
+    expire_in: never
 integration-ready:
   stage: evidence
   image: python:3.12-slim
