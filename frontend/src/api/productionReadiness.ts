@@ -6,20 +6,27 @@ import client from "./client";
 
 export type DeploymentProfile = "full" | "admin" | "user" | "ceph-admin-high-security";
 export type AppEnvironment = "development" | "test" | "production";
-export type HardeningLevel = "pass" | "warning" | "fail";
+type CheckResult = "pass" | "fail" | "manual";
+type CheckSeverity = "blocker" | "critical" | "warning";
+export type CheckLevel = "blocked" | "critical" | "warning" | "manual" | "ok";
+export type ReadinessStatus = "blocked" | "critical" | "warning" | "ok";
 
 export type ProductionReadinessFinding = {
   code: string;
   label: string;
-  level: HardeningLevel;
+  result: CheckResult;
+  severity: CheckSeverity | null;
+  level: CheckLevel;
   message: string;
+  documentation_url: string;
+  blocks_startup: boolean;
 };
 
 export type ProductionReadinessResponse = {
   environment: AppEnvironment;
   profile: DeploymentProfile;
-  status: HardeningLevel;
-  counts: Record<HardeningLevel, number>;
+  status: ReadinessStatus;
+  counts: Record<CheckLevel, number>;
   findings: ProductionReadinessFinding[];
 };
 

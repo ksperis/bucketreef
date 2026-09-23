@@ -138,6 +138,7 @@ nav:
           - "Operations: upgrade and compatibility": ops/operations-upgrade-compatibility.md
       - Security and Recovery:
           - Production readiness: ops/production-readiness.md
+          - Production checks reference: ops/production-checks-reference.md
           - Ceph Admin high-security deployment: ops/ceph-admin-high-security.md
           - Authentication security and cutover: ops/authentication-hardening.md
           - Backup and restore: ops/backup-restore.md

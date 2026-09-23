@@ -150,60 +150,47 @@ def test_disabled_external_identity_providers_do_not_apply_production_security_p
 
 
 @pytest.mark.parametrize(
-    ("override", "message"),
+    "override",
     [
-        ({"public_origin": "http://s3.example.test"}, "PUBLIC_ORIGIN"),
-        ({"webauthn_origin": "https://other.example.test"}, "WEBAUTHN_ORIGIN"),
-        ({"webauthn_rp_id": "other.example.test"}, "WEBAUTHN_RP_ID"),
-        ({"refresh_token_cookie_secure": False}, "Secure authentication cookies"),
-        ({"refresh_token_cookie_domain": ".example.test"}, "host-only"),
-        ({"refresh_token_cookie_samesite": "strict"}, "SameSite=Lax"),
-        (
-            {"require_registered_s3_login_endpoints": False},
-            "administratively registered S3 login endpoints",
-        ),
-        ({"allowed_hosts": ["other.example.test"]}, "ALLOWED_HOSTS"),
-        ({"allowed_hosts": ["*"]}, "ALLOWED_HOSTS"),
-        ({"cors_origins": ["https://other.example.test"]}, "CORS_ORIGINS"),
-        ({"trusted_proxy_cidrs": []}, "non-empty TRUSTED_PROXY_CIDRS"),
-        ({"trusted_proxy_cidrs": ["0.0.0.0/0"]}, "TRUSTED_PROXY_CIDRS"),
-        ({"ui_jwt_keys": ["change-me"]}, "UI_JWT_KEYS"),
-        ({"api_jwt_keys": ["change-me"]}, "API_JWT_KEYS"),
-        ({"credential_keys": ["change-me"]}, "CREDENTIAL_KEYS"),
-        (
-            {"api_jwt_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"]},
-            "distinct",
-        ),
-        (
-            {"credential_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"]},
-            "mutually distinct",
-        ),
-        ({"seed_s3_endpoint": "http://s3-storage.example.test"}, "SEED_S3_ENDPOINT"),
-        ({"seed_s3_secret_key": "minio123"}, "SEED_S3_SECRET_KEY"),
-        ({"internal_cron_token": "change-me"}, "INTERNAL_CRON_TOKEN"),
-        ({"internal_cron_token": None}, "INTERNAL_CRON_TOKEN"),
-        ({"oidc_providers": _oidc_provider(use_pkce=False)}, "PKCE and nonce"),
-        ({"oidc_providers": _oidc_provider(use_nonce=False)}, "PKCE and nonce"),
-        (
-            {"oidc_providers": _oidc_provider(discovery_url="http://idp.example.test/.well-known/openid")},
-            "discovery URL must use HTTPS",
-        ),
-        (
-            {"oidc_providers": _oidc_provider(redirect_uri="https://other.example.test/callback")},
-            "redirect must use a configured PUBLIC_ORIGIN",
-        ),
-        ({"ldap_providers": _ldap_provider(tls_verify=False)}, "production TLS policy"),
-        ({"ldap_providers": _ldap_provider(allow_legacy_tls=True)}, "production TLS policy"),
+        {"public_origin": "http://s3.example.test"},
+        {"webauthn_origin": "https://other.example.test"},
+        {"webauthn_rp_id": "other.example.test"},
+        {"refresh_token_cookie_secure": False},
+        {"refresh_token_cookie_domain": ".example.test"},
+        {"refresh_token_cookie_samesite": "strict"},
+        {"require_registered_s3_login_endpoints": False},
+        {"allowed_hosts": ["other.example.test"]},
+        {"allowed_hosts": ["*"]},
+        {"cors_origins": ["https://other.example.test"]},
+        {"trusted_proxy_cidrs": []},
+        {"trusted_proxy_cidrs": ["0.0.0.0/0"]},
+        {"ui_jwt_keys": ["change-me"]},
+        {"api_jwt_keys": ["change-me"]},
+        {"credential_keys": ["change-me"]},
+        {"api_jwt_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"]},
+        {"credential_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"]},
+        {"seed_s3_endpoint": "http://s3-storage.example.test"},
+        {"seed_s3_secret_key": "minio123"},
+        {"internal_cron_token": "change-me"},
+        {"internal_cron_token": None},
+        {"oidc_providers": _oidc_provider(use_pkce=False)},
+        {"oidc_providers": _oidc_provider(use_nonce=False)},
+        {"oidc_providers": _oidc_provider(discovery_url="http://idp.example.test/.well-known/openid")},
+        {"oidc_providers": _oidc_provider(redirect_uri="https://other.example.test/callback")},
+        {"ldap_providers": _ldap_provider(tls_verify=False)},
+        {"ldap_providers": _ldap_provider(allow_legacy_tls=True)},
     ],
 )
-def test_production_authentication_configuration_fails_closed(override, message):
-    with pytest.raises(ValidationError, match=message):
-        _valid_production_settings(**override)
+def test_production_policy_risks_are_parsed_before_the_readiness_engine_classifies_them(override):
+    settings = _valid_production_settings(**override)
+
+    assert settings.app_env == "production"
 
 
-def test_production_rejects_webauthn_origin_outside_public_origins():
-    with pytest.raises(ValidationError, match="must be trusted PUBLIC_ORIGIN"):
-        _valid_production_settings(
-            webauthn_origins=["https://passkeys.example.test"],
-            webauthn_rp_id="example.test",
-        )
+def test_production_allows_webauthn_origin_outside_public_origins_for_readiness_diagnostics():
+    settings = _valid_production_settings(
+        webauthn_origins=["https://passkeys.example.test"],
+        webauthn_rp_id="example.test",
+    )
+
+    assert settings.webauthn_origins == ["https://passkeys.example.test"]

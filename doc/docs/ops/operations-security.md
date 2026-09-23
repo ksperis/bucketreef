@@ -4,9 +4,10 @@
 
 - Use OIDC or LDAP over verified TLS for real users.
 - Set strong, mutually distinct UI/API JWT and credential-encryption key rings, plus a strong scheduler secret.
-- Set `APP_ENV=production`; startup then rejects HTTP origins, insecure cookies,
-  wildcard hosts, weak keys, insecure providers, empty or broad proxy trust,
-  and unregistered S3 login endpoints.
+- Set `APP_ENV=production`; startup blocks only the direct security exposures
+  classified as Blocked (for example weak effective key material, insecure
+  public authentication transport, globally trusted proxy space, or insecure
+  OIDC/LDAP transport). Critical hardening gaps remain available for remediation.
 - Keep `PUBLIC_ORIGIN`, `CORS_ORIGINS`, `ALLOWED_HOSTS`, `WEBAUTHN_ORIGIN`, and `WEBAUTHN_RP_ID` exact.
 - Expose internal scheduler/API automation paths only on trusted networks.
 - Store LDAP bind passwords, SMTP password, storage credentials, and registry tokens in a secret manager.
@@ -24,13 +25,14 @@ python -m app.scripts.check_production_hardening
 ```
 
 The command uses `DEPLOYMENT_PROFILE`; `--profile` remains available as an
-explicit diagnostic override. The command exits non-zero when a required
-invariant fails and never prints configured secret values. It evaluates the
+explicit diagnostic override. The command exits non-zero for Blocked and
+Critical findings and never prints configured secret values. It evaluates the
 production origin/WebAuthn, authentication-cookie, network-boundary, key-ring,
-seed-secret, and environment OIDC/LDAP rules even before `APP_ENV` is switched
-to `production`. Split profiles additionally require PostgreSQL, the expected
-runtime surfaces, and the correct per-profile scheduled-job ownership;
-admin/user instances also verify their shared public/WebAuthn origin set.
+seed-secret, environment and persisted OIDC/LDAP, outbound-allowlist rules even
+before `APP_ENV` is switched to `production`. Split profiles additionally check
+PostgreSQL, expected runtime surfaces, scheduled-job ownership, and their shared
+public/WebAuthn origin set. Every finding links to the
+[Production checks reference](production-checks-reference.md).
 
 `ui_superadmin` users can inspect the same read-only checks from **Admin >
 Settings > Production readiness** when the Admin surface is present. The page evaluates

@@ -1,127 +1,134 @@
 # Production Readiness
 
-Use this checklist before exposing BucketReef to real users.
+Use this page before exposing BucketReef to real users.
 
 ## Scope
 
-This page turns deployment, security, observability, and user-handover pages into one operator checklist.
+BucketReef uses one deployment-check engine for startup diagnostics, the CLI, and **Admin > Settings > Production readiness**. The same check code therefore keeps the same meaning in logs, automation, and the UI.
 
-The optional [guided onboarding](sysadmin-onboarding.md#guided-application-setup)
-prepares an initial endpoint, workspace features and administrator access. It
-does not certify the deployment automatically. An organization can offer
-Manager, Portal, Browser or a combination of these experiences. Test both
-allowed and denied operations with actual pilot profiles and confirm isolation
-between teams or clients.
-Do not use the number of enabled features as a completion criterion.
+The report evaluates the production target even while the runtime still uses `APP_ENV=development` or `test`. It combines configuration checks, application settings, database-backed authentication providers, and persisted outbound-target allowlists, then adds the operational checks that still require manual verification.
 
-The automated production-hardening report is available to superadministrators
-at **Admin > Settings > Production readiness**. It evaluates the production
-security policy even when the current runtime still uses `APP_ENV=development`
-or `test`, then applies the deployment-profile checks for the backend instance
-serving that page. This makes it useful before the final production switch.
+A successful automated report is instance-local. It cannot prove that another split runtime uses the intended database/key rings, that ingress/network policy is effective, that backups restore correctly, or that external providers and scheduled jobs work end to end.
 
-The report mirrors the runtime production checks for trusted origins and
-WebAuthn RP ID, secure host-only authentication cookies, registered S3 login
-endpoints, CORS/allowed-host/trusted-proxy boundaries, secret key rings,
-configured seed secrets, and environment-defined OIDC/LDAP providers. It also
-checks the application-level administrator passkey policy, database suitability,
-scheduled-job ownership and token strength, runtime surfaces, split-origin
-coverage, and Ceph Admin high-security mode when the selected profile requires
-them.
+For the correction procedure for every code, use [Production checks reference](production-checks-reference.md).
 
-These checks are deliberately instance-local. A successful report does **not**
-prove that two split instances use the same PostgreSQL database or compatible
-key rings, that only one deployment actually runs the schedulers, or that the
-ingress, backups, external identity provider, storage endpoint, observability,
-audit retention, and support process work end to end. Keep those as manual
-publish gates below.
+## Result model
+
+The report separates severity from startup behavior:
+
+| Result | Meaning |
+|---|---|
+| **Blocked** | Obvious security problem. General blockers stop startup only in `APP_ENV=production`; the explicit Ceph Admin high-security boundary is always enforced. |
+| **Critical** | Must normally be corrected before publication, but does not take the application offline. |
+| **Warning** | May be valid depending on topology or operating model; review explicitly. |
+| **Manual** | Requires operator evidence because the backend cannot prove it alone. |
+| **OK** | Automated check passes. |
+
+The CLI exits non-zero for Blocked and Critical findings. Warnings and Manual checks do not change its exit code.
+
+This distinction is intentional: a deployment can remain available so an administrator can correct a Critical finding such as the passkey policy, database topology, scheduler ownership, or a normal profile mismatch.
+
+Technical failures are separate. Database corruption, failed Alembic migrations, an unmanaged schema, or structurally invalid settings still stop the backend because the application cannot operate safely.
+
+## Startup blockers
+
+Startup refusal is deliberately narrow.
+
+In production, BucketReef blocks startup for direct security exposures such as weak/default effective signing or encryption keys, insecure public authentication cookies, globally trusted proxy address space, weak scheduler secrets while scheduler endpoints are active, and insecure OIDC/LDAP authentication transport.
+
+The Ceph Admin high-security profile also blocks startup whenever its reduced-surface contract is violated, including a mismatched profile/mode, an unexpected runtime surface, or enabled scheduled jobs.
+
+An empty `TRUSTED_PROXY_CIDRS` is not a blocker: without trusted peers BucketReef ignores forwarded client addresses. It appears as a Warning so deployments behind a reverse proxy can correct client attribution without creating an unnecessary outage.
+
+## Operator workflow
+
+1. Deploy with a pinned image/version.
+2. Open **Admin > Settings > Production readiness** when the Admin surface is available.
+3. Correct **Blocked** findings first, then **Critical** findings.
+4. Review every **Warning** and record why the effective topology is acceptable.
+5. Complete every **Manual** check and keep the evidence with the deployment/runbook.
+6. Run the CLI in every backend runtime:
+
+   ```bash
+   cd backend
+   python -m app.scripts.check_production_hardening
+   ```
+
+7. In split deployments, compare both runtime reports and complete `manual-split-state`.
+8. Switch the final runtime to `APP_ENV=production` and rerun the checker before publication.
+
+User-only and Ceph Admin high-security runtimes do not expose the Admin page, so the CLI remains the authoritative local view for those instances.
 
 ## Publish gates
 
 Do not publish the URL broadly until these gates are explicit:
 
-| Gate | Minimum answer |
+| Gate | Minimum evidence |
 |---|---|
-| Runtime | Which image tag, database, secret store, ingress/TLS, and trusted UI origin are used? |
-| Data safety | Which database backup and credential encryption key restore path has been tested? |
-| Jobs | Which healthcheck, billing, quota-monitor, and usage-history jobs are enabled or intentionally disabled? |
-| Access | Which roles, UI groups, account links, and workspaces are allowed for the first users? |
-| Storage backend | Which endpoint is the first supported backend and which capabilities are expected? |
-| Support | Where should users report workspace, permission, upload/download, billing, or quota problems? |
+| Runtime | Image tag/digest, database, secret store, ingress/TLS, and trusted UI origins. |
+| Data safety | Database backup plus a tested restore path with credential-encryption keys. |
+| Jobs | Intended owner and latest successful healthcheck/billing/quota/usage-history jobs. |
+| Access | Initial roles, UI groups, account links, and enabled workspaces. |
+| Storage backend | First supported endpoint, health evidence, and expected capabilities. |
+| Authentication | Admin passkey plus real OIDC/LDAP flows when enabled. |
+| Audit | Central backend logs, application control-plane audit, and provider object-access logs with retention. |
+| Support | User/admin troubleshooting and escalation path. |
 
-## Automated report interpretation
+## Automated areas
 
-- `Fail` means at least one required production or profile invariant is not
-  satisfied. The CLI exits non-zero.
-- `Warning` is currently used only where the topology can still be valid but
-  deserves operator review, such as SQLite on a single-instance `full` profile
-  or disabled scheduled jobs on that profile. Warnings do not make the CLI
-  exit non-zero.
-- `Pass` applies only to the current backend instance. In a split deployment,
-  run the CLI in every backend runtime and compare the shared database, key
-  rings, origins, and job ownership explicitly.
-- In `development` or `test`, the `APP_ENV` finding remains `Fail` by design.
-  Use the other findings as a preflight, switch to `APP_ENV=production`, then
-  rerun the checker before publishing the deployment.
-- `admin-passkey-policy` remains `Fail` until an administrator has enrolled a
-  passkey and **Require passkeys for administrators** is enabled. This check is
-  applied to every deployment profile because the privileged identity policy is
-  shared even when an instance does not expose the Admin surface.
-- The OIDC/LDAP runtime checks cover environment-defined providers. UI-managed
-  provider configuration is validated when it is saved, but a real login flow
-  remains part of the manual acceptance test.
+The shared engine covers:
 
-## Readiness checklist
+- production environment target and trusted browser/WebAuthn origins
+- authentication cookie transport/scope and S3 login endpoint boundary
+- allowed hosts, CORS, and trusted proxies
+- effective secret strength, key-ring separation, seed configuration, and scheduler token
+- environment-defined and UI-managed OIDC/LDAP providers
+- administrator passkey policy and application-settings availability
+- database topology, SQLite migration-worker warning, and scheduler ownership
+- runtime surface/profile contract and Ceph Admin high-security boundary
+- split public/WebAuthn origins
+- persisted user-controlled S3/webhook outbound allowlists
 
-| Area | Required decision | Evidence to keep |
-|---|---|---|
-| Version | Use a pinned stable image tag for production-like deployments. | Image tag, image digest, Git tag, release notes. |
-| Secrets | UI/API JWT and credential-encryption rings are strong and mutually distinct; scheduler, SMTP, LDAP/OIDC, and storage credentials are non-default. | Secret manager paths and rotation owner. |
-| Authentication | Admin WebAuthn, recovery storage, session limits, scoped API tokens, and external-identity approvals are operational. | Enrollment and revocation evidence without credential values. |
-| Network | TLS is enforced; origin, CORS, Host, cookie, WebAuthn, CSP, and trusted-proxy settings are exact. | Ingress/reverse-proxy config and negative startup tests. |
-| Database | Persistent database storage, backup schedule, restore test, and migration procedure are documented. | Latest backup and restore-test result. |
-| Scheduler | Healthcheck, billing, quota-monitor, and usage-history jobs are enabled or intentionally disabled. | Cron schedules, latest successful run, token source. |
-| Endpoint | First storage endpoint has healthcheck evidence and known capability flags. | Endpoint status screenshot or log. |
-| Access | Admin, Manager, Portal, Browser, Ceph Admin, and Storage Ops are enabled only for intended users. | Role/group mapping and feature flags. |
-| Audit | Application control-plane audit, backend logs, and provider S3 access logs are retained centrally. | Separate destinations, activation evidence, identity attribution, and retention policies. |
-| Support | User troubleshooting and admin runbook are linked from internal support docs. | Support handover note. |
+Each finding includes a direct documentation link.
+
+## Manual evidence
+
+The report exposes checks that cannot be inferred reliably from a single process:
+
+- database backup/restore and credential-key recovery
+- effective ingress/TLS/network boundary
+- real authentication flows including a denied/revoked case
+- actual scheduled-job execution
+- observability and audit retention
+- storage endpoint acceptance
+- cross-runtime state for split deployments
 
 ## First rollout sequence
 
 1. Deploy with Docker Compose or Helm using pinned images.
-2. Enroll an administrator passkey from **Profile > Security**, then enable **Require passkeys for administrators**.
-3. Set `APP_ENV=production` and configure distinct secrets, exact origin/hosts, secure cookies, WebAuthn, trusted proxies, ingress/TLS, and database persistence.
-4. Review **Admin > Settings > Production readiness** where available, then run `python -m app.scripts.check_production_hardening` inside every backend runtime (including user-only or Ceph Admin high-security instances). Compare the shared database/key-ring/origin contract between split instances and keep the successful output with the deployment evidence.
-5. Configure the first endpoint and run healthchecks.
-6. Create or import the first account/context.
+2. Configure strong, separate secret rings and the exact external origins/hosts.
+3. Enroll an administrator passkey, then enable **Require passkeys for administrators**.
+4. Review Production readiness and follow each finding's documentation link.
+5. Configure and healthcheck the first storage endpoint.
+6. Create/import the first account or execution context.
 7. Enable only the intended workspaces and feature flags.
 8. Run the [Storage Admin Runbook](../user/admin-runbook-storage-admin.md).
-9. Verify scheduled jobs and observability pages. In split mode, only the admin instance owns jobs.
-10. Communicate the user start page and support-report format.
-11. Confirm that browser storage contains no token and that session/API-token revocation is immediate.
-
-## Evidence folder
-
-Keep these notes near the deployment runbook or ticket:
-
-- image tag and deployment values
-- secret manager paths and rotation owner
-- database backup schedule and latest restore-test result
-- enabled workspaces, feature flags, and initial role mapping
-- scheduler/CronJob schedules and latest successful run
-- first endpoint healthcheck evidence and known capability limitations
-- support links: [Sysadmin onboarding](sysadmin-onboarding.md), [Storage Admin Runbook](../user/admin-runbook-storage-admin.md), and [User troubleshooting](../user/troubleshooting.md)
+9. Confirm scheduled jobs, observability, and audit evidence.
+10. Communicate the user start page and support path.
+11. Rerun the CLI in every runtime after setting `APP_ENV=production`.
 
 ## Before every upgrade
 
 - Read [Operations: upgrade and compatibility](operations-upgrade-compatibility.md).
-- For migrations `0107`–`0110`, follow the mandatory [authentication cutover](authentication-hardening.md) and plan forced reauthentication/API-token recreation.
-- Back up the database and confirm the backup is restorable.
-- Record current feature flags and scheduler settings.
+- Back up the database and verify that the backup is restorable.
+- Record current feature flags, profile, and scheduler ownership.
+- Run any release-specific preflight, including outbound-target inventory when documented.
 - Validate the new image in a lab or staging environment.
+- Run Production readiness again after the upgrade.
 
 ## Related pages
 
+- [Production checks reference](production-checks-reference.md)
 - [Deploy with Docker Compose](deploy-docker-compose.md)
 - [Deploy with Helm](deploy-helm.md)
 - [Configuration](configuration.md)

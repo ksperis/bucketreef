@@ -82,10 +82,13 @@ egress rules no longer render in the strict profile. Disabling the profile is
 reserved for an isolated migration validation; production operators must
 complete the inventory rather than leave it disabled.
 
-## 2026-09 trusted proxy boundary is mandatory
+## 2026-09 trusted proxy boundary
 
-Production startup now refuses an empty `TRUSTED_PROXY_CIDRS`. The Helm chart
-requires the structured `backend.trustedProxyCidrs` value and rejects a raw
+The application now reports an empty `TRUSTED_PROXY_CIDRS` as a Warning: with
+no trusted peers it safely ignores forwarded client addresses. Trusting the
+entire IPv4 or IPv6 address space is a startup security blocker in production.
+The Helm chart intentionally keeps a stricter deployment contract and requires
+the structured `backend.trustedProxyCidrs` value; it rejects a raw
 `backend.env.TRUSTED_PROXY_CIDRS` override. Before upgrading, identify the
 actual direct peers that connect to the backend and configure their narrow
 CIDRs. Requests from any other peer ignore `X-Forwarded-For`; trusted chains

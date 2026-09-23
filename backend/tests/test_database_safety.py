@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -54,6 +55,23 @@ def test_settings_keep_sqlite_memory_database_url():
     settings = Settings(database_url="sqlite:///:memory:")
 
     assert settings.database_url == "sqlite:///:memory:"
+
+
+def test_lifespan_runs_configuration_security_checks_before_database_initialization(monkeypatch):
+    events: list[str] = []
+
+    monkeypatch.setattr(main, "settings", SimpleNamespace(bucket_migration_worker_enabled=False))
+    monkeypatch.setattr(main, "_run_pre_database_startup_checks", lambda: events.append("pre-database"))
+    monkeypatch.setattr(main, "init_db", lambda *_args: events.append("init-db"))
+    monkeypatch.setattr(main, "_run_startup_deployment_checks", lambda: events.append("post-database"))
+
+    async def exercise_lifespan() -> None:
+        async with main.lifespan(main.app):
+            events.append("serving")
+
+    asyncio.run(exercise_lifespan())
+
+    assert events == ["pre-database", "init-db", "post-database", "serving"]
 
 
 def test_configure_sqlite_connection_applies_safe_pragmas():

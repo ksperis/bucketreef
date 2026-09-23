@@ -5,7 +5,7 @@ import ipaddress
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Optional
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
@@ -635,29 +635,6 @@ class Settings(BaseSettings):
                 ipaddress.ip_network(value, strict=False)
             except ValueError as exc:
                 raise ValueError(f"Invalid trusted proxy CIDR: {value}") from exc
-        if self.ceph_admin_high_security_mode:
-            if self.deployment_profile != "ceph-admin-high-security":
-                raise ValueError(
-                    "CEPH_ADMIN_HIGH_SECURITY_MODE requires DEPLOYMENT_PROFILE=ceph-admin-high-security"
-                )
-            expected_surface_settings = {
-                "FEATURE_ADMIN_ENABLED": self.feature_admin_enabled is False,
-                "FEATURE_CEPH_ADMIN_ENABLED": self.feature_ceph_admin_enabled is True,
-                "FEATURE_STORAGE_OPS_ENABLED": self.feature_storage_ops_enabled is False,
-                "FEATURE_MANAGER_ENABLED": self.feature_manager_enabled is False,
-                "FEATURE_PORTAL_ENABLED": self.feature_portal_enabled is False,
-                "FEATURE_BROWSER_ENABLED": self.feature_browser_enabled is False,
-            }
-            invalid = [name for name, valid in expected_surface_settings.items() if not valid]
-            if invalid:
-                raise ValueError(
-                    "CEPH_ADMIN_HIGH_SECURITY_MODE requires the dedicated Ceph Admin surface contract; "
-                    f"fix: {', '.join(invalid)}"
-                )
-            if self.scheduled_jobs_enabled:
-                raise ValueError("CEPH_ADMIN_HIGH_SECURITY_MODE requires SCHEDULED_JOBS_ENABLED=false")
-        if self.app_env == "production":
-            self._validate_production_security()
         return self
 
     def effective_ui_jwt_keys(self) -> list[str]:
@@ -672,176 +649,6 @@ class Settings(BaseSettings):
     def effective_webauthn_origins(self) -> list[str]:
         return _deduplicate_origins([self.webauthn_origin, *self.webauthn_origins])
 
-    def _validate_production_origins(self) -> list[ParseResult]:
-        public_origins = self.effective_public_origins()
-        parsed_public = [_parse_production_origin(origin, "PUBLIC_ORIGIN/PUBLIC_ORIGINS") for origin in public_origins]
-        public_set = set(public_origins)
-
-        webauthn_origins = self.effective_webauthn_origins()
-        parsed_webauthn = [
-            _parse_production_origin(origin, "WEBAUTHN_ORIGIN/WEBAUTHN_ORIGINS")
-            for origin in webauthn_origins
-        ]
-        if not set(webauthn_origins).issubset(public_set):
-            raise ValueError("WEBAUTHN_ORIGIN/WEBAUTHN_ORIGINS must be trusted PUBLIC_ORIGIN/PUBLIC_ORIGINS")
-
-        rp_id = self.webauthn_rp_id.strip().lower().rstrip(".")
-        if not rp_id or ":" in rp_id or "/" in rp_id:
-            raise ValueError("WEBAUTHN_RP_ID must be a DNS domain in production")
-        for webauthn in parsed_webauthn:
-            host = (webauthn.hostname or "").lower().rstrip(".")
-            if host != rp_id and not host.endswith(f".{rp_id}"):
-                raise ValueError("WEBAUTHN_RP_ID must be the WebAuthn origin host or a common parent domain")
-        return parsed_public
-
-    def _validate_production_authentication_boundary(self) -> None:
-        if not self.refresh_token_cookie_secure:
-            raise ValueError("Secure authentication cookies are mandatory in production")
-        if self.refresh_token_cookie_domain is not None:
-            raise ValueError("Authentication cookies must remain host-only in production")
-        if self.refresh_token_cookie_samesite.lower() != "lax":
-            raise ValueError("Authentication cookies must use SameSite=Lax in production")
-        if not self.require_registered_s3_login_endpoints:
-            raise ValueError("Production requires administratively registered S3 login endpoints")
-
-    def _validate_production_network_boundary(self, public_origins: list[ParseResult]) -> None:
-        if not self.allowed_hosts or any(host.strip() == "*" for host in self.allowed_hosts):
-            raise ValueError("Explicit ALLOWED_HOSTS are mandatory in production")
-        allowed_hosts = {host.strip().lower() for host in self.allowed_hosts}
-        if any((public.hostname or "").lower() not in allowed_hosts for public in public_origins):
-            raise ValueError("ALLOWED_HOSTS must include every PUBLIC_ORIGIN/PUBLIC_ORIGINS host in production")
-        if set(_deduplicate_origins(self.cors_origins)) != set(self.effective_public_origins()):
-            raise ValueError("CORS_ORIGINS must match PUBLIC_ORIGIN/PUBLIC_ORIGINS in production")
-        if not self.trusted_proxy_cidrs:
-            raise ValueError("Production requires a non-empty TRUSTED_PROXY_CIDRS boundary")
-        for cidr in self.trusted_proxy_cidrs:
-            network = ipaddress.ip_network(cidr, strict=False)
-            if network.prefixlen == 0:
-                raise ValueError("TRUSTED_PROXY_CIDRS cannot trust the entire address space in production")
-
-    def _validate_production_keyrings(self) -> None:
-        key_sets = {
-            "UI_JWT_KEYS": self.ui_jwt_keys,
-            "API_JWT_KEYS": self.api_jwt_keys,
-            "CREDENTIAL_KEYS": self.credential_keys,
-        }
-        for name, values in key_sets.items():
-            if not values or any(is_weak_secret_value(value) for value in values):
-                raise ValueError(f"{name} must contain strong non-default keys in production")
-        ui_keys = set(self.ui_jwt_keys)
-        api_keys = set(self.api_jwt_keys)
-        credential_keys = set(self.credential_keys)
-        if ui_keys & api_keys or ui_keys & credential_keys or api_keys & credential_keys:
-            raise ValueError("UI JWT, API JWT, and credential key rings must be mutually distinct in production")
-
-    def _validate_production_seed_configuration(self) -> None:
-        seed_endpoint_configured = "seed_s3_endpoint" in self.model_fields_set
-        seed_endpoint = urlparse(self.seed_s3_endpoint)
-        if seed_endpoint_configured and (seed_endpoint.scheme != "https" or not seed_endpoint.hostname):
-            raise ValueError("SEED_S3_ENDPOINT must use HTTPS in production")
-        production_secrets = {
-            "SEED_S3_SECRET_KEY": self.seed_s3_secret_key if seed_endpoint_configured else None,
-            "SEED_RGW_ADMIN_SECRET_KEY": self.seed_rgw_admin_secret_key,
-            "SEED_SUPERVISION_SECRET_KEY": self.seed_supervision_secret_key,
-            "SEED_CEPH_ADMIN_SECRET_KEY": self.seed_ceph_admin_secret_key,
-        }
-        for name, value in production_secrets.items():
-            if value is not None and is_weak_secret_value(value):
-                raise ValueError(f"{name} must be a strong non-default secret in production")
-
-    def _validate_production_scheduler_token(self) -> None:
-        if self.scheduled_jobs_enabled and is_weak_secret_value(self.internal_cron_token):
-            raise ValueError(
-                "INTERNAL_CRON_TOKEN must be a strong non-default secret when scheduled jobs are enabled in production"
-            )
-        if self.internal_cron_token is not None and is_weak_secret_value(self.internal_cron_token):
-            raise ValueError("INTERNAL_CRON_TOKEN must be a strong non-default secret in production")
-
-    def _validate_production_oidc(self, public_origins: list[ParseResult]) -> None:
-        allowed_redirect_origins = {
-            f"{origin.scheme}://{origin.netloc}".rstrip("/")
-            for origin in public_origins
-        }
-        for provider_id, provider in self.oidc_providers.items():
-            if not provider.enabled:
-                continue
-            if not provider.use_pkce or not provider.use_nonce:
-                raise ValueError(f"OIDC provider {provider_id} must require PKCE and nonce")
-            if urlparse(provider.discovery_url).scheme != "https":
-                raise ValueError(f"OIDC provider {provider_id} discovery URL must use HTTPS")
-            redirect = urlparse(provider.redirect_uri)
-            redirect_origin = f"{redirect.scheme}://{redirect.netloc}".rstrip("/")
-            if redirect.scheme != "https" or redirect_origin not in allowed_redirect_origins:
-                raise ValueError(f"OIDC provider {provider_id} redirect must use a configured PUBLIC_ORIGIN")
-
-    def _validate_production_ldap(self) -> None:
-        for provider_id, provider in self.ldap_providers.items():
-            if not provider.enabled:
-                continue
-            ldap_scheme = urlparse(provider.url).scheme
-            encrypted_transport = ldap_scheme == "ldaps" or (ldap_scheme == "ldap" and provider.start_tls)
-            if (
-                not encrypted_transport
-                or provider.allow_insecure
-                or not provider.tls_verify
-                or provider.allow_legacy_tls
-            ):
-                raise ValueError(f"LDAP provider {provider_id} violates the production TLS policy")
-
-    def production_security_validation_errors(self) -> dict[str, str]:
-        """Return production-policy failures without requiring APP_ENV=production."""
-        errors: dict[str, str] = {}
-        public_origins: list[ParseResult] | None = None
-
-        try:
-            public_origins = self._validate_production_origins()
-        except ValueError as exc:
-            errors["trusted-origins"] = str(exc)
-
-        independent_checks = (
-            ("authentication-boundary", self._validate_production_authentication_boundary),
-            ("keyrings", self._validate_production_keyrings),
-            ("seed-security", self._validate_production_seed_configuration),
-            ("cron-token", self._validate_production_scheduler_token),
-            ("ldap-security", self._validate_production_ldap),
-        )
-        for code, validator in independent_checks:
-            try:
-                validator()
-            except ValueError as exc:
-                errors[code] = str(exc)
-
-        if public_origins is None:
-            errors["network-boundary"] = (
-                "Trusted public origins must be valid before the CORS, host, and proxy boundary can be fully validated."
-            )
-            if any(provider.enabled for provider in self.oidc_providers.values()):
-                errors["oidc-security"] = (
-                    "Trusted public origins must be valid before OIDC redirect origins can be fully validated."
-                )
-        else:
-            try:
-                self._validate_production_network_boundary(public_origins)
-            except ValueError as exc:
-                errors["network-boundary"] = str(exc)
-            try:
-                self._validate_production_oidc(public_origins)
-            except ValueError as exc:
-                errors["oidc-security"] = str(exc)
-
-        return errors
-
-    def _validate_production_security(self) -> None:
-        public_origins = self._validate_production_origins()
-        self._validate_production_authentication_boundary()
-        self._validate_production_network_boundary(public_origins)
-        self._validate_production_keyrings()
-        self._validate_production_seed_configuration()
-        self._validate_production_scheduler_token()
-        self._validate_production_oidc(public_origins)
-        self._validate_production_ldap()
-
-
 def is_weak_secret_value(value: Optional[str]) -> bool:
     if value is None:
         return True
@@ -851,54 +658,6 @@ def is_weak_secret_value(value: Optional[str]) -> bool:
     return len(normalized) < MIN_SECRET_LENGTH
 
 
-def collect_secret_warnings(settings: Settings) -> list[str]:
-    warnings: list[str] = []
-    weak_jwt = [key for key in settings.jwt_keys if is_weak_secret_value(key)]
-    if weak_jwt:
-        warnings.append(
-            "Weak/default JWT key detected (JWT_KEYS). "
-            "Use high-entropy values with at least 32 characters."
-        )
-    weak_credential = [key for key in settings.credential_keys if is_weak_secret_value(key)]
-    if weak_credential:
-        warnings.append(
-            "Weak/default credential encryption key detected (CREDENTIAL_KEYS). "
-            "Use high-entropy values with at least 32 characters."
-        )
-    ldap_providers = getattr(settings, "ldap_providers", {}) or {}
-    insecure_ldap = [
-        key
-        for key, provider in ldap_providers.items()
-        if getattr(provider, "enabled", False) and getattr(provider, "allow_insecure", False)
-    ]
-    if insecure_ldap:
-        warnings.append(
-            "LDAP provider(s) allow insecure ldap:// bind without START_TLS: "
-            f"{', '.join(sorted(insecure_ldap))}. Use LDAPS or START_TLS in production."
-        )
-    tls_unverified_ldap = [
-        key
-        for key, provider in ldap_providers.items()
-        if getattr(provider, "enabled", False) and not getattr(provider, "tls_verify", True)
-    ]
-    if tls_unverified_ldap:
-        warnings.append(
-            "LDAP provider(s) disable TLS certificate verification: "
-            f"{', '.join(sorted(tls_unverified_ldap))}. This should be limited to isolated labs."
-        )
-    legacy_tls_ldap = [
-        key
-        for key, provider in ldap_providers.items()
-        if getattr(provider, "enabled", False) and getattr(provider, "allow_legacy_tls", False)
-    ]
-    if legacy_tls_ldap:
-        warnings.append(
-            "LDAP provider(s) allow legacy TLS cipher compatibility: "
-            f"{', '.join(sorted(legacy_tls_ldap))}. Prefer modern ECDHE cipher suites on the LDAP server."
-        )
-    return warnings
-
-
 def _deduplicate_origins(origins: list[str]) -> list[str]:
     normalized: list[str] = []
     for raw_origin in origins:
@@ -906,20 +665,6 @@ def _deduplicate_origins(origins: list[str]) -> list[str]:
         if origin and origin not in normalized:
             normalized.append(origin)
     return normalized
-
-
-def _parse_production_origin(origin: str, setting_name: str) -> ParseResult:
-    parsed = urlparse(origin)
-    if (
-        parsed.scheme != "https"
-        or not parsed.hostname
-        or parsed.path not in {"", "/"}
-        or parsed.params
-        or parsed.query
-        or parsed.fragment
-    ):
-        raise ValueError(f"{setting_name} must contain HTTPS origins without paths in production")
-    return parsed
 
 
 def is_local_origin(origin: str) -> bool:
@@ -933,14 +678,6 @@ def is_local_origin(origin: str) -> bool:
     if not host:
         return False
     return host in {"localhost", "127.0.0.1", "::1"}
-
-
-def has_non_local_cors_origins(origins: list[str]) -> bool:
-    return any(not is_local_origin(origin) for origin in (origins or []))
-
-
-def has_wildcard_cors_origin(origins: list[str]) -> bool:
-    return any(str(origin or "").strip() == "*" for origin in (origins or []))
 
 
 @lru_cache

@@ -10,7 +10,7 @@ type InlineSummaryProps = {
 /** Small operational summary, without individual cards or repeated context controls. */
 export default function InlineSummary({ label, items }: InlineSummaryProps) {
   return (
-    <div className="space-y-1 text-xs leading-5">
+    <div className="space-y-1 ui-caption leading-5">
       {label ? <p className={uiMutedTextClass}>{label}</p> : null}
       <dl className="flex flex-wrap gap-x-6 gap-y-2">
         {items.map((item) => (

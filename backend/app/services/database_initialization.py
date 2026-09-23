@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from pathlib import Path
-from urllib.parse import urlparse
 
 from alembic import command
 from alembic.config import Config
@@ -14,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import is_postgresql_url, is_sqlite_url, sqlite_integrity_status
-from app.db import Base, LdapProvider, OidcProvider
+from app.db import Base
 from app.services.storage_endpoints_service import StorageEndpointsService
 
 
@@ -23,34 +22,6 @@ logger = logging.getLogger(__name__)
 _POSTGRES_STARTUP_LOCK_ID = 2_026_070_300_001
 _ALEMBIC_VERSION_TABLE = "alembic_version"
 _POSTGRES_ALEMBIC_VERSION_LENGTH = 255
-
-
-def _validate_persisted_auth_providers(db: Session) -> None:
-    if settings.app_env != "production":
-        return
-    public_origins = set(settings.effective_public_origins())
-    for provider in db.query(OidcProvider).filter(OidcProvider.enabled.is_(True)).all():
-        discovery = urlparse(provider.discovery_url)
-        redirect = urlparse(provider.redirect_uri)
-        redirect_origin = f"{redirect.scheme}://{redirect.netloc}".rstrip("/")
-        if discovery.scheme != "https" or not discovery.hostname:
-            raise RuntimeError(f"OIDC provider {provider.provider_id} must use HTTPS discovery in production")
-        if redirect.scheme != "https" or redirect_origin not in public_origins:
-            raise RuntimeError(
-                f"OIDC provider {provider.provider_id} redirect must use a configured PUBLIC_ORIGIN in production"
-            )
-        if not provider.use_pkce or not provider.use_nonce:
-            raise RuntimeError(f"OIDC provider {provider.provider_id} must require PKCE and nonce in production")
-    for provider in db.query(LdapProvider).filter(LdapProvider.enabled.is_(True)).all():
-        scheme = urlparse(provider.url).scheme
-        encrypted_transport = scheme == "ldaps" or (scheme == "ldap" and provider.start_tls)
-        if (
-            not encrypted_transport
-            or provider.allow_insecure
-            or not provider.tls_verify
-            or provider.allow_legacy_tls
-        ):
-            raise RuntimeError(f"LDAP provider {provider.provider_id} violates the production TLS policy")
 
 
 def _alembic_config() -> Config:
@@ -191,7 +162,6 @@ def _init_db_locked(engine, session_factory) -> None:
         expired_sessions = AuthSessionService(db).cleanup_expired()
         if expired_sessions:
             logger.info("Revoked %s expired authentication session row(s) during startup", expired_sessions)
-        _validate_persisted_auth_providers(db)
         # Ensure env-managed endpoints or default endpoint are registered
         storage_service = StorageEndpointsService(db)
         storage_service.sync_env_endpoints()

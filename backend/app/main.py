@@ -12,8 +12,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from botocore.exceptions import ClientError
 from sqlalchemy.exc import DatabaseError
 
-from app.core.config import collect_secret_warnings, get_settings, has_non_local_cors_origins, has_wildcard_cors_origin
-from app.core.database import SessionLocal, engine, is_sqlite_malformed_database_error, is_sqlite_url
+from app.core.config import get_settings
+from app.core.database import SessionLocal, engine, is_sqlite_malformed_database_error
 from app.core.logging_security import configure_secure_logging
 from app.core.runtime_surfaces import runtime_surface_enabled
 from app.services.database_initialization import init_db
@@ -83,6 +83,8 @@ from app.routers.manager import integrity as manager_integrity
 from app.routers.manager import purge as manager_purge
 from app.routers.manager import usage_stats as manager_usage_stats
 from app.services.bucket_migration.worker import get_bucket_migration_worker
+from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.deployment_checks import DeploymentCheckFinding, run_deployment_checks, startup_blocking_findings
 from app.routers.dependencies import (
     require_browser_enabled,
     require_ceph_admin_enabled,
@@ -101,36 +103,57 @@ for noisy_logger in ("boto3", "botocore", "s3transfer", "urllib3"):
 logger = logging.getLogger(__name__)
 
 
-def _startup_security_warnings() -> list[str]:
-    warnings = collect_secret_warnings(settings)
-    if not settings.refresh_token_cookie_secure and has_non_local_cors_origins(settings.cors_origins):
-        warnings.append(
-            "REFRESH_TOKEN_COOKIE_SECURE=false while non-local CORS origins are configured. "
-            "Production deployments should enable secure refresh cookies."
+def _raise_for_startup_blockers(findings: list[DeploymentCheckFinding]) -> None:
+    blockers = startup_blocking_findings(findings)
+    if blockers:
+        codes = ", ".join(finding.code for finding in blockers)
+        raise RuntimeError(
+            "Startup blocked by deployment security checks: "
+            f"{codes}. See https://docs.bucketreef.ksperis.com/ops/production-checks-reference/."
         )
-    if has_wildcard_cors_origin(settings.cors_origins):
-        warnings.append(
-            "CORS_ORIGINS includes '*'. Authenticated deployments should use explicit trusted origins only."
+
+
+def _run_pre_database_startup_checks() -> None:
+    findings = run_deployment_checks(
+        settings,
+        app_settings=None,
+        include_manual=False,
+        phase="pre-database",
+    )
+    _raise_for_startup_blockers(findings)
+
+
+def _run_startup_deployment_checks() -> None:
+    with SessionLocal() as db:
+        try:
+            app_settings = load_app_settings_for_db_readonly(db)
+        except Exception:
+            app_settings = None
+        findings = run_deployment_checks(
+            settings,
+            app_settings=app_settings,
+            db=db,
+            include_manual=False,
         )
-    if is_sqlite_url(settings.database_url) and settings.bucket_migration_worker_enabled:
-        warnings.append(
-            "SQLite is configured while the bucket migration worker is enabled. "
-            "Prefer PostgreSQL for long-running migrations; if you stay on SQLite, "
-            "back up the .db, -wal and -shm files regularly."
-        )
-    if is_sqlite_url(settings.database_url) and int(settings.backend_replicas or 1) > 1:
-        warnings.append(
-            "SQLite is configured with BACKEND_REPLICAS greater than 1. "
-            "Multi-backend deployments require PostgreSQL; SQLite is only supported for mono-backend deployments."
-        )
-    return warnings
+
+    _raise_for_startup_blockers(findings)
+
+    for finding in findings:
+        if finding.result != "fail":
+            continue
+        message = "%s [%s]: %s (%s)"
+        args = (finding.label, finding.code, finding.message, finding.documentation_url)
+        if finding.severity in {"blocker", "critical"}:
+            logger.error(message, *args)
+        else:
+            logger.warning(message, *args)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    _run_pre_database_startup_checks()
     init_db(engine, SessionLocal)
-    for warning_message in _startup_security_warnings():
-        logger.warning(warning_message)
+    _run_startup_deployment_checks()
     worker = None
     if settings.bucket_migration_worker_enabled:
         worker = get_bucket_migration_worker(SessionLocal)
