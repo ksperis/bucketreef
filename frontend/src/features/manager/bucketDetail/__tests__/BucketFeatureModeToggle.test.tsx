@@ -10,7 +10,7 @@ describe("BucketFeatureModeToggle", () => {
     { value: "json", label: "JSON" },
   ] as const;
 
-  it("uses shared buttons and calls back with the selected mode", async () => {
+  it("uses the shared segmented control and calls back with the selected mode", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
 
@@ -25,8 +25,9 @@ describe("BucketFeatureModeToggle", () => {
     const visualButton = screen.getByRole("button", { name: "Visual" });
     const jsonButton = screen.getByRole("button", { name: "JSON" });
 
-    expect(visualButton).toHaveClass("ui-button-base", "ui-button-primary");
-    expect(jsonButton).toHaveClass("ui-button-base", "ui-button-secondary");
+    expect(screen.getByRole("group", { name: "Editor mode" })).toHaveClass("ui-surface-muted");
+    expect(visualButton).toHaveAttribute("aria-pressed", "true");
+    expect(jsonButton).toHaveAttribute("aria-pressed", "false");
 
     await user.click(jsonButton);
 
@@ -47,8 +48,6 @@ describe("BucketFeatureModeToggle", () => {
 
     expect(screen.getByRole("button", { name: "Visual" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "JSON" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "JSON" })).toHaveClass(
-      "ui-button-primary",
-    );
+    expect(screen.getByRole("button", { name: "JSON" })).toHaveAttribute("aria-pressed", "true");
   });
 });

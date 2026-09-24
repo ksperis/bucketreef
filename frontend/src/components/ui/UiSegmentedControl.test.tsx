@@ -64,4 +64,16 @@ describe("UiSegmentedControl", () => {
 
     expect(screen.getByRole("button", { name: "7d" })).toHaveAttribute("title", "Last 7 days");
   });
+
+  it("supports a distinct accessible label for symbolic options", () => {
+    render(
+      <UiSegmentedControl
+        options={[{ label: <span aria-hidden="true">~</span>, ariaLabel: "Contains", value: "contains" }]}
+        value="contains"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Contains" })).toHaveTextContent("~");
+  });
 });
