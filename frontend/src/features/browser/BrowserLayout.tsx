@@ -12,6 +12,7 @@ import type { SidebarBodyRenderArgs, SidebarLink } from "../../components/Sideba
 import TopbarContextAccountSelector, {
   type ContextAccessMode,
 } from "../../components/TopbarContextAccountSelector";
+import TopbarStaticAccountControl from "../../components/TopbarStaticAccountControl";
 import { BrowserContextProvider, useBrowserContext } from "./BrowserContext";
 import { fetchManagerContext } from "../../api/managerContext";
 import { formatAccountLabel } from "../shared/storageEndpointLabel";
@@ -19,7 +20,6 @@ import type { TopbarControlDescriptor } from "../../components/topbarControlsLay
 import {
   TOPBAR_CONTEXT_SELECTOR_ESTIMATED_LABEL_WIDTH,
   TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS,
-  TOPBAR_CONTEXT_SELECTOR_VALUE_WIDTH_CLASS,
   TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS,
 } from "../../components/topbarControlWidths";
 
@@ -120,36 +120,6 @@ function BrowserShell() {
     [setSidebarBody],
   );
 
-  const renderStaticAccountPill = (mode: "icon" | "icon_label") => {
-    if (mode === "icon") {
-      return (
-        <button
-          type="button"
-          aria-label={`Account context ${selectedLabel}`}
-          title={identityLabel ?? selectedLabel}
-          className="shell-control inline-flex h-9 w-9 items-center justify-center rounded-lg border"
-        >
-          <AccountControlIcon className="h-4 w-4" />
-        </button>
-      );
-    }
-    return (
-      <div
-        className={`shell-control inline-flex h-10 ${TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS} items-center gap-2.5 rounded-lg border px-3 text-left ${
-          selected ? "" : "shell-muted-text"
-        }`}
-        title={identityLabel ?? undefined}
-      >
-        <span className="min-w-0 flex-1 leading-tight">
-          <span className="shell-muted-text block truncate text-[10px] font-medium">
-            Account
-          </span>
-          <span className={`mt-0.5 block ${TOPBAR_CONTEXT_SELECTOR_VALUE_WIDTH_CLASS} truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]`}>{selectedLabel}</span>
-        </span>
-      </div>
-    );
-  };
-
   const topbarControlDescriptors: TopbarControlDescriptor[] = [
     {
       id: "account",
@@ -171,7 +141,13 @@ function BrowserShell() {
             triggerMode={mode}
           />
         ) : (
-          renderStaticAccountPill(mode)
+          <TopbarStaticAccountControl
+            mode={mode}
+            selectedLabel={selectedLabel}
+            title={identityLabel ?? undefined}
+            icon={<AccountControlIcon className="h-4 w-4" />}
+            muted={!selected}
+          />
         ),
     },
   ];
