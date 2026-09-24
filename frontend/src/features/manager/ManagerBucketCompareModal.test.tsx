@@ -499,7 +499,7 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     expect(createObjectUrlMock).toHaveBeenCalled();
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalled();
     expect(revokeObjectUrlMock).toHaveBeenCalledWith("blob:compare-download");
-    expect(await screen.findByText("Download started for source-only-1.")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Download started for source-only-1.");
   });
 
   it("shows truncated sections and remediates only displayed keys", async () => {
@@ -549,7 +549,20 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     await waitFor(() => {
       expect(clipboardWriteTextMock).toHaveBeenCalledWith("source-only-1\nsource-only-2");
     });
-    expect(await within(sourceOnlyDetails).findByText("Copied 2 keys to clipboard.")).toBeInTheDocument();
+    expect(await within(sourceOnlyDetails).findByRole("status")).toHaveTextContent("Copied 2 keys to clipboard.");
+  });
+
+  it("announces copy failures with the shared comparison feedback", async () => {
+    clipboardWriteTextMock.mockRejectedValueOnce(new Error("Clipboard denied"));
+    const user = await runInitialComparison();
+    await openSourceOnlyDetails(user);
+
+    const sourceOnlyDetails = closestDetails(await screen.findByText("Source only (2)"));
+    await user.click(within(sourceOnlyDetails).getByRole("button", { name: "Copy keys" }));
+
+    expect(await within(sourceOnlyDetails).findByRole("alert")).toHaveTextContent(
+      "Unable to copy keys to clipboard.",
+    );
   });
 
   it("copies each different object key once", async () => {

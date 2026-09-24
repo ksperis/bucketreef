@@ -8,6 +8,7 @@ import ListToolbar from "../../components/ListToolbar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiDetails from "../../components/ui/UiDetails";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiProgressBar from "../../components/ui/UiProgressBar";
 import UiSelect from "../../components/ui/UiSelect";
 import { ChevronDownIcon } from "../browser/browserIcons";
@@ -18,6 +19,28 @@ import {
   type BucketCompareRunPresentationItem,
 } from "./bucketCompareShared";
 import "./bucketOperationRun.css";
+
+export type BucketCompareFeedbackTone = "neutral" | "info" | "success" | "warning" | "danger";
+
+export function BucketCompareFeedback({
+  tone = "neutral",
+  children,
+  announce = false,
+}: {
+  tone?: BucketCompareFeedbackTone;
+  children: ReactNode;
+  announce?: boolean;
+}) {
+  return (
+    <UiInlineMessage
+      tone={tone === "danger" ? "error" : tone}
+      role={announce ? (tone === "danger" ? "alert" : "status") : undefined}
+      className="[overflow-wrap:anywhere]"
+    >
+      {children}
+    </UiInlineMessage>
+  );
+}
 
 export function BucketCompareResultFilters({
   search, status, differences, visible, total,
