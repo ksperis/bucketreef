@@ -166,11 +166,15 @@ History retention / SMTP knobs:
 
 ## Split admin and user instances
 
-The release bundle contains `docker-compose.admin.yml` and
-`docker-compose.user.yml`. Use two distinct Compose project names, different
-published ports/origins, the same PostgreSQL `DATABASE_URL`, and the same UI/API
-JWT and credential key rings. Each backend must trust both public origins so
-WebAuthn and OIDC can operate across the split deployment.
+See [Recommended production architecture](deployment-architecture.md) for the
+recommended ingress, runtime, PostgreSQL, and Ceph Admin security boundaries.
+
+The release bundle contains `docker-compose.admin.yml`,
+`docker-compose.admin-no-ceph-admin.yml`, and `docker-compose.user.yml`. Use two
+distinct Compose project names, different published ports/origins, the same
+PostgreSQL `DATABASE_URL`, and the same UI/API JWT and credential key rings.
+Each backend must trust both public origins so WebAuthn and OIDC can operate
+across the split deployment.
 
 The admin profile exposes Admin, Ceph Admin and Storage Ops and owns scheduled
 jobs. The user profile exposes Manager, Portal and Browser and disables the
@@ -200,10 +204,14 @@ docker compose --project-name bucketreef-user -f docker-compose.yml -f docker-co
 Do not use SQLite for this topology. The two projects must point at the same
 PostgreSQL database; only the admin project should start the scheduler.
 
-For an additional Ceph Admin-only security boundary, use
-`docker-compose.ceph-admin-high-security.yml`. It can either reuse the shared
-PostgreSQL/key rings or use a dedicated database and distinct key rings through
-a separate env file. See [Ceph Admin high-security deployment](ceph-admin-high-security.md).
+For a dedicated Ceph Admin security boundary, run the main Administration
+project with `docker-compose.admin-no-ceph-admin.yml` and run a separate project
+with `docker-compose.ceph-admin-high-security.yml`. The dedicated project can
+either reuse the shared PostgreSQL/key rings or use a dedicated database and
+distinct key rings through a separate env file. Do not use the normal
+`docker-compose.admin.yml` for the companion Administration project when the
+goal is to make the Ceph Admin ingress exclusive. See
+[Ceph Admin high-security deployment](ceph-admin-high-security.md).
 
 LDAP is configured on the backend with `LDAP_PROVIDERS__<key>__...`
 environment variables. Put bind passwords in your local `.env` or secret

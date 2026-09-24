@@ -1,0 +1,81 @@
+# Source for ../../assets/diagrams/deployment-architecture/recommended-topology.svg
+# Render from the repository root with:
+#   d2 doc/docs/ops/diagrams/deployment-architecture.d2 \
+#      doc/docs/assets/diagrams/deployment-architecture/recommended-topology.svg
+
+direction: down
+
+classes: {
+  actor: {
+    shape: rectangle
+    style.fill: "#f8fafc"
+    style.stroke: "#64748b"
+  }
+  ingress: {
+    shape: rectangle
+    style.fill: "#eff6ff"
+    style.stroke: "#2563eb"
+  }
+  runtime: {
+    shape: rectangle
+    style.fill: "#ecfdf5"
+    style.stroke: "#059669"
+  }
+  shared: {
+    shape: rectangle
+    style.fill: "#fff7ed"
+    style.stroke: "#ea580c"
+  }
+  external: {
+    shape: rectangle
+    style.fill: "#faf5ff"
+    style.stroke: "#9333ea"
+  }
+}
+
+admins: {
+  class: actor
+  label: "Administrators\nrestricted network"
+}
+
+users: {
+  class: actor
+  label: "Storage users\ncorporate/public access"
+}
+
+admin_ingress: {
+  class: ingress
+  label: "Restricted LB / Ingress\nadmin.bucketreef.example.com"
+}
+
+user_ingress: {
+  class: ingress
+  label: "User LB / Ingress\nbucketreef.example.com"
+}
+
+admin_pool: {
+  class: runtime
+  label: "Administration pool · HA\nprofile: admin\n/admin · /ceph-admin · /storage-ops"
+}
+
+user_pool: {
+  class: runtime
+  label: "User access pool · HA\nprofile: user\n/manager · /portal · /browser"
+}
+
+shared_state: {
+  class: shared
+  label: "Shared application state\nPostgreSQL + common JWT / credential key rings"
+}
+
+rgw: {
+  class: external
+  label: "Ceph RGW\nexternal dependency"
+}
+
+admins -> admin_ingress -> admin_pool
+users -> user_ingress -> user_pool
+admin_pool -> shared_state
+user_pool -> shared_state
+admin_pool -> rgw
+user_pool -> rgw

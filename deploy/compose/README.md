@@ -30,7 +30,9 @@ admin stack should enable the `operations` profile. See the deployment guide
 for the shared origin/WebAuthn requirements and hardening checker commands.
 
 `docker-compose.ceph-admin-high-security.yml` provides a third, Ceph Admin-only
-profile. Use a distinct project/env file when you want an isolated PostgreSQL
+profile. Pair it with `docker-compose.admin-no-ceph-admin.yml` on the main
+Administration project so Ceph Admin is exposed only through the dedicated
+project. Use a distinct project/env file when you want an isolated PostgreSQL
 database and independent JWT/credential key rings; reuse the main values when
 only the runtime/network surface should be isolated.
 

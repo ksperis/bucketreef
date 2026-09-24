@@ -137,7 +137,8 @@ Database corruption, migration failures, and unmanaged schemas remain technical 
 
 ### `scheduled-job-ownership`
 
-For split profiles, incorrect scheduler ownership is **Critical**. The `admin` profile owns scheduled jobs; `user` does not.
+For split profiles, incorrect scheduler ownership is **Critical**. The `admin`
+and `admin-no-ceph-admin` profiles own scheduled jobs; `user` does not.
 
 For `ceph-admin-high-security`, scheduled jobs violate the dedicated security boundary and are **Blocked**.
 
@@ -147,7 +148,8 @@ A full-profile instance with jobs disabled receives a **Warning** because anothe
 
 Checks: `surface-admin`, `surface-ceph-admin`, `surface-storage-ops`, `surface-manager`, `surface-portal`, `surface-browser`.
 
-A mismatch with the normal `admin`/`user` profile is **Critical**.
+A mismatch with the normal `admin`, `admin-no-ceph-admin`, or `user` profile is
+**Critical**.
 
 A mismatch involving the Ceph Admin high-security contract is **Blocked** and prevents startup because that profile exists specifically to enforce a reduced attack surface.
 

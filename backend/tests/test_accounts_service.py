@@ -352,12 +352,16 @@ class FakeRGWAdminImport:
     def __init__(self):
         self.calls: list[tuple[str, Optional[str]]] = []
 
+    def create_account(self, *args, **kwargs):
+        pytest.fail("pre-provisioned import must not create the RGW account")
+
     def get_account(
         self,
         account_id: str,
         allow_not_found: bool = False,
         allow_not_implemented: bool = False,
     ):
+        self.calls.append(("get_account", account_id))
         return {"id": account_id, "name": "LegacyS3Account", "user_list": []}
 
     def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
@@ -367,10 +371,10 @@ class FakeRGWAdminImport:
         return None
 
     def create_user_with_account_id(self, *args, **kwargs):
-        return {}
+        pytest.fail("pre-provisioned import must not create the RGW root user")
 
     def create_access_key(self, *args, **kwargs):
-        return {}
+        pytest.fail("pre-provisioned import must not create an RGW access key")
 
     def extract_keys(self, data):
         return data.get("keys", [])
@@ -390,7 +394,10 @@ def test_import_account_reuses_existing_root_user_keys(db_session, monkeypatch):
     assert db_account.rgw_access_key == "IMPORTED"
     assert db_account.rgw_secret_key == "SECRET"
     assert db_account.rgw_user_uid == "RGW12345678901234567-admin"
-    assert fake_admin.calls == [("get_user", "RGW12345678901234567")]
+    assert fake_admin.calls == [
+        ("get_account", "RGW12345678901234567"),
+        ("get_user", "RGW12345678901234567"),
+    ]
 
 
 class FakeRGWAdminImportCreatesRoot:

@@ -1,0 +1,53 @@
+# Source for ../../assets/diagrams/deployment-architecture/strict-account-import.svg
+# Render from the repository root with:
+#   d2 doc/docs/ops/diagrams/strict-account-import.d2 \
+#      doc/docs/assets/diagrams/deployment-architecture/strict-account-import.svg
+
+direction: down
+
+classes: {
+  step: {
+    shape: rectangle
+    style.fill: "#f8fafc"
+    style.stroke: "#64748b"
+  }
+  storage: {
+    shape: rectangle
+    style.fill: "#faf5ff"
+    style.stroke: "#9333ea"
+  }
+  bucketreef: {
+    shape: rectangle
+    style.fill: "#ecfdf5"
+    style.stroke: "#059669"
+  }
+  database: {
+    shape: rectangle
+    style.fill: "#fff7ed"
+    style.stroke: "#ea580c"
+  }
+}
+
+provisioner: {
+  class: step
+  label: "External provisioning tool\ncreates RGW account + <account-id>-admin + complete key"
+}
+
+rgw: {
+  class: storage
+  label: "Ceph RGW"
+}
+
+import_api: {
+  class: bucketreef
+  label: "BucketReef Admin API\nPOST /api/admin/accounts/import\nAdmin Ops: accounts=read; users=read"
+}
+
+postgres: {
+  class: database
+  label: "Shared PostgreSQL\naccount metadata + encrypted root secret"
+}
+
+provisioner -> rgw: "provision"
+rgw -> import_api: "read account + root credentials"
+import_api -> postgres: "persist"

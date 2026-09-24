@@ -49,9 +49,9 @@ compared explicitly.
 - Require WebAuthn for every admin and use the manual superadmin approval queue for OIDC/LDAP email collisions.
 - Restrict admin surface access by network/ingress policy.
 - For a separately exposed RGW control plane, use the
-  [Ceph Admin high-security deployment](ceph-admin-high-security.md) and choose
-  explicitly whether database and credential-key isolation are shared or
-  independent.
+  [Ceph Admin high-security deployment](ceph-admin-high-security.md), switch the
+  companion Administration runtime to `admin-no-ceph-admin`, and choose whether
+  database and credential-key isolation are shared or independent.
 - Use least privilege for UI users and storage credentials.
 
 ## Secret management
