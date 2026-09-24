@@ -28,6 +28,16 @@ function Draft({ onSubmit = vi.fn(), onClose = vi.fn(), busy = false, completed 
 }
 
 describe("SettingsFormDialog", () => {
+  it("keeps pristine fields editable while disabling submit until the draft changes", async () => {
+    const user = userEvent.setup();
+    render(<Draft />);
+
+    expect(screen.getByLabelText("Email")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    await user.type(screen.getByLabelText("Email"), "person@example.org");
+    expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+  });
+
   it.each(["Cancel", "Close", "Escape", "Backdrop"])("guards %s and restores the draft after Keep editing", async (action) => {
     const user = userEvent.setup();
     const onClose = vi.fn();

@@ -2,14 +2,6 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useBucketEncryptionController } from "../useBucketEncryptionController";
 
-const defaultEncryptionExample = `[
-  {
-    "ApplyServerSideEncryptionByDefault": {
-      "SSEAlgorithm": "AES256"
-    }
-  }
-]`;
-
 const apiMocks = vi.hoisted(() => ({
   deleteBucketEncryption: vi.fn(),
   deleteCephAdminBucketEncryption: vi.fn(),
@@ -57,86 +49,184 @@ describe("useBucketEncryptionController", () => {
     vi.clearAllMocks();
   });
 
-  it("loads, edits, and saves Manager encryption rules", async () => {
+  it("keeps Manager visual edits local until Save and persists the complete draft", async () => {
     apiMocks.getBucketEncryption.mockResolvedValue({
-      rules: JSON.parse(defaultEncryptionExample),
-    });
-    apiMocks.putBucketEncryption.mockResolvedValue({
       rules: [
         {
-          ApplyServerSideEncryptionByDefault: {
-            SSEAlgorithm: "aws:kms",
-          },
+          ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "AES256" },
         },
       ],
     });
+    const savedRules = [
+      {
+        ApplyServerSideEncryptionByDefault: {
+          SSEAlgorithm: "aws:kms",
+          KMSMasterKeyID: "key-1",
+        },
+        BucketKeyEnabled: true,
+      },
+    ];
+    apiMocks.putBucketEncryption.mockResolvedValue({ rules: savedRules });
     const { result } = renderEncryption();
 
     await act(async () => result.current.load());
-    expect(apiMocks.getBucketEncryption).toHaveBeenCalledWith(
-      "acc-1",
-      "reports",
-    );
-    expect(result.current.configured).toBe(true);
-    expect(result.current.dirty).toBe(false);
-
+    act(() => result.current.openEditor());
+    act(() => result.current.updateDraftRule(0, { algorithm: "aws:kms" }));
     act(() =>
-      result.current.setText(
-        '[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"aws:kms"}}]',
-      ),
+      result.current.updateDraftRule(0, {
+        kmsKeyId: "key-1",
+        bucketKeyState: "enabled",
+      }),
     );
+
     expect(result.current.dirty).toBe(true);
-    await act(async () => result.current.save());
+    expect(apiMocks.putBucketEncryption).not.toHaveBeenCalled();
+    expect(apiMocks.deleteBucketEncryption).not.toHaveBeenCalled();
+
+    act(() => result.current.updateEditorMode("json"));
+    expect(JSON.parse(result.current.jsonText)).toEqual(savedRules);
+    await act(async () => result.current.saveDraft());
 
     expect(apiMocks.putBucketEncryption).toHaveBeenCalledWith(
       "acc-1",
       "reports",
-      JSON.parse(result.current.text),
+      savedRules,
     );
-    expect(result.current.status).toBe("Bucket encryption updated.");
+    expect(result.current.rules).toEqual(savedRules);
+    expect(result.current.editorOpen).toBe(false);
     expect(result.current.dirty).toBe(false);
+    expect(result.current.status).toBe("Bucket encryption updated.");
   });
 
-  it("uses the Ceph Admin endpoint when disabling encryption", async () => {
+  it("preserves advanced rules through Visual and JSON without rewriting them", async () => {
+    const advancedRule = {
+      ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "aws:kms:dsse" },
+      CustomProviderField: { keep: true },
+    };
+    apiMocks.getBucketEncryption.mockResolvedValue({ rules: [advancedRule] });
+    const { result } = renderEncryption();
+
+    await act(async () => result.current.load());
+    act(() => result.current.openEditor());
+    act(() => result.current.updateDraftRule(0, { bucketKeyState: "enabled" }));
+    expect(result.current.draftRules).toEqual([advancedRule]);
+
+    act(() => result.current.updateEditorMode("json"));
+    expect(JSON.parse(result.current.jsonText)).toEqual([advancedRule]);
+    act(() => result.current.updateEditorMode("visual"));
+    expect(result.current.draftRules).toEqual([advancedRule]);
+    expect(apiMocks.putBucketEncryption).not.toHaveBeenCalled();
+  });
+
+  it("keeps invalid JSON in JSON mode and performs no API call", async () => {
+    apiMocks.getBucketEncryption.mockResolvedValue({ rules: [] });
+    const { result } = renderEncryption();
+
+    await act(async () => result.current.load());
+    act(() => result.current.openEditor());
+    act(() => result.current.updateEditorMode("json"));
+    act(() => result.current.updateJsonText("{}"));
+    act(() => result.current.updateEditorMode("visual"));
+
+    expect(result.current.editorMode).toBe("json");
+    expect(result.current.editorError).toBe("Encryption JSON must be an array of rules.");
+    await act(async () => result.current.saveDraft());
+    expect(apiMocks.putBucketEncryption).not.toHaveBeenCalled();
+    expect(apiMocks.deleteBucketEncryption).not.toHaveBeenCalled();
+    expect(result.current.editorOpen).toBe(true);
+  });
+
+  it("uses Ceph Admin PUT for a non-empty draft", async () => {
     apiMocks.getCephAdminBucketEncryption.mockResolvedValue({
-      rules: JSON.parse(defaultEncryptionExample),
+      rules: [
+        {
+          ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "AES256" },
+        },
+      ],
+    });
+    apiMocks.putCephAdminBucketEncryption.mockImplementation(
+      async (_endpointId: number, _bucketName: string, rules: unknown[]) => ({ rules }),
+    );
+    const { result } = renderEncryption({ cephAdmin: true, endpointId: 7 });
+
+    await act(async () => result.current.load());
+    act(() => result.current.openEditor());
+    act(() => result.current.updateDraftRule(0, { algorithm: "aws:kms" }));
+    await act(async () => result.current.saveDraft());
+
+    expect(apiMocks.putCephAdminBucketEncryption).toHaveBeenCalledWith(
+      7,
+      "reports",
+      [
+        {
+          ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "aws:kms" },
+        },
+      ],
+    );
+    expect(apiMocks.deleteCephAdminBucketEncryption).not.toHaveBeenCalled();
+  });
+
+  it("deletes through Ceph Admin only when an empty draft is saved", async () => {
+    apiMocks.getCephAdminBucketEncryption.mockResolvedValue({
+      rules: [
+        {
+          ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "AES256" },
+        },
+      ],
     });
     apiMocks.deleteCephAdminBucketEncryption.mockResolvedValue(undefined);
     const { result } = renderEncryption({ cephAdmin: true, endpointId: 7 });
 
     await act(async () => result.current.load());
-    await act(async () => result.current.remove());
+    act(() => result.current.openEditor());
+    act(() => result.current.removeDraftRule(0));
 
-    expect(apiMocks.deleteCephAdminBucketEncryption).toHaveBeenCalledWith(
-      7,
-      "reports",
-    );
+    expect(apiMocks.deleteCephAdminBucketEncryption).not.toHaveBeenCalled();
+    await act(async () => result.current.saveDraft());
+
+    expect(apiMocks.deleteCephAdminBucketEncryption).toHaveBeenCalledWith(7, "reports");
+    expect(apiMocks.putCephAdminBucketEncryption).not.toHaveBeenCalled();
     expect(result.current.configured).toBe(false);
+    expect(result.current.editorOpen).toBe(false);
     expect(result.current.status).toBe("Bucket encryption disabled.");
   });
 
-  it("rejects valid JSON that is not an array", async () => {
+  it("keeps the modal draft intact after a failed save so it can be retried", async () => {
+    apiMocks.getBucketEncryption.mockResolvedValue({
+      rules: [
+        {
+          ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "AES256" },
+        },
+      ],
+    });
+    apiMocks.putBucketEncryption.mockRejectedValue(new Error("provider failure"));
     const { result } = renderEncryption();
 
-    act(() => result.current.setText("{}"));
-    await act(async () => result.current.save());
+    await act(async () => result.current.load());
+    act(() => result.current.openEditor());
+    act(() => result.current.updateDraftRule(0, { algorithm: "aws:kms" }));
+    const draftBeforeSave = result.current.draftRules;
 
-    expect(result.current.error).toBe(
-      "Invalid or unsaved bucket encryption configuration (JSON array required).",
-    );
-    expect(apiMocks.putBucketEncryption).not.toHaveBeenCalled();
+    await act(async () => result.current.saveDraft());
+
+    expect(result.current.editorOpen).toBe(true);
+    expect(result.current.draftRules).toEqual(draftBeforeSave);
+    expect(result.current.rules[0]).toEqual({
+      ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "AES256" },
+    });
+    expect(result.current.editorError).toBeTruthy();
   });
 
   it("does not access encryption APIs when the feature is disabled", async () => {
     const { result } = renderEncryption({ enabled: false });
 
     await act(async () => result.current.load());
-    await act(async () => result.current.save());
-    await act(async () => result.current.remove());
+    act(() => result.current.openEditor());
 
     expect(apiMocks.getBucketEncryption).not.toHaveBeenCalled();
     expect(apiMocks.putBucketEncryption).not.toHaveBeenCalled();
     expect(apiMocks.deleteBucketEncryption).not.toHaveBeenCalled();
-    expect(result.current.text).toBe("[]");
+    expect(result.current.editorOpen).toBe(false);
+    expect(result.current.rules).toEqual([]);
   });
 });

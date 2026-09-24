@@ -18,6 +18,7 @@ type BucketFeatureSectionProps = {
   presentation?: BucketFeaturePresentation;
   successMessage?: ReactNode;
   busy?: boolean;
+  showConfiguredBadge?: boolean;
   actions?: ReactNode;
   children: ReactNode;
   testId?: string;
@@ -31,6 +32,7 @@ export default function BucketFeatureSection({
   presentation = "simple",
   successMessage,
   busy = false,
+  showConfiguredBadge = true,
   actions,
   children,
   testId,
@@ -59,7 +61,7 @@ export default function BucketFeatureSection({
         >
           <div role="status" className="shrink-0">
             {visualState === "unsaved" && <UiBadge tone="warning">Unsaved changes</UiBadge>}
-            {visualState === "configured" && <UiBadge tone="primary">Configured</UiBadge>}
+            {visualState === "configured" && showConfiguredBadge && <UiBadge tone="primary">Configured</UiBadge>}
             {visualState === "disabled" && <UiBadge tone="neutral">Unavailable</UiBadge>}
           </div>
           {actions && (

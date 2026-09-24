@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { S3AccountSelector } from "../../../api/accountParams";
 import {
   deleteBucketLifecycle,
@@ -15,27 +15,16 @@ import {
   putCephAdminBucketLifecycle,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
-import {
-  lifecycleRuleId,
-  lifecycleRuleStatus,
-  type LifecycleRuleRecord,
-} from "../bucketLifecycle";
+import type { LifecycleRuleRecord } from "../bucketLifecycle";
 import { jsonTextSignature, stableBucketJsonSignature } from "./bucketFeatureState";
-
-type LifecycleMode = "simple" | "json";
-
-type TransitionDraft = {
-  currentDays: string;
-  noncurrentDays: string;
-  prefix: string;
-  storageClass: string;
-};
-
-type ExpirationDraft = {
-  currentDays: string;
-  noncurrentDays: string;
-  prefix: string;
-};
+import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
+import {
+  createVisualLifecycleRule,
+  parseLifecycleRulesJson,
+  validateLifecycleVisualRules,
+  updateLifecycleVisualRule,
+  type LifecycleVisualRulePatch,
+} from "./lifecycleEditorModel";
 
 type UseBucketLifecycleControllerOptions = {
   accountId: S3AccountSelector;
@@ -44,9 +33,6 @@ type UseBucketLifecycleControllerOptions = {
   enabled: boolean;
   endpointId?: number | null;
 };
-
-const existingRulesWarning =
-  "Rules already exist. Use JSON mode to edit them. The form below only adds a new rule.";
 
 function createRuleId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -67,6 +53,14 @@ function normalizeRules(value: unknown): LifecycleRuleRecord[] {
   );
 }
 
+function cloneRules(rules: LifecycleRuleRecord[]): LifecycleRuleRecord[] {
+  return JSON.parse(JSON.stringify(rules)) as LifecycleRuleRecord[];
+}
+
+function rulesText(rules: LifecycleRuleRecord[]): string {
+  return JSON.stringify(rules, null, 2);
+}
+
 export function useBucketLifecycleController({
   accountId,
   bucketName,
@@ -75,264 +69,232 @@ export function useBucketLifecycleController({
   endpointId,
 }: UseBucketLifecycleControllerOptions) {
   const [rules, setRules] = useState<LifecycleRuleRecord[]>([]);
-  const [text, setText] = useState("[]");
-  const [error, setError] = useState<string | null>(null);
+  const [draftRules, setDraftRules] = useState<LifecycleRuleRecord[]>([]);
+  const [jsonText, setJsonText] = useState("[]");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
+  const [lastRemovedRule, setLastRemovedRule] = useState<{
+    index: number;
+    rule: LifecycleRuleRecord;
+  } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [mode, setMode] = useState<LifecycleMode>("json");
-  const [warning, setWarning] = useState<string | null>(null);
-  const [editorVisible, setEditorVisible] = useState(false);
-  const [transitionDraft, setTransitionDraft] = useState<TransitionDraft>({
-    currentDays: "30",
-    noncurrentDays: "60",
-    prefix: "",
-    storageClass: "GLACIER",
-  });
-  const [expirationDraft, setExpirationDraft] = useState<ExpirationDraft>({
-    currentDays: "",
-    noncurrentDays: "90",
-    prefix: "",
-  });
 
-  const applyRules = useCallback((next: unknown) => {
-    const normalized = normalizeRules(next);
-    setRules(normalized);
-    setText(normalized.length > 0 ? JSON.stringify(normalized, null, 2) : "[]");
-    setWarning(normalized.length > 0 ? existingRulesWarning : null);
+  const applyBaseline = useCallback((next: unknown) => {
+    setRules(normalizeRules(next));
   }, []);
-
-  const clearFeedback = () => {
-    setError(null);
-    setStatus(null);
-  };
 
   const load = useCallback(async () => {
     if (!bucketName || !enabled) {
-      applyRules([]);
-      clearFeedback();
+      applyBaseline([]);
+      setLoadError(null);
+      setStatus(null);
       return;
     }
     setLoading(true);
-    clearFeedback();
+    setLoadError(null);
+    setStatus(null);
     try {
       let data;
       if (cephAdmin) {
         if (!endpointId) {
-          applyRules([]);
+          applyBaseline([]);
           return;
         }
         data = await getCephAdminBucketLifecycle(endpointId, bucketName);
       } else {
         data = await getBucketLifecycle(accountId, bucketName);
       }
-      applyRules(data.rules);
+      applyBaseline(data.rules);
     } catch (loadFailure) {
-      applyRules([]);
-      setError(extractApiError(loadFailure, "Unable to load lifecycle rules."));
+      applyBaseline([]);
+      setLoadError(extractApiError(loadFailure, "Unable to load lifecycle rules."));
     } finally {
       setLoading(false);
     }
-  }, [accountId, applyRules, bucketName, cephAdmin, enabled, endpointId]);
+  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
-  const persist = async (nextRules: LifecycleRuleRecord[]) => {
-    if (!bucketName || !enabled || saving) return false;
+  const openEditor = useCallback(() => {
+    const nextDraft = cloneRules(rules);
+    setDraftRules(nextDraft);
+    setJsonText(rulesText(nextDraft));
+    setEditorMode("visual");
+    setLastRemovedRule(null);
+    setEditorError(null);
+    setStatus(null);
+    setEditorOpen(true);
+  }, [rules]);
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setEditorError(null);
+    setLastRemovedRule(null);
+  }, []);
+
+  const updateJsonText = useCallback((value: string) => {
+    setJsonText(value);
+    setEditorError(null);
+    setLastRemovedRule(null);
+  }, []);
+
+  const updateEditorMode = useCallback(
+    (nextMode: BucketFeatureEditorMode) => {
+      if (nextMode === editorMode) return;
+      setEditorError(null);
+      if (nextMode === "json") {
+        setJsonText(rulesText(draftRules));
+        setEditorMode("json");
+        return;
+      }
+      const parsed = parseLifecycleRulesJson(jsonText);
+      if (!parsed.rules) {
+        setEditorError(parsed.error);
+        return;
+      }
+      setDraftRules(parsed.rules);
+      setLastRemovedRule(null);
+      setEditorMode("visual");
+    },
+    [draftRules, editorMode, jsonText],
+  );
+
+  const addDraftRule = useCallback(() => {
+    setDraftRules((current) => [...current, createVisualLifecycleRule(createRuleId())]);
+    setEditorError(null);
+  }, []);
+
+  const removeDraftRule = useCallback((index: number) => {
+    const removedRule = draftRules[index];
+    if (!removedRule) return;
+    setLastRemovedRule({ index, rule: cloneRules([removedRule])[0] });
+    setDraftRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
+    setEditorError(null);
+  }, [draftRules]);
+
+  const restoreLastRemovedRule = useCallback(() => {
+    if (!lastRemovedRule) return;
+    setDraftRules((current) => {
+      const restored = [...current];
+      restored.splice(Math.min(lastRemovedRule.index, restored.length), 0, lastRemovedRule.rule);
+      return restored;
+    });
+    setLastRemovedRule(null);
+    setEditorError(null);
+  }, [lastRemovedRule]);
+
+  const updateDraftRule = useCallback((index: number, patch: LifecycleVisualRulePatch) => {
+    setDraftRules((current) =>
+      current.map((rule, ruleIndex) =>
+        ruleIndex === index ? updateLifecycleVisualRule(rule, patch) : rule,
+      ),
+    );
+    setEditorError(null);
+  }, []);
+
+  const saveDraft = useCallback(async () => {
+    if (!bucketName || !enabled || saving) return;
+    let nextRules = draftRules;
+    if (editorMode === "json") {
+      const parsed = parseLifecycleRulesJson(jsonText);
+      if (!parsed.rules) {
+        setEditorError(parsed.error);
+        return;
+      }
+      nextRules = parsed.rules;
+      setDraftRules(parsed.rules);
+    }
+
+    const validationError = validateLifecycleVisualRules(nextRules);
+    if (validationError) {
+      setEditorError(validationError);
+      return;
+    }
+
     setSaving(true);
-    clearFeedback();
+    setEditorError(null);
+    setStatus(null);
     try {
       if (nextRules.length === 0) {
         if (cephAdmin) {
-          if (!endpointId) return false;
+          if (!endpointId) return;
           await deleteCephAdminBucketLifecycle(endpointId, bucketName);
         } else {
           await deleteBucketLifecycle(accountId, bucketName);
         }
-        applyRules([]);
+        applyBaseline([]);
         setStatus("Lifecycle deleted");
-        return true;
-      }
-
-      let saved;
-      if (cephAdmin) {
-        if (!endpointId) return false;
-        saved = await putCephAdminBucketLifecycle(
-          endpointId,
-          bucketName,
-          nextRules,
-        );
       } else {
-        saved = await putBucketLifecycle(accountId, bucketName, nextRules);
+        let saved;
+        if (cephAdmin) {
+          if (!endpointId) return;
+          saved = await putCephAdminBucketLifecycle(endpointId, bucketName, nextRules);
+        } else {
+          saved = await putBucketLifecycle(accountId, bucketName, nextRules);
+        }
+        const savedRules = normalizeRules(saved.rules ?? nextRules);
+        applyBaseline(savedRules);
+        setDraftRules(cloneRules(savedRules));
+        setJsonText(rulesText(savedRules));
+        setStatus("Lifecycle updated");
       }
-      applyRules(saved.rules ?? nextRules);
-      setStatus("Lifecycle updated");
-      return true;
+      setLastRemovedRule(null);
+      setEditorOpen(false);
     } catch (saveFailure) {
-      setError(extractApiError(saveFailure, "Invalid or unsaved lifecycle."));
-      return false;
+      setEditorError(extractApiError(saveFailure, "Invalid or unsaved lifecycle."));
     } finally {
       setSaving(false);
     }
-  };
+  }, [
+    accountId,
+    applyBaseline,
+    bucketName,
+    cephAdmin,
+    draftRules,
+    editorMode,
+    enabled,
+    endpointId,
+    jsonText,
+    saving,
+  ]);
 
-  const save = async () => {
-    if (mode !== "json") return;
-    let parsed: unknown;
-    try {
-      parsed = text.trim() ? JSON.parse(text) : [];
-    } catch {
-      setError("Lifecycle rules JSON is invalid.");
-      return;
-    }
-    if (!Array.isArray(parsed)) {
-      setError("JSON must be an array of rules.");
-      return;
-    }
-    if (
-      parsed.some(
-        (rule) =>
-          rule === null || typeof rule !== "object" || Array.isArray(rule),
-      )
-    ) {
-      setError("Each lifecycle rule must be a JSON object.");
-      return;
-    }
-    await persist(parsed as LifecycleRuleRecord[]);
-  };
-
-  const updateRules = async (
-    updater: (current: LifecycleRuleRecord[]) => LifecycleRuleRecord[],
-  ) => {
-    await persist(updater(rules));
-  };
-
-  const deleteRule = async (index: number) => {
-    await updateRules((current) => current.filter((_, item) => item !== index));
-  };
-
-  const toggleRuleStatus = async (index: number) => {
-    await updateRules((current) =>
-      current.map((rule, item) =>
-        item === index
-          ? {
-              ...rule,
-              Status:
-                lifecycleRuleStatus(rule) === "Enabled"
-                  ? "Disabled"
-                  : "Enabled",
-            }
-          : rule,
-      ),
-    );
-  };
-
-  const addRule = async (rule: LifecycleRuleRecord) => {
-    const nextRule = {
-      ...rule,
-      ID: lifecycleRuleId(rule) ?? createRuleId(),
-    };
-    const nextRules = [...rules, nextRule];
-    setMode("json");
-    setText(JSON.stringify(nextRules, null, 2));
-    if (await persist(nextRules)) {
-      setEditorVisible(true);
-    }
-  };
-
-  const addCleanupExample = async () => {
-    await addRule({
-      Status: "Enabled",
-      Filter: { Prefix: "" },
-      NoncurrentVersionExpiration: { NoncurrentDays: 90 },
-      AbortIncompleteMultipartUpload: { DaysAfterInitiation: 30 },
-      Expiration: { ExpiredObjectDeleteMarker: true },
-    });
-  };
-
-  const addTransitionExample = async () => {
-    await addRule({
-      Status: "Enabled",
-      Filter: { Prefix: transitionDraft.prefix },
-      Transitions: [
-        {
-          Days: Number(transitionDraft.currentDays) || 0,
-          StorageClass: transitionDraft.storageClass || "GLACIER",
-        },
-      ],
-      NoncurrentVersionTransitions: [
-        {
-          NoncurrentDays: Number(transitionDraft.noncurrentDays) || 0,
-          StorageClass: transitionDraft.storageClass || "GLACIER",
-        },
-      ],
-    });
-  };
-
-  const addExpirationExample = async () => {
-    const currentDays = expirationDraft.currentDays.trim();
-    const noncurrentDays = expirationDraft.noncurrentDays.trim();
-    if (!currentDays && !noncurrentDays) {
-      setError("Provide current or noncurrent expiration days.");
-      return;
-    }
-    const rule: LifecycleRuleRecord = {
-      Status: "Enabled",
-      Filter: { Prefix: expirationDraft.prefix },
-    };
-    if (currentDays) {
-      rule.Expiration = { Days: Number(currentDays) };
-    }
-    if (noncurrentDays) {
-      rule.NoncurrentVersionExpiration = {
-        NoncurrentDays: Number(noncurrentDays),
-      };
-    }
-    await addRule(rule);
-  };
-
-  const updateMode = (value: LifecycleMode) => {
-    setMode(value);
-    clearFeedback();
-  };
-
-  const updateText = (value: string) => {
-    setText(value);
-    clearFeedback();
-  };
+  const baselineSignature = stableBucketJsonSignature(rules);
+  const draftSignature = useMemo(
+    () =>
+      editorMode === "json"
+        ? jsonTextSignature(jsonText, draftRules).signature
+        : stableBucketJsonSignature(draftRules),
+    [draftRules, editorMode, jsonText],
+  );
+  const dirty = editorOpen && draftSignature !== baselineSignature;
 
   return {
-    addCleanupExample,
-    addExpirationExample,
-    addTransitionExample,
-    deleteRule,
-    dirty:
-      mode === "json" &&
-      jsonTextSignature(text, rules).signature !== stableBucketJsonSignature(rules),
-    editorVisible,
-    error,
-    expirationDraft,
+    addDraftRule,
+    closeEditor,
+    dirty,
+    draftRules,
+    draftSignature,
+    editorError,
+    editorMode,
+    editorOpen,
+    error: loadError,
     hasRules: rules.length > 0,
+    jsonText,
+    lastRemovedRule,
     load,
     loading,
-    mode,
+    openEditor,
+    removeDraftRule,
+    restoreLastRemovedRule,
     ruleCount: rules.length,
     rules,
-    save,
+    saveDraft,
     saving,
     status,
-    text,
-    toggleEditor: () => setEditorVisible((current) => !current),
-    toggleRuleStatus,
-    transitionDraft,
-    updateExpirationDraft: (patch: Partial<ExpirationDraft>) => {
-      setExpirationDraft((current) => ({ ...current, ...patch }));
-      clearFeedback();
-    },
-    updateMode,
-    updateText,
-    updateTransitionDraft: (patch: Partial<TransitionDraft>) => {
-      setTransitionDraft((current) => ({ ...current, ...patch }));
-      clearFeedback();
-    },
-    warning,
+    updateDraftRule,
+    updateEditorMode,
+    updateJsonText,
   };
 }
