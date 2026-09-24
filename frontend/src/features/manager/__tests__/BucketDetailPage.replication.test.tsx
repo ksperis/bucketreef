@@ -611,6 +611,12 @@ describe("BucketDetailPage replication state", () => {
     );
     expect(screen.getAllByText("reports/")).not.toHaveLength(0);
     expect(screen.getByText("reports/summary.csv")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "(root)" })).toHaveClass("ui-list-action", "ui-list-action-active");
+    expect(screen.getByRole("button", { name: "(root)" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "reports/" })).toHaveClass("ui-list-action");
+    expect(
+      screen.getAllByRole("button", { name: "Refresh", exact: true }).some((button) => button.classList.contains("ui-list-action")),
+    ).toBe(true);
     expect(
       screen.getByText("Read-only preview using the selected endpoint's Ceph Admin credentials.")
     ).toBeInTheDocument();

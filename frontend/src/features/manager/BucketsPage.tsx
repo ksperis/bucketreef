@@ -856,13 +856,12 @@ export default function BucketsPage() {
               {error}
               {lastUpdatedAt ? ` Last updated ${lastUpdatedAt.toLocaleTimeString()}.` : ""}
             </span>
-            <button
-              type="button"
+            <ListActionButton
+              variant="ghost"
               onClick={() => fetchBuckets(accountIdForApi ?? null)}
-              className="font-semibold underline underline-offset-2"
             >
               Retry
-            </button>
+            </ListActionButton>
           </div>
         </PageBanner>
       )}

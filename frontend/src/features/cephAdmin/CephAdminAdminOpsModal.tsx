@@ -488,8 +488,9 @@ export default function CephAdminAdminOpsModal({
                     key={`${candidate.type}:${candidate.id}`}
                     type="button"
                     disabled={submitting}
+                    active={selectedLinkTarget?.id === candidate.id}
                     aria-pressed={selectedLinkTarget?.id === candidate.id}
-                    className={cx("w-full text-left", selectedLinkTarget?.id === candidate.id && "ui-list-action-active")}
+                    className="w-full text-left"
                     onClick={() => {
                       setSelectedLinkTarget(candidate);
                       resetOutcome();
