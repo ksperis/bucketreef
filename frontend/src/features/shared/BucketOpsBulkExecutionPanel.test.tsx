@@ -59,6 +59,10 @@ describe("BucketOpsBulkExecutionPanel", () => {
     expect(screen.getByText("Versioning")).toBeInTheDocument();
     expect(screen.getByText("Before")).toBeInTheDocument();
     expect(screen.getByText("After")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toHaveClass("ui-button-base");
+    expect(screen.getByRole("button", { name: "Export changes" })).toHaveClass("ui-button-base");
+    expect(screen.getByRole("button", { name: "Apply changes" })).toHaveClass("ui-button-base");
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveClass("ui-button-base");
 
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     fireEvent.click(screen.getByRole("button", { name: "Export changes" }));
@@ -87,6 +91,8 @@ describe("BucketOpsBulkExecutionPanel", () => {
     expect(
       screen.getByText("Copied 2 bucket configurations."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Copied 2 bucket configurations.")).toHaveClass("rounded-md");
+    expect(screen.getByRole("button", { name: "Copy selected configs" })).toHaveClass("ui-button-base");
     expect(
       screen.queryByRole("button", { name: "Preview" }),
     ).not.toBeInTheDocument();
