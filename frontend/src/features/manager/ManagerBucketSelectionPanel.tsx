@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton } from "../../components/list/ListControls";
+import { ListActionButton, ListSelectionCheckbox } from "../../components/list/ListControls";
 import { ReactNode } from "react";
 
 import type { Bucket } from "../../api/bucketContracts";
@@ -11,7 +11,6 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { ListTableStatus } from "../../components/list/listTableStatus";
 
 import UiInput from "../../components/ui/UiInput";
-import { uiCheckboxClass } from "../../components/ui/styles";
 
 type ManagerBucketSelectionPanelProps = {
   className?: string;
@@ -59,13 +58,11 @@ export default function ManagerBucketSelectionPanel({
       cellClassName: "w-12",
       mobileLabel: "Select",
       render: (bucket) => (
-        <label className="ui-list-selection"><input
+        <ListSelectionCheckbox
           aria-label={`Select ${bucket.name}`}
-          type="checkbox"
           checked={selectedBuckets.has(bucket.name)}
           onChange={() => onToggleBucket(bucket.name)}
-          className={uiCheckboxClass}
-        /></label>
+        />
       ),
     },
     { id: "bucket", label: "Bucket", primary: true, mobileRole: "primary", render: (bucket) => bucket.name },

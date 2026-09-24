@@ -3,7 +3,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { axe } from "jest-axe";
-import { ListActionButton, ListActionLink, ListActions, ListBadge } from "./ListControls";
+import {
+  ListActionButton,
+  ListActionLink,
+  ListActions,
+  ListBadge,
+  ListSelectionCheckbox,
+} from "./ListControls";
 
 describe("listing actions", () => {
   it("supports keyboard activation and refs without accidentally submitting a containing form", async () => {
@@ -59,5 +65,30 @@ describe("listing actions", () => {
     </ListActions>);
     expect(screen.getByTitle("Managed by the environment")).toHaveTextContent("Read only");
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("normalizes list selection geometry while preserving native checkbox events and refs", async () => {
+    const user = userEvent.setup();
+    const change = vi.fn();
+    const click = vi.fn();
+    const ref = createRef<HTMLInputElement>();
+    render(
+      <ListSelectionCheckbox
+        ref={ref}
+        aria-label="Select item"
+        checked={false}
+        onChange={change}
+        onClick={click}
+        touchTarget
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: "Select item" });
+    expect(ref.current).toBe(checkbox);
+    expect(checkbox).toHaveClass("h-4", "w-4");
+    expect(checkbox.closest("label")).toHaveClass("ui-list-selection", "ui-list-selection-touch");
+    await user.click(checkbox);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(change).toHaveBeenCalledTimes(1);
   });
 });

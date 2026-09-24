@@ -4,7 +4,7 @@ import type {
   ReactNode,
 } from "react";
 
-import { uiCheckboxClass } from "../../components/ui/styles";
+import { ListSelectionCheckbox } from "../../components/list/ListControls";
 import { UpIcon } from "./browserIcons";
 import {
   BrowserColumnResizeHandle,
@@ -89,14 +89,12 @@ export function BrowserObjectTableScaffold({
             aria-label="Select all"
             className={` ${headerPaddingClasses} !align-middle text-left `}
           >
-            <label className="ui-list-selection"><input
-              type="checkbox"
+            <ListSelectionCheckbox
               checked={allSelected}
               onChange={onToggleAll}
               aria-label="Select all"
-              className={uiCheckboxClass}
               disabled={selectionDisabled}
-            /></label>
+            />
           </th>
           <th
             aria-label="Name"

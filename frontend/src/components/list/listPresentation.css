@@ -149,6 +149,7 @@
 .ui-browser-table .ui-browser-row.h-16 { --list-control-height: 44px; }
 .ui-browser-mobile-list { font-size: var(--list-font-size); line-height: var(--list-line-height); }
 .ui-list-selection { display: inline-flex; align-items: center; justify-content: center; }
+.ui-list-selection-touch { min-width: 44px; min-height: 44px; }
 .ui-browser-table thead th { background: var(--ui-surface); }
 .ui-browser-table .ui-browser-row[aria-selected="true"] { background: var(--ui-selected-bg); }
 

@@ -2,10 +2,18 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { forwardRef, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type HTMLAttributes, type ComponentProps } from "react";
+import {
+  forwardRef,
+  type AnchorHTMLAttributes,
+  type ButtonHTMLAttributes,
+  type ComponentProps,
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type LabelHTMLAttributes,
+} from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import UiBadge from "../ui/UiBadge";
-import { cx } from "../ui/styles";
+import { cx, uiCheckboxClass } from "../ui/styles";
 
 type ActionPresentation = {
   variant?: "secondary" | "primary" | "danger" | "warning" | "success" | "ghost";
@@ -60,6 +68,33 @@ export const ListActionAnchor = forwardRef<HTMLAnchorElement, AnchorHTMLAttribut
 export function ListActions({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div {...props} className={cx("ui-list-actions", className)} />;
 }
+
+type ListSelectionCheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
+  labelClassName?: string;
+  labelProps?: Omit<LabelHTMLAttributes<HTMLLabelElement>, "children" | "className">;
+  touchTarget?: boolean;
+};
+
+export const ListSelectionCheckbox = forwardRef<HTMLInputElement, ListSelectionCheckboxProps>(
+  function ListSelectionCheckbox(
+    { className, labelClassName, labelProps, touchTarget = false, ...props },
+    ref,
+  ) {
+    return (
+      <label
+        {...labelProps}
+        className={cx("ui-list-selection", touchTarget && "ui-list-selection-touch", labelClassName)}
+      >
+        <input
+          {...props}
+          ref={ref}
+          type="checkbox"
+          className={cx(uiCheckboxClass, className)}
+        />
+      </label>
+    );
+  },
+);
 
 export function ListBadge({ tone = "neutral", className, ...props }: ComponentProps<typeof UiBadge>) {
   return <UiBadge {...props} tone={tone} className={cx("ui-list-badge", className)} />;
