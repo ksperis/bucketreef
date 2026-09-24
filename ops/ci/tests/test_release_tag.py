@@ -31,7 +31,7 @@ class FakeGit:
             return "main"
         if args == ("rev-parse", "HEAD"):
             return SHA
-        if args == ("rev-parse", f"{TAG}^{{commit}}"):
+        if args == ("rev-parse", "--verify", f"{TAG}^{{commit}}"):
             return self.local_tag or ""
         if args[:4] == ("diff", "--name-only", "HEAD", "--"):
             return ""
