@@ -8,6 +8,7 @@ import Layout from "../../components/Layout";
 import TopbarContextAccountSelector, {
   getContextAccessModeVisual,
 } from "../../components/TopbarContextAccountSelector";
+import TopbarStaticAccountControl from "../../components/TopbarStaticAccountControl";
 import { S3AccountProvider, useS3AccountContext } from "./S3AccountContext";
 import { SidebarSection } from "../../components/Sidebar";
 import { formatAccountLabel } from "../shared/storageEndpointLabel";
@@ -16,7 +17,6 @@ import type { TopbarControlDescriptor } from "../../components/topbarControlsLay
 import {
   TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS,
   TOPBAR_CONTEXT_SELECTOR_ESTIMATED_LABEL_WIDTH,
-  TOPBAR_CONTEXT_SELECTOR_VALUE_WIDTH_CLASS,
   TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS,
 } from "../../components/topbarControlWidths";
 import {
@@ -132,37 +132,6 @@ function ManagerShell() {
     navigate({ pathname: "/manager", search: nextParams.toString() ? `?${nextParams.toString()}` : "" });
   };
 
-  const renderStaticAccountPill = (mode: "icon" | "icon_label") => {
-    if (mode === "icon") {
-      return (
-        <button
-          type="button"
-          aria-label={`Account context ${selectedLabel}`}
-          title={identityLabel ?? selectedLabel}
-          className={`shell-control inline-flex h-9 ${TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS} items-center justify-center rounded-lg border text-left`}
-        >
-          <AccountControlIcon className="shell-icon-muted h-4 w-4" />
-          <span className="sr-only">{selectedLabel}</span>
-        </button>
-      );
-    }
-    return (
-      <div className={`shell-control inline-flex h-10 ${TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS} items-center gap-2.5 rounded-lg border px-3 text-left`}>
-        <span className="min-w-0 flex-1 leading-tight">
-          <span className="shell-muted-text block truncate text-[10px] font-medium">
-            Account
-          </span>
-          <span className={`mt-0.5 block ${TOPBAR_CONTEXT_SELECTOR_VALUE_WIDTH_CLASS} truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]`}>
-            {selectedLabel}
-          </span>
-        </span>
-        <span className={`rounded-full px-2 py-0.5 ui-caption font-semibold ${modeVisual.classes}`}>
-          {modeVisual.shortLabel}
-        </span>
-      </div>
-    );
-  };
-
   const topbarControlDescriptors: TopbarControlDescriptor[] = [
     {
       id: "account",
@@ -185,7 +154,17 @@ function ManagerShell() {
             showTriggerTags={mode !== "icon"}
           />
         ) : (
-          renderStaticAccountPill(mode)
+          <TopbarStaticAccountControl
+            mode={mode}
+            selectedLabel={selectedLabel}
+            title={identityLabel ?? selectedLabel}
+            icon={<AccountControlIcon className="shell-icon-muted h-4 w-4" />}
+            badge={
+              <span className={`rounded-full px-2 py-0.5 ui-caption font-semibold ${modeVisual.classes}`}>
+                {modeVisual.shortLabel}
+              </span>
+            }
+          />
         ),
     },
   ];
