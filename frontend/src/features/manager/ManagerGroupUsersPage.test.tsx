@@ -85,6 +85,8 @@ describe("ManagerGroupUsersPage", () => {
       "data-mobile-actions",
       "true"
     );
+    expect(screen.getByRole("combobox", { name: "IAM user" })).toHaveClass("ui-control");
+    expect(screen.getByRole("button", { name: "Add" })).toHaveClass("ui-button-base");
 
     await waitFor(() => {
       expect(listIamGroupUsersMock).toHaveBeenCalledWith("acc-1", "operators");
