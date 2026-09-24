@@ -34,16 +34,15 @@ export function ToolbarMatchModeButton({
     <ListActionButton
       {...props}
       iconOnly
+      active={locked || (!pending && mode === "exact")}
       disabled={disabled || locked}
       className={cx(
         "ui-list-search-mode",
         locked
-          ? "cursor-not-allowed ui-list-action-active"
+          ? "cursor-not-allowed"
           : pending
             ? "ui-list-action-warning"
-            : mode === "exact"
-              ? "ui-list-action-active"
-              : "",
+            : "",
         className,
       )}
       title={resolvedTitle}
@@ -69,7 +68,8 @@ export function ToolbarAdvancedFilterButton({
     <ListActionButton
       {...props}
       variant="secondary"
-      className={cx(active ? "ui-list-action-active" : "", className)}
+      active={active}
+      className={className}
     >
       {children}
     </ListActionButton>

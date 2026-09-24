@@ -338,6 +338,8 @@ describe("CephAdminAdminOpsModal", () => {
     await act(async () => resolveTargets({ items: [{ account_id: "RGW12345678901234567", account_name: "Analytics" }] }));
     const candidate = screen.getByRole("button", { name: "Analytics · RGW12345678901234567" });
     fireEvent.click(candidate);
+    expect(candidate).toHaveClass("ui-list-action-active");
+    expect(candidate).toHaveAttribute("aria-pressed", "true");
     fireEvent.change(screen.getByLabelText("Confirmation phrase"), { target: { value: "LINK BUCKET bucket-a TO RGW12345678901234567" } });
     fireEvent.click(screen.getByRole("button", { name: "Run operation" }));
     expect(candidate).toBeDisabled();

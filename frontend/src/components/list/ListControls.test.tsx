@@ -39,6 +39,13 @@ describe("listing actions", () => {
     expect(action).toHaveBeenCalledTimes(1);
   });
 
+  it("applies shared active presentation without leaking the prop to the DOM", () => {
+    render(<ListActionButton active>Selected</ListActionButton>);
+    const button = screen.getByRole("button", { name: "Selected" });
+    expect(button).toHaveClass("ui-list-action-active");
+    expect(button).not.toHaveAttribute("active");
+  });
+
   it("keeps links as links and respects an explicitly disabled action", async () => {
     const user = userEvent.setup();
     const disabledClick = vi.fn();

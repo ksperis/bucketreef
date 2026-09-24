@@ -18,16 +18,22 @@ import { cx, uiCheckboxClass } from "../ui/styles";
 type ActionPresentation = {
   variant?: "secondary" | "primary" | "danger" | "warning" | "success" | "ghost";
   iconOnly?: boolean;
+  active?: boolean;
 };
 
-function actionClass({ variant = "secondary", iconOnly }: ActionPresentation) {
-  return cx("ui-list-action", `ui-list-action-${variant}`, iconOnly && "ui-list-action-icon");
+function actionClass({ variant = "secondary", iconOnly, active }: ActionPresentation) {
+  return cx(
+    "ui-list-action",
+    `ui-list-action-${variant}`,
+    iconOnly && "ui-list-action-icon",
+    active && "ui-list-action-active",
+  );
 }
 
 export const ListActionButton = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & ActionPresentation & { loading?: boolean }
->(function ListActionButton({ variant, iconOnly, loading = false, disabled, className, type = "button", ...props }, ref) {
+>(function ListActionButton({ variant, iconOnly, active, loading = false, disabled, className, type = "button", ...props }, ref) {
   return (
     <button
       {...props}
@@ -35,13 +41,13 @@ export const ListActionButton = forwardRef<
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || props["aria-busy"]}
-      className={cx(actionClass({ variant, iconOnly }), className)}
+      className={cx(actionClass({ variant, iconOnly, active }), className)}
     />
   );
 });
 
 export const ListActionLink = forwardRef<HTMLAnchorElement, LinkProps & ActionPresentation>(
-  function ListActionLink({ variant, iconOnly, className, onClick, tabIndex, ...props }, ref) {
+  function ListActionLink({ variant, iconOnly, active, className, onClick, tabIndex, ...props }, ref) {
     const disabled = props["aria-disabled"] === true || props["aria-disabled"] === "true";
     return (
       <Link
@@ -52,7 +58,7 @@ export const ListActionLink = forwardRef<HTMLAnchorElement, LinkProps & ActionPr
           if (disabled) event.preventDefault();
           else onClick?.(event);
         }}
-        className={cx(actionClass({ variant, iconOnly }), className)}
+        className={cx(actionClass({ variant, iconOnly, active }), className)}
       />
     );
   },
@@ -60,8 +66,8 @@ export const ListActionLink = forwardRef<HTMLAnchorElement, LinkProps & ActionPr
 
 /** Native navigation, including opening another workspace in a separate tab. */
 export const ListActionAnchor = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement> & ActionPresentation>(
-  function ListActionAnchor({ variant, iconOnly, className, ...props }, ref) {
-    return <a {...props} ref={ref} className={cx(actionClass({ variant, iconOnly }), className)} />;
+  function ListActionAnchor({ variant, iconOnly, active, className, ...props }, ref) {
+    return <a {...props} ref={ref} className={cx(actionClass({ variant, iconOnly, active }), className)} />;
   },
 );
 

@@ -1314,7 +1314,7 @@ describe("manager shell pages", () => {
 
     expect(await screen.findByText(/Showing the last available bucket list/)).toBeInTheDocument();
     expect(screen.getByText("known-bucket")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toHaveClass("ui-list-action", "ui-list-action-ghost");
     expect(screen.getByRole("button", { name: "Create bucket" })).toBeDisabled();
   });
 
@@ -1340,7 +1340,7 @@ describe("manager shell pages", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("— buckets")).toBeInTheDocument();
     expect(screen.queryByText("0 bucket(s)")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toHaveClass("ui-list-action", "ui-list-action-ghost");
     expect(screen.getByRole("button", { name: "Create bucket" })).toBeDisabled();
   });
 

@@ -7,6 +7,7 @@ import { useParams } from "react-router-dom";
 import { uiDataTableClass, uiTableContainerClass } from "../../components/ui/styles";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageHeader from "../../components/PageHeader";
+import { ListActionButton } from "../../components/list/ListControls";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { settingsLabels } from "../../components/settings/settingsLabels";
@@ -1130,40 +1131,39 @@ function BucketDetailPageContent({
                   <div className="p-3 space-y-2">
                     <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">Prefixes</p>
                     <div className={bucketDetailTightStackClass}>
-                      <button
-                        className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left ui-caption ${
-                          currentPrefix === ""
-                            ? "bg-primary-100/70 text-primary-800 dark:bg-primary-500/20 dark:text-primary-100"
-                            : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800/60"
-                        }`}
+                      <ListActionButton
+                        variant="ghost"
+                        active={currentPrefix === ""}
+                        aria-pressed={currentPrefix === ""}
+                        className="w-full !justify-between text-left"
                         onClick={() => openObjectsPrefix("")}
                       >
                         <span>(root)</span>
-                      </button>
+                      </ListActionButton>
                       {parentPrefix !== "" && (
-                        <button
-                          className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left ui-caption text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800/60"
+                        <ListActionButton
+                          variant="ghost"
+                          className="w-full !justify-between text-left"
                           onClick={() => openObjectsPrefix(parentPrefix)}
                         >
                           <span>⬆️ Up</span>
                           <span className={bucketDetailHintClass}>{parentPrefix || "/"}</span>
-                        </button>
+                        </ListActionButton>
                       )}
                       {prefixes.map((prefix) => {
                         const isActive = prefix === currentPrefix;
                         const displayName = prefix.replace(currentPrefix, "") || prefix;
                         return (
-                          <button
+                          <ListActionButton
                             key={prefix}
-                            className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left ui-caption ${
-                              isActive
-                                ? "bg-primary-100/70 text-primary-800 dark:bg-primary-500/20 dark:text-primary-100"
-                                : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800/60"
-                            }`}
+                            variant="ghost"
+                            active={isActive}
+                            aria-pressed={isActive}
+                            className="w-full !justify-between text-left"
                             onClick={() => openObjectsPrefix(prefix)}
                           >
                             <span>{displayName}</span>
-                          </button>
+                          </ListActionButton>
                         );
                       })}
                     </div>
@@ -1184,14 +1184,12 @@ function BucketDetailPageContent({
                         </div>
                       </div>
                       <div className={bucketDetailWrapActionsClass}>
-                        <button
-                          type="button"
+                        <ListActionButton
                           onClick={() => void refreshObjects()}
-                          disabled={objectsLoading}
-                          className="rounded-md border border-slate-200 px-3 py-1 ui-caption font-semibold text-slate-700 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-100 dark:hover:border-primary-500 dark:hover:text-primary-100"
+                          loading={objectsLoading}
                         >
                           Refresh
-                        </button>
+                        </ListActionButton>
                       </div>
                     </div>
                     {objectsError && (
