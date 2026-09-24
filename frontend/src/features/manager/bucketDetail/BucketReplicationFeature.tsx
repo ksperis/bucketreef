@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import DataTableShell, {
   type DataTableColumn,
 } from "../../../components/list/DataTableShell";
@@ -13,11 +13,16 @@ import {
 } from "../../../components/settings/SettingsControls";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import UiTextarea from "../../../components/ui/UiTextarea";
 import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
-import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
+import {
+  BucketFeatureEditorEmpty,
+  BucketFeatureEditorItem,
+  BucketFeatureEditorList,
+  BucketFeatureEditorToolbar,
+  BucketFeatureJsonPane,
+} from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -41,20 +46,6 @@ type ReplicationSummaryRow = {
   rule: unknown;
 };
 
-const replicationJsonExample = `{
-  "Role": "arn:aws:iam::123456789012:role/replication-role",
-  "Rules": [
-    {
-      "ID": "rule-1",
-      "Status": "Enabled",
-      "Priority": 1,
-      "Filter": { "Prefix": "logs/" },
-      "Destination": { "Bucket": "arn:aws:s3:::target-bucket" },
-      "DeleteMarkerReplication": { "Status": "Disabled" }
-    }
-  ]
-}`;
-
 function ReplicationRuleEditor({
   index,
   uiId,
@@ -76,10 +67,7 @@ function ReplicationRuleEditor({
 
   if (!editable) {
     return (
-      <div
-        className={cx(uiCardMutedClass, "space-y-2 px-3 py-3")}
-        data-testid="replication-advanced-rule"
-      >
+      <BucketFeatureEditorItem testId="replication-advanced-rule">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
             <p className="settings-label break-all">{summary.id}</p>
@@ -92,22 +80,18 @@ function ReplicationRuleEditor({
         <p className="settings-description">
           This rule contains S3 fields that the visual editor cannot represent without loss.
         </p>
-      </div>
+      </BucketFeatureEditorItem>
     );
   }
 
   return (
-    <div
-      className={cx(uiCardMutedClass, "space-y-4 px-3 py-3")}
-      data-testid="replication-visual-rule"
-      data-rule-id={uiId}
+    <BucketFeatureEditorItem
+      testId="replication-visual-rule"
+      ruleId={uiId}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="settings-label">Rule {index + 1}</p>
-          <p className="settings-description">
-            Changes stay local until the whole replication configuration is saved.
-          </p>
         </div>
         <SettingsButton
           type="button"
@@ -184,7 +168,7 @@ function ReplicationRuleEditor({
           <option value="Enabled">Enabled</option>
         </SettingsSelect>
       </div>
-    </div>
+    </BucketFeatureEditorItem>
   );
 }
 
@@ -192,7 +176,6 @@ export default function BucketReplicationFeature({
   blocked,
   controller,
 }: BucketReplicationFeatureProps) {
-  const [showJsonExample, setShowJsonExample] = useState(false);
   const {
     addRule,
     advancedRuleCount,
@@ -312,32 +295,30 @@ export default function BucketReplicationFeature({
         </UiInlineMessage>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="settings-description">
+      <BucketFeatureEditorToolbar
+        action={
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={addRule}
+            disabled={saving}
+          >
+            Add rule
+          </SettingsButton>
+        }
+      >
+        <p>
           Edit supported rules visually. Nothing is persisted until Save.
         </p>
-        <SettingsButton
-          type="button"
-          variant="secondary"
-          onClick={addRule}
-          disabled={saving}
-        >
-          Add rule
-        </SettingsButton>
-      </div>
+      </BucketFeatureEditorToolbar>
 
       {rules.length === 0 ? (
-        <div
-          className={cx(
-            uiCardMutedClass,
-            "px-3 py-5 text-center settings-description",
-          )}
-        >
+        <BucketFeatureEditorEmpty>
           No replication rules. Saving this draft will clear the replication
           configuration.
-        </div>
+        </BucketFeatureEditorEmpty>
       ) : (
-        <div className="space-y-3">
+        <BucketFeatureEditorList>
           {rules.map(({ uiId, rule }, index) => (
             <ReplicationRuleEditor
               key={uiId}
@@ -349,40 +330,26 @@ export default function BucketReplicationFeature({
               onRemove={() => removeRule(uiId)}
             />
           ))}
-        </div>
+        </BucketFeatureEditorList>
       )}
     </div>
   );
 
   const jsonEditor = (
-    <div className="space-y-3">
-      <p className="settings-description">
-        Edit the complete S3 replication configuration. Switching back to Visual
-        validates the JSON structure first.
-      </p>
-      <UiTextarea
-        label="Replication configuration (JSON)"
-        value={jsonText}
-        onChange={(event) => updateJsonText(event.target.value)}
-        rows={20}
-        className="settings-control font-mono"
-        spellCheck={false}
-        disabled={saving}
-      />
+    <BucketFeatureJsonPane
+      description="Edit the complete S3 replication configuration. Switching back to Visual validates the JSON structure first."
+      label="Replication configuration (JSON)"
+      value={jsonText}
+      onChange={updateJsonText}
+      disabled={saving}
+    >
       {hasUnsupportedZone && (
         <UiInlineMessage tone="warning">
           Destination.Zone is preserved in this draft, but the current BucketReef
           replication API rejects it on Save.
         </UiInlineMessage>
       )}
-      <BucketFeatureJsonExample
-        show={showJsonExample}
-        onToggle={() => setShowJsonExample((current) => !current)}
-        example={replicationJsonExample}
-        onUseExample={() => updateJsonText(replicationJsonExample)}
-        disabled={saving}
-      />
-    </div>
+    </BucketFeatureJsonPane>
   );
 
   return (

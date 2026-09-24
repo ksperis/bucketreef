@@ -40,6 +40,11 @@ describe("DataTableShell", () => {
     );
 
     expect(screen.getByRole("table")).toHaveClass("ui-data-table", "!table-auto", "!w-max");
+    expect(screen.getByRole("table").parentElement).toHaveClass(
+      "overflow-y-hidden",
+      "overflow-x-auto",
+      "pb-2",
+    );
     expect(screen.getByText("Archive")).toHaveClass("ui-table-primary");
     expect(screen.getByRole("columnheader", { name: "Name" })).toHaveAttribute("aria-sort", "ascending");
     expect(screen.getByRole("columnheader", { name: "Name" })).toHaveClass("ui-table-header");
@@ -487,7 +492,12 @@ describe("DataTableShell", () => {
     );
 
     const getOverflowContainer = () => screen.getByRole("table").parentElement;
-    expect(getOverflowContainer()).toHaveClass("overflow-x-hidden", "md:overflow-x-auto");
+    expect(getOverflowContainer()).toHaveClass(
+      "overflow-y-hidden",
+      "overflow-x-hidden",
+      "md:overflow-x-auto",
+      "md:pb-2",
+    );
 
     rerender(
       <DataTableShell
@@ -503,7 +513,8 @@ describe("DataTableShell", () => {
       />
     );
 
-    expect(getOverflowContainer()).toHaveClass("overflow-x-hidden");
+    expect(getOverflowContainer()).toHaveClass("overflow-y-hidden", "overflow-x-hidden");
     expect(getOverflowContainer()).not.toHaveClass("md:overflow-x-auto");
+    expect(getOverflowContainer()).not.toHaveClass("pb-2", "md:pb-2");
   });
 });

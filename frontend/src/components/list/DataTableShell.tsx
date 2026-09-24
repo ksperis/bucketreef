@@ -154,6 +154,11 @@ export default function DataTableShell<Row, SortField extends string = string>({
     : overflowXHidden
       ? "overflow-x-hidden"
       : "overflow-x-auto";
+  const horizontalScrollbarClearanceClass = overflowXHidden
+    ? ""
+    : responsiveCards
+      ? "md:pb-2"
+      : "pb-2";
   const actionColumnClasses = cx(
     tableActionColumnClasses,
     tableLayout === "fixed" ? "w-64" : "w-px"
@@ -161,7 +166,14 @@ export default function DataTableShell<Row, SortField extends string = string>({
 
   return (
     <>
-      <div className={cx(containerOverflowClass, containerClassName)}>
+      <div
+        className={cx(
+          "overflow-y-hidden",
+          containerOverflowClass,
+          horizontalScrollbarClearanceClass,
+          containerClassName,
+        )}
+      >
         <table
           className={cx(
             "ui-data-table ui-data-table-fixed min-w-full",

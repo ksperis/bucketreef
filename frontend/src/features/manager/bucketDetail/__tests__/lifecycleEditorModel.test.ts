@@ -59,4 +59,25 @@ describe("lifecycleEditorModel", () => {
     expect(validateLifecycleVisualRules([noncurrentExpiration])).toBeNull();
     expect(validateLifecycleVisualRules([noncurrentTransition])).toBeNull();
   });
+
+  it("keeps expired delete marker and day expiration mutually exclusive", () => {
+    const base = createVisualLifecycleRule("rule-1");
+
+    const expiration = updateLifecycleVisualRule(base, { expirationDays: "7" });
+    expect(expiration.Expiration).toEqual({ Days: 7 });
+
+    const deleteMarker = updateLifecycleVisualRule(expiration, {
+      expiredObjectDeleteMarker: true,
+    });
+    expect(deleteMarker.Expiration).toEqual({ ExpiredObjectDeleteMarker: true });
+    expect(validateLifecycleVisualRules([deleteMarker])).toBeNull();
+
+    const invalidImportedRule = {
+      ...base,
+      Expiration: { Days: 7, ExpiredObjectDeleteMarker: true },
+    };
+    expect(validateLifecycleVisualRules([invalidImportedRule])).toContain(
+      "cannot be enabled together",
+    );
+  });
 });

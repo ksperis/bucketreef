@@ -59,7 +59,7 @@ function buildController(
 function renderFeature(controller: NotificationsController) {
   return render(
     <MemoryRouter>
-      <BucketNotificationsFeature controller={controller} exampleAccountId="acc-1" />
+      <BucketNotificationsFeature controller={controller} />
     </MemoryRouter>,
   );
 }

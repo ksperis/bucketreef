@@ -172,8 +172,14 @@ feedback is a compact badge owned by `BucketFeatureSection`; errors and warnings
 retain the shared inline-message treatment.
 The page uses the line variant of `PageTabs` with named tabs/panels and native
 arrow-key navigation; refresh uses the same settings action presentation.
-JSON editors use labelled `UiTextarea` fields; examples use the shared controls,
-explicit expanded state and wrapping theme-aware text.
+Transactional bucket JSON tabs use labelled `UiTextarea` fields and stay focused
+on the current draft without example insertion controls. Examples in other
+workflows use the shared controls, explicit expanded state and wrapping
+theme-aware text.
+Repeated rules or statements inside transactional bucket editors use one subtle
+muted surface per item so adjacent entries remain easy to scan. Keep that as the
+only outer frame: use soft internal dividers for field groups instead of nesting
+additional cards inside each rule.
 
 Each section keeps its own native S3 save boundary. An announced **Unsaved
 changes** badge identifies its draft; **Configured** describes configuration,
