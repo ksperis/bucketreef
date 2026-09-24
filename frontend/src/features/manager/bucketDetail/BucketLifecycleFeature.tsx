@@ -5,10 +5,10 @@
 import { useMemo, useState } from "react";
 import DataTableShell, { type DataTableColumn } from "../../../components/list/DataTableShell";
 import { ListActionButton, ListActions } from "../../../components/list/ListControls";
-import { SettingsButton } from "../../../components/settings/SettingsControls";
+import { SettingsButton, SettingsInput } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiTextarea from "../../../components/ui/UiTextarea";
-import { cx, uiCardMutedClass, uiInputClass } from "../../../components/ui/styles";
+import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import {
   describeLifecycleActions,
@@ -36,7 +36,6 @@ type LifecycleTableRow = {
   rule: LifecycleRuleRecord;
 };
 
-const inputClass = cx(uiInputClass, "settings-control");
 const lifecycleJsonExample = `[
   {
     "ID": "expire-logs",
@@ -241,50 +240,42 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
                 <div className={cx(uiCardMutedClass, "px-3 py-2")}>
                   <p className="settings-label">Rule 2: current/noncurrent transitions</p>
                   <div className="mt-2 flex flex-wrap items-end gap-3 ui-caption">
-                    <label className="settings-label flex flex-col gap-1">
-                      Current versions expiration (days)
-                      <input
-                        type="number"
-                        min={0}
-                        value={transitionDraft.currentDays}
-                        onChange={(event) => updateTransitionDraft({ currentDays: event.target.value })}
-                        className={cx(inputClass, "w-28")}
-                        disabled={notImplemented}
-                      />
-                    </label>
-                    <label className="settings-label flex flex-col gap-1">
-                      Noncurrent versions expiration (days)
-                      <input
-                        type="number"
-                        min={0}
-                        value={transitionDraft.noncurrentDays}
-                        onChange={(event) => updateTransitionDraft({ noncurrentDays: event.target.value })}
-                        className={cx(inputClass, "w-28")}
-                        disabled={notImplemented}
-                      />
-                    </label>
-                    <label className="settings-label flex flex-col gap-1">
-                      Storage class
-                      <input
-                        type="text"
-                        value={transitionDraft.storageClass}
-                        onChange={(event) => updateTransitionDraft({ storageClass: event.target.value })}
-                        className={cx(inputClass, "w-32")}
-                        placeholder="GLACIER"
-                        disabled={notImplemented}
-                      />
-                    </label>
-                    <label className="settings-label flex flex-col gap-1">
-                      Prefix (optional)
-                      <input
-                        type="text"
-                        value={transitionDraft.prefix}
-                        onChange={(event) => updateTransitionDraft({ prefix: event.target.value })}
-                        className={cx(inputClass, "w-32")}
-                        placeholder="logs/"
-                        disabled={notImplemented}
-                      />
-                    </label>
+                    <SettingsInput
+                      label="Current versions expiration (days)"
+                      type="number"
+                      min={0}
+                      value={transitionDraft.currentDays}
+                      onChange={(event) => updateTransitionDraft({ currentDays: event.target.value })}
+                      className="w-28"
+                      disabled={notImplemented}
+                    />
+                    <SettingsInput
+                      label="Noncurrent versions expiration (days)"
+                      type="number"
+                      min={0}
+                      value={transitionDraft.noncurrentDays}
+                      onChange={(event) => updateTransitionDraft({ noncurrentDays: event.target.value })}
+                      className="w-28"
+                      disabled={notImplemented}
+                    />
+                    <SettingsInput
+                      label="Storage class"
+                      type="text"
+                      value={transitionDraft.storageClass}
+                      onChange={(event) => updateTransitionDraft({ storageClass: event.target.value })}
+                      className="w-32"
+                      placeholder="GLACIER"
+                      disabled={notImplemented}
+                    />
+                    <SettingsInput
+                      label="Prefix (optional)"
+                      type="text"
+                      value={transitionDraft.prefix}
+                      onChange={(event) => updateTransitionDraft({ prefix: event.target.value })}
+                      className="w-32"
+                      placeholder="logs/"
+                      disabled={notImplemented}
+                    />
                   </div>
                   <div className="mt-2 flex justify-end">
                     <SettingsButton
@@ -301,39 +292,33 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
                 <div className={cx(uiCardMutedClass, "px-3 py-2")}>
                   <p className="settings-label">Rule 3: current/noncurrent expiration</p>
                   <div className="mt-2 flex flex-wrap items-end gap-3 ui-caption">
-                    <label className="settings-label flex flex-col gap-1">
-                      Current versions expiration (days)
-                      <input
-                        type="number"
-                        min={0}
-                        value={expirationDraft.currentDays}
-                        onChange={(event) => updateExpirationDraft({ currentDays: event.target.value })}
-                        className={cx(inputClass, "w-32")}
-                        disabled={notImplemented}
-                      />
-                    </label>
-                    <label className="settings-label flex flex-col gap-1">
-                      Noncurrent versions expiration (days)
-                      <input
-                        type="number"
-                        min={0}
-                        value={expirationDraft.noncurrentDays}
-                        onChange={(event) => updateExpirationDraft({ noncurrentDays: event.target.value })}
-                        className={cx(inputClass, "w-32")}
-                        disabled={notImplemented}
-                      />
-                    </label>
-                    <label className="settings-label flex flex-col gap-1">
-                      Prefix (optional)
-                      <input
-                        type="text"
-                        value={expirationDraft.prefix}
-                        onChange={(event) => updateExpirationDraft({ prefix: event.target.value })}
-                        className={cx(inputClass, "w-32")}
-                        placeholder="archive/"
-                        disabled={notImplemented}
-                      />
-                    </label>
+                    <SettingsInput
+                      label="Current versions expiration (days)"
+                      type="number"
+                      min={0}
+                      value={expirationDraft.currentDays}
+                      onChange={(event) => updateExpirationDraft({ currentDays: event.target.value })}
+                      className="w-32"
+                      disabled={notImplemented}
+                    />
+                    <SettingsInput
+                      label="Noncurrent versions expiration (days)"
+                      type="number"
+                      min={0}
+                      value={expirationDraft.noncurrentDays}
+                      onChange={(event) => updateExpirationDraft({ noncurrentDays: event.target.value })}
+                      className="w-32"
+                      disabled={notImplemented}
+                    />
+                    <SettingsInput
+                      label="Prefix (optional)"
+                      type="text"
+                      value={expirationDraft.prefix}
+                      onChange={(event) => updateExpirationDraft({ prefix: event.target.value })}
+                      className="w-32"
+                      placeholder="archive/"
+                      disabled={notImplemented}
+                    />
                   </div>
                   <div className="mt-2 flex justify-end">
                     <SettingsButton

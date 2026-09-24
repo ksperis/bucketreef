@@ -951,7 +951,7 @@ describe("BucketDetailPage replication state", () => {
     const tagsCard = await screen.findByTestId("bucket-feature-tags");
     const tagKeyInputs = within(tagsCard).getAllByPlaceholderText("Tag key");
     const ownerInput = tagKeyInputs[1];
-    const firstTagRow = tagKeyInputs[0].closest("div");
+    const firstTagRow = tagKeyInputs[0].closest("[data-tag-row]");
     expect(firstTagRow).not.toBeNull();
 
     await user.click(within(firstTagRow!).getByRole("button", { name: "Remove" }));

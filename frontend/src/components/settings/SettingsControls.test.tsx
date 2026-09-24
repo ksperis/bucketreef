@@ -1,6 +1,24 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { SettingsField } from "./SettingsControls";
+import { SettingsField, SettingsInput, SettingsSelect } from "./SettingsControls";
+
+describe("Settings controls", () => {
+  it("applies the shared settings field contract to labelled inputs and selects", () => {
+    render(
+      <>
+        <SettingsInput label="Bucket name" defaultValue="logs" />
+        <SettingsSelect label="Mode" defaultValue="enabled">
+          <option value="enabled">Enabled</option>
+        </SettingsSelect>
+      </>,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Bucket name" })).toHaveClass("ui-control", "settings-control");
+    expect(screen.getByRole("combobox", { name: "Mode" })).toHaveClass("ui-control", "settings-control");
+    expect(screen.getByText("Bucket name")).toHaveClass("settings-label");
+    expect(screen.getByText("Mode")).toHaveClass("settings-label");
+  });
+});
 
 describe("SettingsField units", () => {
   it("keeps the unit, validation and additional help associated with the input", () => {

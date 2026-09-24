@@ -3,10 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useState } from "react";
-import { SettingsButton } from "../../../components/settings/SettingsControls";
+import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiTextarea from "../../../components/ui/UiTextarea";
-import { cx, uiCardMutedClass, uiInputClass } from "../../../components/ui/styles";
+import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
 import BucketFeatureModeToggle from "./BucketFeatureModeToggle";
@@ -23,8 +23,6 @@ type BucketReplicationFeatureProps = {
   onRequestClear: () => void;
 };
 
-const inputClass = cx(uiInputClass, "settings-control");
-const labelClass = "settings-label flex flex-col gap-1";
 const stackClass = "space-y-3";
 const compactStackClass = "space-y-2";
 const twoColumnGridClass = "grid gap-3 md:grid-cols-2";
@@ -116,17 +114,14 @@ export default function BucketReplicationFeature({
         <UiInlineMessage>Loading replication configuration...</UiInlineMessage>
       ) : mode === "graphical" ? (
         <div className={stackClass}>
-          <label className={labelClass}>
-            Role ARN
-            <input
-              type="text"
-              value={role}
-              onChange={(event) => updateRole(event.target.value)}
-              className={inputClass}
-              placeholder="arn:aws:iam::123456789012:role/replication-role"
-              disabled={disabled}
-            />
-          </label>
+          <SettingsInput
+            label="Role ARN"
+            type="text"
+            value={role}
+            onChange={(event) => updateRole(event.target.value)}
+            placeholder="arn:aws:iam::123456789012:role/replication-role"
+            disabled={disabled}
+          />
           <div className={stackClass}>
             {rules.map((rule, index) => (
               <div key={rule.uiId} className={cx(uiCardMutedClass, "space-y-3 p-3")}>
@@ -142,76 +137,58 @@ export default function BucketReplicationFeature({
                   </SettingsButton>
                 </div>
                 <div className={twoColumnGridClass}>
-                  <label className={labelClass}>
-                    ID
-                    <input
-                      type="text"
-                      value={rule.id}
-                      onChange={(event) => updateRule(rule.uiId, { id: event.target.value })}
-                      className={inputClass}
-                      placeholder={`rule-${index + 1}`}
-                      disabled={disabled}
-                    />
-                  </label>
-                  <label className={labelClass}>
-                    Status
-                    <select
-                      value={rule.status}
-                      onChange={(event) => updateRule(rule.uiId, { status: event.target.value as "Enabled" | "Disabled" })}
-                      className={inputClass}
-                      disabled={disabled}
-                    >
-                      <option value="Enabled">Enabled</option>
-                      <option value="Disabled">Disabled</option>
-                    </select>
-                  </label>
-                  <label className={labelClass}>
-                    Priority
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={rule.priority}
-                      onChange={(event) => updateRule(rule.uiId, { priority: event.target.value })}
-                      className={inputClass}
-                      placeholder="1"
-                      disabled={disabled}
-                    />
-                  </label>
-                  <label className={labelClass}>
-                    Prefix (optional)
-                    <input
-                      type="text"
-                      value={rule.prefix}
-                      onChange={(event) => updateRule(rule.uiId, { prefix: event.target.value })}
-                      className={inputClass}
-                      placeholder="logs/"
-                      disabled={disabled}
-                    />
-                  </label>
-                  <label className={labelClass}>
-                    Destination bucket ARN
-                    <input
-                      type="text"
-                      value={rule.destinationBucket}
-                      onChange={(event) => updateRule(rule.uiId, { destinationBucket: event.target.value })}
-                      className={inputClass}
-                      placeholder="arn:aws:s3:::target-bucket"
-                      disabled={disabled}
-                    />
-                  </label>
-                  <label className={labelClass}>
-                    Delete marker replication
-                    <select
-                      value={rule.deleteMarkerStatus}
-                      onChange={(event) => updateRule(rule.uiId, { deleteMarkerStatus: event.target.value as "Enabled" | "Disabled" })}
-                      className={inputClass}
-                      disabled={disabled}
-                    >
-                      <option value="Disabled">Disabled</option>
-                      <option value="Enabled">Enabled</option>
-                    </select>
-                  </label>
+                  <SettingsInput
+                    label="ID"
+                    type="text"
+                    value={rule.id}
+                    onChange={(event) => updateRule(rule.uiId, { id: event.target.value })}
+                    placeholder={`rule-${index + 1}`}
+                    disabled={disabled}
+                  />
+                  <SettingsSelect
+                    label="Status"
+                    value={rule.status}
+                    onChange={(event) => updateRule(rule.uiId, { status: event.target.value as "Enabled" | "Disabled" })}
+                    disabled={disabled}
+                  >
+                    <option value="Enabled">Enabled</option>
+                    <option value="Disabled">Disabled</option>
+                  </SettingsSelect>
+                  <SettingsInput
+                    label="Priority"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={rule.priority}
+                    onChange={(event) => updateRule(rule.uiId, { priority: event.target.value })}
+                    placeholder="1"
+                    disabled={disabled}
+                  />
+                  <SettingsInput
+                    label="Prefix (optional)"
+                    type="text"
+                    value={rule.prefix}
+                    onChange={(event) => updateRule(rule.uiId, { prefix: event.target.value })}
+                    placeholder="logs/"
+                    disabled={disabled}
+                  />
+                  <SettingsInput
+                    label="Destination bucket ARN"
+                    type="text"
+                    value={rule.destinationBucket}
+                    onChange={(event) => updateRule(rule.uiId, { destinationBucket: event.target.value })}
+                    placeholder="arn:aws:s3:::target-bucket"
+                    disabled={disabled}
+                  />
+                  <SettingsSelect
+                    label="Delete marker replication"
+                    value={rule.deleteMarkerStatus}
+                    onChange={(event) => updateRule(rule.uiId, { deleteMarkerStatus: event.target.value as "Enabled" | "Disabled" })}
+                    disabled={disabled}
+                  >
+                    <option value="Disabled">Disabled</option>
+                    <option value="Enabled">Enabled</option>
+                  </SettingsSelect>
                 </div>
               </div>
             ))}

@@ -2,10 +2,9 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { SettingsButton } from "../../../components/settings/SettingsControls";
+import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import { SettingsItem, SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { cx, uiInputClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -19,8 +18,6 @@ type BucketObjectLockFeatureProps = {
 };
 
 const formId = "bucket-object-lock-form";
-const inputClass = cx(uiInputClass, "settings-control");
-const labelClass = "settings-label flex flex-col gap-1";
 const hintClass = "settings-description";
 
 export default function BucketObjectLockFeature({
@@ -126,45 +123,36 @@ export default function BucketObjectLockFeature({
             </UiInlineMessage>
           )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <label className={labelClass}>
-              Mode
-              <select
-                value={mode}
-                onChange={(event) => updateMode(event.target.value)}
-                className={inputClass}
-                disabled={notImplemented}
-              >
-                <option value="">(none)</option>
-                <option value="GOVERNANCE">Governance</option>
-                <option value="COMPLIANCE">Compliance</option>
-              </select>
-            </label>
-            <label className={labelClass}>
-              Retention (days)
-              <input
-                type="number"
-                min={0}
-                step="1"
-                value={days}
-                onChange={(event) => updateDays(event.target.value)}
-                className={inputClass}
-                placeholder="e.g. 30"
-                disabled={notImplemented}
-              />
-            </label>
-            <label className={labelClass}>
-              Retention (years)
-              <input
-                type="number"
-                min={0}
-                step="1"
-                value={years}
-                onChange={(event) => updateYears(event.target.value)}
-                className={inputClass}
-                placeholder="e.g. 1"
-                disabled={notImplemented}
-              />
-            </label>
+            <SettingsSelect
+              label="Mode"
+              value={mode}
+              onChange={(event) => updateMode(event.target.value)}
+              disabled={notImplemented}
+            >
+              <option value="">(none)</option>
+              <option value="GOVERNANCE">Governance</option>
+              <option value="COMPLIANCE">Compliance</option>
+            </SettingsSelect>
+            <SettingsInput
+              label="Retention (days)"
+              type="number"
+              min={0}
+              step="1"
+              value={days}
+              onChange={(event) => updateDays(event.target.value)}
+              placeholder="e.g. 30"
+              disabled={notImplemented}
+            />
+            <SettingsInput
+              label="Retention (years)"
+              type="number"
+              min={0}
+              step="1"
+              value={years}
+              onChange={(event) => updateYears(event.target.value)}
+              placeholder="e.g. 1"
+              disabled={notImplemented}
+            />
           </div>
           {configuration?.mode && (configuration.days != null || configuration.years != null) && (
             <p className={hintClass}>

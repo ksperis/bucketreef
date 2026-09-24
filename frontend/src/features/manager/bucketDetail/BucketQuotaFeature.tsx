@@ -4,9 +4,8 @@
  */
 import type { FormEvent } from "react";
 import { ListBadge } from "../../../components/list/ListControls";
-import { SettingsButton } from "../../../components/settings/SettingsControls";
+import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { cx, uiInputClass } from "../../../components/ui/styles";
 import BucketFeatureSection from "./BucketFeatureSection";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -22,8 +21,6 @@ type BucketQuotaFeatureProps = {
 };
 
 const formId = "bucket-quota-form";
-const inputClass = cx(uiInputClass, "settings-control");
-const labelClass = "settings-label flex flex-col gap-1";
 
 export default function BucketQuotaFeature({
   controller,
@@ -82,45 +79,40 @@ export default function BucketQuotaFeature({
         onSubmit={submit}
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label className={labelClass}>
-            Size
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                step="0.1"
-                value={maxSize}
-                onChange={(event) => updateMaxSize(event.target.value)}
-                className={cx(inputClass, "flex-1")}
-                placeholder="e.g. 100"
-                disabled={!editable}
-              />
-              <select
-                value={unit}
-                aria-label="Quota size unit"
-                onChange={(event) => updateUnit(event.target.value as BucketQuotaUnit)}
-                className={cx(inputClass, "w-20")}
-                disabled={!editable}
-              >
-                <option value="MiB">MiB</option>
-                <option value="GiB">GiB</option>
-                <option value="TiB">TiB</option>
-              </select>
-            </div>
-          </label>
-          <label className={labelClass}>
-            Object count
-            <input
+          <div className="flex flex-wrap items-end gap-2">
+            <SettingsInput
+              label="Size"
               type="number"
               min={0}
-              step="1"
-              value={maxObjects}
-              onChange={(event) => updateMaxObjects(event.target.value)}
-              className={inputClass}
-              placeholder="e.g. 1000000"
+              step="0.1"
+              value={maxSize}
+              onChange={(event) => updateMaxSize(event.target.value)}
+              fieldClassName="min-w-36 flex-1"
+              placeholder="e.g. 100"
               disabled={!editable}
             />
-          </label>
+            <SettingsSelect
+              value={unit}
+              aria-label="Quota size unit"
+              onChange={(event) => updateUnit(event.target.value as BucketQuotaUnit)}
+              className="w-20"
+              disabled={!editable}
+            >
+              <option value="MiB">MiB</option>
+              <option value="GiB">GiB</option>
+              <option value="TiB">TiB</option>
+            </SettingsSelect>
+          </div>
+          <SettingsInput
+            label="Object count"
+            type="number"
+            min={0}
+            step="1"
+            value={maxObjects}
+            onChange={(event) => updateMaxObjects(event.target.value)}
+            placeholder="e.g. 1000000"
+            disabled={!editable}
+          />
         </div>
         {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
       </form>

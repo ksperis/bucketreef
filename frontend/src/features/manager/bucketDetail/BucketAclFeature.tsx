@@ -2,9 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { SettingsButton } from "../../../components/settings/SettingsControls";
+import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { cx, uiInputClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -27,8 +26,6 @@ const aclOptions = [
   { value: "custom", label: "Custom canned ACL" },
 ];
 
-const inputClass = cx(uiInputClass, "settings-control");
-const labelClass = "settings-label flex flex-col gap-1";
 const hintClass = "settings-description";
 
 export default function BucketAclFeature({ controller }: BucketAclFeatureProps) {
@@ -76,33 +73,27 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
     >
       {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
       <div className="grid gap-3 md:grid-cols-2">
-        <label className={labelClass}>
-          Canned ACL
-          <select
-            value={preset}
-            onChange={(event) => updatePreset(event.target.value)}
-            className={inputClass}
-            disabled={notImplemented || loading || saving}
-          >
-            {aclOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SettingsSelect
+          label="Canned ACL"
+          value={preset}
+          onChange={(event) => updatePreset(event.target.value)}
+          disabled={notImplemented || loading || saving}
+        >
+          {aclOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </SettingsSelect>
         {preset === "custom" && (
-          <label className={labelClass}>
-            Custom ACL
-            <input
-              type="text"
-              value={custom}
-              onChange={(event) => updateCustom(event.target.value)}
-              className={inputClass}
-              placeholder="e.g. private"
-              disabled={notImplemented || loading || saving}
-            />
-          </label>
+          <SettingsInput
+            label="Custom ACL"
+            type="text"
+            value={custom}
+            onChange={(event) => updateCustom(event.target.value)}
+            placeholder="e.g. private"
+            disabled={notImplemented || loading || saving}
+          />
         )}
       </div>
       <p className={hintClass}>Saving a canned ACL replaces the current ACL grants.</p>
