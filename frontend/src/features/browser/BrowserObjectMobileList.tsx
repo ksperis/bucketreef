@@ -22,7 +22,6 @@ type BrowserObjectMobileListProps = {
   issueTitle?: string;
   workspaceNoun: string;
   workspaceObjectNounPlural: string;
-  rowActionButtonClasses: string;
   onGoUp: () => void;
   onItemContextMenu: (
     event: ReactMouseEvent<HTMLDivElement>,
@@ -49,7 +48,6 @@ export default function BrowserObjectMobileList({
   issueTitle,
   workspaceNoun,
   workspaceObjectNounPlural,
-  rowActionButtonClasses,
   onGoUp,
   onItemContextMenu,
   onToggleSelection,
@@ -161,8 +159,8 @@ export default function BrowserObjectMobileList({
                 </span>
               </span>
             </button>
-            <ListActionButton iconOnly
-              className={rowActionButtonClasses}
+            <ListActionButton
+              iconOnly
               aria-label={`More actions for ${item.name}`}
               onClick={(event) => onOpenActions(event, item)}
             >

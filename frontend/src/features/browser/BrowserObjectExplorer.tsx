@@ -42,7 +42,6 @@ type BrowserObjectTableConfig = {
     | "iconBoxClasses"
     | "nameGapClasses"
     | "primaryItemButtonHeightClasses"
-    | "rowActionButtonClasses"
   >;
 };
 
@@ -228,7 +227,6 @@ export default function BrowserObjectExplorer({
             issueTitle={issue?.title}
             workspaceNoun={workspaceNoun}
             workspaceObjectNounPlural={workspaceObjectNounPlural}
-            rowActionButtonClasses={table.row.rowActionButtonClasses}
             onGoUp={onGoUp}
             onItemContextMenu={onItemContextMenu}
             onToggleSelection={onToggleSelection}
@@ -310,7 +308,6 @@ export default function BrowserObjectExplorer({
                   primaryItemButtonHeightClasses={
                     table.row.primaryItemButtonHeightClasses
                   }
-                  rowActionButtonClasses={table.row.rowActionButtonClasses}
                   onClick={(event) => {
                     if (
                       isBrowserInteractiveTarget(event.target) ||
