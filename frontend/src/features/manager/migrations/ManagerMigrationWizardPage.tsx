@@ -7,11 +7,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import PageShell from "../../../components/PageShell";
 import { resolveListTableStatus } from "../../../components/list/listTableStatus";
+import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import UiButton from "../../../components/ui/UiButton";
 import UiCheckboxField from "../../../components/ui/UiCheckboxField";
 import UiInput from "../../../components/ui/UiInput";
 import UiSelect from "../../../components/ui/UiSelect";
-import { cx, uiPanelClass, uiPanelMutedClass, uiRadioClass } from "../../../components/ui/styles";
+import { cx, uiPanelClass, uiPanelMutedClass } from "../../../components/ui/styles";
 import {
   createManagerMigration,
   getManagerMigration,
@@ -530,29 +531,31 @@ export default function ManagerMigrationWizardPage() {
         {step === 2 && (
           <div className="space-y-3">
             <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
-              <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Strategy</p>
-              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 dark:border-slate-700 dark:bg-slate-800/50">
-                <div className="grid gap-2 md:grid-cols-2">
-                  <label className="inline-flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 ui-caption text-slate-700 dark:text-slate-200">
-                    <input
-                      type="radio"
-                      checked={mode === "one_shot"}
-                      onChange={() => setMode("one_shot")}
-                      className={uiRadioClass}
-                    />
-                    One-shot migration
-                  </label>
-                  <label className="inline-flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 ui-caption text-slate-700 dark:text-slate-200">
-                    <input
-                      type="radio"
-                      checked={mode === "pre_sync"}
-                      onChange={() => setMode("pre_sync")}
-                      className={uiRadioClass}
-                    />
-                    Pre-sync + cutover
-                  </label>
+              <fieldset>
+                <legend className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Strategy</legend>
+                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
+                  <SettingsChoiceRow
+                    type="radio"
+                    name="migration-strategy"
+                    value="one_shot"
+                    title="One-shot migration"
+                    ariaLabel="One-shot migration"
+                    description="Copy the selected buckets once, then continue to verification and cutover."
+                    checked={mode === "one_shot"}
+                    onChange={() => setMode("one_shot")}
+                  />
+                  <SettingsChoiceRow
+                    type="radio"
+                    name="migration-strategy"
+                    value="pre_sync"
+                    title="Pre-sync + cutover"
+                    ariaLabel="Pre-sync + cutover"
+                    description="Pre-copy data before cutover to reduce the final transfer window."
+                    checked={mode === "pre_sync"}
+                    onChange={() => setMode("pre_sync")}
+                  />
                 </div>
-              </div>
+              </fieldset>
 
               <UiCheckboxField
                 checked={deleteSource}

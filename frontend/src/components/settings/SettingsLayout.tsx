@@ -60,6 +60,7 @@ type SettingsChoiceRowProps = {
   title: string;
   type?: "checkbox" | "radio";
   name?: string;
+  value?: string;
   ariaLabel?: string;
   description?: ReactNode;
   checked: boolean;
@@ -183,6 +184,7 @@ export const SettingsChoiceRow = ({
   title,
   type = "checkbox",
   name,
+  value,
   ariaLabel,
   description,
   checked,
@@ -204,6 +206,7 @@ export const SettingsChoiceRow = ({
     <input
       type={type}
       name={name}
+      value={value}
       aria-label={ariaLabel}
       checked={checked}
       disabled={disabled}

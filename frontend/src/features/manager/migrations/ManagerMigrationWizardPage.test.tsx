@@ -87,7 +87,9 @@ describe("ManagerMigrationWizardPage", () => {
 
     expect(screen.getByText("Strategy")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "One-shot migration" })).toHaveClass("text-primary");
+    expect(screen.getByRole("radio", { name: "One-shot migration" })).toHaveAttribute("value", "one_shot");
     expect(screen.getByRole("radio", { name: "Pre-sync + cutover" })).toHaveClass("text-primary");
+    expect(screen.getByText("Pre-copy data before cutover to reduce the final transfer window.")).toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "Strong integrity check before source deletion" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Show" }));
     expect(screen.getByRole("button", { name: "Hide" })).toHaveClass("ui-button-base");
