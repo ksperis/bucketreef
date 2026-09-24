@@ -19,6 +19,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
+import { ListActionButton } from "../../components/list/ListControls";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import {
@@ -137,7 +138,7 @@ import {
 } from "./browserRootUiState";
 import { shouldUseStsPresigner } from "./sseBrowserLogic";
 import { InfoIcon } from "./browserIcons";
-import { VERSIONS_LIST_HARD_LIMIT, filterChipClasses, storageClassOptions, toolbarButtonClasses } from "./browserConstants";
+import { VERSIONS_LIST_HARD_LIMIT, storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import {
   buildPrefixBreadcrumbs,
@@ -2355,8 +2356,6 @@ export default function BrowserPage({
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [leaveMessage, shouldConfirmLeave]);
-  const chromeChipButtonClasses = filterChipClasses;
-  const chromeToolbarButtonClasses = toolbarButtonClasses;
   const showFolderToggle = showPanelToggles && canUseFoldersPanel;
   const isActionBarVisible = selectedCount > 0;
   const showContextToolbarActions = !isActionBarVisible;
@@ -2647,9 +2646,10 @@ export default function BrowserPage({
                           <p className="ui-caption text-slate-600 dark:text-slate-300">
                             {`Allow direct access from ${uiOrigin} by adding CORS rules to this bucket.`}
                           </p>
-                          <button
+                          <ListActionButton
                             type="button"
-                            className={`mt-2 ${chromeChipButtonClasses} border-emerald-200 bg-emerald-100 text-emerald-800 hover:border-emerald-300 hover:text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-100 dark:hover:border-emerald-400`}
+                            variant="success"
+                            className="mt-2"
                             onClick={handleEnsureCors}
                             disabled={corsFixing}
                             title={`Add ${uiOrigin} to bucket CORS rules.`}
@@ -2658,7 +2658,7 @@ export default function BrowserPage({
                             {corsFixing
                               ? "Adding..."
                               : `Add ${uiOrigin} to CORS`}
-                          </button>
+                          </ListActionButton>
                         </div>
                       </AnchoredPortalMenu>
                     </span>
@@ -2757,7 +2757,6 @@ export default function BrowserPage({
                     primaryItemButtonHeightClasses,
                   },
                 }}
-                loadMoreButtonClasses={chromeToolbarButtonClasses}
                 resolveItemActions={resolveItemActionStates}
                 onDragEnter={handleDragEnter}
                 onDragOver={handleDragOver}

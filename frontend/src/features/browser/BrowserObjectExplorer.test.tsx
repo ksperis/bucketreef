@@ -87,7 +87,6 @@ function buildProps(overrides: Partial<ExplorerProps> = {}): ExplorerProps {
         primaryItemButtonHeightClasses: "name-height",
       },
     },
-    loadMoreButtonClasses: "load-more",
     resolveItemActions: (item) =>
       resolveBrowserActions({
         scope: "item",
@@ -177,11 +176,11 @@ describe("BrowserObjectExplorer", () => {
       screen.getByRole("checkbox", { name: "Select object-1.txt" }),
     ).toBeDisabled();
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Continue loading deleted files",
-      }),
-    );
+    const loadMoreButton = screen.getByRole("button", {
+      name: "Continue loading deleted files",
+    });
+    expect(loadMoreButton).toHaveClass("ui-list-action");
+    fireEvent.click(loadMoreButton);
     expect(props.onLoadMore).toHaveBeenCalledOnce();
   });
 

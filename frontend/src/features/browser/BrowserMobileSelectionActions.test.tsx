@@ -47,9 +47,13 @@ describe("BrowserMobileSelectionActions", () => {
     const toolbar = screen.getByRole("toolbar", {
       name: "Selected object actions",
     });
-    await user.click(within(toolbar).getByRole("button", { name: "Open" }));
+    const openButton = within(toolbar).getByRole("button", { name: "Open" });
+    const downloadButton = within(toolbar).getByRole("button", { name: "Download" });
+    expect(openButton).toHaveClass("ui-list-action");
+    expect(downloadButton).toHaveClass("ui-list-action", "ui-list-action-primary");
+    await user.click(openButton);
     await user.click(
-      within(toolbar).getByRole("button", { name: "Download" }),
+      downloadButton,
     );
     await user.click(within(toolbar).getByRole("button", { name: "More" }));
 
@@ -62,7 +66,9 @@ describe("BrowserMobileSelectionActions", () => {
     ).not.toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "Copy" })).toBeDisabled();
     expect(within(sheet).getByText("Copy is unavailable.")).toBeInTheDocument();
-    await user.click(within(sheet).getByRole("button", { name: "Delete" }));
+    const deleteButton = within(sheet).getByRole("button", { name: "Delete" });
+    expect(deleteButton).toHaveClass("ui-list-action", "ui-list-action-danger");
+    await user.click(deleteButton);
 
     expect(onOpen).toHaveBeenCalledOnce();
     expect(onDownload).toHaveBeenCalledOnce();

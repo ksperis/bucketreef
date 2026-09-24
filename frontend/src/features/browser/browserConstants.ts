@@ -8,14 +8,6 @@ import {
   uiButtonVariants,
 } from "../../components/ui/styles";
 
-export const bulkDangerClasses =
-  cx(uiButtonBaseClass, uiButtonVariants.danger, "px-2.5 py-1.5");
-export const toolbarButtonClasses =
-  cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5");
-export const toolbarPrimaryClasses =
-  cx(uiButtonBaseClass, uiButtonVariants.primary, "px-2.5 py-1.5");
-export const filterChipClasses =
-  cx(uiButtonBaseClass, uiButtonVariants.secondary, "px-2.5 py-1.5");
 export const countBadgeClasses =
   "inline-flex w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 px-1 ui-caption font-semibold text-slate-600 tabular-nums dark:bg-slate-800 dark:text-slate-200";
 const contextMenuBaseClasses =
