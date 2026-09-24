@@ -1,8 +1,8 @@
 import type { RefObject } from "react";
 
 import type { BrowserBucket } from "../../api/browserContracts";
-import { toolbarCompactInputClasses } from "../../components/toolbarControlClasses";
-import { cx, uiMenuClass, uiMutedTextClass } from "../../components/ui/styles";
+import UiInput from "../../components/ui/UiInput";
+import { cx, uiMenuClass, uiMenuItemClass, uiMutedTextClass } from "../../components/ui/styles";
 import {
   bucketButtonClasses,
   filterChipClasses,
@@ -11,7 +11,6 @@ import { BucketIcon, ChevronDownIcon, SearchIcon } from "./browserIcons";
 
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
 const eyebrowClasses = cx("ui-caption font-semibold", uiMutedTextClass);
-const inputClasses = cx(toolbarCompactInputClasses, "w-full py-2 font-medium");
 
 type BrowserBucketSelectorProps = {
   rootRef: RefObject<HTMLDivElement>;
@@ -123,13 +122,16 @@ export default function BrowserBucketSelector({
           <div className="px-2 pb-2">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
+              <UiInput
                 ref={filterInputRef}
                 type="text"
                 value={filter}
                 onChange={(event) => onFilterChange(event.target.value)}
                 placeholder={`Filter ${workspaceNounPlural}`}
-                className={`${inputClasses} ui-list-control-with-icon`}
+                aria-label={`Filter ${workspaceNounPlural}`}
+                size="compact"
+                fieldClassName="w-full"
+                className="ui-list-control ui-list-control-with-icon w-full font-medium"
                 spellCheck={false}
               />
             </div>
@@ -168,11 +170,13 @@ export default function BrowserBucketSelector({
                     key={bucket.name}
                     type="button"
                     onClick={() => onSelectBucket(bucket.name)}
-                    className={`flex w-full min-w-0 items-center justify-between rounded-md border px-3 py-2 text-left font-semibold transition ${
+                    className={cx(
+                      uiMenuItemClass,
+                      "flex w-full min-w-0 items-center justify-between border px-3 py-2 font-semibold",
                       isActive
                         ? "border-primary-200 bg-primary-50 text-primary-800 shadow-sm dark:border-primary-500/40 dark:bg-primary-500/20 dark:text-primary-100"
-                        : "border-transparent text-slate-700 hover:border-primary-200 hover:bg-slate-50 dark:text-slate-200 dark:hover:border-primary-500/40 dark:hover:bg-slate-800"
-                    }`}
+                        : "border-transparent text-slate-700 hover:border-primary-200 dark:text-slate-200 dark:hover:border-primary-500/40",
+                    )}
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <BucketIcon className="h-3.5 w-3.5 shrink-0" />
