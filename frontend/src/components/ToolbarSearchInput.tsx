@@ -2,8 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton } from "./list/ListControls";
 import type { KeyboardEventHandler, ReactNode, TextareaHTMLAttributes } from "react";
+import { ToolbarMatchModeButton } from "./ToolbarFilterControls";
 import UiField from "./ui/UiField";
 import { cx, uiInputClass } from "./ui/styles";
 
@@ -44,15 +44,11 @@ export default function ToolbarSearchInput({
 }: ToolbarSearchInputProps) {
   const matchModeControl =
     matchMode && onToggleMatchMode ? (
-      <ListActionButton iconOnly
-        type="button"
+      <ToolbarMatchModeButton
+        mode={matchMode}
         onClick={onToggleMatchMode}
-        className="ui-list-search-mode"
         title={`Filter mode: ${matchMode === "contains" ? "contains" : "exact"}`}
-        aria-label="Toggle filter match mode"
-      >
-        {matchMode === "contains" ? "~" : "="}
-      </ListActionButton>
+      />
     ) : null;
   const resolvedTrailingControl = trailingControl ?? matchModeControl;
   const renderInput = ({ id, describedBy, invalid }: { id: string; describedBy?: string; invalid: boolean }) => (

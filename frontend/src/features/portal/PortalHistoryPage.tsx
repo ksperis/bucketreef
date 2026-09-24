@@ -15,6 +15,7 @@ import ListPageSection from "../../components/list/ListPageSection";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { ListActionButton } from "../../components/list/ListControls";
+import { ToolbarAdvancedFilterButton } from "../../components/ToolbarFilterControls";
 import { cx, type UiTone, uiMutedTextClass } from "../../components/ui/styles";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useI18n } from "../../i18n";
@@ -38,7 +39,6 @@ import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField
 import {
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
-  advancedFilterToolbarButtonClass,
   buildTextFieldRules,
   formatAdvancedFilterSyncLabel,
   formatTextFilterSummary,
@@ -817,14 +817,13 @@ export default function PortalHistoryPage() {
               <ListActionButton variant="secondary" onClick={openRawLogsModal} disabled={!accountIdForApi}>
                 {t({ en: "Export logs", fr: "Exporter les logs", de: "Logs exportieren", zh: "导出日志" })}
               </ListActionButton>
-              <ListActionButton
-                variant="secondary"
+              <ToolbarAdvancedFilterButton
+                active={showServerLogAdvancedFilter || serverLogAdvancedFilterActive}
                 onClick={() => setShowServerLogAdvancedFilter(true)}
-                className={advancedFilterToolbarButtonClass(showServerLogAdvancedFilter || serverLogAdvancedFilterActive)}
               >
                 {t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter", zh: "高级筛选" })}
                 {serverLogAdvancedFilterActive ? " · Active" : ""}
-              </ListActionButton>
+              </ToolbarAdvancedFilterButton>
           </>}
           secondaryContent={<><p>{t({
             en: "Use these manager-only provider logs to investigate S3 requests. Delivery may be delayed and depends on logging activation and retention.",
