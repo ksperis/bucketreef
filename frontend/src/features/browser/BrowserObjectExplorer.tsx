@@ -8,6 +8,7 @@ import type {
 } from "react";
 
 import TableEmptyState from "../../components/TableEmptyState";
+import { ListActionButton } from "../../components/list/ListControls";
 import { cx, uiCardClass, uiMutedTextClass } from "../../components/ui/styles";
 import BrowserObjectMobileList from "./BrowserObjectMobileList";
 import {
@@ -68,7 +69,6 @@ type BrowserObjectExplorerProps = {
   lazyColumnCache: Readonly<Record<string, LazyColumnCacheEntry>>;
   isPortalProfile: boolean;
   table: BrowserObjectTableConfig;
-  loadMoreButtonClasses: string;
   resolveItemActions: (item: BrowserItem) => BrowserActionMap;
   onDragEnter: DragEventHandler<HTMLDivElement>;
   onDragOver: DragEventHandler<HTMLDivElement>;
@@ -126,7 +126,6 @@ export default function BrowserObjectExplorer({
   lazyColumnCache,
   isPortalProfile,
   table,
-  loadMoreButtonClasses,
   resolveItemActions,
   onDragEnter,
   onDragOver,
@@ -331,9 +330,8 @@ export default function BrowserObjectExplorer({
       </div>
       {canLoadMore && (
         <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-3 text-right dark:border-slate-700 dark:bg-slate-900/40">
-          <button
+          <ListActionButton
             type="button"
-            className={loadMoreButtonClasses}
             onClick={onLoadMore}
             disabled={loadingMore}
           >
@@ -342,7 +340,7 @@ export default function BrowserObjectExplorer({
               : !objectsIsTruncated && deletedObjectsIsTruncated
                 ? "Continue loading deleted files"
                 : "Load more"}
-          </button>
+          </ListActionButton>
         </div>
       )}
     </div>

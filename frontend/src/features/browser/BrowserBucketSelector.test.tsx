@@ -66,6 +66,8 @@ describe("BrowserBucketSelector", () => {
     const filter = screen.getByRole("textbox", { name: "Filter buckets" });
     expect(filterInputRef.current).toBe(filter);
     expect(filter).toHaveClass("ui-control", "ui-control-compact", "ui-list-control");
+    expect(screen.getByRole("button", { name: "Create bucket" })).toHaveClass("ui-list-action");
+    expect(screen.getByRole("button", { name: "Load more" })).toHaveClass("ui-list-action");
 
     fireEvent.change(filter, { target: { value: "arch" } });
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));

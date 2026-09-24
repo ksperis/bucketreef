@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { BrowserObjectVersion } from "../../api/browserContracts";
+import { ListActionButton } from "../../components/list/ListControls";
 import BrowserObjectVersionsList from "./BrowserObjectVersionsList";
-import { toolbarButtonClasses } from "./browserConstants";
 
 type BrowserObjectVersionsTabProps = {
   canLoadMore: boolean;
@@ -39,14 +39,13 @@ export default function BrowserObjectVersionsTab({
           Inspect previous object states, delete markers, and restore the latest
           state when needed.
         </p>
-        <button
+        <ListActionButton
           type="button"
-          className={toolbarButtonClasses}
           onClick={onRefresh}
           disabled={busy}
         >
           Refresh
-        </button>
+        </ListActionButton>
       </div>
       <BrowserObjectVersionsList
         title="Versions"

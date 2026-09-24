@@ -69,6 +69,7 @@
 .ui-list-action.ui-list-action-ghost { border-color: transparent; background: transparent; }
 .ui-list-action.ui-list-action:disabled, .ui-list-action.ui-list-action[aria-disabled="true"] { cursor: not-allowed; color: var(--ui-text-muted); border-color: var(--ui-border-soft); background: var(--ui-surface-muted); opacity: .6; }
 .ui-list-action.ui-list-action-icon { width: var(--list-control-height); padding: 0; flex-shrink: 0; }
+.ui-list-action.ui-list-action-touch { min-height: 44px; }
 .ui-list-action-icon > svg { width: var(--list-icon-size); height: var(--list-icon-size); }
 .ui-list-action:focus-visible, .ui-data-table th button:focus-visible { outline: 2px solid rgb(var(--ui-primary-700-rgb)); outline-offset: 2px; }
 :root.dark .ui-list-action:focus-visible, :root.dark .ui-data-table th button:focus-visible { outline-color: rgb(var(--ui-primary-200-rgb)); }

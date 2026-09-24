@@ -46,6 +46,7 @@ describe("Browser object detail tabs", () => {
         readOnly={false}
       />,
     );
+    expect(screen.getByRole("button", { name: "Refresh" })).toHaveClass("ui-list-action");
 
     await user.click(screen.getByRole("button", { name: "Refresh" }));
     await user.click(

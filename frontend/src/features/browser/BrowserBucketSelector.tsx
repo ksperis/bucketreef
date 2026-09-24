@@ -1,12 +1,10 @@
 import type { RefObject } from "react";
 
 import type { BrowserBucket } from "../../api/browserContracts";
+import { ListActionButton } from "../../components/list/ListControls";
 import UiInput from "../../components/ui/UiInput";
 import { cx, uiMenuClass, uiMenuItemClass, uiMutedTextClass } from "../../components/ui/styles";
-import {
-  bucketButtonClasses,
-  filterChipClasses,
-} from "./browserConstants";
+import { bucketButtonClasses } from "./browserConstants";
 import { BucketIcon, ChevronDownIcon, SearchIcon } from "./browserIcons";
 
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
@@ -107,16 +105,15 @@ export default function BrowserBucketSelector({
           <div className="flex items-center justify-between gap-3 px-2 pb-2 pt-1">
             <p className={eyebrowClasses}>{workspaceNounTitle}</p>
             {bucketManagementEnabled && (
-              <button
+              <ListActionButton
                 type="button"
                 onClick={onCreateBucket}
                 disabled={!hasContext}
-                className={filterChipClasses}
                 title="Create bucket"
                 aria-label="Create bucket"
               >
                 + Bucket
-              </button>
+              </ListActionButton>
             )}
           </div>
           <div className="px-2 pb-2">
@@ -148,14 +145,13 @@ export default function BrowserBucketSelector({
                     ? `Unable to load ${workspaceNounPlural}.`
                     : `No ${workspaceNounPlural} available.`}
                 </div>
-                <button
+                <ListActionButton
                   type="button"
-                  className={filterChipClasses}
                   onClick={onRetry}
                   disabled={loading || !hasContext}
                 >
                   {loading ? "Retrying..." : "Retry"}
-                </button>
+                </ListActionButton>
               </div>
             ) : items.length === 0 ? (
               <div className="px-2 py-2 ui-caption text-slate-500 dark:text-slate-400">
@@ -199,14 +195,13 @@ export default function BrowserBucketSelector({
           )}
           {canLoadMore && (
             <div className="border-t border-slate-200 px-2.5 py-2 dark:border-slate-700">
-              <button
+              <ListActionButton
                 type="button"
                 onClick={onLoadMore}
                 disabled={loadingMore}
-                className={filterChipClasses}
               >
                 {loadingMore ? "Loading..." : "Load more"}
-              </button>
+              </ListActionButton>
             </div>
           )}
         </div>

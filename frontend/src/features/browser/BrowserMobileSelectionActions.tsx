@@ -4,12 +4,8 @@
  */
 import { useState } from "react";
 import Modal from "../../components/Modal";
+import { ListActionButton } from "../../components/list/ListControls";
 import type { BrowserActionId, BrowserActionState } from "./browserActions";
-import {
-  bulkDangerClasses,
-  toolbarButtonClasses,
-  toolbarPrimaryClasses,
-} from "./browserConstants";
 import { DownloadIcon, MoreIcon, OpenIcon } from "./browserIcons";
 
 type BrowserMobileSelectionActionsProps = {
@@ -40,34 +36,38 @@ export default function BrowserMobileSelectionActions({
         aria-label="Selected object actions"
         className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 gap-2 border-t border-slate-200 bg-white/95 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/95"
       >
-        <button
+        <ListActionButton
           type="button"
-          className={`${toolbarButtonClasses} min-h-11 justify-center`}
+          touchTarget
+          className="justify-center"
           onClick={onOpen}
           disabled={!canOpen}
         >
           <OpenIcon className="h-4 w-4" />
           Open
-        </button>
-        <button
+        </ListActionButton>
+        <ListActionButton
           type="button"
-          className={`${toolbarPrimaryClasses} min-h-11 justify-center`}
+          variant="primary"
+          touchTarget
+          className="justify-center"
           onClick={onDownload}
           disabled={!canDownload}
         >
           <DownloadIcon className="h-4 w-4" />
           Download
-        </button>
-        <button
+        </ListActionButton>
+        <ListActionButton
           type="button"
-          className={`${toolbarButtonClasses} min-h-11 justify-center`}
+          touchTarget
+          className="justify-center"
           onClick={() => setSheetOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={sheetOpen}
         >
           <MoreIcon className="h-4 w-4" />
           More
-        </button>
+        </ListActionButton>
       </div>
 
       {sheetOpen && (
@@ -88,11 +88,13 @@ export default function BrowserMobileSelectionActions({
                   action.id !== "open" && action.id !== "download",
               )
               .map((action) => (
-                <button
+                <ListActionButton
                   key={action.id}
                   type="button"
                   aria-label={action.label}
-                  className={`${action.id === "delete" ? bulkDangerClasses : toolbarButtonClasses} min-h-11 w-full justify-start`}
+                  variant={action.id === "delete" ? "danger" : "secondary"}
+                  touchTarget
+                  className="w-full justify-start"
                   disabled={!action.enabled}
                   title={action.disabledReason}
                   onClick={() => {
@@ -108,7 +110,7 @@ export default function BrowserMobileSelectionActions({
                       {action.disabledReason}
                     </span>
                   )}
-                </button>
+                </ListActionButton>
               ))}
           </div>
         </Modal>

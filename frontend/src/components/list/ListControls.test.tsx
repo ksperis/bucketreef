@@ -40,10 +40,11 @@ describe("listing actions", () => {
   });
 
   it("applies shared active presentation without leaking the prop to the DOM", () => {
-    render(<ListActionButton active>Selected</ListActionButton>);
+    render(<ListActionButton active touchTarget>Selected</ListActionButton>);
     const button = screen.getByRole("button", { name: "Selected" });
-    expect(button).toHaveClass("ui-list-action-active");
+    expect(button).toHaveClass("ui-list-action-active", "ui-list-action-touch");
     expect(button).not.toHaveAttribute("active");
+    expect(button).not.toHaveAttribute("touchTarget");
   });
 
   it("keeps links as links and respects an explicitly disabled action", async () => {

@@ -32,8 +32,8 @@ function actionClass({ variant = "secondary", iconOnly, active }: ActionPresenta
 
 export const ListActionButton = forwardRef<
   HTMLButtonElement,
-  ButtonHTMLAttributes<HTMLButtonElement> & ActionPresentation & { loading?: boolean }
->(function ListActionButton({ variant, iconOnly, active, loading = false, disabled, className, type = "button", ...props }, ref) {
+  ButtonHTMLAttributes<HTMLButtonElement> & ActionPresentation & { loading?: boolean; touchTarget?: boolean }
+>(function ListActionButton({ variant, iconOnly, active, loading = false, touchTarget = false, disabled, className, type = "button", ...props }, ref) {
   return (
     <button
       {...props}
@@ -41,7 +41,7 @@ export const ListActionButton = forwardRef<
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || props["aria-busy"]}
-      className={cx(actionClass({ variant, iconOnly, active }), className)}
+      className={cx(actionClass({ variant, iconOnly, active }), touchTarget && "ui-list-action-touch", className)}
     />
   );
 });
