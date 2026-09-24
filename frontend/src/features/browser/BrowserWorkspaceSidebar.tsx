@@ -3,10 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { Ref } from "react";
-import {
-  toolbarCompactButtonClasses,
-  toolbarCompactInputClasses,
-} from "../../components/toolbarControlClasses";
+import ToolbarSearchInput from "../../components/ToolbarSearchInput";
+import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
 import UiMeterBar from "../../components/ui/UiMeterBar";
 import StorageSpaceIcon from "../../components/StorageSpaceIcon";
 import { cx } from "../../components/ui/styles";
@@ -173,20 +171,17 @@ export default function BrowserWorkspaceSidebar({
 
       {!compact && (
         <div className="shrink-0 space-y-2 border-b border-[color:var(--shell-border-soft)] px-3 py-3">
-          <label className="block">
-            <span className="sr-only">{searchPlaceholder}</span>
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={bucketFilter}
-                onChange={(event) => onBucketFilterChange(event.target.value)}
-                placeholder={searchPlaceholder}
-                className={cx(toolbarCompactInputClasses, "w-full py-2 ui-list-control-with-icon font-medium")}
-                spellCheck={false}
-              />
-            </div>
-          </label>
+          <ToolbarSearchInput
+            value={bucketFilter}
+            onChange={onBucketFilterChange}
+            placeholder={searchPlaceholder}
+            label={searchPlaceholder}
+            labelClassName="sr-only"
+            className="w-full"
+            inputClassName="w-full py-2 font-medium"
+            leadingControl={<SearchIcon className="h-3.5 w-3.5 text-slate-400" />}
+            spellCheck={false}
+          />
           {bucketManagementEnabled && (
             <div className="flex items-center gap-1.5">
               <button type="button" className={toolbarCompactButtonClasses} onClick={onCreateBucket}>

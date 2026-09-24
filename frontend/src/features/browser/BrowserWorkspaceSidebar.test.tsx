@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import BrowserWorkspaceSidebar from "./BrowserWorkspaceSidebar";
 
@@ -46,5 +46,41 @@ describe("BrowserWorkspaceSidebar", () => {
 
     const row = screen.getByRole("button", { name: /Research data/ });
     expect(row.querySelector('[data-storage-space-icon-preset="media"]')).toHaveClass("h-6", "w-6");
+  });
+
+  it("uses the shared search control for workspace filtering", () => {
+    const onBucketFilterChange = vi.fn();
+    render(
+      <BrowserWorkspaceSidebar
+        compact={false}
+        variant="desktop"
+        isPortalContext={false}
+        rows={[]}
+        activeBucketName=""
+        bucketFilter="archive"
+        loadingBuckets={false}
+        bucketError={null}
+        bucketManagementEnabled={false}
+        canLoadMore={false}
+        bucketMenuLoadingMore={false}
+        bucketMenuTotal={0}
+        bucketTotalCount={0}
+        usageSummary={null}
+        usageLoading={false}
+        usageError={null}
+        closeMobile={vi.fn()}
+        onBucketFilterChange={onBucketFilterChange}
+        onRetryBuckets={vi.fn()}
+        onCreateBucket={vi.fn()}
+        onSelectBucket={vi.fn()}
+        onLoadMore={vi.fn()}
+      />,
+    );
+
+    const filter = screen.getByRole("searchbox", { name: "Search buckets" });
+    expect(filter).toHaveClass("ui-control", "ui-list-control", "ui-list-control-with-icon");
+    expect(filter).toHaveAttribute("spellcheck", "false");
+    fireEvent.change(filter, { target: { value: "logs" } });
+    expect(onBucketFilterChange).toHaveBeenCalledWith("logs");
   });
 });

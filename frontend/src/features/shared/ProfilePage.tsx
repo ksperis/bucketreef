@@ -18,8 +18,6 @@ import UiTagBadgeList from "../../components/UiTagBadgeList";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
-
-import { toolbarCompactInputClasses } from "../../components/toolbarControlClasses";
 import {
   S3Connection,
   createConnection,
@@ -972,12 +970,14 @@ export default function ProfilePage({
                       <span className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         Search
                       </span>
-                      <input
-                        type="text"
+                      <ToolbarSearchInput
                         value={connectionsFilter}
-                        onChange={(event) => handleConnectionsFilterChange(event.target.value)}
+                        onChange={handleConnectionsFilterChange}
                         placeholder="Name, endpoint, provider, tag..."
-                        className={`${toolbarCompactInputClasses} min-w-0 w-full sm:w-72`}
+                        label="Search connections"
+                        labelClassName="sr-only"
+                        className="min-w-0 w-full sm:w-72"
+                        inputClassName="w-full"
                       />
                     </div>
                     {canCreateManualConnections && (

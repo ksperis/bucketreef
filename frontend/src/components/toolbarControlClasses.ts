@@ -3,9 +3,6 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-export const toolbarCompactInputClasses =
-  "ui-list-control border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60";
-
 export const toolbarCompactButtonClasses = "ui-list-action";
 
 export const toolbarCompactToggleClasses =
