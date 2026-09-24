@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { S3AccountSelector } from "../../../api/accountParams";
 import {
   getCephAdminBucketUsageStats,
@@ -11,7 +11,7 @@ import {
   streamManagerBucketUsageStatsForBucket,
   type BucketUsageStatsSnapshot,
 } from "../../../api/bucketUsageStats";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isCancelledError } from "../../../utils/apiError";
 
 type UseBucketUsageStatsControllerOptions = {
   accountId: S3AccountSelector;
@@ -34,6 +34,7 @@ export function useBucketUsageStatsController({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  const recalculationAbortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
     if (!bucketName || !enabled) {
@@ -64,30 +65,55 @@ export function useBucketUsageStatsController({
   }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
 
   const recalculate = useCallback(async () => {
-    if (!bucketName || !enabled || recalculating) return;
+    if (!bucketName || !enabled || recalculating || (cephAdmin && !endpointId)) return;
+    const controller = new AbortController();
+    recalculationAbortRef.current = controller;
     setRecalculating(true);
     setError(null);
     try {
       if (cephAdmin) {
-        if (!endpointId) return;
-        await streamCephAdminBucketUsageStatsForBucket(endpointId, bucketName);
+        await streamCephAdminBucketUsageStatsForBucket(
+          endpointId!,
+          bucketName,
+          { signal: controller.signal },
+        );
       } else {
-        await streamManagerBucketUsageStatsForBucket(accountId, bucketName);
+        await streamManagerBucketUsageStatsForBucket(
+          accountId,
+          bucketName,
+          { signal: controller.signal },
+        );
       }
       await load();
     } catch (recalculationFailure) {
-      setError(
-        extractApiError(
-          recalculationFailure,
-          "Unable to calculate bucket usage stats.",
-        ),
-      );
+      if (!isCancelledError(recalculationFailure)) {
+        setError(
+          extractApiError(
+            recalculationFailure,
+            "Unable to calculate bucket usage stats.",
+          ),
+        );
+      }
     } finally {
-      setRecalculating(false);
+      if (recalculationAbortRef.current === controller) {
+        recalculationAbortRef.current = null;
+        setRecalculating(false);
+      }
     }
   }, [accountId, bucketName, cephAdmin, enabled, endpointId, load, recalculating]);
 
+  const cancelRecalculation = useCallback(() => {
+    recalculationAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      recalculationAbortRef.current?.abort();
+    };
+  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+
   return {
+    cancelRecalculation,
     error,
     load,
     loading,

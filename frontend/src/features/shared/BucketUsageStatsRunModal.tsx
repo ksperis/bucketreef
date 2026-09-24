@@ -16,7 +16,7 @@ import WorkflowPage from "../../components/WorkflowPage";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat, bucketOperationTableContainerClass } from "./bucketOperationRunUi";
 import {
@@ -50,10 +50,6 @@ function statusLabel(status: BucketUsageStatsResult["status"]): string {
   if (status === "completed_with_warnings") return "Completed with warnings";
   if (status === "canceled") return "Canceled";
   return "Failed";
-}
-
-function isAbortError(err: unknown): boolean {
-  return err instanceof DOMException && err.name === "AbortError";
 }
 
 export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModalProps) {
@@ -117,7 +113,7 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
         props.onCompleted?.();
       }
     } catch (err) {
-      if (isAbortError(err)) {
+      if (isCancelledError(err)) {
         setMessage("Calculation canceled.");
       } else {
         setError(extractApiError(err, "Bucket usage stats calculation failed."));

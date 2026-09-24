@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useBucketUsageStatsController } from "../useBucketUsageStatsController";
 
@@ -60,7 +60,11 @@ describe("useBucketUsageStatsController", () => {
 
     expect(
       apiMocks.streamManagerBucketUsageStatsForBucket,
-    ).toHaveBeenCalledWith("acc-1", "reports");
+    ).toHaveBeenCalledWith(
+      "acc-1",
+      "reports",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(apiMocks.getManagerBucketUsageStats).toHaveBeenCalledTimes(2);
     expect(result.current.snapshot).toEqual(refreshedSnapshot);
     expect(result.current.error).toBeNull();
@@ -84,8 +88,41 @@ describe("useBucketUsageStatsController", () => {
     );
     expect(
       apiMocks.streamCephAdminBucketUsageStatsForBucket,
-    ).toHaveBeenCalledWith(7, "reports");
+    ).toHaveBeenCalledWith(
+      7,
+      "reports",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(result.current.snapshot).toEqual(snapshot);
+  });
+
+  it("cancels an in-flight bucket usage stats recalculation", async () => {
+    apiMocks.streamManagerBucketUsageStatsForBucket.mockImplementationOnce(
+      (_accountId: string, _bucketName: string, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+    const { result } = renderUsageStats();
+
+    act(() => {
+      void result.current.recalculate();
+    });
+
+    await waitFor(() => expect(result.current.recalculating).toBe(true));
+    const options = apiMocks.streamManagerBucketUsageStatsForBucket.mock.calls[0][2] as { signal: AbortSignal };
+    expect(options.signal.aborted).toBe(false);
+
+    act(() => result.current.cancelRecalculation());
+
+    await waitFor(() => expect(options.signal.aborted).toBe(true));
+    await waitFor(() => expect(result.current.recalculating).toBe(false));
+    expect(result.current.error).toBeNull();
+    expect(apiMocks.getManagerBucketUsageStats).not.toHaveBeenCalled();
   });
 
   it("reports load and recalculation failures", async () => {

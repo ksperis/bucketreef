@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getCephAdminUsageStatsAggregate,
   streamCephAdminUsageStatsAggregate,
@@ -23,7 +23,7 @@ import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
 import UsageBreakdown from "../../components/UsageBreakdown";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
@@ -56,6 +56,7 @@ export default function CephAdminMetricsPage() {
   const [usageStatsError, setUsageStatsError] = useState<string | null>(null);
   const [usageStatsRecalculating, setUsageStatsRecalculating] = useState(false);
   const [usageStatsConfirmOpen, setUsageStatsConfirmOpen] = useState(false);
+  const usageStatsAbortRef = useRef<AbortController | null>(null);
 
   const [window, setWindow] = useState<TrafficWindow>("week");
   const metricsCredentialsReady = !selectedEndpointAccessLoading && Boolean(selectedEndpointAccess?.can_metrics);
@@ -93,18 +94,39 @@ export default function CephAdminMetricsPage() {
 
   const runUsageStatsRecalculation = useCallback(async () => {
     const endpointId = selectedEndpointId;
-    if (!canLoadUsageStatsAggregate || endpointId == null) return;
+    if (!canLoadUsageStatsAggregate || endpointId == null || usageStatsRecalculating) return;
+    const controller = new AbortController();
+    usageStatsAbortRef.current = controller;
     setUsageStatsRecalculating(true);
     setUsageStatsError(null);
     try {
-      await streamCephAdminUsageStatsAggregate(endpointId, { parallelism: 8 });
+      await streamCephAdminUsageStatsAggregate(
+        endpointId,
+        { parallelism: 8 },
+        { signal: controller.signal },
+      );
       await loadUsageStatsAggregate();
     } catch (err) {
-      setUsageStatsError(extractError(err, "Unable to recalculate cluster usage composition."));
+      if (!isCancelledError(err)) {
+        setUsageStatsError(extractError(err, "Unable to recalculate cluster usage composition."));
+      }
     } finally {
-      setUsageStatsRecalculating(false);
+      if (usageStatsAbortRef.current === controller) {
+        usageStatsAbortRef.current = null;
+        setUsageStatsRecalculating(false);
+      }
     }
-  }, [canLoadUsageStatsAggregate, loadUsageStatsAggregate, selectedEndpointId]);
+  }, [canLoadUsageStatsAggregate, loadUsageStatsAggregate, selectedEndpointId, usageStatsRecalculating]);
+
+  const handleCancelUsageStats = useCallback(() => {
+    usageStatsAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      usageStatsAbortRef.current?.abort();
+    };
+  }, [canLoadUsageStatsAggregate, selectedEndpointId]);
 
   const handleRecalculateUsageStats = useCallback(() => {
     if (!canLoadUsageStatsAggregate || selectedEndpointId == null) return;
@@ -237,6 +259,7 @@ export default function CephAdminMetricsPage() {
       error={usageStatsError}
       recalculating={usageStatsRecalculating}
       recalculateLabel="Recalculate cluster"
+      onCancel={handleCancelUsageStats}
       onRecalculate={handleRecalculateUsageStats}
     />
   ) : null;

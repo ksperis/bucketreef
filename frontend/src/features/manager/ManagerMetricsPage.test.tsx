@@ -421,8 +421,50 @@ describe("ManagerMetricsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Recalculate account" }));
 
     await waitFor(() =>
-      expect(streamManagerUsageStatsAggregateMock).toHaveBeenCalledWith("conn-1", { parallelism: 8 })
+      expect(streamManagerUsageStatsAggregateMock).toHaveBeenCalledWith(
+        "conn-1",
+        { parallelism: 8 },
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      )
     );
     await waitFor(() => expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("cancels an account usage stats recalculation without reporting an error", async () => {
+    bucketUsageStatsEnabled = true;
+    setManagerUser();
+    useS3AccountContextMock.mockReturnValue(buildContext());
+    useManagerStatsMock.mockReturnValue(buildStatsResult());
+    streamManagerUsageStatsAggregateMock.mockImplementationOnce(
+      (_contextId: string, _payload: unknown, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+
+    render(
+      <MemoryRouter>
+        <ManagerMetricsPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Usage composition" }));
+    await screen.findByText("Account usage composition");
+    fireEvent.click(screen.getByRole("button", { name: "Recalculate account" }));
+
+    const cancelButton = await screen.findByRole("button", { name: "Cancel calculation" });
+    const options = streamManagerUsageStatsAggregateMock.mock.calls[0][2] as { signal: AbortSignal };
+    expect(options.signal.aborted).toBe(false);
+
+    fireEvent.click(cancelButton);
+
+    await waitFor(() => expect(options.signal.aborted).toBe(true));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Recalculate account" })).toBeInTheDocument());
+    expect(screen.queryByText("Unable to recalculate usage composition.")).not.toBeInTheDocument();
+    expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledTimes(1);
   });
 });

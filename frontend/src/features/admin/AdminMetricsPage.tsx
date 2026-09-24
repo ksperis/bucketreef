@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getAdminUsageStatsAggregate,
   streamAdminUsageStatsAggregate,
@@ -32,7 +32,7 @@ import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import UsageBreakdown from "../../components/UsageBreakdown";
 import UsageHistoryTrendsSection from "../../components/UsageHistoryTrendsSection";
 import UiSelect from "../../components/ui/UiSelect";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
 
@@ -67,6 +67,7 @@ export default function AdminMetricsPage() {
   const [usageStatsLoading, setUsageStatsLoading] = useState(false);
   const [usageStatsError, setUsageStatsError] = useState<string | null>(null);
   const [usageStatsRecalculating, setUsageStatsRecalculating] = useState(false);
+  const usageStatsAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -245,18 +246,39 @@ export default function AdminMetricsPage() {
   }, [loadUsageStatsAggregate]);
 
   const handleRecalculateUsageStats = useCallback(async () => {
-    if (selectedEndpointId == null) return;
+    if (selectedEndpointId == null || usageStatsRecalculating) return;
+    const controller = new AbortController();
+    usageStatsAbortRef.current = controller;
     setUsageStatsRecalculating(true);
     setUsageStatsError(null);
     try {
-      await streamAdminUsageStatsAggregate(selectedEndpointId, { parallelism: 8 });
+      await streamAdminUsageStatsAggregate(
+        selectedEndpointId,
+        { parallelism: 8 },
+        { signal: controller.signal },
+      );
       await loadUsageStatsAggregate();
     } catch (err) {
-      setUsageStatsError(extractError(err, "Unable to recalculate managed accounts usage composition."));
+      if (!isCancelledError(err)) {
+        setUsageStatsError(extractError(err, "Unable to recalculate managed accounts usage composition."));
+      }
     } finally {
-      setUsageStatsRecalculating(false);
+      if (usageStatsAbortRef.current === controller) {
+        usageStatsAbortRef.current = null;
+        setUsageStatsRecalculating(false);
+      }
     }
-  }, [loadUsageStatsAggregate, selectedEndpointId]);
+  }, [loadUsageStatsAggregate, selectedEndpointId, usageStatsRecalculating]);
+
+  const handleCancelUsageStats = useCallback(() => {
+    usageStatsAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      usageStatsAbortRef.current?.abort();
+    };
+  }, [selectedEndpointId]);
 
   const storageTotals = storage?.storage_totals;
   const accountUsageItems = useMemo(
@@ -303,6 +325,7 @@ export default function AdminMetricsPage() {
       error={usageStatsError}
       recalculating={usageStatsRecalculating}
       recalculateLabel="Recalculate endpoint"
+      onCancel={handleCancelUsageStats}
       onRecalculate={handleRecalculateUsageStats}
     />
   );

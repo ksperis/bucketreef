@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getManagerUsageStatsAggregate,
   streamManagerUsageStatsAggregate,
@@ -20,7 +20,7 @@ import MetricsUnavailableCard from "../../components/MetricsUnavailableCard";
 import PageEmptyState from "../../components/PageEmptyState";
 import UsageBreakdown from "../../components/UsageBreakdown";
 import UsageHistoryTrendsSection from "../../components/UsageHistoryTrendsSection";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, isCancelledError } from "../../utils/apiError";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
 import TrafficAnalytics from "./TrafficAnalytics";
 import { useS3AccountContext } from "./S3AccountContext";
@@ -78,6 +78,7 @@ export default function ManagerMetricsPage() {
   const [usageStatsLoading, setUsageStatsLoading] = useState(false);
   const [usageStatsError, setUsageStatsError] = useState<string | null>(null);
   const [usageStatsRecalculating, setUsageStatsRecalculating] = useState(false);
+  const usageStatsAbortRef = useRef<AbortController | null>(null);
   const showUsageBreakdowns = canShowUsageBreakdowns && !error;
   const showUsageHistoryTrends =
     Boolean(generalSettings.usage_history_enabled) &&
@@ -116,18 +117,39 @@ export default function ManagerMetricsPage() {
   }, [loadUsageStatsAggregate]);
 
   const handleRecalculateUsageStats = useCallback(async () => {
-    if (!canLoadUsageStatsAggregate) return;
+    if (!canLoadUsageStatsAggregate || usageStatsRecalculating) return;
+    const controller = new AbortController();
+    usageStatsAbortRef.current = controller;
     setUsageStatsRecalculating(true);
     setUsageStatsError(null);
     try {
-      await streamManagerUsageStatsAggregate(accountIdForApi, { parallelism: 8 });
+      await streamManagerUsageStatsAggregate(
+        accountIdForApi,
+        { parallelism: 8 },
+        { signal: controller.signal },
+      );
       await loadUsageStatsAggregate();
     } catch (err) {
-      setUsageStatsError(extractApiError(err, "Unable to recalculate usage composition."));
+      if (!isCancelledError(err)) {
+        setUsageStatsError(extractApiError(err, "Unable to recalculate usage composition."));
+      }
     } finally {
-      setUsageStatsRecalculating(false);
+      if (usageStatsAbortRef.current === controller) {
+        usageStatsAbortRef.current = null;
+        setUsageStatsRecalculating(false);
+      }
     }
-  }, [accountIdForApi, canLoadUsageStatsAggregate, loadUsageStatsAggregate]);
+  }, [accountIdForApi, canLoadUsageStatsAggregate, loadUsageStatsAggregate, usageStatsRecalculating]);
+
+  const handleCancelUsageStats = useCallback(() => {
+    usageStatsAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      usageStatsAbortRef.current?.abort();
+    };
+  }, [accountIdForApi, canLoadUsageStatsAggregate]);
 
   useEffect(() => {
     if (!showUsageHistoryTrends) {
@@ -166,6 +188,7 @@ export default function ManagerMetricsPage() {
       error={usageStatsError}
       recalculating={usageStatsRecalculating}
       recalculateLabel="Recalculate account"
+      onCancel={handleCancelUsageStats}
       onRecalculate={handleRecalculateUsageStats}
     />
   ) : null;
