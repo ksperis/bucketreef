@@ -5,24 +5,9 @@
 import { ReactNode, RefObject, useEffect, useId, useRef, useState } from "react";
 import UiButton from "./ui/UiButton";
 import { getFocusableElements, trapFocusWithin } from "./ui/focusTrap";
+import { isTopModal, registerModal, subscribeModalStack } from "./ui/modalStack";
 import { cx, uiCardClass, uiDividerClass, uiTitleTextClass } from "./ui/styles";
 import "./modal.css";
-
-const modalStack: string[] = [];
-const modalStackListeners = new Set<() => void>();
-
-/** Contextual drawers yield keyboard ownership while a modal covers them. */
-export function hasOpenModal() {
-  return modalStack.length > 0;
-}
-
-function notifyModalStackListeners() {
-  modalStackListeners.forEach((listener) => listener());
-}
-
-function isTopModal(modalId: string) {
-  return modalStack[modalStack.length - 1] === modalId;
-}
 
 type ModalProps = {
   title: string;
@@ -78,16 +63,11 @@ export default function Modal({
 
   useEffect(() => {
     const rerenderOnModalStackChange = () => setModalStackVersion((version) => version + 1);
-    modalStackListeners.add(rerenderOnModalStackChange);
-    modalStack.push(modalId);
-    notifyModalStackListeners();
+    const unsubscribe = subscribeModalStack(rerenderOnModalStackChange);
+    const unregister = registerModal(modalId);
     return () => {
-      modalStackListeners.delete(rerenderOnModalStackChange);
-      const index = modalStack.indexOf(modalId);
-      if (index >= 0) {
-        modalStack.splice(index, 1);
-        notifyModalStackListeners();
-      }
+      unsubscribe();
+      unregister();
     };
   }, [modalId]);
 

@@ -40,7 +40,7 @@ import {
   type BrowserSidebarBodyRenderer,
 } from "./BrowserLayout";
 import BrowserBulkAttributesModal from "./BrowserBulkAttributesModal";
-import { hasOpenModal } from "../../components/Modal";
+import { hasOpenModal } from "../../components/ui/modalStack";
 import BrowserObjectExplorer from "./BrowserObjectExplorer";
 import BrowserObjectSearchHeader from "./BrowserObjectSearchHeader";
 import BrowserFoldersPanel from "./BrowserFoldersPanel";

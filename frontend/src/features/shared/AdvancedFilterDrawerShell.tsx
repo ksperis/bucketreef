@@ -5,15 +5,8 @@
 import { useId, type ReactNode } from "react";
 
 import UiButton from "../../components/ui/UiButton";
+import UiDrawer, { UiDrawerBody, UiDrawerFooter, UiDrawerHeader } from "../../components/ui/UiDrawer";
 import { cx, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
-import {
-  advancedFilterBackdropClass,
-  advancedFilterBodyClass,
-  advancedFilterDrawerClass,
-  advancedFilterFooterClass,
-  advancedFilterHeaderClass,
-  advancedFilterRootClass,
-} from "./advancedFilterShared";
 
 type AdvancedFilterDrawerShellProps = {
   title: ReactNode;
@@ -41,20 +34,15 @@ export default function AdvancedFilterDrawerShell({
   const titleId = useId();
 
   return (
-    <div className={advancedFilterRootClass}>
-      <button
-        type="button"
-        onClick={onClose}
-        className={advancedFilterBackdropClass}
-        aria-label={closeAriaLabel}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className={cx(advancedFilterDrawerClass, className)}
-      >
-        <div className={advancedFilterHeaderClass}>
+    <UiDrawer
+      ariaLabelledBy={titleId}
+      onClose={onClose}
+      rootClassName="inset-x-0 bottom-0 top-14"
+      showBackdrop
+      backdropLabel={closeAriaLabel}
+      surfaceClassName={cx("w-full max-w-3xl", className)}
+    >
+        <UiDrawerHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p id={titleId} className={cx("ui-body font-semibold", uiTitleTextClass)}>
@@ -67,10 +55,9 @@ export default function AdvancedFilterDrawerShell({
               {closeLabel}
             </UiButton>
           </div>
-        </div>
-        <div className={advancedFilterBodyClass}>{children}</div>
-        {footer ? <div className={advancedFilterFooterClass}>{footer}</div> : null}
-      </div>
-    </div>
+        </UiDrawerHeader>
+        <UiDrawerBody>{children}</UiDrawerBody>
+        {footer ? <UiDrawerFooter>{footer}</UiDrawerFooter> : null}
+    </UiDrawer>
   );
 }
