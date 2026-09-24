@@ -10,13 +10,13 @@ import ModalActions from "../../components/ModalActions";
 import ModalOptions from "../../components/ModalOptions";
 import UiActionMenu, { type UiActionMenuSection } from "../../components/ui/UiActionMenu";
 import UiButton from "../../components/ui/UiButton";
+import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
 import { uiButtonClassName } from "../../components/ui/UiButton";
 import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import {
   cx,
-  uiInputClass,
   uiMutedTextClass,
   uiTitleTextClass,
 } from "../../components/ui/styles";
@@ -318,14 +318,15 @@ export default function BucketSelectionActionsBar({
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <input
+                  <UiInput
                     id="bucket-selection-custom-tag"
                     type="text"
                     disabled={tagBusy}
                     value={selectionTagAddInput}
                     onChange={(event) => setSelectionTagAddInput(event.target.value)}
                     placeholder="new-tag"
-                    className={cx(uiInputClass, "min-w-0 flex-1 px-2 py-1.5 ui-caption")}
+                    size="compact"
+                    fieldClassName="min-w-0 flex-1"
                   />
                   <UiButton
                     type="submit"

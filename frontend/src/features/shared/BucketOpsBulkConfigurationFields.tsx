@@ -4,6 +4,10 @@
  */
 import type { ReactNode } from "react";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiInput from "../../components/ui/UiInput";
+import UiSelect from "../../components/ui/UiSelect";
+import UiTextarea from "../../components/ui/UiTextarea";
+import { uiLabelClass } from "../../components/ui/styles";
 import {
   NOTIFICATION_CONFIGURATION_ARRAY_KEYS,
   NOTIFICATION_EVENTBRIDGE_KEY,
@@ -36,12 +40,6 @@ type JsonConfigurationFieldsProps = {
   value: string;
 };
 
-const textAreaClass =
-  "w-full rounded-md border border-slate-200 px-3 py-2 font-mono text-xs text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
-const numericControlClass =
-  "w-full rounded-md border border-slate-200 px-3 py-2 ui-body text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
-const fieldLabelClass =
-  "ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
 const optionCheckboxClass =
   "flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:text-slate-100";
 
@@ -56,16 +54,14 @@ function JsonConfigurationFields({
 }: JsonConfigurationFieldsProps) {
   return (
     <div className="space-y-2">
-      <label htmlFor={fieldId} className={fieldLabelClass}>
-        {label}
-      </label>
-      <textarea
+      <UiTextarea
         id={fieldId}
+        label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={8}
         placeholder={placeholder}
-        className={textAreaClass}
+        className="font-mono"
       />
       <p className="ui-caption text-slate-500 dark:text-slate-400">
         {description}
@@ -112,21 +108,17 @@ function DeleteCriteriaFields<Key extends string>({
 }: DeleteCriteriaFieldsProps<Key>) {
   return (
     <div className="space-y-4">
+      <UiTextarea
+        id={fieldId}
+        label={idLabel}
+        value={ids}
+        onChange={(event) => onIdsChange(event.target.value)}
+        rows={4}
+        placeholder={idPlaceholder}
+        className="font-mono"
+      />
       <div className="space-y-2">
-        <label htmlFor={fieldId} className={fieldLabelClass}>
-          {idLabel}
-        </label>
-        <textarea
-          id={fieldId}
-          value={ids}
-          onChange={(event) => onIdsChange(event.target.value)}
-          rows={4}
-          placeholder={idPlaceholder}
-          className={textAreaClass}
-        />
-      </div>
-      <div className="space-y-2">
-        <p className={fieldLabelClass}>{typeLabel}</p>
+        <p className={uiLabelClass}>{typeLabel}</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {options.map((option) => (
             <UiCheckboxField
@@ -183,57 +175,42 @@ function QuotaFields({ controller }: { controller: BulkFormController }) {
         </UiCheckboxField>
       </div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
-        <div className="space-y-1">
-          <label htmlFor="bucket-ops-bulk-quota-size" className={fieldLabelClass}>
-            Storage quota
-          </label>
-          <input
-            id="bucket-ops-bulk-quota-size"
-            type="number"
-            min={0}
-            step="any"
-            value={bulkQuotaSizeValue}
-            onChange={(event) => setBulkQuotaSizeValue(event.target.value)}
-            placeholder="Leave empty to clear"
-            disabled={!bulkQuotaApplySize}
-            className={numericControlClass}
-          />
-        </div>
-        <div className="space-y-1">
-          <label htmlFor="bucket-ops-bulk-quota-unit" className={fieldLabelClass}>
-            Unit
-          </label>
-          <select
-            id="bucket-ops-bulk-quota-unit"
-            value={bulkQuotaSizeUnit}
-            onChange={(event) =>
-              setBulkQuotaSizeUnit(event.target.value as QuotaSizeUnit)
-            }
-            disabled={!bulkQuotaApplySize}
-            className={numericControlClass}
-          >
-            <option value="MiB">MiB</option>
-            <option value="GiB">GiB</option>
-            <option value="TiB">TiB</option>
-          </select>
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label htmlFor="bucket-ops-bulk-quota-objects" className={fieldLabelClass}>
-          Object quota
-        </label>
-        <input
-          id="bucket-ops-bulk-quota-objects"
+        <UiInput
+          id="bucket-ops-bulk-quota-size"
+          label="Storage quota"
           type="number"
           min={0}
-          step={1}
-          value={bulkQuotaObjects}
-          onChange={(event) => setBulkQuotaObjects(event.target.value)}
+          step="any"
+          value={bulkQuotaSizeValue}
+          onChange={(event) => setBulkQuotaSizeValue(event.target.value)}
           placeholder="Leave empty to clear"
-          disabled={!bulkQuotaApplyObjects}
-          className={numericControlClass}
+          disabled={!bulkQuotaApplySize}
         />
+        <UiSelect
+          id="bucket-ops-bulk-quota-unit"
+          label="Unit"
+          value={bulkQuotaSizeUnit}
+          onChange={(event) =>
+            setBulkQuotaSizeUnit(event.target.value as QuotaSizeUnit)
+          }
+          disabled={!bulkQuotaApplySize}
+        >
+          <option value="MiB">MiB</option>
+          <option value="GiB">GiB</option>
+          <option value="TiB">TiB</option>
+        </UiSelect>
       </div>
+      <UiInput
+        id="bucket-ops-bulk-quota-objects"
+        label="Object quota"
+        type="number"
+        min={0}
+        step={1}
+        value={bulkQuotaObjects}
+        onChange={(event) => setBulkQuotaObjects(event.target.value)}
+        placeholder="Leave empty to clear"
+        disabled={!bulkQuotaApplyObjects}
+      />
       <UiCheckboxField
         checked={bulkQuotaSkipConfigured}
         onChange={(event) => setBulkQuotaSkipConfigured(event.target.checked)}
@@ -260,7 +237,7 @@ function PublicAccessBlockFields({
   } = controller;
   return (
     <div className="space-y-3">
-      <p className={fieldLabelClass}>
+      <p className={uiLabelClass}>
         Options to {bulkOperation === "add_public_access_block" ? "block" : "unblock"}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
