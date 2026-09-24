@@ -119,6 +119,12 @@ The report is incomplete because application-level checks such as the administra
 
 Enroll an administrator passkey from **Profile > Security**, then enable **Require passkeys for administrators**. This remains a publication gate but does not take the application offline.
 
+### `admin-passkey-enrollment`
+
+**Classification:** Critical.
+
+Every active `ui_admin` and `ui_superadmin` account must have at least one non-revoked WebAuthn credential. The report exposes only the number of affected administrator accounts, never user identifiers or credential material.
+
 ### `s3-login-endpoint-boundary`
 
 **Classification:** Critical only when access-key login can use arbitrary custom endpoints.
@@ -182,11 +188,27 @@ python -m app.scripts.preflight_outbound_targets
 
 Existing uncovered targets remain stored, but their protected operations stay unavailable until the allowlist is corrected.
 
+### `storage-endpoint-tls`
+
+**Classification:** Warning.
+
+Stored storage endpoints should keep TLS certificate verification enabled. A disabled `verify_tls` setting can be valid for a temporary lab or migration case, but it should be corrected before normal production exposure.
+
+### `storage-identity-separation`
+
+**Classification:** Warning.
+
+Admin Ops, supervision, and Ceph Admin credentials should use distinct access-key identities on each storage endpoint where practical. The check compares only access-key identifiers and reports the number of affected endpoints; secret keys are never returned.
+
 ## Manual checks
 
 ### `manual-backup-restore`
 
 Confirm that the database backup can be restored and that matching credential-encryption keys are recoverable. Keep the latest restore-test evidence with the deployment runbook.
+
+### `manual-secret-management`
+
+Confirm production secrets are injected through the approved secret manager or platform Secret boundary, and verify the documented rotation and recovery procedure before publication.
 
 ### `manual-ingress-boundary`
 
@@ -203,6 +225,10 @@ Confirm healthcheck, billing, quota-monitor, and usage-history jobs actually exe
 ### `manual-observability-audit`
 
 Confirm central backend logging, application control-plane audit retention, and provider S3/object access logging.
+
+### `manual-image-supply-chain`
+
+Confirm deployed images and charts are pinned to approved versions or digests and that the current vulnerability, SBOM, and image-scanning policy has passed for the release.
 
 ### `manual-storage-endpoint`
 

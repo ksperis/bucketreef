@@ -12,7 +12,16 @@ from sqlalchemy.orm import Session
 from app.core.config import DeploymentProfile, Settings, is_local_origin, is_weak_secret_value
 from app.core.database import is_sqlite_url
 from app.core.runtime_surfaces import RuntimeSurface, runtime_surface_enabled
-from app.db import BucketMigration, LdapProvider, OidcProvider, S3Connection
+from app.db import (
+    BucketMigration,
+    LdapProvider,
+    OidcProvider,
+    S3Connection,
+    StorageEndpoint,
+    User,
+    UserRole,
+    WebAuthnCredential,
+)
 from app.models.app_settings import AppSettings
 from app.utils.network_targets import host_matches_allowlist
 from app.utils.s3_connection_endpoint import parse_custom_endpoint_config
@@ -346,6 +355,77 @@ def _persisted_provider_findings(settings: Settings, db: Session) -> list[Deploy
             pass_message="Enabled UI-managed LDAP providers do not allow legacy TLS compatibility.",
             fail_message=f"UI-managed LDAP provider(s) allow legacy TLS compatibility: {', '.join(sorted(ldap_legacy))}.",
             docs_anchor="ldap-providers",
+        ),
+    ]
+
+
+def _persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
+    active_admins = (
+        db.query(User.id)
+        .filter(
+            User.is_active.is_(True),
+            User.role.in_([UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value]),
+        )
+        .all()
+    )
+    admin_ids = [row[0] for row in active_admins]
+    enrolled_admin_ids: set[int] = set()
+    if admin_ids:
+        enrolled_admin_ids = {
+            row[0]
+            for row in db.query(WebAuthnCredential.user_id)
+            .filter(
+                WebAuthnCredential.user_id.in_(admin_ids),
+                WebAuthnCredential.revoked_at.is_(None),
+            )
+            .distinct()
+            .all()
+        }
+    missing_passkeys = len(admin_ids) - len(enrolled_admin_ids)
+
+    endpoints = db.query(StorageEndpoint).all()
+    unverified_tls = sum(1 for endpoint in endpoints if not endpoint.verify_tls)
+    reused_privileged_identity = 0
+    for endpoint in endpoints:
+        privileged_access_keys = [
+            value.strip()
+            for value in (
+                endpoint.admin_access_key,
+                endpoint.supervision_access_key,
+                endpoint.ceph_admin_access_key,
+            )
+            if value and value.strip()
+        ]
+        if len(privileged_access_keys) != len(set(privileged_access_keys)):
+            reused_privileged_identity += 1
+
+    return [
+        _finding(
+            "admin-passkey-enrollment",
+            "Administrator passkey enrollment",
+            passed=missing_passkeys == 0,
+            severity="critical",
+            pass_message="Every active administrator has at least one enrolled passkey.",
+            fail_message=f"{missing_passkeys} active administrator account(s) have no enrolled passkey.",
+        ),
+        _finding(
+            "storage-endpoint-tls",
+            "Storage endpoint TLS verification",
+            passed=unverified_tls == 0,
+            severity="warning",
+            pass_message="Stored storage endpoints verify TLS certificates.",
+            fail_message=f"{unverified_tls} storage endpoint(s) have TLS certificate verification disabled.",
+        ),
+        _finding(
+            "storage-identity-separation",
+            "Privileged storage identity separation",
+            passed=reused_privileged_identity == 0,
+            severity="warning",
+            pass_message="Configured Admin Ops, supervision, and Ceph Admin identities are distinct per endpoint.",
+            fail_message=(
+                f"{reused_privileged_identity} storage endpoint(s) reuse the same access key across privileged roles; "
+                "use distinct identities where practical."
+            ),
         ),
     ]
 
@@ -746,6 +826,7 @@ def run_deployment_checks(
         )
 
     if phase == "full" and db is not None:
+        findings.extend(_persisted_security_findings(db))
         findings.extend(_persisted_provider_findings(settings, db))
         uncovered = find_uncovered_outbound_targets(db, settings)
         preview = ", ".join(f"{item.target_type}:{item.hostname}" for item in uncovered[:5])
@@ -773,6 +854,11 @@ def run_deployment_checks(
                     "Confirm that database backups and credential-encryption key recovery have been tested end to end.",
                 ),
                 _manual(
+                    "manual-secret-management",
+                    "Secret management and rotation",
+                    "Confirm production secrets are injected through the approved secret-management boundary and that rotation and recovery procedures are tested.",
+                ),
+                _manual(
                     "manual-ingress-boundary",
                     "Ingress and network exposure",
                     "Confirm TLS, ingress restrictions, proxy peers, and private/internal endpoint exposure from the deployed network.",
@@ -793,13 +879,18 @@ def run_deployment_checks(
                     "Confirm backend logs, control-plane audit, and provider object-access logs are collected with the intended retention.",
                 ),
                 _manual(
+                    "manual-image-supply-chain",
+                    "Image pinning and vulnerability scans",
+                    "Confirm deployed images and charts are pinned to approved versions or digests and satisfy the current vulnerability, SBOM, and image-scanning policy.",
+                ),
+                _manual(
                     "manual-storage-endpoint",
                     "Storage endpoint acceptance",
                     "Validate the first supported storage endpoint with healthchecks and representative allowed and denied operations.",
                 ),
             ]
         )
-        if profile in {"admin", "user"}:
+        if profile in {"admin", "admin-no-ceph-admin", "user"}:
             findings.append(
                 _manual(
                     "manual-split-state",
