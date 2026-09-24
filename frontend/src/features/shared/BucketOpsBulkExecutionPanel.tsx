@@ -3,7 +3,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useMemo } from "react";
+import UiButton from "../../components/ui/UiButton";
 import UiDetails from "../../components/ui/UiDetails";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import ActionProgressCard from "./ActionProgressCard";
 import type { ActionProgressState } from "./actionProgress";
 import {
@@ -195,34 +197,34 @@ export default function BucketOpsBulkExecutionPanel({
   return (
     <>
       {operation === "paste_configs" && pasteError && (
-        <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
+        <UiInlineMessage tone="error">
           {pasteError}
-        </p>
+        </UiInlineMessage>
       )}
       {copyError && (
-        <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
+        <UiInlineMessage tone="error">
           {copyError}
-        </p>
+        </UiInlineMessage>
       )}
       {copySummary && (
-        <p className="ui-caption font-semibold text-emerald-600 dark:text-emerald-200">
+        <UiInlineMessage tone="success">
           {copySummary}
-        </p>
+        </UiInlineMessage>
       )}
       {previewError && (
-        <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
+        <UiInlineMessage tone="error">
           {previewError}
-        </p>
+        </UiInlineMessage>
       )}
       {applyError && (
-        <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
+        <UiInlineMessage tone="error">
           {applyError}
-        </p>
+        </UiInlineMessage>
       )}
       {applySummary && (
-        <p className="ui-caption font-semibold text-emerald-600 dark:text-emerald-200">
+        <UiInlineMessage tone="success">
           {applySummary}
-        </p>
+        </UiInlineMessage>
       )}
 
       {copyLoading && copyProgress && (
@@ -237,32 +239,29 @@ export default function BucketOpsBulkExecutionPanel({
 
       <div className="flex flex-wrap items-center gap-3">
         {operation === "copy_configs" ? (
-          <button
-            type="button"
+          <UiButton
             onClick={() => void onCopy()}
             disabled={copyDisabled}
-            className="rounded-md bg-primary px-3 py-2 ui-body font-semibold text-white shadow-sm hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+            loading={copyLoading}
           >
             {copyLoading ? "Copying..." : "Copy selected configs"}
-          </button>
+          </UiButton>
         ) : (
           <>
-            <button
-              type="button"
+            <UiButton
               onClick={() => void onPreview()}
               disabled={previewDisabled}
-              className="rounded-md bg-primary px-3 py-2 ui-body font-semibold text-white shadow-sm hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+              loading={previewLoading}
             >
               {previewLoading ? "Previewing..." : "Preview"}
-            </button>
-            <button
-              type="button"
+            </UiButton>
+            <UiButton
+              variant="secondary"
               onClick={onExport}
               disabled={previewLoading || previewItems.length === 0}
-              className="rounded-md border border-slate-200 px-3 py-2 ui-body font-semibold text-slate-700 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-100 dark:hover:border-slate-600"
             >
               Export changes
-            </button>
+            </UiButton>
             {previewReady && (
               <p className="ui-caption text-slate-500 dark:text-slate-400">
                 Changes: {previewStats.changed} / Unchanged:{" "}
@@ -276,22 +275,22 @@ export default function BucketOpsBulkExecutionPanel({
       <BulkPreviewDetails items={previewItems} operation={operation} />
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          className="rounded-full border border-slate-200 px-3 py-1.5 ui-caption font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:text-slate-200"
+        <UiButton
+          variant="secondary"
+          size="sm"
           onClick={onClose}
         >
           Cancel
-        </button>
+        </UiButton>
         {operation !== "copy_configs" && (
-          <button
-            type="button"
-            className="rounded-full bg-primary px-3 py-1.5 ui-caption font-semibold text-white shadow-sm hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          <UiButton
+            size="sm"
             onClick={() => void onApply()}
             disabled={applyDisabled}
+            loading={applyLoading}
           >
             {applyLoading ? "Applying..." : "Apply changes"}
-          </button>
+          </UiButton>
         )}
       </div>
     </>
