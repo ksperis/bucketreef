@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActionButton } from "./list/ListControls";
-import type { ReactNode } from "react";
+import type { KeyboardEventHandler, ReactNode, TextareaHTMLAttributes } from "react";
 import UiField from "./ui/UiField";
 import { cx, uiInputClass } from "./ui/styles";
 
@@ -80,6 +80,62 @@ export default function ToolbarSearchInput({
           renderInput(fieldProps)
         )
       }
+    </UiField>
+  );
+}
+
+type ToolbarSearchTextareaProps = Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "className" | "onChange" | "placeholder" | "value"
+> & {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label?: ReactNode;
+  className?: string;
+  inputClassName?: string;
+  inputWrapperClassName?: string;
+  trailingControl?: ReactNode;
+  onKeyDown?: KeyboardEventHandler<HTMLTextAreaElement>;
+};
+
+export function ToolbarSearchTextarea({
+  value,
+  onChange,
+  placeholder,
+  label = "Search",
+  className = "w-full sm:w-72",
+  inputClassName,
+  inputWrapperClassName,
+  trailingControl,
+  rows = 1,
+  onKeyDown,
+  ...props
+}: ToolbarSearchTextareaProps) {
+  return (
+    <UiField label={label} className={className}>
+      {({ id, describedBy, invalid }) => (
+        <div className={cx("relative", inputWrapperClassName)}>
+          <textarea
+            {...props}
+            id={id}
+            aria-describedby={describedBy}
+            aria-invalid={invalid || undefined}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder={placeholder}
+            rows={rows}
+            className={cx(
+              uiInputClass,
+              "ui-list-control w-full resize-y",
+              trailingControl ? "ui-list-search" : "",
+              inputClassName,
+            )}
+          />
+          {trailingControl}
+        </div>
+      )}
     </UiField>
   );
 }
