@@ -35,13 +35,13 @@ import WorkflowPage, {
 import WorkflowTabs from "../../components/WorkflowTabs";
 import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import {
   cx,
   uiCardMutedClass,
-  uiCheckboxClass,
   uiMutedTextClass,
 } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
@@ -118,37 +118,32 @@ function SetupOption({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label
+    <UiCheckboxField
       className={cx(
         uiCardMutedClass,
-        "block min-h-28 p-4",
+        "min-h-28 w-full items-start gap-3 p-4",
         disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
         checked && !disabled && "outline outline-2 outline-[var(--ui-primary)]",
       )}
+      checkboxClassName="mt-0.5 shrink-0"
+      checked={checked}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.checked)}
     >
-      <span className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          className={cx(uiCheckboxClass, "mt-0.5")}
-          checked={checked}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.checked)}
-        />
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="ui-body font-semibold text-[var(--ui-text)]">{title}</span>
-            {recommended && <UiBadge tone="neutral">{recommended}</UiBadge>}
-            {experimental && <UiBadge tone="neutral">{experimental}</UiBadge>}
-          </span>
-          <span className={cx("mt-1 block ui-caption", uiMutedTextClass)}>{description}</span>
-          {disabledReason && (
-            <span className="mt-2 block ui-caption text-[var(--ui-warning-text)]">
-              {disabledReason}
-            </span>
-          )}
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="ui-body font-semibold text-[var(--ui-text)]">{title}</span>
+          {recommended && <UiBadge tone="neutral">{recommended}</UiBadge>}
+          {experimental && <UiBadge tone="neutral">{experimental}</UiBadge>}
         </span>
+        <span className={cx("mt-1 block ui-caption", uiMutedTextClass)}>{description}</span>
+        {disabledReason && (
+          <span className="mt-2 block ui-caption text-[var(--ui-warning-text)]">
+            {disabledReason}
+          </span>
+        )}
       </span>
-    </label>
+    </UiCheckboxField>
   );
 }
 

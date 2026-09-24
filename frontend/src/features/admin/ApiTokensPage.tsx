@@ -30,7 +30,6 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { toolbarCompactToggleClasses } from "../../components/toolbarControlClasses";
-import { uiCheckboxClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import { stableSignature } from "../../utils/stableSignature";
@@ -403,15 +402,13 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
           variant={showPageHeader ? "page" : "section"}
           countLabel={`${sortedTokens.length} token${sortedTokens.length === 1 ? "" : "s"}${includeRevoked ? " (including revoked/expired)" : ""}`}
           filters={
-            <label className={toolbarCompactToggleClasses}>
-              <input
-                type="checkbox"
-                checked={includeRevoked}
-                onChange={(event) => setIncludeRevoked(event.target.checked)}
-                className={uiCheckboxClass}
-              />
+            <UiCheckboxField
+              className={toolbarCompactToggleClasses}
+              checked={includeRevoked}
+              onChange={(event) => setIncludeRevoked(event.target.checked)}
+            >
               Show revoked/expired
-            </label>
+            </UiCheckboxField>
           }
           actions={<ListActionButton onClick={() => void loadTokens()} loading={loading}>Refresh</ListActionButton>}
           headingActions={!showPageHeader ? <ListActionButton variant="primary" onClick={openCreateModal}>Create token</ListActionButton> : undefined}
