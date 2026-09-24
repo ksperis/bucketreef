@@ -16,6 +16,7 @@ export type UiActionMenuItem = {
   onSelect: () => void;
   disabled?: boolean;
   disabledReason?: string;
+  title?: string;
   danger?: boolean;
 };
 
@@ -62,6 +63,7 @@ export default function UiActionMenu({
     insideRefs: [triggerRef, panelRef],
     dismissOnFocusOutside: true,
     preventEscapeDefault: true,
+    stopEscapePropagation: true,
     onDismiss: (reason) => {
       if (reason === "escape") closeAndReturnFocus();
       else setOpen(false);
@@ -153,7 +155,7 @@ export default function UiActionMenu({
                       item.danger && "text-[var(--list-danger-text)]"
                     )}
                     aria-disabled={item.disabled || undefined}
-                    title={item.disabled ? item.disabledReason : undefined}
+                    title={item.disabled ? item.disabledReason ?? item.title : item.title}
                     onClick={() => {
                       if (item.disabled) return;
                       closeAndReturnFocus();

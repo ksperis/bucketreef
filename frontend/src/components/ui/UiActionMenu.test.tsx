@@ -19,8 +19,8 @@ function Harness({ onSelect = () => undefined, allDisabled = false }: { onSelect
       sections={[
         { id: "empty", label: "Hidden section", items: [] },
         { id: "navigation", items: [
-          { id: "view", label: "View", disabled: allDisabled, onSelect },
-          { id: "unavailable", label: "Unavailable", disabled: true, disabledReason: "Requires access", onSelect },
+          { id: "view", label: "View", title: "Action details", disabled: allDisabled, onSelect },
+          { id: "unavailable", label: "Unavailable", disabled: true, disabledReason: "Requires access", title: "Unavailable action", onSelect },
           { id: "configure", label: "Configure", disabled: allDisabled, onSelect: () => setDialogOpen(true) },
         ] },
         { id: "danger", label: "Destructive actions", items: [
@@ -98,6 +98,8 @@ describe("UiActionMenu", () => {
     expect(close).toHaveFocus();
     const unavailable = screen.getByRole("menuitem", { name: /Unavailable/ });
     expect(unavailable).toHaveTextContent("Requires access");
+    expect(unavailable).toHaveAttribute("title", "Requires access");
+    expect(screen.getByRole("menuitem", { name: "View" })).toHaveAttribute("title", "Action details");
     await user.click(unavailable);
     expect(onSelect).not.toHaveBeenCalled();
     await user.click(close);

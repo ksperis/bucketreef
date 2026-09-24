@@ -59,4 +59,36 @@ describe("ObjectDetailsDrawer", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("closes object actions when the drawer switches to another path", () => {
+    const commonProps = {
+      copyPathLabel: "Copy path",
+      moreLabel: "More",
+      onCopyPath: vi.fn(),
+      onClose: vi.fn(),
+      secondaryActions: [
+        {
+          id: "delete",
+          label: "Delete",
+          onSelect: vi.fn(),
+        },
+      ],
+    };
+    const view = render(
+      <ObjectDetailsDrawer {...commonProps} name="first.csv" path="reports/first.csv">
+        First
+      </ObjectDetailsDrawer>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByRole("menu", { name: "More" })).toBeInTheDocument();
+
+    view.rerender(
+      <ObjectDetailsDrawer {...commonProps} name="second.csv" path="reports/second.csv">
+        Second
+      </ObjectDetailsDrawer>,
+    );
+
+    expect(screen.queryByRole("menu", { name: "More" })).not.toBeInTheDocument();
+  });
 });

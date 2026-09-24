@@ -2,12 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
-import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
-import UiButton from "../../components/ui/UiButton";
-import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
-import { cx, uiMenuClass, uiMenuItemClass } from "../../components/ui/styles";
+import UiActionMenu from "../../components/ui/UiActionMenu";
+import UiButton, { uiButtonClassName } from "../../components/ui/UiButton";
 import DetailsDrawerShell from "./DetailsDrawerShell";
 
 type ObjectDetailsDrawerAction = {
@@ -57,25 +55,6 @@ export default function ObjectDetailsDrawer({
   tabs = [],
   tabsAriaLabel,
 }: ObjectDetailsDrawerProps) {
-  const moreButtonAnchorRef = useRef<HTMLSpanElement | null>(null);
-  const moreMenuRef = useRef<HTMLDivElement | null>(null);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-
-  useDismissibleLayer({
-    open: moreMenuOpen,
-    insideRefs: [moreButtonAnchorRef, moreMenuRef],
-    onDismiss: () => setMoreMenuOpen(false),
-    dismissOnEscape: false,
-  });
-
-  useEffect(() => {
-    setMoreMenuOpen(false);
-  }, [name, path]);
-
-  useEffect(() => {
-    if (secondaryActions.length === 0) setMoreMenuOpen(false);
-  }, [secondaryActions.length]);
-
   return (
     <DetailsDrawerShell
       title={name}
@@ -108,50 +87,28 @@ export default function ObjectDetailsDrawer({
               </UiButton>
             ) : null}
             {secondaryActions.length > 0 ? (
-              <span ref={moreButtonAnchorRef} className="shrink-0">
-                <button
-                  type="button"
-                  className="h-8 rounded-md border border-[color:var(--ui-border)] px-3 py-1.5 text-xs font-semibold text-[var(--ui-text)] hover:bg-[var(--ui-hover)]"
-                  aria-haspopup="menu"
-                  aria-expanded={moreMenuOpen}
-                  onClick={() => setMoreMenuOpen((current) => !current)}
-                >
-                  {moreLabel}
-                </button>
-                <AnchoredPortalMenu
-                  open={moreMenuOpen}
-                  anchorRef={moreButtonAnchorRef}
-                  placement="bottom-end"
-                  offset={6}
-                  minWidth={176}
-                  className={cx(uiMenuClass, "p-1.5")}
-                >
-                  <div ref={moreMenuRef} role="menu" aria-label={moreLabel}>
-                    {secondaryActions.map((action) => (
-                      <button
-                        key={action.id}
-                        type="button"
-                        role="menuitem"
-                        className={cx(
-                          uiMenuItemClass,
-                          "block w-full",
-                          action.tone === "danger"
-                            ? "text-rose-600 dark:text-rose-300"
-                            : undefined,
-                        )}
-                        disabled={action.disabled}
-                        title={action.title}
-                        onClick={() => {
-                          setMoreMenuOpen(false);
-                          action.onSelect();
-                        }}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                </AnchoredPortalMenu>
-              </span>
+              <UiActionMenu
+                key={path}
+                ariaLabel={moreLabel}
+                trigger={moreLabel}
+                triggerClassName={uiButtonClassName({ variant: "secondary", size: "sm" })}
+                placement="bottom-end"
+                minWidth={176}
+                sections={[
+                  {
+                    id: "actions",
+                    items: secondaryActions.map((action) => ({
+                      id: action.id,
+                      label: action.label,
+                      disabled: action.disabled,
+                      disabledReason: action.disabled ? action.title : undefined,
+                      title: action.title,
+                      danger: action.tone === "danger",
+                      onSelect: action.onSelect,
+                    })),
+                  },
+                ]}
+              />
             ) : null}
           </>
         ) : undefined
@@ -161,13 +118,6 @@ export default function ObjectDetailsDrawer({
       tabsAriaLabel={tabsAriaLabel}
       notice={notice}
       onClose={onClose}
-      onEscape={() => {
-        if (moreMenuOpen) {
-          setMoreMenuOpen(false);
-          return;
-        }
-        onClose();
-      }}
       onTabChange={onTabChange}
     >
       {children}
