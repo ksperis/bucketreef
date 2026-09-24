@@ -4,6 +4,7 @@
  */
 import { useMemo } from "react";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiSelect from "../../components/ui/UiSelect";
 import {
   BULK_COPY_FEATURE_LABELS,
   type BulkConfigClipboard,
@@ -84,21 +85,14 @@ export default function BucketOpsBulkTransferFields({
         .
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <label
-            htmlFor="bucket-ops-bulk-operation"
-            className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
-          >
-            Operation
-          </label>
-          <select
-            id="bucket-ops-bulk-operation"
-            value={bulkOperation}
-            onChange={(event) =>
-              setBulkOperation(event.target.value as BulkOperation)
-            }
-            className="w-full rounded-md border border-slate-200 px-3 py-2 ui-body text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          >
+        <UiSelect
+          id="bucket-ops-bulk-operation"
+          label="Operation"
+          value={bulkOperation}
+          onChange={(event) =>
+            setBulkOperation(event.target.value as BulkOperation)
+          }
+        >
             <option value="">Select an S3 API operation</option>
             <optgroup label="Configuration transfer">
               <option value="copy_configs">Copy configurations</option>
@@ -155,8 +149,7 @@ export default function BucketOpsBulkTransferFields({
               </option>
               <option value="delete_policy">Delete policy statements</option>
             </optgroup>
-          </select>
-        </div>
+        </UiSelect>
       </div>
 
       {bulkOperation === "copy_configs" && (
@@ -291,7 +284,7 @@ export default function BucketOpsBulkTransferFields({
                                 {sourceBucket}
                               </td>
                               <td>
-                                <select
+                                <UiSelect
                                   aria-label={`Destination bucket for ${sourceBucket}`}
                                   value={bulkPasteMapping[sourceBucket] ?? ""}
                                   onChange={(event) => {
@@ -301,7 +294,7 @@ export default function BucketOpsBulkTransferFields({
                                       [sourceBucket]: destination,
                                     }));
                                   }}
-                                  className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 ui-caption text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                  size="compact"
                                 >
                                   <option value="">
                                     Select destination bucket
@@ -334,7 +327,7 @@ export default function BucketOpsBulkTransferFields({
                                       );
                                     },
                                   )}
-                                </select>
+                                </UiSelect>
                               </td>
                             </tr>
                           );
