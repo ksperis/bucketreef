@@ -56,7 +56,7 @@ export default function BucketFeatureSection({
         <div
           className={cx(
             "flex min-w-0 flex-wrap items-center justify-between gap-2",
-            presentation === "workbench" && "border-b border-[var(--ui-border-soft)] pb-2",
+            presentation === "workbench" && "pb-2",
           )}
         >
           <div role="status" className="shrink-0">

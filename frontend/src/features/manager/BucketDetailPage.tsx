@@ -1276,13 +1276,13 @@ function BucketDetailPageContent({
                     controller={versioningController}
                     disableBlocked={versioningDisableBlocked}
                   />
-                  <BucketEncryptionFeature
-                    controller={encryptionController}
-                    enabled={sseFeatureEnabled}
-                  />
                   <BucketObjectLockFeature
                     controller={objectLockController}
                     onEnableVersioningDraft={() => updateVersioningDraft(true)}
+                  />
+                  <BucketEncryptionFeature
+                    controller={encryptionController}
+                    enabled={sseFeatureEnabled}
                   />
                   <BucketLifecycleFeature controller={lifecycleController} />
                   <BucketTagsFeature
