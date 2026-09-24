@@ -2,13 +2,12 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { SettingsChoiceRow, SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import type { StorageEndpoint } from "../../api/storageEndpoints";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
-import { cx, uiCheckboxClass } from "../../components/ui/styles";
 import type { S3ConnectionEndpointMode } from "./s3ConnectionFormModel";
 
 const S3_CONNECTION_PROVIDER_HINT_OPTIONS = [
@@ -63,31 +62,29 @@ export default function S3ConnectionEndpointFields({
     <SettingsSection title="Endpoint" presentation="compact"
       description="Choose a configured endpoint or enter an operator-approved public HTTPS custom endpoint.">
       <div className="settings-fields">
-        <fieldset className="flex min-w-0 flex-wrap gap-x-4 gap-y-2">
+        <fieldset className="rounded-lg border border-[color:var(--ui-border-soft)] px-3 py-2">
           <legend className="sr-only">Endpoint source</legend>
-          <label className="settings-choice">
-            <input
-              type="radio"
-              name={modeInputName}
-              value="preset"
-              checked={mode === "preset"}
-              onChange={() => onModeChange("preset")}
-              disabled={!hasConfiguredEndpoints}
-              className={cx(uiCheckboxClass, "rounded-full disabled:opacity-60")}
-            />
-            Configured endpoint
-          </label>
-          <label className="settings-choice">
-            <input
-              type="radio"
-              name={modeInputName}
-              value="custom"
-              checked={mode === "custom"}
-              onChange={() => onModeChange("custom")}
-              className={cx(uiCheckboxClass, "rounded-full")}
-            />
-            Custom endpoint
-          </label>
+          <SettingsChoiceRow
+            type="radio"
+            name={modeInputName}
+            value="preset"
+            title="Configured endpoint"
+            ariaLabel="Configured endpoint"
+            description="Use a storage endpoint configured by an administrator."
+            checked={mode === "preset"}
+            onChange={() => onModeChange("preset")}
+            disabled={!hasConfiguredEndpoints}
+          />
+          <SettingsChoiceRow
+            type="radio"
+            name={modeInputName}
+            value="custom"
+            title="Custom endpoint"
+            ariaLabel="Custom endpoint"
+            description="Enter an operator-approved public HTTPS endpoint."
+            checked={mode === "custom"}
+            onChange={() => onModeChange("custom")}
+          />
         </fieldset>
         {mode === "preset" ? (
           <UiSelect
