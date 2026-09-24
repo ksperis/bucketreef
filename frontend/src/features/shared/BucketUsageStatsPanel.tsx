@@ -37,7 +37,7 @@ export default function BucketUsageStatsPanel({
         <>
           {onRefresh && (
             <UiButton
-              size="sm"
+              size="xs"
               variant="secondary"
               onClick={onRefresh}
               disabled={loading || recalculating}
@@ -47,7 +47,7 @@ export default function BucketUsageStatsPanel({
           )}
           {recalculating && onCancel ? (
             <UiButton
-              size="sm"
+              size="xs"
               variant="danger"
               onClick={onCancel}
             >
@@ -55,7 +55,7 @@ export default function BucketUsageStatsPanel({
             </UiButton>
           ) : onRecalculate ? (
             <UiButton
-              size="sm"
+              size="xs"
               variant="primary"
               onClick={onRecalculate}
             >

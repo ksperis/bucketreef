@@ -76,8 +76,22 @@ describe("BucketUsageStatsPanel", () => {
 
     expect(screen.queryByRole("button", { name: "Recalculate" })).not.toBeInTheDocument();
     const cancelButton = screen.getByRole("button", { name: "Cancel calculation" });
+    expect(cancelButton).toHaveClass("h-7");
     fireEvent.click(cancelButton);
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses compact action sizing for refresh and recalculation", () => {
+    render(
+      <BucketUsageStatsPanel
+        snapshot={snapshot}
+        onRefresh={vi.fn()}
+        onRecalculate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Refresh" })).toHaveClass("h-7");
+    expect(screen.getByRole("button", { name: "Recalculate" })).toHaveClass("h-7");
   });
 
   it("renders latest snapshot with current and non-current space ratios", () => {

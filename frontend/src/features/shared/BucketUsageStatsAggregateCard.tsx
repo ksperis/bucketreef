@@ -69,7 +69,7 @@ export default function BucketUsageStatsAggregateCard({
       actions={
         recalculating && onCancel ? (
           <UiButton
-            size="sm"
+            size="xs"
             variant="danger"
             onClick={onCancel}
             className="shrink-0"
@@ -78,7 +78,7 @@ export default function BucketUsageStatsAggregateCard({
           </UiButton>
         ) : onRecalculate ? (
           <UiButton
-            size="sm"
+            size="xs"
             variant="secondary"
             onClick={onRecalculate}
             disabled={loading}
