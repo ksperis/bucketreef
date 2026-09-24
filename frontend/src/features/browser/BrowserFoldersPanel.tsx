@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { cx, uiCardClass } from "../../components/ui/styles";
+import UiIconButton from "../../components/ui/UiIconButton";
 import type { BrowserBucket } from "../../api/browserContracts";
 import { FolderIcon, RefreshIcon, XIcon } from "./browserIcons";
 import {
@@ -28,8 +29,6 @@ type BrowserFoldersPanelProps = {
 
 const panelSectionTitleClasses =
   "ui-caption font-semibold text-slate-500 dark:text-slate-400";
-const panelIconButtonClasses =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--ui-muted-text)] transition hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
 
 function renderTreeNodes(
   nodes: TreeNode[],
@@ -109,25 +108,21 @@ export default function BrowserFoldersPanel({
           <p className={panelSectionTitleClasses}>Folders</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            className={panelIconButtonClasses}
+          <UiIconButton
+            variant="ghost"
+            className="shrink-0"
             onClick={onRefresh}
             disabled={!currentBucket}
-            aria-label="Refresh folders"
-            title="Refresh folders"
-          >
-            <RefreshIcon className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            className={panelIconButtonClasses}
+            label="Refresh folders"
+            icon={<RefreshIcon className="h-3.5 w-3.5" />}
+          />
+          <UiIconButton
+            variant="ghost"
+            className="shrink-0"
             onClick={onClose}
-            aria-label="Close folders panel"
-            title="Close folders panel"
-          >
-            <XIcon className="h-3.5 w-3.5" />
-          </button>
+            label="Close folders panel"
+            icon={<XIcon className="h-3.5 w-3.5" />}
+          />
         </div>
       </div>
 

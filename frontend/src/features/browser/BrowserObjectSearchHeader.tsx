@@ -3,6 +3,7 @@ import type { RefObject } from "react";
 
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiIconButton from "../../components/ui/UiIconButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import {
@@ -119,22 +120,21 @@ export default function BrowserObjectSearchHeader({
           )}
         />
         {advancedOptionsEnabled && (
-          <button
+          <UiIconButton
             ref={optionsButtonRef}
-            type="button"
+            size="compact"
+            variant="ghost"
             onClick={onToggleOptions}
-            className={`absolute right-1.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+            className={`absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg focus-visible:outline-offset-1 ${
               advancedOptionsActive
                 ? "text-primary-700 hover:bg-primary-100 dark:text-primary-200 dark:hover:bg-primary-500/20"
-                : "text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                : ""
             }`}
             aria-haspopup="menu"
             aria-expanded={optionsOpen}
-            aria-label="Search options"
-            title="Search options"
-          >
-            <SlidersIcon className="h-3 w-3" />
-          </button>
+            label="Search options"
+            icon={<SlidersIcon className="h-3 w-3" />}
+          />
         )}
         <AnchoredPortalMenu
           open={advancedOptionsEnabled && optionsOpen}

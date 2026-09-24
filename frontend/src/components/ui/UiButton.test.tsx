@@ -45,6 +45,20 @@ describe("UiIconButton", () => {
   it("requires an accessible label for icon-only actions", () => {
     render(<UiIconButton label="Refresh list" icon="R" size="compact" />);
 
-    expect(screen.getByRole("button", { name: "Refresh list" })).toHaveClass("h-6", "w-6");
+    expect(screen.getByRole("button", { name: "Refresh list" })).toHaveClass(
+      "h-6",
+      "w-6",
+      "border-[color:var(--ui-border)]",
+    );
+  });
+
+  it("keeps ghost icon actions visually lightweight", () => {
+    render(<UiIconButton label="Close panel" icon="X" variant="ghost" />);
+
+    expect(screen.getByRole("button", { name: "Close panel" })).toHaveClass(
+      "border-transparent",
+      "bg-transparent",
+      "shadow-none",
+    );
   });
 });

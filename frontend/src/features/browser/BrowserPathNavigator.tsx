@@ -1,8 +1,8 @@
 import type { KeyboardEvent, RefObject } from "react";
 
+import UiIconButton from "../../components/ui/UiIconButton";
 import UiInput from "../../components/ui/UiInput";
 import { cx, uiMenuClass, uiMenuItemClass } from "../../components/ui/styles";
-import { breadcrumbIconButtonClasses } from "./browserConstants";
 import { UpIcon } from "./browserIcons";
 import type { PathSuggestion } from "./browserPathSuggestions";
 
@@ -165,19 +165,16 @@ export default function BrowserPathNavigator({
         </div>
       ) : (
         <>
-          <button
-            type="button"
+          <UiIconButton
+            size="compact"
             onClick={(event) => {
               event.stopPropagation();
               onGoUp();
             }}
-            className={breadcrumbIconButtonClasses}
             disabled={!canGoUp}
-            aria-label="Parent folder"
-            title="Parent folder"
-          >
-            <UpIcon className="h-3.5 w-3.5" />
-          </button>
+            label="Parent folder"
+            icon={<UpIcon className="h-3.5 w-3.5" />}
+          />
           <nav
             aria-label="Current path"
             className="browser-path-scroll min-w-0 flex flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap py-0.5"
