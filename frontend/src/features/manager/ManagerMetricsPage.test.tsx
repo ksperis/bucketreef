@@ -418,7 +418,9 @@ describe("ManagerMetricsPage", () => {
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();
     expect(getManagerUsageStatsAggregateMock).toHaveBeenCalledWith("conn-1");
 
-    fireEvent.click(screen.getByRole("button", { name: "Recalculate account" }));
+    const recalculateButton = screen.getByRole("button", { name: "Recalculate account" });
+    expect(recalculateButton).toHaveClass("h-7");
+    fireEvent.click(recalculateButton);
 
     await waitFor(() =>
       expect(streamManagerUsageStatsAggregateMock).toHaveBeenCalledWith(
@@ -457,6 +459,7 @@ describe("ManagerMetricsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Recalculate account" }));
 
     const cancelButton = await screen.findByRole("button", { name: "Cancel calculation" });
+    expect(cancelButton).toHaveClass("h-7");
     const options = streamManagerUsageStatsAggregateMock.mock.calls[0][2] as { signal: AbortSignal };
     expect(options.signal.aborted).toBe(false);
 
