@@ -3,8 +3,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActionButton } from "./list/ListControls";
+import { useId } from "react";
+import UiSelect from "./ui/UiSelect";
 import { cx, uiDividerClass, uiLabelClass, uiMutedTextClass } from "./ui/styles";
-import { toolbarCompactSelectClasses } from "./toolbarControlClasses";
 
 type PaginationControlsProps = {
   page: number;
@@ -25,6 +26,7 @@ export default function PaginationControls({
   pageSizeOptions = [10, 25, 50, 100],
   disabled = false,
 }: PaginationControlsProps) {
+  const pageSizeId = useId();
   const totalPages = Math.max(1, Math.ceil(total / (pageSize || 1)));
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const canPrev = safePage > 1;
@@ -52,10 +54,12 @@ export default function PaginationControls({
         </span>
       </div>
       {onPageSizeChange && (
-        <label className={cx("flex items-center gap-2", uiLabelClass)}>
-          Page size
-          <select
-            className={cx(toolbarCompactSelectClasses, "ui-list-control")}
+        <div className="flex items-center gap-2">
+          <label htmlFor={pageSizeId} className={uiLabelClass}>Page size</label>
+          <UiSelect
+            id={pageSizeId}
+            size="compact"
+            className="ui-list-control"
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             disabled={disabled}
@@ -65,8 +69,8 @@ export default function PaginationControls({
                 {size}
               </option>
             ))}
-          </select>
-        </label>
+          </UiSelect>
+        </div>
       )}
     </div>
   );

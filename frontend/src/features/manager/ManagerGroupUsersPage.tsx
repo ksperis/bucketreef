@@ -17,6 +17,8 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
+import UiButton from "../../components/ui/UiButton";
+import UiSelect from "../../components/ui/UiSelect";
 
 function extractError(err: unknown): string {
   return extractApiError(err, "Unexpected error");
@@ -227,11 +229,13 @@ export default function ManagerGroupUsersPage() {
         onSubmit={handleAdd}
         className="space-y-3 ui-surface-card p-4"
       >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <select
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <UiSelect
+            label="IAM user"
+            fieldClassName="flex-1"
+            className="w-full"
             value={newUser}
             onChange={(e) => setNewUser(e.target.value)}
-            className="flex-1 rounded-md border border-slate-200 px-3 py-2 ui-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="">Select an existing user</option>
             {availableUsers.map((u) => (
@@ -239,14 +243,14 @@ export default function ManagerGroupUsersPage() {
                 {u.name}
               </option>
             ))}
-          </select>
-          <button
+          </UiSelect>
+          <UiButton
             type="submit"
             disabled={busy !== null || !newUser}
-            className="rounded-md bg-primary px-4 py-2 ui-body font-medium text-white shadow-sm transition hover:bg-primary-600 disabled:opacity-60"
+            loading={busy === "add"}
           >
-            {busy === "add" ? "Adding..." : "Add"}
-          </button>
+            Add
+          </UiButton>
         </div>
         <p className="ui-caption text-slate-500 dark:text-slate-400">
           Users come from IAM. Add them here to attach them to the group.
