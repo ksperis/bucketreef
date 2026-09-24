@@ -154,7 +154,7 @@ export function readLifecycleVisualRule(rule: LifecycleRuleRecord): LifecycleVis
   };
 }
 
-export function lifecycleRuleHasAction(rule: LifecycleRuleRecord): boolean {
+function lifecycleRuleHasAction(rule: LifecycleRuleRecord): boolean {
   const expiration = recordValue(rule.Expiration);
   const noncurrentExpiration = recordValue(rule.NoncurrentVersionExpiration);
   const multipart = recordValue(rule.AbortIncompleteMultipartUpload);

@@ -37,7 +37,6 @@ describe("BrowserActionPresentation", () => {
         <BrowserDirectItemActionButton
           action={enabledDownloadAction}
           itemName="report.txt"
-          className="row-action"
           onSelect={onSelect}
         />
       </div>,
@@ -46,7 +45,7 @@ describe("BrowserActionPresentation", () => {
     const button = screen.getByRole("button", {
       name: "Download report.txt",
     });
-    expect(button).toHaveClass("row-action");
+    expect(button).toHaveClass("ui-list-action", "ui-list-action-icon");
     expect(button).toHaveAttribute("title", "Download");
 
     fireEvent.click(button);
@@ -70,7 +69,6 @@ describe("BrowserActionPresentation", () => {
       <BrowserDirectItemActionButton
         action={disabledDeleteAction}
         itemName="report.txt"
-        className="row-action"
         onSelect={onDirectSelect}
       />,
     );

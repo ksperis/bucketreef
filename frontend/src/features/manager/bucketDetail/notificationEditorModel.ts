@@ -137,7 +137,7 @@ function buildFilter(prefix: string, suffix: string): Record<string, unknown> | 
   return { Key: { FilterRules: filterRules } };
 }
 
-export function updateNotificationVisualTopic(
+function updateNotificationVisualTopic(
   topic: NotificationTopicRecord,
   patch: NotificationVisualTopicPatch,
 ): NotificationTopicRecord {

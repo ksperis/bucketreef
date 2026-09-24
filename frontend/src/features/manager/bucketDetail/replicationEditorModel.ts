@@ -9,7 +9,7 @@ import {
   type ReplicationRuleStatus,
 } from "../bucketReplication";
 
-export type ReplicationRuleRecord = Record<string, unknown>;
+type ReplicationRuleRecord = Record<string, unknown>;
 export type ReplicationVisualRulePatch = Partial<GraphicalReplicationRule>;
 
 const allowedRuleKeys = new Set([

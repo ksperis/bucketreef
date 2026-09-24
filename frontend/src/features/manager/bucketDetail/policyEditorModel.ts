@@ -5,7 +5,7 @@
 
 export type PolicyDocumentRecord = Record<string, unknown>;
 export type PolicyStatementRecord = Record<string, unknown>;
-export type PolicyEffect = "" | "Allow" | "Deny";
+type PolicyEffect = "" | "Allow" | "Deny";
 export type PolicyPrincipalMode =
   | "none"
   | "any"
@@ -182,7 +182,7 @@ function readPrincipal(statement: PolicyStatementRecord): Pick<
   };
 }
 
-export function readPolicyConditions(statement: PolicyStatementRecord): PolicyConditionEntry[] {
+function readPolicyConditions(statement: PolicyStatementRecord): PolicyConditionEntry[] {
   const condition = asRecord(statement.Condition);
   if (!condition) return [];
   const entries: PolicyConditionEntry[] = [];
