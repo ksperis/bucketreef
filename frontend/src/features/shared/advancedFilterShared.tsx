@@ -4,7 +4,6 @@
  */
 import type { ReactNode } from "react";
 import UiProgressBar from "../../components/ui/UiProgressBar";
-import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
 
 export type TextMatchMode = "contains" | "exact";
 export type FilterCostLevel = "none" | "low" | "medium" | "high";
@@ -76,13 +75,6 @@ export const advancedFilterControlClass = (className: string = "", disabled: boo
 export const advancedFilterMatchModeButtonClass = (active: boolean, locked: boolean = false) =>
   `ui-list-action${active ? " ui-list-action-active" : ""}${locked ? " cursor-not-allowed opacity-70" : ""}`;
 
-export const advancedFilterToolbarButtonClass = (active: boolean = false) => {
-  if (active) {
-    return `${toolbarCompactButtonClasses} ui-list-action-active`;
-  }
-  return toolbarCompactButtonClasses;
-};
-
 export const advancedFilterSummaryChipClass =
   "ui-list-badge border border-primary/30 bg-primary/10 text-primary-700 dark:border-primary-400/40 dark:bg-primary-500/15 dark:text-primary-100";
 
@@ -134,13 +126,6 @@ export const renderAdvancedFilterCostBadge = (level: FilterCostLevel, tooltip: s
 );
 
 export const formatAdvancedFilterSyncLabel = (pending: boolean) => (pending ? "Unsaved changes" : "In sync");
-
-export const formatQuickFilterMatchModeTitle = (mode: TextMatchMode, locked: boolean = false) => {
-  if (locked) return "Quick filter mode: exact (locked by list input)";
-  return `Quick filter mode: ${mode === "exact" ? "exact" : "contains"}`;
-};
-
-export const formatTextMatchModeSymbol = (mode: TextMatchMode) => (mode === "contains" ? "~" : "=");
 
 export const FILTER_COST_LABEL: Record<FilterCostLevel, string> = {
   none: "No additional cost",

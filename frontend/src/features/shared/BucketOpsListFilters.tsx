@@ -4,13 +4,9 @@
  */
 import UiSelect from "../../components/ui/UiSelect";
 import { ToolbarSearchTextarea } from "../../components/ToolbarSearchInput";
+import { ToolbarAdvancedFilterButton, ToolbarMatchModeButton } from "../../components/ToolbarFilterControls";
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import { UiTagBadge } from "../../components/UiTagSettings";
-import {
-  toolbarCompactButtonClasses,
-  toolbarMatchModeButtonClasses,
-} from "../../components/toolbarControlClasses";
-import { cx } from "../../components/ui/styles";
 import type { useBucketOpsFilterController } from "./useBucketOpsFilterController";
 
 type FilterController = ReturnType<typeof useBucketOpsFilterController>;
@@ -60,24 +56,13 @@ export function BucketOpsQuickFilter({
       className="w-full min-w-[16rem] sm:w-72"
       inputClassName={quickFilterFieldState.fieldClass}
       trailingControl={
-        <button
-          type="button"
+        <ToolbarMatchModeButton
+          mode={quickFilterModeForDisplay}
+          pending={quickFilterPending}
+          locked={quickFilterDraftForcesExact}
           onClick={toggleQuickFilterMode}
-          disabled={quickFilterDraftForcesExact}
-          className={toolbarMatchModeButtonClasses(
-            quickFilterModeForDisplay,
-            quickFilterPending,
-            quickFilterDraftForcesExact,
-          )}
-          title={
-            quickFilterDraftForcesExact
-              ? "Quick filter mode: exact (locked by list input)"
-              : `Quick filter mode: ${quickFilterModeForDisplay === "contains" ? "contains" : "exact"}`
-          }
           aria-label="Toggle quick filter match mode"
-        >
-          {quickFilterModeForDisplay === "contains" ? "~" : "="}
-        </button>
+        />
       }
     />
   );
@@ -163,18 +148,12 @@ export function BucketOpsTagAndAdvancedFilters({
           </UiSelect>
         </div>
       ) : null}
-      <button
-        type="button"
+      <ToolbarAdvancedFilterButton
+        active={showAdvancedFilter || advancedFiltersApplied}
         onClick={openAdvancedFilterDrawer}
-        className={cx(
-          toolbarCompactButtonClasses,
-          showAdvancedFilter || advancedFiltersApplied
-            ? "ui-list-action-active"
-            : "",
-        )}
       >
         Advanced filter{advancedFiltersApplied ? " · Active" : ""}
-      </button>
+      </ToolbarAdvancedFilterButton>
     </>
   );
 }

@@ -4,7 +4,7 @@
  */
 import TableSortControls from "../../components/list/TableSortControls";
 import { ToolbarSearchTextarea } from "../../components/ToolbarSearchInput";
-import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
+import { ToolbarAdvancedFilterButton, ToolbarMatchModeButton } from "../../components/ToolbarFilterControls";
 import { ListActionButton, ListActions, ListBadge } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -43,11 +43,8 @@ import {
   FILTER_COST_LABEL,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
-  advancedFilterToolbarButtonClass,
   buildTextFieldRules,
   formatAdvancedFilterSyncLabel,
-  formatQuickFilterMatchModeTitle,
-  formatTextMatchModeSymbol,
   formatTextFilterSummary,
   parseExactListInput,
   renderAdvancedFilterDraftSummary,
@@ -901,31 +898,23 @@ export default function CephAdminUsersPage() {
                 placeholder="UID(s)"
                 inputClassName={quickFilterFieldState.fieldClass}
                 trailingControl={
-                  <button
-                    type="button"
+                  <ToolbarMatchModeButton
+                    mode={quickFilterModeForDisplay}
+                    pending={quickFilterPending}
+                    locked={quickFilterDraftForcesExact}
                     onClick={toggleQuickFilterMode}
-                    disabled={quickFilterDraftForcesExact}
-                    className={toolbarMatchModeButtonClasses(
-                      quickFilterModeForDisplay,
-                      quickFilterPending,
-                      quickFilterDraftForcesExact
-                    )}
-                    title={formatQuickFilterMatchModeTitle(quickFilterModeForDisplay, quickFilterDraftForcesExact)}
                     aria-label="Toggle quick filter match mode"
-                  >
-                    {formatTextMatchModeSymbol(quickFilterModeForDisplay)}
-                  </button>
+                  />
                 }
               />
             }
             filters={
-              <button
-                type="button"
+              <ToolbarAdvancedFilterButton
+                active={showAdvancedFilter || advancedFilterActive}
                 onClick={() => setShowAdvancedFilter(true)}
-                className={advancedFilterToolbarButtonClass(showAdvancedFilter || advancedFilterActive)}
               >
                 Advanced filter{advancedFilterActive ? " · Active" : ""}
-              </button>
+              </ToolbarAdvancedFilterButton>
             }
             columns={
               <ColumnVisibilityMenu
