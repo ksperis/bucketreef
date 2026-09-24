@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { S3AccountSelector } from "../../../api/accountParams";
 import {
   deleteBucketNotifications,
@@ -15,11 +15,25 @@ import {
   putCephAdminBucketNotifications,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
+import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   jsonTextSignature,
   normalizeNotificationConfiguration,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
+import {
+  addNotificationTopic,
+  createVisualNotificationTopic,
+  hasAdvancedNotificationConfiguration,
+  hasAdvancedNotificationTopLevel,
+  notificationTopicConfigurations,
+  parseNotificationConfigurationJson,
+  removeNotificationTopicAt,
+  updateNotificationTopicAt,
+  validateNotificationVisualConfiguration,
+  type NotificationConfigurationRecord,
+  type NotificationVisualTopicPatch,
+} from "./notificationEditorModel";
 
 type UseBucketNotificationsControllerOptions = {
   accountId: S3AccountSelector;
@@ -29,7 +43,35 @@ type UseBucketNotificationsControllerOptions = {
   endpointId?: number | null;
 };
 
-export const defaultNotificationTemplate = '{\n  "TopicConfigurations": []\n}';
+function createNotificationId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    try {
+      return `notification-${crypto.randomUUID()}`;
+    } catch {
+      // Fall through when randomUUID is not available in the runtime.
+    }
+  }
+  return `notification-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function asConfiguration(value: unknown): NotificationConfigurationRecord {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as NotificationConfigurationRecord;
+}
+
+function cloneConfiguration(
+  configuration: NotificationConfigurationRecord,
+): NotificationConfigurationRecord {
+  return JSON.parse(JSON.stringify(configuration)) as NotificationConfigurationRecord;
+}
+
+function configurationText(configuration: NotificationConfigurationRecord): string {
+  return JSON.stringify(configuration, null, 2);
+}
+
+function isEmptyConfiguration(configuration: NotificationConfigurationRecord): boolean {
+  return Object.keys(normalizeNotificationConfiguration(configuration)).length === 0;
+}
 
 export function useBucketNotificationsController({
   accountId,
@@ -38,33 +80,30 @@ export function useBucketNotificationsController({
   enabled,
   endpointId,
 }: UseBucketNotificationsControllerOptions) {
-  const [snapshot, setSnapshot] = useState<Record<string, unknown>>({});
-  const [text, setText] = useState(defaultNotificationTemplate);
-  const [error, setError] = useState<string | null>(null);
+  const [configuration, setConfiguration] = useState<NotificationConfigurationRecord>({});
+  const [draftConfiguration, setDraftConfiguration] = useState<NotificationConfigurationRecord>({});
+  const [jsonText, setJsonText] = useState("{}");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [clearing, setClearing] = useState(false);
 
-  const apply = useCallback((configuration: unknown) => {
-    const normalized = normalizeNotificationConfiguration(configuration);
-    setSnapshot(normalized);
-    setText(
-      Object.keys(normalized).length
-        ? JSON.stringify(normalized, null, 2)
-        : defaultNotificationTemplate,
-    );
+  const applyBaseline = useCallback((value: unknown) => {
+    setConfiguration(cloneConfiguration(asConfiguration(value)));
   }, []);
 
   const load = useCallback(async () => {
     if (!bucketName || !enabled) {
-      apply({});
-      setError(null);
+      applyBaseline({});
+      setLoadError(null);
       setStatus(null);
       return;
     }
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     setStatus(null);
     try {
       const data = cephAdmin
@@ -72,101 +111,199 @@ export function useBucketNotificationsController({
           ? await getCephAdminBucketNotifications(endpointId, bucketName)
           : { configuration: {} }
         : await getBucketNotifications(accountId, bucketName);
-      apply(data.configuration ?? {});
-    } catch (loadError) {
-      apply({});
-      setError(
-        extractApiError(loadError, "Unable to load bucket notifications."),
+      applyBaseline(data.configuration ?? {});
+    } catch (loadFailure) {
+      applyBaseline({});
+      setLoadError(
+        extractApiError(loadFailure, "Unable to load bucket notifications."),
       );
     } finally {
       setLoading(false);
     }
-  }, [accountId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
-  const save = async () => {
-    if (!bucketName || !enabled) return;
-    setError(null);
+  const openEditor = useCallback(() => {
+    const nextDraft = cloneConfiguration(configuration);
+    setDraftConfiguration(nextDraft);
+    setJsonText(configurationText(nextDraft));
+    setEditorMode("visual");
+    setEditorError(null);
     setStatus(null);
-    let parsed: unknown;
-    try {
-      parsed = text.trim() ? JSON.parse(text) : {};
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error();
+    setEditorOpen(true);
+  }, [configuration]);
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setEditorError(null);
+  }, []);
+
+  const updateJsonText = useCallback((value: string) => {
+    setJsonText(value);
+    setEditorError(null);
+  }, []);
+
+  const updateEditorMode = useCallback(
+    (nextMode: BucketFeatureEditorMode) => {
+      if (nextMode === editorMode) return;
+      setEditorError(null);
+      if (nextMode === "json") {
+        setJsonText(configurationText(draftConfiguration));
+        setEditorMode("json");
+        return;
       }
-    } catch {
-      setError("Notifications must be valid JSON.");
-      return;
+      const parsed = parseNotificationConfigurationJson(jsonText);
+      if (!parsed.configuration) {
+        setEditorError(parsed.error);
+        return;
+      }
+      setDraftConfiguration(parsed.configuration);
+      setEditorMode("visual");
+    },
+    [draftConfiguration, editorMode, jsonText],
+  );
+
+  const addDraftTopic = useCallback(() => {
+    setDraftConfiguration((current) =>
+      addNotificationTopic(
+        current,
+        createVisualNotificationTopic(createNotificationId()),
+      ),
+    );
+    setEditorError(null);
+  }, []);
+
+  const removeDraftTopic = useCallback((index: number) => {
+    setDraftConfiguration((current) => removeNotificationTopicAt(current, index));
+    setEditorError(null);
+  }, []);
+
+  const updateDraftTopic = useCallback(
+    (index: number, patch: NotificationVisualTopicPatch) => {
+      setDraftConfiguration((current) => updateNotificationTopicAt(current, index, patch));
+      setEditorError(null);
+    },
+    [],
+  );
+
+  const saveDraft = useCallback(async () => {
+    if (!bucketName || !enabled || saving) return;
+    let nextConfiguration = draftConfiguration;
+    if (editorMode === "json") {
+      const parsed = parseNotificationConfigurationJson(jsonText);
+      if (!parsed.configuration) {
+        setEditorError(parsed.error);
+        return;
+      }
+      nextConfiguration = parsed.configuration;
+      setDraftConfiguration(parsed.configuration);
+    } else {
+      const validationError = validateNotificationVisualConfiguration(nextConfiguration);
+      if (validationError) {
+        setEditorError(validationError);
+        return;
+      }
     }
+
     setSaving(true);
+    setEditorError(null);
+    setStatus(null);
     try {
-      const configuration = parsed as Record<string, unknown>;
-      const saved = cephAdmin
-        ? endpointId
-          ? await putCephAdminBucketNotifications(
-              endpointId,
-              bucketName,
-              configuration,
-            )
-          : { configuration }
-        : await putBucketNotifications(accountId, bucketName, configuration);
-      apply(saved.configuration ?? configuration);
-      setStatus("Notifications updated.");
-    } catch (saveError) {
-      setError(
-        extractApiError(saveError, "Unable to update bucket notifications."),
+      if (isEmptyConfiguration(nextConfiguration)) {
+        if (cephAdmin) {
+          if (!endpointId) return;
+          await deleteCephAdminBucketNotifications(endpointId, bucketName);
+        } else {
+          await deleteBucketNotifications(accountId, bucketName);
+        }
+        applyBaseline({});
+        setDraftConfiguration({});
+        setJsonText("{}");
+        setStatus("Notifications cleared.");
+      } else {
+        const saved = cephAdmin
+          ? endpointId
+            ? await putCephAdminBucketNotifications(
+                endpointId,
+                bucketName,
+                nextConfiguration,
+              )
+            : { configuration: nextConfiguration }
+          : await putBucketNotifications(accountId, bucketName, nextConfiguration);
+        const savedConfiguration = cloneConfiguration(
+          asConfiguration(saved.configuration ?? nextConfiguration),
+        );
+        applyBaseline(savedConfiguration);
+        setDraftConfiguration(savedConfiguration);
+        setJsonText(configurationText(savedConfiguration));
+        setStatus("Notifications updated.");
+      }
+      setEditorOpen(false);
+    } catch (saveFailure) {
+      setEditorError(
+        extractApiError(saveFailure, "Unable to update bucket notifications."),
       );
     } finally {
       setSaving(false);
     }
-  };
+  }, [
+    accountId,
+    applyBaseline,
+    bucketName,
+    cephAdmin,
+    draftConfiguration,
+    editorMode,
+    enabled,
+    endpointId,
+    jsonText,
+    saving,
+  ]);
 
-  const clear = async () => {
-    if (!bucketName || !enabled) return;
-    setClearing(true);
-    setError(null);
-    setStatus(null);
-    try {
-      if (cephAdmin) {
-        if (!endpointId) return;
-        await deleteCephAdminBucketNotifications(endpointId, bucketName);
-      } else {
-        await deleteBucketNotifications(accountId, bucketName);
-      }
-      apply({});
-      setStatus("Notifications cleared.");
-    } catch (clearError) {
-      setError(
-        extractApiError(clearError, "Unable to delete bucket notifications."),
-      );
-    } finally {
-      setClearing(false);
-    }
-  };
-
-  const updateText = (value: string) => {
-    setText(value);
-    setStatus(null);
-  };
-  const normalizedSnapshot = normalizeNotificationConfiguration(snapshot);
-  const draftSignature = jsonTextSignature(
-    text,
-    normalizedSnapshot,
-    normalizeNotificationConfiguration,
+  const configured = !isEmptyConfiguration(configuration);
+  const topics = useMemo(
+    () => notificationTopicConfigurations(configuration),
+    [configuration],
   );
+  const draftTopics = useMemo(
+    () => notificationTopicConfigurations(draftConfiguration),
+    [draftConfiguration],
+  );
+  const baselineSignature = stableBucketJsonSignature(configuration);
+  const draftSignature = useMemo(
+    () =>
+      editorMode === "json"
+        ? jsonTextSignature(jsonText, draftConfiguration).signature
+        : stableBucketJsonSignature(draftConfiguration),
+    [draftConfiguration, editorMode, jsonText],
+  );
+  const dirty = editorOpen && draftSignature !== baselineSignature;
+
   return {
-    clear,
-    clearing,
-    configured: Object.keys(normalizedSnapshot).length > 0,
-    dirty:
-      draftSignature.signature !==
-      stableBucketJsonSignature(normalizedSnapshot),
-    error,
+    addDraftTopic,
+    closeEditor,
+    configuration,
+    configured,
+    dirty,
+    draftConfiguration,
+    draftSignature,
+    draftTopics,
+    editorError,
+    editorMode,
+    editorOpen,
+    error: loadError,
+    hasAdvancedConfiguration: hasAdvancedNotificationConfiguration(configuration),
+    hasAdvancedDraftTopLevel: hasAdvancedNotificationTopLevel(draftConfiguration),
+    jsonText,
     load,
     loading,
-    save,
+    openEditor,
+    removeDraftTopic,
+    saveDraft,
     saving,
     status,
-    text,
-    updateText,
+    topicCount: topics.length,
+    topics,
+    updateDraftTopic,
+    updateEditorMode,
+    updateJsonText,
   };
 }

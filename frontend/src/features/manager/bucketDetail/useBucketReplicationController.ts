@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { S3AccountSelector } from "../../../api/accountParams";
 import {
   deleteBucketReplication,
@@ -17,23 +17,29 @@ import {
 import { extractApiError } from "../../../utils/apiError";
 import { createUiDraftId } from "../../../utils/uiDraftId";
 import {
-  buildReplicationConfigurationFromGraphical,
   containsUnsupportedReplicationZone,
-  createEmptyGraphicalReplicationRule,
   isReplicationConfigurationConfigured,
-  normalizeReplicationConfiguration,
-  parseReplicationConfigurationForGraphical,
   validateGraphicalReplication,
   validateJsonReplicationConfiguration,
-  type GraphicalReplicationRule,
 } from "../bucketReplication";
+import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
-
-type ReplicationMode = "graphical" | "json";
-type ReplicationRuleDraft = GraphicalReplicationRule & { uiId: string };
+import {
+  cloneReplicationConfiguration,
+  createReplicationVisualRule,
+  hasAdvancedReplicationTopLevelFields,
+  isReplicationRuleVisuallyEditable,
+  normalizeReplicationEditorConfiguration,
+  parseReplicationEditorJson,
+  readReplicationVisualRule,
+  replicationConfigurationRole,
+  replicationConfigurationRules,
+  updateReplicationVisualRule,
+  type ReplicationVisualRulePatch,
+} from "./replicationEditorModel";
 
 type UseBucketReplicationControllerOptions = {
   accountId: S3AccountSelector;
@@ -43,36 +49,36 @@ type UseBucketReplicationControllerOptions = {
   endpointId?: number | null;
 };
 
-const advancedFieldsWarning =
-  "This configuration has fields not covered by graphical mode. Use JSON mode to avoid losing data.";
-
-function createRuleDraft(
-  rule: GraphicalReplicationRule = createEmptyGraphicalReplicationRule(),
-): ReplicationRuleDraft {
-  return { ...rule, uiId: createUiDraftId("replication-rule") };
+function configurationText(configuration: Record<string, unknown>): string {
+  return JSON.stringify(configuration, null, 2);
 }
 
-function normalizeGraphicalDraft(
-  role: string,
-  rules: GraphicalReplicationRule[],
-): Record<string, unknown> {
-  return {
-    role: role.trim(),
-    rules: rules.map((rule) => ({
-      delete_marker_status: rule.deleteMarkerStatus,
-      destination_bucket: rule.destinationBucket.trim(),
-      id: rule.id.trim(),
-      prefix: rule.prefix.trim(),
-      priority: rule.priority.trim(),
-      status: rule.status,
-    })),
-  };
+function createRuleIds(configuration: Record<string, unknown>): string[] {
+  return replicationConfigurationRules(configuration).map(() =>
+    createUiDraftId("replication-rule"),
+  );
 }
 
-function normalizedConfiguration(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? normalizeReplicationConfiguration(value as Record<string, unknown>)
-    : {};
+function validateEditableRules(
+  configuration: Record<string, unknown>,
+): string | null {
+  const rules = replicationConfigurationRules(configuration);
+  if (rules.length === 0) return null;
+
+  const role = replicationConfigurationRole(configuration);
+  if (!role.trim()) return "Role is required.";
+
+  for (let index = 0; index < rules.length; index += 1) {
+    const rawRule = rules[index];
+    if (!isReplicationRuleVisuallyEditable(rawRule)) continue;
+    const validationError = validateGraphicalReplication(role, [
+      readReplicationVisualRule(rawRule),
+    ]);
+    if (validationError) {
+      return validationError.replace(/^Rule 1:/, `Rule ${index + 1}:`);
+    }
+  }
+  return null;
 }
 
 export function useBucketReplicationController({
@@ -82,48 +88,31 @@ export function useBucketReplicationController({
   enabled,
   endpointId,
 }: UseBucketReplicationControllerOptions) {
-  const [configuration, setConfiguration] = useState<Record<string, unknown>>(
-    {},
-  );
-  const [mode, setMode] = useState<ReplicationMode>("graphical");
-  const [text, setText] = useState("{}");
-  const [role, setRole] = useState("");
-  const [rules, setRules] = useState<ReplicationRuleDraft[]>([createRuleDraft()]);
-  const [warning, setWarning] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [configuration, setConfiguration] = useState<Record<string, unknown>>({});
+  const [draftConfiguration, setDraftConfiguration] = useState<Record<string, unknown>>({});
+  const [draftRuleIds, setDraftRuleIds] = useState<string[]>([]);
+  const [jsonText, setJsonText] = useState("{}");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [clearing, setClearing] = useState(false);
 
-  const apply = useCallback((next: unknown) => {
-    const normalized = normalizedConfiguration(next);
-    const parsed = parseReplicationConfigurationForGraphical(normalized);
-    setConfiguration(normalized);
-    setText(
-      Object.keys(normalized).length > 0
-        ? JSON.stringify(normalized, null, 2)
-        : "{}",
-    );
-    setRole(parsed.role);
-    setRules(parsed.rules.map(createRuleDraft));
-    setWarning(parsed.hasAdvancedFields ? advancedFieldsWarning : null);
+  const applyBaseline = useCallback((next: unknown) => {
+    setConfiguration(normalizeReplicationEditorConfiguration(next));
   }, []);
-
-  const clearFeedback = () => {
-    setError(null);
-    setStatus(null);
-  };
 
   const load = useCallback(async () => {
     if (!bucketName || !enabled) {
-      apply({});
-      setError(null);
+      applyBaseline({});
+      setLoadError(null);
       setStatus(null);
       return;
     }
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     setStatus(null);
     try {
       const data = cephAdmin
@@ -131,10 +120,10 @@ export function useBucketReplicationController({
           ? await getCephAdminBucketReplication(endpointId, bucketName)
           : { configuration: {} }
         : await getBucketReplication(accountId, bucketName);
-      apply(data.configuration);
+      applyBaseline(data.configuration);
     } catch (loadFailure) {
-      apply({});
-      setError(
+      applyBaseline({});
+      setLoadError(
         extractApiError(
           loadFailure,
           "Unable to load bucket replication configuration.",
@@ -143,95 +132,182 @@ export function useBucketReplicationController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
-  const updateMode = (value: ReplicationMode) => {
-    setMode(value);
-    clearFeedback();
-  };
+  const openEditor = useCallback(() => {
+    const nextDraft = cloneReplicationConfiguration(configuration);
+    setDraftConfiguration(nextDraft);
+    setDraftRuleIds(createRuleIds(nextDraft));
+    setJsonText(configurationText(nextDraft));
+    setEditorMode("visual");
+    setEditorError(null);
+    setStatus(null);
+    setEditorOpen(true);
+  }, [configuration]);
 
-  const updateText = (value: string) => {
-    setText(value);
-    clearFeedback();
-  };
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setEditorError(null);
+  }, []);
 
-  const updateRole = (value: string) => {
-    setRole(value);
-    clearFeedback();
-  };
+  const updateJsonText = useCallback((value: string) => {
+    setJsonText(value);
+    setEditorError(null);
+  }, []);
 
-  const updateRule = (
-    uiId: string,
-    patch: Partial<GraphicalReplicationRule>,
-  ) => {
-    setRules((current) =>
-      current.map((rule) => (rule.uiId === uiId ? { ...rule, ...patch } : rule)),
-    );
-    clearFeedback();
-  };
-
-  const addRule = () => {
-    setRules((current) => [...current, createRuleDraft()]);
-    clearFeedback();
-  };
-
-  const removeRule = (uiId: string) => {
-    setRules((current) => {
-      const next = current.filter((rule) => rule.uiId !== uiId);
-      return next.length > 0 ? next : [createRuleDraft()];
-    });
-    clearFeedback();
-  };
-
-  const save = async () => {
-    if (!bucketName || !enabled || saving) return;
-    clearFeedback();
-
-    let nextConfiguration: Record<string, unknown>;
-    if (mode === "graphical") {
-      const validationError = validateGraphicalReplication(role, rules);
-      if (validationError) {
-        setError(validationError);
+  const updateEditorMode = useCallback(
+    (nextMode: BucketFeatureEditorMode) => {
+      if (nextMode === editorMode) return;
+      setEditorError(null);
+      if (nextMode === "json") {
+        setJsonText(configurationText(draftConfiguration));
+        setEditorMode("json");
         return;
       }
-      nextConfiguration = buildReplicationConfigurationFromGraphical(role, rules);
-    } else {
-      let parsed: unknown;
-      try {
-        parsed = text.trim() ? JSON.parse(text) : {};
-      } catch {
-        setError("Replication configuration JSON is invalid.");
+
+      const parsed = parseReplicationEditorJson(jsonText);
+      if (!parsed.configuration) {
+        setEditorError(parsed.error);
         return;
       }
-      const validationError = validateJsonReplicationConfiguration(parsed);
-      if (validationError) {
-        setError(validationError);
+      setDraftConfiguration(parsed.configuration);
+      setDraftRuleIds(createRuleIds(parsed.configuration));
+      setEditorMode("visual");
+    },
+    [draftConfiguration, editorMode, jsonText],
+  );
+
+  const updateRole = useCallback((value: string) => {
+    setDraftConfiguration((current) => ({ ...current, Role: value }));
+    setEditorError(null);
+  }, []);
+
+  const updateRule = useCallback(
+    (uiId: string, patch: ReplicationVisualRulePatch) => {
+      const index = draftRuleIds.indexOf(uiId);
+      if (index < 0) return;
+      setDraftConfiguration((current) => {
+        const rules = replicationConfigurationRules(current);
+        return {
+          ...current,
+          Rules: rules.map((rule, ruleIndex) =>
+            ruleIndex === index
+              ? updateReplicationVisualRule(rule, patch)
+              : rule,
+          ),
+        };
+      });
+      setEditorError(null);
+    },
+    [draftRuleIds],
+  );
+
+  const addRule = useCallback(() => {
+    setDraftConfiguration((current) => ({
+      ...current,
+      Rules: [
+        ...replicationConfigurationRules(current),
+        createReplicationVisualRule(),
+      ],
+    }));
+    setDraftRuleIds((current) => [
+      ...current,
+      createUiDraftId("replication-rule"),
+    ]);
+    setEditorError(null);
+  }, []);
+
+  const removeRule = useCallback(
+    (uiId: string) => {
+      const index = draftRuleIds.indexOf(uiId);
+      if (index < 0) return;
+      setDraftConfiguration((current) => ({
+        ...current,
+        Rules: replicationConfigurationRules(current).filter(
+          (_, ruleIndex) => ruleIndex !== index,
+        ),
+      }));
+      setDraftRuleIds((current) =>
+        current.filter((_, ruleIndex) => ruleIndex !== index),
+      );
+      setEditorError(null);
+    },
+    [draftRuleIds],
+  );
+
+  const saveDraft = useCallback(async () => {
+    if (!bucketName || !enabled || saving || (cephAdmin && !endpointId)) return;
+
+    let nextConfiguration = draftConfiguration;
+    if (editorMode === "json") {
+      const parsed = parseReplicationEditorJson(jsonText);
+      if (!parsed.configuration) {
+        setEditorError(parsed.error);
         return;
       }
-      nextConfiguration = parsed as Record<string, unknown>;
+      nextConfiguration = parsed.configuration;
+      setDraftConfiguration(parsed.configuration);
+      setDraftRuleIds(createRuleIds(parsed.configuration));
+    }
+
+    const nextRules = replicationConfigurationRules(nextConfiguration);
+    if (nextRules.length > 0) {
+      const jsonValidationError = validateJsonReplicationConfiguration(
+        nextConfiguration,
+      );
+      if (jsonValidationError) {
+        setEditorError(jsonValidationError);
+        return;
+      }
+      const visualValidationError = validateEditableRules(nextConfiguration);
+      if (visualValidationError) {
+        setEditorError(visualValidationError);
+        return;
+      }
     }
 
     setSaving(true);
+    setEditorError(null);
+    setStatus(null);
     try {
-      let saved;
-      if (cephAdmin) {
-        if (!endpointId) return;
-        saved = await putCephAdminBucketReplication(
-          endpointId,
-          bucketName,
-          nextConfiguration,
-        );
+      if (nextRules.length === 0) {
+        if (cephAdmin) {
+          await deleteCephAdminBucketReplication(
+            endpointId as number,
+            bucketName,
+          );
+        } else {
+          await deleteBucketReplication(accountId, bucketName);
+        }
+        applyBaseline({});
+        setDraftConfiguration({});
+        setDraftRuleIds([]);
+        setJsonText("{}");
+        setStatus("Replication configuration cleared.");
       } else {
-        saved = await putBucketReplication(
-          accountId,
-          bucketName,
-          nextConfiguration,
+        const saved = cephAdmin
+          ? await putCephAdminBucketReplication(
+              endpointId as number,
+              bucketName,
+              nextConfiguration,
+            )
+          : await putBucketReplication(
+              accountId,
+              bucketName,
+              nextConfiguration,
+            );
+        const savedConfiguration = normalizeReplicationEditorConfiguration(
+          saved.configuration ?? nextConfiguration,
         );
+        applyBaseline(savedConfiguration);
+        setDraftConfiguration(cloneReplicationConfiguration(savedConfiguration));
+        setDraftRuleIds(createRuleIds(savedConfiguration));
+        setJsonText(configurationText(savedConfiguration));
+        setStatus("Replication configuration updated.");
       }
-      apply(saved.configuration);
-      setStatus("Replication configuration updated.");
+      setEditorOpen(false);
     } catch (saveFailure) {
-      setError(
+      setEditorError(
         extractApiError(
           saveFailure,
           "Unable to update bucket replication configuration.",
@@ -240,71 +316,77 @@ export function useBucketReplicationController({
     } finally {
       setSaving(false);
     }
-  };
+  }, [
+    accountId,
+    applyBaseline,
+    bucketName,
+    cephAdmin,
+    draftConfiguration,
+    editorMode,
+    enabled,
+    endpointId,
+    jsonText,
+    saving,
+  ]);
 
-  const clear = async () => {
-    if (!bucketName || !enabled || clearing) return;
-    setClearing(true);
-    clearFeedback();
-    try {
-      if (cephAdmin) {
-        if (!endpointId) return;
-        await deleteCephAdminBucketReplication(endpointId, bucketName);
-      } else {
-        await deleteBucketReplication(accountId, bucketName);
-      }
-      apply({});
-      setStatus("Replication configuration cleared.");
-    } catch (clearFailure) {
-      setError(
-        extractApiError(
-          clearFailure,
-          "Unable to clear bucket replication configuration.",
-        ),
-      );
-    } finally {
-      setClearing(false);
-    }
-  };
-
-  const graphicalSnapshot =
-    parseReplicationConfigurationForGraphical(configuration);
-  const jsonDraftSignature = jsonTextSignature(text, configuration);
-  const dirty =
-    mode === "json"
-      ? jsonDraftSignature.signature !==
-        stableBucketJsonSignature(configuration)
-      : stableBucketJsonSignature(normalizeGraphicalDraft(role, rules)) !==
-        stableBucketJsonSignature(
-          normalizeGraphicalDraft(
-            graphicalSnapshot.role,
-            graphicalSnapshot.rules,
-          ),
-        );
+  const summaryRules = replicationConfigurationRules(configuration);
+  const draftRules = replicationConfigurationRules(draftConfiguration);
+  const rules = useMemo(
+    () =>
+      draftRules.map((rule, index) => ({
+        uiId: draftRuleIds[index] ?? `replication-rule-${index}`,
+        rule,
+      })),
+    [draftRuleIds, draftRules],
+  );
+  const baselineSignature = stableBucketJsonSignature(configuration);
+  const draftSignature = useMemo(
+    () =>
+      editorMode === "json"
+        ? jsonTextSignature(jsonText, {}).signature
+        : stableBucketJsonSignature(draftConfiguration),
+    [draftConfiguration, editorMode, jsonText],
+  );
+  const parsedJson =
+    editorMode === "json"
+      ? parseReplicationEditorJson(jsonText).configuration
+      : null;
+  const warningConfiguration = parsedJson ?? draftConfiguration;
+  const advancedRuleCount = replicationConfigurationRules(
+    warningConfiguration,
+  ).filter((rule) => !isReplicationRuleVisuallyEditable(rule)).length;
 
   return {
     addRule,
-    busy: loading || saving || clearing,
-    clear,
-    clearing,
+    advancedRuleCount,
+    busy: loading || saving,
+    closeEditor,
     configured: isReplicationConfigurationConfigured(configuration),
-    dirty,
-    error,
-    hasUnsupportedZone: containsUnsupportedReplicationZone(configuration),
+    dirty: editorOpen && draftSignature !== baselineSignature,
+    draftSignature,
+    editorError,
+    editorMode,
+    editorOpen,
+    error: loadError,
+    hasAdvancedTopLevelFields:
+      hasAdvancedReplicationTopLevelFields(warningConfiguration),
+    hasUnsupportedZone: containsUnsupportedReplicationZone(warningConfiguration),
+    jsonText,
     load,
     loading,
-    mode,
+    openEditor,
     removeRule,
-    role,
+    role: replicationConfigurationRole(draftConfiguration),
+    ruleCount: summaryRules.length,
     rules,
-    save,
+    saveDraft,
     saving,
     status,
-    text,
-    updateMode,
+    summaryRole: replicationConfigurationRole(configuration),
+    summaryRules,
+    updateEditorMode,
+    updateJsonText,
     updateRole,
     updateRule,
-    updateText,
-    warning,
   };
 }

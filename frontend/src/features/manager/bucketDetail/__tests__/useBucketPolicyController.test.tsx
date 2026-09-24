@@ -2,20 +2,6 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useBucketPolicyController } from "../useBucketPolicyController";
 
-function buildPolicyExample(bucketName?: string) {
-  return `{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::${bucketName || "bucket"}/*"
-    }
-  ]
-}`;
-}
-
 const apiMocks = vi.hoisted(() => ({
   deleteBucketPolicy: vi.fn(),
   deleteCephAdminBucketPolicy: vi.fn(),
@@ -26,19 +12,15 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  deleteBucketPolicy: (...args: unknown[]) =>
-    apiMocks.deleteBucketPolicy(...args),
+  deleteBucketPolicy: (...args: unknown[]) => apiMocks.deleteBucketPolicy(...args),
   getBucketPolicy: (...args: unknown[]) => apiMocks.getBucketPolicy(...args),
   putBucketPolicy: (...args: unknown[]) => apiMocks.putBucketPolicy(...args),
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({
-  deleteCephAdminBucketPolicy: (...args: unknown[]) =>
-    apiMocks.deleteCephAdminBucketPolicy(...args),
-  getCephAdminBucketPolicy: (...args: unknown[]) =>
-    apiMocks.getCephAdminBucketPolicy(...args),
-  putCephAdminBucketPolicy: (...args: unknown[]) =>
-    apiMocks.putCephAdminBucketPolicy(...args),
+  deleteCephAdminBucketPolicy: (...args: unknown[]) => apiMocks.deleteCephAdminBucketPolicy(...args),
+  getCephAdminBucketPolicy: (...args: unknown[]) => apiMocks.getCephAdminBucketPolicy(...args),
+  putCephAdminBucketPolicy: (...args: unknown[]) => apiMocks.putCephAdminBucketPolicy(...args),
 }));
 
 function renderPolicy(
@@ -56,73 +38,218 @@ function renderPolicy(
   );
 }
 
+const simplePolicy = {
+  Version: "2012-10-17",
+  Statement: [
+    {
+      Sid: "ReadObjects",
+      Effect: "Allow",
+      Principal: "*",
+      Action: "s3:GetObject",
+      Resource: "arn:aws:s3:::reports/*",
+      Condition: {
+        StringLike: {
+          "s3:prefix": "public/*",
+        },
+      },
+    },
+  ],
+};
+
 describe("useBucketPolicyController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("loads, edits, and saves a Manager bucket policy", async () => {
-    apiMocks.getBucketPolicy.mockResolvedValue({
-      policy: { Version: "2012-10-17", Statement: [] },
-    });
-    apiMocks.putBucketPolicy.mockResolvedValue({
-      policy: { Version: "2012-10-17", Statement: [{ Effect: "Deny" }] },
-    });
+  it("keeps Manager visual edits local until Save and persists the complete policy", async () => {
+    apiMocks.getBucketPolicy.mockResolvedValue({ policy: simplePolicy });
+    apiMocks.putBucketPolicy.mockImplementation(
+      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+    );
     const { result } = renderPolicy();
 
     await act(async () => result.current.load());
-    expect(apiMocks.getBucketPolicy).toHaveBeenCalledWith("acc-1", "reports");
-    expect(result.current.configured).toBe(true);
-    expect(result.current.dirty).toBe(false);
+    act(() => result.current.openEditor());
+    act(() => result.current.updateDraftStatement(0, {
+      actions: ["s3:GetObject", "s3:GetObjectVersion"],
+    }));
+    act(() => result.current.updateDraftCondition(0, "StringLike", "s3:prefix", ["public/*", "shared/*"]));
 
-    act(() =>
-      result.current.setText(
-        JSON.stringify({
-          Version: "2012-10-17",
-          Statement: [{ Effect: "Deny" }],
-        }),
-      ),
-    );
+    expect(result.current.policy).toEqual(simplePolicy);
     expect(result.current.dirty).toBe(true);
-    await act(async () => result.current.save());
+    expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
+    expect(apiMocks.deleteBucketPolicy).not.toHaveBeenCalled();
 
-    expect(apiMocks.putBucketPolicy).toHaveBeenCalledWith("acc-1", "reports", {
-      Version: "2012-10-17",
-      Statement: [{ Effect: "Deny" }],
-    });
+    const expectedPolicy = result.current.draftPolicy;
+    await act(async () => result.current.saveDraft());
+
+    expect(apiMocks.putBucketPolicy).toHaveBeenCalledWith("acc-1", "reports", expectedPolicy);
+    expect(result.current.policy).toEqual(expectedPolicy);
+    expect(result.current.editorOpen).toBe(false);
+    expect(result.current.status).toBe("Bucket policy updated");
     expect(result.current.dirty).toBe(false);
   });
 
-  it("uses the Ceph Admin endpoint and owns deletion state", async () => {
-    apiMocks.getCephAdminBucketPolicy.mockResolvedValue({
-      policy: { Statement: [] },
-    });
+  it("validates Visual statements before persistence", async () => {
+    const { result } = renderPolicy();
+    act(() => result.current.openEditor());
+    act(() => result.current.addDraftStatement());
+
+    await act(async () => result.current.saveDraft());
+    expect(result.current.editorError).toBe("Statement1: at least one Action is required.");
+    expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
+
+    act(() => result.current.updateDraftStatement(0, {
+      actions: ["s3:GetObject"],
+      resources: ["arn:aws:s3:::reports/*"],
+    }));
+    apiMocks.putBucketPolicy.mockImplementation(
+      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+    );
+    await act(async () => result.current.saveDraft());
+    expect(apiMocks.putBucketPolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps invalid JSON in JSON mode without calling an API", async () => {
+    const { result } = renderPolicy();
+    act(() => result.current.openEditor());
+    act(() => result.current.updateEditorMode("json"));
+
+    act(() => result.current.updateJsonText("{"));
+    act(() => result.current.updateEditorMode("visual"));
+    expect(result.current.editorMode).toBe("json");
+    expect(result.current.editorError).toBe("Bucket policy JSON is invalid.");
+
+    act(() => result.current.updateJsonText("[]"));
+    await act(async () => result.current.saveDraft());
+    expect(result.current.editorError).toBe("Bucket policy must be a JSON object.");
+
+    act(() => result.current.updateJsonText('{"Statement":["invalid"]}'));
+    await act(async () => result.current.saveDraft());
+    expect(result.current.editorError).toBe("Policy Statement must be an object or an array of objects.");
+    expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
+    expect(apiMocks.deleteBucketPolicy).not.toHaveBeenCalled();
+  });
+
+  it("round-trips JSON and preserves advanced statements exactly", async () => {
+    const advancedStatement = {
+      Sid: "Advanced",
+      Effect: "Deny",
+      Principal: {
+        AWS: "arn:aws:iam::111122223333:root",
+        Service: "example.amazonaws.com",
+      },
+      NotAction: "s3:GetObject",
+      Resource: "arn:aws:s3:::reports/*",
+      Condition: {
+        NumericLessThan: { "s3:max-keys": 10 },
+      },
+      CustomCephField: { keep: true },
+    };
+    const advancedPolicy = {
+      Version: "2012-10-17",
+      Id: "keep-document-metadata",
+      Statement: [advancedStatement],
+      CustomTopLevel: { keep: true },
+    };
+    apiMocks.getBucketPolicy.mockResolvedValue({ policy: advancedPolicy });
+    apiMocks.putBucketPolicy.mockImplementation(
+      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+    );
+    const { result } = renderPolicy();
+
+    await act(async () => result.current.load());
+    act(() => result.current.openEditor());
+    act(() => result.current.updateDraftStatement(0, { sid: "must-not-change" }));
+    expect(result.current.draftPolicy).toEqual(advancedPolicy);
+
+    act(() => result.current.updateEditorMode("json"));
+    expect(JSON.parse(result.current.jsonText)).toEqual(advancedPolicy);
+    act(() => result.current.updateEditorMode("visual"));
+    expect(result.current.draftPolicy).toEqual(advancedPolicy);
+
+    await act(async () => result.current.saveDraft());
+    expect(apiMocks.putBucketPolicy).toHaveBeenCalledWith("acc-1", "reports", advancedPolicy);
+  });
+
+  it("deletes the Ceph Admin policy only when an empty draft is saved", async () => {
+    apiMocks.getCephAdminBucketPolicy.mockResolvedValue({ policy: simplePolicy });
     apiMocks.deleteCephAdminBucketPolicy.mockResolvedValue(undefined);
     const { result } = renderPolicy({ cephAdmin: true, endpointId: 7 });
 
     await act(async () => result.current.load());
-    expect(apiMocks.getCephAdminBucketPolicy).toHaveBeenCalledWith(7, "reports");
-    await act(async () => result.current.remove());
+    act(() => result.current.openEditor());
+    act(() => result.current.removeDraftStatement(0));
 
-    expect(apiMocks.deleteCephAdminBucketPolicy).toHaveBeenCalledWith(
-      7,
-      "reports",
-    );
+    expect(result.current.policy).toEqual(simplePolicy);
+    expect(result.current.statementCount).toBe(1);
+    expect(apiMocks.deleteCephAdminBucketPolicy).not.toHaveBeenCalled();
+
+    await act(async () => result.current.saveDraft());
+    expect(apiMocks.deleteCephAdminBucketPolicy).toHaveBeenCalledWith(7, "reports");
+    expect(apiMocks.putCephAdminBucketPolicy).not.toHaveBeenCalled();
     expect(result.current.configured).toBe(false);
-    expect(result.current.text).toBe("");
+    expect(result.current.statementCount).toBe(0);
+    expect(result.current.status).toBe("Bucket policy deleted");
   });
 
-  it("reports invalid JSON and provides the scoped example", async () => {
+  it("persists non-empty Ceph Admin drafts through PUT", async () => {
+    apiMocks.getCephAdminBucketPolicy.mockResolvedValue({ policy: simplePolicy });
+    apiMocks.putCephAdminBucketPolicy.mockImplementation(
+      (_endpointId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+    );
+    const { result } = renderPolicy({ cephAdmin: true, endpointId: 7 });
+
+    await act(async () => result.current.load());
+    act(() => result.current.openEditor());
+    act(() => result.current.updateDraftStatement(0, { effect: "Deny" }));
+    const expected = result.current.draftPolicy;
+    await act(async () => result.current.saveDraft());
+
+    expect(apiMocks.putCephAdminBucketPolicy).toHaveBeenCalledWith(7, "reports", expected);
+  });
+
+  it("keeps the editor and draft after a failed save and supports retry", async () => {
+    apiMocks.getBucketPolicy.mockResolvedValue({ policy: simplePolicy });
+    apiMocks.putBucketPolicy.mockRejectedValueOnce(new Error("save failed"));
     const { result } = renderPolicy();
 
-    act(() => result.current.setText("{"));
-    await act(async () => result.current.save());
-    expect(result.current.error).toBe(
-      "Invalid or unsaved policy (JSON required).",
-    );
-    expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
+    await act(async () => result.current.load());
+    act(() => result.current.openEditor());
+    act(() => result.current.updateDraftStatement(0, { effect: "Deny" }));
+    const failedDraft = result.current.draftPolicy;
 
-    act(() => result.current.setText(buildPolicyExample("reports")));
-    expect(result.current.text).toContain("arn:aws:s3:::reports/*");
+    await act(async () => result.current.saveDraft());
+    expect(result.current.editorOpen).toBe(true);
+    expect(result.current.draftPolicy).toEqual(failedDraft);
+    expect(result.current.policy).toEqual(simplePolicy);
+    expect(result.current.editorError).toBeTruthy();
+
+    apiMocks.putBucketPolicy.mockImplementation(
+      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+    );
+    await act(async () => result.current.saveDraft());
+    expect(apiMocks.putBucketPolicy).toHaveBeenCalledTimes(2);
+    expect(result.current.editorOpen).toBe(false);
+    expect(result.current.policy).toEqual(failedDraft);
+  });
+
+  it("does not access APIs without an enabled bucket context", async () => {
+    const disabled = renderPolicy({ enabled: false });
+    const missingEndpoint = renderPolicy({ cephAdmin: true, endpointId: null });
+
+    await act(async () => disabled.result.current.load());
+    act(() => disabled.result.current.openEditor());
+    await act(async () => disabled.result.current.saveDraft());
+    await act(async () => missingEndpoint.result.current.load());
+    act(() => missingEndpoint.result.current.openEditor());
+    await act(async () => missingEndpoint.result.current.saveDraft());
+
+    expect(apiMocks.getBucketPolicy).not.toHaveBeenCalled();
+    expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
+    expect(apiMocks.deleteBucketPolicy).not.toHaveBeenCalled();
+    expect(apiMocks.getCephAdminBucketPolicy).not.toHaveBeenCalled();
+    expect(apiMocks.putCephAdminBucketPolicy).not.toHaveBeenCalled();
+    expect(apiMocks.deleteCephAdminBucketPolicy).not.toHaveBeenCalled();
   });
 });

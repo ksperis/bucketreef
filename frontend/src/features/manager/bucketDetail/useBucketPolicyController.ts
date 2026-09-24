@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { S3AccountSelector } from "../../../api/accountParams";
 import {
   deleteBucketPolicy,
@@ -15,10 +15,24 @@ import {
   putCephAdminBucketPolicy,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
+import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
+import {
+  createVisualPolicyStatement,
+  isPolicyConfigurationEmpty,
+  parsePolicyJson,
+  policyStatements,
+  removePolicyCondition,
+  setPolicyConditionValue,
+  updatePolicyVisualStatement,
+  validateVisualPolicy,
+  withPolicyStatements,
+  type PolicyDocumentRecord,
+  type PolicyVisualStatementPatch,
+} from "./policyEditorModel";
 
 type UseBucketPolicyControllerOptions = {
   accountId: S3AccountSelector;
@@ -28,6 +42,31 @@ type UseBucketPolicyControllerOptions = {
   endpointId?: number | null;
 };
 
+function clonePolicy(policy: PolicyDocumentRecord): PolicyDocumentRecord {
+  return JSON.parse(JSON.stringify(policy)) as PolicyDocumentRecord;
+}
+
+function normalizePolicy(value: unknown): PolicyDocumentRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as PolicyDocumentRecord;
+}
+
+function policyText(policy: PolicyDocumentRecord): string {
+  return JSON.stringify(policy, null, 2);
+}
+
+function nextStatementSid(policy: PolicyDocumentRecord): string {
+  const statements = policyStatements(policy);
+  const existing = new Set(
+    statements
+      .map((statement) => statement.Sid)
+      .filter((sid): sid is string => typeof sid === "string"),
+  );
+  let index = statements.length + 1;
+  while (existing.has(`Statement${index}`)) index += 1;
+  return `Statement${index}`;
+}
+
 export function useBucketPolicyController({
   accountId,
   bucketName,
@@ -35,62 +74,219 @@ export function useBucketPolicyController({
   enabled,
   endpointId,
 }: UseBucketPolicyControllerOptions) {
-  const [policy, setPolicy] = useState<Record<string, unknown> | null>(null);
-  const [text, setText] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [policy, setPolicy] = useState<PolicyDocumentRecord>({});
+  const [draftPolicy, setDraftPolicy] = useState<PolicyDocumentRecord>({});
+  const [jsonText, setJsonText] = useState("{}");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editorError, setEditorError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const applyBaseline = useCallback((next: unknown) => {
+    setPolicy(clonePolicy(normalizePolicy(next)));
+  }, []);
+
   const load = useCallback(async () => {
     if (!bucketName || !enabled) {
-      setPolicy(null);
-      setText("");
+      applyBaseline({});
+      setLoadError(null);
+      setStatus(null);
       return;
     }
     setLoading(true);
-    setError(null);
+    setLoadError(null);
+    setStatus(null);
     try {
       const data = cephAdmin
         ? endpointId
           ? await getCephAdminBucketPolicy(endpointId, bucketName)
           : { policy: null }
         : await getBucketPolicy(accountId, bucketName);
-      setPolicy(data.policy);
-      setText(data.policy ? JSON.stringify(data.policy, null, 2) : "");
-    } catch (loadError) {
-      setError(extractApiError(loadError, "Unable to load the bucket policy."));
-      setPolicy(null);
-      setText("");
+      applyBaseline(data.policy);
+    } catch (loadFailure) {
+      applyBaseline({});
+      setLoadError(extractApiError(loadFailure, "Unable to load the bucket policy."));
     } finally {
       setLoading(false);
     }
+  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+
+  const openEditor = useCallback(() => {
+    const nextDraft = clonePolicy(policy);
+    setDraftPolicy(nextDraft);
+    setJsonText(policyText(nextDraft));
+    setEditorMode("visual");
+    setEditorError(null);
+    setStatus(null);
+    setEditorOpen(true);
+  }, [policy]);
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    setEditorError(null);
+  }, []);
+
+  const updateJsonText = useCallback((value: string) => {
+    setJsonText(value);
+    setEditorError(null);
+  }, []);
+
+  const updateEditorMode = useCallback((nextMode: BucketFeatureEditorMode) => {
+    if (nextMode === editorMode) return;
+    setEditorError(null);
+    if (nextMode === "json") {
+      setJsonText(policyText(draftPolicy));
+      setEditorMode("json");
+      return;
+    }
+    const parsed = parsePolicyJson(jsonText);
+    if (!parsed.policy) {
+      setEditorError(parsed.error);
+      return;
+    }
+    setDraftPolicy(clonePolicy(parsed.policy));
+    setEditorMode("visual");
+  }, [draftPolicy, editorMode, jsonText]);
+
+  const addDraftStatement = useCallback(() => {
+    setDraftPolicy((current) => withPolicyStatements(
+      current,
+      [...policyStatements(current), createVisualPolicyStatement(nextStatementSid(current))],
+    ));
+    setEditorError(null);
+  }, []);
+
+  const removeDraftStatement = useCallback((index: number) => {
+    setDraftPolicy((current) => withPolicyStatements(
+      current,
+      policyStatements(current).filter((_, statementIndex) => statementIndex !== index),
+    ));
+    setEditorError(null);
+  }, []);
+
+  const updateDraftStatement = useCallback((
+    index: number,
+    patch: PolicyVisualStatementPatch,
+  ) => {
+    setDraftPolicy((current) => withPolicyStatements(
+      current,
+      policyStatements(current).map((statement, statementIndex) =>
+        statementIndex === index
+          ? updatePolicyVisualStatement(statement, patch)
+          : statement,
+      ),
+    ));
+    setEditorError(null);
+  }, []);
+
+  const updateDraftCondition = useCallback((
+    statementIndex: number,
+    operator: string,
+    key: string,
+    values: string[],
+  ) => {
+    setDraftPolicy((current) => withPolicyStatements(
+      current,
+      policyStatements(current).map((statement, index) =>
+        index === statementIndex
+          ? setPolicyConditionValue(statement, operator, key, values)
+          : statement,
+      ),
+    ));
+    setEditorError(null);
+  }, []);
+
+  const removeDraftCondition = useCallback((
+    statementIndex: number,
+    operator: string,
+    key: string,
+  ) => {
+    setDraftPolicy((current) => withPolicyStatements(
+      current,
+      policyStatements(current).map((statement, index) =>
+        index === statementIndex
+          ? removePolicyCondition(statement, operator, key)
+          : statement,
+      ),
+    ));
+    setEditorError(null);
+  }, []);
+
+  const persistPolicy = useCallback(async (nextPolicy: PolicyDocumentRecord) => {
+    if (!bucketName || !enabled) return null;
+    if (isPolicyConfigurationEmpty(nextPolicy)) {
+      if (cephAdmin) {
+        if (!endpointId) return null;
+        await deleteCephAdminBucketPolicy(endpointId, bucketName);
+      } else {
+        await deleteBucketPolicy(accountId, bucketName);
+      }
+      return {};
+    }
+    const saved = cephAdmin
+      ? endpointId
+        ? await putCephAdminBucketPolicy(endpointId, bucketName, nextPolicy)
+        : { policy: nextPolicy }
+      : await putBucketPolicy(accountId, bucketName, nextPolicy);
+    return normalizePolicy(saved.policy ?? nextPolicy);
   }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
 
-  const save = async () => {
-    if (!bucketName || !enabled) return;
+  const saveDraft = useCallback(async () => {
+    if (!bucketName || !enabled || saving) return;
+    let nextPolicy = draftPolicy;
+    if (editorMode === "json") {
+      const parsed = parsePolicyJson(jsonText);
+      if (!parsed.policy) {
+        setEditorError(parsed.error);
+        return;
+      }
+      nextPolicy = parsed.policy;
+      setDraftPolicy(clonePolicy(parsed.policy));
+    } else {
+      const validationError = validateVisualPolicy(nextPolicy);
+      if (validationError) {
+        setEditorError(validationError);
+        return;
+      }
+    }
+
     setSaving(true);
-    setError(null);
+    setEditorError(null);
+    setStatus(null);
     try {
-      const parsed = text.trim() ? JSON.parse(text) : {};
-      const saved = cephAdmin
-        ? endpointId
-          ? await putCephAdminBucketPolicy(endpointId, bucketName, parsed)
-          : { policy: parsed }
-        : await putBucketPolicy(accountId, bucketName, parsed);
-      const savedPolicy = saved.policy ?? parsed;
-      setPolicy(savedPolicy);
-      setText(JSON.stringify(savedPolicy, null, 2));
-    } catch {
-      setError("Invalid or unsaved policy (JSON required).");
+      const savedPolicy = await persistPolicy(nextPolicy);
+      if (savedPolicy === null) return;
+      applyBaseline(savedPolicy);
+      setDraftPolicy(clonePolicy(savedPolicy));
+      setJsonText(policyText(savedPolicy));
+      setStatus(isPolicyConfigurationEmpty(savedPolicy) ? "Bucket policy deleted" : "Bucket policy updated");
+      setEditorOpen(false);
+    } catch (saveFailure) {
+      setEditorError(extractApiError(saveFailure, "Unable to update the bucket policy."));
     } finally {
       setSaving(false);
     }
-  };
+  }, [
+    applyBaseline,
+    bucketName,
+    draftPolicy,
+    editorMode,
+    enabled,
+    jsonText,
+    persistPolicy,
+    saving,
+  ]);
 
-  const remove = async () => {
+  // Kept for the current page-level destructive-action contract. The Policy
+  // summary no longer exposes this action; modal Save is the editing boundary.
+  const remove = useCallback(async () => {
     if (!bucketName || !enabled) return;
     setDeleting(true);
-    setError(null);
+    setLoadError(null);
     try {
       if (cephAdmin) {
         if (!endpointId) return;
@@ -98,33 +294,55 @@ export function useBucketPolicyController({
       } else {
         await deleteBucketPolicy(accountId, bucketName);
       }
-      setPolicy(null);
-      setText("");
-    } catch (removeError) {
-      setError(
-        extractApiError(removeError, "Unable to delete the bucket policy."),
-      );
+      applyBaseline({});
+      setStatus("Bucket policy deleted");
+    } catch (removeFailure) {
+      setLoadError(extractApiError(removeFailure, "Unable to delete the bucket policy."));
     } finally {
       setDeleting(false);
     }
-  };
+  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
-  const policyValue = policy ?? {};
-  const configured = Boolean(Object.keys(policyValue).length);
-  const snapshotSignature = stableBucketJsonSignature(policyValue);
-  const draftSignature = jsonTextSignature(text, policyValue);
-  const dirty = draftSignature.signature !== snapshotSignature;
+  const statements = useMemo(() => policyStatements(policy), [policy]);
+  const baselineSignature = stableBucketJsonSignature(policy);
+  const draftSignature = useMemo(
+    () => editorMode === "json"
+      ? jsonTextSignature(jsonText, draftPolicy).signature
+      : stableBucketJsonSignature(draftPolicy),
+    [draftPolicy, editorMode, jsonText],
+  );
+  const dirty = editorOpen && draftSignature !== baselineSignature;
+
   return {
-    configured,
+    addDraftStatement,
+    allowCount: statements.filter((statement) => statement.Effect === "Allow").length,
+    closeEditor,
+    configured: !isPolicyConfigurationEmpty(policy),
     deleting,
+    denyCount: statements.filter((statement) => statement.Effect === "Deny").length,
     dirty,
-    error,
+    draftPolicy,
+    draftSignature,
+    editorError,
+    editorMode,
+    editorOpen,
+    error: loadError,
+    jsonText,
     load,
     loading,
+    openEditor,
+    policy,
     remove,
-    save,
+    removeDraftCondition,
+    removeDraftStatement,
+    saveDraft,
     saving,
-    setText,
-    text,
+    statementCount: statements.length,
+    statements,
+    status,
+    updateDraftCondition,
+    updateDraftStatement,
+    updateEditorMode,
+    updateJsonText,
   };
 }

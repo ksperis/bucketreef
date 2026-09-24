@@ -7,7 +7,6 @@ export type BucketConfigurationDeleteKind =
   | "encryption"
   | "tags"
   | "notifications"
-  | "replication"
   | "website"
   | "policy"
   | "access-logging";
@@ -39,12 +38,6 @@ export const bucketConfigurationDeleteCopy: Record<
     description: "Remove every event notification configured for this bucket.",
     confirmLabel: "Clear notifications",
     impacts: ["New bucket events will no longer be delivered to the configured destinations."],
-  },
-  replication: {
-    title: "Clear replication configuration?",
-    description: "Remove the replication rules configured for this bucket.",
-    confirmLabel: "Clear replication",
-    impacts: ["New object changes will stop replicating. Existing destination objects will remain."],
   },
   website: {
     title: "Delete static website configuration?",

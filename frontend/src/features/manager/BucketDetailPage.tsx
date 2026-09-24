@@ -535,36 +535,45 @@ function BucketDetailPageContent({
     lifecycle: lifecycleController.saving,
     policy: policyController.saving || policyController.deleting,
     acl: bucketAclController.saving,
-    cors: corsController.saving || corsController.deleting,
-    replication: replicationController.saving || replicationController.clearing,
-    encryption: encryptionController.saving || encryptionController.deleting,
+    replication: replicationController.saving,
+    encryption: encryptionController.saving,
     publicAccess: publicAccessController.saving,
     website: websiteController.saving || websiteController.clearing,
     accessLogging: accessLoggingController.saving || accessLoggingController.clearing,
-    notifications: notificationsController.saving || notificationsController.clearing,
+    notifications: notificationsController.saving,
     tags: bucketTagsController.saving || bucketTagsController.clearing,
     quota: quotaController.saving,
   };
   const drafts = {
     versioning: versioningDirty,
     objectLock: objectLockDirty,
-    lifecycle: lifecycleDirty,
     policy: policyDirty,
     acl: aclDirty,
-    cors: corsDirty,
-    replication: replicationDirty,
-    encryption: encryptionDirty,
     publicAccess: publicAccessDirty,
     website: websiteDirty,
     accessLogging: accessLoggingDirty,
-    notifications: notificationsDirty,
     tags: tagsDirty,
     quota: quotaDirty,
   };
+  // Modal feature editors own their unsaved-changes prompt inside
+  // SettingsFormDialog. Keep their drafts protected from reloads without
+  // registering a second page-level prompt through onDirtyChange.
+  const protectedDrafts = {
+    ...drafts,
+    lifecycle: lifecycleDirty,
+    cors: corsDirty,
+    encryption: encryptionDirty,
+    notifications: notificationsDirty,
+    replication: replicationDirty,
+  };
   // Tab changes and Refresh may reload clean sections only. Reading the latest
   // flags through a ref avoids triggering the load effect on every draft edit.
-  const protectedFeatures = useRef({ drafts, mutations });
-  protectedFeatures.current = { drafts, mutations };
+  const protectedMutations = {
+    ...mutations,
+    cors: corsController.saving,
+  };
+  const protectedFeatures = useRef({ drafts: protectedDrafts, mutations: protectedMutations });
+  protectedFeatures.current = { drafts: protectedDrafts, mutations: protectedMutations };
 
   const refreshActiveTab = useCallback(async () => {
     const loadClean = (feature: keyof typeof protectedFeatures.current.drafts, load: () => Promise<void>) => {
@@ -993,11 +1002,7 @@ function BucketDetailPageContent({
   const confirmPendingConfigurationDelete = async () => {
     if (!pendingConfigurationDelete) return;
     try {
-      if (pendingConfigurationDelete === "cors") await corsController.remove();
-      if (pendingConfigurationDelete === "encryption") await encryptionController.remove();
       if (pendingConfigurationDelete === "tags") await bucketTagsController.clear();
-      if (pendingConfigurationDelete === "notifications") await notificationsController.clear();
-      if (pendingConfigurationDelete === "replication") await replicationController.clear();
       if (pendingConfigurationDelete === "website") await websiteController.clear();
       if (pendingConfigurationDelete === "policy") await policyController.remove();
       if (pendingConfigurationDelete === "access-logging") await accessLoggingController.clear();
@@ -1007,17 +1012,9 @@ function BucketDetailPageContent({
   };
 
   const configurationDeleteLoading =
-    pendingConfigurationDelete === "cors"
-      ? corsController.deleting
-      : pendingConfigurationDelete === "encryption"
-        ? encryptionController.deleting
-        : pendingConfigurationDelete === "tags"
+    pendingConfigurationDelete === "tags"
           ? bucketTagsController.clearing
-          : pendingConfigurationDelete === "notifications"
-            ? notificationsController.clearing
-            : pendingConfigurationDelete === "replication"
-              ? replicationController.clearing
-              : pendingConfigurationDelete === "website"
+          : pendingConfigurationDelete === "website"
                 ? websiteController.clearing
                 : pendingConfigurationDelete === "policy"
                   ? policyController.deleting
@@ -1281,7 +1278,6 @@ function BucketDetailPageContent({
                   <BucketEncryptionFeature
                     controller={encryptionController}
                     enabled={sseFeatureEnabled}
-                    onRequestDelete={() => setPendingConfigurationDelete("encryption")}
                   />
                   <BucketObjectLockFeature
                     controller={objectLockController}
@@ -1311,10 +1307,7 @@ function BucketDetailPageContent({
                   onRequestDelete={() => setPendingConfigurationDelete("policy")}
                 />
 
-                <BucketCorsFeature
-                  controller={corsController}
-                  onRequestDelete={() => setPendingConfigurationDelete("cors")}
-                />
+                <BucketCorsFeature controller={corsController} />
 
               </div>
             ),
@@ -1334,7 +1327,6 @@ function BucketDetailPageContent({
                   <BucketReplicationFeature
                     blocked={!replicationFeatureEnabled}
                     controller={replicationController}
-                    onRequestClear={() => setPendingConfigurationDelete("replication")}
                   />
                 )}
                 <BucketAccessLoggingFeature
@@ -1344,7 +1336,6 @@ function BucketDetailPageContent({
                 <BucketNotificationsFeature
                   controller={notificationsController}
                   exampleAccountId={exampleS3AccountId}
-                  onRequestClear={() => setPendingConfigurationDelete("notifications")}
                 />
               </div>
             ),

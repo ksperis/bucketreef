@@ -2,17 +2,31 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useState } from "react";
-import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
+import { useMemo, useState } from "react";
+import DataTableShell, {
+  type DataTableColumn,
+} from "../../../components/list/DataTableShell";
+import {
+  SettingsButton,
+  SettingsInput,
+  SettingsSelect,
+} from "../../../components/settings/SettingsControls";
+import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiTextarea from "../../../components/ui/UiTextarea";
 import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
+import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
-import BucketFeatureModeToggle from "./BucketFeatureModeToggle";
-import BucketFeatureSection from "./BucketFeatureSection";
+import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
+import {
+  isReplicationRuleVisuallyEditable,
+  readReplicationVisualRule,
+  replicationRuleSummary,
+  type ReplicationVisualRulePatch,
+} from "./replicationEditorModel";
 import type { useBucketReplicationController } from "./useBucketReplicationController";
 
 type BucketReplicationController = ReturnType<typeof useBucketReplicationController>;
@@ -20,12 +34,13 @@ type BucketReplicationController = ReturnType<typeof useBucketReplicationControl
 type BucketReplicationFeatureProps = {
   blocked: boolean;
   controller: BucketReplicationController;
-  onRequestClear: () => void;
 };
 
-const stackClass = "space-y-3";
-const compactStackClass = "space-y-2";
-const twoColumnGridClass = "grid gap-3 md:grid-cols-2";
+type ReplicationSummaryRow = {
+  key: string;
+  rule: unknown;
+};
+
 const replicationJsonExample = `{
   "Role": "arn:aws:iam::123456789012:role/replication-role",
   "Rules": [
@@ -40,190 +55,390 @@ const replicationJsonExample = `{
   ]
 }`;
 
+function ReplicationRuleEditor({
+  index,
+  uiId,
+  rule,
+  disabled,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  uiId: string;
+  rule: unknown;
+  disabled: boolean;
+  onChange: (patch: ReplicationVisualRulePatch) => void;
+  onRemove: () => void;
+}) {
+  const editable = isReplicationRuleVisuallyEditable(rule);
+  const summary = replicationRuleSummary(rule);
+  const draft = readReplicationVisualRule(rule);
+
+  if (!editable) {
+    return (
+      <div
+        className={cx(uiCardMutedClass, "space-y-2 px-3 py-3")}
+        data-testid="replication-advanced-rule"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 space-y-1">
+            <p className="settings-label break-all">{summary.id}</p>
+            <p className="settings-description break-all">
+              {summary.status} · {summary.prefix} · {summary.destination}
+            </p>
+          </div>
+          <UiBadge tone="warning">Advanced rule — edit in JSON</UiBadge>
+        </div>
+        <p className="settings-description">
+          This rule contains S3 fields that the visual editor cannot represent without loss.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cx(uiCardMutedClass, "space-y-4 px-3 py-3")}
+      data-testid="replication-visual-rule"
+      data-rule-id={uiId}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="settings-label">Rule {index + 1}</p>
+          <p className="settings-description">
+            Changes stay local until the whole replication configuration is saved.
+          </p>
+        </div>
+        <SettingsButton
+          type="button"
+          variant="danger"
+          onClick={onRemove}
+          disabled={disabled}
+        >
+          Remove rule
+        </SettingsButton>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <SettingsInput
+          label="ID"
+          value={draft.id}
+          onChange={(event) => onChange({ id: event.target.value })}
+          placeholder={`rule-${index + 1}`}
+          disabled={disabled}
+        />
+        <SettingsSelect
+          label="Status"
+          value={draft.status}
+          onChange={(event) =>
+            onChange({ status: event.target.value as "Enabled" | "Disabled" })
+          }
+          disabled={disabled}
+        >
+          <option value="Enabled">Enabled</option>
+          <option value="Disabled">Disabled</option>
+        </SettingsSelect>
+        <SettingsInput
+          label="Priority"
+          type="number"
+          min={0}
+          step={1}
+          value={draft.priority}
+          onChange={(event) => onChange({ priority: event.target.value })}
+          placeholder="1"
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <SettingsInput
+          label="Prefix / filter"
+          value={draft.prefix}
+          onChange={(event) => onChange({ prefix: event.target.value })}
+          placeholder="logs/"
+          disabled={disabled}
+        />
+        <SettingsInput
+          label="Destination bucket ARN"
+          value={draft.destinationBucket}
+          onChange={(event) =>
+            onChange({ destinationBucket: event.target.value })
+          }
+          placeholder="arn:aws:s3:::target-bucket"
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="max-w-sm">
+        <SettingsSelect
+          label="Delete marker replication"
+          value={draft.deleteMarkerStatus}
+          onChange={(event) =>
+            onChange({
+              deleteMarkerStatus: event.target.value as "Enabled" | "Disabled",
+            })
+          }
+          disabled={disabled}
+        >
+          <option value="Disabled">Disabled</option>
+          <option value="Enabled">Enabled</option>
+        </SettingsSelect>
+      </div>
+    </div>
+  );
+}
+
 export default function BucketReplicationFeature({
   blocked,
   controller,
-  onRequestClear,
 }: BucketReplicationFeatureProps) {
   const [showJsonExample, setShowJsonExample] = useState(false);
   const {
     addRule,
+    advancedRuleCount,
     busy,
-    clearing,
+    closeEditor,
     configured,
+    draftSignature,
     dirty,
+    editorError,
+    editorMode,
+    editorOpen,
     error,
+    hasAdvancedTopLevelFields,
     hasUnsupportedZone,
+    jsonText,
     loading,
-    mode,
+    openEditor,
     removeRule,
     role,
+    ruleCount,
     rules,
-    save,
+    saveDraft,
     saving,
     status,
-    text,
-    updateMode,
+    summaryRole,
+    summaryRules,
+    updateEditorMode,
+    updateJsonText,
     updateRole,
     updateRule,
-    updateText,
-    warning,
   } = controller;
   const notImplemented = isApiFeatureNotImplemented(error);
-  const disabled = blocked || notImplemented || busy;
+  const featureDisabled = blocked || notImplemented;
   const visualState = resolveFeatureVisualState({
-    disabled: blocked || notImplemented,
+    disabled: featureDisabled,
     configured,
-    unsaved: dirty,
+    unsaved: false,
   });
 
-  return (
-    <BucketFeatureSection
-      title="Replication / multisite"
-      description="Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup."
-      mode="hybrid"
-      visualState={visualState}
-      presentation="workbench"
-      successMessage={status}
-      busy={busy}
-      testId="bucket-feature-replication"
-      actions={
-        <div className="flex flex-wrap gap-2">
-          <SettingsButton type="button" onClick={onRequestClear} disabled={disabled || !configured} variant="danger">
-            {clearing ? "Clearing..." : "Clear"}
-          </SettingsButton>
-          <SettingsButton type="button" onClick={save} disabled={disabled || !dirty} variant="primary">
-            {saving ? "Saving..." : "Save"}
-          </SettingsButton>
-        </div>
-      }
-    >
-      <BucketFeatureModeToggle
-        value={mode}
-        options={[
-          { value: "graphical", label: "Graphical mode" },
-          { value: "json", label: "JSON mode" },
-        ]}
-        onChange={updateMode}
-        disabled={disabled}
+  const summaryRows = useMemo<ReplicationSummaryRow[]>(
+    () =>
+      summaryRules.map((rule, index) => ({
+        key: `${replicationRuleSummary(rule).id}-${index}`,
+        rule,
+      })),
+    [summaryRules],
+  );
+
+  const summaryColumns: Array<DataTableColumn<ReplicationSummaryRow>> = [
+    {
+      id: "id",
+      label: "ID",
+      primary: true,
+      headerClassName: "min-w-40",
+      cellClassName: "min-w-40",
+      render: ({ rule }) => replicationRuleSummary(rule).id,
+    },
+    {
+      id: "status",
+      label: "Status",
+      headerClassName: "w-px whitespace-nowrap",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ rule }) => {
+        const value = replicationRuleSummary(rule).status;
+        return (
+          <UiBadge tone={value === "Enabled" ? "success" : "neutral"}>
+            {value}
+          </UiBadge>
+        );
+      },
+    },
+    {
+      id: "priority",
+      label: "Priority",
+      headerClassName: "w-px whitespace-nowrap",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ rule }) => replicationRuleSummary(rule).priority,
+    },
+    {
+      id: "prefix",
+      label: "Prefix",
+      headerClassName: "min-w-32",
+      cellClassName: "min-w-32 break-all",
+      render: ({ rule }) => replicationRuleSummary(rule).prefix,
+    },
+    {
+      id: "destination",
+      label: "Destination",
+      headerClassName: "min-w-56",
+      cellClassName: "min-w-56 break-all font-mono ui-caption",
+      render: ({ rule }) => replicationRuleSummary(rule).destination,
+    },
+    {
+      id: "delete-marker",
+      label: "Delete markers",
+      headerClassName: "w-px whitespace-nowrap",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ rule }) => replicationRuleSummary(rule).deleteMarkerStatus,
+    },
+  ];
+
+  const visualEditor = (
+    <div className="space-y-4">
+      <SettingsInput
+        label="Role ARN"
+        type="text"
+        value={role}
+        onChange={(event) => updateRole(event.target.value)}
+        placeholder="arn:aws:iam::123456789012:role/replication-role"
+        disabled={saving}
       />
-      {blocked && <EndpointFeatureDisabledNotice featureLabel="Bucket replication" />}
-      {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
-      {warning && <UiInlineMessage tone="warning">{warning}</UiInlineMessage>}
-      {loading ? (
-        <UiInlineMessage>Loading replication configuration...</UiInlineMessage>
-      ) : mode === "graphical" ? (
-        <div className={stackClass}>
-          <SettingsInput
-            label="Role ARN"
-            type="text"
-            value={role}
-            onChange={(event) => updateRole(event.target.value)}
-            placeholder="arn:aws:iam::123456789012:role/replication-role"
-            disabled={disabled}
-          />
-          <div className={stackClass}>
-            {rules.map((rule, index) => (
-              <div key={rule.uiId} className={cx(uiCardMutedClass, "space-y-3 p-3")}>
-                <div className="flex items-center justify-between">
-                  <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Rule {index + 1}</p>
-                  <SettingsButton
-                    type="button"
-                    onClick={() => removeRule(rule.uiId)}
-                    disabled={disabled || rules.length <= 1}
-                    variant="danger"
-                  >
-                    Remove
-                  </SettingsButton>
-                </div>
-                <div className={twoColumnGridClass}>
-                  <SettingsInput
-                    label="ID"
-                    type="text"
-                    value={rule.id}
-                    onChange={(event) => updateRule(rule.uiId, { id: event.target.value })}
-                    placeholder={`rule-${index + 1}`}
-                    disabled={disabled}
-                  />
-                  <SettingsSelect
-                    label="Status"
-                    value={rule.status}
-                    onChange={(event) => updateRule(rule.uiId, { status: event.target.value as "Enabled" | "Disabled" })}
-                    disabled={disabled}
-                  >
-                    <option value="Enabled">Enabled</option>
-                    <option value="Disabled">Disabled</option>
-                  </SettingsSelect>
-                  <SettingsInput
-                    label="Priority"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={rule.priority}
-                    onChange={(event) => updateRule(rule.uiId, { priority: event.target.value })}
-                    placeholder="1"
-                    disabled={disabled}
-                  />
-                  <SettingsInput
-                    label="Prefix (optional)"
-                    type="text"
-                    value={rule.prefix}
-                    onChange={(event) => updateRule(rule.uiId, { prefix: event.target.value })}
-                    placeholder="logs/"
-                    disabled={disabled}
-                  />
-                  <SettingsInput
-                    label="Destination bucket ARN"
-                    type="text"
-                    value={rule.destinationBucket}
-                    onChange={(event) => updateRule(rule.uiId, { destinationBucket: event.target.value })}
-                    placeholder="arn:aws:s3:::target-bucket"
-                    disabled={disabled}
-                  />
-                  <SettingsSelect
-                    label="Delete marker replication"
-                    value={rule.deleteMarkerStatus}
-                    onChange={(event) => updateRule(rule.uiId, { deleteMarkerStatus: event.target.value as "Enabled" | "Disabled" })}
-                    disabled={disabled}
-                  >
-                    <option value="Disabled">Disabled</option>
-                    <option value="Enabled">Enabled</option>
-                  </SettingsSelect>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div>
-            <SettingsButton type="button" onClick={addRule} disabled={disabled} variant="secondary">
-              Add rule
-            </SettingsButton>
-          </div>
+
+      {(advancedRuleCount > 0 || hasAdvancedTopLevelFields) && (
+        <UiInlineMessage tone="warning">
+          Advanced replication fields are preserved in the draft. Advanced rules
+          are read-only here and can be changed from the JSON tab.
+        </UiInlineMessage>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="settings-description">
+          Edit supported rules visually. Nothing is persisted until Save.
+        </p>
+        <SettingsButton
+          type="button"
+          variant="secondary"
+          onClick={addRule}
+          disabled={saving}
+        >
+          Add rule
+        </SettingsButton>
+      </div>
+
+      {rules.length === 0 ? (
+        <div
+          className={cx(
+            uiCardMutedClass,
+            "px-3 py-5 text-center settings-description",
+          )}
+        >
+          No replication rules. Saving this draft will clear the replication
+          configuration.
         </div>
       ) : (
-        <div className={compactStackClass}>
-          <UiTextarea
-            label="Replication configuration (JSON)"
-            value={text}
-            onChange={(event) => updateText(event.target.value)}
-            rows={14}
-            className="settings-control font-mono"
-            spellCheck={false}
-            disabled={disabled}
-          />
-          {hasUnsupportedZone && (
-            <p className="ui-caption text-rose-700 dark:text-rose-200">
-              Destination.Zone is not supported in V1 and must be removed before saving.
-            </p>
-          )}
-          <BucketFeatureJsonExample
-            show={showJsonExample}
-            onToggle={() => setShowJsonExample((current) => !current)}
-            example={replicationJsonExample}
-            onUseExample={() => updateText(replicationJsonExample)}
-            disabled={blocked || notImplemented}
-          />
+        <div className="space-y-3">
+          {rules.map(({ uiId, rule }, index) => (
+            <ReplicationRuleEditor
+              key={uiId}
+              index={index}
+              uiId={uiId}
+              rule={rule}
+              disabled={saving}
+              onChange={(patch) => updateRule(uiId, patch)}
+              onRemove={() => removeRule(uiId)}
+            />
+          ))}
         </div>
       )}
-    </BucketFeatureSection>
+    </div>
+  );
+
+  const jsonEditor = (
+    <div className="space-y-3">
+      <p className="settings-description">
+        Edit the complete S3 replication configuration. Switching back to Visual
+        validates the JSON structure first.
+      </p>
+      <UiTextarea
+        label="Replication configuration (JSON)"
+        value={jsonText}
+        onChange={(event) => updateJsonText(event.target.value)}
+        rows={20}
+        className="settings-control font-mono"
+        spellCheck={false}
+        disabled={saving}
+      />
+      {hasUnsupportedZone && (
+        <UiInlineMessage tone="warning">
+          Destination.Zone is preserved in this draft, but the current BucketReef
+          replication API rejects it on Save.
+        </UiInlineMessage>
+      )}
+      <BucketFeatureJsonExample
+        show={showJsonExample}
+        onToggle={() => setShowJsonExample((current) => !current)}
+        example={replicationJsonExample}
+        onUseExample={() => updateJsonText(replicationJsonExample)}
+        disabled={saving}
+      />
+    </div>
+  );
+
+  return (
+    <>
+      <BucketFeatureSummarySection
+        title="Replication / multisite"
+        description="Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup."
+        visualState={visualState}
+        metadata={ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
+        loading={loading}
+        error={error}
+        successMessage={status}
+        editDisabled={featureDisabled || busy}
+        onEdit={openEditor}
+        testId="bucket-feature-replication"
+      >
+        {blocked ? (
+          <EndpointFeatureDisabledNotice featureLabel="Bucket replication" />
+        ) : (
+          <div className="space-y-3">
+            <div className={cx(uiCardMutedClass, "px-3 py-2")}>
+              <p className="settings-description">Role</p>
+              <p className="mt-1 break-all font-mono ui-caption text-slate-700 dark:text-slate-200">
+                {summaryRole || "Not set"}
+              </p>
+            </div>
+            <DataTableShell
+              columns={summaryColumns}
+              rows={summaryRows}
+              rowKey={(row) => row.key}
+              status={summaryRows.length === 0 ? "empty" : "ready"}
+              loadingMessage="Loading replication configuration..."
+              errorMessage="Unable to load replication configuration."
+              emptyMessage="No replication rules configured on this bucket."
+              primaryColumnId="id"
+              responsiveCards
+            />
+          </div>
+        )}
+      </BucketFeatureSummarySection>
+
+      {editorOpen ? (
+        <BucketFeatureEditorDialog
+          title="Edit replication configuration"
+          mode={editorMode}
+          onModeChange={updateEditorMode}
+          draftKey={draftSignature}
+          dirty={dirty}
+          busy={saving}
+          error={editorError}
+          visualContent={visualEditor}
+          jsonContent={jsonEditor}
+          onSave={saveDraft}
+          onClose={closeEditor}
+        />
+      ) : null}
+    </>
   );
 }

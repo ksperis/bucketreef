@@ -7,7 +7,7 @@ import { useSettingsFormController } from "./useSettingsFormController";
 
 /** Mount for one draft. Callers own validation, permissions and persistence. */
 export default function SettingsFormDialog({
-  title, draftKey, busy = false, disabled = false, error, submitLabel,
+  title, draftKey, busy = false, disabled = false, submitDisabled = false, error, submitLabel,
   danger = false, completed = false, onSubmit, onClose, children,
   maxWidthClass = "max-w-lg", maxBodyHeightClass,
 }: {
@@ -15,6 +15,7 @@ export default function SettingsFormDialog({
   draftKey: string;
   busy?: boolean;
   disabled?: boolean;
+  submitDisabled?: boolean;
   error?: string | null;
   submitLabel: string;
   danger?: boolean;
@@ -38,7 +39,8 @@ export default function SettingsFormDialog({
       closeAriaLabel={labels.close} initialFocusRef={initialFocus}
       maxWidthClass={maxWidthClass} maxBodyHeightClass={maxBodyHeightClass}>
       <SettingsForm label={title} onSubmit={submit} presentation="dialog" noValidate={false}
-        busy={locked} submitDisabled={disabled || completed} onCancel={requestClose}
+        busy={locked} disabled={disabled}
+        submitDisabled={submitDisabled || completed || baseline === draftKey} onCancel={requestClose}
         submitLabel={submitLabel} busyLabel={submitLabel}
         formRef={(node) => {
           initialFocus.current = node?.querySelector('input:not(:disabled), select:not(:disabled), textarea:not(:disabled)') ?? null;
@@ -48,7 +50,7 @@ export default function SettingsFormDialog({
             {completed ? t({ en: "Done", fr: "Terminer", de: "Fertig", zh: "完成" }) : labels.cancel}
           </SettingsButton>
           {!completed && <SettingsButton type="submit" variant={danger ? "danger" : "primary"}
-            disabled={locked || disabled} loading={locked}>{submitLabel}</SettingsButton>}
+            disabled={locked || disabled || submitDisabled || baseline === draftKey} loading={locked}>{submitLabel}</SettingsButton>}
         </>}>
         {children}
         {error ? <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage> : null}

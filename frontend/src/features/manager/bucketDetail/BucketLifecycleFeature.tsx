@@ -2,10 +2,15 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import DataTableShell, { type DataTableColumn } from "../../../components/list/DataTableShell";
-import { ListActionButton, ListActions } from "../../../components/list/ListControls";
-import { SettingsButton, SettingsInput } from "../../../components/settings/SettingsControls";
+import {
+  SettingsButton,
+  SettingsInput,
+  SettingsSelect,
+} from "../../../components/settings/SettingsControls";
+import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
+import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiTextarea from "../../../components/ui/UiTextarea";
 import { cx, uiCardMutedClass } from "../../../components/ui/styles";
@@ -18,10 +23,17 @@ import {
   lifecycleRuleStatus,
   type LifecycleRuleRecord,
 } from "../bucketLifecycle";
+import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
-import BucketFeatureModeToggle from "./BucketFeatureModeToggle";
-import BucketFeatureSection from "./BucketFeatureSection";
+import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
+import {
+  isLifecycleRuleVisuallyEditable,
+  lifecycleVisualRuleValidationError,
+  readLifecycleVisualRule,
+  validateLifecycleVisualRules,
+  type LifecycleVisualRuleDraft,
+} from "./lifecycleEditorModel";
 import type { useBucketLifecycleController } from "./useBucketLifecycleController";
 
 type BucketLifecycleController = ReturnType<typeof useBucketLifecycleController>;
@@ -32,7 +44,6 @@ type BucketLifecycleFeatureProps = {
 
 type LifecycleTableRow = {
   key: string;
-  index: number;
   rule: LifecycleRuleRecord;
 };
 
@@ -45,49 +56,253 @@ const lifecycleJsonExample = `[
   }
 ]`;
 
+function LifecycleActionGroup({
+  title,
+  configured,
+  children,
+}: {
+  title: string;
+  configured: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(configured);
+  return (
+    <details
+      className="rounded-md border border-[color:var(--ui-border-soft)]"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 settings-label">
+        <span>{title}</span>
+        <span className="settings-description font-normal">
+          {configured ? "Configured" : "Optional"}
+        </span>
+      </summary>
+      <div className="border-t border-[color:var(--ui-border-soft)] p-3">{children}</div>
+    </details>
+  );
+}
+
+function LifecycleRuleEditor({
+  index,
+  rule,
+  disabled,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  rule: LifecycleRuleRecord;
+  disabled: boolean;
+  onChange: (patch: Partial<LifecycleVisualRuleDraft>) => void;
+  onRemove: () => void;
+}) {
+  const editable = isLifecycleRuleVisuallyEditable(rule);
+  const draft = readLifecycleVisualRule(rule);
+  const ruleLabel = lifecycleRuleId(rule) ?? `Rule ${index + 1}`;
+  const validationError = lifecycleVisualRuleValidationError(rule);
+
+  if (!editable) {
+    return (
+      <div className={cx(uiCardMutedClass, "space-y-2 px-3 py-3")} data-testid="lifecycle-advanced-rule">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="settings-label break-all">{ruleLabel}</p>
+            <p className="settings-description mt-1">
+              {lifecycleFilterLabel(rule.Filter)} · {describeLifecycleActions(rule)}
+            </p>
+          </div>
+          <UiBadge tone="warning">Advanced rule — edit in JSON</UiBadge>
+          <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
+            Remove rule
+          </SettingsButton>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cx(uiCardMutedClass, "space-y-4 px-3 py-3")} data-testid="lifecycle-visual-rule">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="settings-label break-all">{ruleLabel}</p>
+          <p className="settings-description">Rule {index + 1} · changes apply only on Save.</p>
+        </div>
+        <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
+          Remove rule
+        </SettingsButton>
+      </div>
+
+      {validationError ? <UiInlineMessage tone="warning">{validationError}</UiInlineMessage> : null}
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <SettingsInput
+          label="ID"
+          value={draft.id}
+          onChange={(event) => onChange({ id: event.target.value })}
+          disabled={disabled}
+        />
+        <SettingsSelect
+          label="Status"
+          value={draft.status}
+          onChange={(event) => onChange({ status: event.target.value as LifecycleVisualRuleDraft["status"] })}
+          disabled={disabled}
+        >
+          <option value="Enabled">Enabled</option>
+          <option value="Disabled">Disabled</option>
+        </SettingsSelect>
+        <SettingsInput
+          label="Prefix"
+          value={draft.prefix}
+          placeholder="logs/"
+          onChange={(event) => onChange({ prefix: event.target.value })}
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <LifecycleActionGroup
+          title="Expiration and cleanup"
+          configured={Boolean(
+            draft.expirationDays ||
+              draft.noncurrentExpirationDays ||
+              draft.abortMultipartDays ||
+              draft.expiredObjectDeleteMarker,
+          )}
+        >
+          <div className="grid gap-3 md:grid-cols-3">
+            <SettingsInput
+              label="Expire current objects after (days)"
+              type="number"
+              min={0}
+              value={draft.expirationDays}
+              onChange={(event) => onChange({ expirationDays: event.target.value })}
+              disabled={disabled}
+            />
+            <SettingsInput
+              label="Expire noncurrent versions after (days)"
+              type="number"
+              min={0}
+              value={draft.noncurrentExpirationDays}
+              onChange={(event) => onChange({ noncurrentExpirationDays: event.target.value })}
+              disabled={disabled}
+            />
+            <SettingsInput
+              label="Abort incomplete multipart after (days)"
+              type="number"
+              min={0}
+              value={draft.abortMultipartDays}
+              onChange={(event) => onChange({ abortMultipartDays: event.target.value })}
+              disabled={disabled}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[color:var(--ui-border-soft)] px-3 py-2">
+            <div>
+              <p className="settings-label">Expired object delete marker</p>
+              <p className="settings-description">Remove expired delete markers when S3 considers them eligible.</p>
+            </div>
+            <SettingsSwitch
+              checked={draft.expiredObjectDeleteMarker}
+              ariaLabel={`Expired object delete marker for ${ruleLabel}`}
+              onChange={(checked) => onChange({ expiredObjectDeleteMarker: checked })}
+              disabled={disabled}
+            />
+          </div>
+        </LifecycleActionGroup>
+
+        <LifecycleActionGroup
+          title="Current version transition"
+          configured={Boolean(draft.transitionDays || draft.transitionStorageClass)}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SettingsInput
+              label="Days"
+              type="number"
+              min={0}
+              value={draft.transitionDays}
+              onChange={(event) => onChange({ transitionDays: event.target.value })}
+              disabled={disabled}
+            />
+            <SettingsInput
+              label="Storage class"
+              value={draft.transitionStorageClass}
+              required={Boolean(draft.transitionDays)}
+              onChange={(event) => onChange({ transitionStorageClass: event.target.value })}
+              disabled={disabled}
+            />
+          </div>
+        </LifecycleActionGroup>
+
+        <LifecycleActionGroup
+          title="Noncurrent version transition"
+          configured={Boolean(
+            draft.noncurrentTransitionDays || draft.noncurrentTransitionStorageClass,
+          )}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SettingsInput
+              label="Noncurrent days"
+              type="number"
+              min={0}
+              value={draft.noncurrentTransitionDays}
+              onChange={(event) => onChange({ noncurrentTransitionDays: event.target.value })}
+              disabled={disabled}
+            />
+            <SettingsInput
+              label="Storage class"
+              value={draft.noncurrentTransitionStorageClass}
+              required={Boolean(draft.noncurrentTransitionDays)}
+              onChange={(event) => onChange({ noncurrentTransitionStorageClass: event.target.value })}
+              disabled={disabled}
+            />
+          </div>
+        </LifecycleActionGroup>
+      </div>
+    </div>
+  );
+}
+
 export default function BucketLifecycleFeature({ controller }: BucketLifecycleFeatureProps) {
   const [showJsonExample, setShowJsonExample] = useState(false);
   const {
-    addCleanupExample,
-    addExpirationExample,
-    addTransitionExample,
-    deleteRule,
+    addDraftRule,
+    closeEditor,
+    draftRules,
+    draftSignature,
     dirty,
-    editorVisible,
+    editorError,
+    editorMode,
+    editorOpen,
     error,
-    expirationDraft,
     hasRules,
+    jsonText,
+    lastRemovedRule,
     loading,
-    mode,
+    openEditor,
+    removeDraftRule,
+    restoreLastRemovedRule,
     ruleCount,
     rules,
-    save,
+    saveDraft,
     saving,
     status,
-    text,
-    toggleEditor,
-    toggleRuleStatus,
-    transitionDraft,
-    updateExpirationDraft,
-    updateMode,
-    updateText,
-    updateTransitionDraft,
-    warning,
+    updateDraftRule,
+    updateEditorMode,
+    updateJsonText,
   } = controller;
   const notImplemented = isApiFeatureNotImplemented(error);
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured: hasRules,
-    unsaved: dirty,
+    unsaved: false,
   });
-  const operationDisabled = notImplemented || saving || loading;
+  const visualValidationError =
+    editorMode === "visual" ? validateLifecycleVisualRules(draftRules) : null;
   const rows = useMemo<LifecycleTableRow[]>(
     () =>
       rules.map((rule, index) => {
         const ruleId = lifecycleRuleId(rule);
         return {
           key: `${ruleId ?? lifecycleRulePrefix(rule) ?? "rule"}-${index}`,
-          index,
           rule,
         };
       }),
@@ -98,8 +313,8 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
       id: "id",
       label: "ID",
       primary: true,
-      headerClassName: "min-w-48",
-      cellClassName: "min-w-48",
+      headerClassName: "min-w-32",
+      cellClassName: "min-w-32 max-w-48 break-all",
       render: ({ rule }) => lifecycleRuleId(rule) ?? "(no ID)",
     },
     {
@@ -107,18 +322,9 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
       label: "Status",
       headerClassName: "w-px whitespace-nowrap",
       cellClassName: "w-px whitespace-nowrap",
-      render: ({ index, rule }) => {
+      render: ({ rule }) => {
         const ruleStatus = lifecycleRuleStatus(rule);
-        return (
-          <ListActionButton
-            type="button"
-            onClick={() => toggleRuleStatus(index)}
-            variant={ruleStatus === "Disabled" ? "secondary" : "success"}
-            disabled={operationDisabled}
-          >
-            {ruleStatus}
-          </ListActionButton>
-        );
+        return <UiBadge tone={ruleStatus === "Enabled" ? "success" : "neutral"}>{ruleStatus}</UiBadge>;
       },
     },
     {
@@ -132,232 +338,131 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
       id: "actions",
       label: "Rule actions",
       mobileLabel: "Rule actions",
-      headerClassName: "min-w-72",
-      cellClassName: "min-w-72",
+      headerClassName: "min-w-48",
+      cellClassName: "min-w-48 whitespace-normal break-words",
       render: ({ rule }) => describeLifecycleActions(rule),
-    },
-    {
-      id: "manage",
-      label: "Manage",
-      mobileRole: "actions",
-      render: ({ index }) => (
-        <ListActions>
-          <ListActionButton
-            variant="danger"
-            type="button"
-            onClick={() => deleteRule(index)}
-            disabled={operationDisabled}
-          >
-            Delete
-          </ListActionButton>
-        </ListActions>
-      ),
     },
   ];
 
-  return (
-    <BucketFeatureSection
-      title="Lifecycle rules"
-      description="S3-side expiration/clean-up."
-      mode="hybrid"
-      visualState={visualState}
-      presentation="workbench"
-      successMessage={status}
-      busy={saving || loading}
-      testId="bucket-feature-lifecycle"
-      actions={
-        <div className="flex flex-wrap gap-2">
-          <span className="settings-description">
-            {ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
+  const visualEditor = (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="settings-description">
+          Supported rules can be edited here. Advanced S3 constructs remain read-only in Visual mode.
+        </p>
+        <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
+          Add rule
+        </SettingsButton>
+      </div>
+      {lastRemovedRule ? (
+        <UiInlineMessage>
+          <span className="flex flex-wrap items-center gap-2">
+            <span>Rule removed from this draft.</span>
+            <SettingsButton
+              type="button"
+              variant="secondary"
+              onClick={restoreLastRemovedRule}
+              disabled={saving}
+            >
+              Undo
+            </SettingsButton>
           </span>
-          <SettingsButton type="button" onClick={toggleEditor} variant="secondary" disabled={notImplemented}>
-            {editorVisible ? "Hide editor" : "Show editor"}
-          </SettingsButton>
-          <SettingsButton
-            type="button"
-            onClick={save}
-            disabled={operationDisabled || !dirty || mode !== "json"}
-            title={mode === "simple" ? "Quick add actions save immediately." : undefined}
-            variant="primary"
-          >
-            {saving ? "Saving..." : "Save"}
-          </SettingsButton>
-        </div>
-      }
-    >
-      {error && <UiInlineMessage tone="error" className="mt-2">{error}</UiInlineMessage>}
-      <DataTableShell
-        columns={columns}
-        rows={rows}
-        rowKey={(row) => row.key}
-        status={loading && rows.length === 0 ? "loading" : rows.length === 0 ? "empty" : "ready"}
-        loadingMessage="Loading lifecycle rules..."
-        errorMessage="Unable to load lifecycle rules."
-        emptyMessage="No rules configured on this bucket."
-        primaryColumnId="id"
-        responsiveCards
-      />
-
-      {editorVisible && (
-        <>
-          <div className="mt-3">
-            <BucketFeatureModeToggle
-              value={mode}
-              options={[
-                { value: "json", label: "JSON mode" },
-                { value: "simple", label: "Quick add" },
-              ]}
-              onChange={updateMode}
-              disabled={notImplemented}
-            />
+        </UiInlineMessage>
+      ) : null}
+      {draftRules.length === 0 ? (
+        <div className="space-y-2">
+          {hasRules ? (
+            <UiInlineMessage tone="warning">
+              Saving will remove the Lifecycle configuration from this bucket.
+            </UiInlineMessage>
+          ) : null}
+          <div className={cx(uiCardMutedClass, "px-3 py-4 text-center settings-description")}>
+            No lifecycle rules. Add a rule or switch to JSON.
           </div>
-          {mode === "simple" ? (
-            <div className="mt-3 space-y-3">
-              {warning && <UiInlineMessage tone="warning">{warning}</UiInlineMessage>}
-              <p className="settings-description">
-                Quickly add one of the preconfigured rules below (appended to the existing configuration).
-              </p>
-              <div className="space-y-3">
-                <div className={cx(uiCardMutedClass, "px-3 py-2")}>
-                  <p className="settings-label">
-                    Rule 1: noncurrent 90d + multipart 30d + delete markers (explicit)
-                  </p>
-                  <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                    Cleans noncurrent versions after 90d, removes incomplete multipart uploads after 30d, and deletes expired delete markers.
-                  </p>
-                  <div className="mt-2 flex justify-end">
-                    <SettingsButton
-                      type="button"
-                      onClick={() => void addCleanupExample()}
-                      variant="secondary"
-                      disabled={operationDisabled}
-                    >
-                      Add
-                    </SettingsButton>
-                  </div>
-                </div>
-
-                <div className={cx(uiCardMutedClass, "px-3 py-2")}>
-                  <p className="settings-label">Rule 2: current/noncurrent transitions</p>
-                  <div className="mt-2 flex flex-wrap items-end gap-3 ui-caption">
-                    <SettingsInput
-                      label="Current versions expiration (days)"
-                      type="number"
-                      min={0}
-                      value={transitionDraft.currentDays}
-                      onChange={(event) => updateTransitionDraft({ currentDays: event.target.value })}
-                      className="w-28"
-                      disabled={notImplemented}
-                    />
-                    <SettingsInput
-                      label="Noncurrent versions expiration (days)"
-                      type="number"
-                      min={0}
-                      value={transitionDraft.noncurrentDays}
-                      onChange={(event) => updateTransitionDraft({ noncurrentDays: event.target.value })}
-                      className="w-28"
-                      disabled={notImplemented}
-                    />
-                    <SettingsInput
-                      label="Storage class"
-                      type="text"
-                      value={transitionDraft.storageClass}
-                      onChange={(event) => updateTransitionDraft({ storageClass: event.target.value })}
-                      className="w-32"
-                      placeholder="GLACIER"
-                      disabled={notImplemented}
-                    />
-                    <SettingsInput
-                      label="Prefix (optional)"
-                      type="text"
-                      value={transitionDraft.prefix}
-                      onChange={(event) => updateTransitionDraft({ prefix: event.target.value })}
-                      className="w-32"
-                      placeholder="logs/"
-                      disabled={notImplemented}
-                    />
-                  </div>
-                  <div className="mt-2 flex justify-end">
-                    <SettingsButton
-                      type="button"
-                      onClick={() => void addTransitionExample()}
-                      variant="secondary"
-                      disabled={operationDisabled}
-                    >
-                      Add
-                    </SettingsButton>
-                  </div>
-                </div>
-
-                <div className={cx(uiCardMutedClass, "px-3 py-2")}>
-                  <p className="settings-label">Rule 3: current/noncurrent expiration</p>
-                  <div className="mt-2 flex flex-wrap items-end gap-3 ui-caption">
-                    <SettingsInput
-                      label="Current versions expiration (days)"
-                      type="number"
-                      min={0}
-                      value={expirationDraft.currentDays}
-                      onChange={(event) => updateExpirationDraft({ currentDays: event.target.value })}
-                      className="w-32"
-                      disabled={notImplemented}
-                    />
-                    <SettingsInput
-                      label="Noncurrent versions expiration (days)"
-                      type="number"
-                      min={0}
-                      value={expirationDraft.noncurrentDays}
-                      onChange={(event) => updateExpirationDraft({ noncurrentDays: event.target.value })}
-                      className="w-32"
-                      disabled={notImplemented}
-                    />
-                    <SettingsInput
-                      label="Prefix (optional)"
-                      type="text"
-                      value={expirationDraft.prefix}
-                      onChange={(event) => updateExpirationDraft({ prefix: event.target.value })}
-                      className="w-32"
-                      placeholder="archive/"
-                      disabled={notImplemented}
-                    />
-                  </div>
-                  <div className="mt-2 flex justify-end">
-                    <SettingsButton
-                      type="button"
-                      onClick={() => void addExpirationExample()}
-                      variant="secondary"
-                      disabled={operationDisabled}
-                    >
-                      Add
-                    </SettingsButton>
-                  </div>
-                </div>
-              </div>
-              <p className="settings-description">Use JSON mode to customize or edit rules.</p>
-            </div>
-          ) : (
-            <div className="mt-3 space-y-2">
-              <p className="settings-description">
-                Paste a JSON array that matches the S3 API (<code>Rules</code>). Existing rules are listed above.
-              </p>
-              <UiTextarea
-                label="Lifecycle rules (JSON)"
-                value={text}
-                onChange={(event) => updateText(event.target.value)}
-                rows={10}
-                className="settings-control font-mono"
-                disabled={notImplemented}
-              />
-              <BucketFeatureJsonExample
-                show={showJsonExample}
-                onToggle={() => setShowJsonExample((current) => !current)}
-                example={lifecycleJsonExample}
-                onUseExample={() => updateText(lifecycleJsonExample)}
-                disabled={notImplemented}
-              />
-            </div>
-          )}
-        </>
+        </div>
+      ) : (
+        draftRules.map((rule, index) => (
+          <LifecycleRuleEditor
+            key={`lifecycle-rule-${index}`}
+            index={index}
+            rule={rule}
+            disabled={saving}
+            onChange={(patch) => updateDraftRule(index, patch)}
+            onRemove={() => removeDraftRule(index)}
+          />
+        ))
       )}
-    </BucketFeatureSection>
+    </div>
+  );
+
+  const jsonEditor = (
+    <div className="space-y-3">
+      <p className="settings-description">
+        Edit the complete S3 Lifecycle <code>Rules</code> array. Switching back to Visual validates this JSON first.
+      </p>
+      <UiTextarea
+        label="Lifecycle rules (JSON)"
+        value={jsonText}
+        onChange={(event) => updateJsonText(event.target.value)}
+        rows={20}
+        className="settings-control font-mono"
+        disabled={saving}
+      />
+      <BucketFeatureJsonExample
+        show={showJsonExample}
+        onToggle={() => setShowJsonExample((current) => !current)}
+        example={lifecycleJsonExample}
+        onUseExample={() => updateJsonText(lifecycleJsonExample)}
+        disabled={saving}
+      />
+    </div>
+  );
+
+  return (
+    <>
+      <BucketFeatureSummarySection
+        title="Lifecycle rules"
+        description="S3-side expiration/clean-up."
+        visualState={visualState}
+        metadata={ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}
+        loading={loading}
+        error={error}
+        successMessage={status}
+        editDisabled={notImplemented || saving}
+        onEdit={openEditor}
+        testId="bucket-feature-lifecycle"
+      >
+        {rows.length > 0 ? (
+          <DataTableShell
+            columns={columns}
+            rows={rows}
+            rowKey={(row) => row.key}
+            status="ready"
+            loadingMessage="Loading lifecycle rules..."
+            errorMessage="Unable to load lifecycle rules."
+            emptyMessage="No rules configured on this bucket."
+            primaryColumnId="id"
+            responsiveCards
+          />
+        ) : null}
+      </BucketFeatureSummarySection>
+
+      {editorOpen ? (
+        <BucketFeatureEditorDialog
+          title="Edit lifecycle rules"
+          mode={editorMode}
+          onModeChange={updateEditorMode}
+          draftKey={draftSignature}
+          dirty={dirty}
+          busy={saving}
+          error={editorError}
+          saveDisabled={Boolean(visualValidationError)}
+          visualContent={visualEditor}
+          jsonContent={jsonEditor}
+          onSave={saveDraft}
+          onClose={closeEditor}
+        />
+      ) : null}
+    </>
   );
 }
