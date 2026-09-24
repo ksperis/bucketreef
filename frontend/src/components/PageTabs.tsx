@@ -5,7 +5,7 @@
 import { type KeyboardEvent, type ReactNode } from "react";
 import { cx, uiCardClass, uiDividerClass } from "./ui/styles";
 
-type Tab = {
+export type PageTab = {
   id: string;
   label: string;
   content?: ReactNode;
@@ -13,7 +13,7 @@ type Tab = {
 };
 
 type PageTabsProps = {
-  tabs: Tab[];
+  tabs: readonly PageTab[];
   activeTab: string;
   onChange: (id: string) => void;
   headerActions?: ReactNode;

@@ -58,6 +58,7 @@ describe("DetailsDrawerShell", () => {
     expect(panel).toHaveClass("overflow-x-hidden", "overflow-y-auto");
 
     const previewTab = within(drawer).getByRole("tab", { name: "Preview" });
+    expect(previewTab).toHaveClass("rounded-md", "focus-visible:outline-primary-700");
     previewTab.focus();
     fireEvent.keyDown(previewTab, { key: "ArrowRight" });
     expect(within(drawer).getByRole("tab", { name: "Details" })).toHaveFocus();

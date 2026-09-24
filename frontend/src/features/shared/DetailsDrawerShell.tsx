@@ -3,13 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 import {
-  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useEffect,
   useId,
   useRef,
 } from "react";
 
+import PageTabs, { PageTabPanel, type PageTab } from "../../components/PageTabs";
 import UiButton from "../../components/ui/UiButton";
 import { hasOpenModal } from "../../components/Modal";
 import { getFocusableElements, trapFocusWithin } from "../../components/ui/focusTrap";
@@ -18,11 +18,6 @@ import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { XIcon } from "../browser/browserIcons";
 
 const DETAILS_DRAWER_MODAL_MEDIA_QUERY = "(max-width: 1023px)";
-
-type DetailsDrawerTab = {
-  id: string;
-  label: string;
-};
 
 type DetailsDrawerShellProps = {
   activeTab?: string;
@@ -33,18 +28,10 @@ type DetailsDrawerShellProps = {
   onEscape?: () => void;
   onTabChange?: (tabId: string) => void;
   subtitle?: ReactNode;
-  tabs?: readonly DetailsDrawerTab[];
+  tabs?: readonly PageTab[];
   tabsAriaLabel?: string;
   title: string;
 };
-
-function tabId(prefix: string, id: string) {
-  return `${prefix}-tab-${id}`;
-}
-
-function panelId(prefix: string, id: string) {
-  return `${prefix}-panel-${id}`;
-}
 
 export default function DetailsDrawerShell({
   activeTab,
@@ -102,29 +89,6 @@ export default function DetailsDrawerShell({
     };
   }, [modal]);
 
-  const handleTabKeyDown = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-    currentId: string,
-  ) => {
-    if (!onTabChange || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
-      return;
-    }
-    const currentIndex = tabs.findIndex((tab) => tab.id === currentId);
-    if (currentIndex < 0) return;
-    let nextIndex = currentIndex;
-    if (event.key === "Home") nextIndex = 0;
-    if (event.key === "End") nextIndex = tabs.length - 1;
-    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
-    event.preventDefault();
-    onTabChange(tabs[nextIndex].id);
-    Array.from(
-      drawerRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [],
-    )
-      .find((tab) => tab.dataset.detailsDrawerTab === tabs[nextIndex].id)
-      ?.focus();
-  };
-
   return (
     <div className="pointer-events-none fixed inset-0 z-[46] lg:left-auto lg:top-14">
       <section
@@ -161,48 +125,32 @@ export default function DetailsDrawerShell({
             </div>
           </div>
           {tabs.length > 0 && activeTab && onTabChange ? (
-            <div
-              role="tablist"
-              aria-label={tabsAriaLabel}
-              className="mt-3 flex min-w-0 flex-wrap gap-1 border-t border-[color:var(--ui-border-soft)] pt-3"
-            >
-              {tabs.map((tab) => {
-                const active = tab.id === activeTab;
-                return (
-                  <button
-                    key={tab.id}
-                    id={tabId(idPrefix, tab.id)}
-                    data-details-drawer-tab={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    aria-controls={panelId(idPrefix, tab.id)}
-                    tabIndex={active ? 0 : -1}
-                    onClick={() => onTabChange(tab.id)}
-                    onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
-                    className={cx(
-                      "rounded-md px-2.5 py-1.5 ui-caption font-semibold transition",
-                      active
-                        ? "bg-[var(--ui-selected-bg)] text-primary dark:text-[var(--ui-text)]"
-                        : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-hover)] hover:text-[var(--ui-text)]",
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
+            <div className="mt-3 border-t border-[color:var(--ui-border-soft)] pt-3">
+              <PageTabs
+                tabs={tabs}
+                activeTab={activeTab}
+                onChange={onTabChange}
+                variant="bar"
+                ariaLabel={tabsAriaLabel}
+                idPrefix={idPrefix}
+              />
             </div>
           ) : null}
           {notice ? <div className="mt-3">{notice}</div> : null}
         </header>
-        <div
-          id={activeTab ? panelId(idPrefix, activeTab) : undefined}
-          role={activeTab ? "tabpanel" : undefined}
-          aria-labelledby={activeTab ? tabId(idPrefix, activeTab) : undefined}
-          className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4"
-        >
-          {children}
-        </div>
+        {activeTab ? (
+          <PageTabPanel
+            idPrefix={idPrefix}
+            tabId={activeTab}
+            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4"
+          >
+            {children}
+          </PageTabPanel>
+        ) : (
+          <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4">
+            {children}
+          </div>
+        )}
       </section>
     </div>
   );
