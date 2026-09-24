@@ -411,6 +411,13 @@ describe("PortalUsagePage", () => {
     expect(screen.getByText("default")).toBeInTheDocument();
     expect(screen.getByText("2/31 days")).toBeInTheDocument();
     expect(mocks.billingMock).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}$/), "101");
+
+    const monthInput = screen.getByLabelText("Month");
+    expect(monthInput).toHaveClass("ui-control", "ui-control-compact");
+    fireEvent.change(monthInput, { target: { value: "2026-04" } });
+    await waitFor(() => {
+      expect(mocks.billingMock).toHaveBeenCalledWith("2026-04", "101");
+    });
   });
 
   it("keeps unavailable usage, traffic and billing states inside their tabs", async () => {

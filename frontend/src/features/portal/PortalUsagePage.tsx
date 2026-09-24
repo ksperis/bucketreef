@@ -18,7 +18,8 @@ import PageShell from "../../components/PageShell";
 import UsageBreakdown from "../../components/UsageBreakdown";
 import UsageHistoryTrendsSection from "../../components/UsageHistoryTrendsSection";
 import { WorkspaceStatusDot } from "../../components/WorkspaceDashboardKit";
-import { cx, uiCardMutedClass, uiInputClass, uiLabelClass, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
+import UiInput from "../../components/ui/UiInput";
+import { cx, uiCardMutedClass, uiLabelClass, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { currentUtcMonthInputValue } from "../../utils/dateInputValues";
@@ -299,16 +300,20 @@ export default function PortalUsagePage() {
     return rgwAccountId ? { [rgwAccountId]: workspace.accountName } : {};
   }, [selectedAccount?.rgw_account_id, workspace.accountName]);
 
+  const billingMonthLabel = t({ en: "Month", fr: "Mois", de: "Monat", zh: "月份" });
   const billingMonthControl = (
-    <label className={cx(uiCardMutedClass, "flex h-9 items-center gap-2 px-3 ui-caption font-semibold", uiMutedTextClass)}>
-      <span>{t({ en: "Month", fr: "Mois", de: "Monat", zh: "月份" })}</span>
-      <input
+    <div className={cx(uiCardMutedClass, "flex h-9 items-center gap-2 px-3 ui-caption font-semibold", uiMutedTextClass)}>
+      <label htmlFor="portal-billing-month">{billingMonthLabel}</label>
+      <UiInput
+        id="portal-billing-month"
         type="month"
         value={month}
         onChange={(event) => setMonth(event.target.value)}
-        className={cx(uiInputClass, "h-6 w-[120px] border-0 bg-transparent p-0 ui-caption font-semibold shadow-none")}
+        size="compact"
+        fieldClassName="min-w-0"
+        className="w-[132px] border-0 bg-transparent px-1 ui-caption font-semibold shadow-none"
       />
-    </label>
+    </div>
   );
 
   if (accountLoading || loading) {

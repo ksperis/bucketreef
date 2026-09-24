@@ -202,6 +202,16 @@ describe("ProfilePage live validation", () => {
     target.remove();
   });
 
+  it("uses the shared search control in the compact private connections presentation", async () => {
+    render(<ProfilePage showPageHeader={false} showSettingsCards={false} showConnectionsSection />);
+    await waitFor(() => expect(listConnectionsMock).toHaveBeenCalled());
+
+    const search = screen.getByRole("searchbox", { name: "Search connections" });
+    expect(search).toHaveClass("ui-control", "ui-list-control");
+    fireEvent.change(search, { target: { value: "ceph" } });
+    expect(search).toHaveValue("ceph");
+  });
+
   it("describes an administrator-managed identity as read-only", async () => {
     render(<ProfilePage showPageHeader={false} showSettingsCards showConnectionsSection={false} />);
 

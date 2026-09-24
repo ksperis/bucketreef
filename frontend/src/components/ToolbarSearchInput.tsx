@@ -14,13 +14,16 @@ type ToolbarSearchInputProps = {
   onChange: (value: string) => void;
   placeholder: string;
   label?: ReactNode;
+  labelClassName?: string;
   className?: string;
   active?: boolean;
   inputClassName?: string;
   inputWrapperClassName?: string;
+  leadingControl?: ReactNode;
   matchMode?: ToolbarSearchMatchMode;
   onToggleMatchMode?: () => void;
   trailingControl?: ReactNode;
+  spellCheck?: boolean;
 };
 
 export default function ToolbarSearchInput({
@@ -28,13 +31,16 @@ export default function ToolbarSearchInput({
   onChange,
   placeholder,
   label = "Search",
+  labelClassName,
   className = "w-full sm:w-72",
   active = false,
   inputClassName,
   inputWrapperClassName,
+  leadingControl,
   matchMode,
   onToggleMatchMode,
   trailingControl,
+  spellCheck,
 }: ToolbarSearchInputProps) {
   const matchModeControl =
     matchMode && onToggleMatchMode ? (
@@ -58,9 +64,11 @@ export default function ToolbarSearchInput({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
+      spellCheck={spellCheck}
       className={cx(
         uiInputClass,
         "ui-list-control",
+        leadingControl ? "ui-list-control-with-icon" : "",
         resolvedTrailingControl ? "ui-list-search" : "",
         active ? "border-primary/50 bg-primary/5 dark:bg-primary/10" : "",
         inputClassName
@@ -69,10 +77,18 @@ export default function ToolbarSearchInput({
   );
 
   return (
-    <UiField label={label} className={className}>
+    <UiField label={label} className={className} labelClassName={labelClassName}>
       {(fieldProps) =>
-        resolvedTrailingControl ? (
+        leadingControl || resolvedTrailingControl ? (
           <div className={cx("relative", inputWrapperClassName)}>
+            {leadingControl ? (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+              >
+                {leadingControl}
+              </span>
+            ) : null}
             {renderInput(fieldProps)}
             {resolvedTrailingControl}
           </div>
