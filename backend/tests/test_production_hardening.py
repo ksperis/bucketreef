@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from app.core.config import Settings
+from app.db import StorageEndpoint, User, UserRole, WebAuthnCredential
 from app.models.app_settings import AppSettings
 from app.scripts.check_production_hardening import run
 from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
@@ -425,6 +426,79 @@ def test_admin_passkey_policy_is_critical_not_startup_blocking(profile):
     assert finding.blocks_startup is False
 
 
+def test_active_admin_without_enrolled_passkey_is_critical(db_session):
+    admin = User(
+        email="hardening-admin@example.test",
+        role=UserRole.UI_ADMIN.value,
+        is_active=True,
+    )
+    db_session.add(admin)
+    db_session.flush()
+
+    findings = run_deployment_checks(
+        _production_settings(),
+        app_settings=_app_settings(),
+        profile="admin",
+        db=db_session,
+        include_manual=False,
+    )
+
+    finding = _finding(findings, "admin-passkey-enrollment")
+    assert finding.level == "critical"
+    assert finding.message == "1 active administrator account(s) have no enrolled passkey."
+
+    db_session.add(
+        WebAuthnCredential(
+            id="hardening-passkey",
+            user_id=admin.id,
+            credential_id="hardening-passkey-credential",
+            public_key="test-public-key",
+            name="Production passkey",
+        )
+    )
+    db_session.flush()
+
+    findings = run_deployment_checks(
+        _production_settings(),
+        app_settings=_app_settings(),
+        profile="admin",
+        db=db_session,
+        include_manual=False,
+    )
+    assert _finding(findings, "admin-passkey-enrollment").level == "ok"
+
+
+def test_persisted_storage_endpoint_security_recommendations(db_session):
+    db_session.add(
+        StorageEndpoint(
+            name="hardening-rgw",
+            endpoint_url="https://rgw.example.test",
+            provider="ceph",
+            verify_tls=False,
+            admin_access_key="SHARED-PRIVILEGED-KEY",
+            supervision_access_key="SHARED-PRIVILEGED-KEY",
+            ceph_admin_access_key="CEPH-ADMIN-KEY",
+        )
+    )
+    db_session.flush()
+
+    findings = run_deployment_checks(
+        _production_settings(),
+        app_settings=_app_settings(),
+        profile="admin",
+        db=db_session,
+        include_manual=False,
+    )
+
+    tls_finding = _finding(findings, "storage-endpoint-tls")
+    identity_finding = _finding(findings, "storage-identity-separation")
+    assert tls_finding.level == "warning"
+    assert tls_finding.message == "1 storage endpoint(s) have TLS certificate verification disabled."
+    assert identity_finding.level == "warning"
+    assert "1 storage endpoint(s) reuse the same access key" in identity_finding.message
+    assert "SHARED-PRIVILEGED-KEY" not in identity_finding.message
+
+
 def test_high_security_surface_contract_is_reported_as_startup_blocker_instead_of_settings_parse_failure():
     settings = _production_settings(
         deployment_profile="ceph-admin-high-security",
@@ -467,6 +541,9 @@ def test_manual_checks_are_reported_without_affecting_cli_exit_code():
 
     manual = [finding for finding in findings if finding.level == "manual"]
     assert manual
+    manual_codes = {finding.code for finding in manual}
+    assert "manual-secret-management" in manual_codes
+    assert "manual-image-supply-chain" in manual_codes
     assert deployment_exit_code(findings) == 0
     assert all(finding.documentation_url.startswith("https://docs.bucketreef.ksperis.com/") for finding in manual)
 
