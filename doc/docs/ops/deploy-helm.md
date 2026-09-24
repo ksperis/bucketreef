@@ -160,8 +160,11 @@ single-backend deployments, but it is not a multi-backend contract.
 
 For `backend.replicas > 1`:
 
-- Enable `.Values.postgresql.enabled=true` or set `backend.env.DATABASE_URL` to
-  a PostgreSQL URL.
+- Use PostgreSQL and keep `backend.databaseType=postgresql`. Put the PostgreSQL
+  URL in the existing Secret key mapped by `backend.secretKeys.databaseUrl`;
+  `DATABASE_URL` in `backend.env` is rejected by chart rendering. If you enable
+  the bundled PostgreSQL, the backend Secret must still provide the database URL
+  together with the required JWT and credential key rings.
 - Prefer `backend.persistence.enabled=false`; the database stores live app
   settings and operational coordination. Keep backend persistence only for
   legacy imports or files that are explicitly shared.
@@ -177,21 +180,32 @@ SQLite outside Helm safeguards.
 
 ## Split admin and user releases
 
-The chart provides `values-admin.yaml` and `values-user.yaml` profiles. Install
-them as separate Helm releases with distinct ingress hosts and a shared external
-PostgreSQL database/secret set. Configure both public origins and WebAuthn
-origins on both releases, with one shared `WEBAUTHN_RP_ID`.
+See [Recommended production architecture](deployment-architecture.md) for the
+recommended ingress, runtime, PostgreSQL, and Ceph Admin security boundaries.
+
+The chart source provides `values-admin.yaml`, `values-admin-no-ceph-admin.yaml`,
+`values-user.yaml`, and `values-ceph-admin-high-security.yaml`. These are profile
+selectors only; they do not contain production hosts, replicas, Secrets, TLS,
+origins, trusted proxies, or NetworkPolicy settings.
+
+Install the Admin and User pools as separate Helm releases with distinct ingress
+hosts and a shared external PostgreSQL/key-ring contract. Create operator-owned
+values files for the real environment. Each file should configure at least the
+release ingress/TLS, backend/frontend replicas, `backend.existingSecret`, exact
+trusted proxy CIDRs, public/WebAuthn origins, and strict NetworkPolicy selectors
+and egress. Configure both browser origins on both releases, with one shared
+`WEBAUTHN_RP_ID`.
 
 ```bash
 helm upgrade --install bucketreef-admin oci://ghcr.io/ksperis/charts/bucketreef \
   --version X.Y.Z \
-  --values production-security-values-admin.yaml \
+  --values production-admin.yaml \
   --set deploymentProfile=admin \
   --set backend.existingSecret=bucketreef-auth
 
 helm upgrade --install bucketreef-user oci://ghcr.io/ksperis/charts/bucketreef \
   --version X.Y.Z \
-  --values production-security-values-user.yaml \
+  --values production-user.yaml \
   --set deploymentProfile=user \
   --set backend.existingSecret=bucketreef-auth
 ```
@@ -202,9 +216,10 @@ sets `SCHEDULED_JOBS_ENABLED=false`, and chart rendering fails if any built-in
 CronJob is enabled on that release. Run the production hardening checker in one
 backend pod from each release before exposing the ingresses.
 
-For a dedicated Ceph Admin boundary, set
-`deploymentProfile=ceph-admin-high-security` (or use
-`values-ceph-admin-high-security.yaml`) in a separate release. The profile
+For a dedicated Ceph Admin boundary, switch the main Administration release to
+`deploymentProfile=admin-no-ceph-admin` and deploy
+`deploymentProfile=ceph-admin-high-security` separately. This ensures the
+normal Admin ingress no longer mounts `/ceph-admin`. The dedicated profile
 mounts Ceph Admin only, disables jobs, and does not consume
 `internal-cron-token`. Point `backend.existingSecret` at the shared Secret or a
 dedicated Secret with an isolated database/key ring. See

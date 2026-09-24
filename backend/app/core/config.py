@@ -20,7 +20,7 @@ from app.utils.ldap_validation import (
 )
 
 
-DeploymentProfile = Literal["full", "admin", "user", "ceph-admin-high-security"]
+DeploymentProfile = Literal["full", "admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"]
 
 
 class OIDCProviderSettings(BaseModel):

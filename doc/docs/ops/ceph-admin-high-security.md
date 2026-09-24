@@ -3,6 +3,12 @@
 Use this profile when Ceph RGW administration must be exposed through a
 separate instance with a smaller application and network boundary.
 
+To make that boundary exclusive, the normal Administration runtime must use
+`admin-no-ceph-admin` so `/ceph-admin` is not mounted on its ingress. Running a
+normal `admin` profile alongside this dedicated instance leaves Ceph Admin
+available through both paths and is therefore not the high-security topology
+described on this page.
+
 `ceph-admin-high-security` mounts the authentication/profile APIs and Ceph
 Admin only. Admin governance, Storage Ops, Manager, Portal, Browser, private S3
 connections, execution-context APIs, and scheduled-job endpoints are not
@@ -53,6 +59,11 @@ docker compose --project-name bucketreef-ceph-admin \
   up -d --wait backend frontend
 ```
 
+Run the main Administration project with
+`docker-compose.admin-no-ceph-admin.yml` when this dedicated project is the
+intended Ceph Admin boundary. The standard `docker-compose.admin.yml` keeps
+Ceph Admin enabled for the simpler shared-Administration model.
+
 To share state, put the main deployment's PostgreSQL `DATABASE_URL` and key
 rings in `.env.ceph-admin`. To isolate state, use a dedicated PostgreSQL URL and
 new values for `UI_JWT_KEYS`, `API_JWT_KEYS`, and `CREDENTIAL_KEYS`. Do not
@@ -80,6 +91,12 @@ helm upgrade --install bucketreef-ceph-admin \
   --set deploymentProfile=ceph-admin-high-security \
   --set backend.existingSecret=bucketreef-ceph-admin-auth
 ```
+
+Switch the companion Administration release to
+`deploymentProfile=admin-no-ceph-admin` (the chart source also includes the
+matching `values-admin-no-ceph-admin.yaml` selector). The operator-owned values
+files for both releases must still configure their real ingress hosts/TLS,
+replicas, trusted proxies, origins, and NetworkPolicy rules.
 
 For shared state, `bucketreef-ceph-admin-auth` may reference the same database
 URL and key-ring values as the main release. For isolated state, create a
@@ -116,6 +133,7 @@ Verify before publication:
 
 ## Related pages
 
+- [Recommended production architecture](deployment-architecture.md)
 - [Deploy with Docker Compose](deploy-docker-compose.md)
 - [Deploy with Helm](deploy-helm.md)
 - [Configuration](configuration.md)

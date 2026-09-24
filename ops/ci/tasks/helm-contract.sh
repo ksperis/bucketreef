@@ -23,9 +23,18 @@ grep -q 'automountServiceAccountToken: false' /tmp/bucketreef-rendered.yaml
 helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-admin.yaml --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-admin.yaml
 grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-admin.yaml | grep -q 'value: "admin"'
 grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
+grep -A1 'name: FEATURE_CEPH_ADMIN_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
 grep -A1 'name: FEATURE_MANAGER_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "false"'
 grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
 grep -q 'kind: CronJob' /tmp/bucketreef-admin.yaml
+
+helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-admin-no-ceph-admin.yaml --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-admin-no-ceph-admin.yaml
+grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-admin-no-ceph-admin.yaml | grep -q 'value: "admin-no-ceph-admin"'
+grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-admin-no-ceph-admin.yaml | grep -q 'value: "true"'
+grep -A1 'name: FEATURE_CEPH_ADMIN_ENABLED' /tmp/bucketreef-admin-no-ceph-admin.yaml | grep -q 'value: "false"'
+grep -A1 'name: FEATURE_STORAGE_OPS_ENABLED' /tmp/bucketreef-admin-no-ceph-admin.yaml | grep -q 'value: "true"'
+grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-admin-no-ceph-admin.yaml | grep -q 'value: "true"'
+grep -q 'kind: CronJob' /tmp/bucketreef-admin-no-ceph-admin.yaml
 
 helm template bucketreef-user deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-user.yaml --set backend.existingSecret=bucketreef-auth > /tmp/bucketreef-user.yaml
 grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-user.yaml | grep -q 'value: "user"'

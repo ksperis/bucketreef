@@ -30,6 +30,7 @@ def test_bundles_are_reproducible_versioned_and_source_free(tmp_path):
                 ".env.example",
                 "docker-compose.yml",
                 "docker-compose.admin.yml",
+                "docker-compose.admin-no-ceph-admin.yml",
                 "docker-compose.user.yml",
                 "docker-compose.ceph-admin-high-security.yml",
             }

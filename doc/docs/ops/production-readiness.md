@@ -129,6 +129,7 @@ The report exposes checks that cannot be inferred reliably from a single process
 ## Related pages
 
 - [Production checks reference](production-checks-reference.md)
+- [Recommended production architecture](deployment-architecture.md)
 - [Deploy with Docker Compose](deploy-docker-compose.md)
 - [Deploy with Helm](deploy-helm.md)
 - [Configuration](configuration.md)

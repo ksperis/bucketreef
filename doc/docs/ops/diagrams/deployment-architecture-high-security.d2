@@ -1,0 +1,81 @@
+# Source for ../../assets/diagrams/deployment-architecture/high-security-topology.svg
+# Render from the repository root with:
+#   d2 doc/docs/ops/diagrams/deployment-architecture-high-security.d2 \
+#      doc/docs/assets/diagrams/deployment-architecture/high-security-topology.svg
+
+direction: down
+
+classes: {
+  actor: {
+    shape: rectangle
+    style.fill: "#f8fafc"
+    style.stroke: "#64748b"
+  }
+  ingress: {
+    shape: rectangle
+    style.fill: "#eff6ff"
+    style.stroke: "#2563eb"
+  }
+  runtime: {
+    shape: rectangle
+    style.fill: "#ecfdf5"
+    style.stroke: "#059669"
+  }
+  isolated: {
+    shape: rectangle
+    style.fill: "#fef2f2"
+    style.stroke: "#dc2626"
+  }
+  shared: {
+    shape: rectangle
+    style.fill: "#fff7ed"
+    style.stroke: "#ea580c"
+  }
+  external: {
+    shape: rectangle
+    style.fill: "#faf5ff"
+    style.stroke: "#9333ea"
+  }
+}
+
+admins: {
+  class: actor
+  label: "Administrators\nrestricted network"
+}
+
+admin_ingress: {
+  class: ingress
+  label: "Restricted Admin LB / Ingress\nadmin.bucketreef.example.com"
+}
+
+ceph_ingress: {
+  class: ingress
+  label: "Dedicated Ceph Admin LB / Ingress\nceph-admin.bucketreef.example.com"
+}
+
+admin_pool: {
+  class: runtime
+  label: "Administration pool · HA\nprofile: admin-no-ceph-admin\n/admin · /storage-ops"
+}
+
+ceph_pool: {
+  class: isolated
+  label: "Ceph Admin pool · HA\nprofile: ceph-admin-high-security\n/ceph-admin only"
+}
+
+shared_state: {
+  class: shared
+  label: "Shared-state variant\nPostgreSQL + common JWT / credential key rings"
+}
+
+rgw: {
+  class: external
+  label: "Ceph RGW\nexternal dependency"
+}
+
+admins -> admin_ingress -> admin_pool
+admins -> ceph_ingress -> ceph_pool
+admin_pool -> shared_state
+ceph_pool -> shared_state
+admin_pool -> rgw
+ceph_pool -> rgw

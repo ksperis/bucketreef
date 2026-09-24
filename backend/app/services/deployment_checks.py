@@ -66,6 +66,14 @@ _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
         "portal": False,
         "browser": False,
     },
+    "admin-no-ceph-admin": {
+        "admin": True,
+        "ceph_admin": False,
+        "storage_ops": True,
+        "manager": False,
+        "portal": False,
+        "browser": False,
+    },
     "user": {
         "admin": False,
         "ceph_admin": False,
@@ -645,8 +653,8 @@ def run_deployment_checks(
         )
     )
 
-    if profile in {"admin", "user", "ceph-admin-high-security"}:
-        expected_jobs = profile == "admin"
+    if profile in {"admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"}:
+        expected_jobs = profile in {"admin", "admin-no-ceph-admin"}
         job_ok = settings.scheduled_jobs_enabled is expected_jobs
         severity = "blocker" if profile == "ceph-admin-high-security" else "critical"
         findings.append(
@@ -657,7 +665,7 @@ def run_deployment_checks(
                 severity=severity,
                 pass_message="Scheduled-job ownership matches the deployment profile.",
                 fail_message=(
-                    "The admin profile must own scheduled jobs."
+                    "The administration profile must own scheduled jobs."
                     if expected_jobs
                     else "This deployment profile must disable scheduled jobs."
                 ),
@@ -711,7 +719,7 @@ def run_deployment_checks(
         )
     )
 
-    if profile in {"admin", "user"}:
+    if profile in {"admin", "admin-no-ceph-admin", "user"}:
         public_origins = settings.effective_public_origins()
         webauthn_origins = settings.effective_webauthn_origins()
         findings.append(

@@ -96,6 +96,18 @@ def test_admin_profile_passes_automated_deployment_checks():
     assert all(finding.level == "ok" for finding in findings)
 
 
+def test_admin_without_ceph_admin_profile_passes_automated_deployment_checks():
+    settings = _production_settings(
+        deployment_profile="admin-no-ceph-admin",
+        feature_ceph_admin_enabled=False,
+    )
+
+    findings = _check(settings, profile="admin-no-ceph-admin")
+
+    assert deployment_exit_code(findings) == 0
+    assert all(finding.level == "ok" for finding in findings)
+
+
 def test_user_profile_reports_topology_mismatches_as_critical_without_startup_block():
     findings = _check(_production_settings(), profile="user")
 
@@ -372,9 +384,17 @@ def test_ceph_admin_high_security_database_mismatch_is_critical_but_not_boot_blo
     assert finding.blocks_startup is False
 
 
-@pytest.mark.parametrize("profile", ["full", "admin", "user", "ceph-admin-high-security"])
+@pytest.mark.parametrize(
+    "profile",
+    ["full", "admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"],
+)
 def test_admin_passkey_policy_is_critical_not_startup_blocking(profile):
     settings = _production_settings()
+    if profile == "admin-no-ceph-admin":
+        settings = _production_settings(
+            deployment_profile="admin-no-ceph-admin",
+            feature_ceph_admin_enabled=False,
+        )
     if profile == "ceph-admin-high-security":
         settings = _production_settings(
             deployment_profile="ceph-admin-high-security",
@@ -465,9 +485,15 @@ def test_every_reported_check_links_to_an_existing_documentation_anchor(db_sessi
         if anchor:
             anchors.add(anchor)
 
-    for profile in ("full", "admin", "user", "ceph-admin-high-security"):
+    for profile in ("full", "admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"):
+        settings = _production_settings()
+        if profile == "admin-no-ceph-admin":
+            settings = _production_settings(
+                deployment_profile="admin-no-ceph-admin",
+                feature_ceph_admin_enabled=False,
+            )
         findings = run_deployment_checks(
-            _production_settings(),
+            settings,
             app_settings=_app_settings(),
             profile=profile,
             db=db_session,

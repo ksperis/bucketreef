@@ -1,8 +1,8 @@
 {{- $backendReplicas := int (.Values.backend.replicas | default 1) -}}
 {{- $backendAccessMode := lower (toString (.Values.backend.persistence.accessMode | default "ReadWriteOnce")) -}}
 {{- $deploymentProfile := include "bucketreef.deploymentProfile" . -}}
-{{- if not (has $deploymentProfile (list "full" "admin" "user" "ceph-admin-high-security")) -}}
-{{- fail "deploymentProfile must be one of: full, admin, user, ceph-admin-high-security." -}}
+{{- if not (has $deploymentProfile (list "full" "admin" "admin-no-ceph-admin" "user" "ceph-admin-high-security")) -}}
+{{- fail "deploymentProfile must be one of: full, admin, admin-no-ceph-admin, user, ceph-admin-high-security." -}}
 {{- end -}}
 {{- if hasKey .Values.backend.env "DEPLOYMENT_PROFILE" -}}
 {{- fail "DEPLOYMENT_PROFILE is controlled by deploymentProfile and must not be set in backend.env." -}}
@@ -98,6 +98,21 @@ spec:
               value: "false"
             - name: SCHEDULED_JOBS_ENABLED
               value: "true"
+            {{- else if eq $deploymentProfile "admin-no-ceph-admin" }}
+            - name: FEATURE_ADMIN_ENABLED
+              value: "true"
+            - name: FEATURE_CEPH_ADMIN_ENABLED
+              value: "false"
+            - name: FEATURE_STORAGE_OPS_ENABLED
+              value: "true"
+            - name: FEATURE_MANAGER_ENABLED
+              value: "false"
+            - name: FEATURE_PORTAL_ENABLED
+              value: "false"
+            - name: FEATURE_BROWSER_ENABLED
+              value: "false"
+            - name: SCHEDULED_JOBS_ENABLED
+              value: "true"
             {{- else if eq $deploymentProfile "user" }}
             - name: FEATURE_ADMIN_ENABLED
               value: "false"
@@ -157,7 +172,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.backend.existingSecret | quote }}
                   key: {{ .Values.backend.secretKeys.credentialKeys | quote }}
-            {{- if has $deploymentProfile (list "full" "admin") }}
+            {{- if has $deploymentProfile (list "full" "admin" "admin-no-ceph-admin") }}
             - name: INTERNAL_CRON_TOKEN
               valueFrom:
                 secretKeyRef:

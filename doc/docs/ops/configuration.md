@@ -64,15 +64,16 @@ Key areas:
 - Database: `DATABASE_URL` (SQLite defaults to `backend/app.db`; relative SQLite paths are normalized against `backend/`). Multi-backend deployments require PostgreSQL.
 - CORS: `CORS_ORIGINS`.
 - Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
-- Runtime job ownership: `SCHEDULED_JOBS_ENABLED`. A split deployment enables it only on the admin instance.
+- Runtime job ownership: `SCHEDULED_JOBS_ENABLED`. A split deployment enables it
+  only on the `admin` or `admin-no-ceph-admin` Administration instance.
 - Dedicated Ceph Admin boundary: `CEPH_ADMIN_HIGH_SECURITY_MODE`. When enabled,
   startup requires Ceph Admin on, every other runtime surface off, and scheduled
   jobs off. Deployment profiles set these values automatically.
 - Internal scheduler auth: `INTERNAL_CRON_TOKEN`.
-- Runtime deployment identity: `DEPLOYMENT_PROFILE` (`full`, `admin`, `user`, or
-  `ceph-admin-high-security`). Compose and Helm profiles set it automatically;
-  set it explicitly for custom deployments so runtime readiness checks evaluate
-  the correct surface contract.
+- Runtime deployment identity: `DEPLOYMENT_PROFILE` (`full`, `admin`,
+  `admin-no-ceph-admin`, `user`, or `ceph-admin-high-security`). Compose and Helm
+  profiles set it automatically; set it explicitly for custom deployments so
+  runtime readiness checks evaluate the correct surface contract.
 - Billing, quota monitoring, usage history collection, and healthcheck behavior.
 - Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `BILLING_OPERATION_LEASE_TTL_SECONDS`.
 - Shared history retention: `BILLING_DAILY_RETENTION_DAYS`, `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`, `QUOTA_HISTORY_DAILY_RETENTION_DAYS`.

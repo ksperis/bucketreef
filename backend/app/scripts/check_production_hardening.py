@@ -110,7 +110,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--profile",
-        choices=("full", "admin", "user", "ceph-admin-high-security"),
+        choices=("full", "admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"),
         default=None,
         help="Override DEPLOYMENT_PROFILE for this check.",
     )
