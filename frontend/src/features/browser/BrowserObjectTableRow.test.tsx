@@ -54,7 +54,6 @@ function buildProps(overrides: Partial<RowProps> = {}): RowProps {
     iconBoxClasses: "icon-box",
     nameGapClasses: "name-gap",
     primaryItemButtonHeightClasses: "name-height",
-    rowActionButtonClasses: "row-action",
     onClick: vi.fn(),
     onContextMenu: vi.fn(),
     onToggleSelection: vi.fn(),
@@ -104,6 +103,12 @@ describe("BrowserObjectTableRow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Download object-1.txt" }));
     expect(props.onRunAction).toHaveBeenCalledWith("download");
     expect(props.onClick).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Download object-1.txt" }),
+    ).toHaveClass("ui-list-action", "ui-list-action-icon");
+    expect(
+      screen.getByRole("button", { name: "More actions for object-1.txt" }),
+    ).toHaveClass("ui-list-action", "ui-list-action-icon");
   });
 
   it("classifies files from loaded content type or their extension", () => {

@@ -1321,7 +1321,6 @@ export default function BrowserPage({
   const iconBoxClasses = compactMode ? "h-6 w-6" : "h-9 w-9";
   const nameGapClasses = compactMode ? "gap-1.5" : "gap-3";
   const primaryItemButtonHeightClasses = compactMode ? "" : "min-h-11";
-  const rowActionButtonClasses = "ui-list-action ui-list-action-icon";
   const currentPath = useMemo(() => {
     if (!bucketName) return "";
     if (!prefix) return bucketName;
@@ -2756,7 +2755,6 @@ export default function BrowserPage({
                     iconBoxClasses,
                     nameGapClasses,
                     primaryItemButtonHeightClasses,
-                    rowActionButtonClasses,
                   },
                 }}
                 loadMoreButtonClasses={chromeToolbarButtonClasses}

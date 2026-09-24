@@ -31,7 +31,6 @@ function buildProps(
     hasActiveSearchFilters: false,
     workspaceNoun: "bucket",
     workspaceObjectNounPlural: "objects",
-    rowActionButtonClasses: "row-action",
     onGoUp: vi.fn(),
     onItemContextMenu: vi.fn(),
     onToggleSelection: vi.fn(),
@@ -94,6 +93,9 @@ describe("BrowserObjectMobileList", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "More actions for object-1.txt" }),
     );
+    expect(
+      screen.getByRole("button", { name: "More actions for object-1.txt" }),
+    ).toHaveClass("ui-list-action", "ui-list-action-icon");
 
     expect(props.onItemNameClick).toHaveBeenCalledTimes(2);
     expect(props.onItemNameClick).toHaveBeenNthCalledWith(

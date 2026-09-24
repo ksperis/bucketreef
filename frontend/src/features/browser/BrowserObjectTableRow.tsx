@@ -1,6 +1,9 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-import { ListSelectionCheckbox } from "../../components/list/ListControls";
+import {
+  ListActionButton,
+  ListSelectionCheckbox,
+} from "../../components/list/ListControls";
 import { BrowserDirectItemActionButton } from "./BrowserActionPresentation";
 import { storageClassChipClasses } from "./browserConstants";
 import { FileIcon, FolderIcon, MoreIcon, TrashIcon } from "./browserIcons";
@@ -30,7 +33,6 @@ type BrowserObjectTableRowProps = {
   iconBoxClasses: string;
   nameGapClasses: string;
   primaryItemButtonHeightClasses: string;
-  rowActionButtonClasses: string;
   onClick: (event: ReactMouseEvent<HTMLTableRowElement>) => void;
   onContextMenu: (event: ReactMouseEvent<HTMLTableRowElement>) => void;
   onToggleSelection: (extendRange: boolean) => void;
@@ -69,7 +71,6 @@ export default function BrowserObjectTableRow({
   iconBoxClasses,
   nameGapClasses,
   primaryItemButtonHeightClasses,
-  rowActionButtonClasses,
   onClick,
   onContextMenu,
   onToggleSelection,
@@ -220,19 +221,17 @@ export default function BrowserObjectTableRow({
               key={action.id}
               action={action}
               itemName={item.name}
-              className={rowActionButtonClasses}
               onSelect={() => onRunAction(action.id)}
             />
           ))}
-          <button
-            type="button"
-            className={rowActionButtonClasses}
+          <ListActionButton
+            iconOnly
             aria-label={`More actions for ${item.name}`}
             title="More"
             onClick={onOpenActions}
           >
             <MoreIcon />
-          </button>
+          </ListActionButton>
         </div>
       </td>
     </tr>

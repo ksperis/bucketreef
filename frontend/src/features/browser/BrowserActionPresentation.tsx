@@ -73,14 +73,12 @@ export function BrowserActionIcon({
 type BrowserDirectItemActionButtonProps = {
   action: BrowserActionState;
   itemName: string;
-  className: string;
   onSelect: () => void;
 };
 
 export function BrowserDirectItemActionButton({
   action,
   itemName,
-  className,
   onSelect,
 }: BrowserDirectItemActionButtonProps) {
   const accessibleLabel = `${action.label} ${itemName}`;
@@ -90,7 +88,6 @@ export function BrowserDirectItemActionButton({
       : accessibleLabel;
   return (
     <ListActionButton iconOnly variant={action.id === "delete" ? "danger" : "secondary"}
-      className={className}
       aria-label={disabledLabel}
       title={action.enabled ? action.label : action.disabledReason}
       disabled={!action.enabled}

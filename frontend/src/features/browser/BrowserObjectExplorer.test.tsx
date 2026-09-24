@@ -85,7 +85,6 @@ function buildProps(overrides: Partial<ExplorerProps> = {}): ExplorerProps {
         iconBoxClasses: "icon-box",
         nameGapClasses: "name-gap",
         primaryItemButtonHeightClasses: "name-height",
-        rowActionButtonClasses: "row-action",
       },
     },
     loadMoreButtonClasses: "load-more",
