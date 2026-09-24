@@ -142,6 +142,7 @@ describe("AdminAssociationPicker", () => {
     );
 
     expect(screen.getByRole("checkbox", { name: "Operators" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Operators" })).toHaveClass("h-4", "w-4");
     await user.click(screen.getByRole("checkbox", { name: "Readers" }));
     expect(onToggle).toHaveBeenCalledWith(2);
   });

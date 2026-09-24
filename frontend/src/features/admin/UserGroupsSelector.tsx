@@ -5,7 +5,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { UiGroupSummary } from "../../api/groups";
 import { formInlineDeleteClasses } from "../../components/formInlineActionClasses";
-import { AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
+import { AdminAssociationLinkedTable, AdminAssociationOptionCheckbox, AdminAssociationPickerPanel, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
 
 type UserGroupsSelectorProps = {
   groups: UiGroupSummary[];
@@ -101,28 +101,25 @@ export default function UserGroupsSelector({
             {visibleGroups.slice(0, maxVisibleOptions).map((group) => {
               const checked = selections.includes(group.id);
               return (
-                <label key={group.id} className={adminAssociationOptionRowClass(checked)}>
-                  <span className={adminAssociationOptionLabelClass}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() =>
-                        setSelections((current) =>
-                          current.includes(group.id)
-                            ? current.filter((id) => id !== group.id)
-                            : [...current, group.id],
-                        )
-                      }
-                      className={adminAssociationCheckboxClass}
-                    />
+                <div key={group.id} className={adminAssociationOptionRowClass(checked)}>
+                  <AdminAssociationOptionCheckbox
+                    checked={checked}
+                    onChange={() =>
+                      setSelections((current) =>
+                        current.includes(group.id)
+                          ? current.filter((id) => id !== group.id)
+                          : [...current, group.id],
+                      )
+                    }
+                  >
                     <span>{group.name}</span>
-                  </span>
+                  </AdminAssociationOptionCheckbox>
                   {group.description ? (
                     <span className="max-w-md truncate ui-caption text-slate-500 dark:text-slate-400">
                       {group.description}
                     </span>
                   ) : null}
-                </label>
+                </div>
               );
             })}
           </AdminAssociationPickerPanel>

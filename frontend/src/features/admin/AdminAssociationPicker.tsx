@@ -9,16 +9,16 @@ import { useId, type ReactNode } from "react";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
 
 import UiButton from "../../components/ui/UiButton";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTableContainerClass } from "../../components/ui/styles";
 import "./adminAssociations.css";
 
 const adminAssociationAddPanelClass = cx(uiCardMutedClass, "space-y-2 px-3 py-2");
 export const adminAssociationPanelClass = "mt-3 min-w-0 space-y-3";
-export const adminAssociationCheckboxClass = "h-3 w-3 rounded border-slate-300 text-primary focus:ring-primary";
 export const adminAssociationTableContainerClass = uiTableContainerClass;
 
-export const adminAssociationOptionLabelClass = "flex items-center gap-2 ui-body text-slate-700 dark:text-slate-200";
-export const adminAssociationAccountOptionLabelClass =
+const adminAssociationOptionLabelClass = "flex items-center gap-2 ui-body text-slate-700 dark:text-slate-200";
+const adminAssociationAccountOptionLabelClass =
   "flex min-w-48 items-center gap-2 ui-body text-slate-700 dark:text-slate-200";
 export const adminAssociationOptionRowClass = (selected: boolean) =>
   `flex items-center justify-between rounded-md px-2 py-1 ${
@@ -29,6 +29,29 @@ export const adminAssociationAccountOptionRowClass = (selected: boolean) =>
   `flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1 ${
     selected ? "bg-[var(--ui-selected-bg)]" : "hover:bg-[var(--ui-hover)]"
   }`;
+
+type AdminAssociationOptionCheckboxProps = Omit<
+  React.ComponentProps<typeof UiCheckboxField>,
+  "checkboxClassName"
+> & {
+  account?: boolean;
+};
+
+export function AdminAssociationOptionCheckbox({
+  account = false,
+  className,
+  ...props
+}: AdminAssociationOptionCheckboxProps) {
+  return (
+    <UiCheckboxField
+      {...props}
+      className={cx(
+        account ? adminAssociationAccountOptionLabelClass : adminAssociationOptionLabelClass,
+        className,
+      )}
+    />
+  );
+}
 
 type AdminAssociationSectionHeaderProps = {
   title: string;
@@ -170,15 +193,12 @@ export function AdminAssociationCheckboxOptions<T extends { id: number }>({
         const isSelected = selectedIds.includes(option.id);
         return (
           <div key={option.id} className={adminAssociationOptionRowClass(isSelected)}>
-            <label className={adminAssociationOptionLabelClass}>
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => onToggle(option.id)}
-                className={adminAssociationCheckboxClass}
-              />
+            <AdminAssociationOptionCheckbox
+              checked={isSelected}
+              onChange={() => onToggle(option.id)}
+            >
               <span>{getLabel(option)}</span>
-            </label>
+            </AdminAssociationOptionCheckbox>
           </div>
         );
       })}

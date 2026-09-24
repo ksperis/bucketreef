@@ -17,7 +17,7 @@ import AccountAccessRoleSelectors, {
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
-import { AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationCheckboxClass, adminAssociationOptionLabelClass, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
+import { AdminAssociationOptionCheckbox, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
 
 export type AccountSelection = AccountAccessGrant & {
   id: number;
@@ -220,15 +220,13 @@ export default function UserAccountAssociationsPanel({
                 key={option.id}
                 className={adminAssociationAccountOptionRowClass(isSelected)}
               >
-                <label className={adminAssociationOptionLabelClass}>
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => accounts.toggleSelection(accountId)}
-                    className={adminAssociationCheckboxClass}
-                  />
+                <AdminAssociationOptionCheckbox
+                  account
+                  checked={isSelected}
+                  onChange={() => accounts.toggleSelection(accountId)}
+                >
                   <span>{option.label}</span>
-                </label>
+                </AdminAssociationOptionCheckbox>
                 <div className="flex flex-wrap items-center gap-2">
                   <AccountAccessRoleSelectors
                     label={option.label}

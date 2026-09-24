@@ -68,7 +68,7 @@ import {
   ManagerToolAccessSection,
   WorkspaceAccessSection,
 } from "./AdminAccessSections";
-import { AdminAssociationLinkedTable, AdminAssociationTabs, adminAssociationPanelClass, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationAccountOptionLabelClass, adminAssociationCheckboxClass, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
+import { AdminAssociationLinkedTable, AdminAssociationOptionCheckbox, AdminAssociationTabs, adminAssociationPanelClass, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
@@ -589,18 +589,19 @@ export default function GroupsPage() {
             }}
           >
             {visibleUsers.map((user) => (
-              <label
+              <div
                 key={user.id}
                 className={adminAssociationOptionRowClass(memberSelections.includes(user.id))}
               >
-                <span className="ui-body text-slate-700 dark:text-slate-200">{user.email}</span>
-                <input
-                  type="checkbox"
+                <AdminAssociationOptionCheckbox
                   checked={memberSelections.includes(user.id)}
                   onChange={() => togglePendingSelection(setMemberSelections, user.id)}
-                  className={adminAssociationCheckboxClass}
-                />
-              </label>
+                  inputPosition="end"
+                  className="w-full justify-between"
+                >
+                  <span>{user.email}</span>
+                </AdminAssociationOptionCheckbox>
+              </div>
             ))}
           </AdminAssociationPickerPanel>
         ) : undefined
@@ -754,15 +755,13 @@ export default function GroupsPage() {
                       const selected = accountSelections.includes(accountId);
                       return (
                         <div key={accountId} className={adminAssociationAccountOptionRowClass(selected)}>
-                          <label className={adminAssociationAccountOptionLabelClass}>
-                            <input
-                              type="checkbox"
+                          <AdminAssociationOptionCheckbox
+                            account
                               checked={selected}
                               onChange={() => togglePendingSelection(setAccountSelections, accountId)}
-                              className={adminAssociationCheckboxClass}
-                            />
+                          >
                             <span>{account.name}</span>
-                          </label>
+                          </AdminAssociationOptionCheckbox>
                           <div className="flex flex-wrap items-center gap-2">
                             <AccountAccessRoleSelectors
                               label={account.name}
@@ -876,18 +875,19 @@ export default function GroupsPage() {
                     }}
                   >
                     {visibleS3Users.map((s3User) => (
-                      <label
+                      <div
                         key={s3User.id}
                         className={adminAssociationOptionRowClass(s3UserSelections.includes(s3User.id))}
                       >
-                        <span className="ui-body text-slate-700 dark:text-slate-200">{s3User.name}</span>
-                        <input
-                          type="checkbox"
+                        <AdminAssociationOptionCheckbox
                           checked={s3UserSelections.includes(s3User.id)}
                           onChange={() => togglePendingSelection(setS3UserSelections, s3User.id)}
-                          className={adminAssociationCheckboxClass}
-                        />
-                      </label>
+                          inputPosition="end"
+                          className="w-full justify-between"
+                        >
+                          <span>{s3User.name}</span>
+                        </AdminAssociationOptionCheckbox>
+                      </div>
                     ))}
                   </AdminAssociationPickerPanel>
                 ) : undefined
@@ -962,18 +962,19 @@ export default function GroupsPage() {
                     }}
                   >
                     {visibleConnections.map((connection) => (
-                      <label
+                      <div
                         key={connection.id}
                         className={adminAssociationOptionRowClass(connectionSelections.includes(connection.id))}
                       >
-                        <span className="ui-body text-slate-700 dark:text-slate-200">{connection.name}</span>
-                        <input
-                          type="checkbox"
+                        <AdminAssociationOptionCheckbox
                           checked={connectionSelections.includes(connection.id)}
                           onChange={() => togglePendingSelection(setConnectionSelections, connection.id)}
-                          className={adminAssociationCheckboxClass}
-                        />
-                      </label>
+                          inputPosition="end"
+                          className="w-full justify-between"
+                        >
+                          <span>{connection.name}</span>
+                        </AdminAssociationOptionCheckbox>
+                      </div>
                     ))}
                   </AdminAssociationPickerPanel>
                 ) : undefined
