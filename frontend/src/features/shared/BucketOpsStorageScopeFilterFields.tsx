@@ -2,14 +2,14 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiButton from "../../components/ui/UiButton";
-import { uiCheckboxClass } from "../../components/ui/styles";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiInput from "../../components/ui/UiInput";
+import AdvancedFilterFieldLabel from "./AdvancedFilterFieldLabel";
 import {
-  advancedFilterControlClass,
   advancedFilterFieldCardClass,
-  renderFilterCostIndicator,
 } from "./advancedFilterShared";
 import { buildAdvancedFilterFieldState } from "./bucketOpsAdvancedFilterUiProjection";
 import { formatBucketNamesPreview } from "./bucketOpsPresentation";
@@ -57,31 +57,32 @@ function StorageScopeFilterField({
   title,
   totalCount,
 }: StorageScopeFilterFieldProps) {
+  const filterId = useId();
   return (
     <div className={advancedFilterFieldCardClass("md:col-span-2")}>
       <div className="flex items-center justify-between gap-2">
-        <label
-          className={`ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${fieldState.labelClass}`}
-        >
-          <span className="inline-flex items-center gap-1">
-            <span>{title}</span>
-            {renderFilterCostIndicator("low", costTooltip)}
-          </span>
-        </label>
+        <AdvancedFilterFieldLabel
+          costLevel="low"
+          costTooltip={costTooltip}
+          fieldState={fieldState}
+          htmlFor={filterId}
+          label={title}
+        />
         <span className="ui-caption text-slate-500 dark:text-slate-400">
           {selectedCount}/{totalCount}
         </span>
       </div>
       <div className="mt-2 flex items-center gap-1.5">
-        <input
+        <UiInput
+          id={filterId}
           value={filterValue}
           onChange={(event) => onFilterChange(event.target.value)}
           onKeyDown={(event) => event.stopPropagation()}
           aria-label={`Filter ${pluralLabel}`}
           placeholder={`Filter ${pluralLabel}`}
-          className={advancedFilterControlClass(
-            `min-w-0 flex-1 px-2 py-1 font-normal ${fieldState.fieldClass}`,
-          )}
+          size="compact"
+          fieldClassName="min-w-0 flex-1"
+          className={`ui-list-control font-normal ${fieldState.fieldClass}`}
         />
         <UiButton
           type="button"
@@ -185,18 +186,14 @@ export default function BucketOpsStorageScopeFilterFields({
         {filteredStorageOpsContextItems.map((context) => {
               const selected = storageOpsContextSelectionSet.has(context.id);
               return (
-                <label
+                <UiCheckboxField
                   key={context.id}
+                  checked={selected}
+                  onChange={() => toggleAdvancedContextId(context.id)}
                   className={`flex cursor-pointer items-center gap-2 border-b border-slate-100 px-2 py-1 last:border-b-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/70 ${
                     selected ? "bg-primary/5 dark:bg-primary-500/10" : ""
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    onChange={() => toggleAdvancedContextId(context.id)}
-                    className={uiCheckboxClass}
-                  />
                   <div className="min-w-0 flex-1">
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate ui-caption font-semibold text-slate-800 dark:text-slate-100">
@@ -219,7 +216,7 @@ export default function BucketOpsStorageScopeFilterFields({
                       />
                     </div>
                   </div>
-                </label>
+                </UiCheckboxField>
               );
         })}
       </StorageScopeFilterField>
@@ -244,18 +241,14 @@ export default function BucketOpsStorageScopeFilterFields({
         {filteredStorageOpsEndpointItems.map((endpoint) => {
               const selected = storageOpsEndpointSelectionSet.has(endpoint.name);
               return (
-                <label
+                <UiCheckboxField
                   key={endpoint.name}
+                  checked={selected}
+                  onChange={() => toggleAdvancedEndpointName(endpoint.name)}
                   className={`flex cursor-pointer items-center gap-2 border-b border-slate-100 px-2 py-1 last:border-b-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/70 ${
                     selected ? "bg-primary/5 dark:bg-primary-500/10" : ""
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    onChange={() => toggleAdvancedEndpointName(endpoint.name)}
-                    className={uiCheckboxClass}
-                  />
                   <div className="min-w-0 flex-1">
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate ui-caption font-semibold text-slate-800 dark:text-slate-100">
@@ -278,7 +271,7 @@ export default function BucketOpsStorageScopeFilterFields({
                       />
                     </div>
                   </div>
-                </label>
+                </UiCheckboxField>
               );
         })}
       </StorageScopeFilterField>

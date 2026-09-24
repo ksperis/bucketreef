@@ -4,10 +4,10 @@
  */
 import { useId, type ReactNode } from "react";
 
+import UiTextarea from "../../components/ui/UiTextarea";
 import { cx } from "../../components/ui/styles";
 import AdvancedFilterFieldLabel from "./AdvancedFilterFieldLabel";
 import {
-  advancedFilterControlClass,
   advancedFilterFieldCardClass,
   advancedFilterMatchModeButtonClass,
   type AdvancedFilterFieldState,
@@ -91,16 +91,15 @@ export default function AdvancedFilterTextMatchField({
           </button>
         </div>
       </div>
-      <textarea
+      <UiTextarea
         id={controlId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => event.stopPropagation()}
         placeholder={placeholder}
         rows={rows}
-        className={advancedFilterControlClass(
-          cx("mt-2 w-full resize-y px-2 py-1.5 font-normal", fieldState.fieldClass, textareaClassName),
-        )}
+        size="compact"
+        className={cx("ui-list-control mt-2 w-full resize-y font-normal", fieldState.fieldClass, textareaClassName)}
       />
       {children}
     </div>
