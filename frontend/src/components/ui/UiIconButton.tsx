@@ -2,11 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ButtonHTMLAttributes, ReactNode } from "react";
-import { cx, uiButtonVariants, uiIconButtonClass } from "./styles";
+import { ButtonHTMLAttributes, forwardRef, ReactNode } from "react";
+import { cx, uiIconButtonClass, uiIconButtonVariants } from "./styles";
 
 type UiIconButtonSize = "compact" | "md";
-type UiIconButtonVariant = "neutral" | "ghost" | "danger";
+type UiIconButtonVariant = keyof typeof uiIconButtonVariants;
 
 const uiIconButtonSizeClasses: Record<UiIconButtonSize, string> = {
   compact: "h-6 w-6 text-sm",
@@ -20,7 +20,7 @@ type UiIconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children
   variant?: UiIconButtonVariant;
 };
 
-export default function UiIconButton({
+const UiIconButton = forwardRef<HTMLButtonElement, UiIconButtonProps>(function UiIconButton({
   label,
   icon,
   size = "md",
@@ -29,17 +29,17 @@ export default function UiIconButton({
   type = "button",
   title,
   ...props
-}: UiIconButtonProps) {
+}, ref) {
   return (
     <button
+      ref={ref}
       type={type}
       aria-label={label}
       title={title ?? label}
       className={cx(
         uiIconButtonClass,
         uiIconButtonSizeClasses[size],
-        variant === "ghost" && uiButtonVariants.ghost,
-        variant === "danger" && uiButtonVariants.danger,
+        uiIconButtonVariants[variant],
         className
       )}
       {...props}
@@ -47,4 +47,6 @@ export default function UiIconButton({
       {icon}
     </button>
   );
-}
+});
+
+export default UiIconButton;

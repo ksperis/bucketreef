@@ -55,7 +55,15 @@ export const uiButtonVariants: Record<"primary" | "secondary" | "ghost" | "warni
 };
 
 export const uiIconButtonClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] shadow-[var(--ui-shadow-soft)] transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex items-center justify-center rounded-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60";
+
+export const uiIconButtonVariants = {
+  neutral:
+    "border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text-muted)] shadow-[var(--ui-shadow-soft)] hover:border-primary hover:text-primary",
+  ghost:
+    "border border-transparent bg-transparent text-[var(--ui-text-muted)] shadow-none hover:bg-[var(--ui-hover)] hover:text-primary",
+  danger: uiButtonVariants.danger,
+} as const;
 
 export const uiMenuClass =
   "rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-[var(--shell-menu-shadow)]";

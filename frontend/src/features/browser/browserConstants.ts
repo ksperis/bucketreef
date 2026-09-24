@@ -22,8 +22,6 @@ export const operationStopClasses =
   "inline-flex items-center justify-center whitespace-nowrap rounded-full border border-rose-200 px-2 py-0.5 ui-caption font-semibold text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50 dark:border-rose-500/50 dark:text-rose-200 dark:hover:bg-rose-900/30";
 export const operationSecondaryClasses =
   "inline-flex items-center justify-center whitespace-nowrap rounded-full border border-slate-200 px-2 py-0.5 ui-caption font-semibold text-slate-600 transition hover:border-primary hover:text-primary disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-primary-500 dark:hover:text-primary-100";
-export const breadcrumbIconButtonClasses =
-  "inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:border-primary-500 dark:hover:text-primary-200";
 const contextMenuBaseClasses =
   "ui-list-menu-item";
 export const contextMenuItemClasses =
