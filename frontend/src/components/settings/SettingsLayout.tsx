@@ -8,7 +8,6 @@ import {
   cx,
   uiCheckboxClass,
   uiDividerClass,
-  uiInputClass,
   uiRadioClass,
   uiMutedTextClass,
   uiTitleTextClass,
@@ -69,8 +68,6 @@ type SettingsChoiceRowProps = {
   children?: ReactNode;
   className?: string;
 };
-
-export const settingsTextareaClassName = cx(uiInputClass, "min-h-[96px]");
 
 export const SettingsSection = ({
   title,
