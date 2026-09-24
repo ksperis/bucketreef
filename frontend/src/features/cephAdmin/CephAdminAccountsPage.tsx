@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import TableSortControls from "../../components/list/TableSortControls";
+import { ToolbarSearchTextarea } from "../../components/ToolbarSearchInput";
 import { toolbarMatchModeButtonClasses } from "../../components/toolbarControlClasses";
 import { ListActionButton, ListActions } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState } from "react";
@@ -785,33 +786,30 @@ export default function CephAdminAccountsPage() {
             title="Accounts"
             countLabel={`${total} result(s)`}
             search={
-              <div className="relative w-full sm:w-72">
-                <textarea
-                  aria-label="Quick filter"
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  onKeyDown={(event) => event.stopPropagation()}
-                  placeholder="Account ID(s)"
-                  rows={1}
-                  className={`ui-list-control ui-list-search w-full resize-y border bg-white text-slate-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-900 dark:text-slate-100 ${
-                    quickFilterFieldState.fieldClass || "border-slate-200 dark:border-slate-700"
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={toggleQuickFilterMode}
-                  disabled={quickFilterDraftForcesExact}
-                  className={toolbarMatchModeButtonClasses(
-                    quickFilterModeForDisplay,
-                    quickFilterPending,
-                    quickFilterDraftForcesExact
-                  )}
-                  title={formatQuickFilterMatchModeTitle(quickFilterModeForDisplay, quickFilterDraftForcesExact)}
-                  aria-label="Toggle quick filter match mode"
-                >
-                  {formatTextMatchModeSymbol(quickFilterModeForDisplay)}
-                </button>
-              </div>
+              <ToolbarSearchTextarea
+                label="Quick filter"
+                value={filter}
+                onChange={setFilter}
+                onKeyDown={(event) => event.stopPropagation()}
+                placeholder="Account ID(s)"
+                inputClassName={quickFilterFieldState.fieldClass}
+                trailingControl={
+                  <button
+                    type="button"
+                    onClick={toggleQuickFilterMode}
+                    disabled={quickFilterDraftForcesExact}
+                    className={toolbarMatchModeButtonClasses(
+                      quickFilterModeForDisplay,
+                      quickFilterPending,
+                      quickFilterDraftForcesExact
+                    )}
+                    title={formatQuickFilterMatchModeTitle(quickFilterModeForDisplay, quickFilterDraftForcesExact)}
+                    aria-label="Toggle quick filter match mode"
+                  >
+                    {formatTextMatchModeSymbol(quickFilterModeForDisplay)}
+                  </button>
+                }
+              />
             }
             filters={
               <button

@@ -3,12 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import UiSelect from "../../components/ui/UiSelect";
+import { ToolbarSearchTextarea } from "../../components/ToolbarSearchInput";
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import { UiTagBadge } from "../../components/UiTagSettings";
 import {
   toolbarCompactButtonClasses,
   toolbarMatchModeButtonClasses,
-  toolbarCompactInputClasses,
 } from "../../components/toolbarControlClasses";
 import { cx } from "../../components/ui/styles";
 import type { useBucketOpsFilterController } from "./useBucketOpsFilterController";
@@ -51,40 +51,35 @@ export function BucketOpsQuickFilter({
     updateQuickFilterDraft,
   } = controller;
   return (
-    <div className="relative w-full min-w-[16rem] sm:w-72">
-      <textarea
-        aria-label="Quick filter"
-        value={value}
-        onChange={(event) => updateQuickFilterDraft(event.target.value)}
-        onKeyDown={(event) => event.stopPropagation()}
-        placeholder="Bucket name(s)"
-        rows={1}
-        className={cx(
-          toolbarCompactInputClasses,
-          "ui-list-search w-full resize-y",
-          quickFilterFieldState.fieldClass ||
-            "border-slate-200 dark:border-slate-700",
-        )}
-      />
-      <button
-        type="button"
-        onClick={toggleQuickFilterMode}
-        disabled={quickFilterDraftForcesExact}
-        className={toolbarMatchModeButtonClasses(
-          quickFilterModeForDisplay,
-          quickFilterPending,
-          quickFilterDraftForcesExact,
-        )}
-        title={
-          quickFilterDraftForcesExact
-            ? "Quick filter mode: exact (locked by list input)"
-            : `Quick filter mode: ${quickFilterModeForDisplay === "contains" ? "contains" : "exact"}`
-        }
-        aria-label="Toggle quick filter match mode"
-      >
-        {quickFilterModeForDisplay === "contains" ? "~" : "="}
-      </button>
-    </div>
+    <ToolbarSearchTextarea
+      label="Quick filter"
+      value={value}
+      onChange={updateQuickFilterDraft}
+      onKeyDown={(event) => event.stopPropagation()}
+      placeholder="Bucket name(s)"
+      className="w-full min-w-[16rem] sm:w-72"
+      inputClassName={quickFilterFieldState.fieldClass}
+      trailingControl={
+        <button
+          type="button"
+          onClick={toggleQuickFilterMode}
+          disabled={quickFilterDraftForcesExact}
+          className={toolbarMatchModeButtonClasses(
+            quickFilterModeForDisplay,
+            quickFilterPending,
+            quickFilterDraftForcesExact,
+          )}
+          title={
+            quickFilterDraftForcesExact
+              ? "Quick filter mode: exact (locked by list input)"
+              : `Quick filter mode: ${quickFilterModeForDisplay === "contains" ? "contains" : "exact"}`
+          }
+          aria-label="Toggle quick filter match mode"
+        >
+          {quickFilterModeForDisplay === "contains" ? "~" : "="}
+        </button>
+      }
+    />
   );
 }
 
