@@ -15,6 +15,7 @@ type BucketUsageStatsPanelProps = {
   loading?: boolean;
   error?: string | null;
   recalculating?: boolean;
+  onCancel?: () => void;
   onRefresh?: () => void;
   onRecalculate?: () => void;
 };
@@ -24,6 +25,7 @@ export default function BucketUsageStatsPanel({
   loading,
   error,
   recalculating,
+  onCancel,
   onRefresh,
   onRecalculate,
 }: BucketUsageStatsPanelProps) {
@@ -43,16 +45,23 @@ export default function BucketUsageStatsPanel({
               {loading ? "Loading..." : "Refresh"}
             </UiButton>
           )}
-          {onRecalculate && (
+          {recalculating && onCancel ? (
+            <UiButton
+              size="sm"
+              variant="danger"
+              onClick={onCancel}
+            >
+              Cancel calculation
+            </UiButton>
+          ) : onRecalculate ? (
             <UiButton
               size="sm"
               variant="primary"
               onClick={onRecalculate}
-              disabled={recalculating}
             >
-              {recalculating ? "Calculating..." : "Recalculate"}
+              Recalculate
             </UiButton>
-          )}
+          ) : null}
         </>
       }
     >

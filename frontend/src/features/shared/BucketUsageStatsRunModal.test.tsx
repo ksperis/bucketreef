@@ -81,4 +81,33 @@ describe("BucketUsageStatsRunModal", () => {
       expect(bar).not.toHaveAttribute("aria-valuenow");
     }
   });
+
+  it("treats an aborted calculation as a cancellation", async () => {
+    streamStorageOpsBucketUsageStatsMock.mockImplementationOnce(
+      (_payload: unknown, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+    const user = userEvent.setup();
+    render(
+      <BucketUsageStatsRunModal
+        mode="storage-ops"
+        targets={[{ contextId: "ctx-1", contextName: "Context 1", bucketName: "bucket-a" }]}
+        onClose={() => undefined}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Run calculation" }));
+    const cancelButton = await screen.findByRole("button", { name: "Cancel" });
+    await user.click(cancelButton);
+
+    expect(await screen.findByText("Calculation canceled.")).toBeInTheDocument();
+    expect(screen.queryByText("Bucket usage stats calculation failed.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run calculation" })).toBeInTheDocument();
+  });
 });

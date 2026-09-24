@@ -263,8 +263,41 @@ describe("CephAdminMetricsPage", () => {
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Start recalculation" }));
     await waitFor(() =>
-      expect(streamCephAdminUsageStatsAggregateMock).toHaveBeenCalledWith(7, { parallelism: 8 })
+      expect(streamCephAdminUsageStatsAggregateMock).toHaveBeenCalledWith(
+        7,
+        { parallelism: 8 },
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      )
     );
     await waitFor(() => expect(getCephAdminUsageStatsAggregateMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("cancels a cluster usage stats recalculation without reporting an error", async () => {
+    streamCephAdminUsageStatsAggregateMock.mockImplementationOnce(
+      (_endpointId: number, _payload: unknown, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Usage composition" }));
+    await screen.findByText("Cluster usage composition");
+    fireEvent.click(screen.getByRole("button", { name: "Recalculate cluster" }));
+    const dialog = screen.getByRole("dialog", { name: "Recalculate cluster usage composition" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start recalculation" }));
+
+    const cancelButton = await screen.findByRole("button", { name: "Cancel calculation" });
+    const options = streamCephAdminUsageStatsAggregateMock.mock.calls[0][2] as { signal: AbortSignal };
+    fireEvent.click(cancelButton);
+
+    await waitFor(() => expect(options.signal.aborted).toBe(true));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Recalculate cluster" })).toBeInTheDocument());
+    expect(screen.queryByText("Unable to recalculate cluster usage composition.")).not.toBeInTheDocument();
+    expect(getCephAdminUsageStatsAggregateMock).toHaveBeenCalledTimes(1);
   });
 });

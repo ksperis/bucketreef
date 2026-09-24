@@ -421,6 +421,7 @@ function BucketDetailPageContent({
     loading: lifecycleLoading,
   } = lifecycleController;
   const {
+    cancelRecalculation: cancelUsageStatsRecalculation,
     error: usageStatsError,
     load: loadUsageStats,
     loading: usageStatsLoading,
@@ -1349,6 +1350,7 @@ function BucketDetailPageContent({
                 loading={usageStatsLoading}
                 error={usageStatsError}
                 recalculating={usageStatsRecalculating}
+                onCancel={cancelUsageStatsRecalculation}
                 onRefresh={loadUsageStats}
                 onRecalculate={recalculateUsageStats}
               />

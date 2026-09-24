@@ -25,6 +25,7 @@ type BucketUsageStatsAggregateCardProps = {
   error?: string | null;
   recalculating?: boolean;
   recalculateLabel: string;
+  onCancel?: () => void;
   onRecalculate?: () => void;
   className?: string;
   coverageItemLabel?: string;
@@ -41,6 +42,7 @@ export default function BucketUsageStatsAggregateCard({
   error,
   recalculating,
   recalculateLabel,
+  onCancel,
   onRecalculate,
   className,
   coverageItemLabel = "buckets",
@@ -65,15 +67,24 @@ export default function BucketUsageStatsAggregateCard({
       description={description}
       className={className}
       actions={
-        onRecalculate ? (
+        recalculating && onCancel ? (
+          <UiButton
+            size="sm"
+            variant="danger"
+            onClick={onCancel}
+            className="shrink-0"
+          >
+            Cancel calculation
+          </UiButton>
+        ) : onRecalculate ? (
           <UiButton
             size="sm"
             variant="secondary"
             onClick={onRecalculate}
-            disabled={loading || recalculating}
+            disabled={loading}
             className="shrink-0"
           >
-            {recalculating ? "Calculating..." : recalculateLabel}
+            {recalculateLabel}
           </UiButton>
         ) : null
       }

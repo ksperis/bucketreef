@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -63,6 +63,23 @@ const snapshot: BucketUsageStatsSnapshot = {
 };
 
 describe("BucketUsageStatsPanel", () => {
+  it("replaces recalculation with a cancel action while calculation is running", () => {
+    const onCancel = vi.fn();
+    render(
+      <BucketUsageStatsPanel
+        snapshot={snapshot}
+        recalculating
+        onCancel={onCancel}
+        onRecalculate={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Recalculate" })).not.toBeInTheDocument();
+    const cancelButton = screen.getByRole("button", { name: "Cancel calculation" });
+    fireEvent.click(cancelButton);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
   it("renders latest snapshot with current and non-current space ratios", () => {
     render(<BucketUsageStatsPanel snapshot={snapshot} />);
 

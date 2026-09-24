@@ -277,8 +277,48 @@ describe("AdminMetricsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Recalculate endpoint" }));
 
-    await waitFor(() => expect(streamAdminUsageStatsAggregateMock).toHaveBeenCalledWith(7, { parallelism: 8 }));
+    await waitFor(() =>
+      expect(streamAdminUsageStatsAggregateMock).toHaveBeenCalledWith(
+        7,
+        { parallelism: 8 },
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      )
+    );
     await waitFor(() => expect(getAdminUsageStatsAggregateMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("cancels a managed accounts usage stats recalculation without reporting an error", async () => {
+    listStorageEndpointsMock.mockResolvedValue([makeCephEndpoint()]);
+    streamAdminUsageStatsAggregateMock.mockImplementationOnce(
+      (_endpointId: number, _payload: unknown, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+
+    render(
+      <MemoryRouter>
+        <AdminMetricsPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Storage breakdown");
+    fireEvent.click(screen.getByRole("tab", { name: "Usage composition" }));
+    await screen.findByText("Managed accounts usage composition");
+    fireEvent.click(screen.getByRole("button", { name: "Recalculate endpoint" }));
+
+    const cancelButton = await screen.findByRole("button", { name: "Cancel calculation" });
+    const options = streamAdminUsageStatsAggregateMock.mock.calls[0][2] as { signal: AbortSignal };
+    fireEvent.click(cancelButton);
+
+    await waitFor(() => expect(options.signal.aborted).toBe(true));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Recalculate endpoint" })).toBeInTheDocument());
+    expect(screen.queryByText("Unable to recalculate managed accounts usage composition.")).not.toBeInTheDocument();
+    expect(getAdminUsageStatsAggregateMock).toHaveBeenCalledTimes(1);
   });
 
   it("keeps disabled usage logs inside the traffic card without empty counters", async () => {
