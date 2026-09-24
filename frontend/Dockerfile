@@ -16,7 +16,8 @@ FROM nginx:stable-alpine
 
 ENV CSP_CONNECT_SRC="'self'" \
     BACKEND_UPSTREAM="backend:8000"
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache \
+    && apk add --no-cache 'libexpat>=2.8.5-r0'
 COPY nginx.conf.template /etc/nginx/bucketreef.conf.template
 COPY docker-entrypoint.sh /usr/local/bin/bucketreef-entrypoint
 COPY --from=build /app/dist /usr/share/nginx/html
