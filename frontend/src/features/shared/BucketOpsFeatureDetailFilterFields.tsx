@@ -3,6 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
+import UiInput from "../../components/ui/UiInput";
+import UiSelect from "../../components/ui/UiSelect";
 import {
   type FeatureDetailFilterKey,
   type FeatureDetailFilters,
@@ -10,7 +12,6 @@ import {
   type NumericComparisonOpUi,
 } from "../cephAdmin/filtering/bucketAdvancedFilter";
 import {
-  advancedFilterControlClass,
   advancedFilterFieldCardClass,
 } from "./advancedFilterShared";
 import {
@@ -76,9 +77,9 @@ type BooleanFilterDefinition = {
 
 const FIELD_LABEL_CLASS =
   "ui-caption font-medium text-slate-700 dark:text-slate-200";
-const FULL_CONTROL_CLASS = "mt-1 w-full px-2 py-1.5";
-const PAIR_MODE_CONTROL_CLASS = "col-span-2 px-2 py-1.5";
-const PAIR_VALUE_CONTROL_CLASS = "col-span-3 px-2 py-1.5";
+const FULL_CONTROL_CLASS = "ui-list-control mt-1 w-full";
+const PAIR_MODE_FIELD_CLASS = "col-span-2";
+const PAIR_VALUE_FIELD_CLASS = "col-span-3";
 
 const PRESENCE_FILTER_OPTIONS: SelectOption[] = [
   { value: "any", label: "Any" },
@@ -274,14 +275,15 @@ function TextFilterField({
       <label htmlFor={id} className={FIELD_LABEL_CLASS}>
         {label}
       </label>
-      <input
+      <UiInput
         id={id}
         type="text"
         value={filters[field]}
         onChange={(event) => onFieldChange(field, event.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className={advancedFilterControlClass(className, disabled)}
+        size="compact"
+        className={className}
       />
     </div>
   );
@@ -308,19 +310,20 @@ function SelectFilterField({
       <label htmlFor={id} className={FIELD_LABEL_CLASS}>
         {label}
       </label>
-      <select
+      <UiSelect
         id={id}
         value={filters[field]}
         onChange={(event) => onFieldChange(field, event.target.value)}
         disabled={disabled}
-        className={advancedFilterControlClass(className, disabled)}
+        size="compact"
+        className={className}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </UiSelect>
     </div>
   );
 }
@@ -340,27 +343,31 @@ function PresenceTextFilterField({
     <div>
       <p className={FIELD_LABEL_CLASS}>{label}</p>
       <div className="mt-1 grid grid-cols-5 gap-2">
-        <select
+        <UiSelect
           id={fieldId(modeField)}
           aria-label={label + " mode"}
           value={filters[modeField]}
           onChange={(event) => onFieldChange(modeField, event.target.value)}
-          className={advancedFilterControlClass(PAIR_MODE_CONTROL_CLASS)}
+          size="compact"
+          fieldClassName={PAIR_MODE_FIELD_CLASS}
+          className="ui-list-control"
         >
           {modeOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
-        </select>
-        <input
+        </UiSelect>
+        <UiInput
           id={fieldId(valueField)}
           aria-label={label + " value"}
           type="text"
           value={filters[valueField]}
           onChange={(event) => onFieldChange(valueField, event.target.value)}
           placeholder={placeholder}
-          className={advancedFilterControlClass(PAIR_VALUE_CONTROL_CLASS)}
+          size="compact"
+          fieldClassName={PAIR_VALUE_FIELD_CLASS}
+          className="ui-list-control"
         />
       </div>
     </div>
@@ -387,36 +394,37 @@ function PresenceSelectFilterField({
     <div>
       <p className={FIELD_LABEL_CLASS}>{label}</p>
       <div className="mt-1 grid grid-cols-5 gap-2">
-        <select
+        <UiSelect
           id={fieldId(modeField)}
           aria-label={label + " mode"}
           value={filters[modeField]}
           onChange={(event) => onFieldChange(modeField, event.target.value)}
-          className={advancedFilterControlClass(PAIR_MODE_CONTROL_CLASS)}
+          size="compact"
+          fieldClassName={PAIR_MODE_FIELD_CLASS}
+          className="ui-list-control"
         >
           {modeOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
-        </select>
-        <select
+        </UiSelect>
+        <UiSelect
           id={fieldId(valueField)}
           aria-label={label + " value"}
           value={filters[valueField]}
           onChange={(event) => onFieldChange(valueField, event.target.value)}
           disabled={valueDisabled}
-          className={advancedFilterControlClass(
-            PAIR_VALUE_CONTROL_CLASS,
-            valueDisabled,
-          )}
+          size="compact"
+          fieldClassName={PAIR_VALUE_FIELD_CLASS}
+          className="ui-list-control"
         >
           {valueOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
-        </select>
+        </UiSelect>
       </div>
     </div>
   );
@@ -434,20 +442,22 @@ function NumericComparisonField({
     <div>
       <p className={FIELD_LABEL_CLASS}>{label}</p>
       <div className="mt-1 grid grid-cols-5 gap-2">
-        <select
+        <UiSelect
           id={fieldId(opField)}
           aria-label={label + " operator"}
           value={filters[opField]}
           onChange={(event) => onFieldChange(opField, event.target.value)}
-          className={advancedFilterControlClass(PAIR_MODE_CONTROL_CLASS)}
+          size="compact"
+          fieldClassName={PAIR_MODE_FIELD_CLASS}
+          className="ui-list-control"
         >
           {NUMERIC_FILTER_OPTIONS.map((operator) => (
             <option key={operator} value={operator}>
               {operator}
             </option>
           ))}
-        </select>
-        <input
+        </UiSelect>
+        <UiInput
           id={fieldId(valueField)}
           aria-label={label + " value"}
           type="number"
@@ -455,7 +465,9 @@ function NumericComparisonField({
           value={filters[valueField]}
           onChange={(event) => onFieldChange(valueField, event.target.value)}
           placeholder={placeholder}
-          className={advancedFilterControlClass(PAIR_VALUE_CONTROL_CLASS)}
+          size="compact"
+          fieldClassName={PAIR_VALUE_FIELD_CLASS}
+          className="ui-list-control"
         />
       </div>
     </div>

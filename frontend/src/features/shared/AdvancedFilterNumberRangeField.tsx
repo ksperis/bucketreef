@@ -4,10 +4,10 @@
  */
 import { useId } from "react";
 
+import UiInput from "../../components/ui/UiInput";
 import { cx } from "../../components/ui/styles";
 import AdvancedFilterFieldLabel from "./AdvancedFilterFieldLabel";
 import {
-  advancedFilterControlClass,
   advancedFilterFieldCardClass,
   type AdvancedFilterFieldState,
   type FilterCostLevel,
@@ -61,7 +61,7 @@ export default function AdvancedFilterNumberRangeField({
         label={label}
       />
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <input
+        <UiInput
           id={minId}
           type="number"
           inputMode="numeric"
@@ -71,12 +71,11 @@ export default function AdvancedFilterNumberRangeField({
           aria-label={`${controlLabel} minimum`}
           placeholder="Min"
           disabled={disabled}
-          className={advancedFilterControlClass(
-            cx("w-full px-2 py-1.5 font-normal", minFieldState.fieldClass),
-            disabled,
-          )}
+          size="compact"
+          fieldClassName="min-w-0"
+          className={cx("ui-list-control w-full font-normal", minFieldState.fieldClass)}
         />
-        <input
+        <UiInput
           id={maxId}
           type="number"
           inputMode="numeric"
@@ -86,10 +85,9 @@ export default function AdvancedFilterNumberRangeField({
           aria-label={`${controlLabel} maximum`}
           placeholder="Max"
           disabled={disabled}
-          className={advancedFilterControlClass(
-            cx("w-full px-2 py-1.5 font-normal", maxFieldState.fieldClass),
-            disabled,
-          )}
+          size="compact"
+          fieldClassName="min-w-0"
+          className={cx("ui-list-control w-full font-normal", maxFieldState.fieldClass)}
         />
       </div>
     </div>

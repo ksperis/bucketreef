@@ -2,14 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import UiSelect from "../../components/ui/UiSelect";
+import { cx } from "../../components/ui/styles";
 import AdvancedFilterTextMatchField from "./AdvancedFilterTextMatchField";
 import AdvancedFilterSelectField from "./AdvancedFilterSelectField";
-import {
-  advancedFilterControlClass,
-  advancedFilterFieldCardClass,
-  advancedFilterMatchModeButtonClass,
-  renderFilterCostIndicator,
-} from "./advancedFilterShared";
 import {
   BOOLEAN_FILTER_OPTIONS,
   type AdvancedFilterState,
@@ -100,79 +96,40 @@ export default function BucketOpsIdentityFilterFields({
         value={advancedDraft.owner}
       />
 
-      <div className={advancedFilterFieldCardClass("md:col-span-2")}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <label
-            className={`ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${ownerNameFieldState.labelClass}`}
-          >
-            <span className="inline-flex items-center gap-1">
-              <span>Owner name</span>
-              {renderFilterCostIndicator(
-                "medium",
-                "Medium cost: owner-name filters require owner identity lookups.",
-              )}
-            </span>
-          </label>
-          <div className="inline-flex items-center gap-1">
-            <button
-              type="button"
-              disabled={ownerNameDraftForcesExact}
-              onClick={() =>
-                updateAdvancedMatchMode("ownerNameMatchMode", "contains")
-              }
-              className={advancedFilterMatchModeButtonClass(
-                ownerNameDraftEffectiveMatchMode === "contains",
-                ownerNameDraftForcesExact,
-              )}
-            >
-              Contains
-            </button>
-            <button
-              type="button"
-              disabled={ownerNameDraftForcesExact}
-              onClick={() =>
-                updateAdvancedMatchMode("ownerNameMatchMode", "exact")
-              }
-              className={advancedFilterMatchModeButtonClass(
-                ownerNameDraftEffectiveMatchMode === "exact",
-                ownerNameDraftForcesExact,
-              )}
-            >
-              Exact
-            </button>
-          </div>
-        </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
-          <textarea
-            value={advancedDraft.ownerName}
-            onChange={(event) =>
-              updateAdvancedField("ownerName", event.target.value)
-            }
-            onKeyDown={(event) => event.stopPropagation()}
-            placeholder="display name(s)"
-            rows={2}
-            className={advancedFilterControlClass(
-              `w-full resize-y px-2 py-1.5 font-normal ${ownerNameFieldState.fieldClass}`,
-            )}
-          />
-          <select
+      <AdvancedFilterTextMatchField
+        className="md:col-span-2"
+        costLevel="medium"
+        costTooltip="Medium cost: owner-name filters require owner identity lookups."
+        fieldState={ownerNameFieldState}
+        forcesExact={ownerNameDraftForcesExact}
+        label="Owner name"
+        matchMode={ownerNameDraftEffectiveMatchMode}
+        onChange={(value) => updateAdvancedField("ownerName", value)}
+        onMatchModeChange={(value) =>
+          updateAdvancedMatchMode("ownerNameMatchMode", value)
+        }
+        placeholder="display name(s)"
+        value={advancedDraft.ownerName}
+      >
+        <div className="mt-2 max-w-xs">
+          <UiSelect
+            label="Owner type"
+            title="Owner entity scope"
+            size="compact"
             value={advancedDraft.ownerNameScope}
             onChange={(event) =>
               updateAdvancedOwnerNameScope(
                 event.target.value as AdvancedFilterState["ownerNameScope"],
               )
             }
-            className={advancedFilterControlClass(
-              `px-2 py-1.5 font-normal ${ownerNameFieldState.fieldClass}`,
-            )}
-            title="Owner entity scope"
+            className={cx("ui-list-control", ownerNameFieldState.fieldClass)}
           >
             <option value="any">Accounts + Users</option>
             <option value="account">Accounts only</option>
             <option value="user">Users only</option>
-          </select>
+          </UiSelect>
         </div>
-      </div>
+      </AdvancedFilterTextMatchField>
 
       <AdvancedFilterSelectField
         label="Owner suspended"

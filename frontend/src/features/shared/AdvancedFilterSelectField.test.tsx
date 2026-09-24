@@ -49,8 +49,9 @@ describe("AdvancedFilterSelectField", () => {
     );
 
     expect(screen.getByTitle("Medium cost")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Owner suspended" })).toBeDisabled();
-    expect(screen.getByRole("combobox")).toHaveClass("disabled:cursor-not-allowed");
+    const select = screen.getByRole("combobox", { name: "Owner suspended" });
+    expect(select).toBeDisabled();
+    expect(select).toHaveClass("ui-control", "ui-control-compact", "field-state");
   });
 
   it("associates optional field guidance with the select", () => {

@@ -4,10 +4,10 @@
  */
 import { useId, type ReactNode } from "react";
 
+import UiSelect from "../../components/ui/UiSelect";
 import { cx } from "../../components/ui/styles";
 import AdvancedFilterFieldLabel from "./AdvancedFilterFieldLabel";
 import {
-  advancedFilterControlClass,
   advancedFilterFieldCardClass,
   type AdvancedFilterFieldState,
   type FilterCostLevel,
@@ -54,20 +54,18 @@ export default function AdvancedFilterSelectField({
         htmlFor={controlId}
         label={label}
       />
-      <select
+      <UiSelect
         id={controlId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
         aria-describedby={hintId}
         title={title}
-        className={advancedFilterControlClass(
-          cx("mt-2 w-full px-2 py-1.5 font-normal", fieldState.fieldClass, selectClassName),
-          disabled,
-        )}
+        size="compact"
+        className={cx("ui-list-control mt-2 w-full font-normal", fieldState.fieldClass, selectClassName)}
       >
         {children}
-      </select>
+      </UiSelect>
       {hint ? (
         <p id={hintId} className="mt-1 ui-caption text-[var(--ui-text-muted)]">
           {hint}
