@@ -1,7 +1,7 @@
 import { ThemeProvider } from "../../components/theme";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSettings, GeneralFeatureLocks, QuotaNotificationSettings } from "../../api/appSettings";
 import { ApiError } from "../../api/client";
@@ -202,6 +202,25 @@ describe("GeneralSettingsPage branding", () => {
     expect(screen.queryByLabelText("Access-key endpoint list")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Custom login endpoint")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Private S3 connections for UI users")).not.toBeInTheDocument();
+  });
+
+  it("links the setup assistant to production readiness", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/admin/settings/general"]}>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/admin/settings/general" element={<GeneralSettingsPage />} />
+            <Route path="/admin/production-readiness" element={<div>Production readiness destination</div>} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Production hardening");
+    await user.click(screen.getByRole("button", { name: "Review production readiness" }));
+
+    expect(await screen.findByText("Production readiness destination")).toBeInTheDocument();
   });
 
   it("does not render manager extra tools toggles", async () => {

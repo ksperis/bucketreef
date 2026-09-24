@@ -365,6 +365,19 @@ export default function GeneralSettingsPage() {
             </SettingsButton>
           }
         />
+        <SettingsItem
+          compact
+          title="Production hardening"
+          description="Review the deployment, authentication and operational recommendations before exposing this instance in production."
+          action={
+            <SettingsButton
+              variant="secondary"
+              onClick={() => navigate("/admin/production-readiness")}
+            >
+              Review production readiness
+            </SettingsButton>
+          }
+        />
         {onboardingError && <UiInlineMessage tone="error">{onboardingError}</UiInlineMessage>}
       </SettingsSection>
       <SettingsSection
