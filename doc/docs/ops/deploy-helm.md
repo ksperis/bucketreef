@@ -217,9 +217,9 @@ CronJob is enabled on that release. Run the production hardening checker in one
 backend pod from each release before exposing the ingresses.
 
 For a dedicated Ceph Admin boundary, switch the main Administration release to
-`deploymentProfile=admin-no-ceph-admin` and deploy
-`deploymentProfile=ceph-admin-high-security` separately. This ensures the
-normal Admin ingress no longer mounts `/ceph-admin`. The dedicated profile
+`deploymentProfile=admin-no-ceph-admin` (or `values-admin-no-ceph-admin.yaml`)
+and deploy `deploymentProfile=ceph-admin-high-security` separately. This removes
+`/ceph-admin` from the normal Administration ingress. The dedicated profile
 mounts Ceph Admin only, disables jobs, and does not consume
 `internal-cron-token`. Point `backend.existingSecret` at the shared Secret or a
 dedicated Secret with an isolated database/key ring. See
