@@ -48,7 +48,8 @@ export default function BucketFeatureEditorDialog({
       submitLabel="Save"
       onSubmit={onSave}
       onClose={onClose}
-      maxWidthClass="max-w-5xl"
+      className="bucket-feature-editor-dialog"
+      maxWidthClass="max-w-4xl"
       maxBodyHeightClass="max-h-[calc(100dvh-10rem)]"
     >
       <PageTabs

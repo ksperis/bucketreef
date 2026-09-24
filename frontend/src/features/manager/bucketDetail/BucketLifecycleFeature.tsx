@@ -12,8 +12,6 @@ import {
 import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import UiTextarea from "../../../components/ui/UiTextarea";
-import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import {
   describeLifecycleActions,
@@ -24,7 +22,13 @@ import {
   type LifecycleRuleRecord,
 } from "../bucketLifecycle";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
-import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
+import {
+  BucketFeatureEditorEmpty,
+  BucketFeatureEditorItem,
+  BucketFeatureEditorList,
+  BucketFeatureEditorToolbar,
+  BucketFeatureJsonPane,
+} from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
@@ -47,15 +51,6 @@ type LifecycleTableRow = {
   rule: LifecycleRuleRecord;
 };
 
-const lifecycleJsonExample = `[
-  {
-    "ID": "expire-logs",
-    "Status": "Enabled",
-    "Filter": { "Prefix": "logs/" },
-    "Expiration": { "Days": 30 }
-  }
-]`;
-
 function LifecycleActionGroup({
   title,
   configured,
@@ -68,17 +63,17 @@ function LifecycleActionGroup({
   const [open, setOpen] = useState(configured);
   return (
     <details
-      className="rounded-md border border-[color:var(--ui-border-soft)]"
+      className="border-t border-[color:var(--ui-border-soft)] pt-1"
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 settings-label">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 py-2 settings-label">
         <span>{title}</span>
         <span className="settings-description font-normal">
           {configured ? "Configured" : "Optional"}
         </span>
       </summary>
-      <div className="border-t border-[color:var(--ui-border-soft)] p-3">{children}</div>
+      <div className="pb-1 pt-2">{children}</div>
     </details>
   );
 }
@@ -103,7 +98,7 @@ function LifecycleRuleEditor({
 
   if (!editable) {
     return (
-      <div className={cx(uiCardMutedClass, "space-y-2 px-3 py-3")} data-testid="lifecycle-advanced-rule">
+      <BucketFeatureEditorItem testId="lifecycle-advanced-rule">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="settings-label break-all">{ruleLabel}</p>
@@ -116,16 +111,15 @@ function LifecycleRuleEditor({
             Remove rule
           </SettingsButton>
         </div>
-      </div>
+      </BucketFeatureEditorItem>
     );
   }
 
   return (
-    <div className={cx(uiCardMutedClass, "space-y-4 px-3 py-3")} data-testid="lifecycle-visual-rule">
+    <BucketFeatureEditorItem testId="lifecycle-visual-rule">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="settings-label break-all">{ruleLabel}</p>
-          <p className="settings-description">Rule {index + 1} · changes apply only on Save.</p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
           Remove rule
@@ -195,7 +189,7 @@ function LifecycleRuleEditor({
               disabled={disabled}
             />
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[color:var(--ui-border-soft)] px-3 py-2">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--ui-border-soft)] pt-3">
             <div>
               <p className="settings-label">Expired object delete marker</p>
               <p className="settings-description">Remove expired delete markers when S3 considers them eligible.</p>
@@ -257,12 +251,11 @@ function LifecycleRuleEditor({
           </div>
         </LifecycleActionGroup>
       </div>
-    </div>
+    </BucketFeatureEditorItem>
   );
 }
 
 export default function BucketLifecycleFeature({ controller }: BucketLifecycleFeatureProps) {
-  const [showJsonExample, setShowJsonExample] = useState(false);
   const {
     addDraftRule,
     closeEditor,
@@ -346,14 +339,17 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
 
   const visualEditor = (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="settings-description">
+      <BucketFeatureEditorToolbar
+        action={
+          <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
+            Add rule
+          </SettingsButton>
+        }
+      >
+        <p>
           Supported rules can be edited here. Advanced S3 constructs remain read-only in Visual mode.
         </p>
-        <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
-          Add rule
-        </SettingsButton>
-      </div>
+      </BucketFeatureEditorToolbar>
       {lastRemovedRule ? (
         <UiInlineMessage>
           <span className="flex flex-wrap items-center gap-2">
@@ -376,46 +372,39 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
               Saving will remove the Lifecycle configuration from this bucket.
             </UiInlineMessage>
           ) : null}
-          <div className={cx(uiCardMutedClass, "px-3 py-4 text-center settings-description")}>
+          <BucketFeatureEditorEmpty>
             No lifecycle rules. Add a rule or switch to JSON.
-          </div>
+          </BucketFeatureEditorEmpty>
         </div>
       ) : (
-        draftRules.map((rule, index) => (
-          <LifecycleRuleEditor
-            key={`lifecycle-rule-${index}`}
-            index={index}
-            rule={rule}
-            disabled={saving}
-            onChange={(patch) => updateDraftRule(index, patch)}
-            onRemove={() => removeDraftRule(index)}
-          />
-        ))
+        <BucketFeatureEditorList>
+          {draftRules.map((rule, index) => (
+            <LifecycleRuleEditor
+              key={`lifecycle-rule-${index}`}
+              index={index}
+              rule={rule}
+              disabled={saving}
+              onChange={(patch) => updateDraftRule(index, patch)}
+              onRemove={() => removeDraftRule(index)}
+            />
+          ))}
+        </BucketFeatureEditorList>
       )}
     </div>
   );
 
   const jsonEditor = (
-    <div className="space-y-3">
-      <p className="settings-description">
+    <BucketFeatureJsonPane
+      description={
+        <>
         Edit the complete S3 Lifecycle <code>Rules</code> array. Switching back to Visual validates this JSON first.
-      </p>
-      <UiTextarea
-        label="Lifecycle rules (JSON)"
-        value={jsonText}
-        onChange={(event) => updateJsonText(event.target.value)}
-        rows={20}
-        className="settings-control font-mono"
-        disabled={saving}
-      />
-      <BucketFeatureJsonExample
-        show={showJsonExample}
-        onToggle={() => setShowJsonExample((current) => !current)}
-        example={lifecycleJsonExample}
-        onUseExample={() => updateJsonText(lifecycleJsonExample)}
-        disabled={saving}
-      />
-    </div>
+        </>
+      }
+      label="Lifecycle rules (JSON)"
+      value={jsonText}
+      onChange={updateJsonText}
+      disabled={saving}
+    />
   );
 
   return (

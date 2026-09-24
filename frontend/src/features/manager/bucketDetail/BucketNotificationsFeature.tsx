@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import DataTableShell, { type DataTableColumn } from "../../../components/list/DataTableShell";
 import {
   SettingsButton,
@@ -12,10 +12,16 @@ import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiTextarea from "../../../components/ui/UiTextarea";
-import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
-import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
+import {
+  BucketFeatureEditorEmpty,
+  BucketFeatureEditorGroup,
+  BucketFeatureEditorItem,
+  BucketFeatureEditorList,
+  BucketFeatureEditorToolbar,
+  BucketFeatureJsonPane,
+} from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
@@ -35,33 +41,12 @@ type BucketNotificationsController = ReturnType<typeof useBucketNotificationsCon
 
 type BucketNotificationsFeatureProps = {
   controller: BucketNotificationsController;
-  exampleAccountId: string;
 };
 
 type NotificationSummaryRow = {
   key: string;
   topic: NotificationTopicRecord;
 };
-
-function buildNotificationExample(accountId: string) {
-  return `{
-  "TopicConfigurations": [
-    {
-      "Id": "ObjectCreateAll",
-      "TopicArn": "arn:aws:sns:default:${accountId}:example-topic",
-      "Events": ["s3:ObjectCreated:*"],
-      "Filter": {
-        "Key": {
-          "FilterRules": [
-            { "Name": "prefix", "Value": "uploads/" },
-            { "Name": "suffix", "Value": ".json" }
-          ]
-        }
-      }
-    }
-  ]
-}`;
-}
 
 const commonEventValues = new Set<string>(commonNotificationEvents.map((event) => event.value));
 
@@ -95,10 +80,7 @@ function NotificationTopicEditor({
 
   if (!editable) {
     return (
-      <div
-        className={cx(uiCardMutedClass, "space-y-2 px-3 py-3")}
-        data-testid="notifications-advanced-topic"
-      >
+      <BucketFeatureEditorItem testId="notifications-advanced-topic">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
             <p className="settings-label break-all">{topicLabel}</p>
@@ -111,7 +93,7 @@ function NotificationTopicEditor({
           </div>
           <UiBadge tone="warning">Advanced notification — edit in JSON</UiBadge>
         </div>
-      </div>
+      </BucketFeatureEditorItem>
     );
   }
 
@@ -124,16 +106,10 @@ function NotificationTopicEditor({
   };
 
   return (
-    <div
-      className={cx(uiCardMutedClass, "space-y-4 px-3 py-3")}
-      data-testid="notifications-visual-topic"
-    >
+    <BucketFeatureEditorItem testId="notifications-visual-topic">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="settings-label">Topic notification {index + 1}</p>
-          <p className="settings-description">
-            Changes stay local until the whole notification configuration is saved.
-          </p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
           Remove notification
@@ -157,7 +133,7 @@ function NotificationTopicEditor({
         />
       </div>
 
-      <div className="space-y-3 rounded-md border border-[color:var(--ui-border-soft)] p-3">
+      <BucketFeatureEditorGroup>
         <div>
           <p className="settings-label">Events</p>
           <p className="settings-description">
@@ -194,9 +170,9 @@ function NotificationTopicEditor({
           spellCheck={false}
           disabled={disabled}
         />
-      </div>
+      </BucketFeatureEditorGroup>
 
-      <div className="space-y-3 rounded-md border border-[color:var(--ui-border-soft)] p-3">
+      <BucketFeatureEditorGroup>
         <div>
           <p className="settings-label">Object key filter</p>
           <p className="settings-description">
@@ -219,16 +195,14 @@ function NotificationTopicEditor({
             disabled={disabled}
           />
         </div>
-      </div>
-    </div>
+      </BucketFeatureEditorGroup>
+    </BucketFeatureEditorItem>
   );
 }
 
 export default function BucketNotificationsFeature({
   controller,
-  exampleAccountId,
 }: BucketNotificationsFeatureProps) {
-  const [showJsonExample, setShowJsonExample] = useState(false);
   const {
     addDraftTopic,
     closeEditor,
@@ -316,21 +290,24 @@ export default function BucketNotificationsFeature({
 
   const visualEditor = (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <BucketFeatureEditorToolbar
+        action={
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={addDraftTopic}
+            disabled={saving || !canAddTopic}
+          >
+            Add topic notification
+          </SettingsButton>
+        }
+      >
         <div className="max-w-3xl">
-          <p className="settings-description">
+          <p>
             Topic notifications supported by BucketReef can be edited here. Advanced S3 notification structures remain untouched and are edited in JSON.
           </p>
         </div>
-        <SettingsButton
-          type="button"
-          variant="secondary"
-          onClick={addDraftTopic}
-          disabled={saving || !canAddTopic}
-        >
-          Add topic notification
-        </SettingsButton>
-      </div>
+      </BucketFeatureEditorToolbar>
 
       {hasAdvancedDraftTopLevel ? (
         <UiInlineMessage tone="warning">
@@ -339,52 +316,38 @@ export default function BucketNotificationsFeature({
       ) : null}
 
       {draftTopics.length === 0 ? (
-        <div className={cx(uiCardMutedClass, "px-3 py-4 text-center settings-description")}>
+        <BucketFeatureEditorEmpty>
           No topic notifications. Add one here or use JSON for advanced notification types.
-        </div>
+        </BucketFeatureEditorEmpty>
       ) : (
-        draftTopics.map((topic, index) => (
-          <NotificationTopicEditor
-            key={`${notificationTopicId(topic) ?? notificationTopicArn(topic) ?? "topic"}-${index}`}
-            index={index}
-            topic={topic}
-            disabled={saving}
-            onChange={(patch) => updateDraftTopic(index, patch)}
-            onRemove={() => removeDraftTopic(index)}
-          />
-        ))
+        <BucketFeatureEditorList>
+          {draftTopics.map((topic, index) => (
+            <NotificationTopicEditor
+              key={`${notificationTopicId(topic) ?? notificationTopicArn(topic) ?? "topic"}-${index}`}
+              index={index}
+              topic={topic}
+              disabled={saving}
+              onChange={(patch) => updateDraftTopic(index, patch)}
+              onRemove={() => removeDraftTopic(index)}
+            />
+          ))}
+        </BucketFeatureEditorList>
       )}
     </div>
   );
 
-  const example = buildNotificationExample(exampleAccountId);
   const jsonEditor = (
-    <div className="space-y-3">
+    <BucketFeatureJsonPane
+      description="Edit the complete S3 notification configuration object. Switching back to Visual validates the JSON first."
+      label="Notification configuration (JSON)"
+      value={jsonText}
+      onChange={updateJsonText}
+      disabled={saving}
+    >
       <p className="settings-description">
-        Edit the complete S3 notification configuration object. Switching back to Visual validates the JSON first.
+        Need a topic? Create it in the Topics section, then use its TopicArn here.
       </p>
-      <UiTextarea
-        label="Notification configuration (JSON)"
-        rows={20}
-        value={jsonText}
-        onChange={(event) => updateJsonText(event.target.value)}
-        className="settings-control font-mono"
-        spellCheck={false}
-        disabled={saving}
-      />
-      <BucketFeatureJsonExample
-        show={showJsonExample}
-        onToggle={() => setShowJsonExample((current) => !current)}
-        example={example}
-        onUseExample={() => updateJsonText(example)}
-        disabled={saving}
-        helperText={
-          <span className="settings-description">
-            Need a topic? Create it in the Topics section, then use its TopicArn here.
-          </span>
-        }
-      />
-    </div>
+    </BucketFeatureJsonPane>
   );
 
   return (

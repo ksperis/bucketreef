@@ -228,6 +228,18 @@
 .settings-dialog .modal-body {
   padding: var(--settings-dialog-padding-y) var(--settings-dialog-padding-x);
 }
+.bucket-feature-editor-dialog {
+  --settings-field-gap: 10px;
+  --settings-dialog-padding-x: 14px;
+  --settings-dialog-padding-y: 10px;
+  --settings-actions-padding: 6px;
+}
+.bucket-feature-editor-dialog [role="tabpanel"] {
+  margin-top: 10px;
+}
+.bucket-feature-editor-dialog .settings-actions {
+  margin-top: 4px;
+}
 .settings-dialog .settings-section-compact {
   grid-template-columns: minmax(0, 1fr);
 }

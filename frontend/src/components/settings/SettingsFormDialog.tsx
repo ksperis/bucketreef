@@ -9,7 +9,7 @@ import { useSettingsFormController } from "./useSettingsFormController";
 export default function SettingsFormDialog({
   title, draftKey, busy = false, disabled = false, submitDisabled = false, error, submitLabel,
   danger = false, completed = false, onSubmit, onClose, children,
-  maxWidthClass = "max-w-lg", maxBodyHeightClass,
+  maxWidthClass = "max-w-lg", maxBodyHeightClass, className,
 }: {
   title: string;
   draftKey: string;
@@ -26,6 +26,7 @@ export default function SettingsFormDialog({
   children: ReactNode;
   maxWidthClass?: string;
   maxBodyHeightClass?: string;
+  className?: string;
 }) {
   const [baseline] = useState(draftKey);
   const initialFocus = useRef<HTMLElement | null>(null);
@@ -37,7 +38,7 @@ export default function SettingsFormDialog({
     <SettingsDialog title={title} onClose={requestClose} closeDisabled={locked}
       closeOnBackdropClick={!locked} closeOnEscape={!locked} closeLabel={labels.close}
       closeAriaLabel={labels.close} initialFocusRef={initialFocus}
-      maxWidthClass={maxWidthClass} maxBodyHeightClass={maxBodyHeightClass}>
+      maxWidthClass={maxWidthClass} maxBodyHeightClass={maxBodyHeightClass} className={className}>
       <SettingsForm label={title} onSubmit={submit} presentation="dialog" noValidate={false}
         busy={locked} disabled={disabled}
         submitDisabled={submitDisabled || completed || baseline === draftKey} onCancel={requestClose}

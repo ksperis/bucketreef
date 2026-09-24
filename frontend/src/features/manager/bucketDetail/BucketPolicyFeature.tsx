@@ -11,10 +11,16 @@ import {
 } from "../../../components/settings/SettingsControls";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiTextarea from "../../../components/ui/UiTextarea";
-import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
-import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
+import {
+  BucketFeatureEditorEmpty,
+  BucketFeatureEditorGroup,
+  BucketFeatureEditorItem,
+  BucketFeatureEditorList,
+  BucketFeatureEditorToolbar,
+  BucketFeatureJsonPane,
+} from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
@@ -47,26 +53,6 @@ type PolicySummaryRow = {
   statement: PolicyStatementRecord;
 };
 
-function buildPolicyExample(bucketName?: string) {
-  return `{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "ReadObjects",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": ["s3:GetObject"],
-      "Resource": ["arn:aws:s3:::${bucketName || "bucket"}/*"],
-      "Condition": {
-        "StringLike": {
-          "s3:prefix": ["public/*"]
-        }
-      }
-    }
-  ]
-}`;
-}
-
 function NewConditionEditor({
   disabled,
   existing,
@@ -88,7 +74,7 @@ function NewConditionEditor({
   const canAdd = Boolean(normalizedOperator && normalizedKey && valueList.length && !duplicate);
 
   return (
-    <div className="space-y-2 rounded-md border border-dashed border-[color:var(--ui-border-soft)] p-3">
+    <BucketFeatureEditorGroup>
       <p className="settings-label">Add condition</p>
       <div className="grid gap-3 md:grid-cols-2">
         <SettingsInput
@@ -132,7 +118,7 @@ function NewConditionEditor({
       >
         Add condition
       </SettingsButton>
-    </div>
+    </BucketFeatureEditorGroup>
   );
 }
 
@@ -158,7 +144,7 @@ function PolicyStatementEditor({
 
   if (!editable) {
     return (
-      <div className={cx(uiCardMutedClass, "space-y-2 px-3 py-3")} data-testid="policy-advanced-statement">
+      <BucketFeatureEditorItem testId="policy-advanced-statement">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="settings-label break-all">{label}</p>
@@ -168,7 +154,7 @@ function PolicyStatementEditor({
           </div>
           <UiBadge tone="warning">Advanced statement — edit in JSON</UiBadge>
         </div>
-      </div>
+      </BucketFeatureEditorItem>
     );
   }
 
@@ -177,11 +163,10 @@ function PolicyStatementEditor({
   const principalValues = policyListText(draft.principalValues);
 
   return (
-    <div className={cx(uiCardMutedClass, "space-y-4 px-3 py-3")} data-testid="policy-visual-statement">
+    <BucketFeatureEditorItem testId="policy-visual-statement">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="settings-label">Statement {index + 1}</p>
-          <p className="settings-description">Changes remain local until the policy is saved.</p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
           Remove statement
@@ -279,7 +264,7 @@ function PolicyStatementEditor({
           draft.conditions.map((condition) => (
             <div
               key={`${condition.operator}:${condition.key}`}
-              className="grid gap-3 rounded-md border border-[color:var(--ui-border-soft)] p-3 md:grid-cols-[minmax(0,1fr)_auto]"
+              className="grid gap-3 border-t border-[color:var(--ui-border-soft)] pt-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
             >
               <div className="min-w-0 space-y-2">
                 <div className="flex flex-wrap gap-2">
@@ -302,6 +287,7 @@ function PolicyStatementEditor({
               <SettingsButton
                 type="button"
                 variant="danger"
+                className="self-start"
                 onClick={() => onConditionRemove(condition.operator, condition.key)}
                 disabled={disabled}
               >
@@ -316,15 +302,13 @@ function PolicyStatementEditor({
           onAdd={onConditionChange}
         />
       </div>
-    </div>
+    </BucketFeatureEditorItem>
   );
 }
 
 export default function BucketPolicyFeature({
-  bucketName,
   controller,
 }: BucketPolicyFeatureProps) {
-  const [showJsonExample, setShowJsonExample] = useState(false);
   const {
     addDraftStatement,
     allowCount,
@@ -420,60 +404,51 @@ export default function BucketPolicyFeature({
 
   const visualEditor = (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <BucketFeatureEditorToolbar
+        action={
+          <SettingsButton type="button" variant="secondary" onClick={addDraftStatement} disabled={saving}>
+            Add statement
+          </SettingsButton>
+        }
+      >
         <div className="max-w-3xl">
-          <p className="settings-description">
+          <p>
             Edit standard bucket-policy statements visually. Document metadata and advanced IAM constructs are preserved and can be edited in JSON.
           </p>
         </div>
-        <SettingsButton type="button" variant="secondary" onClick={addDraftStatement} disabled={saving}>
-          Add statement
-        </SettingsButton>
-      </div>
+      </BucketFeatureEditorToolbar>
       {draftStatements.length === 0 ? (
-        <div className={cx(uiCardMutedClass, "px-3 py-4 text-center settings-description")}>
+        <BucketFeatureEditorEmpty>
           No statements. Add a statement or use JSON. Saving an empty policy removes it from the bucket.
-        </div>
+        </BucketFeatureEditorEmpty>
       ) : (
-        draftStatements.map((statement, index) => (
-          <PolicyStatementEditor
-            key={`${policyStatementSid(statement, index)}-${index}`}
-            index={index}
-            statement={statement}
-            disabled={saving}
-            onChange={(patch) => updateDraftStatement(index, patch)}
-            onRemove={() => removeDraftStatement(index)}
-            onConditionChange={(operator, key, values) => updateDraftCondition(index, operator, key, values)}
-            onConditionRemove={(operator, key) => removeDraftCondition(index, operator, key)}
-          />
-        ))
+        <BucketFeatureEditorList>
+          {draftStatements.map((statement, index) => (
+            <PolicyStatementEditor
+              key={`${policyStatementSid(statement, index)}-${index}`}
+              index={index}
+              statement={statement}
+              disabled={saving}
+              onChange={(patch) => updateDraftStatement(index, patch)}
+              onRemove={() => removeDraftStatement(index)}
+              onConditionChange={(operator, key, values) => updateDraftCondition(index, operator, key, values)}
+              onConditionRemove={(operator, key) => removeDraftCondition(index, operator, key)}
+            />
+          ))}
+        </BucketFeatureEditorList>
       )}
     </div>
   );
 
-  const jsonExample = buildPolicyExample(bucketName);
   const jsonEditor = (
-    <div className="space-y-3">
-      <p className="settings-description">
-        Edit the complete S3 bucket policy document. Switching back to Visual validates the document shape first.
-      </p>
-      <UiTextarea
-        label="Bucket policy (JSON)"
-        rows={22}
-        value={jsonText}
-        onChange={(event) => updateJsonText(event.target.value)}
-        className="settings-control font-mono"
-        spellCheck={false}
-        disabled={saving}
-      />
-      <BucketFeatureJsonExample
-        show={showJsonExample}
-        onToggle={() => setShowJsonExample((current) => !current)}
-        example={jsonExample}
-        onUseExample={() => updateJsonText(jsonExample)}
-        disabled={saving}
-      />
-    </div>
+    <BucketFeatureJsonPane
+      description="Edit the complete S3 bucket policy document. Switching back to Visual validates the document shape first."
+      label="Bucket policy (JSON)"
+      value={jsonText}
+      onChange={updateJsonText}
+      rows={18}
+      disabled={saving}
+    />
   );
 
   return (

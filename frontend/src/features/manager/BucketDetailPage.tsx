@@ -486,7 +486,6 @@ function BucketDetailPageContent({
   }, [isCephAdmin, selectedEndpoint, selectedS3Account]);
   const canViewBucketMetrics = hasContext;
   const canViewLiveBucketMetrics = Boolean(isCephEndpoint && usageFeatureEnabled);
-  const exampleS3AccountId = selectedS3Account?.rgw_account_id || "ACCOUNT00000000000000001";
 
   useEffect(() => {
     if (activeTab === "metrics" && !canViewBucketMetrics) {
@@ -1336,7 +1335,6 @@ function BucketDetailPageContent({
                 />
                 <BucketNotificationsFeature
                   controller={notificationsController}
-                  exampleAccountId={exampleS3AccountId}
                 />
               </div>
             ),

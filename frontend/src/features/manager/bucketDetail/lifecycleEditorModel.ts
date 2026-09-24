@@ -181,6 +181,15 @@ export function lifecycleRuleHasAction(rule: LifecycleRuleRecord): boolean {
 export function lifecycleVisualRuleValidationError(rule: LifecycleRuleRecord): string | null {
   if (!isLifecycleRuleVisuallyEditable(rule)) return null;
 
+  const expiration = recordValue(rule.Expiration);
+  if (
+    typeof expiration?.Days === "number" &&
+    Number.isFinite(expiration.Days) &&
+    expiration.ExpiredObjectDeleteMarker === true
+  ) {
+    return "Expiration days and expired object delete marker cannot be enabled together.";
+  }
+
   const transition = firstRecord(rule.Transitions);
   if (transition) {
     const hasDays = typeof transition.Days === "number" && Number.isFinite(transition.Days);
@@ -262,6 +271,9 @@ export function updateLifecycleVisualRule(
       "Days",
       parseOptionalNumber(patch.expirationDays),
     );
+    if (parseOptionalNumber(patch.expirationDays) !== undefined) {
+      next = setNestedValue(next, "Expiration", "ExpiredObjectDeleteMarker", undefined);
+    }
   }
   if (patch.expiredObjectDeleteMarker !== undefined) {
     next = setNestedValue(
@@ -270,6 +282,9 @@ export function updateLifecycleVisualRule(
       "ExpiredObjectDeleteMarker",
       patch.expiredObjectDeleteMarker || undefined,
     );
+    if (patch.expiredObjectDeleteMarker) {
+      next = setNestedValue(next, "Expiration", "Days", undefined);
+    }
   }
   if (patch.noncurrentExpirationDays !== undefined) {
     next = setNestedValue(

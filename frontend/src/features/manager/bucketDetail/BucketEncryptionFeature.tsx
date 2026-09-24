@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import DataTableShell, { type DataTableColumn } from "../../../components/list/DataTableShell";
 import {
   SettingsButton,
@@ -10,11 +10,15 @@ import {
   SettingsSelect,
 } from "../../../components/settings/SettingsControls";
 import UiBadge from "../../../components/ui/UiBadge";
-import UiTextarea from "../../../components/ui/UiTextarea";
-import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
-import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
+import {
+  BucketFeatureEditorEmpty,
+  BucketFeatureEditorItem,
+  BucketFeatureEditorList,
+  BucketFeatureEditorToolbar,
+  BucketFeatureJsonPane,
+} from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -37,16 +41,6 @@ type EncryptionTableRow = {
   index: number;
   rule: EncryptionRuleRecord;
 };
-
-const defaultEncryptionExample = `[
-  {
-    "ApplyServerSideEncryptionByDefault": {
-      "SSEAlgorithm": "aws:kms",
-      "KMSMasterKeyID": "example-kms-key"
-    },
-    "BucketKeyEnabled": true
-  }
-]`;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -91,10 +85,7 @@ function EncryptionRuleEditor({
 
   if (!editable) {
     return (
-      <div
-        className={cx(uiCardMutedClass, "space-y-2 px-3 py-3")}
-        data-testid="encryption-advanced-rule"
-      >
+      <BucketFeatureEditorItem testId="encryption-advanced-rule">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="settings-label">Rule {index + 1}</p>
@@ -107,21 +98,17 @@ function EncryptionRuleEditor({
         <p className="settings-description">
           This rule contains fields or values that the visual editor cannot represent without loss.
         </p>
-      </div>
+      </BucketFeatureEditorItem>
     );
   }
 
   const draft = readEncryptionVisualRule(rule);
 
   return (
-    <div
-      className={cx(uiCardMutedClass, "space-y-4 px-3 py-3")}
-      data-testid="encryption-visual-rule"
-    >
+    <BucketFeatureEditorItem testId="encryption-visual-rule">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="settings-label">Rule {index + 1}</p>
-          <p className="settings-description">Changes remain local until the editor is saved.</p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
           Remove rule
@@ -173,7 +160,7 @@ function EncryptionRuleEditor({
           AES256 uses provider-managed S3 encryption and does not require a KMS key.
         </p>
       )}
-    </div>
+    </BucketFeatureEditorItem>
   );
 }
 
@@ -181,7 +168,6 @@ export default function BucketEncryptionFeature({
   controller,
   enabled,
 }: BucketEncryptionFeatureProps) {
-  const [showJsonExample, setShowJsonExample] = useState(false);
   const {
     addDraftRule,
     closeEditor,
@@ -256,55 +242,50 @@ export default function BucketEncryptionFeature({
 
   const visualEditor = (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="settings-description">
+      <BucketFeatureEditorToolbar
+        action={
+          <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
+            Add rule
+          </SettingsButton>
+        }
+      >
+        <p>
           Configure the default encryption rules applied by S3 to new objects. Advanced rules remain read-only here and are preserved for JSON editing.
         </p>
-        <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
-          Add rule
-        </SettingsButton>
-      </div>
+      </BucketFeatureEditorToolbar>
       {draftRules.length === 0 ? (
-        <div className={cx(uiCardMutedClass, "px-3 py-4 text-center settings-description")}>
+        <BucketFeatureEditorEmpty>
           Default bucket encryption is disabled. Add a rule to enable it.
-        </div>
+        </BucketFeatureEditorEmpty>
       ) : (
-        draftRules.map((rule, index) => (
-          <EncryptionRuleEditor
-            key={index}
-            index={index}
-            rule={rule}
-            disabled={saving}
-            onChange={(patch) => updateDraftRule(index, patch)}
-            onRemove={() => removeDraftRule(index)}
-          />
-        ))
+        <BucketFeatureEditorList>
+          {draftRules.map((rule, index) => (
+            <EncryptionRuleEditor
+              key={index}
+              index={index}
+              rule={rule}
+              disabled={saving}
+              onChange={(patch) => updateDraftRule(index, patch)}
+              onRemove={() => removeDraftRule(index)}
+            />
+          ))}
+        </BucketFeatureEditorList>
       )}
     </div>
   );
 
   const jsonEditor = (
-    <div className="space-y-3">
-      <p className="settings-description">
+    <BucketFeatureJsonPane
+      description={
+        <>
         Edit the complete S3 server-side encryption <code>Rules</code> array. Switching back to Visual validates the JSON structure first.
-      </p>
-      <UiTextarea
-        label="Encryption rules (JSON)"
-        rows={20}
-        value={jsonText}
-        onChange={(event) => updateJsonText(event.target.value)}
-        className="settings-control font-mono"
-        spellCheck={false}
-        disabled={saving}
-      />
-      <BucketFeatureJsonExample
-        show={showJsonExample}
-        onToggle={() => setShowJsonExample((current) => !current)}
-        example={defaultEncryptionExample}
-        onUseExample={() => updateJsonText(defaultEncryptionExample)}
-        disabled={saving}
-      />
-    </div>
+        </>
+      }
+      label="Encryption rules (JSON)"
+      value={jsonText}
+      onChange={updateJsonText}
+      disabled={saving}
+    />
   );
 
   return (

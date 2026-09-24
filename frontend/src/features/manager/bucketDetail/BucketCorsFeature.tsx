@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import DataTableShell, { type DataTableColumn } from "../../../components/list/DataTableShell";
 import {
   SettingsButton,
@@ -10,11 +10,16 @@ import {
 } from "../../../components/settings/SettingsControls";
 import UiCheckboxField from "../../../components/ui/UiCheckboxField";
 import UiBadge from "../../../components/ui/UiBadge";
-import UiTextarea from "../../../components/ui/UiTextarea";
-import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
-import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
+import {
+  BucketFeatureEditorEmpty,
+  BucketFeatureEditorGroup,
+  BucketFeatureEditorItem,
+  BucketFeatureEditorList,
+  BucketFeatureEditorToolbar,
+  BucketFeatureJsonPane,
+} from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
@@ -37,17 +42,6 @@ type CorsTableRow = {
   index: number;
   rule: CorsRuleRecord;
 };
-
-const defaultCorsExample = `[
-  {
-    "ID": "browser-uploads",
-    "AllowedMethods": ["GET", "PUT"],
-    "AllowedOrigins": ["https://app.example.com"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]`;
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string")
@@ -95,7 +89,7 @@ function StringListEditor({
   onChange: (values: string[]) => void;
 }) {
   return (
-    <div className="space-y-2 rounded-md border border-[color:var(--ui-border-soft)] p-3">
+    <BucketFeatureEditorGroup>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="settings-label">{title}</p>
@@ -142,7 +136,7 @@ function StringListEditor({
           ))}
         </div>
       )}
-    </div>
+    </BucketFeatureEditorGroup>
   );
 }
 
@@ -164,7 +158,7 @@ function CorsRuleEditor({
 
   if (!editable) {
     return (
-      <div className={cx(uiCardMutedClass, "space-y-2 px-3 py-3")} data-testid="cors-advanced-rule">
+      <BucketFeatureEditorItem testId="cors-advanced-rule">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="settings-label break-all">{label}</p>
@@ -177,7 +171,7 @@ function CorsRuleEditor({
         <p className="settings-description">
           This rule contains fields or values that the visual editor cannot represent without loss.
         </p>
-      </div>
+      </BucketFeatureEditorItem>
     );
   }
 
@@ -190,11 +184,10 @@ function CorsRuleEditor({
   };
 
   return (
-    <div className={cx(uiCardMutedClass, "space-y-4 px-3 py-3")} data-testid="cors-visual-rule">
+    <BucketFeatureEditorItem testId="cors-visual-rule">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="settings-label">Rule {index + 1}</p>
-          <p className="settings-description">Changes remain local until the editor is saved.</p>
         </div>
         <SettingsButton type="button" variant="danger" onClick={onRemove} disabled={disabled}>
           Remove rule
@@ -232,7 +225,7 @@ function CorsRuleEditor({
         onChange={(allowedOrigins) => onChange({ allowedOrigins })}
       />
 
-      <div className="space-y-2 rounded-md border border-[color:var(--ui-border-soft)] p-3">
+      <BucketFeatureEditorGroup>
         <div>
           <p className="settings-label">Allowed methods</p>
           <p className="settings-description">Select the S3 operations browsers may call from the configured origins.</p>
@@ -250,7 +243,7 @@ function CorsRuleEditor({
             </UiCheckboxField>
           ))}
         </div>
-      </div>
+      </BucketFeatureEditorGroup>
 
       <div className="grid gap-3 lg:grid-cols-2">
         <StringListEditor
@@ -274,12 +267,11 @@ function CorsRuleEditor({
           onChange={(exposeHeaders) => onChange({ exposeHeaders })}
         />
       </div>
-    </div>
+    </BucketFeatureEditorItem>
   );
 }
 
 export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps) {
-  const [showJsonExample, setShowJsonExample] = useState(false);
   const {
     addDraftRule,
     closeEditor,
@@ -354,55 +346,50 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
 
   const visualEditor = (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="settings-description">
+      <BucketFeatureEditorToolbar
+        action={
+          <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
+            Add rule
+          </SettingsButton>
+        }
+      >
+        <p>
           Edit standard S3 CORS rules visually. Advanced rules stay read-only here and are preserved for JSON editing.
         </p>
-        <SettingsButton type="button" variant="secondary" onClick={addDraftRule} disabled={saving}>
-          Add rule
-        </SettingsButton>
-      </div>
+      </BucketFeatureEditorToolbar>
       {draftRules.length === 0 ? (
-        <div className={cx(uiCardMutedClass, "px-3 py-4 text-center settings-description")}>
+        <BucketFeatureEditorEmpty>
           No CORS rules. Add a rule or switch to JSON.
-        </div>
+        </BucketFeatureEditorEmpty>
       ) : (
-        draftRules.map((rule, index) => (
-          <CorsRuleEditor
-            key={`${typeof rule.ID === "string" ? rule.ID : "rule"}-${index}`}
-            index={index}
-            rule={rule}
-            disabled={saving}
-            onChange={(patch) => updateDraftRule(index, patch)}
-            onRemove={() => removeDraftRule(index)}
-          />
-        ))
+        <BucketFeatureEditorList>
+          {draftRules.map((rule, index) => (
+            <CorsRuleEditor
+              key={`${typeof rule.ID === "string" ? rule.ID : "rule"}-${index}`}
+              index={index}
+              rule={rule}
+              disabled={saving}
+              onChange={(patch) => updateDraftRule(index, patch)}
+              onRemove={() => removeDraftRule(index)}
+            />
+          ))}
+        </BucketFeatureEditorList>
       )}
     </div>
   );
 
   const jsonEditor = (
-    <div className="space-y-3">
-      <p className="settings-description">
+    <BucketFeatureJsonPane
+      description={
+        <>
         Edit the complete S3 CORS <code>CORSRules</code> array. Switching back to Visual validates the JSON structure first.
-      </p>
-      <UiTextarea
-        label="CORS rules (JSON)"
-        value={jsonText}
-        onChange={(event) => updateJsonText(event.target.value)}
-        rows={20}
-        className="settings-control font-mono"
-        disabled={saving}
-        spellCheck={false}
-      />
-      <BucketFeatureJsonExample
-        show={showJsonExample}
-        onToggle={() => setShowJsonExample((current) => !current)}
-        example={defaultCorsExample}
-        onUseExample={() => updateJsonText(defaultCorsExample)}
-        disabled={saving}
-      />
-    </div>
+        </>
+      }
+      label="CORS rules (JSON)"
+      value={jsonText}
+      onChange={updateJsonText}
+      disabled={saving}
+    />
   );
 
   return (
