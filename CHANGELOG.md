@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.8 - 2026-09-24
+
+### Changed
+
+- Refactored Manager bucket feature editors and layouts while preserving existing S3 and IAM workflows.
+- Unified frontend controls, drawers, action states, and compact interactions across application surfaces.
+- Improved usage statistics actions and cancellation feedback for long running operations.
+
+### Fixed/Security
+
+- Completed production hardening checks and aligned deployment documentation with the current security model.
+- Improved bucket comparison and browser operation feedback consistency.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path; this patch release does not introduce a new schema baseline.
+
+### Tests
+
+- Expanded frontend component and workflow validation for shared controls, bucket configuration, and operational actions.
+
 ## 0.2.7 - 2026-09-23
 
 ### Added
