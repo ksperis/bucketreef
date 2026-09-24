@@ -72,9 +72,6 @@ export const advancedFilterControlClass = (className: string = "", disabled: boo
   return `${advancedFilterControlBaseClass}${disabledClass}${className ? ` ${className}` : ""}`;
 };
 
-export const advancedFilterMatchModeButtonClass = (active: boolean, locked: boolean = false) =>
-  `ui-list-action${active ? " ui-list-action-active" : ""}${locked ? " cursor-not-allowed opacity-70" : ""}`;
-
 export const advancedFilterSummaryChipClass =
   "ui-list-badge border border-primary/30 bg-primary/10 text-primary-700 dark:border-primary-400/40 dark:bg-primary-500/15 dark:text-primary-100";
 

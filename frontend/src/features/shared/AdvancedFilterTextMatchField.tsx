@@ -4,12 +4,12 @@
  */
 import { useId, type ReactNode } from "react";
 
+import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import UiTextarea from "../../components/ui/UiTextarea";
 import { cx } from "../../components/ui/styles";
 import AdvancedFilterFieldLabel from "./AdvancedFilterFieldLabel";
 import {
   advancedFilterFieldCardClass,
-  advancedFilterMatchModeButtonClass,
   type AdvancedFilterFieldState,
   type FilterCostLevel,
   type TextMatchMode,
@@ -68,28 +68,25 @@ export default function AdvancedFilterTextMatchField({
           htmlFor={controlId}
           label={label}
         />
-        <div className="inline-flex items-center gap-1">
-          <button
-            type="button"
-            disabled={forcesExact}
-            aria-label={containsAriaLabel}
-            aria-pressed={matchMode === "contains"}
-            onClick={() => onMatchModeChange("contains")}
-            className={advancedFilterMatchModeButtonClass(matchMode === "contains", forcesExact)}
-          >
-            {containsLabel}
-          </button>
-          <button
-            type="button"
-            disabled={forcesExact}
-            aria-label={exactAriaLabel}
-            aria-pressed={matchMode === "exact"}
-            onClick={() => onMatchModeChange("exact")}
-            className={advancedFilterMatchModeButtonClass(matchMode === "exact", forcesExact)}
-          >
-            {exactLabel}
-          </button>
-        </div>
+        <UiSegmentedControl
+          ariaLabel="Match mode"
+          value={matchMode}
+          onChange={onMatchModeChange}
+          options={[
+            {
+              value: "contains",
+              label: containsLabel,
+              ariaLabel: containsAriaLabel,
+              disabled: forcesExact,
+            },
+            {
+              value: "exact",
+              label: exactLabel,
+              ariaLabel: exactAriaLabel,
+              disabled: forcesExact,
+            },
+          ]}
+        />
       </div>
       <UiTextarea
         id={controlId}

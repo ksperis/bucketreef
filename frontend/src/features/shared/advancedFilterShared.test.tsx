@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import {
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
-  advancedFilterMatchModeButtonClass,
   advancedFilterSummaryChipClass,
   advancedFilterSyncBadgeClass,
   formatAdvancedFilterSyncLabel,
@@ -15,11 +14,6 @@ import {
 } from "./advancedFilterShared";
 
 describe("advancedFilterShared", () => {
-  it("returns stable classes for active and locked match-mode buttons", () => {
-    expect(advancedFilterMatchModeButtonClass(true)).toContain("ui-list-action-active");
-    expect(advancedFilterMatchModeButtonClass(false, true)).toContain("cursor-not-allowed");
-  });
-
   it("returns stable advanced-filter field card classes", () => {
     expect(advancedFilterFieldCardClass()).toBe("rounded-lg border border-[color:var(--ui-border-soft)] p-3");
     expect(advancedFilterFieldCardClass("md:col-span-2")).toBe(

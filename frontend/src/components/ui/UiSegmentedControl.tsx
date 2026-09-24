@@ -2,13 +2,15 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { ReactNode } from "react";
 import { cx, uiCardMutedClass } from "./styles";
 
 type UiSegmentedControlOption<T extends string> = {
-  label: string;
+  label: ReactNode;
   value: T;
   helper?: string;
   title?: string;
+  ariaLabel?: string;
   disabled?: boolean;
 };
 
@@ -49,6 +51,7 @@ export default function UiSegmentedControl<T extends string>({
             )}
             disabled={option.disabled}
             aria-pressed={isActive}
+            aria-label={option.ariaLabel}
             title={option.title ?? option.helper}
             onClick={() => onChange(option.value)}
           >
