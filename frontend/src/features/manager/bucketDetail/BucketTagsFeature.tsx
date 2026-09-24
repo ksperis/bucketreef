@@ -2,9 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { SettingsButton } from "../../../components/settings/SettingsControls";
+import { SettingsButton, SettingsInput } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { cx, uiInputClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -16,8 +15,6 @@ type BucketTagsFeatureProps = {
   controller: BucketTagsController;
   onRequestClear: () => void;
 };
-
-const inputClass = cx(uiInputClass, "settings-control");
 
 export default function BucketTagsFeature({
   controller,
@@ -85,23 +82,22 @@ export default function BucketTagsFeature({
           {tags.map((tag) => (
             <div
               key={tag.uiId}
+              data-tag-row
               className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
             >
-              <input
+              <SettingsInput
                 type="text"
                 value={tag.key}
                 aria-label="Tag key"
                 onChange={(event) => update(tag.uiId, { key: event.target.value })}
-                className={inputClass}
                 placeholder="Tag key"
                 disabled={notImplemented || saving || clearing}
               />
-              <input
+              <SettingsInput
                 type="text"
                 value={tag.value}
                 aria-label="Tag value"
                 onChange={(event) => update(tag.uiId, { value: event.target.value })}
-                className={inputClass}
                 placeholder="Tag value"
                 disabled={notImplemented || saving || clearing}
               />

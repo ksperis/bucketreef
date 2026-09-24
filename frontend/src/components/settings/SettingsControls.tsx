@@ -3,8 +3,41 @@ import { type ComponentProps, type ReactNode, useId } from "react";
 import Modal from "../Modal";
 import UiButton from "../ui/UiButton";
 import UiInput from "../ui/UiInput";
+import UiSelect from "../ui/UiSelect";
 import { useUnsavedChangesGuard } from "../useUnsavedChangesGuard";
 import "./compactSettings.css";
+
+function settingsLabelClass(className?: string) {
+  return className ? `settings-label ${className}` : "settings-label";
+}
+
+export function SettingsInput({
+  className = "",
+  labelClassName,
+  ...props
+}: ComponentProps<typeof UiInput>) {
+  return (
+    <UiInput
+      {...props}
+      className={`settings-control ${className}`}
+      labelClassName={settingsLabelClass(labelClassName)}
+    />
+  );
+}
+
+export function SettingsSelect({
+  className = "",
+  labelClassName,
+  ...props
+}: ComponentProps<typeof UiSelect>) {
+  return (
+    <UiSelect
+      {...props}
+      className={`settings-control ${className}`}
+      labelClassName={settingsLabelClass(labelClassName)}
+    />
+  );
+}
 
 export function SettingsButton({
   className = "",

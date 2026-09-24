@@ -3,11 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useState } from "react";
-import { SettingsButton } from "../../../components/settings/SettingsControls";
+import { SettingsButton, SettingsInput } from "../../../components/settings/SettingsControls";
 import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiTextarea from "../../../components/ui/UiTextarea";
-import { cx, uiInputClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
 import BucketFeatureSection from "./BucketFeatureSection";
@@ -24,8 +23,6 @@ type BucketWebsiteFeatureProps = {
   onRequestDelete: () => void;
 };
 
-const inputClass = cx(uiInputClass, "settings-control");
-const labelClass = "settings-label flex flex-col gap-1";
 const twoColumnGridClass = "grid gap-3 md:grid-cols-2";
 const routingRulesExample = `[
   {
@@ -132,28 +129,22 @@ export default function BucketWebsiteFeature({
       {mode === "hosting" ? (
         <div className="space-y-3">
           <div className={twoColumnGridClass}>
-            <label className={labelClass}>
-              Index document
-              <input
-                type="text"
-                value={indexDocument}
-                onChange={(event) => updateIndexDocument(event.target.value)}
-                className={inputClass}
-                placeholder="index.html"
-                disabled={editorDisabled}
-              />
-            </label>
-            <label className={labelClass}>
-              Error document (optional)
-              <input
-                type="text"
-                value={errorDocument}
-                onChange={(event) => updateErrorDocument(event.target.value)}
-                className={inputClass}
-                placeholder="error.html"
-                disabled={editorDisabled}
-              />
-            </label>
+            <SettingsInput
+              label="Index document"
+              type="text"
+              value={indexDocument}
+              onChange={(event) => updateIndexDocument(event.target.value)}
+              placeholder="index.html"
+              disabled={editorDisabled}
+            />
+            <SettingsInput
+              label="Error document (optional)"
+              type="text"
+              value={errorDocument}
+              onChange={(event) => updateErrorDocument(event.target.value)}
+              placeholder="error.html"
+              disabled={editorDisabled}
+            />
           </div>
           <div className="space-y-2">
             <UiTextarea
@@ -179,28 +170,22 @@ export default function BucketWebsiteFeature({
         </div>
       ) : (
         <div className={twoColumnGridClass}>
-          <label className={labelClass}>
-            Redirect hostname
-            <input
-              type="text"
-              value={redirectHost}
-              onChange={(event) => updateRedirectHost(event.target.value)}
-              className={inputClass}
-              placeholder="www.example.com"
-              disabled={editorDisabled}
-            />
-          </label>
-          <label className={labelClass}>
-            Protocol (optional)
-            <input
-              type="text"
-              value={redirectProtocol}
-              onChange={(event) => updateRedirectProtocol(event.target.value)}
-              className={inputClass}
-              placeholder="https"
-              disabled={editorDisabled}
-            />
-          </label>
+          <SettingsInput
+            label="Redirect hostname"
+            type="text"
+            value={redirectHost}
+            onChange={(event) => updateRedirectHost(event.target.value)}
+            placeholder="www.example.com"
+            disabled={editorDisabled}
+          />
+          <SettingsInput
+            label="Protocol (optional)"
+            type="text"
+            value={redirectProtocol}
+            onChange={(event) => updateRedirectProtocol(event.target.value)}
+            placeholder="https"
+            disabled={editorDisabled}
+          />
           <p className="md:col-span-2 ui-caption text-slate-500 dark:text-slate-400">
             All requests will redirect to the host above. Index and routing rules are ignored.
           </p>
