@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
+import { ListActions, ListBadge, ListActionButton, ListSelectionCheckbox } from "../../components/list/ListControls";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -784,8 +784,7 @@ export default function ProfilePage({
       headerClassName: "w-10",
       cellClassName: "w-10",
       header: (
-        <label className="ui-list-selection"><input
-          type="checkbox"
+        <ListSelectionCheckbox
           aria-label="Select all filtered private connections"
           checked={allFilteredConnectionsSelected}
           onChange={toggleSelectAllFilteredConnections}
@@ -795,18 +794,15 @@ export default function ProfilePage({
             bulkDisablingConnections ||
             bulkDeletingConnections
           }
-          className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-        /></label>
+        />
       ),
       render: (connection) => (
-        <label className="ui-list-selection"><input
-          type="checkbox"
+        <ListSelectionCheckbox
           aria-label={`Select private connection ${connection.name || connection.id}`}
           checked={selectedFilteredConnectionIdSet.has(connection.id)}
           onChange={() => togglePrivateConnectionSelection(connection.id)}
           disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
-          className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-        /></label>
+        />
       ),
     },
     {

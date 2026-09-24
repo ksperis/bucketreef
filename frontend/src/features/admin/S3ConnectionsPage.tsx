@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
+import { ListActions, ListBadge, ListActionButton, ListSelectionCheckbox } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   isRecentWebAuthnVerificationCancelled,
@@ -86,8 +86,6 @@ function getConnectionSearchCandidates(connection: S3ConnectionAdminItem): Array
     ...extractUiTagLabels(connection.tags),
   ];
 }
-
-const selectionCheckboxClass = "h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary";
 
 export default function S3ConnectionsPage() {
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
@@ -830,27 +828,23 @@ export default function S3ConnectionsPage() {
       headerClassName: "w-10 px-3",
       cellClassName: "w-10 px-3 py-4",
       header: (
-        <input
+        <ListSelectionCheckbox
           ref={selectionHeaderRef}
-          type="checkbox"
           aria-label="Select all filtered connections"
           checked={headerChecked}
           onChange={(e) => {
             void setSelectionForFilteredResults(e.target.checked);
           }}
           disabled={loading || selectAllFilteredBusy || total === 0 || bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy}
-          className={selectionCheckboxClass}
         />
       ),
       render: (connection) => (
-        <label className="ui-list-selection"><input
-          type="checkbox"
+        <ListSelectionCheckbox
           aria-label={`Select connection ${connection.name}`}
           checked={selectedIdSet.has(connection.id)}
           onChange={() => toggleRowSelection(connection.id)}
           disabled={bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy}
-          className={selectionCheckboxClass}
-        /></label>
+        />
       ),
     },
     {

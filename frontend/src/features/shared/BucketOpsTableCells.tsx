@@ -2,12 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListBadge } from "../../components/list/ListControls";
+import { ListBadge, ListSelectionCheckbox } from "../../components/list/ListControls";
 import { useRef } from "react";
 import type { Ref, RefObject } from "react";
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
-import { uiCheckboxClass } from "../../components/ui/styles";
 import {
   BucketFeatureSummaryChip,
   BucketSummaryTooltip,
@@ -46,14 +45,12 @@ export function BucketOpsSelectionHeader({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <input
+    <ListSelectionCheckbox
       ref={inputRef}
-      type="checkbox"
       aria-label="Select all filtered buckets"
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
       disabled={disabled}
-      className={uiCheckboxClass}
     />
   );
 }
@@ -74,12 +71,10 @@ export function BucketOpsSelectionCell({
   const contextLabel =
     isStorageOps && bucket.context_name ? ` in ${bucket.context_name}` : "";
   return (
-    <input
-      type="checkbox"
+    <ListSelectionCheckbox
       aria-label={`Select bucket ${getBucketDisplayName(bucket, useExplicitBucketName)}${contextLabel}`}
       checked={selected}
       onChange={onToggle}
-      className={uiCheckboxClass}
     />
   );
 }

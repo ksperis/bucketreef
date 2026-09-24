@@ -1,7 +1,10 @@
-import { ListActionButton, ListBadge } from "../../components/list/ListControls";
+import {
+  ListActionButton,
+  ListBadge,
+  ListSelectionCheckbox,
+} from "../../components/list/ListControls";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-import { uiCheckboxClass } from "../../components/ui/styles";
 import { FileIcon, FolderIcon, MoreIcon, TrashIcon, UpIcon } from "./browserIcons";
 import {
   isBrowserInteractiveTarget,
@@ -108,17 +111,14 @@ export default function BrowserObjectMobileList({
                 : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
             }`}
           >
-            <label className="flex h-11 w-11 items-center justify-center">
-              <input
-                type="checkbox"
-                checked={!isDeleted && isSelected}
-                onClick={(event) => onToggleSelection(item, event.shiftKey)}
-                onChange={() => undefined}
-                aria-label={`Select ${item.name}`}
-                className={uiCheckboxClass}
-                disabled={isDeleted}
-              />
-            </label>
+            <ListSelectionCheckbox
+              checked={!isDeleted && isSelected}
+              onClick={(event) => onToggleSelection(item, event.shiftKey)}
+              onChange={() => undefined}
+              aria-label={`Select ${item.name}`}
+              disabled={isDeleted}
+              touchTarget
+            />
             <button
               type="button"
               onClick={(event) => onItemNameClick(event, item)}

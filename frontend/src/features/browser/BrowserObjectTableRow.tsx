@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-import { uiCheckboxClass } from "../../components/ui/styles";
+import { ListSelectionCheckbox } from "../../components/list/ListControls";
 import { BrowserDirectItemActionButton } from "./BrowserActionPresentation";
 import { storageClassChipClasses } from "./browserConstants";
 import { FileIcon, FolderIcon, MoreIcon, TrashIcon } from "./browserIcons";
@@ -94,13 +94,11 @@ export default function BrowserObjectTableRow({
       }`}
     >
       <td className={`px-2 ${rowCellClasses} !align-middle`}>
-        <input
-          type="checkbox"
+        <ListSelectionCheckbox
           checked={!isDeleted && selected}
           onClick={(event) => onToggleSelection(event.shiftKey)}
           onChange={() => undefined}
           aria-label={`Select ${item.name}`}
-          className={uiCheckboxClass}
           disabled={isDeleted}
         />
       </td>
