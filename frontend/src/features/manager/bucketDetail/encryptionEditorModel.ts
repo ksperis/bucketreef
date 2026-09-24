@@ -5,9 +5,9 @@
 
 export type EncryptionRuleRecord = Record<string, unknown>;
 
-export const encryptionAlgorithms = ["AES256", "aws:kms"] as const;
-export type EncryptionAlgorithm = (typeof encryptionAlgorithms)[number];
-export type EncryptionBucketKeyState = "default" | "enabled" | "disabled";
+const encryptionAlgorithms = ["AES256", "aws:kms"] as const;
+type EncryptionAlgorithm = (typeof encryptionAlgorithms)[number];
+type EncryptionBucketKeyState = "default" | "enabled" | "disabled";
 
 export type EncryptionVisualRuleDraft = {
   algorithm: EncryptionAlgorithm;

@@ -28,12 +28,12 @@ function Draft({ onSubmit = vi.fn(), onClose = vi.fn(), busy = false, completed 
 }
 
 describe("SettingsFormDialog", () => {
-  it("keeps pristine fields editable while disabling submit until the draft changes", async () => {
+  it("keeps pristine fields editable and leaves native validation to the form", async () => {
     const user = userEvent.setup();
     render(<Draft />);
 
     expect(screen.getByLabelText("Email")).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
     await user.type(screen.getByLabelText("Email"), "person@example.org");
     expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
   });
