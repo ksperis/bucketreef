@@ -62,7 +62,7 @@ def tag(version: str, *, root: Path = ROOT, github_remote: str = "github",
 
     name = f"v{version}"
     ref = f"refs/tags/{name}"
-    local = git("rev-parse", f"{name}^{{commit}}", root=root, check=False)
+    local = git("rev-parse", "--verify", f"{name}^{{commit}}", root=root, check=False)
     if local and local != head:
         raise RuntimeError(f"Local tag {name} points to another commit; refusing to move it")
     if not local:
