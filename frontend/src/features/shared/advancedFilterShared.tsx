@@ -39,19 +39,6 @@ export const INACTIVE_ADVANCED_PROGRESS: AdvancedSearchProgress = {
   total: 0,
 };
 
-export const advancedFilterRootClass = "fixed inset-x-0 bottom-0 top-14 z-[46]";
-
-export const advancedFilterBackdropClass = "absolute inset-0 bg-black/50";
-
-export const advancedFilterDrawerClass =
-  "absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-text)] shadow-[var(--shell-menu-shadow)]";
-
-export const advancedFilterHeaderClass = "border-b border-[color:var(--ui-border-soft)] px-4 py-3";
-
-export const advancedFilterBodyClass = "flex-1 overflow-y-auto px-4 py-4";
-
-export const advancedFilterFooterClass = "border-t border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] px-4 py-3";
-
 const advancedFilterSummaryClass =
   "rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)]";
 
