@@ -28,10 +28,10 @@ import UserAvatar from "../../components/UserAvatar";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
+import UiTextarea from "../../components/ui/UiTextarea";
 import {
   cx,
   uiDividerClass,
-  uiInputClass,
   uiLabelClass,
   uiMutedTextClass,
   uiTitleTextClass,
@@ -415,14 +415,12 @@ function AdminPortalRequestDetails({
         )}
       </div>
       <div className={cx("grid gap-3 border-t pt-3", uiDividerClass)}>
-        <label className="grid gap-1">
-          <span className={uiLabelClass}>Message</span>
-          <textarea
-            className={cx(uiInputClass, "min-h-[84px] px-3 py-2 ui-body")}
-            value={draft}
-            onChange={(event) => onDraftChange(event.target.value)}
-          />
-        </label>
+        <UiTextarea
+          label="Message"
+          className="min-h-[84px]"
+          value={draft}
+          onChange={(event) => onDraftChange(event.target.value)}
+        />
         <div className="flex flex-wrap justify-end gap-2">
           <UiButton size="sm" variant="secondary" onClick={() => onAction("message")} disabled={!draft.trim()} loading={busy === `message:${request.id}`}>
             Send message

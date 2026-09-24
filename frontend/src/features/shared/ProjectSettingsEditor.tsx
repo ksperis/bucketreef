@@ -21,6 +21,7 @@ import SettingsNavigationGuard from "../../components/settings/SettingsNavigatio
 import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import UiBadge from "../../components/ui/UiBadge";
 import UiSelect from "../../components/ui/UiSelect";
+import UiTextarea from "../../components/ui/UiTextarea";
 import { translate, type I18nMessage } from "../../i18n";
 import {
   emptyForm,
@@ -726,21 +727,18 @@ export default function ProjectSettingsEditor({
           onClose={() => setOriginsOpen(false)}
         >
           {(value, setValue) => (
-            <label>
-              {t({
+            <UiTextarea
+              label={t({
                 en: "One origin per line, or * for all origins.",
                 fr: "Une origine par ligne, ou * pour toutes les origines.",
                 de: "Ein Ursprung pro Zeile oder * für alle Ursprünge.",
                 zh: "每行一个来源，或使用 * 表示所有来源。",
               })}
-              <textarea
-                className="w-full rounded border border-[var(--ui-border)] bg-[var(--ui-surface)] p-2"
-                rows={5}
-                aria-label={originsTitle}
-                value={value}
-                onChange={(event) => setValue(event.target.value)}
-              />
-            </label>
+              rows={5}
+              aria-label={originsTitle}
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+            />
           )}
         </SettingsDraftDialog>
       )}

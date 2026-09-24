@@ -3,10 +3,10 @@ import { useState } from "react";
 import {
   SettingsItem,
   SettingsSection,
-  settingsTextareaClassName,
 } from "../../components/settings/SettingsLayout";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsDraftDialog from "../../components/settings/SettingsDraftDialog";
+import UiTextarea from "../../components/ui/UiTextarea";
 import AdminSettingsFrame from "./settings/AdminSettingsFrame";
 import {
   AppSettingsNumber,
@@ -90,20 +90,15 @@ export default function PortalSettingsPage() {
             }
           >
             {(value, setValue) => (
-              <label>
-                <span>One origin per line</span>
-                <textarea
-                  aria-label="CORS allowed origins"
-                  className={settingsTextareaClassName}
-                  rows={5}
-                  value={value}
-                  onChange={(event) => setValue(event.target.value)}
-                />
-                <span className="text-xs text-[var(--ui-text-muted)]">
-                  These origins are added to the Portal CORS rule for new
-                  Storage Spaces.
-                </span>
-              </label>
+              <UiTextarea
+                label="One origin per line"
+                hint="These origins are added to the Portal CORS rule for new Storage Spaces."
+                aria-label="CORS allowed origins"
+                className="min-h-[96px]"
+                rows={5}
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+              />
             )}
           </SettingsDraftDialog>
         )
