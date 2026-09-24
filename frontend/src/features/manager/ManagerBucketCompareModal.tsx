@@ -9,10 +9,15 @@ import WorkflowPage from "../../components/WorkflowPage";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
-import { BucketCompareResult, BucketCompareResultFilters, BucketCompareSection } from "../shared/BucketCompareResults";
+import {
+  BucketCompareFeedback,
+  BucketCompareResult,
+  BucketCompareResultFilters,
+  BucketCompareSection,
+  type BucketCompareFeedbackTone,
+} from "../shared/BucketCompareResults";
 import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
-import { UiTone } from "../../components/ui/styles";
 import { proxyDownload } from "../../api/browserTransfers";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import {
@@ -65,7 +70,7 @@ type CompareRunItem = {
   error?: string;
   actionRunning?: ManagerBucketCompareAction | null;
   actionFeedback?: {
-    tone: UiTone;
+    tone: BucketCompareFeedbackTone;
     message: string;
   } | null;
 };
@@ -101,18 +106,6 @@ const extractError = extractCompareError;
 const downloadFilenameFromKey = (key: string) => {
   const filename = key.split("/").filter(Boolean).pop();
   return filename || "download";
-};
-
-const feedbackToneClass: Record<UiTone, string> = {
-  neutral: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200",
-  info: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-100",
-  success:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100",
-  warning:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100",
-  danger: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-100",
-  primary:
-    "border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-900/40 dark:bg-primary-950/40 dark:text-primary-100",
 };
 
 const remediationActionLabel: Record<ManagerBucketCompareAction, string> = {
@@ -600,7 +593,7 @@ export default function ManagerBucketCompareModal({
         return;
       }
 
-      const actionTone: UiTone =
+      const actionTone: BucketCompareFeedbackTone =
         actionResult.failed_count <= 0 ? "success" : actionResult.succeeded_count > 0 ? "warning" : "danger";
       const actionMessage = actionResult.message;
       setItems((prev) =>
@@ -947,13 +940,15 @@ export default function ManagerBucketCompareModal({
                   content={content}
                 >
                   <div className="space-y-3">
-                    {item.error && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{item.error}</p>}
+                    {item.error && (
+                      <BucketCompareFeedback tone="danger" announce>
+                        {item.error}
+                      </BucketCompareFeedback>
+                    )}
                     {item.actionFeedback && (
-                      <p
-                        className={`rounded-md border px-2 py-1 ui-caption font-semibold ${feedbackToneClass[item.actionFeedback.tone]}`}
-                      >
+                      <BucketCompareFeedback tone={item.actionFeedback.tone} announce>
                         {item.actionFeedback.message}
-                      </p>
+                      </BucketCompareFeedback>
                     )}
                     {content && (
                       <BucketCompareSection
@@ -1090,23 +1085,19 @@ export default function ManagerBucketCompareModal({
                               >
                                 <div className="mt-1 space-y-2 pb-2">
                                   {sectionCopyFeedback && (
-                                    <p
-                                      className={`rounded-md border px-2 py-1 ui-caption font-semibold ${feedbackToneClass[sectionCopyFeedback.tone]}`}
-                                    >
+                                    <BucketCompareFeedback tone={sectionCopyFeedback.tone} announce>
                                       {sectionCopyFeedback.message}
-                                    </p>
+                                    </BucketCompareFeedback>
                                   )}
                                   {sectionDownloadFeedback && (
-                                    <p
-                                      className={`rounded-md border px-2 py-1 ui-caption font-semibold ${feedbackToneClass[sectionDownloadFeedback.tone]}`}
-                                    >
+                                    <BucketCompareFeedback tone={sectionDownloadFeedback.tone} announce>
                                       {sectionDownloadFeedback.message}
-                                    </p>
+                                    </BucketCompareFeedback>
                                   )}
                                   {displayLimitMessage && (
-                                    <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
+                                    <BucketCompareFeedback tone="warning">
                                       {displayLimitMessage}
-                                    </p>
+                                    </BucketCompareFeedback>
                                   )}
                                   <div className="grid gap-2 lg:grid-cols-2">
                                     <div className="space-y-1">

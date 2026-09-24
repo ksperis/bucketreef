@@ -8,7 +8,12 @@ import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompa
 import WorkflowPage from "../../components/WorkflowPage";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
-import { BucketCompareResult, BucketCompareResultFilters, BucketCompareSection } from "../shared/BucketCompareResults";
+import {
+  BucketCompareFeedback,
+  BucketCompareResult,
+  BucketCompareResultFilters,
+  BucketCompareSection,
+} from "../shared/BucketCompareResults";
 import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
@@ -23,7 +28,6 @@ import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
   BucketCompareManualMappingEditor,
-  CompareVisibleKeysCopyFeedback,
   bucketComparisonCancelledMessage,
   buildBucketCompareMappingModel,
   compareObjectDetailsFromKeys,
@@ -72,12 +76,6 @@ type CephAdminBucketCompareModalProps = {
 };
 
 const extractError = extractCompareError;
-
-const copyFeedbackToneClass: Record<CompareVisibleKeysCopyFeedback["tone"], string> = {
-  success:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100",
-  danger: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-100",
-};
 
 const ALL_CONFIG_FEATURE_KEYS = BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS.map((option) => option.key);
 
@@ -638,7 +636,11 @@ export default function CephAdminBucketCompareModal({
                   content={content}
                 >
                   <div className="space-y-3">
-                    {item.error && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{item.error}</p>}
+                    {item.error && (
+                      <BucketCompareFeedback tone="danger" announce>
+                        {item.error}
+                      </BucketCompareFeedback>
+                    )}
                     {content && (
                       <BucketCompareSection
                         summary={
@@ -694,16 +696,14 @@ export default function CephAdminBucketCompareModal({
                               >
                                 <div className="mt-1 space-y-2 pb-2">
                                   {sectionCopyFeedback && (
-                                    <p
-                                      className={`rounded-md border px-2 py-1 ui-caption font-semibold ${copyFeedbackToneClass[sectionCopyFeedback.tone]}`}
-                                    >
+                                    <BucketCompareFeedback tone={sectionCopyFeedback.tone} announce>
                                       {sectionCopyFeedback.message}
-                                    </p>
+                                    </BucketCompareFeedback>
                                   )}
                                   {displayLimitMessage && (
-                                    <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
+                                    <BucketCompareFeedback tone="warning">
                                       {displayLimitMessage}
-                                    </p>
+                                    </BucketCompareFeedback>
                                   )}
                                   <div className="grid gap-2 lg:grid-cols-2">
                                     <div className="space-y-1">
