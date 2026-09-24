@@ -5074,6 +5074,7 @@ describe("BrowserPage interactions", () => {
       name: "Stop all",
     });
     expect(stopAllButton).toBeInTheDocument();
+    expect(stopAllButton).toHaveClass("ui-list-action", "ui-list-action-danger");
 
     await user.click(stopAllButton);
 
@@ -5106,6 +5107,8 @@ describe("BrowserPage interactions", () => {
     const clearFinishedButton = within(dialog).getByRole("button", {
       name: "Clear completed/failed",
     });
+    expect(overviewButton).toHaveClass("ui-list-action");
+    expect(clearFinishedButton).toHaveClass("ui-list-action");
     expect(overviewButton.parentElement).toBe(clearFinishedButton.parentElement);
     expect(
       Boolean(

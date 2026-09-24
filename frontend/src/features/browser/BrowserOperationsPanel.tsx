@@ -3,13 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { Fragment, useMemo } from "react";
+import { ListActionButton } from "../../components/list/ListControls";
 import { cx } from "../../components/ui/styles";
 import { formatBytes } from "../../utils/format";
-import {
-  countBadgeClasses,
-  operationSecondaryClasses,
-  operationStopClasses,
-} from "./browserConstants";
+import { countBadgeClasses } from "./browserConstants";
 import { ChevronDownIcon, DownloadIcon, InfoIcon, XIcon } from "./browserIcons";
 import {
   buildOperationTimelineEntries,
@@ -88,9 +85,9 @@ function OperationRow({
           </div>
         </div>
         {actionLabel && onAction ? (
-          <button type="button" className={operationStopClasses} onClick={onAction}>
+          <ListActionButton type="button" variant="danger" onClick={onAction}>
             {actionLabel}
-          </button>
+          </ListActionButton>
         ) : null}
       </div>
     </div>
@@ -335,20 +332,19 @@ export default function BrowserOperationsPanel({
               </div>
             )}
             <div className="flex justify-end gap-2 border-t border-[color:var(--ui-border-soft)] py-2">
-              <button
+              <ListActionButton
                 type="button"
-                className={`${operationSecondaryClasses} gap-1.5 ui-caption`}
                 onClick={onOpenDetails}
                 aria-label="Operations overview"
                 title="Operations overview"
               >
                 <InfoIcon className="h-3.5 w-3.5" />
                 <span>Overview</span>
-              </button>
+              </ListActionButton>
               {hasFinishedOperations ? (
-                <button type="button" className={`${operationSecondaryClasses} ui-caption`} onClick={onClearFinishedOperations}>
+                <ListActionButton type="button" onClick={onClearFinishedOperations}>
                   Clear completed/failed
-                </button>
+                </ListActionButton>
               ) : null}
             </div>
           </div>
