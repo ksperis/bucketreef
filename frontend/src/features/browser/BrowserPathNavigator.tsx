@@ -1,14 +1,13 @@
 import type { KeyboardEvent, RefObject } from "react";
 
-import { toolbarCompactInputClasses } from "../../components/toolbarControlClasses";
-import { cx, uiMenuClass } from "../../components/ui/styles";
+import UiInput from "../../components/ui/UiInput";
+import { cx, uiMenuClass, uiMenuItemClass } from "../../components/ui/styles";
 import { breadcrumbIconButtonClasses } from "./browserConstants";
 import { UpIcon } from "./browserIcons";
 import type { PathSuggestion } from "./browserPathSuggestions";
 
 const pathStripClasses =
   "flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-2.5 py-1.5 shadow-[var(--ui-shadow-soft)]";
-const inputClasses = cx(toolbarCompactInputClasses, "w-full py-2 font-medium");
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
 
 type BrowserPathBreadcrumb = {
@@ -72,7 +71,7 @@ export default function BrowserPathNavigator({
     >
       {editing ? (
         <div className="relative min-w-0 flex-1">
-          <input
+          <UiInput
             ref={inputRef}
             type="text"
             value={value}
@@ -90,7 +89,9 @@ export default function BrowserPathNavigator({
                 ? `browser-path-suggestion-${activeSuggestionIndex}`
                 : undefined
             }
-            className={`${inputClasses} min-w-0`}
+            size="compact"
+            fieldClassName="min-w-0"
+            className="ui-list-control min-w-0 w-full font-medium"
             disabled={disabled}
             spellCheck={false}
           />
@@ -122,11 +123,13 @@ export default function BrowserPathNavigator({
                           event.preventDefault();
                           onSelectSuggestion(suggestion);
                         }}
-                        className={`flex w-full items-start gap-2 rounded-xl px-2.5 py-2 text-left transition ${
+                        className={cx(
+                          uiMenuItemClass,
+                          "flex w-full items-start gap-2 py-2",
                           isActive
                             ? "bg-primary-100 text-primary-800 dark:bg-primary-500/20 dark:text-primary-100"
-                            : "text-slate-700 hover:bg-primary-50/70 dark:text-slate-200 dark:hover:bg-slate-800"
-                        }`}
+                            : "text-slate-700 dark:text-slate-200",
+                        )}
                       >
                         <span className="min-w-0 flex-1">
                           <span

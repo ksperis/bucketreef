@@ -1,28 +1,19 @@
 import { ListActionButton } from "../../components/list/ListControls";
 import type { RefObject } from "react";
 
-import {
-  toolbarCompactInputClasses,
-  toolbarCompactSelectClasses,
-} from "../../components/toolbarControlClasses";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiInput from "../../components/ui/UiInput";
+import UiSelect from "../../components/ui/UiSelect";
 import {
   cx,
-  uiCheckboxClass,
   uiMenuClass,
-  uiMutedTextClass,
 } from "../../components/ui/styles";
 
 import { ChevronDownIcon, SearchIcon, SlidersIcon } from "./browserIcons";
 
-const searchInputClasses = cx(
-  toolbarCompactInputClasses,
-  "h-8 w-full py-1.5 text-sm font-normal placeholder:text-slate-400 dark:placeholder:text-slate-500",
-);
-const selectClasses = cx(toolbarCompactSelectClasses, "h-9 w-full");
 const optionCardClasses =
   "inline-flex items-center gap-2 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-2.5 py-1.5 ui-caption font-medium text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)]";
-const labelClasses = cx("ui-caption font-medium", uiMutedTextClass);
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
 
 type BrowserSearchScope = "prefix" | "bucket";
@@ -114,15 +105,18 @@ export default function BrowserObjectSearchHeader({
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
           <SearchIcon className="h-3 w-3" />
         </span>
-        <input
+        <UiInput
           type="text"
           value={filter}
           onChange={(event) => onFilterChange(event.target.value)}
           placeholder={`Search ${objectNounPlural}`}
           aria-label={`Search ${objectNounPlural}`}
-          className={`${searchInputClasses} ui-list-control-with-icon ${
-            advancedOptionsEnabled ? "pr-9" : "pr-3"
-          } normal-case`}
+          size="compact"
+          fieldClassName="w-full"
+          className={cx(
+            "ui-list-control ui-list-control-with-icon h-8 w-full text-sm font-normal normal-case placeholder:text-slate-400 dark:placeholder:text-slate-500",
+            advancedOptionsEnabled ? "pr-9" : "pr-3",
+          )}
         />
         {advancedOptionsEnabled && (
           <button
@@ -151,89 +145,80 @@ export default function BrowserObjectSearchHeader({
           className={`w-72 ${menuClasses}`}
         >
           <div ref={optionsMenuRef} className="space-y-3">
-            <label className="block space-y-1">
-              <span className={labelClasses}>Scope</span>
-              <select
-                value={searchScope}
-                onChange={(event) =>
-                  onScopeChange(event.target.value as BrowserSearchScope)
-                }
-                className={selectClasses}
-                aria-label="Search scope"
-                disabled={!hasSearchQuery}
-              >
-                <option value="prefix">Current path</option>
-                <option value="bucket">Whole bucket</option>
-              </select>
-            </label>
-            <label className={optionCardClasses}>
-              <input
-                type="checkbox"
-                checked={recursive}
-                onChange={(event) => onRecursiveChange(event.target.checked)}
-                disabled={!hasSearchQuery || searchScope === "bucket"}
-                className={uiCheckboxClass}
-                aria-label="Search recursively in subfolders"
-              />
-              <span>Recursive</span>
-            </label>
-            <label className={optionCardClasses}>
-              <input
-                type="checkbox"
-                checked={exactMatch}
-                onChange={(event) => onExactMatchChange(event.target.checked)}
-                disabled={!hasSearchQuery}
-                className={uiCheckboxClass}
-                aria-label="Use exact match"
-              />
-              <span>Exact match</span>
-            </label>
-            <label className={optionCardClasses}>
-              <input
-                type="checkbox"
-                checked={caseSensitive}
-                onChange={(event) => onCaseSensitiveChange(event.target.checked)}
-                disabled={!hasSearchQuery}
-                className={uiCheckboxClass}
-                aria-label="Case-sensitive search"
-              />
-              <span>Case-sensitive</span>
-            </label>
-            <label className="block space-y-1">
-              <span className={labelClasses}>Type</span>
-              <select
-                value={typeFilter}
-                onChange={(event) =>
-                  onTypeFilterChange(
-                    event.target.value as BrowserObjectTypeFilter,
-                  )
-                }
-                className={selectClasses}
-                aria-label="Object type filter"
-              >
-                <option value="all">All</option>
-                <option value="file">Files</option>
-                <option value="folder">Folders</option>
-              </select>
-            </label>
-            <label className="block space-y-1">
-              <span className={labelClasses}>Storage class</span>
-              <select
-                value={storageFilter}
-                onChange={(event) =>
-                  onStorageFilterChange(event.target.value)
-                }
-                className={selectClasses}
-                aria-label="Storage class filter"
-              >
-                <option value="all">All classes</option>
-                {storageClasses.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <UiSelect
+              label="Scope"
+              size="compact"
+              value={searchScope}
+              onChange={(event) =>
+                onScopeChange(event.target.value as BrowserSearchScope)
+              }
+              className="ui-list-control h-9 w-full"
+              aria-label="Search scope"
+              disabled={!hasSearchQuery}
+            >
+              <option value="prefix">Current path</option>
+              <option value="bucket">Whole bucket</option>
+            </UiSelect>
+            <UiCheckboxField
+              checked={recursive}
+              onChange={(event) => onRecursiveChange(event.target.checked)}
+              disabled={!hasSearchQuery || searchScope === "bucket"}
+              className={optionCardClasses}
+              aria-label="Search recursively in subfolders"
+            >
+              Recursive
+            </UiCheckboxField>
+            <UiCheckboxField
+              checked={exactMatch}
+              onChange={(event) => onExactMatchChange(event.target.checked)}
+              disabled={!hasSearchQuery}
+              className={optionCardClasses}
+              aria-label="Use exact match"
+            >
+              Exact match
+            </UiCheckboxField>
+            <UiCheckboxField
+              checked={caseSensitive}
+              onChange={(event) => onCaseSensitiveChange(event.target.checked)}
+              disabled={!hasSearchQuery}
+              className={optionCardClasses}
+              aria-label="Case-sensitive search"
+            >
+              Case-sensitive
+            </UiCheckboxField>
+            <UiSelect
+              label="Type"
+              size="compact"
+              value={typeFilter}
+              onChange={(event) =>
+                onTypeFilterChange(
+                  event.target.value as BrowserObjectTypeFilter,
+                )
+              }
+              className="ui-list-control h-9 w-full"
+              aria-label="Object type filter"
+            >
+              <option value="all">All</option>
+              <option value="file">Files</option>
+              <option value="folder">Folders</option>
+            </UiSelect>
+            <UiSelect
+              label="Storage class"
+              size="compact"
+              value={storageFilter}
+              onChange={(event) =>
+                onStorageFilterChange(event.target.value)
+              }
+              className="ui-list-control h-9 w-full"
+              aria-label="Storage class filter"
+            >
+              <option value="all">All classes</option>
+              {storageClasses.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </UiSelect>
             <div className="flex items-center justify-end gap-1.5 pt-1">
               <ListActionButton
                 type="button"
