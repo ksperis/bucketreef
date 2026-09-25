@@ -6,6 +6,7 @@ from datetime import date, datetime
 import pytest
 
 from app.db import BillingRateCard, BillingStorageDaily, BillingUsageDaily, S3Account, StorageEndpoint
+from app.services.billing_collection_service import BillingCollector
 from app.services.billing_service import (
     BillingService,
     _parse_month,
@@ -42,6 +43,40 @@ def test_parse_month():
     assert period.start == date(2026, 1, 1)
     assert period.end == date(2026, 2, 1)
     assert period.days_in_month == 31
+
+
+def test_billing_collection_returns_structured_errors_without_exception_detail(db_session, monkeypatch):
+    endpoint = StorageEndpoint(
+        name="billing-error-endpoint",
+        endpoint_url="https://billing-error.example.test",
+        provider="ceph",
+        features_config="features:\n  admin:\n    enabled: true\n",
+        is_default=False,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+    db_session.refresh(endpoint)
+
+    class GeneralSettings:
+        billing_enabled = True
+
+    class AppSettings:
+        general = GeneralSettings()
+
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: AppSettings())
+    monkeypatch.setattr(
+        "app.services.billing_collection_service.get_supervision_rgw_client",
+        lambda _endpoint: (_ for _ in ()).throw(RuntimeError("secret upstream detail")),
+    )
+    monkeypatch.setattr(
+        "app.services.billing_collection_service.DataRetentionService.purge_all",
+        lambda _self: {},
+    )
+
+    result = BillingCollector(db_session).collect_daily(date(2026, 9, 25))
+
+    assert result["errors"] == [{"stage": "endpoint", "endpoint_id": endpoint.id}]
+    assert "secret upstream detail" not in repr(result)
 
 
 def test_billing_ops_breakdown_requires_integer_values():

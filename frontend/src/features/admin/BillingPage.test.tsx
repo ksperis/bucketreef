@@ -134,7 +134,7 @@ describe("BillingPage", () => {
       endpoints: 1,
       storage_records: 1,
       usage_records: 0,
-      errors: [{ subject: "account", subject_id: 42, error: "RGW usage denied" }],
+      errors: [{ stage: "usage", endpoint_id: 7, subject: "account", subject_id: 42 }],
     });
     mocks.downloadBillingCsv.mockResolvedValue(new Blob(["subject_type\n"], { type: "text/csv" }));
   });
@@ -221,11 +221,11 @@ describe("BillingPage", () => {
     await user.click(screen.getByRole("button", { name: "Collect daily" }));
 
     expect(await screen.findByText(/Collection finished with issues for/)).toBeInTheDocument();
-    expect(screen.getByText("account #42: RGW usage denied")).toBeInTheDocument();
+    expect(screen.getByText("Usage: account #42 · endpoint #7")).toBeInTheDocument();
     await waitFor(() => expect(mocks.getBillingSummary).toHaveBeenCalledTimes(2));
     await user.click(disclosure);
     expect(disclosure.closest("details")).not.toHaveAttribute("open");
-    expect(screen.getByText("account #42: RGW usage denied")).toBeVisible();
+    expect(screen.getByText("Usage: account #42 · endpoint #7")).toBeVisible();
     expect(screen.getByText(/Collection finished with issues for/)).toBeVisible();
   });
 

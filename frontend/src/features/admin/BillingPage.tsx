@@ -115,6 +115,17 @@ function extractCollectionErrors(result: Record<string, unknown> | null): Array<
   return Array.isArray(errors) ? errors.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object")) : [];
 }
 
+function formatCollectionIssue(entry: Record<string, unknown>): string {
+  const stage = typeof entry.stage === "string" ? entry.stage : "collection";
+  const stageLabel = stage === "usage" ? "Usage" : stage === "storage" ? "Storage" : stage === "endpoint" ? "Endpoint client" : "Collection";
+  const endpoint = entry.endpoint_id != null ? `endpoint #${String(entry.endpoint_id)}` : null;
+  const subject = typeof entry.subject === "string"
+    ? `${entry.subject}${entry.subject_id != null ? ` #${String(entry.subject_id)}` : ""}`
+    : null;
+  const target = [subject, endpoint].filter(Boolean).join(" · ");
+  return target ? `${stageLabel}: ${target}` : stageLabel;
+}
+
 function formatCollectionResult(result: Record<string, unknown> | null, day: string): string | null {
   if (!result) return null;
   const endpoints = Number(result.endpoints ?? 0);
@@ -563,10 +574,7 @@ export default function BillingPage() {
               <p className={cx("ui-caption font-semibold", uiTitleTextClass)}>Collection issues</p>
               <ul className={cx("mt-2 space-y-1 ui-caption", uiMutedTextClass)}>
                 {collectionErrors.slice(0, 5).map((entry, index) => (
-                  <li key={index}>
-                    {String(entry.subject ?? `endpoint ${entry.endpoint_id ?? "-"}`)}
-                    {entry.subject_id != null ? ` #${String(entry.subject_id)}` : ""}: {String(entry.error ?? "Unknown error")}
-                  </li>
+                  <li key={index}>{formatCollectionIssue(entry)}</li>
                 ))}
               </ul>
             </div>
