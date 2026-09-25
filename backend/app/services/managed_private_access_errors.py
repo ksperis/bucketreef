@@ -16,6 +16,10 @@ class ManagedPrivateAccessForbidden(ManagedPrivateAccessError):
     pass
 
 
+class ManagedPrivateAccessNotFound(ManagedPrivateAccessError):
+    pass
+
+
 class ManagedPrivateAccessCleanupPending(ManagedPrivateAccessError):
     def __init__(self, provisioning_id: int, message: str) -> None:
         super().__init__(message)
