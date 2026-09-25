@@ -34,12 +34,6 @@ _CONTENT_PREVIEW_MAX_BYTES = 64 * 1024
 
 
 class PortalObjectsMixin:
-    def check_storage_space_read_access(self, user: User, access: "AccountAccess", bucket_name: str) -> None:
-        """Check existing personal access without provisioning or repairing IAM."""
-        self._require_storage_space_content_role(user, access, bucket_name)
-        client = self._portal_object_client(user, access.account)
-        client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
-
     def _user_storage_space_role(
         self,
         user: User,

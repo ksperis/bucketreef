@@ -16,23 +16,18 @@ RuntimeSurface = Literal[
     "browser",
 ]
 
-RUNTIME_SURFACE_ENV: dict[RuntimeSurface, tuple[str, str]] = {
-    "admin": ("feature_admin_enabled", "FEATURE_ADMIN_ENABLED"),
-    "ceph_admin": ("feature_ceph_admin_enabled", "FEATURE_CEPH_ADMIN_ENABLED"),
-    "storage_ops": ("feature_storage_ops_enabled", "FEATURE_STORAGE_OPS_ENABLED"),
-    "manager": ("feature_manager_enabled", "FEATURE_MANAGER_ENABLED"),
-    "portal": ("feature_portal_enabled", "FEATURE_PORTAL_ENABLED"),
-    "browser": ("feature_browser_enabled", "FEATURE_BROWSER_ENABLED"),
+RUNTIME_SURFACE_SETTINGS: dict[RuntimeSurface, str] = {
+    "admin": "feature_admin_enabled",
+    "ceph_admin": "feature_ceph_admin_enabled",
+    "storage_ops": "feature_storage_ops_enabled",
+    "manager": "feature_manager_enabled",
+    "portal": "feature_portal_enabled",
+    "browser": "feature_browser_enabled",
 }
 
 
 def runtime_surface_enabled(settings: Settings, surface: RuntimeSurface) -> bool:
     """Return whether a surface may be mounted by this backend instance."""
 
-    setting_name, _ = RUNTIME_SURFACE_ENV[surface]
+    setting_name = RUNTIME_SURFACE_SETTINGS[surface]
     return getattr(settings, setting_name) is not False
-
-
-def runtime_surface_source(settings: Settings, surface: RuntimeSurface) -> str | None:
-    setting_name, env_name = RUNTIME_SURFACE_ENV[surface]
-    return env_name if getattr(settings, setting_name) is not None else None
