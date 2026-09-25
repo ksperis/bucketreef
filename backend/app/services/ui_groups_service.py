@@ -28,15 +28,16 @@ from app.models.user import (
     S3UserMembership,
     UserSummary,
 )
-from app.services.ui_group_avatar_service import UiGroupAvatarService
-from app.services.user_avatar_service import UserAvatarService
-from app.services.manager_tool_access import manager_tool_column_values, read_manager_tool_access
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
+from app.services.association_validation import ensure_association_ids_exist
+from app.services.manager_tool_access import manager_tool_column_values, read_manager_tool_access
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
     sync_portal_role_downgrades,
     sync_portal_role_promotions,
 )
+from app.services.ui_group_avatar_service import UiGroupAvatarService
+from app.services.user_avatar_service import UserAvatarService
 from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 
@@ -362,7 +363,12 @@ class UiGroupsService:
 
     def _set_user_links(self, group: UiGroup, target_ids: list[int]) -> None:
         cleaned_ids = self._clean_ids(target_ids)
-        self._ensure_users_exist(cleaned_ids)
+        ensure_association_ids_exist(
+            self.db,
+            User.id,
+            cleaned_ids,
+            entity_label="Users",
+        )
         existing = self.db.query(UserUiGroup).filter(UserUiGroup.group_id == group.id).all()
         existing_ids = {link.user_id for link in existing}
         desired_ids = set(cleaned_ids)
@@ -372,7 +378,12 @@ class UiGroupsService:
 
     def _set_account_links(self, group: UiGroup, links: list[AccountMembership]) -> None:
         cleaned = {int(link.account_id): link for link in links}
-        self._ensure_accounts_exist(sorted(cleaned))
+        ensure_association_ids_exist(
+            self.db,
+            S3Account.id,
+            cleaned,
+            entity_label="S3 accounts",
+        )
         existing = self.db.query(UiGroupS3Account).filter(UiGroupS3Account.group_id == group.id).all()
         existing_by_id = {link.account_id: link for link in existing}
         desired_ids = set(cleaned)
@@ -401,7 +412,12 @@ class UiGroupsService:
     def _set_s3_user_links(self, group: UiGroup, links: list[S3UserMembership]) -> None:
         cleaned = {int(link.s3_user_id): link for link in links}
         cleaned_ids = sorted(cleaned)
-        self._ensure_s3_users_exist(cleaned_ids)
+        ensure_association_ids_exist(
+            self.db,
+            S3User.id,
+            cleaned_ids,
+            entity_label="S3 users",
+        )
         existing = self.db.query(UiGroupS3User).filter(UiGroupS3User.group_id == group.id).all()
         existing_by_id = {link.s3_user_id: link for link in existing}
         existing_ids = set(existing_by_id)
@@ -460,33 +476,6 @@ class UiGroupsService:
         if not name:
             raise ValueError("UI group name is required")
         return name
-
-    def _ensure_users_exist(self, ids: list[int]) -> None:
-        if not ids:
-            return
-        found = {row[0] for row in self.db.query(User.id).filter(User.id.in_(ids)).all()}
-        missing = set(ids) - found
-        if missing:
-            missing_str = ", ".join(str(mid) for mid in sorted(missing))
-            raise ValueError(f"Users not found: {missing_str}")
-
-    def _ensure_accounts_exist(self, ids: list[int]) -> None:
-        if not ids:
-            return
-        found = {row[0] for row in self.db.query(S3Account.id).filter(S3Account.id.in_(ids)).all()}
-        missing = set(ids) - found
-        if missing:
-            missing_str = ", ".join(str(mid) for mid in sorted(missing))
-            raise ValueError(f"S3 accounts not found: {missing_str}")
-
-    def _ensure_s3_users_exist(self, ids: list[int]) -> None:
-        if not ids:
-            return
-        found = {row[0] for row in self.db.query(S3User.id).filter(S3User.id.in_(ids)).all()}
-        missing = set(ids) - found
-        if missing:
-            missing_str = ", ".join(str(mid) for mid in sorted(missing))
-            raise ValueError(f"S3 users not found: {missing_str}")
 
     def _delete_removed_user_links(self, group_id: int, user_ids: set[int]) -> None:
         if not user_ids:
