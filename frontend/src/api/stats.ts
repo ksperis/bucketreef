@@ -54,10 +54,6 @@ export type AdminStats = {
 
 export type ManagerStats = {
   total_buckets: number;
-  total_iam_users: number;
-  total_iam_groups: number;
-  total_iam_roles: number;
-  total_iam_policies: number;
   total_bytes?: number;
   total_objects?: number;
   bucket_usage?: BucketUsagePoint[];

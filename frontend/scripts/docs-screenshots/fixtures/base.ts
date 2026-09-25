@@ -1753,10 +1753,6 @@ export function buildBaseRules(): MockRule[] {
       path: /^\/manager\/stats\/overview$/,
       body: {
         total_buckets: MANAGER_BUCKET_COUNT,
-        total_iam_users: IAM_USERS.length,
-        total_iam_groups: IAM_GROUPS.length,
-        total_iam_roles: 2,
-        total_iam_policies: IAM_POLICIES.length,
         total_bytes: MANAGER_TOTAL_BYTES,
         total_objects: MANAGER_TOTAL_OBJECTS,
         bucket_usage: MANAGER_BUCKETS.map((item) => ({ name: item.name, used_bytes: item.used_bytes, object_count: item.object_count })),

@@ -1028,10 +1028,6 @@ describe("manager shell pages", () => {
     useManagerStatsMock.mockReturnValue({
       stats: {
         total_buckets: 2,
-        total_iam_users: 2,
-        total_iam_groups: 1,
-        total_iam_roles: 3,
-        total_iam_policies: 0,
         total_bytes: 5 * 1024 ** 3,
         total_objects: 12,
         bucket_usage: [
@@ -1039,6 +1035,11 @@ describe("manager shell pages", () => {
           { name: "bucket-b", used_bytes: 1_000, object_count: 4 },
         ],
       },
+      loading: false,
+      error: null,
+    });
+    useIamOverviewMock.mockReturnValue({
+      overview: { iam_users: 2, iam_groups: 1, iam_roles: 3, iam_policies: 0 },
       loading: false,
       error: null,
     });
@@ -1110,10 +1111,6 @@ describe("manager shell pages", () => {
     useManagerStatsMock.mockReturnValue({
       stats: {
         total_buckets: 2,
-        total_iam_users: 0,
-        total_iam_groups: 0,
-        total_iam_roles: 0,
-        total_iam_policies: 0,
         total_bytes: 5 * 1024 ** 3,
         total_objects: 12,
         bucket_usage: [{ name: "bucket-a", used_bytes: 2_000, object_count: 8 }],

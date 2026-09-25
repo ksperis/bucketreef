@@ -197,23 +197,13 @@ def test_endpoint_feature_flags_still_apply(gate, feature):
 
 
 @pytest.mark.parametrize("can_manage_iam", [False, True])
-def test_stats_overview_only_reads_iam_when_explicitly_allowed(monkeypatch, can_manage_iam):
+def test_stats_overview_is_storage_only(can_manage_iam):
     context = _context()
     context.manager_capabilities.can_manage_iam = can_manage_iam
-    calls = []
-
-    def iam_client(*args, **kwargs):
-        calls.append((args, kwargs))
-        return SimpleNamespace(
-            list_users=lambda: [{}], list_groups=lambda: [{}], list_roles=lambda: [{}], list_policies=lambda: [{}],
-        )
-
-    monkeypatch.setattr(stats, "get_iam_service", iam_client)
     result = stats.account_stats(account=context, bucket_service=SimpleNamespace(list_buckets=lambda _account: []))
 
-    assert len(calls) == int(can_manage_iam)
     for key in ["total_iam_users", "total_iam_groups", "total_iam_roles", "total_iam_policies"]:
-        assert result[key] == int(can_manage_iam)
+        assert key not in result
 
 
 @pytest.mark.parametrize("invalid", ["missing-capabilities", "denied-buckets"])
