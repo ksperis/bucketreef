@@ -1059,11 +1059,19 @@ def test_detect_features_classifies_denied_unavailable_and_unprivileged_credenti
 
         def get_user_by_access_key(self, *_args, **_kwargs):
             if self.access_key == "AKIA-ADMIN":
-                raise RGWAdminError("RGW admin error 403: AccessDenied")
+                raise RGWAdminError(
+                    "RGW admin request was denied",
+                    status_code=403,
+                    error_code="AccessDenied",
+                )
             return {"admin": False, "system": False}
 
         def get_account(self, *_args, **_kwargs):
-            raise RGWAdminError("RGW admin error 403: AccessDenied")
+            raise RGWAdminError(
+                "RGW admin request was denied",
+                status_code=403,
+                error_code="AccessDenied",
+            )
 
         def get_all_buckets(self, **_kwargs):
             raise RGWAdminError("connect timeout")

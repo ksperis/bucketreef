@@ -5,6 +5,23 @@ from types import SimpleNamespace
 from app.db import StorageProvider
 from app.routers.ceph_admin import dependencies as deps
 from app.services.rgw_admin import RGWAdminError
+from app.services.rgw_admin_identity import classify_rgw_credential_failure
+
+
+def test_rgw_credential_failure_classification_uses_structured_error_metadata():
+    assert (
+        classify_rgw_credential_failure(
+            RGWAdminError("neutral upstream failure", status_code=403)
+        )
+        == "denied"
+    )
+    assert (
+        classify_rgw_credential_failure(
+            RGWAdminError("neutral upstream failure", error_code="SignatureDoesNotMatch")
+        )
+        == "denied"
+    )
+    assert classify_rgw_credential_failure(RGWAdminError("403 AccessDenied")) == "unavailable"
 
 
 def test_probe_ceph_admin_service_identity_classifies_unavailable(monkeypatch):
@@ -54,7 +71,11 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
 
     class FakeRGWClient:
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = True):
-            raise RGWAdminError("RGW admin error 403: AccessDenied")
+            raise RGWAdminError(
+                "RGW admin request was denied",
+                status_code=403,
+                error_code="AccessDenied",
+            )
 
     monkeypatch.setattr(deps, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
 
