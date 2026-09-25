@@ -9,6 +9,10 @@ import {
   SettingsInput,
   SettingsSelect,
 } from "../../../components/settings/SettingsControls";
+import {
+  SettingsAutocomplete,
+  SettingsMultiValueAutocomplete,
+} from "../../../components/settings/SettingsAutocomplete";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiTextarea from "../../../components/ui/UiTextarea";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
@@ -22,6 +26,7 @@ import {
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
+import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
   isPolicyStatementVisuallyEditable,
@@ -72,24 +77,27 @@ function NewConditionEditor({
   );
   const valueList = splitPolicyListText(values);
   const canAdd = Boolean(normalizedOperator && normalizedKey && valueList.length && !duplicate);
+  const { conditionKeys, conditionOperators } = useBucketFeatureSuggestions();
 
   return (
     <BucketFeatureEditorGroup>
       <p className="settings-label">Add condition</p>
       <div className="grid gap-3 md:grid-cols-2">
-        <SettingsInput
+        <SettingsAutocomplete
           label="Operator"
           value={operator}
           placeholder="StringEquals"
-          onChange={(event) => setOperator(event.target.value)}
+          onChange={setOperator}
           disabled={disabled}
+          {...conditionOperators}
         />
-        <SettingsInput
+        <SettingsAutocomplete
           label="Condition key"
           value={key}
           placeholder="aws:SourceIp"
-          onChange={(event) => setKey(event.target.value)}
+          onChange={setKey}
           disabled={disabled}
+          {...conditionKeys}
         />
       </div>
       <UiTextarea
@@ -141,6 +149,7 @@ function PolicyStatementEditor({
 }) {
   const editable = isPolicyStatementVisuallyEditable(statement);
   const label = policyStatementSid(statement, index);
+  const { policyActions, policyResources } = useBucketFeatureSuggestions();
 
   if (!editable) {
     return (
@@ -231,24 +240,32 @@ function PolicyStatementEditor({
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-2">
-        <UiTextarea
-          label="Actions (one per line)"
-          rows={5}
-          value={policyListText(draft.actions)}
-          placeholder="s3:GetObject"
-          onChange={(event) => onChange({ actions: splitPolicyListText(event.target.value) })}
-          className="settings-control font-mono"
-          disabled={disabled}
-        />
-        <UiTextarea
-          label="Resources (one per line)"
-          rows={5}
-          value={policyListText(draft.resources)}
-          placeholder="arn:aws:s3:::bucket/*"
-          onChange={(event) => onChange({ resources: splitPolicyListText(event.target.value) })}
-          className="settings-control font-mono"
-          disabled={disabled}
-        />
+        <BucketFeatureEditorGroup>
+          <SettingsMultiValueAutocomplete
+            label="Actions"
+            itemLabel="action"
+            inputLabel="Add action"
+            values={draft.actions}
+            onChange={(actions) => onChange({ actions })}
+            placeholder="s3:GetObject"
+            disabled={disabled}
+            description="Choose common S3 actions or enter any action supported by the endpoint."
+            {...policyActions}
+          />
+        </BucketFeatureEditorGroup>
+        <BucketFeatureEditorGroup>
+          <SettingsMultiValueAutocomplete
+            label="Resources"
+            itemLabel="resource"
+            inputLabel="Add resource"
+            values={draft.resources}
+            onChange={(resources) => onChange({ resources })}
+            placeholder="arn:aws:s3:::bucket/*"
+            disabled={disabled}
+            description="Use this bucket, one of its prefixes, or enter another valid resource ARN."
+            {...policyResources}
+          />
+        </BucketFeatureEditorGroup>
       </div>
 
       <div className="space-y-3">

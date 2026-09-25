@@ -41,6 +41,7 @@ import {
   BucketPublicAccessFeature,
   BucketQuotaFeature,
   BucketReplicationFeature,
+  BucketFeatureSuggestionsProvider,
   useBucketAccessLoggingController,
   useBucketAclController,
   useBucketCorsController,
@@ -1024,7 +1025,15 @@ function BucketDetailPageContent({
                     : false;
 
   return (
-    <div className={bucketDetailSectionStackClass}>
+    <BucketFeatureSuggestionsProvider
+      accountId={accountId}
+      bucketName={bucketName}
+      cephAdmin={isCephAdmin}
+      enabled={hasContext}
+      endpointId={endpointId}
+      topicsEnabled={snsFeatureEnabled}
+    >
+      <div className={bucketDetailSectionStackClass}>
       {!embedded && (
         <PageHeader
           title={bucketName ?? "Bucket"}
@@ -1467,6 +1476,7 @@ function BucketDetailPageContent({
         />
       )}
 
-    </div>
+      </div>
+    </BucketFeatureSuggestionsProvider>
   );
 }

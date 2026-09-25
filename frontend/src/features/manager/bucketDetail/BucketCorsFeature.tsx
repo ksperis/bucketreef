@@ -8,6 +8,7 @@ import {
   SettingsButton,
   SettingsInput,
 } from "../../../components/settings/SettingsControls";
+import { SettingsMultiValueAutocomplete } from "../../../components/settings/SettingsAutocomplete";
 import UiCheckboxField from "../../../components/ui/UiCheckboxField";
 import UiBadge from "../../../components/ui/UiBadge";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
@@ -21,6 +22,7 @@ import {
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
+import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
   corsMethods,
@@ -145,6 +147,7 @@ function CorsRuleEditor({
 }) {
   const editable = isCorsRuleVisuallyEditable(rule);
   const label = ruleLabel(rule, index);
+  const { corsHeaders } = useBucketFeatureSuggestions();
 
   if (!editable) {
     return (
@@ -236,26 +239,32 @@ function CorsRuleEditor({
       </BucketFeatureEditorGroup>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <StringListEditor
-          title="Allowed request headers"
-          itemLabel="Allowed header"
-          description="Headers accepted in browser preflight requests."
-          values={draft.allowedHeaders}
-          placeholder="Content-Type"
-          addLabel="Add header"
-          disabled={disabled}
-          onChange={(allowedHeaders) => onChange({ allowedHeaders })}
-        />
-        <StringListEditor
-          title="Exposed response headers"
-          itemLabel="Exposed header"
-          description="Response headers browser JavaScript is allowed to read."
-          values={draft.exposeHeaders}
-          placeholder="ETag"
-          addLabel="Add exposed header"
-          disabled={disabled}
-          onChange={(exposeHeaders) => onChange({ exposeHeaders })}
-        />
+        <BucketFeatureEditorGroup>
+          <SettingsMultiValueAutocomplete
+            label="Allowed request headers"
+            itemLabel="allowed header"
+            inputLabel="Add allowed header"
+            description="Headers accepted in browser preflight requests."
+            values={draft.allowedHeaders}
+            placeholder="Content-Type"
+            disabled={disabled}
+            onChange={(allowedHeaders) => onChange({ allowedHeaders })}
+            {...corsHeaders}
+          />
+        </BucketFeatureEditorGroup>
+        <BucketFeatureEditorGroup>
+          <SettingsMultiValueAutocomplete
+            label="Exposed response headers"
+            itemLabel="exposed header"
+            inputLabel="Add exposed header"
+            description="Response headers browser JavaScript is allowed to read."
+            values={draft.exposeHeaders}
+            placeholder="ETag"
+            disabled={disabled}
+            onChange={(exposeHeaders) => onChange({ exposeHeaders })}
+            {...corsHeaders}
+          />
+        </BucketFeatureEditorGroup>
       </div>
     </BucketFeatureEditorItem>
   );

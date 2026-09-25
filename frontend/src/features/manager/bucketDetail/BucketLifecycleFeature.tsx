@@ -9,6 +9,7 @@ import {
   SettingsInput,
   SettingsSelect,
 } from "../../../components/settings/SettingsControls";
+import { SettingsAutocomplete } from "../../../components/settings/SettingsAutocomplete";
 import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
@@ -30,6 +31,7 @@ import {
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
+import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
   isLifecycleRuleVisuallyEditable,
@@ -96,6 +98,7 @@ function LifecycleRuleEditor({
   const draft = readLifecycleVisualRule(rule);
   const ruleLabel = lifecycleRuleId(rule) ?? `Rule ${index + 1}`;
   const validationError = lifecycleVisualRuleValidationError(rule);
+  const { prefixes, storageClasses } = useBucketFeatureSuggestions();
 
   if (!editable) {
     return (
@@ -145,12 +148,13 @@ function LifecycleRuleEditor({
           <option value="Enabled">Enabled</option>
           <option value="Disabled">Disabled</option>
         </SettingsSelect>
-        <SettingsInput
+        <SettingsAutocomplete
           label="Prefix"
           value={draft.prefix}
           placeholder="logs/"
-          onChange={(event) => onChange({ prefix: event.target.value })}
+          onChange={(value) => onChange({ prefix: value })}
           disabled={disabled}
+          {...prefixes}
         />
       </div>
 
@@ -217,12 +221,13 @@ function LifecycleRuleEditor({
               onChange={(event) => onChange({ transitionDays: event.target.value })}
               disabled={disabled}
             />
-            <SettingsInput
+            <SettingsAutocomplete
               label="Storage class"
               value={draft.transitionStorageClass}
               required={Boolean(draft.transitionDays)}
-              onChange={(event) => onChange({ transitionStorageClass: event.target.value })}
+              onChange={(value) => onChange({ transitionStorageClass: value })}
               disabled={disabled}
+              {...storageClasses}
             />
           </div>
         </LifecycleActionGroup>
@@ -242,12 +247,13 @@ function LifecycleRuleEditor({
               onChange={(event) => onChange({ noncurrentTransitionDays: event.target.value })}
               disabled={disabled}
             />
-            <SettingsInput
+            <SettingsAutocomplete
               label="Storage class"
               value={draft.noncurrentTransitionStorageClass}
               required={Boolean(draft.noncurrentTransitionDays)}
-              onChange={(event) => onChange({ noncurrentTransitionStorageClass: event.target.value })}
+              onChange={(value) => onChange({ noncurrentTransitionStorageClass: value })}
               disabled={disabled}
+              {...storageClasses}
             />
           </div>
         </LifecycleActionGroup>

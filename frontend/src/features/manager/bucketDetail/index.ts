@@ -16,6 +16,7 @@ export { default as BucketPublicAccessFeature } from "./BucketPublicAccessFeatur
 export { default as BucketQuotaFeature } from "./BucketQuotaFeature";
 export { default as BucketReplicationFeature } from "./BucketReplicationFeature";
 export { default as BucketPolicyFeature } from "./BucketPolicyFeature";
+export { BucketFeatureSuggestionsProvider } from "./BucketFeatureSuggestions";
 export { useBucketPolicyController } from "./useBucketPolicyController";
 export { useBucketCorsController } from "./useBucketCorsController";
 export { useBucketEncryptionController } from "./useBucketEncryptionController";
