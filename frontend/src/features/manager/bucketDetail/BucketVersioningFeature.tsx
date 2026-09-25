@@ -3,8 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { SettingsButton } from "../../../components/settings/SettingsControls";
-import { SettingsItem, SettingsSwitch } from "../../../components/settings/SettingsLayout";
-import UiBadge from "../../../components/ui/UiBadge";
+import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
@@ -47,43 +46,44 @@ export default function BucketVersioningFeature({
       description="Enable or suspend S3 object versioning."
       mode="graphical"
       visualState={visualState}
+      stateLabel={dirty ? undefined : isEnabled ? "Enabled" : isSuspended ? "Suspended" : "Inactive"}
+      stateTone={isSuspended ? "warning" : isEnabled ? "primary" : "neutral"}
       busy={saving || loading}
       testId="bucket-feature-versioning"
       actions={
-        <SettingsButton
-          type="button"
-          onClick={() => void save(disableBlocked)}
-          disabled={saving || loading || Boolean(loadError) || disableBlocked || !dirty}
-          title={disableBlocked ? "Disable Object Lock to change versioning." : undefined}
-          variant="primary"
-        >
-          {saving ? "Saving..." : "Save"}
-        </SettingsButton>
+        dirty ? (
+          <SettingsButton
+            type="button"
+            onClick={() => void save(disableBlocked)}
+            disabled={saving || loading || Boolean(loadError) || disableBlocked}
+            title={disableBlocked ? "Disable Object Lock to change versioning." : undefined}
+            variant="primary"
+          >
+            {saving ? "Saving..." : "Save"}
+          </SettingsButton>
+        ) : undefined
       }
     >
-      <div className="space-y-2">
-        {loading && <UiInlineMessage>Loading versioning...</UiInlineMessage>}
-        {loadError && <UiInlineMessage tone="error">{loadError}</UiInlineMessage>}
-        {saveError && <UiInlineMessage tone="error">{saveError}</UiInlineMessage>}
-        <SettingsItem
-          compact
-          title="Enable versioning"
-          description="Keeps object history for restores and is required for Object Lock."
-          action={
-            <div className="flex items-center gap-2">
-              {isSuspended && <UiBadge tone="warning">Suspended</UiBadge>}
-              <SettingsSwitch
-                checked={draftEnabled}
-                disabled={saving || loading || Boolean(loadError) || disableBlocked}
-                ariaLabel="Enable versioning"
-                onChange={updateDraft}
-              />
-            </div>
-          }
+      {loading && <UiInlineMessage>Loading versioning...</UiInlineMessage>}
+      {loadError && <UiInlineMessage tone="error">{loadError}</UiInlineMessage>}
+      {saveError && <UiInlineMessage tone="error">{saveError}</UiInlineMessage>}
+      <div className="bucket-feature-summary-row">
+        <div className="bucket-feature-summary-value">
+          {draftEnabled
+            ? "Object versions are retained."
+            : isSuspended
+              ? "New object versions are suspended."
+              : "Object version history is disabled."}
+        </div>
+        <SettingsSwitch
+          checked={draftEnabled}
+          disabled={saving || loading || Boolean(loadError) || disableBlocked}
+          ariaLabel="Enable versioning"
+          onChange={updateDraft}
         />
       </div>
       {disableBlocked && (
-        <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
+        <p className="mt-2 bucket-feature-summary-muted">
           Versioning cannot be disabled while Object Lock is enabled.
         </p>
       )}

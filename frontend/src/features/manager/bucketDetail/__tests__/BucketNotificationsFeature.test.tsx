@@ -43,7 +43,12 @@ function buildController(
     load: vi.fn(),
     loading: false,
     openEditor: vi.fn(),
+    openEditorFor: vi.fn(),
+    openEditorWithNew: vi.fn(),
+    openJsonEditor: vi.fn(),
+    editorTargetIndex: null,
     removeDraftTopic: vi.fn(),
+    removeTopicDirect: vi.fn(),
     saveDraft: vi.fn(),
     saving: false,
     status: null,
@@ -65,7 +70,7 @@ function renderFeature(controller: NotificationsController) {
 }
 
 describe("BucketNotificationsFeature", () => {
-  it("renders a compact read-only topic summary with a single Edit action", async () => {
+  it("renders topic rows with direct edit and remove actions", async () => {
     const user = userEvent.setup();
     const controller = buildController({
       configuration: { TopicConfigurations: [supportedTopic] },
@@ -83,20 +88,22 @@ describe("BucketNotificationsFeature", () => {
     expect(within(card).getByText(/s3:ObjectCreated:\*/)).toBeInTheDocument();
     expect(within(card).getByText("prefix=uploads/ · suffix=.json")).toBeInTheDocument();
     expect(within(card).queryByRole("textbox")).not.toBeInTheDocument();
-    expect(within(card).queryByRole("button", { name: /remove|clear|save/i })).not.toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Remove" })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    expect(controller.openEditor).toHaveBeenCalledOnce();
+    await user.click(within(card).getByRole("button", { name: "Edit" }));
+    expect(controller.openEditorFor).toHaveBeenCalledWith(0);
+    await user.click(within(card).getByRole("button", { name: "Remove" }));
+    expect(controller.removeTopicDirect).toHaveBeenCalledWith(0);
   });
 
-  it("keeps an unconfigured notification summary compact and configurable", () => {
+  it("renders an unconfigured notification collection with an add action", () => {
     renderFeature(buildController());
 
     const card = screen.getByTestId("bucket-feature-notifications");
-    expect(within(card).queryByText("0 topic notifications")).not.toBeInTheDocument();
-    expect(within(card).queryByText("No notifications configured on this bucket.")).not.toBeInTheDocument();
-    expect(within(card).queryByRole("table")).not.toBeInTheDocument();
-    expect(within(card).getByRole("button", { name: "Configure" })).toBeEnabled();
+    expect(within(card).getByText("0 topic notifications")).toBeInTheDocument();
+    expect(within(card).getByText("No notifications configured on this bucket.")).toBeInTheDocument();
+    expect(within(card).getByRole("table")).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Add notification", exact: true })).toBeEnabled();
   });
 
   it("renders supported topics as editable cards and advanced topics as read-only", async () => {

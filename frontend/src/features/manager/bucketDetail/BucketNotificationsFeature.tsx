@@ -44,6 +44,7 @@ type BucketNotificationsFeatureProps = {
 };
 
 type NotificationSummaryRow = {
+  index: number;
   key: string;
   topic: NotificationTopicRecord;
 };
@@ -214,13 +215,17 @@ export default function BucketNotificationsFeature({
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error,
     hasAdvancedConfiguration,
     hasAdvancedDraftTopLevel,
     jsonText,
     loading,
-    openEditor,
+    openEditorFor,
+    openEditorWithNew,
+    openJsonEditor,
     removeDraftTopic,
+    removeTopicDirect,
     saveDraft,
     saving,
     status,
@@ -239,6 +244,7 @@ export default function BucketNotificationsFeature({
   const summaryRows = useMemo<NotificationSummaryRow[]>(
     () =>
       topics.map((topic, index) => ({
+        index,
         key: `${notificationTopicId(topic) ?? notificationTopicArn(topic) ?? "topic"}-${index}`,
         topic,
       })),
@@ -283,10 +289,40 @@ export default function BucketNotificationsFeature({
       cellClassName: "min-w-44",
       render: ({ topic }) => notificationTopicFilterLabel(topic),
     },
+    {
+      id: "manage",
+      label: "Manage",
+      mobileRole: "actions",
+      headerClassName: "w-px whitespace-nowrap text-right",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ index }) => (
+        <div className="bucket-feature-row-actions">
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={() => openEditorFor(index)}
+            disabled={saving || notImplemented}
+          >
+            Edit
+          </SettingsButton>
+          <SettingsButton
+            type="button"
+            variant="danger"
+            onClick={() => void removeTopicDirect(index)}
+            disabled={saving || notImplemented}
+          >
+            Remove
+          </SettingsButton>
+        </div>
+      ),
+    },
   ];
   const canAddTopic =
     draftConfiguration.TopicConfigurations === undefined ||
     Array.isArray(draftConfiguration.TopicConfigurations);
+  const visibleDraftTopics = draftTopics
+    .map((topic, index) => ({ topic, index }))
+    .filter(({ index }) => editorTargetIndex === null || index === editorTargetIndex);
 
   const visualEditor = (
     <div className="space-y-3">
@@ -321,7 +357,7 @@ export default function BucketNotificationsFeature({
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
-          {draftTopics.map((topic, index) => (
+          {visibleDraftTopics.map(({ topic, index }) => (
             <NotificationTopicEditor
               key={`${notificationTopicId(topic) ?? notificationTopicArn(topic) ?? "topic"}-${index}`}
               index={index}
@@ -361,7 +397,18 @@ export default function BucketNotificationsFeature({
         error={error}
         successMessage={status}
         editDisabled={notImplemented || saving}
-        onEdit={openEditor}
+        editLabel="JSON"
+        onEdit={openJsonEditor}
+        primaryAction={
+          <SettingsButton
+            type="button"
+            variant="primary"
+            onClick={openEditorWithNew}
+            disabled={notImplemented || loading || saving}
+          >
+            Add notification
+          </SettingsButton>
+        }
         testId="bucket-feature-notifications"
       >
         <div className="space-y-3">
@@ -384,7 +431,19 @@ export default function BucketNotificationsFeature({
             }
             primaryColumnId="id"
             responsiveCards
+            containerClassName="bucket-feature-collection-table"
           />
+          <div className="bucket-feature-add-row">
+            <span>Common SNS topic notifications can be managed here; advanced notification types remain in JSON.</span>
+            <SettingsButton
+              type="button"
+              variant="secondary"
+              onClick={openEditorWithNew}
+              disabled={notImplemented || loading || saving}
+            >
+              + Add notification
+            </SettingsButton>
+          </div>
         </div>
       </BucketFeatureSummarySection>
 

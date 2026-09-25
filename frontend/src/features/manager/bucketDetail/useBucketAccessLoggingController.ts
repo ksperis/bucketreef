@@ -158,6 +158,10 @@ export function useBucketAccessLoggingController({
     setTargetPrefix(value);
     clearFeedback();
   };
+  const reset = () => {
+    apply(config);
+    clearFeedback();
+  };
   const configured = Boolean(
     config?.enabled && (config.target_bucket ?? "").trim(),
   );
@@ -180,6 +184,7 @@ export function useBucketAccessLoggingController({
     load,
     loading,
     loggingEnabled,
+    reset,
     save,
     saving,
     status,

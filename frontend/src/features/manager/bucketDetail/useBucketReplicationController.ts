@@ -94,6 +94,7 @@ export function useBucketReplicationController({
   const [jsonText, setJsonText] = useState("{}");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
+  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -134,19 +135,46 @@ export function useBucketReplicationController({
     }
   }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
-  const openEditor = useCallback(() => {
-    const nextDraft = cloneReplicationConfiguration(configuration);
+  const openEditorDraft = useCallback((
+    nextDraft: Record<string, unknown>,
+    mode: BucketFeatureEditorMode,
+    targetIndex: number | null,
+  ) => {
     setDraftConfiguration(nextDraft);
     setDraftRuleIds(createRuleIds(nextDraft));
     setJsonText(configurationText(nextDraft));
-    setEditorMode("visual");
+    setEditorMode(mode);
+    setEditorTargetIndex(targetIndex);
     setEditorError(null);
     setStatus(null);
     setEditorOpen(true);
-  }, [configuration]);
+  }, []);
+
+  const openEditor = useCallback(() => {
+    openEditorDraft(cloneReplicationConfiguration(configuration), "visual", null);
+  }, [configuration, openEditorDraft]);
+
+  const openEditorFor = useCallback((index: number) => {
+    openEditorDraft(cloneReplicationConfiguration(configuration), "visual", index);
+  }, [configuration, openEditorDraft]);
+
+  const openJsonEditor = useCallback(() => {
+    openEditorDraft(cloneReplicationConfiguration(configuration), "json", null);
+  }, [configuration, openEditorDraft]);
+
+  const openEditorWithNew = useCallback(() => {
+    const nextDraft = cloneReplicationConfiguration(configuration);
+    const nextRules = [
+      ...replicationConfigurationRules(nextDraft),
+      createReplicationVisualRule(),
+    ];
+    nextDraft.Rules = nextRules;
+    openEditorDraft(nextDraft, "visual", nextRules.length - 1);
+  }, [configuration, openEditorDraft]);
 
   const closeEditor = useCallback(() => {
     setEditorOpen(false);
+    setEditorTargetIndex(null);
     setEditorError(null);
   }, []);
 
@@ -172,6 +200,7 @@ export function useBucketReplicationController({
       }
       setDraftConfiguration(parsed.configuration);
       setDraftRuleIds(createRuleIds(parsed.configuration));
+      setEditorTargetIndex(null);
       setEditorMode("visual");
     },
     [draftConfiguration, editorMode, jsonText],
@@ -214,6 +243,7 @@ export function useBucketReplicationController({
       ...current,
       createUiDraftId("replication-rule"),
     ]);
+    setEditorTargetIndex(null);
     setEditorError(null);
   }, []);
 
@@ -234,6 +264,65 @@ export function useBucketReplicationController({
     },
     [draftRuleIds],
   );
+
+  const persistConfiguration = useCallback(async (nextConfiguration: Record<string, unknown>) => {
+    if (!bucketName || !enabled || (cephAdmin && !endpointId)) return null;
+    const nextRules = replicationConfigurationRules(nextConfiguration);
+    if (nextRules.length === 0) {
+      if (cephAdmin) {
+        await deleteCephAdminBucketReplication(endpointId as number, bucketName);
+      } else {
+        await deleteBucketReplication(accountId, bucketName);
+      }
+      return {};
+    }
+    const saved = cephAdmin
+      ? await putCephAdminBucketReplication(endpointId as number, bucketName, nextConfiguration)
+      : await putBucketReplication(accountId, bucketName, nextConfiguration);
+    return normalizeReplicationEditorConfiguration(saved.configuration ?? nextConfiguration);
+  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+
+  const persistDirectConfiguration = useCallback(async (
+    nextConfiguration: Record<string, unknown>,
+    successMessage: string,
+  ) => {
+    if (saving) return;
+    setSaving(true);
+    setLoadError(null);
+    setStatus(null);
+    try {
+      const savedConfiguration = await persistConfiguration(nextConfiguration);
+      if (savedConfiguration === null) return;
+      applyBaseline(savedConfiguration);
+      setStatus(successMessage);
+    } catch (mutationFailure) {
+      setLoadError(extractApiError(mutationFailure, "Unable to update bucket replication configuration."));
+    } finally {
+      setSaving(false);
+    }
+  }, [applyBaseline, persistConfiguration, saving]);
+
+  const removeRuleDirect = useCallback((index: number) => {
+    const nextConfiguration = cloneReplicationConfiguration(configuration);
+    nextConfiguration.Rules = replicationConfigurationRules(nextConfiguration).filter(
+      (_, ruleIndex) => ruleIndex !== index,
+    );
+    void persistDirectConfiguration(nextConfiguration, "Replication rule removed.");
+  }, [configuration, persistDirectConfiguration]);
+
+  const setRuleEnabled = useCallback((index: number, checked: boolean) => {
+    const nextConfiguration = cloneReplicationConfiguration(configuration);
+    nextConfiguration.Rules = replicationConfigurationRules(nextConfiguration).map(
+      (rule, ruleIndex) =>
+        ruleIndex === index && isReplicationRuleVisuallyEditable(rule)
+          ? updateReplicationVisualRule(rule, { status: checked ? "Enabled" : "Disabled" })
+          : rule,
+    );
+    void persistDirectConfiguration(
+      nextConfiguration,
+      `Replication rule ${checked ? "enabled" : "disabled"}.`,
+    );
+  }, [configuration, persistDirectConfiguration]);
 
   const saveDraft = useCallback(async () => {
     if (!bucketName || !enabled || saving || (cephAdmin && !endpointId)) return;
@@ -270,41 +359,16 @@ export function useBucketReplicationController({
     setEditorError(null);
     setStatus(null);
     try {
-      if (nextRules.length === 0) {
-        if (cephAdmin) {
-          await deleteCephAdminBucketReplication(
-            endpointId as number,
-            bucketName,
-          );
-        } else {
-          await deleteBucketReplication(accountId, bucketName);
-        }
-        applyBaseline({});
-        setDraftConfiguration({});
-        setDraftRuleIds([]);
-        setJsonText("{}");
-        setStatus("Replication configuration cleared.");
-      } else {
-        const saved = cephAdmin
-          ? await putCephAdminBucketReplication(
-              endpointId as number,
-              bucketName,
-              nextConfiguration,
-            )
-          : await putBucketReplication(
-              accountId,
-              bucketName,
-              nextConfiguration,
-            );
-        const savedConfiguration = normalizeReplicationEditorConfiguration(
-          saved.configuration ?? nextConfiguration,
-        );
-        applyBaseline(savedConfiguration);
-        setDraftConfiguration(cloneReplicationConfiguration(savedConfiguration));
-        setDraftRuleIds(createRuleIds(savedConfiguration));
-        setJsonText(configurationText(savedConfiguration));
-        setStatus("Replication configuration updated.");
-      }
+      const savedConfiguration = await persistConfiguration(nextConfiguration);
+      if (savedConfiguration === null) return;
+      applyBaseline(savedConfiguration);
+      setDraftConfiguration(cloneReplicationConfiguration(savedConfiguration));
+      setDraftRuleIds(createRuleIds(savedConfiguration));
+      setJsonText(configurationText(savedConfiguration));
+      setStatus(replicationConfigurationRules(savedConfiguration).length === 0
+        ? "Replication configuration cleared."
+        : "Replication configuration updated.");
+      setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
       setEditorError(
@@ -317,7 +381,6 @@ export function useBucketReplicationController({
       setSaving(false);
     }
   }, [
-    accountId,
     applyBaseline,
     bucketName,
     cephAdmin,
@@ -326,6 +389,7 @@ export function useBucketReplicationController({
     enabled,
     endpointId,
     jsonText,
+    persistConfiguration,
     saving,
   ]);
 
@@ -367,6 +431,7 @@ export function useBucketReplicationController({
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error: loadError,
     hasAdvancedTopLevelFields:
       hasAdvancedReplicationTopLevelFields(warningConfiguration),
@@ -375,12 +440,17 @@ export function useBucketReplicationController({
     load,
     loading,
     openEditor,
+    openEditorFor,
+    openEditorWithNew,
+    openJsonEditor,
     removeRule,
+    removeRuleDirect,
     role: replicationConfigurationRole(draftConfiguration),
     ruleCount: summaryRules.length,
     rules,
     saveDraft,
     saving,
+    setRuleEnabled,
     status,
     summaryRole: replicationConfigurationRole(configuration),
     summaryRules,

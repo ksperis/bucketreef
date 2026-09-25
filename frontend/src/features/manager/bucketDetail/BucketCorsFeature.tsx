@@ -59,16 +59,6 @@ function ruleLabel(rule: CorsRuleRecord, index: number): string {
   return typeof rule.ID === "string" && rule.ID.trim() ? rule.ID : `Rule ${index + 1}`;
 }
 
-function summarizeRuleOptions(rule: CorsRuleRecord): string {
-  const parts: string[] = [];
-  const allowedHeaders = stringArray(rule.AllowedHeaders);
-  const exposeHeaders = stringArray(rule.ExposeHeaders);
-  if (allowedHeaders.length > 0) parts.push(`${allowedHeaders.length} allowed header${allowedHeaders.length === 1 ? "" : "s"}`);
-  if (exposeHeaders.length > 0) parts.push(`${exposeHeaders.length} exposed header${exposeHeaders.length === 1 ? "" : "s"}`);
-  if (typeof rule.MaxAgeSeconds === "number") parts.push(`max age ${rule.MaxAgeSeconds}s`);
-  return parts.length > 0 ? parts.join(" · ") : "Default response headers";
-}
-
 function StringListEditor({
   title,
   itemLabel,
@@ -282,11 +272,15 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error,
     jsonText,
     loading,
-    openEditor,
+    openEditorFor,
+    openEditorWithNew,
+    openJsonEditor,
     removeDraftRule,
+    removeRuleDirect,
     ruleCount,
     rules,
     saveDraft,
@@ -335,14 +329,51 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
       render: ({ rule }) => summarizeList(stringArray(rule.AllowedMethods)),
     },
     {
-      id: "options",
-      label: "Headers / cache",
-      mobileLabel: "Headers / cache",
-      headerClassName: "min-w-56",
-      cellClassName: "min-w-56",
-      render: ({ rule }) => summarizeRuleOptions(rule),
+      id: "headers",
+      label: "Headers",
+      headerClassName: "min-w-44",
+      cellClassName: "min-w-44",
+      render: ({ rule }) => summarizeList(stringArray(rule.AllowedHeaders)),
+    },
+    {
+      id: "max-age",
+      label: "Max age",
+      headerClassName: "w-px whitespace-nowrap",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ rule }) =>
+        typeof rule.MaxAgeSeconds === "number" ? `${rule.MaxAgeSeconds} s` : "—",
+    },
+    {
+      id: "manage",
+      label: "Manage",
+      mobileRole: "actions",
+      headerClassName: "w-px whitespace-nowrap text-right",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ index }) => (
+        <div className="bucket-feature-row-actions">
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={() => openEditorFor(index)}
+            disabled={saving || notImplemented}
+          >
+            Edit
+          </SettingsButton>
+          <SettingsButton
+            type="button"
+            variant="danger"
+            onClick={() => void removeRuleDirect(index)}
+            disabled={saving || notImplemented}
+          >
+            Remove
+          </SettingsButton>
+        </div>
+      ),
     },
   ];
+  const visibleDraftRules = draftRules
+    .map((rule, index) => ({ rule, index }))
+    .filter(({ index }) => editorTargetIndex === null || index === editorTargetIndex);
 
   const visualEditor = (
     <div className="space-y-3">
@@ -363,7 +394,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
-          {draftRules.map((rule, index) => (
+          {visibleDraftRules.map(({ rule, index }) => (
             <CorsRuleEditor
               key={`${typeof rule.ID === "string" ? rule.ID : "rule"}-${index}`}
               index={index}
@@ -403,7 +434,18 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
         error={error}
         successMessage={status}
         editDisabled={notImplemented || saving}
-        onEdit={openEditor}
+        editLabel="JSON"
+        onEdit={openJsonEditor}
+        primaryAction={
+          <SettingsButton
+            type="button"
+            variant="primary"
+            onClick={openEditorWithNew}
+            disabled={notImplemented || loading || saving}
+          >
+            Add rule
+          </SettingsButton>
+        }
         testId="bucket-feature-cors"
       >
         <DataTableShell
@@ -416,7 +458,19 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
           emptyMessage="No CORS rules configured on this bucket."
           primaryColumnId="rule"
           responsiveCards
+          containerClassName="bucket-feature-collection-table"
         />
+        <div className="bucket-feature-add-row">
+          <span>Common rules can be managed here; advanced S3 structures remain available in JSON.</span>
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={openEditorWithNew}
+            disabled={notImplemented || loading || saving}
+          >
+            + Add rule
+          </SettingsButton>
+        </div>
       </BucketFeatureSummarySection>
 
       {editorOpen ? (

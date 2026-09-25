@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useBucketLifecycleController } from "../useBucketLifecycleController";
 
@@ -139,6 +139,48 @@ describe("useBucketLifecycleController", () => {
       "reports",
       [advancedRule, simpleRule],
     );
+  });
+
+  it("targets row editors and preserves advanced fields during direct toggle and removal", async () => {
+    const advancedRule = {
+      ID: "advanced",
+      Status: "Enabled",
+      Filter: { And: { Prefix: "archive/", Tags: [{ Key: "tier", Value: "cold" }] } },
+      Expiration: { Date: "2030-01-01T00:00:00Z" },
+      CustomCephField: { keep: true },
+    };
+    const secondRule = { ...existingRule, ID: "second" };
+    apiMocks.getBucketLifecycle.mockResolvedValue({ rules: [advancedRule, secondRule] });
+    apiMocks.putBucketLifecycle.mockImplementation(
+      (_accountId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
+    );
+    const { result } = renderLifecycle();
+
+    await act(async () => result.current.load());
+    act(() => result.current.openEditorFor(1));
+    expect(result.current.editorOpen).toBe(true);
+    expect(result.current.editorTargetIndex).toBe(1);
+    expect(result.current.draftRules).toEqual([advancedRule, secondRule]);
+
+    act(() => result.current.closeEditor());
+    act(() => result.current.openEditorWithNew());
+    expect(result.current.editorTargetIndex).toBe(2);
+    expect(result.current.draftRules).toHaveLength(3);
+    act(() => result.current.closeEditor());
+
+    act(() => result.current.setRuleEnabled(0, false));
+    await waitFor(() => expect(result.current.saving).toBe(false));
+    expect(apiMocks.putBucketLifecycle).toHaveBeenNthCalledWith(1, "acc-1", "reports", [
+      { ...advancedRule, Status: "Disabled" },
+      secondRule,
+    ]);
+
+    act(() => result.current.removeRuleDirect(1));
+    await waitFor(() => expect(result.current.saving).toBe(false));
+    expect(apiMocks.putBucketLifecycle).toHaveBeenNthCalledWith(2, "acc-1", "reports", [
+      { ...advancedRule, Status: "Disabled" },
+    ]);
+    expect(result.current.rules).toEqual([{ ...advancedRule, Status: "Disabled" }]);
   });
 
   it("deletes Lifecycle only when an empty Ceph Admin draft is saved", async () => {

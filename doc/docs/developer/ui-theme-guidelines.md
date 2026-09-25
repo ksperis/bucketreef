@@ -157,19 +157,27 @@ and Manager/Ceph Admin bucket configuration use the compact presentation. The fo
 Portal alias facade and unused card/form helpers have been removed; import the
 canonical components directly.
 
-Manager and Ceph Admin bucket configuration share `BucketFeatureSection`, built
-on `SettingsSection presentation="compact"`. Properties, Permissions, Advanced
-and privileged quotas use the same left-aligned section layout. Do not restore
-per-feature card palettes, grid placement or action sizing. Use `SettingsButton`,
-`SettingsItem`, `SettingsSwitch` and named `SettingsChoiceRow` radio groups.
-`BucketFeatureSection` defaults to the `simple` presentation and exposes a
-`workbench` presentation for features that combine status, operation controls
-and a substantial editor or inventory. Workbenches keep the compact title
-column and separate their toolbar from functional content with the shared soft
-border. Tables inside them use `DataTableShell` or the shared `ui-data-table`
-foundation directly; avoid an extra muted card around a table. Mutation success
-feedback is a compact badge owned by `BucketFeatureSection`; errors and warnings
-retain the shared inline-message treatment.
+Manager and Ceph Admin bucket configuration use the shared
+`BucketFeatureGrid`/`BucketFeatureSection` pattern for Properties, Permissions
+and Advanced. This is a bucket-specific capability view rather than the generic
+settings-page layout. Simple capabilities use half-width cards on desktop and
+one column on narrow viewports. Collection capabilities span the complete grid
+and expose their inventory with `DataTableShell` or the shared `ui-data-table`
+foundation.
+
+`BucketFeatureSection` has two canonical presentations: `simple` and
+`collection`. Configured cards use a subtle primary-token border and background;
+inactive cards keep the normal surface; unavailable cards use the muted surface;
+unsaved drafts use the warning state. Every card exposes an explicit status or
+configuration-count badge. Common actions may stay directly on the card or
+collection row, while detailed Visual/JSON editing remains in the feature editor
+dialog. Direct list mutations must persist the complete S3 configuration so
+advanced or unknown fields are preserved. Use `SettingsButton`,
+`SettingsSwitch`, named `SettingsChoiceRow` controls and the shared table
+responsive behavior; do not nest an extra muted card around collection tables.
+Mutation success feedback remains a compact badge owned by
+`BucketFeatureSection`; errors and warnings retain the shared inline-message
+treatment.
 The page uses the line variant of `PageTabs` with named tabs/panels and native
 arrow-key navigation; refresh uses the same settings action presentation.
 Transactional bucket JSON tabs use labelled `UiTextarea` fields and stay focused

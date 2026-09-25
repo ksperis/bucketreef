@@ -47,6 +47,7 @@ type BucketLifecycleFeatureProps = {
 };
 
 type LifecycleTableRow = {
+  index: number;
   key: string;
   rule: LifecycleRuleRecord;
 };
@@ -265,18 +266,23 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error,
     hasRules,
     jsonText,
     lastRemovedRule,
     loading,
     openEditor,
+    openEditorFor,
+    openEditorWithNew,
     removeDraftRule,
+    removeRuleDirect,
     restoreLastRemovedRule,
     ruleCount,
     rules,
     saveDraft,
     saving,
+    setRuleEnabled,
     status,
     updateDraftRule,
     updateEditorMode,
@@ -295,6 +301,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
       rules.map((rule, index) => {
         const ruleId = lifecycleRuleId(rule);
         return {
+          index,
           key: `${ruleId ?? lifecycleRulePrefix(rule) ?? "rule"}-${index}`,
           rule,
         };
@@ -304,38 +311,79 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
   const columns: Array<DataTableColumn<LifecycleTableRow>> = [
     {
       id: "id",
-      label: "ID",
+      label: "Rule",
       primary: true,
       headerClassName: "min-w-32",
       cellClassName: "min-w-32 max-w-48 break-all",
       render: ({ rule }) => lifecycleRuleId(rule) ?? "(no ID)",
     },
     {
-      id: "status",
-      label: "Status",
-      headerClassName: "w-px whitespace-nowrap",
-      cellClassName: "w-px whitespace-nowrap",
-      render: ({ rule }) => {
-        const ruleStatus = lifecycleRuleStatus(rule);
-        return <UiBadge tone={ruleStatus === "Enabled" ? "success" : "neutral"}>{ruleStatus}</UiBadge>;
-      },
-    },
-    {
       id: "filter",
-      label: "Filter",
+      label: "Scope",
       headerClassName: "min-w-32 whitespace-nowrap",
       cellClassName: "min-w-32",
       render: ({ rule }) => lifecycleFilterLabel(rule.Filter),
     },
     {
       id: "actions",
-      label: "Rule actions",
-      mobileLabel: "Rule actions",
+      label: "Actions",
+      mobileLabel: "Actions",
       headerClassName: "min-w-48",
       cellClassName: "min-w-48 whitespace-normal break-words",
       render: ({ rule }) => describeLifecycleActions(rule),
     },
+    {
+      id: "status",
+      label: "Status",
+      headerClassName: "w-px whitespace-nowrap",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ rule, index }) => {
+        const ruleStatus = lifecycleRuleStatus(rule);
+        return (
+          <div className="flex items-center gap-2">
+            <SettingsSwitch
+              checked={ruleStatus === "Enabled"}
+              ariaLabel={`${lifecycleRuleId(rule) ?? `Rule ${index + 1}`} enabled`}
+              onChange={(checked) => setRuleEnabled(index, checked)}
+              disabled={saving || notImplemented}
+            />
+            <span>{ruleStatus}</span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "manage",
+      label: "Manage",
+      mobileRole: "actions",
+      headerClassName: "w-px whitespace-nowrap text-right",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ index }) => (
+        <div className="bucket-feature-row-actions">
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={() => openEditorFor(index)}
+            disabled={saving || notImplemented}
+          >
+            Edit
+          </SettingsButton>
+          <SettingsButton
+            type="button"
+            variant="danger"
+            onClick={() => removeRuleDirect(index)}
+            disabled={saving || notImplemented}
+          >
+            Remove
+          </SettingsButton>
+        </div>
+      ),
+    },
   ];
+
+  const visibleDraftRules = draftRules
+    .map((rule, index) => ({ rule, index }))
+    .filter(({ index }) => editorTargetIndex === null || index === editorTargetIndex);
 
   const visualEditor = (
     <div className="space-y-3">
@@ -378,7 +426,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
         </div>
       ) : (
         <BucketFeatureEditorList>
-          {draftRules.map((rule, index) => (
+          {visibleDraftRules.map(({ rule, index }) => (
             <LifecycleRuleEditor
               key={`lifecycle-rule-${index}`}
               index={index}
@@ -418,22 +466,43 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
         error={error}
         successMessage={status}
         editDisabled={notImplemented || saving}
+        editLabel="Advanced editor"
         onEdit={openEditor}
+        primaryAction={
+          <SettingsButton
+            type="button"
+            variant="primary"
+            onClick={openEditorWithNew}
+            disabled={notImplemented || loading || saving}
+          >
+            Add rule
+          </SettingsButton>
+        }
         testId="bucket-feature-lifecycle"
       >
-        {rows.length > 0 ? (
-          <DataTableShell
-            columns={columns}
-            rows={rows}
-            rowKey={(row) => row.key}
-            status="ready"
-            loadingMessage="Loading lifecycle rules..."
-            errorMessage="Unable to load lifecycle rules."
-            emptyMessage="No rules configured on this bucket."
-            primaryColumnId="id"
-            responsiveCards
-          />
-        ) : null}
+        <DataTableShell
+          columns={columns}
+          rows={rows}
+          rowKey={(row) => row.key}
+          status={rows.length === 0 ? "empty" : "ready"}
+          loadingMessage="Loading lifecycle rules..."
+          errorMessage="Unable to load lifecycle rules."
+          emptyMessage="No rules configured on this bucket."
+          primaryColumnId="id"
+          responsiveCards
+          containerClassName="bucket-feature-collection-table"
+        />
+        <div className="bucket-feature-add-row">
+          <span>Add a rule here, then use the editor for its complete S3 configuration.</span>
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={openEditorWithNew}
+            disabled={notImplemented || loading || saving}
+          >
+            + Add rule
+          </SettingsButton>
+        </div>
       </BucketFeatureSummarySection>
 
       {editorOpen ? (

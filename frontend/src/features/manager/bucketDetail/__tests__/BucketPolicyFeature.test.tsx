@@ -78,7 +78,7 @@ describe("BucketPolicyFeature", () => {
 
     const section = await screen.findByTestId("bucket-feature-policy");
     await waitFor(() => expect(within(section).getByText("ReadObjects")).toBeInTheDocument());
-    expect(within(section).getByText("1 statement · 1 Allow · 0 Deny")).toBeInTheDocument();
+    expect(within(section).getByText("1 statement")).toBeInTheDocument();
     expect(within(section).getByText("s3:GetObject")).toBeInTheDocument();
     expect(within(section).queryByRole("textbox")).not.toBeInTheDocument();
     expect(within(section).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
@@ -102,20 +102,20 @@ describe("BucketPolicyFeature", () => {
     expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
   });
 
-  it("keeps an empty policy summary compact and configurable", async () => {
+  it("renders an empty policy collection and opens a new statement", async () => {
     apiMocks.getBucketPolicy.mockResolvedValue({ policy: null });
     const user = userEvent.setup();
     renderPolicyFeature();
 
     const section = await screen.findByTestId("bucket-feature-policy");
-    await waitFor(() => expect(within(section).getByRole("button", { name: "Configure" })).toBeEnabled());
-    expect(within(section).queryByText("No bucket policy configured.")).not.toBeInTheDocument();
-    expect(within(section).queryByText("Not configured · 0 statements")).not.toBeInTheDocument();
-    expect(within(section).queryByRole("table")).not.toBeInTheDocument();
+    await waitFor(() => expect(within(section).getByRole("button", { name: "Add statement", exact: true })).toBeEnabled());
+    expect(within(section).getByText("No bucket policy configured.")).toBeInTheDocument();
+    expect(within(section).getByText("0 statements")).toBeInTheDocument();
+    expect(within(section).getByRole("table")).toBeInTheDocument();
 
-    await user.click(within(section).getByRole("button", { name: "Configure" }));
+    await user.click(within(section).getByRole("button", { name: "Add statement", exact: true }));
     expect(screen.getByRole("dialog", { name: "Edit bucket policy" })).toBeVisible();
-    expect(screen.getByText("No statements. Add a statement or use JSON. Saving an empty policy removes it from the bucket.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Sid")).toBeInTheDocument();
   });
 
   it("shows advanced statements read-only in Visual and intact in JSON", async () => {

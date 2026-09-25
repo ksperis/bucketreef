@@ -162,6 +162,44 @@ describe("useBucketNotificationsController", () => {
     expect(apiMocks.putBucketNotifications).not.toHaveBeenCalled();
   });
 
+  it("removes a topic inline while preserving other notification types and unknown fields", async () => {
+    const keptTopic = {
+      Id: "keep",
+      TopicArn: "arn:aws:sns:default:acc-1:keep",
+      Events: ["s3:ObjectRemoved:*"],
+      CustomField: { keep: true },
+    };
+    const queue = {
+      Id: "queue",
+      QueueArn: "arn:aws:sqs:default:acc-1:q",
+      Events: ["s3:ObjectCreated:*"],
+    };
+    const initial = {
+      TopicConfigurations: [initialTopic, keptTopic],
+      QueueConfigurations: [queue],
+      CustomTopLevel: { keep: true },
+    };
+    apiMocks.getBucketNotifications.mockResolvedValue({ configuration: initial });
+    apiMocks.putBucketNotifications.mockImplementation(
+      (_accountId, _bucketName, configuration) => Promise.resolve({ configuration }),
+    );
+    const { result } = renderNotifications();
+
+    await act(async () => result.current.load());
+    await act(async () => result.current.removeTopicDirect(0));
+
+    expect(apiMocks.putBucketNotifications).toHaveBeenCalledWith("acc-1", "reports", {
+      TopicConfigurations: [keptTopic],
+      QueueConfigurations: [queue],
+      CustomTopLevel: { keep: true },
+    });
+    expect(result.current.configuration).toEqual({
+      TopicConfigurations: [keptTopic],
+      QueueConfigurations: [queue],
+      CustomTopLevel: { keep: true },
+    });
+  });
+
   it("PUTs Ceph Admin notifications through the same transactional editor", async () => {
     const initial = { TopicConfigurations: [initialTopic] };
     const updated = {

@@ -62,6 +62,7 @@ export function useBucketCorsController({
   const [jsonText, setJsonText] = useState("[]");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
+  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -104,18 +105,40 @@ export function useBucketCorsController({
     }
   }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
-  const openEditor = useCallback(() => {
-    const nextDraft = cloneRules(rules);
+  const openEditorDraft = useCallback((
+    nextDraft: CorsRuleRecord[],
+    mode: BucketFeatureEditorMode,
+    targetIndex: number | null,
+  ) => {
     setDraftRules(nextDraft);
     setJsonText(rulesText(nextDraft));
-    setEditorMode("visual");
+    setEditorMode(mode);
+    setEditorTargetIndex(targetIndex);
     setEditorError(null);
     setStatus(null);
     setEditorOpen(true);
-  }, [rules]);
+  }, []);
+
+  const openEditor = useCallback(() => {
+    openEditorDraft(cloneRules(rules), "visual", null);
+  }, [openEditorDraft, rules]);
+
+  const openEditorFor = useCallback((index: number) => {
+    openEditorDraft(cloneRules(rules), "visual", index);
+  }, [openEditorDraft, rules]);
+
+  const openJsonEditor = useCallback(() => {
+    openEditorDraft(cloneRules(rules), "json", null);
+  }, [openEditorDraft, rules]);
+
+  const openEditorWithNew = useCallback(() => {
+    const nextDraft = [...cloneRules(rules), createVisualCorsRule()];
+    openEditorDraft(nextDraft, "visual", nextDraft.length - 1);
+  }, [openEditorDraft, rules]);
 
   const closeEditor = useCallback(() => {
     setEditorOpen(false);
+    setEditorTargetIndex(null);
     setEditorError(null);
   }, []);
 
@@ -139,6 +162,7 @@ export function useBucketCorsController({
         return;
       }
       setDraftRules(parsed.rules);
+      setEditorTargetIndex(null);
       setEditorMode("visual");
     },
     [draftRules, editorMode, jsonText],
@@ -146,6 +170,7 @@ export function useBucketCorsController({
 
   const addDraftRule = useCallback(() => {
     setDraftRules((current) => [...current, createVisualCorsRule()]);
+    setEditorTargetIndex(null);
     setEditorError(null);
   }, []);
 
@@ -162,6 +187,41 @@ export function useBucketCorsController({
     );
     setEditorError(null);
   }, []);
+
+  const persistRules = useCallback(async (nextRules: CorsRuleRecord[]) => {
+    if (!bucketName || !enabled || (cephAdmin && !endpointId)) return null;
+    if (nextRules.length === 0) {
+      if (cephAdmin) {
+        await deleteCephAdminBucketCors(endpointId as number, bucketName);
+      } else {
+        await deleteBucketCors(accountId, bucketName);
+      }
+      return [];
+    }
+    const saved = cephAdmin
+      ? await putCephAdminBucketCors(endpointId as number, bucketName, nextRules)
+      : await putBucketCors(accountId, bucketName, nextRules);
+    return normalizeRules(saved.rules ?? nextRules);
+  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+
+  const removeRuleDirect = useCallback(async (index: number) => {
+    if (saving) return;
+    setSaving(true);
+    setLoadError(null);
+    setStatus(null);
+    try {
+      const savedRules = await persistRules(
+        rules.filter((_, ruleIndex) => ruleIndex !== index),
+      );
+      if (savedRules === null) return;
+      applyBaseline(savedRules);
+      setStatus(savedRules.length === 0 ? "CORS configuration deleted" : "CORS rule removed");
+    } catch (removeFailure) {
+      setLoadError(extractApiError(removeFailure, "Unable to update the CORS configuration."));
+    } finally {
+      setSaving(false);
+    }
+  }, [applyBaseline, persistRules, rules, saving]);
 
   const saveDraft = useCallback(async () => {
     if (!bucketName || !enabled || saving) return;
@@ -187,29 +247,13 @@ export function useBucketCorsController({
     setEditorError(null);
     setStatus(null);
     try {
-      if (nextRules.length === 0) {
-        if (cephAdmin) {
-          if (!endpointId) return;
-          await deleteCephAdminBucketCors(endpointId, bucketName);
-        } else {
-          await deleteBucketCors(accountId, bucketName);
-        }
-        applyBaseline([]);
-        setStatus("CORS configuration deleted");
-      } else {
-        let saved;
-        if (cephAdmin) {
-          if (!endpointId) return;
-          saved = await putCephAdminBucketCors(endpointId, bucketName, nextRules);
-        } else {
-          saved = await putBucketCors(accountId, bucketName, nextRules);
-        }
-        const savedRules = normalizeRules(saved.rules ?? nextRules);
-        applyBaseline(savedRules);
-        setDraftRules(cloneRules(savedRules));
-        setJsonText(rulesText(savedRules));
-        setStatus("CORS configuration updated");
-      }
+      const savedRules = await persistRules(nextRules);
+      if (savedRules === null) return;
+      applyBaseline(savedRules);
+      setDraftRules(cloneRules(savedRules));
+      setJsonText(rulesText(savedRules));
+      setStatus(savedRules.length === 0 ? "CORS configuration deleted" : "CORS configuration updated");
+      setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
       setEditorError(
@@ -219,15 +263,13 @@ export function useBucketCorsController({
       setSaving(false);
     }
   }, [
-    accountId,
     applyBaseline,
     bucketName,
-    cephAdmin,
     draftRules,
     editorMode,
     enabled,
-    endpointId,
     jsonText,
+    persistRules,
     saving,
   ]);
 
@@ -251,12 +293,17 @@ export function useBucketCorsController({
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error: loadError,
     jsonText,
     load,
     loading,
     openEditor,
+    openEditorFor,
+    openEditorWithNew,
+    openJsonEditor,
     removeDraftRule,
+    removeRuleDirect,
     ruleCount: rules.length,
     rules,
     saveDraft,

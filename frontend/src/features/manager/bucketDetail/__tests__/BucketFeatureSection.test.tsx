@@ -23,7 +23,7 @@ describe("BucketFeatureSection", () => {
     expect(screen.getByRole("group", { name: "Replication actions" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Unsaved changes");
     expect(screen.getByTestId("feature-section")).toHaveAttribute("data-feature-mode", "hybrid");
-    expect(screen.getByTestId("feature-section")).toHaveAttribute("data-feature-presentation", "workbench");
+    expect(screen.getByTestId("feature-section")).toHaveAttribute("data-feature-presentation", "collection");
     expect(screen.getByText("Replication updated")).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Role ARN" })).toBeEnabled();
   });
@@ -66,13 +66,50 @@ describe("BucketFeatureSection", () => {
     expect(screen.getByRole("textbox")).toBeDisabled();
   });
 
-  it("does not infer missing configuration or health from a neutral state", () => {
+  it("highlights configured features with an explicit configured badge", () => {
+    render(
+      <BucketFeatureSection
+        title="Versioning"
+        description="Keep object versions."
+        mode="graphical"
+        visualState="configured"
+      >
+        <p>Enabled</p>
+      </BucketFeatureSection>,
+    );
+    expect(screen.getByRole("region", { name: "Versioning" })).toHaveAttribute(
+      "data-feature-state",
+      "configured",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Configured");
+  });
+
+  it("lets configured collection summaries replace the generic configured badge", () => {
+    render(
+      <BucketFeatureSection
+        title="Lifecycle rules"
+        description="Object expiration and cleanup."
+        mode="hybrid"
+        visualState="configured"
+        presentation="collection"
+        showConfiguredBadge={false}
+        actions={<span>3 rules</span>}
+      >
+        <p>Configured lifecycle rules</p>
+      </BucketFeatureSection>,
+    );
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Lifecycle rules actions" })).toHaveTextContent("3 rules");
+  });
+
+  it("renders an explicit inactive state for a neutral feature", () => {
     render(
       <BucketFeatureSection title="ACL" description="Bucket grants." mode="graphical" visualState="neutral">
         <p>AccessDenied</p>
       </BucketFeatureSection>,
     );
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.getByRole("status")).toHaveTextContent("Inactive");
     expect(screen.getByRole("group", { name: "ACL configuration" })).toHaveAttribute(
       "data-feature-presentation",
       "simple",

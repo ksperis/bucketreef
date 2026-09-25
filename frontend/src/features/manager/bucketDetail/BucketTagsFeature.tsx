@@ -2,10 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useState } from "react";
 import { SettingsButton, SettingsInput } from "../../../components/settings/SettingsControls";
+import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
+import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketTagsController } from "./useBucketTagsController";
 
@@ -20,6 +23,7 @@ export default function BucketTagsFeature({
   controller,
   onRequestClear,
 }: BucketTagsFeatureProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
   const {
     add,
     clearing,
@@ -28,6 +32,7 @@ export default function BucketTagsFeature({
     error,
     loading,
     remove,
+    reset,
     save,
     saving,
     status,
@@ -40,18 +45,64 @@ export default function BucketTagsFeature({
     configured,
     unsaved: dirty,
   });
+  const closeEditor = () => {
+    reset();
+    setEditorOpen(false);
+  };
+  const visibleTags = tags.filter((tag) => tag.key !== "" || tag.value !== "");
 
   return (
-    <BucketFeatureSection
-      title="Bucket tags"
-      description="S3 key/value tags associated with this bucket."
-      mode="graphical"
-      visualState={visualState}
-      successMessage={status}
-      busy={saving || clearing || loading}
-      testId="bucket-feature-tags"
-      actions={
-        <div className="flex flex-wrap gap-2">
+    <>
+      <BucketFeatureSection
+        title="Bucket tags"
+        description="S3 key/value metadata attached to the bucket."
+        mode="graphical"
+        visualState={visualState}
+        stateLabel={dirty ? undefined : configured ? `${visibleTags.length} ${visibleTags.length === 1 ? "tag" : "tags"}` : "Inactive"}
+        successMessage={status}
+        busy={loading}
+        testId="bucket-feature-tags"
+      >
+        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        {loading ? (
+          <UiInlineMessage>Loading bucket tags...</UiInlineMessage>
+        ) : (
+          <div className="bucket-feature-summary-row">
+            <div className="flex min-w-0 flex-wrap gap-1.5">
+              {visibleTags.length === 0 ? (
+                <span className="bucket-feature-summary-muted">No tags configured on this bucket.</span>
+              ) : (
+                <>
+                  {visibleTags.slice(0, 3).map((tag) => (
+                    <UiBadge key={tag.uiId} tone="neutral">
+                      {tag.key}={tag.value}
+                    </UiBadge>
+                  ))}
+                  {visibleTags.length > 3 ? <UiBadge tone="neutral">+{visibleTags.length - 3}</UiBadge> : null}
+                </>
+              )}
+            </div>
+            <SettingsButton
+              type="button"
+              variant="secondary"
+              onClick={() => setEditorOpen(true)}
+              disabled={notImplemented || loading || saving || clearing}
+            >
+              {configured ? "Edit" : "Configure"}
+            </SettingsButton>
+          </div>
+        )}
+      </BucketFeatureSection>
+
+      {editorOpen ? (
+        <BucketFeatureSettingsDialog
+          title="Edit bucket tags"
+          dirty={dirty}
+          busy={saving || clearing}
+          error={error}
+          onSave={save}
+          onClose={closeEditor}
+          dangerAction={
           <SettingsButton
             type="button"
             onClick={onRequestClear}
@@ -60,22 +111,9 @@ export default function BucketTagsFeature({
           >
             {clearing ? "Clearing..." : "Clear"}
           </SettingsButton>
-          <SettingsButton
-            type="button"
-            onClick={save}
-            variant="primary"
-            disabled={notImplemented || loading || saving || clearing || !dirty}
-          >
-            {saving ? "Saving..." : "Save"}
-          </SettingsButton>
-        </div>
-      }
-    >
-      {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
-      {loading ? (
-        <UiInlineMessage>Loading bucket tags...</UiInlineMessage>
-      ) : (
-        <div className="space-y-2">
+          }
+        >
+          <div className="space-y-2">
           {tags.length === 0 && (
             <p className="settings-description">No tags configured on this bucket.</p>
           )}
@@ -123,7 +161,8 @@ export default function BucketTagsFeature({
             <p className="settings-description">Tag keys must be unique and cannot be empty.</p>
           </div>
         </div>
-      )}
-    </BucketFeatureSection>
+        </BucketFeatureSettingsDialog>
+      ) : null}
+    </>
   );
 }

@@ -94,19 +94,19 @@ describe("BucketLifecycleFeature", () => {
     expect(apiMocks.putBucketLifecycle).not.toHaveBeenCalled();
   });
 
-  it("hides the empty summary and opens an incomplete new rule with Save disabled", async () => {
+  it("renders the empty collection and opens an incomplete new rule with Save disabled", async () => {
     apiMocks.getBucketLifecycle.mockResolvedValue({ rules: [] });
     const user = userEvent.setup();
     renderLifecycleFeature();
 
     const section = await screen.findByTestId("bucket-feature-lifecycle");
-    expect(within(section).queryByRole("table")).not.toBeInTheDocument();
-    expect(within(section).queryByText("0 rules")).not.toBeInTheDocument();
-    await user.click(within(section).getByRole("button", { name: "Configure" }));
+    expect(within(section).getByRole("table")).toBeInTheDocument();
+    expect(within(section).getByText("0 rules")).toBeInTheDocument();
+    expect(within(section).getByText("No rules configured on this bucket.")).toBeInTheDocument();
+    await user.click(within(section).getByRole("button", { name: "Add rule", exact: true }));
 
     const dialog = screen.getByRole("dialog", { name: "Edit lifecycle rules" });
     expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
-    await user.click(within(dialog).getByRole("button", { name: "Add rule" }));
     expect(within(dialog).getByText("Add at least one lifecycle action before saving this rule.")).toBeVisible();
     expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
   });

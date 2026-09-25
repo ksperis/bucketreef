@@ -228,6 +228,12 @@ export function useBucketWebsiteController({
     }
   };
 
+  const reset = () => {
+    setDraft(snapshot);
+    setError(null);
+    setStatus(null);
+  };
+
   const configured = Boolean(
     snapshot.redirectHost.trim() ||
       snapshot.indexDocument.trim() ||
@@ -247,6 +253,7 @@ export function useBucketWebsiteController({
     mode: draft.mode,
     redirectHost: draft.redirectHost,
     redirectProtocol: draft.redirectProtocol,
+    reset,
     routingRules: draft.routingRules,
     save,
     saving,

@@ -111,6 +111,11 @@ export function useBucketTagsController({
     clearFeedback();
   };
 
+  const reset = () => {
+    setTags(snapshot.map(createDraft));
+    clearFeedback();
+  };
+
   const save = async () => {
     if (!bucketName || !enabled) return;
     setSaving(true);
@@ -176,6 +181,7 @@ export function useBucketTagsController({
     load,
     loading,
     remove,
+    reset,
     save,
     saving,
     status,

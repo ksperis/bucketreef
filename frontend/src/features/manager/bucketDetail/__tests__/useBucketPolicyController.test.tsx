@@ -172,6 +172,44 @@ describe("useBucketPolicyController", () => {
     expect(apiMocks.putBucketPolicy).toHaveBeenCalledWith("acc-1", "reports", advancedPolicy);
   });
 
+  it("removes one statement inline while preserving policy metadata and untouched statements", async () => {
+    const keepStatement = {
+      Sid: "KeepMe",
+      Effect: "Deny",
+      Principal: "*",
+      NotAction: "s3:DeleteObject",
+      Resource: "arn:aws:s3:::reports/*",
+      CustomStatementField: { keep: true },
+    };
+    const policy = {
+      Version: "2012-10-17",
+      Id: "document-id",
+      Statement: [simplePolicy.Statement[0], keepStatement],
+      CustomTopLevel: { keep: true },
+    };
+    apiMocks.getBucketPolicy.mockResolvedValue({ policy });
+    apiMocks.putBucketPolicy.mockImplementation(
+      (_accountId: unknown, _bucketName: unknown, nextPolicy: unknown) => Promise.resolve({ policy: nextPolicy }),
+    );
+    const { result } = renderPolicy();
+
+    await act(async () => result.current.load());
+    await act(async () => result.current.removeStatementDirect(0));
+
+    expect(apiMocks.putBucketPolicy).toHaveBeenCalledWith("acc-1", "reports", {
+      Version: "2012-10-17",
+      Id: "document-id",
+      Statement: [keepStatement],
+      CustomTopLevel: { keep: true },
+    });
+    expect(result.current.policy).toEqual({
+      Version: "2012-10-17",
+      Id: "document-id",
+      Statement: [keepStatement],
+      CustomTopLevel: { keep: true },
+    });
+  });
+
   it("deletes the Ceph Admin policy only when an empty draft is saved", async () => {
     apiMocks.getCephAdminBucketPolicy.mockResolvedValue({ policy: simplePolicy });
     apiMocks.deleteCephAdminBucketPolicy.mockResolvedValue(undefined);
