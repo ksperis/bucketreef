@@ -7,6 +7,7 @@ from typing import Optional
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, aliased
 
+from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
 from app.core.security import (
     consume_dummy_password_hash,
     get_password_hash,
@@ -209,7 +210,7 @@ class UsersService:
     def update_user(self, user_id: int, payload: UserUpdate) -> User:
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
-            raise ValueError("User not found")
+            raise UiUserNotFoundError("User not found")
         associations = UserAssociationsService(self.db)
         affected_portal_account_ids = associations.affected_portal_account_ids(
             user,
@@ -327,7 +328,7 @@ class UsersService:
     def delete_user(self, user_id: int) -> None:
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
-            raise ValueError("User not found")
+            raise UiUserNotFoundError("User not found")
         require_no_private_storage_space_ownership(self.db, user_id=user.id)
         created_connection_rows = (
             self.db.query(S3Connection.id, S3Connection.is_shared)
@@ -558,10 +559,10 @@ class UsersService:
     ) -> User:
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
-            raise ValueError("User not found")
+            raise UiUserNotFoundError("User not found")
         account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
         if not account:
-            raise ValueError("S3Account not found")
+            raise S3AccountNotFoundError("S3Account not found")
         before_roles = capture_effective_portal_roles(
             self.db,
             user_ids=[user.id],
@@ -610,10 +611,10 @@ class UsersService:
     def unassign_user_from_account(self, user_id: int, account_id: int) -> User:
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
-            raise ValueError("User not found")
+            raise UiUserNotFoundError("User not found")
         account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
         if not account:
-            raise ValueError("S3Account not found")
+            raise S3AccountNotFoundError("S3Account not found")
         link = (
             self.db.query(UserS3Account)
             .filter(
