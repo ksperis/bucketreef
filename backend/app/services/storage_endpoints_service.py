@@ -55,6 +55,11 @@ from app.utils.storage_endpoint_features import (
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+
+class StorageEndpointNotFoundError(ValueError):
+    pass
+
+
 class StorageEndpointsService:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -245,13 +250,13 @@ class StorageEndpointsService:
     def get_endpoint(self, endpoint_id: int, *, include_admin_ops_permissions: bool = True) -> StorageEndpointSchema:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         return self._serialize(endpoint, include_admin_ops_permissions=include_admin_ops_permissions)
 
     def update_endpoint_tags(self, endpoint_id: int, payload: StorageEndpointTagsUpdate) -> StorageEndpointSchema:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         self.tags.replace_storage_endpoint_tags(endpoint, payload.tags)
         self.db.commit()
         self.db.refresh(endpoint)
@@ -281,7 +286,7 @@ class StorageEndpointsService:
         self._ensure_env_editable()
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be edited.")
         state = normalize_storage_endpoint_update(endpoint, payload)
@@ -294,7 +299,7 @@ class StorageEndpointsService:
         self._ensure_env_editable()
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be deleted.")
         linked_accounts = self.db.query(S3Account).filter(S3Account.storage_endpoint_id == endpoint.id).count()
@@ -329,7 +334,7 @@ class StorageEndpointsService:
         self._ensure_env_editable()
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         if endpoint.is_default:
             return self._serialize(endpoint)
         (

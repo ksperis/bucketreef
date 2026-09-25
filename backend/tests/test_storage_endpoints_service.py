@@ -36,7 +36,10 @@ from app.models.storage_endpoint import (
     StorageEndpointUpdate,
 )
 from app.services.rgw_admin import RGWAdminError
-from app.services.storage_endpoints_service import StorageEndpointsService
+from app.services.storage_endpoints_service import (
+    StorageEndpointNotFoundError,
+    StorageEndpointsService,
+)
 from app.utils.storage_endpoint_features import (
     AWS_DEFAULT_REGION,
     AWS_IAM_ENDPOINT,
@@ -97,6 +100,13 @@ def _create_ceph_endpoint_with_full_credentials(db_session, name: str = "ceph-fu
     db_session.commit()
     db_session.refresh(endpoint)
     return endpoint
+
+
+def test_get_endpoint_uses_typed_not_found_error(db_session):
+    service = StorageEndpointsService(db_session)
+
+    with pytest.raises(StorageEndpointNotFoundError, match="Endpoint not found"):
+        service.get_endpoint(999_999)
 
 
 def test_list_endpoints_skips_admin_ops_permissions_by_default(db_session, monkeypatch):
