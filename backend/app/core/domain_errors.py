@@ -49,3 +49,7 @@ class S3ConnectionNotFoundError(ResourceNotFoundError):
 
 class AvatarNotFoundError(ResourceNotFoundError):
     pass
+
+
+class ExternalIdentityNotFoundError(ResourceNotFoundError):
+    pass

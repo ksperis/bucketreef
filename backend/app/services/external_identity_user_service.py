@@ -10,6 +10,7 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import ExternalIdentityNotFoundError
 from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User, UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.audit_service import AuditService
@@ -148,7 +149,7 @@ class ExternalIdentityUserService:
     def revoke_identity(self, identity_id: str, *, reason: str = "identity_revoked") -> ExternalIdentity:
         identity = self.db.query(ExternalIdentity).filter(ExternalIdentity.id == identity_id).first()
         if not identity or identity.revoked_at is not None:
-            raise ValueError("External identity not found")
+            raise ExternalIdentityNotFoundError("External identity not found")
         identity.revoked_at = utcnow()
         user = self.db.query(User).filter(User.id == identity.user_id).first()
         if user:
@@ -168,7 +169,7 @@ class ExternalIdentityUserService:
     def restore_identity(self, identity_id: str, *, reason: str = "identity_restored") -> ExternalIdentity:
         identity = self.db.query(ExternalIdentity).filter(ExternalIdentity.id == identity_id).first()
         if not identity or identity.revoked_at is None:
-            raise ValueError("Revoked external identity not found")
+            raise ExternalIdentityNotFoundError("Revoked external identity not found")
         identity.revoked_at = None
         user = self.db.query(User).filter(User.id == identity.user_id).first()
         if not user:

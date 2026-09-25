@@ -43,6 +43,7 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.identity_security_policy import (
     require_self_service_security_action,
 )
+from app.utils.http_errors import raise_bad_request_or_not_found
 from app.utils.request_security import client_ip, require_trusted_origin
 
 
@@ -343,7 +344,7 @@ def revoke_external_identity(
             )
         service.revoke_identity(identity.id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail="External identity not found") from exc
+        raise_bad_request_or_not_found(exc)
     audit_service.record_action(
         user=current_user,
         scope="security",

@@ -33,7 +33,8 @@ from app.routers import auth_oidc as auth_router
 from app.services.api_token_service import ApiTokenService
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.auth_session_service import AuthSessionError, AuthSessionService, RefreshReplayError
-from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
+from app.core.domain_errors import ExternalIdentityNotFoundError
+from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError, ExternalIdentityUserService
 from app.services.oidc_service import OIDCStateError
 from app.services.users_service import UsersService
 from app.services.webauthn_service import WebAuthnService
@@ -524,6 +525,28 @@ def test_external_identity_cannot_remove_the_last_primary_sign_in_method(auth_cl
     assert response.json()["detail"] == "The last primary sign-in method cannot be removed"
     db_session.refresh(identity)
     assert identity.revoked_at is None
+
+
+def test_external_identity_service_types_missing_revoke_and_restore(db_session):
+    user = _user(db_session, email="typed-external-identity@example.com")
+    identity = ExternalIdentity(
+        id="typed-external-identity",
+        user_id=user.id,
+        provider_type="oidc",
+        provider_id="company",
+        subject="typed-subject",
+        email=user.email,
+        email_verified=True,
+    )
+    db_session.add(identity)
+    db_session.commit()
+    service = ExternalIdentityUserService(db_session)
+
+    with pytest.raises(ExternalIdentityNotFoundError, match="External identity not found"):
+        service.revoke_identity("missing-identity")
+
+    with pytest.raises(ExternalIdentityNotFoundError, match="Revoked external identity not found"):
+        service.restore_identity(identity.id)
 
 
 def test_profile_name_edit_is_disabled_by_default_and_can_be_enabled(auth_client, db_session):
