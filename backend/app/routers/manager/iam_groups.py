@@ -16,7 +16,7 @@ from app.routers.dependencies import (
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
-    get_account_and_service,
+    get_iam_service_for_account,
     load_inline_policies,
     resolve_attached_policy,
     save_inline_policy,
@@ -32,7 +32,7 @@ def list_groups(
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMGroup]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return service.list_groups()
     except RuntimeError as exc:
@@ -46,7 +46,7 @@ def create_group(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMGroup:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         result = service.create_group(payload.name)
         if payload.inline_policies:
@@ -73,7 +73,7 @@ def delete_group(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.delete_group(group_name)
         audit_service.record_action(
@@ -94,7 +94,7 @@ def list_group_users(
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMUser]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return service.list_group_users(group_name)
     except RuntimeError as exc:
@@ -109,7 +109,7 @@ def add_user_to_group(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMUser:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.add_user_to_group(group_name, payload.name)
         audit_service.record_action(
@@ -134,7 +134,7 @@ def remove_user_from_group(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.remove_user_from_group(group_name, user_name)
         audit_service.record_action(
@@ -156,7 +156,7 @@ def list_group_inline_policies(
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[InlinePolicy]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return load_inline_policies(
             group_name,
@@ -177,7 +177,7 @@ def put_group_inline_policy(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
     ensure_inline_policy_name(payload, policy_name)
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         saved = save_inline_policy(
             group_name,
@@ -208,7 +208,7 @@ def delete_group_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.delete_group_inline_policy(group_name, policy_name)
         audit_service.record_action(
@@ -230,7 +230,7 @@ def list_group_policies(
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return service.list_group_policies(group_name)
     except RuntimeError as exc:
@@ -245,7 +245,7 @@ def attach_group_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.attach_group_policy(group_name, payload.arn)
         audit_service.record_action(
@@ -270,7 +270,7 @@ def detach_group_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.detach_group_policy(group_name, policy_arn)
         audit_service.record_action(

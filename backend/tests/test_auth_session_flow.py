@@ -360,7 +360,7 @@ def test_iam_overview_success(monkeypatch, client, db_session):
         def list_policies(self):
             return []
 
-    monkeypatch.setattr("app.routers.manager.iam_overview.get_iam_service", lambda *args, **kwargs: FakeService())
+    monkeypatch.setattr("app.routers.manager.iam_overview.get_iam_service_for_account", lambda _account: FakeService())
     previous_account_context = app.dependency_overrides.get(dependencies.get_account_context)
     previous_iam_guard = app.dependency_overrides.get(dependencies.require_iam_capable_manager)
     app.dependency_overrides[dependencies.get_account_context] = lambda: account
@@ -403,7 +403,7 @@ def test_iam_overview_handles_partial_failures(monkeypatch, client, db_session):
         def list_policies(self):
             return []
 
-    monkeypatch.setattr("app.routers.manager.iam_overview.get_iam_service", lambda *args, **kwargs: PartialService())
+    monkeypatch.setattr("app.routers.manager.iam_overview.get_iam_service_for_account", lambda _account: PartialService())
     previous_account_context = app.dependency_overrides.get(dependencies.get_account_context)
     previous_iam_guard = app.dependency_overrides.get(dependencies.require_iam_capable_manager)
     app.dependency_overrides[dependencies.get_account_context] = lambda: account

@@ -17,7 +17,7 @@ from app.routers.dependencies import (
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
-    get_account_and_service,
+    get_iam_service_for_account,
     load_inline_policies,
     resolve_attached_policy,
     save_inline_policy,
@@ -46,7 +46,7 @@ def list_roles(
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMRole]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return service.list_roles()
     except RuntimeError as exc:
@@ -60,7 +60,7 @@ def create_role(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMRole:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     assume_policy = payload.assume_role_policy_document or DEFAULT_ASSUME_ROLE
     if isinstance(assume_policy, str):
         try:
@@ -92,7 +92,7 @@ def get_role(
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> IAMRole:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         role = service.get_role(role_name)
     except RuntimeError as exc:
@@ -109,7 +109,7 @@ def delete_role(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.delete_role(role_name)
         audit_service.record_action(
@@ -132,7 +132,7 @@ def update_role(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMRole:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         existing = service.get_role(role_name)
     except RuntimeError as exc:
@@ -179,7 +179,7 @@ def list_role_inline_policies(
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[InlinePolicy]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return load_inline_policies(
             role_name,
@@ -200,7 +200,7 @@ def put_role_inline_policy(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
     ensure_inline_policy_name(payload, policy_name)
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         saved = save_inline_policy(
             role_name,
@@ -231,7 +231,7 @@ def delete_role_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.delete_role_inline_policy(role_name, policy_name)
         audit_service.record_action(
@@ -253,7 +253,7 @@ def list_role_policies(
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return service.list_role_policies(role_name)
     except RuntimeError as exc:
@@ -268,7 +268,7 @@ def attach_role_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.attach_role_policy(role_name, payload.arn)
         audit_service.record_action(
@@ -293,7 +293,7 @@ def detach_role_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.detach_role_policy(role_name, policy_arn)
         audit_service.record_action(
