@@ -7,6 +7,10 @@ class ResourceNotFoundError(ValueError):
     """Raised when a requested BucketReef-managed resource does not exist."""
 
 
+class ResourceConflictError(ValueError):
+    """Raised when a requested mutation conflicts with managed resource state."""
+
+
 class StorageEndpointNotFoundError(ResourceNotFoundError):
     pass
 
@@ -44,6 +48,10 @@ class BillingSubjectNotFoundError(ResourceNotFoundError):
 
 
 class S3ConnectionNotFoundError(ResourceNotFoundError):
+    pass
+
+
+class S3ConnectionConflictError(ResourceConflictError):
     pass
 
 

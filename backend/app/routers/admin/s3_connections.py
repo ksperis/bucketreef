@@ -9,7 +9,11 @@ from sqlalchemy import exists, func
 from sqlalchemy.orm import Session, aliased
 
 from app.core.database import get_db
-from app.core.domain_errors import S3ConnectionNotFoundError, StorageEndpointNotFoundError
+from app.core.domain_errors import (
+    S3ConnectionConflictError,
+    S3ConnectionNotFoundError,
+    StorageEndpointNotFoundError,
+)
 from app.db import (
     S3Connection,
     S3ConnectionTag,
@@ -40,9 +44,6 @@ from app.services.identity_security_policy import (
 )
 from app.services.mappers.s3_connection import mask_access_key_id
 from app.services.s3_connections_service import (
-    ACTIVE_MANAGED_SOURCE_CREDENTIALS_ERROR,
-    ACTIVE_MANAGED_SOURCE_DELETE_ERROR,
-    ACTIVE_MANAGED_SOURCE_UPDATE_ERROR,
     S3ConnectionsService,
 )
 from app.services.s3_connection_validation_service import S3ConnectionValidationService
@@ -401,17 +402,14 @@ def update_s3_connection(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Storage endpoint not found",
         ) from exc
+    except S3ConnectionConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=sanitize_error_detail(str(exc)),
+        ) from exc
     except ValueError as exc:
         error = sanitize_error_detail(str(exc))
-        status_code = (
-            status.HTTP_409_CONFLICT
-            if error in {
-                ACTIVE_MANAGED_SOURCE_CREDENTIALS_ERROR,
-                ACTIVE_MANAGED_SOURCE_UPDATE_ERROR,
-            }
-            else status.HTTP_400_BAD_REQUEST
-        )
-        raise HTTPException(status_code=status_code, detail=error) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error) from exc
     audit_metadata = payload.model_dump(
         exclude_none=True,
         exclude={"credentials"},
@@ -461,10 +459,10 @@ def delete_s3_connection(
     meta = {"name": conn.name, "endpoint_url": details.endpoint_url, "provider_hint": details.provider}
     try:
         service.delete_admin_shared(conn)
-    except ValueError as exc:
+    except S3ConnectionConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=ACTIVE_MANAGED_SOURCE_DELETE_ERROR,
+            detail=sanitize_error_detail(str(exc)),
         ) from exc
     audit.record_action(
         user=current_user,

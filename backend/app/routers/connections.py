@@ -5,7 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.domain_errors import S3ConnectionNotFoundError, StorageEndpointNotFoundError
+from app.core.domain_errors import (
+    S3ConnectionConflictError,
+    S3ConnectionNotFoundError,
+    StorageEndpointNotFoundError,
+)
 from app.db import User
 from app.models.s3_connection import (
     S3Connection,
@@ -20,7 +24,10 @@ from app.routers.dependencies import get_current_account_user
 from app.services.audit_service import AuditService
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.s3_connections_service import S3ConnectionsService
-from app.services.managed_private_access_errors import ManagedPrivateAccessCleanupPending
+from app.services.managed_private_access_errors import (
+    ManagedPrivateAccessCleanupPending,
+    ManagedPrivateAccessConflict,
+)
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.s3_connection_validation_service import S3ConnectionValidationService
 from app.services.storage_endpoints_service import get_storage_endpoints_service
@@ -191,6 +198,11 @@ def update_connection(
             },
         )
         return updated
+    except S3ConnectionConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=sanitize_error_detail(str(exc)),
+        ) from exc
     except ValueError as exc:
         raise_bad_request_or_not_found(exc)
 
@@ -236,6 +248,9 @@ def delete_connection(
             status_code=status.HTTP_409_CONFLICT,
             detail=sanitize_error_detail({"message": str(exc), "provisioning_id": exc.provisioning_id}),
         ) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=sanitize_error_detail(str(exc))) from exc
+    except (ManagedPrivateAccessConflict, S3ConnectionConflictError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=sanitize_error_detail(str(exc)),
+        ) from exc
     return None

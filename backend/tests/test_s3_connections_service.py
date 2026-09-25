@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from app.core.domain_errors import S3ConnectionNotFoundError
+from app.core.domain_errors import S3ConnectionConflictError, S3ConnectionNotFoundError
 from pydantic import ValidationError
 
 from app.db import (
@@ -545,7 +545,7 @@ def test_delete_admin_shared_rejects_active_managed_source(
         lambda connection_id: connection_id == row.id,
     )
 
-    with pytest.raises(ValueError, match="managed private accesses"):
+    with pytest.raises(S3ConnectionConflictError, match="managed private accesses"):
         service.delete_admin_shared(row)
 
     assert db_session.query(S3Connection).filter(S3Connection.id == row.id).one()

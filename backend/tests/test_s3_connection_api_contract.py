@@ -7,6 +7,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.domain_errors import S3ConnectionConflictError
 from app.db import (
     ManagerAccountRole, PortalAccountRole,
     AuditLog,
@@ -22,6 +23,10 @@ from app.db import (
 )
 from app.main import app
 from app.routers import dependencies
+from app.services.s3_connections_service import (
+    ACTIVE_MANAGED_SOURCE_UPDATE_ERROR,
+    S3ConnectionsService,
+)
 from app.services.tags_service import TagsService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 
@@ -586,6 +591,57 @@ def test_admin_cannot_mutate_or_delete_a_connection_used_as_managed_access_sourc
     assert status_update.status_code == 409
     assert credential_update.status_code == 409
     assert deletion.status_code == 409
+
+
+def test_admin_connection_update_classifies_conflicts_by_type(
+    contract_client,
+    monkeypatch,
+):
+    client, db_session, user = contract_client
+    connection = S3Connection(
+        created_by_user_id=user.id,
+        name="typed-conflict-source",
+        is_shared=True,
+        is_active=True,
+        access_manager=True,
+        access_browser=False,
+        access_key_id="TYPED-CONFLICT-AK",
+        secret_access_key="TYPED-CONFLICT-SK",
+        custom_endpoint_config='{"endpoint_url":"https://typed-conflict.example.test","force_path_style":false,"provider":null,"region":null,"verify_tls":true}',
+    )
+    db_session.add(connection)
+    db_session.commit()
+    db_session.refresh(connection)
+
+    def raise_plain_value_error(*args, **kwargs):
+        raise ValueError(ACTIVE_MANAGED_SOURCE_UPDATE_ERROR)
+
+    monkeypatch.setattr(
+        S3ConnectionsService,
+        "update_admin_shared",
+        raise_plain_value_error,
+    )
+    plain_error = client.put(
+        f"/api/admin/s3-connections/{connection.id}",
+        json={"name": "plain-error"},
+    )
+
+    def raise_typed_conflict(*args, **kwargs):
+        raise S3ConnectionConflictError("Synthetic typed conflict")
+
+    monkeypatch.setattr(
+        S3ConnectionsService,
+        "update_admin_shared",
+        raise_typed_conflict,
+    )
+    typed_error = client.put(
+        f"/api/admin/s3-connections/{connection.id}",
+        json={"name": "typed-error"},
+    )
+
+    assert plain_error.status_code == 400
+    assert typed_error.status_code == 409
+    assert typed_error.json()["detail"] == "Synthetic typed conflict"
 
 
 def test_execution_contexts_api_exposes_can_manage_iam_key(contract_client):

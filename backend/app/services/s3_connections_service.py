@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3ConnectionNotFoundError
+from app.core.domain_errors import S3ConnectionConflictError, S3ConnectionNotFoundError
 from app.db.s3_connection import ManagedPrivateAccess, S3Connection as DBS3Connection, UserS3Connection
 from app.models.s3_connection import (
     S3_CONNECTION_ENDPOINT_FIELDS,
@@ -257,7 +257,7 @@ class S3ConnectionsService:
             }
             attempted = sorted(immutable_fields.intersection(payload_data))
             if attempted:
-                raise ValueError(
+                raise S3ConnectionConflictError(
                     "Server-managed connection provenance, endpoint, and credentials are immutable"
                 )
         source_immutable_fields = {
@@ -271,7 +271,9 @@ class S3ConnectionsService:
             "verify_tls",
         }
         if self.is_active_managed_source(row.id) and source_immutable_fields.intersection(payload_data):
-            raise ValueError("Connection endpoint and credentials are locked while managed private accesses depend on it")
+            raise S3ConnectionConflictError(
+                "Connection endpoint and credentials are locked while managed private accesses depend on it"
+            )
         endpoint_plan = None
         should_validate_existing_manual_endpoint = (
             not row.server_managed and row.storage_endpoint_id is None
@@ -328,14 +330,16 @@ class S3ConnectionsService:
     def delete(self, user_id: int, connection_id: int) -> None:
         row = self.get_owned(user_id, connection_id)
         if row.server_managed:
-            raise ValueError("Server-managed connections must be deleted by the provisioning service")
+            raise S3ConnectionConflictError(
+                "Server-managed connections must be deleted by the provisioning service"
+            )
         if self.is_active_managed_source(row.id):
-            raise ValueError(ACTIVE_MANAGED_SOURCE_DELETE_ERROR)
+            raise S3ConnectionConflictError(ACTIVE_MANAGED_SOURCE_DELETE_ERROR)
         self._delete_entry(row)
 
     def delete_admin_shared(self, row: DBS3Connection) -> None:
         if self.is_active_managed_source(row.id):
-            raise ValueError(ACTIVE_MANAGED_SOURCE_DELETE_ERROR)
+            raise S3ConnectionConflictError(ACTIVE_MANAGED_SOURCE_DELETE_ERROR)
         self._delete_entry(row)
 
     def _prepare_admin_shared_update(
@@ -354,9 +358,9 @@ class S3ConnectionsService:
             self.is_active_managed_source(row.id)
             and _ADMIN_SHARED_SOURCE_IMMUTABLE_FIELDS & fields_set
         ):
-            raise ValueError(ACTIVE_MANAGED_SOURCE_UPDATE_ERROR)
+            raise S3ConnectionConflictError(ACTIVE_MANAGED_SOURCE_UPDATE_ERROR)
         if update_credentials and self.is_active_managed_source(row.id):
-            raise ValueError(ACTIVE_MANAGED_SOURCE_CREDENTIALS_ERROR)
+            raise S3ConnectionConflictError(ACTIVE_MANAGED_SOURCE_CREDENTIALS_ERROR)
         endpoint_plan = None
         if S3_CONNECTION_ENDPOINT_FIELDS & fields_set:
             endpoint_plan = self.endpoint_planner.plan(
