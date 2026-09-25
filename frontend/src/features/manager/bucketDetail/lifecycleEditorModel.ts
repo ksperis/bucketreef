@@ -340,6 +340,7 @@ export function createVisualLifecycleRule(id: string): LifecycleRuleRecord {
   return {
     ID: id,
     Status: "Enabled",
+    Filter: { Prefix: "" },
   };
 }
 

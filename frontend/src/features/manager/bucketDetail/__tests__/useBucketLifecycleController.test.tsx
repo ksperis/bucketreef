@@ -84,6 +84,29 @@ describe("useBucketLifecycleController", () => {
     expect(result.current.dirty).toBe(false);
   });
 
+  it("persists an explicit empty prefix when a visual rule applies to the whole bucket", async () => {
+    apiMocks.putBucketLifecycle.mockImplementation(
+      (_accountId: unknown, _bucketName: unknown, rules: unknown) => Promise.resolve({ rules }),
+    );
+    const { result } = renderLifecycle();
+
+    act(() => result.current.openEditorWithNew());
+    act(() => result.current.updateDraftRule(0, { expirationDays: "30" }));
+    await act(async () => result.current.saveDraft());
+
+    expect(apiMocks.putBucketLifecycle).toHaveBeenCalledWith(
+      "acc-1",
+      "reports",
+      [
+        expect.objectContaining({
+          Status: "Enabled",
+          Filter: { Prefix: "" },
+          Expiration: { Days: 30 },
+        }),
+      ],
+    );
+  });
+
   it("validates JSON without leaving JSON mode or calling the API", async () => {
     const { result } = renderLifecycle();
     act(() => result.current.openEditor());

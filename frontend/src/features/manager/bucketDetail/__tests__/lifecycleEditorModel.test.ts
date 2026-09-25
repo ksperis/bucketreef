@@ -10,7 +10,11 @@ describe("lifecycleEditorModel", () => {
   it("keeps a newly added rule explicitly incomplete until an action is configured", () => {
     const rule = createVisualLifecycleRule("rule-1");
 
-    expect(rule).toEqual({ ID: "rule-1", Status: "Enabled" });
+    expect(rule).toEqual({
+      ID: "rule-1",
+      Status: "Enabled",
+      Filter: { Prefix: "" },
+    });
     expect(validateLifecycleVisualRules([rule])).toContain("Add at least one lifecycle action");
 
     const withExpiration = updateLifecycleVisualRule(rule, { expirationDays: "30" });
