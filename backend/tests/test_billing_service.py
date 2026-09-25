@@ -5,7 +5,10 @@ from datetime import date, datetime
 
 import pytest
 
+from app.core.domain_errors import BillingSubjectNotFoundError
 from app.db import BillingRateCard, BillingStorageDaily, BillingUsageDaily, S3Account, StorageEndpoint
+from app.models.app_settings import AppSettings
+from app.routers.admin import billing as billing_router
 from app.services.billing_collection_service import BillingCollector
 from app.services.billing_service import (
     BillingService,
@@ -36,6 +39,12 @@ def _seed_account(db_session, endpoint_id: int) -> S3Account:
     db_session.add(account)
     db_session.commit()
     return account
+
+
+def _enabled_billing_settings() -> AppSettings:
+    settings = AppSettings()
+    settings.general.billing_enabled = True
+    return settings
 
 
 def test_parse_month():
@@ -219,6 +228,48 @@ def test_billing_subject_detail_and_export(db_session):
     assert "subject_type" in payload
     assert str(account.id) in payload
     assert account.rgw_user_uid in payload
+
+
+def test_billing_subject_detail_types_missing_subject_separately_from_invalid_input(db_session):
+    endpoint = _seed_endpoint(db_session)
+    service = BillingService(db_session)
+
+    with pytest.raises(BillingSubjectNotFoundError, match="Subject not found"):
+        service.subject_detail("2026-01", endpoint.id, "account", 999)
+
+    with pytest.raises(ValueError, match="Invalid subject type"):
+        service.subject_detail("2026-01", endpoint.id, "invalid", 999)
+
+    with pytest.raises(ValueError, match="Invalid month format"):
+        service.subject_detail("invalid", endpoint.id, "account", 999)
+
+
+@pytest.mark.parametrize(
+    ("subject_type", "subject_id", "month", "expected_status"),
+    [
+        ("account", 999, "2026-01", 404),
+        ("invalid", 999, "2026-01", 400),
+        ("account", 999, "invalid", 400),
+    ],
+)
+def test_admin_billing_subject_detail_distinguishes_missing_from_invalid_input(
+    client,
+    db_session,
+    monkeypatch,
+    subject_type,
+    subject_id,
+    month,
+    expected_status,
+):
+    endpoint = _seed_endpoint(db_session)
+    monkeypatch.setattr(billing_router, "load_app_settings", _enabled_billing_settings)
+
+    response = client.get(
+        f"/api/admin/billing/subject/{subject_type}/{subject_id}",
+        params={"month": month, "endpoint_id": endpoint.id},
+    )
+
+    assert response.status_code == expected_status, response.text
 
 
 def test_billing_coverage_tracks_storage_and_usage_days_separately(db_session):

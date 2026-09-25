@@ -13,7 +13,7 @@ from app.models.billing import BillingSubjectDetail
 from app.routers.dependencies import get_portal_account_access
 from app.services.app_settings_service import load_app_settings
 from app.services.billing_service import BillingService
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import raise_bad_request_or_not_found
 
 router = APIRouter()
 
@@ -35,4 +35,4 @@ def portal_billing_me(
     try:
         return service.subject_detail(month, account.storage_endpoint_id, "account", account.id)
     except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
+        raise_bad_request_or_not_found(exc)

@@ -37,3 +37,7 @@ class BucketMigrationNotFoundError(ResourceNotFoundError):
 
 class BucketMigrationItemNotFoundError(ResourceNotFoundError):
     pass
+
+
+class BillingSubjectNotFoundError(ResourceNotFoundError):
+    pass
