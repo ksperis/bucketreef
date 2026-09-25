@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.s3_connection import UserS3Connection
 from app.db.ui_group import UiGroup, UiGroupS3Connection
 from app.db.user import User
+from app.services.association_validation import ensure_association_ids_exist
 
 
 class S3ConnectionAssociationsService:
@@ -76,14 +77,12 @@ class S3ConnectionAssociationsService:
         cleaned_ids = sorted({int(item_id) for item_id in ids})
         if not cleaned_ids:
             return []
-        found = {
-            int(item_id)
-            for (item_id,) in self.db.query(id_column).filter(id_column.in_(cleaned_ids)).all()
-        }
-        missing = set(cleaned_ids) - found
-        if missing:
-            missing_ids = ", ".join(str(item_id) for item_id in sorted(missing))
-            raise ValueError(f"{entity_label} not found: {missing_ids}")
+        ensure_association_ids_exist(
+            self.db,
+            id_column,
+            cleaned_ids,
+            entity_label=entity_label,
+        )
         return cleaned_ids
 
     def _replace_group_links(

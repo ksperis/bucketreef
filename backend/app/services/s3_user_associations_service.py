@@ -13,6 +13,7 @@ from app.db import (
     is_admin_ui_role,
 )
 from app.models.s3_user import S3UserGroupLink, S3UserUserLink
+from app.services.association_validation import ensure_association_ids_exist
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
 
@@ -52,7 +53,13 @@ class S3UserAssociationsService:
         )
 
         users_by_id = self._load_desired_users(desired_users)
-        self._ensure_desired_groups_exist(desired_groups)
+        if desired_groups:
+            ensure_association_ids_exist(
+                self.db,
+                UiGroup.id,
+                desired_groups,
+                entity_label="UI groups",
+            )
 
         if desired_users is not None:
             self._replace_user_links(s3_user, desired_users, users_by_id)
@@ -72,25 +79,6 @@ class S3UserAssociationsService:
             missing_ids = ", ".join(str(user_id) for user_id in sorted(missing))
             raise ValueError(f"Users not found: {missing_ids}")
         return users_by_id
-
-    def _ensure_desired_groups_exist(
-        self,
-        desired: dict[int, bool] | None,
-    ) -> None:
-        if not desired:
-            return
-        found_ids = {
-            int(group_id)
-            for (group_id,) in (
-                self.db.query(UiGroup.id)
-                .filter(UiGroup.id.in_(desired))
-                .all()
-            )
-        }
-        missing = set(desired) - found_ids
-        if missing:
-            missing_ids = ", ".join(str(group_id) for group_id in sorted(missing))
-            raise ValueError(f"UI groups not found: {missing_ids}")
 
     def _replace_user_links(
         self,

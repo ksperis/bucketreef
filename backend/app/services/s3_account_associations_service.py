@@ -14,6 +14,7 @@ from app.db import (
     is_admin_ui_role,
 )
 from app.models.s3_account import AccountGroupLink, AccountUserLink, S3AccountUpdate
+from app.services.association_validation import ensure_association_ids_exist
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
 from app.utils.time import utcnow
@@ -195,19 +196,12 @@ class S3AccountAssociationsService:
     ) -> None:
         cleaned = {int(link.group_id): link for link in links}
 
-        if cleaned:
-            found_ids = {
-                int(group_id)
-                for (group_id,) in (
-                    self.db.query(UiGroup.id)
-                    .filter(UiGroup.id.in_(cleaned))
-                    .all()
-                )
-            }
-            missing = set(cleaned) - found_ids
-            if missing:
-                missing_str = ", ".join(str(group_id) for group_id in sorted(missing))
-                raise ValueError(f"UI groups not found: {missing_str}")
+        ensure_association_ids_exist(
+            self.db,
+            UiGroup.id,
+            cleaned,
+            entity_label="UI groups",
+        )
 
         existing = (
             self.db.query(UiGroupS3Account)

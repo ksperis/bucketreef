@@ -17,6 +17,7 @@ from app.db import (
     UserUiGroup,
 )
 from app.models.user import AccountMembership, S3UserMembership, UserUpdate
+from app.services.association_validation import ensure_association_ids_exist
 from app.utils.time import utcnow
 
 
@@ -78,21 +79,12 @@ class UserAssociationsService:
         links: list[AccountMembership],
     ) -> None:
         cleaned = {int(link.account_id): link for link in links}
-        if cleaned:
-            found_ids = {
-                int(account_id)
-                for (account_id,) in (
-                    self.db.query(S3Account.id)
-                    .filter(S3Account.id.in_(cleaned))
-                    .all()
-                )
-            }
-            missing = set(cleaned) - found_ids
-            if missing:
-                missing_str = ", ".join(
-                    str(account_id) for account_id in sorted(missing)
-                )
-                raise ValueError(f"S3 accounts not found: {missing_str}")
+        ensure_association_ids_exist(
+            self.db,
+            S3Account.id,
+            cleaned,
+            entity_label="S3 accounts",
+        )
         existing = (
             self.db.query(UserS3Account)
             .filter(UserS3Account.user_id == user.id)
@@ -262,19 +254,12 @@ class UserAssociationsService:
             .all()
         )
         existing_ids = {int(link.group_id) for link in existing_links}
-        if cleaned_ids:
-            groups = (
-                self.db.query(UiGroup)
-                .filter(UiGroup.id.in_(cleaned_ids))
-                .all()
-            )
-            found_ids = {int(group.id) for group in groups}
-            missing = cleaned_ids - found_ids
-            if missing:
-                missing_str = ", ".join(
-                    str(group_id) for group_id in sorted(missing)
-                )
-                raise ValueError(f"UI groups not found: {missing_str}")
+        ensure_association_ids_exist(
+            self.db,
+            UiGroup.id,
+            cleaned_ids,
+            entity_label="UI groups",
+        )
         to_remove = existing_ids - cleaned_ids
         to_add = cleaned_ids - existing_ids
         if to_remove:
