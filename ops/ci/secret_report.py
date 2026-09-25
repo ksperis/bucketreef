@@ -5,6 +5,9 @@ from pathlib import Path
 import subprocess
 
 
+ROOT = Path(__file__).resolve().parents[2]
+
+
 # These public credentials belong only to disposable PostgreSQL CI services.
 # Match the detector, file and complete extracted URL: never exclude a file,
 # commit, rule, hostname or password substring from secret scanning.
@@ -64,7 +67,7 @@ def is_removed_password_url_fixture(path, extract):
     if digest not in REMOVED_PASSWORD_URL_FIXTURES.get(path, set()):
         return False
     try:
-        current = Path(path).read_text()
+        current = (ROOT / path).read_text()
     except (OSError, UnicodeError):
         return False
     return extract not in current
@@ -84,6 +87,7 @@ def is_pre_removal_commit(path, commit_sha):
         subprocess.run(
             ["git", "merge-base", "--is-ancestor", commit_sha, f"{boundary}^"],
             check=True,
+            cwd=ROOT,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
