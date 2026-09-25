@@ -4,24 +4,12 @@
 
 from __future__ import annotations
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
-from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.access_context import BucketMigrationAccessScope
 from app.services.bucket_migration.worker import get_bucket_migration_worker
 from app.services.bucket_migration_service import BucketMigrationService
-
-
-def _raise_migration_value_error(exc: ValueError) -> None:
-    raw_message = str(exc)
-    error_status = (
-        status.HTTP_404_NOT_FOUND
-        if raw_message == "Migration not found"
-        else status.HTTP_400_BAD_REQUEST
-    )
-    raise HTTPException(status_code=error_status, detail=sanitized_error_log_detail(exc)) from exc
 
 
 def _worker_wake_up() -> None:

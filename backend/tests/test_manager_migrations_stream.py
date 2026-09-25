@@ -154,16 +154,24 @@ def test_manager_migration_stream_stops_when_client_disconnects(
     assert "event: done" not in body
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RuntimeError("secret stream failure token=leaked"),
+        ValueError("secret stream validation token=leaked"),
+    ],
+)
 def test_manager_migration_stream_hides_unexpected_error_details(
     db_session,
     monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
 ):
     test_session_factory = sessionmaker(autocommit=False, autoflush=False, bind=db_session.get_bind())
     monkeypatch.setattr(migrations_router, "SessionLocal", test_session_factory)
     migration_id = _seed_migration(test_session_factory, status="running")
 
     def fail_signature(*_args, **_kwargs):
-        raise RuntimeError("secret stream failure token=leaked")
+        raise failure
 
     monkeypatch.setattr(migrations_router, "_compute_migration_stream_signature", fail_signature)
 

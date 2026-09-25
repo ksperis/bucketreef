@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from app.core.domain_errors import BucketMigrationItemNotFoundError
 from app.db import BucketMigration, BucketMigrationItem
 from app.utils.time import utcnow
 from ._shared import (
@@ -27,7 +28,7 @@ class BucketMigrationRollbackMixin:
         for item in migration.items:
             if item.id == item_id:
                 return item
-        raise ValueError("Migration item not found")
+        raise BucketMigrationItemNotFoundError("Migration item not found")
 
     def _ensure_manual_item_operation_allowed(self, migration: BucketMigration) -> None:
         if migration.status in _RUNNABLE_MIGRATION_STATUSES:
