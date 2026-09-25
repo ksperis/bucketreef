@@ -71,6 +71,9 @@ print(json.dumps(sorted(app.openapi()["paths"])))
     for prefix in disabled_prefixes:
         assert not any(path == prefix or path.startswith(f"{prefix}/") for path in paths)
 
+    assert "/api/auth/api-tokens" not in paths
+    assert "/api/auth/bootstrap/first-admin" not in paths
+    assert "/api/auth/bootstrap/first-admin/status" not in paths
     assert "/api/auth/session" in paths
     assert "/health" in paths
 
@@ -120,4 +123,43 @@ print(json.dumps(sorted(app.openapi()["paths"])))
         assert not any(path == prefix.rstrip("/") or path.startswith(prefix) for path in paths)
 
     assert "/api/auth/session" in paths
+    assert "/api/auth/api-tokens" not in paths
+    assert "/api/auth/bootstrap/first-admin" in paths
+    assert "/api/auth/bootstrap/first-admin/status" in paths
     assert "/api/users/me" in paths
+
+
+def test_user_profile_does_not_mount_admin_control_plane_auth_routes() -> None:
+    env = os.environ.copy()
+    env.update(
+        {
+            "APP_ENV": "test",
+            "DEPLOYMENT_PROFILE": "user",
+            "FEATURE_ADMIN_ENABLED": "false",
+            "FEATURE_CEPH_ADMIN_ENABLED": "false",
+            "FEATURE_STORAGE_OPS_ENABLED": "false",
+            "FEATURE_MANAGER_ENABLED": "true",
+            "FEATURE_PORTAL_ENABLED": "true",
+            "FEATURE_BROWSER_ENABLED": "true",
+            "SCHEDULED_JOBS_ENABLED": "false",
+        }
+    )
+    code = """
+import json
+from app.main import app
+print(json.dumps(sorted(app.openapi()["paths"])))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=os.path.dirname(os.path.dirname(__file__)),
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    paths = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert "/api/auth/api-tokens" not in paths
+    assert "/api/auth/bootstrap/first-admin" not in paths
+    assert "/api/auth/bootstrap/first-admin/status" not in paths
+    assert "/api/auth/session" in paths

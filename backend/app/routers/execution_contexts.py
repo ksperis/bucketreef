@@ -5,7 +5,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings as get_runtime_settings
 from app.core.database import get_db
+from app.core.runtime_surfaces import runtime_surface_enabled
 from app.db import S3Account, S3Connection, S3User, User, is_admin_ui_role
 from app.models.execution_context import (
     ExecutionContext,
@@ -125,6 +127,7 @@ def get_workspace_access(
     db: Session = Depends(get_db),
 ) -> WorkspaceAccess:
     settings = app_settings_service.load_app_settings().general
+    runtime = get_runtime_settings()
     service = EffectiveAccessService(db)
     effective = service.resolve_user(user)
     manager_count = sum(
@@ -136,14 +139,26 @@ def get_workspace_access(
         service.list_workspace_connections(user, workspace="browser", resolved=effective)
     ) + len(service.list_browser_portal_accounts(user, resolved=effective))
     portal_count = len(service.list_portal_accounts(user, resolved=effective))
-    admin_available = is_admin_ui_role(user.role)
-    ceph_admin_available = bool(settings.ceph_admin_enabled and effective.can_access_ceph_admin)
-    storage_ops_available = bool(
-        settings.storage_ops_enabled and effective.can_access_storage_ops and manager_count
+    admin_available = bool(runtime_surface_enabled(runtime, "admin") and is_admin_ui_role(user.role))
+    ceph_admin_available = bool(
+        runtime_surface_enabled(runtime, "ceph_admin")
+        and settings.ceph_admin_enabled
+        and effective.can_access_ceph_admin
     )
-    manager_available = bool(settings.manager_enabled and manager_count)
-    browser_available = bool(settings.browser_enabled and settings.browser_root_enabled and browser_count)
-    portal_available = bool(settings.portal_enabled and portal_count)
+    storage_ops_available = bool(
+        runtime_surface_enabled(runtime, "storage_ops")
+        and settings.storage_ops_enabled
+        and effective.can_access_storage_ops
+        and manager_count
+    )
+    manager_available = bool(runtime_surface_enabled(runtime, "manager") and settings.manager_enabled and manager_count)
+    browser_available = bool(
+        runtime_surface_enabled(runtime, "browser")
+        and settings.browser_enabled
+        and settings.browser_root_enabled
+        and browser_count
+    )
+    portal_available = bool(runtime_surface_enabled(runtime, "portal") and settings.portal_enabled and portal_count)
     if admin_available:
         default_workspace = "admin"
     elif manager_available:

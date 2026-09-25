@@ -43,9 +43,10 @@ from app.utils.request_security import require_trusted_origin
 
 
 router = APIRouter()
+bootstrap_router = APIRouter()
 
 
-@router.get(
+@bootstrap_router.get(
     "/bootstrap/first-admin/status",
     response_model=FirstAdminBootstrapStatus,
 )
@@ -57,7 +58,7 @@ def first_admin_bootstrap_status(
     )
 
 
-@router.post(
+@bootstrap_router.post(
     "/bootstrap/first-admin",
     response_model=AuthenticationResponse,
     status_code=status.HTTP_201_CREATED,

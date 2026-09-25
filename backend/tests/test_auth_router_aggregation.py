@@ -15,7 +15,6 @@ from app.routers import (
 
 def test_auth_router_aggregates_each_authentication_domain() -> None:
     feature_routers = (
-        auth_api_tokens.router,
         auth_local.router,
         auth_ldap.router,
         auth_s3.router,
@@ -26,4 +25,9 @@ def test_auth_router_aggregates_each_authentication_domain() -> None:
     included_routers = tuple(route.original_router for route in auth.router.routes)
 
     assert included_routers == feature_routers
-    assert sum(len(router.routes) for router in feature_routers) == 32
+    assert sum(len(router.routes) for router in feature_routers) == 27
+
+
+def test_admin_control_plane_auth_routes_are_kept_separate() -> None:
+    assert len(auth_api_tokens.router.routes) == 3
+    assert len(auth_local.bootstrap_router.routes) == 2

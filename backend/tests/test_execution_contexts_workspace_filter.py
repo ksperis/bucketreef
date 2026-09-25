@@ -636,6 +636,44 @@ def test_workspace_access_defaults_to_browser_for_private_connection_only(db_ses
     assert access.default_workspace == "browser"
 
 
+def test_workspace_access_hides_admin_when_runtime_surface_is_disabled(db_session, monkeypatch):
+    user = _create_user(db_session)
+    user.role = UserRole.UI_ADMIN.value
+    db_session.commit()
+    monkeypatch.setattr(
+        app_settings_service,
+        "load_app_settings",
+        lambda: AppSettings(
+            general=GeneralSettings(
+                manager_enabled=True,
+                browser_enabled=True,
+                browser_root_enabled=True,
+                portal_enabled=True,
+                ceph_admin_enabled=True,
+                storage_ops_enabled=True,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        execution_contexts,
+        "get_runtime_settings",
+        lambda: SimpleNamespace(
+            feature_admin_enabled=False,
+            feature_ceph_admin_enabled=False,
+            feature_storage_ops_enabled=False,
+            feature_manager_enabled=True,
+            feature_portal_enabled=True,
+            feature_browser_enabled=True,
+        ),
+    )
+
+    access = execution_contexts.get_workspace_access(user=user, db=db_session)
+
+    assert access.admin.available is False
+    assert access.admin.context_count == 0
+    assert access.default_workspace is None
+
+
 def test_workspace_access_counts_enabled_portal_project_and_keeps_portal_default(db_session, monkeypatch):
     user = _create_user(db_session)
     endpoint = _create_endpoint(db_session, name="portal-workspace-access")

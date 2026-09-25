@@ -13,7 +13,7 @@ Use route-level schemas and examples in code as the canonical API contract.
 
 | Prefix | Audience | Notes |
 |---|---|---|
-| `/api/auth` | login/session | Local, OIDC, LDAP, cookie refresh, `/session`, session revocation, WebAuthn, recovery codes, external-identity approval, and scoped API tokens. |
+| `/api/auth` | login/session | Local, OIDC, LDAP, cookie refresh, `/session`, session revocation, WebAuthn, recovery codes, external-identity approval, plus Admin-runtime-only scoped API-token management. |
 | `/api/admin` | platform admins | Users, groups, endpoints, app settings, billing, audit, metrics, and key rotation. |
 | `/api/manager` | account/context admins | Buckets, IAM, topics, usage stats, migrations, and Manager tools. |
 | `/api/portal` | Portal users/managers | Storage Spaces, files, shares, access keys, usage, governance activity, provider access logs, and settings. |
@@ -23,6 +23,9 @@ Use route-level schemas and examples in code as the canonical API contract.
 | `/api/internal` | schedulers/automation | Cron-only endpoints protected by `INTERNAL_CRON_TOKEN`. |
 
 ## First-administrator bootstrap
+
+These routes are mounted only on an Admin runtime or on the dedicated
+`ceph-admin-high-security` runtime. They are absent from the `user` runtime.
 
 - `GET /api/auth/bootstrap/first-admin/status` returns only whether an issued,
   unexpired token can currently be consumed.
