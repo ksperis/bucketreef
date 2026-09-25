@@ -89,7 +89,11 @@ it("guards pending cleanup navigation, stops explicitly and permits a deliberate
   const { router } = renderWorkflow("cleanup");
   await screen.findByRole("button", { name: "Stop cleanup" });
   expect(screen.getByRole("button", { name: "Back to the space" })).toBeDisabled();
-  const unload = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(unload); expect(unload.defaultPrevented).toBe(true);
+  await waitFor(() => {
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+  });
   await act(async () => { void router.navigate("/portal/storage-spaces"); });
   expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Leave page" })).toBeDisabled();
