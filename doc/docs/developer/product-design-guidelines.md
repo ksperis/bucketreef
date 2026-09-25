@@ -240,8 +240,10 @@ or permissions validation.
   switch with its checked state and native Space-key operation.
 - A switch changes the current form draft; it does not imply immediate saving.
   Preserve the owning form's Save/Cancel, error and permission behavior.
-  Keep `UiCheckboxField` for list selections and acknowledgements. Migrate other
-  checkbox-based settings during the [separate follow-up](settings-ui-follow-up.md).
+  Keep `UiCheckboxField` for list selections and acknowledgements. For settings
+  outside the delivered compact-settings scope, follow the
+  [implementation record and deferred scope](settings-ui-follow-up.md#deferred-scope)
+  before adopting the switch pattern.
 
 ## Compact badges and tags
 
@@ -430,7 +432,8 @@ including Admin Browser and Admin Portal settings. Shared controls accept
 explicit labels and default to English; never make a shared component translate
 unrelated consumers implicitly. Remaining global translation is out of scope.
 
-Further adoption is tracked separately in [Settings UI follow-up](settings-ui-follow-up.md).
+Delivered adoption and the remaining explicit scope are recorded in the
+[Settings UI implementation record](settings-ui-follow-up.md).
 
 ## Page or modal decision
 

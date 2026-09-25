@@ -1,8 +1,8 @@
-# Settings UI generalization
+# Settings UI implementation record
 
-Status: **implemented for the seven agreed pages**. The compact profile and
-shared selection controls were delivered first; the settings migration is a
-separate local commit. See the [product contract](product-design-guidelines.md#compact-settings-with-section-titles-at-the-side)
+Status: **implemented for the seven agreed pages**. This page records the
+delivered settings migration and the explicitly deferred scope; it is not a
+pending implementation checklist. See the [product contract](product-design-guidelines.md#compact-settings-with-section-titles-at-the-side)
 and [theme tokens](ui-theme-guidelines.md#compact-settings-tokens).
 
 ## Delivered scope
