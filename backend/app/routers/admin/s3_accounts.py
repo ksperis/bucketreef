@@ -27,7 +27,7 @@ from app.services.audit_service import AuditService
 from app.services.portal_service import get_portal_service
 from app.services.rgw_admin import RGWAdminError
 from app.services.tags_service import serialize_tag_summaries
-from app.utils.http_errors import raise_bad_request_or_not_found, raise_http_exception_from_exception
+from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
 
 router = APIRouter(prefix="/admin/accounts", tags=["admin-accounts"])
 logger = logging.getLogger(__name__)
@@ -122,7 +122,7 @@ def get_account(
     try:
         return service.get_account_detail(account_id, include_usage=include_usage)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.get("/{account_id}/portal-settings", response_model=PortalAccountSettings, response_model_exclude_unset=True)
@@ -211,7 +211,7 @@ def create_account(
         )
         return created
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("/import", response_model=list[S3Account])
@@ -234,7 +234,7 @@ def import_accounts(
         )
         return imported
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.put("/{account_id}", response_model=S3Account)
@@ -260,7 +260,7 @@ def update_account(
         )
         return updated
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -283,4 +283,4 @@ def delete_account(
             metadata={"delete_rgw": delete_rgw, "account_id": account_id},
         )
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)

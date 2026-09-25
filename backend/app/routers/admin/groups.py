@@ -26,7 +26,7 @@ from app.services.identity_security_policy import (
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService, get_ui_groups_service
-from app.utils.http_errors import raise_bad_request_or_not_found
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(prefix="/admin/groups", tags=["admin-groups"])
 
@@ -146,7 +146,7 @@ def update_group(
         )
         return groups_service.group_to_out(group)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.put("/{group_id}/avatar", response_model=UiGroupOut)
@@ -208,7 +208,7 @@ def read_group_avatar(
     try:
         payload, content_type, version = UiGroupAvatarService(db).image(group_id)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
     return Response(
         content=payload,
         media_type=content_type,
@@ -240,4 +240,4 @@ def delete_group(
             metadata={"name": group_name} if group_name else None,
         )
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)

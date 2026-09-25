@@ -14,7 +14,7 @@ from fastapi import HTTPException, status
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import Timeout as RequestsTimeout
 
-from app.core.domain_errors import ResourceNotFoundError
+from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.sensitive_data import sanitize_error_detail as _sanitize_error_detail
 
 
@@ -94,12 +94,13 @@ def raise_bad_request_from_value_error(exc: ValueError) -> NoReturn:
     raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
-def raise_bad_request_or_not_found(exc: ValueError) -> NoReturn:
-    status_code = (
-        status.HTTP_404_NOT_FOUND
-        if isinstance(exc, ResourceNotFoundError)
-        else status.HTTP_400_BAD_REQUEST
-    )
+def raise_http_error_from_value_error(exc: ValueError) -> NoReturn:
+    if isinstance(exc, ResourceNotFoundError):
+        status_code = status.HTTP_404_NOT_FOUND
+    elif isinstance(exc, ResourceConflictError):
+        status_code = status.HTTP_409_CONFLICT
+    else:
+        status_code = status.HTTP_400_BAD_REQUEST
     raise_http_exception_from_exception(status_code, exc)
 
 

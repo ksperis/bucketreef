@@ -17,7 +17,7 @@ from app.routers.dependencies import (
 from app.services.audit_service import AuditService
 from app.services.s3_users_service import S3UsersService, get_s3_users_service
 from app.services.managed_private_access_service import ManagedPrivateAccessService
-from app.utils.http_errors import raise_bad_request_or_not_found
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(prefix="/manager/ceph/keys", tags=["manager-ceph-keys"])
 
@@ -60,7 +60,7 @@ def list_ceph_access_keys(
                 key.managed_connection_id = provisioning.s3_connection_id
         return keys
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("", response_model=S3UserGeneratedKey, status_code=status.HTTP_201_CREATED)
@@ -84,7 +84,7 @@ def create_ceph_access_key(
         )
         return key
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.put("/{access_key}/status", response_model=S3UserAccessKey)
@@ -116,7 +116,7 @@ def update_ceph_access_key_status(
         )
         return updated
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.delete(
@@ -151,5 +151,5 @@ def delete_ceph_access_key(
             metadata={"access_key_id": access_key},
         )
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

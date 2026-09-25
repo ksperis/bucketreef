@@ -22,7 +22,7 @@ from app.services.audit_service import AuditService
 from app.services.mappers.bucket_migration import (
     bucket_migration_to_detail as _migration_to_detail,
 )
-from app.utils.http_errors import raise_bad_request_or_not_found, raise_http_exception_from_exception
+from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
 
 router = APIRouter(prefix="/manager/migrations", tags=["manager-migrations"])
 
@@ -39,7 +39,7 @@ def delete_migration(
     try:
         service.delete_migration(migration_id)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
     audit.record_action(
         user=current_user,
@@ -105,7 +105,7 @@ def update_migration(
     except PermissionError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
     audit.record_action(
         user=current_user,
@@ -144,7 +144,7 @@ def run_migration_precheck(
     except PermissionError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
     audit.record_action(
         user=current_user,

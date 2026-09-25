@@ -34,7 +34,7 @@ from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.services.tags_service import TagsService, serialize_tag_summaries
 from app.utils.tagging import TAG_DOMAIN_PRIVATE_CONNECTION_USER
 from app.core.sensitive_data import sanitize_error_detail
-from app.utils.http_errors import raise_bad_request_or_not_found
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(prefix="/connections", tags=["connections"])
 
@@ -115,7 +115,7 @@ def validate_connection_credentials(
     try:
         return service.validate_credentials(payload, enforce_manual_endpoint_policy=True)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("", response_model=S3Connection, status_code=status.HTTP_201_CREATED)
@@ -198,13 +198,8 @@ def update_connection(
             },
         )
         return updated
-    except S3ConnectionConflictError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 
@@ -242,7 +237,7 @@ def delete_connection(
             metadata=audit_meta,
         )
     except S3ConnectionNotFoundError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
     except ManagedPrivateAccessCleanupPending as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

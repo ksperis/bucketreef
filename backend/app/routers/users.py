@@ -23,7 +23,7 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.user_avatar_service import MAX_AVATAR_BYTES, UserAvatarService
 from app.core.database import get_db
 from app.core.sensitive_data import sanitize_error_detail
-from app.utils.http_errors import raise_bad_request_or_not_found
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -204,7 +204,7 @@ def read_user_avatar(
     try:
         payload, content_type, version = UserAvatarService(db).image_for_viewer(current_user, user_id)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
     return Response(
         content=payload,
         media_type=content_type,

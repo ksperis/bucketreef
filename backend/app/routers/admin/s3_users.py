@@ -26,7 +26,7 @@ from app.routers.dependencies import (
 from app.services.s3_users_service import S3UsersService, get_s3_users_service
 from app.services.audit_service import AuditService
 from app.services.tags_service import serialize_tag_summaries
-from app.utils.http_errors import raise_bad_request_or_not_found
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(prefix="/admin/s3-users", tags=["admin-s3-users"])
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ def create_s3_user(
         )
         return created
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.get("/{user_id}", response_model=S3User)
@@ -108,7 +108,7 @@ def get_s3_user(
     try:
         return service.get_user(user_id, include_buckets=include_buckets, include_quota=include_quota)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("/import", response_model=list[S3User])
@@ -130,7 +130,7 @@ def import_s3_users(
         )
         return created
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.put("/{user_id}", response_model=S3User)
@@ -153,7 +153,7 @@ def update_s3_user(
         )
         return updated
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("/{user_id}/rotate-keys", response_model=S3User)
@@ -175,7 +175,7 @@ def rotate_s3_user_keys(
         )
         return updated
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.get("/{user_id}/keys", response_model=list[S3UserAccessKey])
@@ -187,7 +187,7 @@ def list_s3_user_keys(
     try:
         return service.list_keys(user_id)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("/{user_id}/keys", response_model=S3UserGeneratedKey, status_code=status.HTTP_201_CREATED)
@@ -209,7 +209,7 @@ def create_s3_user_access_key(
         )
         return key
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.put("/{user_id}/keys/{access_key}/status", response_model=S3UserAccessKey)
@@ -233,7 +233,7 @@ def update_s3_user_access_key_status(
         )
         return updated
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.delete("/{user_id}/keys/{access_key}", status_code=status.HTTP_204_NO_CONTENT)
@@ -255,7 +255,7 @@ def delete_s3_user_access_key(
             metadata={"access_key_id": access_key},
         )
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -277,4 +277,4 @@ def delete_s3_user(
             metadata={"delete_rgw": delete_rgw},
         )
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)

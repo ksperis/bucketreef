@@ -60,7 +60,7 @@ from app.utils.s3_connection_endpoint import (
 )
 from app.utils.name_ordering import name_order_by
 from app.core.sensitive_data import sanitize_error_detail
-from app.utils.http_errors import raise_bad_request_or_not_found
+from app.utils.http_errors import raise_http_error_from_value_error
 router = APIRouter(prefix="/admin/s3-connections", tags=["admin-s3-connections"])
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ def _get_admin_shared_connection(db: Session, connection_id: int) -> S3Connectio
     try:
         return S3ConnectionsService(db).get_admin_shared(connection_id)
     except S3ConnectionNotFoundError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 def _linked_user_details_by_connection(
@@ -321,7 +321,7 @@ def validate_s3_connection_credentials(
     try:
         return service.validate_credentials(payload)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("", response_model=S3ConnectionAdminItem, status_code=status.HTTP_201_CREATED)
@@ -402,14 +402,8 @@ def update_s3_connection(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Storage endpoint not found",
         ) from exc
-    except S3ConnectionConflictError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=sanitize_error_detail(str(exc)),
-        ) from exc
     except ValueError as exc:
-        error = sanitize_error_detail(str(exc))
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error) from exc
+        raise_http_error_from_value_error(exc)
     audit_metadata = payload.model_dump(
         exclude_none=True,
         exclude={"credentials"},
