@@ -16,6 +16,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
+from app.core.domain_errors import BucketMigrationNotFoundError
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
 from app.models.access_context import BucketMigrationAccessScope
 from app.models.bucket_migration import (
@@ -99,7 +100,7 @@ def get_migration(
     service = _build_service(db, scope)
     try:
         migration = service.get_migration(migration_id)
-    except ValueError as exc:
+    except BucketMigrationNotFoundError as exc:
         raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     items = service.list_migration_items(migration.id)
     recent_events = service.list_recent_migration_events(migration.id, limit=events_limit)
@@ -117,7 +118,7 @@ async def stream_migration(
         service = _build_service(db, scope)
         try:
             service.get_migration(migration_id)
-        except ValueError as exc:
+        except BucketMigrationNotFoundError as exc:
             raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
 
     async def event_generator():
@@ -163,7 +164,7 @@ async def stream_migration(
                                 event_id=stream_event_id,
                             )
                             break
-            except ValueError:
+            except BucketMigrationNotFoundError:
                 stream_event_id += 1
                 yield _format_sse_event(
                     "error",

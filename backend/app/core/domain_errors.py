@@ -29,3 +29,11 @@ class UiUserNotFoundError(ResourceNotFoundError):
 
 class UiGroupNotFoundError(ResourceNotFoundError):
     pass
+
+
+class BucketMigrationNotFoundError(ResourceNotFoundError):
+    pass
+
+
+class BucketMigrationItemNotFoundError(ResourceNotFoundError):
+    pass

@@ -9,6 +9,7 @@ from typing import Optional
 
 from sqlalchemy import or_
 
+from app.core.domain_errors import BucketMigrationNotFoundError
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem, User
 from app.models.bucket_migration import BucketMigrationCreateRequest
 from app.utils.time import utcnow
@@ -351,14 +352,14 @@ class BucketMigrationPlanningMixin:
         query = self.db.query(BucketMigration).filter(BucketMigration.id == migration_id)
         if self._authorized_context_ids is not None:
             if not self._authorized_context_ids:
-                raise ValueError("Migration not found")
+                raise BucketMigrationNotFoundError("Migration not found")
             query = query.filter(
                 BucketMigration.source_context_id.in_(self._authorized_context_ids),
                 BucketMigration.target_context_id.in_(self._authorized_context_ids),
             )
         migration = query.first()
         if not migration:
-            raise ValueError("Migration not found")
+            raise BucketMigrationNotFoundError("Migration not found")
         return migration
 
     def list_migration_items(self, migration_id: int) -> list[BucketMigrationItem]:

@@ -16,11 +16,10 @@ from app.routers.dependencies import (
 )
 from app.routers.manager.migrations_common import (
     _build_service,
-    _raise_migration_value_error,
     _worker_wake_up,
 )
 from app.services.audit_service import AuditService
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import raise_bad_request_or_not_found, raise_http_exception_from_exception
 
 router = APIRouter(prefix="/manager/migrations", tags=["manager-migrations"])
 
@@ -39,7 +38,7 @@ def start_migration(
     except PermissionError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     _worker_wake_up()
     audit.record_action(
@@ -64,7 +63,7 @@ def pause_migration(
     try:
         migration = service.request_pause(migration_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     _worker_wake_up()
     audit.record_action(
@@ -89,7 +88,7 @@ def resume_migration(
     try:
         migration = service.resume_migration(migration_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     _worker_wake_up()
     audit.record_action(
@@ -114,7 +113,7 @@ def stop_migration(
     try:
         migration = service.stop_migration(migration_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     _worker_wake_up()
     audit.record_action(
@@ -139,7 +138,7 @@ def continue_after_presync(
     try:
         migration = service.continue_after_presync(migration_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     _worker_wake_up()
     audit.record_action(
@@ -164,7 +163,7 @@ def rollback_migration(
     try:
         migration = service.rollback_failed_migration(migration_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     audit.record_action(
         user=current_user,
@@ -188,7 +187,7 @@ def retry_failed_items(
     try:
         migration, retried_count = service.retry_failed_items(migration_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     _worker_wake_up()
     audit.record_action(
@@ -218,7 +217,7 @@ def rollback_failed_items(
     try:
         migration, rolled_back_count = service.rollback_failed_items(migration_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     audit.record_action(
         user=current_user,
@@ -248,7 +247,7 @@ def retry_item(
     try:
         migration = service.retry_item(migration_id, item_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     _worker_wake_up()
     audit.record_action(
@@ -278,7 +277,7 @@ def rollback_item(
     try:
         migration = service.rollback_item(migration_id, item_id)
     except ValueError as exc:
-        _raise_migration_value_error(exc)
+        raise_bad_request_or_not_found(exc)
 
     audit.record_action(
         user=current_user,
