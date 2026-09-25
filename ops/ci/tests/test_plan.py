@@ -52,12 +52,18 @@ def test_private_authority_rejected(source, ref, protected, mode, tag):
 
 def test_profiles_are_disjoint():
     assert set(select("docs", None)["jobs"]) == {"docs-build", "docs-screenshots", "docs-deploy"}
-    for profile in ("security", "secrets-history", "regression", "recover-release", "release", "bootstrap-release-bundles"):
+    for profile in ("security", "secrets-history", "regression", "prepare-release", "recover-release", "release", "bootstrap-release-bundles"):
         plan = select(profile, None)
         assert not plan["images"]
         assert "docs-deploy" not in plan["jobs"]
     assert select("integration", ["README.md"], version=True)["profile"] == "qualify"
     assert select("integration", ["README.md"], ref="dev", version=True)["profile"] == "integration"
+
+
+def test_prepare_release_is_explicit_main_only_web_mode():
+    assert classify(source="web", ref="main", protected=True, mode="prepare-release") == "prepare-release"
+    with pytest.raises(ValueError):
+        classify(source="push", ref="main", protected=True, mode="prepare-release")
 
 
 @pytest.mark.parametrize("status", ["failure", "cancelled", "skipped", None, "neutral"])

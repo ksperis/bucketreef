@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage, verify and finalize a complete distribution. No rebuilds on tag pipelines."""
+"""Prepare a distribution on main, then create stable tags only during finalization."""
 from __future__ import annotations
 
 import argparse
@@ -19,13 +19,13 @@ from gitlab_api import GitLabAPI, expected_names, successful_jobs
 from plan import COMPONENTS
 from qualification import find, validate
 from registry import copy_image, credentials, inspect
-from publish_github_release import GitHub, ASSETS, publish as publish_github, resolve_tag
+from publish_github_release import GitHub, ASSETS, ensure_tag as ensure_github_tag, publish as publish_github, resolve_tag
 from publish_gitlab_release import GitLab, publish as publish_gitlab, resolve_git_tag
 import bundle_registry
 from recover_gitlab_release import PublicGitHub, verify_public_release
 
 REQUIRED = ["release-tag-metadata", "release-source-images-ready", "release-bundles",
-            "publish-candidate-images", "publish-helm-release", "publish-release-bundles", "prepare-github-release",
+            "publish-candidate-images", "publish-helm-release", "publish-release-bundles",
             "release-public-bundles-check",
             "release-public-images-check", "release-kind-onboarding-smoke", "release-bundle-smoke",
             *(f"{c}-release-image-vuln-scan" for c in COMPONENTS)]
@@ -85,10 +85,12 @@ def source_record():
 
 def resolve():
     record = find(GitLabAPI(), os.environ["CI_COMMIT_SHA"])
-    if resolve_git_tag(version()) != record["sha"]:
-        raise ValueError("GitLab tag differs from qualified source")
-    if resolve_tag(GitHub(os.environ.get("GITHUB_RELEASE_TOKEN", "")), "v" + version()) != record["sha"]:
-        raise ValueError("GitHub tag differs from qualified source")
+    if os.environ.get("CI_COMMIT_BRANCH") != "main":
+        raise ValueError("Release preparation must run from main")
+    if resolve_git_tag(version(), missing_ok=True) is not None:
+        raise ValueError("GitLab release tag already exists; retry the original finalizer instead")
+    if resolve_tag(GitHub(os.environ.get("GITHUB_RELEASE_TOKEN", "")), "v" + version(), missing_ok=True) is not None:
+        raise ValueError("GitHub release tag already exists; retry the original finalizer instead")
     write("qualification.json", record)
     Path("release-sources").mkdir(exist_ok=True)
     for component, image in record["images"].items():
@@ -117,7 +119,9 @@ def github(finalize=False, latest=False):
 def ready(api):
     record = source_record()
     pipeline = api.get(f"pipelines/{int(os.environ['CI_PIPELINE_ID'])}")
-    if pipeline["sha"] != record["sha"] or pipeline["ref"] != "v" + version() or pipeline["source"] != "parent_pipeline":
+    plan = read("ci-plan.json")
+    if (pipeline["sha"] != record["sha"] or pipeline["ref"] != "main" or pipeline["source"] != "parent_pipeline"
+        or plan.get("profile") != "prepare-release" or plan.get("sha") != record["sha"]):
         raise ValueError("Unexpected release validation pipeline")
     jobs = successful_jobs(api.jobs(int(os.environ["CI_PIPELINE_ID"])), expected_names(REQUIRED), record["sha"])
     if find(api, record["sha"], record["pipeline_id"]) != record:
@@ -182,6 +186,28 @@ def verify_published_github_release(expected_files):
         time.sleep(PUBLIC_RELEASE_VERIFY_DELAY_SECONDS)
 
 
+def verify_remote_main(gitlab_api, github_api, sha):
+    gitlab_sha = gitlab_api.get("repository/branches/main")["commit"]["id"]
+    github_sha = github_api.request("git/ref/heads/main")["object"]["sha"]
+    if gitlab_sha != sha or github_sha != sha:
+        raise RuntimeError("main moved after release preparation; refusing to create a stable tag")
+
+
+def verify_release_tag():
+    sha = os.environ["CI_COMMIT_SHA"]
+    tag = "v" + version()
+    gh = GitHub(os.environ.get("GITHUB_RELEASE_TOKEN", ""))
+    gl = GitLab(os.environ["CI_API_V4_URL"], os.environ["CI_PROJECT_ID"], os.environ["CI_JOB_TOKEN"])
+    if resolve_tag(gh, tag) != sha or resolve_git_tag(version()) != sha:
+        raise RuntimeError("Stable tag differs between GitHub, GitLab and the pipeline commit")
+    release = gh.request(f"releases/tags/{tag}", missing_ok=True)
+    if release is None or release.get("draft") or release.get("prerelease") or release.get("name") != tag:
+        raise RuntimeError("GitHub stable tag does not have a published stable release")
+    private = gl.request(f"releases/{tag}", missing_ok=True)
+    if private is None or private.get("commit", {}).get("id") != sha or private.get("name") != tag:
+        raise RuntimeError("GitLab stable tag does not have the matching published release")
+
+
 def finalize():
     # Run under the single public-release resource group. Recheck evidence inside
     # the lock, including retries that have replaced an earlier validation job.
@@ -191,6 +217,8 @@ def finalize():
         raise ValueError("Distribution proof is stale or its artifacts changed")
     gh = GitHub(os.environ["GITHUB_RELEASE_TOKEN"])
     gl = GitLab(os.environ["CI_API_V4_URL"], os.environ["CI_PROJECT_ID"], os.environ["CI_JOB_TOKEN"])
+    verify_remote_main(api, gh, os.environ["CI_COMMIT_SHA"])
+    ensure_github_tag(gh, "v" + version(), os.environ["CI_COMMIT_SHA"])
     github(finalize=True, latest=True)
     verify_published_github_release(expected["bundles"]["files"])
     publish_gitlab(gl, version(), os.environ["CI_COMMIT_SHA"], Path("dist/release-notes/gitlab.md").read_text())
@@ -203,7 +231,7 @@ def finalize():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("resolve", "normalize-chart", "candidates", "verify-public", "publish-bundles", "download-bundles", "draft", "ready", "finalize"))
+    parser.add_argument("command", choices=("resolve", "normalize-chart", "candidates", "verify-public", "publish-bundles", "download-bundles", "ready", "verify-release-tag", "finalize"))
     command = parser.parse_args().command
     try:
         if command == "normalize-chart": normalize_chart(f"dist/release/bucketreef-{version()}.tgz")
@@ -212,8 +240,8 @@ if __name__ == "__main__":
         elif command == "verify-public": verify_public()
         elif command == "publish-bundles": write("bundle-distribution.json", bundle_registry.publish(version(), os.environ["CI_COMMIT_SHA"], Path("dist/release")))
         elif command == "download-bundles": bundle_registry.download(read("bundle-distribution.json"), Path("public-bundles"), version=version(), sha=os.environ["CI_COMMIT_SHA"])
-        elif command == "draft": github()
         elif command == "ready": write("distribution-ready.json", ready(GitLabAPI()))
+        elif command == "verify-release-tag": verify_release_tag()
         else: finalize()
     except (RuntimeError, ValueError, KeyError, OSError) as error:
         print(f"Distribution stopped: {error}", file=sys.stderr)

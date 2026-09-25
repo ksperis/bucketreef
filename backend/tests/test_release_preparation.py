@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ops/release"))
 from check_version import check_version
 from prepare import prepare
+from publish_github_release import ensure_tag
 from release_notes import changelog_section, previous_tag, render_notes
 from schema_baseline import baseline, baseline_files, requires_baseline
 from publish_gitlab_release import publish, resolve_git_tag
@@ -125,6 +126,41 @@ def test_gitlab_release_retry_is_read_only_and_conflicts_fail(monkeypatch):
     with pytest.raises(RuntimeError, match="SHA differs"):
         publish(api, "0.2.5", "a" * 40, "Notes\n")
     assert len(api.writes) == 1
+
+
+def test_gitlab_release_creates_missing_tag_at_validated_sha(monkeypatch):
+    api = GitLabFixture()
+    resolved = iter([None, api.sha])
+    monkeypatch.setattr("publish_gitlab_release.resolve_git_tag", lambda *args, **kwargs: next(resolved))
+    publish(api, "0.2.5", api.sha, "Notes\n")
+    assert api.writes[0]["ref"] == api.sha
+    assert api.writes[0]["tag_name"] == "v0.2.5"
+
+
+def test_github_tag_creation_is_idempotent_and_refuses_conflicts():
+    class GitHubTagFixture:
+        def __init__(self):
+            self.sha = None
+            self.writes = []
+
+        def request(self, path, *, method="GET", data=None, missing_ok=False, **kwargs):
+            if path == "git/ref/tags/v0.2.5":
+                if self.sha is None and missing_ok:
+                    return None
+                return {"object": {"type": "commit", "sha": self.sha}}
+            assert path == "git/refs" and method == "POST"
+            self.writes.append(data)
+            self.sha = data["sha"]
+            return {"ref": data["ref"], "object": {"type": "commit", "sha": self.sha}}
+
+    api = GitHubTagFixture()
+    sha = "a" * 40
+    ensure_tag(api, "v0.2.5", sha)
+    ensure_tag(api, "v0.2.5", sha)
+    assert api.writes == [{"ref": "refs/tags/v0.2.5", "sha": sha}]
+    api.sha = "b" * 40
+    with pytest.raises(RuntimeError, match="another commit"):
+        ensure_tag(api, "v0.2.5", sha)
 
 
 @pytest.mark.parametrize("annotated", [False, True])
