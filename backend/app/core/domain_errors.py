@@ -17,3 +17,11 @@ class S3UserNotFoundError(ResourceNotFoundError):
 
 class S3AccountNotFoundError(ResourceNotFoundError):
     pass
+
+
+class UiUserNotFoundError(ResourceNotFoundError):
+    pass
+
+
+class UiGroupNotFoundError(ResourceNotFoundError):
+    pass

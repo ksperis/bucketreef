@@ -35,6 +35,7 @@ from app.services.identity_security_policy import (
     require_admin_interactive_session,
     require_admin_sensitive_action,
 )
+from app.utils.http_errors import raise_bad_request_or_not_found
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -248,9 +249,7 @@ def update_user(
         )
         return users_service.user_to_out(user)
     except ValueError as exc:
-        detail = sanitize_error_detail(str(exc))
-        status_code = status.HTTP_404_NOT_FOUND if detail.lower() == "user not found" else status.HTTP_400_BAD_REQUEST
-        raise HTTPException(status_code=status_code, detail=detail) from exc
+        raise_bad_request_or_not_found(exc)
 
 
 def _avatar_target(request: Request, user_id: int, users_service: UsersService, actor: DbUser) -> DbUser:
@@ -334,4 +333,4 @@ def delete_user(
             entity_id=str(user_id),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_or_not_found(exc)

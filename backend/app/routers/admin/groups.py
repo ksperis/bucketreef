@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Res
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_errors import UiGroupNotFoundError
 from app.core.sensitive_data import sanitize_error_detail
 from app.db import User, is_superadmin_ui_role
 from app.models.ui_group import (
@@ -25,6 +26,7 @@ from app.services.identity_security_policy import (
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService, get_ui_groups_service
+from app.utils.http_errors import raise_bad_request_or_not_found
 
 router = APIRouter(prefix="/admin/groups", tags=["admin-groups"])
 
@@ -130,7 +132,7 @@ def update_group(
     try:
         existing_group = groups_service.get_group(group_id)
         if existing_group is None:
-            raise ValueError("UI group not found")
+            raise UiGroupNotFoundError("UI group not found")
         if admin_group_update_requires_step_up(existing_group, payload):
             require_admin_sensitive_action(request, groups_service.db, current_user)
         group = groups_service.update_group(group_id, payload)
@@ -144,9 +146,7 @@ def update_group(
         )
         return groups_service.group_to_out(group)
     except ValueError as exc:
-        detail = sanitize_error_detail(str(exc))
-        status_code = status.HTTP_404_NOT_FOUND if detail.lower() == "ui group not found" else status.HTTP_400_BAD_REQUEST
-        raise HTTPException(status_code=status_code, detail=detail) from exc
+        raise_bad_request_or_not_found(exc)
 
 
 @router.put("/{group_id}/avatar", response_model=UiGroupOut)
@@ -240,4 +240,4 @@ def delete_group(
             metadata={"name": group_name} if group_name else None,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_or_not_found(exc)

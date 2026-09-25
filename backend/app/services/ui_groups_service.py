@@ -7,6 +7,7 @@ from typing import Optional
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, aliased
 
+from app.core.domain_errors import UiGroupNotFoundError
 from app.db import (
     S3Account,
     S3Connection,
@@ -90,7 +91,7 @@ class UiGroupsService:
     def update_group(self, group_id: int, payload: UiGroupUpdate) -> UiGroup:
         group = self.db.query(UiGroup).filter(UiGroup.id == group_id).first()
         if not group:
-            raise ValueError("UI group not found")
+            raise UiGroupNotFoundError("UI group not found")
         existing_user_ids = {
             row[0]
             for row in self.db.query(UserUiGroup.user_id).filter(UserUiGroup.group_id == group.id).all()
@@ -162,7 +163,7 @@ class UiGroupsService:
     def delete_group(self, group_id: int) -> None:
         group = self.db.query(UiGroup).filter(UiGroup.id == group_id).first()
         if not group:
-            raise ValueError("UI group not found")
+            raise UiGroupNotFoundError("UI group not found")
         affected_user_ids = {
             row[0]
             for row in self.db.query(UserUiGroup.user_id).filter(UserUiGroup.group_id == group.id).all()
