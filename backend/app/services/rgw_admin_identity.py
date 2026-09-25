@@ -2,22 +2,23 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Literal
 
+from app.services.rgw_admin_transport import RGWAdminError
+
 
 RgwCredentialFailureKind = Literal["denied", "unavailable"]
+_DENIED_ERROR_CODES = {
+    "accessdenied",
+    "invalidaccesskey",
+    "invalidaccesskeyid",
+    "signaturedoesnotmatch",
+}
 
 
-def classify_rgw_credential_failure(error: Exception) -> RgwCredentialFailureKind:
-    normalized = str(error).lower()
-    denied_markers = (
-        "401",
-        "403",
-        "accessdenied",
-        "access denied",
-        "invalidaccesskey",
-        "invalid access key",
-        "signature",
-    )
-    return "denied" if any(marker in normalized for marker in denied_markers) else "unavailable"
+def classify_rgw_credential_failure(error: RGWAdminError) -> RgwCredentialFailureKind:
+    error_code = (error.error_code or "").strip().lower()
+    if error.status_code in {401, 403} or error_code in _DENIED_ERROR_CODES:
+        return "denied"
+    return "unavailable"
 
 
 def extract_ceph_admin_flags(user_payload: dict) -> tuple[bool, bool]:
