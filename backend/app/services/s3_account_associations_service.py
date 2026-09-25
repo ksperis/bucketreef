@@ -14,7 +14,10 @@ from app.db import (
     is_admin_ui_role,
 )
 from app.models.s3_account import AccountGroupLink, AccountUserLink, S3AccountUpdate
-from app.services.association_validation import ensure_association_ids_exist
+from app.services.association_validation import (
+    ensure_association_ids_exist,
+    load_association_users,
+)
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
 from app.utils.time import utcnow
@@ -147,13 +150,11 @@ class S3AccountAssociationsService:
     ) -> None:
         cleaned = {int(link.user_id): link for link in links}
 
-        users_by_id: dict[int, User] = {}
-        if cleaned:
-            users = self.db.query(User).filter(User.id.in_(cleaned)).all()
-            users_by_id = {int(user.id): user for user in users}
-            missing = set(cleaned) - set(users_by_id)
-            if missing:
-                raise ValueError(f"User not found: {min(missing)}")
+        users_by_id = load_association_users(
+            self.db,
+            cleaned,
+            entity_label="User",
+        )
 
         existing = (
             self.db.query(UserS3Account)

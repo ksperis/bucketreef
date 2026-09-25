@@ -13,7 +13,10 @@ from app.db import (
     is_admin_ui_role,
 )
 from app.models.s3_user import S3UserGroupLink, S3UserUserLink
-from app.services.association_validation import ensure_association_ids_exist
+from app.services.association_validation import (
+    ensure_association_ids_exist,
+    load_association_users,
+)
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
 
@@ -70,15 +73,7 @@ class S3UserAssociationsService:
         self,
         desired: dict[int, bool] | None,
     ) -> dict[int, User]:
-        if not desired:
-            return {}
-        users = self.db.query(User).filter(User.id.in_(desired)).all()
-        users_by_id = {int(user.id): user for user in users}
-        missing = set(desired) - set(users_by_id)
-        if missing:
-            missing_ids = ", ".join(str(user_id) for user_id in sorted(missing))
-            raise ValueError(f"Users not found: {missing_ids}")
-        return users_by_id
+        return load_association_users(self.db, desired or ())
 
     def _replace_user_links(
         self,

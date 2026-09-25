@@ -7,7 +7,26 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.db import User
 from app.db.s3_connection import S3Connection
+
+
+def load_association_users(
+    db: Session,
+    ids: Iterable[int],
+    *,
+    entity_label: str = "Users",
+) -> dict[int, User]:
+    requested_ids = {int(user_id) for user_id in ids}
+    if not requested_ids:
+        return {}
+    users = db.query(User).filter(User.id.in_(requested_ids)).all()
+    users_by_id = {int(user.id): user for user in users}
+    missing_ids = requested_ids - set(users_by_id)
+    if missing_ids:
+        formatted_ids = ", ".join(str(user_id) for user_id in sorted(missing_ids))
+        raise ValueError(f"{entity_label} not found: {formatted_ids}")
+    return users_by_id
 
 
 def ensure_association_ids_exist(
