@@ -50,6 +50,10 @@ from app.utils.usage_stats import aggregate_bucket_usage
 logger = logging.getLogger(__name__)
 
 
+class S3UserNotFoundError(ValueError):
+    pass
+
+
 def _extract_max_buckets(payload: Any) -> Optional[int]:
     user_payload = extract_rgw_user_payload(payload)
     return parse_positive_limit(user_payload.get("max_buckets") or (payload.get("max_buckets") if isinstance(payload, dict) else None))
@@ -189,7 +193,7 @@ class S3UsersService:
     def _get_s3_user(self, user_id: int) -> S3UserModel:
         s3_user = self.db.query(S3UserModel).filter(S3UserModel.id == user_id).first()
         if not s3_user:
-            raise ValueError("S3 user not found")
+            raise S3UserNotFoundError("S3 user not found")
         return s3_user
 
     def _serialize_s3_user(
@@ -466,9 +470,7 @@ class S3UsersService:
         return created
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
-        s3_user = self.db.query(S3UserModel).filter(S3UserModel.id == user_id).first()
-        if not s3_user:
-            raise ValueError("S3 user not found")
+        s3_user = self._get_s3_user(user_id)
         if payload.name is not None:
             s3_user.name = payload.name
         if payload.email is not None:
@@ -646,15 +648,11 @@ class S3UsersService:
             raise ValueError(f"Unable to delete access key: {exc}") from exc
 
     def delete_user_db_only(self, user_id: int) -> None:
-        s3_user = self.db.query(S3UserModel).filter(S3UserModel.id == user_id).first()
-        if not s3_user:
-            raise ValueError("S3 user not found")
+        s3_user = self._get_s3_user(user_id)
         self._delete_user_entry(s3_user)
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
-        s3_user = self.db.query(S3UserModel).filter(S3UserModel.id == user_id).first()
-        if not s3_user:
-            raise ValueError("S3 user not found")
+        s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
         if delete_rgw:
             bucket_count = self._interface_bucket_count(s3_user)

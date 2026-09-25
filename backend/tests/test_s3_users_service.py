@@ -32,7 +32,7 @@ from app.models.s3_user import (
 )
 from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.s3_users_service import S3UsersService
+from app.services.s3_users_service import S3UserNotFoundError, S3UsersService
 
 
 class FakeRGWAdmin:
@@ -168,6 +168,13 @@ def _build_service(db_session, monkeypatch, fake_admin: FakeRGWAdmin) -> S3Users
         lambda _endpoint: fake_admin,
     )
     return S3UsersService(db_session)
+
+
+def test_get_user_uses_typed_not_found_error(db_session):
+    service = S3UsersService(db_session)
+
+    with pytest.raises(S3UserNotFoundError, match="S3 user not found"):
+        service.get_user(999_999)
 
 
 def _seed_s3_user_derived_rows(db_session, *, endpoint: StorageEndpoint, s3_user: S3User) -> None:
