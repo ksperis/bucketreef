@@ -208,7 +208,7 @@ def read_group_avatar(
     try:
         payload, content_type, version = UiGroupAvatarService(db).image(group_id)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group avatar not found.") from exc
+        raise_bad_request_or_not_found(exc)
     return Response(
         content=payload,
         media_type=content_type,

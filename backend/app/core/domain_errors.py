@@ -45,3 +45,7 @@ class BillingSubjectNotFoundError(ResourceNotFoundError):
 
 class S3ConnectionNotFoundError(ResourceNotFoundError):
     pass
+
+
+class AvatarNotFoundError(ResourceNotFoundError):
+    pass

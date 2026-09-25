@@ -6,6 +6,7 @@ import re
 
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import AvatarNotFoundError
 from app.db import UiGroup
 from app.models.ui_group import UiGroupAvatar, UiGroupAvatarIcon, UiGroupAvatarSource
 from app.services.avatar_image_service import ALLOWED_AVATAR_CONTENT_TYPES, validate_avatar_image
@@ -88,6 +89,6 @@ class UiGroupAvatarService:
     def image(self, group_id: int) -> tuple[bytes, str, str]:
         group = self.db.query(UiGroup).filter(UiGroup.id == group_id).first()
         if group is None or not group.avatar_image or group.avatar_content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
-            raise ValueError("Group avatar not found.")
+            raise AvatarNotFoundError("Group avatar not found.")
         version = str(int(group.avatar_updated_at.timestamp()) if group.avatar_updated_at else 0)
         return bytes(group.avatar_image), str(group.avatar_content_type), version
