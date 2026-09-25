@@ -59,6 +59,10 @@ from app.utils.name_ordering import name_order_by
 logger = logging.getLogger(__name__)
 
 
+class S3AccountNotFoundError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class _PreparedAccountImport:
     source: S3AccountImport
@@ -77,6 +81,12 @@ class S3AccountsService:
         self.tags = TagsService(db)
         self.account_topics = RgwAccountTopicsResolver()
         self.associations = S3AccountAssociationsService(db)
+
+    def _get_account(self, account_id: int) -> S3Account:
+        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
+        if not account:
+            raise S3AccountNotFoundError("S3Account not found")
+        return account
 
     def _endpoint_capabilities(self, endpoint: StorageEndpoint) -> dict[str, bool]:
         features = normalize_features_config(endpoint.provider, endpoint.features_config)
@@ -346,9 +356,7 @@ class S3AccountsService:
         return summaries
 
     def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:
-        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
-        if not account:
-            raise ValueError("S3Account not found")
+        account = self._get_account(account_id)
         user_links = self.associations.load_user_links([account.id]).get(account.id, [])
         group_links = self.associations.load_group_links([account.id]).get(
             account.id,
@@ -727,9 +735,7 @@ class S3AccountsService:
         )
 
     def update_account(self, account_id: int, payload: S3AccountUpdate) -> S3AccountSchema:
-        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
-        if not account:
-            raise ValueError("S3Account not found")
+        account = self._get_account(account_id)
 
         affected_portal_user_ids = self.associations.affected_portal_user_ids(
             account,
@@ -825,9 +831,7 @@ class S3AccountsService:
         )
 
     def delete_account(self, account_id: int, delete_rgw: bool = False) -> None:
-        account = self.db.query(S3Account).filter(S3Account.id == account_id).first()
-        if not account:
-            raise ValueError("S3Account not found")
+        account = self._get_account(account_id)
         if delete_rgw:
             admin = self._admin_for_account(account, allow_missing=False)
             account_identifier = account.rgw_account_id
