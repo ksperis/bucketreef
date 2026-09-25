@@ -1,0 +1,93 @@
+.settings-json-editor {
+  position: relative;
+  min-width: 0;
+}
+
+.settings-json-highlight,
+.settings-json-input {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: var(--settings-control-padding, 0.5rem) 0.75rem;
+  border-radius: 0.375rem;
+  font: inherit;
+  line-height: inherit;
+  tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.settings-json-highlight {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border: 1px solid transparent;
+  color: var(--ui-text);
+  background: var(--ui-surface);
+}
+
+.settings-json-input {
+  position: relative;
+  z-index: 1;
+  overflow: auto;
+  resize: vertical;
+  color: transparent;
+  caret-color: var(--ui-text);
+  background: transparent;
+  transition: none;
+}
+
+.settings-json-input::placeholder {
+  color: var(--ui-text-muted);
+}
+
+.settings-json-input:focus {
+  background: transparent;
+}
+
+.settings-json-input::selection {
+  color: transparent;
+  background: rgb(var(--ui-primary-300-rgb) / 0.28);
+}
+
+.settings-json-token-key {
+  color: rgb(3 105 161);
+}
+
+.settings-json-token-string {
+  color: rgb(21 128 61);
+}
+
+.settings-json-token-number {
+  color: rgb(180 83 9);
+}
+
+.settings-json-token-boolean {
+  color: rgb(109 40 217);
+}
+
+.settings-json-token-null {
+  color: rgb(190 24 93);
+}
+
+:root.dark .settings-json-token-key {
+  color: rgb(125 211 252);
+}
+
+:root.dark .settings-json-token-string {
+  color: rgb(134 239 172);
+}
+
+:root.dark .settings-json-token-number {
+  color: rgb(253 186 116);
+}
+
+:root.dark .settings-json-token-boolean {
+  color: rgb(196 181 253);
+}
+
+:root.dark .settings-json-token-null {
+  color: rgb(249 168 212);
+}

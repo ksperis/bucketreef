@@ -17,9 +17,9 @@ import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
+import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
-import UiTextarea from "../../components/ui/UiTextarea";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { useManagerIamCollection } from "./useManagerIamCollection";
 
@@ -217,8 +217,8 @@ export default function PoliciesPage() {
           </SettingsSection>
           <SettingsSection title="Policy document" presentation="compact">
             <div className="settings-fields">
-              <UiTextarea label="Policy document (JSON)" value={documentText} onChange={(event) => setDocumentText(event.target.value)}
-                className="font-mono" rows={10} spellCheck={false} error={validationAttempted ? documentError : undefined}
+              <SettingsJsonEditor label="Policy document (JSON)" value={documentText} onChange={setDocumentText}
+                rows={10} error={validationAttempted ? documentError : undefined}
                 hint="Provide a valid IAM policy JSON document. You can start from the default template and customize statements." />
             </div>
           </SettingsSection>

@@ -14,9 +14,9 @@ import {
   type ManagedInlinePolicy,
 } from "../../api/managedPrivateAccess";
 import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
-import UiTextarea from "../../components/ui/UiTextarea";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiDetails from "../../components/ui/UiDetails";
@@ -265,15 +265,13 @@ export default function CreateManagedPrivateAccessModal({
                         error={inlineNameError}
                         onChange={(event) => { setInlineName(event.target.value); setInlineNameError(undefined); }}
                       />
-                      <UiTextarea
+                      <SettingsJsonEditor
                         label="Inline policy document"
                         value={inlineDocument}
                         error={inlineDocumentError}
                         hint="Provide a JSON object, then add it to the policies for this access."
-                        onChange={(event) => { setInlineDocument(event.target.value); setInlineDocumentError(undefined); }}
+                        onChange={(value) => { setInlineDocument(value); setInlineDocumentError(undefined); }}
                         rows={6}
-                        spellCheck={false}
-                        className="font-mono"
                       />
                       <div className="flex justify-end">
                         <SettingsButton variant="secondary" onClick={addInlinePolicy}>Add inline policy</SettingsButton>

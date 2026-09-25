@@ -4,7 +4,7 @@
  */
 import type { ReactNode } from "react";
 
-import UiTextarea from "../../../components/ui/UiTextarea";
+import SettingsJsonEditor from "../../../components/settings/SettingsJsonEditor";
 import { cx } from "../../../components/ui/styles";
 
 export function BucketFeatureEditorToolbar({
@@ -80,7 +80,6 @@ export function BucketFeatureJsonPane({
   onChange,
   rows = 16,
   disabled = false,
-  spellCheck = false,
   children,
 }: {
   description: ReactNode;
@@ -89,20 +88,17 @@ export function BucketFeatureJsonPane({
   onChange: (value: string) => void;
   rows?: number;
   disabled?: boolean;
-  spellCheck?: boolean;
   children?: ReactNode;
 }) {
   return (
     <div className="space-y-2.5">
       <p className="settings-description">{description}</p>
-      <UiTextarea
+      <SettingsJsonEditor
         label={label}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         rows={rows}
-        className="settings-control font-mono"
         disabled={disabled}
-        spellCheck={spellCheck}
       />
       {children}
     </div>

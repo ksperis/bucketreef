@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
+import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
@@ -54,14 +55,13 @@ function JsonConfigurationFields({
 }: JsonConfigurationFieldsProps) {
   return (
     <div className="space-y-2">
-      <UiTextarea
+      <SettingsJsonEditor
         id={fieldId}
         label={label}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         rows={8}
         placeholder={placeholder}
-        className="font-mono"
       />
       <p className="ui-caption text-slate-500 dark:text-slate-400">
         {description}

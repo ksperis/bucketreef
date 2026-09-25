@@ -9,8 +9,8 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { DEFAULT_INLINE_POLICY_TEXT } from "./inlinePolicyTemplate";
 import InlinePolicyChoice from "./InlinePolicyChoice";
+import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import UiInput from "../../components/ui/UiInput";
-import UiTextarea from "../../components/ui/UiTextarea";
 import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
@@ -326,8 +326,8 @@ export default function InlinePolicyEditor({
               <UiInput label="Inline policy name" required value={selectedName} onChange={(event) => setSelectedName(event.target.value)}
                 placeholder="inline-policy" aria-describedby={replacementTarget || createsNewFromExisting ? replacementMessageId : undefined}
                 error={validationAttempted && !trimmedName ? "Inline policy name is required." : undefined} />
-              <UiTextarea label="Inline policy document (JSON)" value={policyText} onChange={(event) => setPolicyText(event.target.value)}
-                className="font-mono" rows={10} spellCheck={false} error={validationAttempted ? documentError : undefined}
+              <SettingsJsonEditor label="Inline policy document (JSON)" value={policyText} onChange={setPolicyText}
+                rows={10} error={validationAttempted ? documentError : undefined}
                 hint="Blank JSON will save as an empty document." placeholder={'{\n  "Version": "2012-10-17",\n  "Statement": []\n}'} />
               <div className="flex justify-end">
                 <SettingsButton variant="secondary" onClick={handleInsertTemplate}>Insert template</SettingsButton>

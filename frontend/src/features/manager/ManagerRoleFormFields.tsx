@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { SettingsSection } from "../../components/settings/SettingsLayout";
+import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import UiInput from "../../components/ui/UiInput";
-import UiTextarea from "../../components/ui/UiTextarea";
 
 type Props = {
   name: string;
@@ -30,8 +30,8 @@ export default function ManagerRoleFormFields({
     </SettingsSection>
     <SettingsSection title="Trust policy" presentation="compact">
       <div className="settings-fields">
-        <UiTextarea label="Assume role policy (JSON)" value={policy} onChange={(event) => onPolicyChange(event.target.value)}
-          className="font-mono" rows={10} spellCheck={false} error={policyError}
+        <SettingsJsonEditor label="Assume role policy (JSON)" value={policy} onChange={onPolicyChange}
+          rows={10} error={policyError}
           hint="IAM trust policy document used by STS AssumeRole. Provide valid JSON." />
       </div>
     </SettingsSection>
