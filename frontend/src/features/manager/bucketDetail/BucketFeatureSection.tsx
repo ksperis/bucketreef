@@ -8,7 +8,7 @@ import { cx, type UiTone } from "../../../components/ui/styles";
 import type { BucketFeatureMode, BucketFeatureVisualState } from "./bucketFeatureState";
 import "./bucketFeatureCards.css";
 
-export type BucketFeaturePresentation = "simple" | "collection" | "workbench";
+type BucketFeaturePresentation = "simple" | "collection" | "workbench";
 
 type BucketFeatureSectionProps = {
   title: string;
