@@ -5,9 +5,9 @@
 import { useState } from "react";
 import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import { SettingsAutocomplete } from "../../../components/settings/SettingsAutocomplete";
+import SettingsJsonEditor from "../../../components/settings/SettingsJsonEditor";
 import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import UiTextarea from "../../../components/ui/UiTextarea";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
 import BucketFeatureSection from "./BucketFeatureSection";
@@ -193,14 +193,12 @@ export default function BucketWebsiteFeature({
                 />
               </div>
               <div className="space-y-2">
-                <UiTextarea
+                <SettingsJsonEditor
                   label="Routing rules (JSON array)"
                   value={routingRules}
-                  onChange={(event) => updateRoutingRules(event.target.value)}
+                  onChange={updateRoutingRules}
                   rows={6}
-                  className="settings-control font-mono"
                   placeholder="[]"
-                  spellCheck={false}
                   disabled={editorDisabled}
                 />
                 <div className="ui-caption">

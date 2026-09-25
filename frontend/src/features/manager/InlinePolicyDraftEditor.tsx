@@ -5,8 +5,8 @@
 import { useId } from "react";
 import type { InlinePolicy } from "../../api/managerIamPolicies";
 import InlinePolicyChoice from "./InlinePolicyChoice";
+import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import UiInput from "../../components/ui/UiInput";
-import UiTextarea from "../../components/ui/UiTextarea";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
@@ -151,13 +151,11 @@ export default function InlinePolicyDraftEditor({
                 onChange={(event) => onDraftNameChange(event.target.value)}
                 placeholder="inline-policy"
               />
-              <UiTextarea
+              <SettingsJsonEditor
                 label="Inline policy document"
                 value={draftText}
-                onChange={(event) => onDraftTextChange(event.target.value)}
-                className="font-mono"
+                onChange={onDraftTextChange}
                 rows={8}
-                spellCheck={false}
                 hint="Provide valid JSON. Blank defaults to an empty document."
               />
               <div className="flex flex-wrap items-center justify-end gap-2">

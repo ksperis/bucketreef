@@ -4,8 +4,8 @@ import { getTopicPolicy, updateTopicPolicy, type Topic } from "../../api/topics"
 import type { S3AccountSelector } from "../../api/accountParams";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsButton } from "../../components/settings/SettingsControls";
+import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
-import UiTextarea from "../../components/ui/UiTextarea";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
 import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
@@ -71,9 +71,9 @@ export default function TopicPolicyEditor({ accountId, currentAccountId, topic, 
     {loading && <p role="status" className="settings-description">Loading topic policy...</p>}
     {loadError && <div><SettingsButton variant="secondary" onClick={retry}>Retry loading</SettingsButton></div>}
     {status && <UiInlineMessage tone="success" role="status">{status}</UiInlineMessage>}
-    <UiTextarea label="Policy JSON" value={draft} onChange={event => update(event.target.value)}
-      error={validationError} className="font-mono" rows={16} placeholder={defaultPolicy}
-      spellCheck={false} disabled={fieldsDisabled} />
+    <SettingsJsonEditor label="Policy JSON" value={draft} onChange={update}
+      error={validationError} rows={16} placeholder={defaultPolicy}
+      disabled={fieldsDisabled} />
     <SettingsSection title="Policy example" presentation="compact">
       <div className="settings-stack">
         <div className="flex flex-wrap items-center gap-2">
