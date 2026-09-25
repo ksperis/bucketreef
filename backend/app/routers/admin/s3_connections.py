@@ -9,7 +9,7 @@ from sqlalchemy import exists, func
 from sqlalchemy.orm import Session, aliased
 
 from app.core.database import get_db
-from app.core.domain_errors import StorageEndpointNotFoundError
+from app.core.domain_errors import S3ConnectionNotFoundError, StorageEndpointNotFoundError
 from app.db import (
     S3Connection,
     S3ConnectionTag,
@@ -59,6 +59,7 @@ from app.utils.s3_connection_endpoint import (
 )
 from app.utils.name_ordering import name_order_by
 from app.core.sensitive_data import sanitize_error_detail
+from app.utils.http_errors import raise_bad_request_or_not_found
 router = APIRouter(prefix="/admin/s3-connections", tags=["admin-s3-connections"])
 logger = logging.getLogger(__name__)
 
@@ -66,8 +67,8 @@ logger = logging.getLogger(__name__)
 def _get_admin_shared_connection(db: Session, connection_id: int) -> S3Connection:
     try:
         return S3ConnectionsService(db).get_admin_shared(connection_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Connection not found") from exc
+    except S3ConnectionNotFoundError as exc:
+        raise_bad_request_or_not_found(exc)
 
 
 def _linked_user_details_by_connection(
@@ -318,11 +319,8 @@ def validate_s3_connection_credentials(
     service = S3ConnectionValidationService(db)
     try:
         return service.validate_credentials(payload)
-    except KeyError as exc:
-        detail = exc.args[0] if exc.args else "Storage endpoint not found"
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_or_not_found(exc)
 
 
 @router.post("", response_model=S3ConnectionAdminItem, status_code=status.HTTP_201_CREATED)
