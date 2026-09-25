@@ -16,7 +16,7 @@ from app.routers.dependencies import (
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
-    get_account_and_service,
+    get_iam_service_for_account,
     load_inline_policies,
     resolve_attached_policy,
     save_inline_policy,
@@ -34,7 +34,7 @@ def list_users(
     db: Session = Depends(get_db),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMUser]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         users = service.list_users()
         source = iam_source_reference(account)
@@ -61,7 +61,7 @@ def create_user(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMUserWithKey:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         created_user, created_key = service.create_user(payload.name, create_key=payload.create_key)
         # Optionally attach user to groups
@@ -111,7 +111,7 @@ def delete_user(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="This IAM user belongs to a managed private access; delete its private connection instead",
             )
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.delete_user(user_name)
         audit_service.record_action(
@@ -133,7 +133,7 @@ def list_access_keys(
     _: ManagerActor = Depends(require_iam_capable_manager),
     db: Session = Depends(get_db),
 ) -> list[AccessKey]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         keys = service.list_access_keys(user_name)
         source = iam_source_reference(account)
@@ -167,7 +167,7 @@ def create_access_key(
             status_code=status.HTTP_409_CONFLICT,
             detail="Managed private access IAM users cannot receive keys through the generic endpoint",
         )
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         key = service.create_access_key(user_name)
         audit_service.record_action(
@@ -200,7 +200,7 @@ def update_access_key_status(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; update or delete its private connection instead",
         )
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     status_value = "Active" if payload.active else "Inactive"
     try:
         service.update_access_key_status(user_name, access_key_id, status_value)
@@ -239,7 +239,7 @@ def delete_access_key(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; delete its private connection instead",
         )
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.delete_access_key(user_name, access_key_id)
         audit_service.record_action(
@@ -261,7 +261,7 @@ def list_user_inline_policies(
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[InlinePolicy]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return load_inline_policies(
             user_name,
@@ -282,7 +282,7 @@ def put_user_inline_policy(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> InlinePolicy:
     ensure_inline_policy_name(payload, policy_name)
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         saved = save_inline_policy(
             user_name,
@@ -313,7 +313,7 @@ def delete_user_inline_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.delete_user_inline_policy(user_name, policy_name)
         audit_service.record_action(
@@ -335,7 +335,7 @@ def list_user_policies(
     account: S3ExecutionContext = Depends(get_account_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         return service.list_user_policies(user_name)
     except RuntimeError as exc:
@@ -350,7 +350,7 @@ def attach_user_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Policy:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.attach_user_policy(user_name, payload.arn)
         audit_service.record_action(
@@ -375,7 +375,7 @@ def detach_user_policy(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
-    _, service = get_account_and_service(account)
+    service = get_iam_service_for_account(account)
     try:
         service.detach_user_policy(user_name, policy_arn)
         audit_service.record_action(

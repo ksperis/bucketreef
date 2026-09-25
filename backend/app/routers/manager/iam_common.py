@@ -12,19 +12,18 @@ from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.utils.s3_endpoint import resolve_iam_client_options
 
 
-def get_account_and_service(account: S3ExecutionContext) -> tuple[S3ExecutionContext, RGWIAMService]:
+def get_iam_service_for_account(account: S3ExecutionContext) -> RGWIAMService:
     access_key, secret_key = account.effective_rgw_credentials()
     if not access_key or not secret_key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Execution context credentials are missing")
     endpoint, region, verify_tls = resolve_iam_client_options(account)
-    service = get_iam_service(
+    return get_iam_service(
         access_key,
         secret_key,
         endpoint=endpoint,
         region=region,
         verify_tls=verify_tls,
     )
-    return account, service
 
 
 def ensure_inline_policy_name(payload: InlinePolicy, policy_name: str) -> None:
