@@ -120,7 +120,11 @@ class RgwAccountTopicsResolver:
         try:
             topics_response = admin.list_topics(account_identifier)
         except RGWAdminError as exc:
-            if any(code in str(exc).lower() for code in ("405", "methodnotallowed")):
+            error_code = (exc.error_code or "").strip().lower()
+            if exc.status_code in {405, 501} or error_code in {
+                "methodnotallowed",
+                "notimplemented",
+            }:
                 logger.debug(
                     "Topic API unavailable for %s: treating as zero topics",
                     account_identifier,

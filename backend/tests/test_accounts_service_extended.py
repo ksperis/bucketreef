@@ -140,7 +140,11 @@ def test_account_topics_resolver_parses_caches_and_falls_back(db_session):
         ["RGW1:topic-c", "arn:aws:sns:region:RGW1:topic-b", "topic-a"],
     )
 
-    admin.raise_topics = RGWAdminError("405 methodNotAllowed")
+    admin.raise_topics = RGWAdminError(
+        "Topic API unavailable",
+        status_code=405,
+        error_code="MethodNotAllowed",
+    )
     assert resolver.resolve("RGW405", admin, 1) == (0, [])
     assert resolver.resolve("RGW405", admin, 1) == (0, [])
     assert admin.list_topics_calls.count("RGW405") == 1
