@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.db import S3User, StorageEndpoint, StorageProvider, UiGroup, UiGroupS3User, User, UserRole, UserS3User
+from app.main import app
+from app.routers.admin import s3_users as s3_users_router
 from app.services.tags_service import TagsService
 
 
@@ -51,6 +53,30 @@ def test_admin_s3_users_default_sort_is_name_case_insensitive(client, db_session
     payload = response.json()
 
     assert [item["name"] for item in payload["items"]] == ["alpha", "Beta", "Zulu"]
+
+
+def test_admin_s3_user_error_status_does_not_depend_on_message_text(client):
+    class FakeService:
+        def get_user(self, user_id, *, include_buckets=False, include_quota=False):
+            raise ValueError("Upstream metadata was not found in a valid format")
+
+    previous_service = app.dependency_overrides.get(s3_users_router.get_admin_s3_users_service)
+    app.dependency_overrides[s3_users_router.get_admin_s3_users_service] = FakeService
+    try:
+        response = client.get("/api/admin/s3-users/999999")
+    finally:
+        if previous_service is None:
+            app.dependency_overrides.pop(s3_users_router.get_admin_s3_users_service, None)
+        else:
+            app.dependency_overrides[s3_users_router.get_admin_s3_users_service] = previous_service
+
+    assert response.status_code == 400, response.text
+
+
+def test_admin_s3_user_missing_resource_is_not_found(client):
+    response = client.get("/api/admin/s3-users/999999")
+
+    assert response.status_code == 404, response.text
 
 
 def test_admin_s3_users_sort_by_name_desc_is_stable_by_id(client, db_session):
