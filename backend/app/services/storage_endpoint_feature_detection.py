@@ -8,6 +8,7 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import StorageEndpoint
 from app.models.storage_endpoint import (
     StorageEndpointCredentialCheck,
@@ -125,7 +126,7 @@ class StorageEndpointFeatureDetector:
                 .first()
             )
             if not stored_endpoint:
-                raise ValueError("Endpoint not found.")
+                raise StorageEndpointNotFoundError("Endpoint not found.")
 
         region = normalize_optional_string(payload.region) or (
             normalize_optional_string(stored_endpoint.region) if stored_endpoint else None

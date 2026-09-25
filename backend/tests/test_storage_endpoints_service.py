@@ -818,6 +818,18 @@ def test_update_endpoint_tags_normalizes_and_serializes_tags(db_session):
     ] == ["prod", "rgw-a"]
 
 
+def test_detect_features_types_missing_stored_endpoint(db_session):
+    service = StorageEndpointsService(db_session)
+
+    with pytest.raises(StorageEndpointNotFoundError, match="Endpoint not found"):
+        service.detect_features(
+            StorageEndpointFeatureDetectionRequest(
+                endpoint_id=999,
+                endpoint_url="https://missing.example.test",
+            )
+        )
+
+
 def test_detect_features_warns_when_usage_log_endpoint_is_unavailable(db_session, monkeypatch):
     class FakeRGWClient:
         def __init__(self, access_key: str):

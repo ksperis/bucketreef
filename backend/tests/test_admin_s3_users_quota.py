@@ -100,6 +100,16 @@ def test_admin_s3_user_writes_require_an_explicit_endpoint(client: TestClient):
     assert import_response.status_code == 422
 
 
+def test_admin_s3_user_create_maps_missing_storage_endpoint_to_not_found(client: TestClient):
+    response = client.post(
+        "/api/admin/s3-users",
+        json={"name": "missing-storage", "storage_endpoint_id": 999},
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Storage endpoint not found."
+
+
 def test_admin_create_s3_user_with_quota_unit(monkeypatch, client: TestClient, db_session):
     endpoint = _seed_ceph_endpoint(db_session)
     fake_rgw = FakeRGWAdmin()
