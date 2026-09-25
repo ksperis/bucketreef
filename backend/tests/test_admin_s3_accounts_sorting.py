@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from app.db import ManagerAccountRole, PortalAccountRole, S3Account, UiGroup, UiGroupS3Account, User, UserRole, UserS3Account
+from app.main import app
+from app.routers.admin import s3_accounts as s3_accounts_router
 from app.services.tags_service import TagsService
 from tests.s3_account_factory import make_s3_account
 
@@ -38,6 +40,30 @@ def test_admin_accounts_default_sort_is_name_case_insensitive(client, db_session
 
     assert [item["name"] for item in payload["items"]] == ["alpha", "Beta", "Zulu"]
     assert all("is_s3_user" not in item for item in payload["items"])
+
+
+def test_admin_account_error_status_does_not_depend_on_message_text(client):
+    class FakeService:
+        def get_account_detail(self, account_id, *, include_usage=False):
+            raise ValueError("Upstream account metadata was not found in a valid format")
+
+    previous_service = app.dependency_overrides.get(s3_accounts_router.get_admin_accounts_service)
+    app.dependency_overrides[s3_accounts_router.get_admin_accounts_service] = FakeService
+    try:
+        response = client.get("/api/admin/accounts/999999")
+    finally:
+        if previous_service is None:
+            app.dependency_overrides.pop(s3_accounts_router.get_admin_accounts_service, None)
+        else:
+            app.dependency_overrides[s3_accounts_router.get_admin_accounts_service] = previous_service
+
+    assert response.status_code == 400, response.text
+
+
+def test_admin_account_missing_resource_is_not_found(client):
+    response = client.get("/api/admin/accounts/999999")
+
+    assert response.status_code == 404, response.text
 
 
 def test_admin_accounts_sort_by_name_desc_is_case_insensitive(client, db_session):

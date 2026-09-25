@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import logging
-from typing import Optional
+from typing import NoReturn, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -22,12 +22,15 @@ from app.routers.dependencies import (
     get_audit_service,
     get_current_super_admin,
 )
-from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
+from app.services.s3_accounts_service import (
+    S3AccountNotFoundError,
+    S3AccountsService,
+    get_s3_accounts_service,
+)
 from app.services.audit_service import AuditService
 from app.services.portal_service import get_portal_service
 from app.services.rgw_admin import RGWAdminError
 from app.services.tags_service import serialize_tag_summaries
-from app.core.sensitive_data import sanitize_error_detail
 from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(prefix="/admin/accounts", tags=["admin-accounts"])
@@ -46,6 +49,15 @@ def get_admin_accounts_service(
     db: Session = Depends(get_db),
 ) -> S3AccountsService:
     return get_s3_accounts_service(db)
+
+
+def _raise_service_error(exc: ValueError) -> NoReturn:
+    status_code = (
+        status.HTTP_404_NOT_FOUND
+        if isinstance(exc, S3AccountNotFoundError)
+        else status.HTTP_400_BAD_REQUEST
+    )
+    raise_http_exception_from_exception(status_code, exc)
 
 
 @router.get("", response_model=PaginatedS3AccountsResponse)
@@ -123,9 +135,7 @@ def get_account(
     try:
         return service.get_account_detail(account_id, include_usage=include_usage)
     except ValueError as exc:
-        detail = sanitize_error_detail(str(exc))
-        status_code = status.HTTP_404_NOT_FOUND if "not found" in detail.lower() else status.HTTP_400_BAD_REQUEST
-        raise HTTPException(status_code=status_code, detail=detail) from exc
+        _raise_service_error(exc)
 
 
 @router.get("/{account_id}/portal-settings", response_model=PortalAccountSettings, response_model_exclude_unset=True)
@@ -214,7 +224,7 @@ def create_account(
         )
         return created
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        _raise_service_error(exc)
 
 
 @router.post("/import", response_model=list[S3Account])
@@ -237,7 +247,7 @@ def import_accounts(
         )
         return imported
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        _raise_service_error(exc)
 
 
 @router.put("/{account_id}", response_model=S3Account)
@@ -263,9 +273,7 @@ def update_account(
         )
         return updated
     except ValueError as exc:
-        detail = sanitize_error_detail(str(exc))
-        status_code = status.HTTP_404_NOT_FOUND if "not found" in detail.lower() else status.HTTP_400_BAD_REQUEST
-        raise HTTPException(status_code=status_code, detail=detail) from exc
+        _raise_service_error(exc)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -288,5 +296,4 @@ def delete_account(
             metadata={"delete_rgw": delete_rgw, "account_id": account_id},
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=sanitize_error_detail(str(exc))) from exc
-
+        _raise_service_error(exc)

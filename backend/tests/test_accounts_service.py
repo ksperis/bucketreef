@@ -6,7 +6,7 @@ from typing import Optional
 import pytest
 from pydantic import ValidationError
 
-from app.services.s3_accounts_service import S3AccountsService
+from app.services.s3_accounts_service import S3AccountNotFoundError, S3AccountsService
 from app.db import (
     BillingAssignment,
     BillingRateCard,
@@ -55,6 +55,13 @@ def _build_service(db_session, monkeypatch, fake_admin) -> S3AccountsService:
         lambda _endpoint: fake_admin,
     )
     return S3AccountsService(db_session)
+
+
+def test_get_account_detail_uses_typed_not_found_error(db_session):
+    service = S3AccountsService(db_session)
+
+    with pytest.raises(S3AccountNotFoundError, match="S3Account not found"):
+        service.get_account_detail(999_999)
 
 
 class FakeRGWAdmin:
