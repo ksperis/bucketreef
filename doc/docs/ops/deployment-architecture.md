@@ -31,8 +31,11 @@ the organization's normal user exposure policy.
 The deployment profiles enforce the surface split with runtime feature locks
 such as `FEATURE_ADMIN_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`,
 `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, and
-`FEATURE_BROWSER_ENABLED`. Common authentication/profile APIs still exist where
-required by each profile and are omitted from the diagram for clarity.
+`FEATURE_BROWSER_ENABLED`. In production, a split profile refuses to start when
+its runtime surface locks do not match the selected profile. Common
+authentication/profile APIs still exist where required by each profile and are
+omitted from the diagram for clarity. Admin API-token management and the
+first-administrator web bootstrap are not mounted on the `user` runtime.
 
 Ceph RGW is intentionally shown as one external dependency. User runtimes use
 S3/IAM according to the selected execution context. Administration runtimes use

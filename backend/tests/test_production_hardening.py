@@ -109,13 +109,13 @@ def test_admin_without_ceph_admin_profile_passes_automated_deployment_checks():
     assert all(finding.level == "ok" for finding in findings)
 
 
-def test_user_profile_reports_topology_mismatches_as_critical_without_startup_block():
+def test_user_profile_blocks_surface_mismatches_in_production():
     findings = _check(_production_settings(), profile="user")
 
     assert _finding(findings, "job-owner").level == "critical"
-    assert _finding(findings, "surface-admin").level == "critical"
-    assert _finding(findings, "surface-manager").level == "critical"
-    assert not _finding(findings, "surface-admin").blocks_startup
+    assert _finding(findings, "surface-admin").level == "blocked"
+    assert _finding(findings, "surface-manager").level == "blocked"
+    assert _finding(findings, "surface-admin").blocks_startup
     assert deployment_exit_code(findings) == 1
 
 
@@ -517,6 +517,45 @@ def test_high_security_surface_contract_is_reported_as_startup_blocker_instead_o
 
     assert finding.level == "blocked"
     assert finding.blocks_startup is True
+
+
+def test_user_profile_surface_mismatch_is_startup_blocker_in_production():
+    settings = _production_settings(
+        deployment_profile="user",
+        feature_admin_enabled=True,
+        feature_ceph_admin_enabled=False,
+        feature_storage_ops_enabled=False,
+        feature_manager_enabled=True,
+        feature_portal_enabled=True,
+        feature_browser_enabled=True,
+        scheduled_jobs_enabled=False,
+        internal_cron_token=None,
+    )
+
+    finding = _finding(_check(settings, profile="user"), "surface-admin")
+
+    assert finding.level == "blocked"
+    assert finding.blocks_startup is True
+
+
+def test_user_profile_surface_mismatch_remains_preflight_only_outside_production():
+    settings = _production_settings(
+        app_env="test",
+        deployment_profile="user",
+        feature_admin_enabled=True,
+        feature_ceph_admin_enabled=False,
+        feature_storage_ops_enabled=False,
+        feature_manager_enabled=True,
+        feature_portal_enabled=True,
+        feature_browser_enabled=True,
+        scheduled_jobs_enabled=False,
+        internal_cron_token=None,
+    )
+
+    finding = _finding(_check(settings, profile="user"), "surface-admin")
+
+    assert finding.level == "critical"
+    assert finding.blocks_startup is False
 
 
 def test_high_security_mode_profile_mismatch_is_startup_blocker():

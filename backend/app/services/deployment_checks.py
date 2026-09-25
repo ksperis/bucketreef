@@ -767,18 +767,20 @@ def run_deployment_checks(
         )
 
     high_security_contract = profile == "ceph-admin-high-security" or settings.ceph_admin_high_security_mode
+    split_surface_contract = profile in {"admin", "admin-no-ceph-admin", "user"}
     for surface, expected in _PROFILE_SURFACES[profile].items():
         enabled = runtime_surface_enabled(settings, surface)
+        blocks_startup = high_security_contract or (production and split_surface_contract)
         findings.append(
             _finding(
                 f"surface-{surface.replace('_', '-')}",
                 f"Runtime surface: {surface.replace('_', ' ').title()}",
                 passed=enabled is expected,
-                severity="blocker" if high_security_contract else "critical",
+                severity="blocker" if blocks_startup else "critical",
                 pass_message=f"Runtime surface {surface} matches profile {profile}.",
                 fail_message=f"Runtime surface {surface} must be {'enabled' if expected else 'disabled'} for profile {profile}.",
                 docs_anchor="runtime-surfaces",
-                blocks_startup=high_security_contract,
+                blocks_startup=blocks_startup,
             )
         )
 

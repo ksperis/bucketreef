@@ -146,7 +146,10 @@ immediately and does not write it to browser storage.
 `X-BucketReef-Bootstrap-Token`, requires the exact trusted `Origin`, applies the
 authentication rate limit by client IP and returns a generic unavailable error
 for absent, expired, invalid or consumed tokens. Issuing another token revokes
-the previous one while the database has no users.
+the previous one while the database has no users. The web bootstrap route is
+mounted only on an Admin runtime or on the dedicated `ceph-admin-high-security`
+runtime, where it is required to initialize an isolated identity database. It
+is absent from the `user` runtime.
 
 Use `python -m app.scripts.create_first_admin` when a direct console workflow is
 required. Use `reset_last_superadmin_mfa` only to recover the sole existing

@@ -155,7 +155,8 @@ A full-profile instance with jobs disabled receives a **Warning** because anothe
 Checks: `surface-admin`, `surface-ceph-admin`, `surface-storage-ops`, `surface-manager`, `surface-portal`, `surface-browser`.
 
 A mismatch with the normal `admin`, `admin-no-ceph-admin`, or `user` profile is
-**Critical**.
+**Blocked** and prevents startup in production. Outside production it remains
+**Critical** so the same check can be used as a preflight.
 
 A mismatch involving the Ceph Admin high-security contract is **Blocked** and prevents startup because that profile exists specifically to enforce a reduced attack surface.
 

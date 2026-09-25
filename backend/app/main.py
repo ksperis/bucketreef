@@ -18,7 +18,14 @@ from app.core.logging_security import configure_secure_logging
 from app.core.runtime_surfaces import runtime_surface_enabled
 from app.services.database_initialization import init_db
 from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
-from app.routers import auth, users, settings as public_settings, browser as user_browser
+from app.routers import (
+    auth,
+    auth_api_tokens,
+    auth_local,
+    browser as user_browser,
+    settings as public_settings,
+    users,
+)
 from app.routers import portal
 from app.routers import portal_requests
 from app.routers import execution_contexts
@@ -224,6 +231,10 @@ def health_check():
 app.include_router(auth.router, prefix=settings.api_v1_prefix)
 app.include_router(users.router, prefix=settings.api_v1_prefix)
 app.include_router(public_settings.router, prefix=settings.api_v1_prefix)
+if runtime_surface_enabled(settings, "admin"):
+    app.include_router(auth_api_tokens.router, prefix=f"{settings.api_v1_prefix}/auth", tags=["auth"])
+if runtime_surface_enabled(settings, "admin") or settings.ceph_admin_high_security_mode:
+    app.include_router(auth_local.bootstrap_router, prefix=f"{settings.api_v1_prefix}/auth", tags=["auth"])
 if any(
     runtime_surface_enabled(settings, surface)
     for surface in ("manager", "portal", "browser")

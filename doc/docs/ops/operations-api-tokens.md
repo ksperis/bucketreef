@@ -5,6 +5,8 @@ Admin API tokens provide long-lived bearer authentication for automation.
 ## Key behavior
 
 - Managed via `/api/auth/api-tokens`.
+- The management API is mounted only when the Admin runtime surface is enabled;
+  it is absent from the `user` and dedicated Ceph Admin high-security runtimes.
 - The UI is available to Superadmins at **Settings > API tokens** (`/admin/api-tokens`), not on the personal Profile page.
 - Token value is shown once at creation.
 - Revocation is immediate.

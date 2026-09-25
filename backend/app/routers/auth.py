@@ -6,7 +6,6 @@
 from fastapi import APIRouter
 
 from app.routers import (
-    auth_api_tokens,
     auth_ldap,
     auth_local,
     auth_mfa,
@@ -16,7 +15,6 @@ from app.routers import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-router.include_router(auth_api_tokens.router)
 router.include_router(auth_local.router)
 router.include_router(auth_ldap.router)
 router.include_router(auth_s3.router)
