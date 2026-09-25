@@ -29,7 +29,7 @@ from app.models.user import (
     UserSummary,
 )
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
-from app.services.association_validation import ensure_association_ids_exist
+from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.manager_tool_access import manager_tool_column_values, read_manager_tool_access
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
@@ -446,17 +446,7 @@ class UiGroupsService:
 
     def _set_s3_connection_links(self, group: UiGroup, target_ids: list[int]) -> None:
         cleaned_ids = self._clean_ids(target_ids)
-        if cleaned_ids:
-            connections = self.db.query(S3Connection).filter(S3Connection.id.in_(cleaned_ids)).all()
-            found_ids = {conn.id for conn in connections}
-            missing = set(cleaned_ids) - found_ids
-            if missing:
-                missing_str = ", ".join(str(mid) for mid in sorted(missing))
-                raise ValueError(f"S3 connections not found: {missing_str}")
-            non_shared_ids = sorted(conn.id for conn in connections if not bool(conn.is_shared))
-            if non_shared_ids:
-                non_shared_str = ", ".join(str(cid) for cid in non_shared_ids)
-                raise ValueError(f"Only shared S3 connections can be linked: {non_shared_str}")
+        ensure_shared_s3_connections(self.db, cleaned_ids)
         existing = self.db.query(UiGroupS3Connection).filter(UiGroupS3Connection.group_id == group.id).all()
         existing_ids = {link.s3_connection_id for link in existing}
         desired_ids = set(cleaned_ids)

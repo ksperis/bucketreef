@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.db import (
     S3Account,
-    S3Connection,
     S3User,
     UiGroup,
     UiGroupS3Account,
@@ -17,7 +16,7 @@ from app.db import (
     UserUiGroup,
 )
 from app.models.user import AccountMembership, S3UserMembership, UserUpdate
-from app.services.association_validation import ensure_association_ids_exist
+from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.utils.time import utcnow
 
 
@@ -138,25 +137,19 @@ class UserAssociationsService:
         to_remove = existing_ids - desired_ids
         to_add = desired_ids - existing_ids
         if to_add:
-            s3_users = (
-                self.db.query(S3User)
-                .filter(S3User.id.in_(to_add))
-                .all()
+            ensure_association_ids_exist(
+                self.db,
+                S3User.id,
+                to_add,
+                entity_label="S3 users",
             )
-            found_ids = {int(s3_user.id) for s3_user in s3_users}
-            missing = to_add - found_ids
-            if missing:
-                missing_str = ", ".join(
-                    str(s3_user_id) for s3_user_id in sorted(missing)
-                )
-                raise ValueError(f"S3 users not found: {missing_str}")
-            for s3_user in s3_users:
+            for s3_user_id in to_add:
                 self.db.add(
                     UserS3User(
                         user_id=user.id,
-                        s3_user_id=s3_user.id,
+                        s3_user_id=s3_user_id,
                         allow_manager_browser_data_access=bool(
-                            cleaned[s3_user.id].allow_manager_browser_data_access
+                            cleaned[s3_user_id].allow_manager_browser_data_access
                         ),
                     )
                 )
@@ -194,35 +187,7 @@ class UserAssociationsService:
         existing_ids = {
             int(link.s3_connection_id) for link in existing_links
         }
-        if cleaned_ids:
-            connections = (
-                self.db.query(S3Connection)
-                .filter(S3Connection.id.in_(cleaned_ids))
-                .all()
-            )
-            found_ids = {int(connection.id) for connection in connections}
-            missing = cleaned_ids - found_ids
-            if missing:
-                missing_str = ", ".join(
-                    str(connection_id)
-                    for connection_id in sorted(missing)
-                )
-                raise ValueError(
-                    f"S3 connections not found: {missing_str}"
-                )
-            non_shared_ids = sorted(
-                int(connection.id)
-                for connection in connections
-                if not bool(connection.is_shared)
-            )
-            if non_shared_ids:
-                non_shared_str = ", ".join(
-                    str(connection_id) for connection_id in non_shared_ids
-                )
-                raise ValueError(
-                    "Only shared S3 connections can be linked: "
-                    f"{non_shared_str}"
-                )
+        ensure_shared_s3_connections(self.db, cleaned_ids)
         to_remove = existing_ids - cleaned_ids
         to_add = cleaned_ids - existing_ids
         if to_remove:
