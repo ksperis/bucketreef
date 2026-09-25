@@ -118,6 +118,34 @@ describe("BucketPolicyFeature", () => {
     expect(screen.getByLabelText("Sid")).toBeInTheDocument();
   });
 
+
+  it("adds a suggested S3 action and persists the same native policy shape", async () => {
+    apiMocks.getBucketPolicy.mockResolvedValue({ policy: simplePolicy });
+    apiMocks.putBucketPolicy.mockImplementation(
+      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+    );
+    const user = userEvent.setup();
+    renderPolicyFeature();
+
+    const section = await screen.findByTestId("bucket-feature-policy");
+    await waitFor(() => expect(within(section).getByText("ReadObjects")).toBeInTheDocument());
+    await user.click(within(section).getByRole("button", { name: "Edit" }));
+
+    const editor = screen.getByRole("dialog", { name: "Edit bucket policy" });
+    const actionInput = within(editor).getByRole("combobox", { name: "Add action" });
+    await user.type(actionInput, "PutObject");
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(within(editor).getByText("s3:PutObject")).toBeInTheDocument();
+
+    await user.click(within(editor).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(apiMocks.putBucketPolicy).toHaveBeenCalledTimes(1));
+    expect(apiMocks.putBucketPolicy.mock.calls[0][2]).toMatchObject({
+      Statement: [{
+        Action: ["s3:GetObject", "s3:PutObject"],
+      }],
+    });
+  });
+
   it("shows advanced statements read-only in Visual and intact in JSON", async () => {
     const advancedPolicy = {
       Version: "2012-10-17",

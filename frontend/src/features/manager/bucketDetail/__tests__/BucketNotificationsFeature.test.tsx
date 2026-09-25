@@ -138,8 +138,19 @@ describe("BucketNotificationsFeature", () => {
       "arn:aws:sns:default:acc-1:uploads",
     );
     expect(screen.getByRole("checkbox", { name: "All object created events" })).toBeChecked();
-    expect(screen.getByLabelText("Other S3 events")).toHaveValue("s3:ObjectCreated:Put");
+    expect(screen.getByText("s3:ObjectCreated:Put")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Add S3 event" })).toBeInTheDocument();
     expect(screen.getByText("Advanced notification — edit in JSON")).toBeInTheDocument();
+    const eventInput = screen.getByRole("combobox", { name: "Add S3 event" });
+    await user.type(eventInput, "ObjectRemoved:Delete");
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(controller.updateDraftTopic).toHaveBeenCalledWith(0, {
+      events: [
+        "s3:ObjectCreated:*",
+        "s3:ObjectCreated:Put",
+        "s3:ObjectRemoved:Delete",
+      ],
+    });
     expect(screen.getAllByRole("button", { name: "Remove notification" })).toHaveLength(1);
     expect(screen.getByText(/Additional notification types or top-level fields/)).toBeInTheDocument();
 

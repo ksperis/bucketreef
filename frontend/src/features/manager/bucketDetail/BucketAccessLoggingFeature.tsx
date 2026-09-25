@@ -4,10 +4,12 @@
  */
 import { useState } from "react";
 import { SettingsButton, SettingsInput } from "../../../components/settings/SettingsControls";
+import { SettingsAutocomplete } from "../../../components/settings/SettingsAutocomplete";
 import { SettingsItem, SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
+import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketAccessLoggingController } from "./useBucketAccessLoggingController";
@@ -42,6 +44,7 @@ export default function BucketAccessLoggingFeature({
     updateTargetPrefix,
   } = controller;
   const notImplemented = isApiFeatureNotImplemented(error);
+  const { buckets } = useBucketFeatureSuggestions();
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured,
@@ -122,13 +125,13 @@ export default function BucketAccessLoggingFeature({
             }
           />
           <div className="grid gap-3 md:grid-cols-2">
-            <SettingsInput
+            <SettingsAutocomplete
               label="Target bucket"
-              type="text"
               value={targetBucket}
-              onChange={(event) => updateTargetBucket(event.target.value)}
+              onChange={updateTargetBucket}
               placeholder="logs-bucket"
               disabled={notImplemented || loading || saving || clearing}
+              {...buckets}
             />
             <SettingsInput
               label="Target prefix (optional)"

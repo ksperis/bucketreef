@@ -8,10 +8,13 @@ import {
   SettingsButton,
   SettingsInput,
 } from "../../../components/settings/SettingsControls";
+import {
+  SettingsAutocomplete,
+  SettingsMultiValueAutocomplete,
+} from "../../../components/settings/SettingsAutocomplete";
 import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import UiTextarea from "../../../components/ui/UiTextarea";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import {
@@ -23,6 +26,7 @@ import {
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
+import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
   commonNotificationEvents,
@@ -51,17 +55,6 @@ type NotificationSummaryRow = {
 
 const commonEventValues = new Set<string>(commonNotificationEvents.map((event) => event.value));
 
-function parseCustomEvents(value: string): string[] {
-  return Array.from(
-    new Set(
-      value
-        .split(/[\n,]+/)
-        .map((entry) => entry.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
 function NotificationTopicEditor({
   index,
   topic,
@@ -78,6 +71,7 @@ function NotificationTopicEditor({
   const editable = isNotificationTopicVisuallyEditable(topic);
   const draft = readNotificationVisualTopic(topic);
   const topicLabel = notificationTopicId(topic) ?? `Topic notification ${index + 1}`;
+  const { notificationEvents, prefixes, suffixes, topicArns } = useBucketFeatureSuggestions();
 
   if (!editable) {
     return (
@@ -124,13 +118,14 @@ function NotificationTopicEditor({
           onChange={(event) => onChange({ id: event.target.value })}
           disabled={disabled}
         />
-        <SettingsInput
+        <SettingsAutocomplete
           label="Topic ARN"
           value={draft.topicArn}
           placeholder="arn:aws:sns:default:account:topic"
-          onChange={(event) => onChange({ topicArn: event.target.value })}
+          onChange={(value) => onChange({ topicArn: value })}
           disabled={disabled}
           required
+          {...topicArns}
         />
       </div>
 
@@ -154,22 +149,22 @@ function NotificationTopicEditor({
             />
           ))}
         </div>
-        <UiTextarea
+        <SettingsMultiValueAutocomplete
           label="Other S3 events"
-          rows={3}
-          value={customEvents.join("\n")}
+          itemLabel="event"
+          inputLabel="Add S3 event"
+          values={customEvents}
           placeholder="s3:ObjectCreated:Put"
-          onChange={(event) => {
+          onChange={(nextCustomEvents) => {
             const selectedCommonEvents = commonNotificationEvents
               .map((entry) => entry.value)
               .filter((entry) => draft.events.includes(entry));
-            onChange({
-              events: [...selectedCommonEvents, ...parseCustomEvents(event.target.value)],
-            });
+            onChange({ events: [...selectedCommonEvents, ...nextCustomEvents] });
           }}
-          className="settings-control font-mono"
-          spellCheck={false}
+          description="Select a specific S3 event or enter any event name supported by the endpoint."
+          emptyText="No specific events selected."
           disabled={disabled}
+          {...notificationEvents}
         />
       </BucketFeatureEditorGroup>
 
@@ -181,19 +176,21 @@ function NotificationTopicEditor({
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <SettingsInput
+          <SettingsAutocomplete
             label="Prefix"
             value={draft.prefix}
             placeholder="uploads/"
-            onChange={(event) => onChange({ prefix: event.target.value })}
+            onChange={(value) => onChange({ prefix: value })}
             disabled={disabled}
+            {...prefixes}
           />
-          <SettingsInput
+          <SettingsAutocomplete
             label="Suffix"
             value={draft.suffix}
             placeholder=".json"
-            onChange={(event) => onChange({ suffix: event.target.value })}
+            onChange={(value) => onChange({ suffix: value })}
             disabled={disabled}
+            {...suffixes}
           />
         </div>
       </BucketFeatureEditorGroup>

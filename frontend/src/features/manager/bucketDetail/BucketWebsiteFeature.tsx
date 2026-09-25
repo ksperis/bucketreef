@@ -3,7 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useState } from "react";
-import { SettingsButton, SettingsInput } from "../../../components/settings/SettingsControls";
+import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
+import { SettingsAutocomplete } from "../../../components/settings/SettingsAutocomplete";
 import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiTextarea from "../../../components/ui/UiTextarea";
@@ -12,6 +13,7 @@ import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
 import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
+import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketWebsiteController } from "./useBucketWebsiteController";
 
@@ -68,6 +70,7 @@ export default function BucketWebsiteFeature({
     updateRoutingRules,
   } = controller;
   const notImplemented = isApiFeatureNotImplemented(error);
+  const { objectKeys } = useBucketFeatureSuggestions();
   const visualState = resolveFeatureVisualState({
     disabled: blocked || notImplemented,
     configured,
@@ -172,21 +175,21 @@ export default function BucketWebsiteFeature({
           {mode === "hosting" ? (
             <div className="space-y-3">
               <div className={twoColumnGridClass}>
-                <SettingsInput
+                <SettingsAutocomplete
                   label="Index document"
-                  type="text"
                   value={indexDocument}
-                  onChange={(event) => updateIndexDocument(event.target.value)}
+                  onChange={updateIndexDocument}
                   placeholder="index.html"
                   disabled={editorDisabled}
+                  {...objectKeys}
                 />
-                <SettingsInput
+                <SettingsAutocomplete
                   label="Error document (optional)"
-                  type="text"
                   value={errorDocument}
-                  onChange={(event) => updateErrorDocument(event.target.value)}
+                  onChange={updateErrorDocument}
                   placeholder="error.html"
                   disabled={editorDisabled}
+                  {...objectKeys}
                 />
               </div>
               <div className="space-y-2">
@@ -221,14 +224,16 @@ export default function BucketWebsiteFeature({
                 placeholder="www.example.com"
                 disabled={editorDisabled}
               />
-              <SettingsInput
+              <SettingsSelect
                 label="Protocol (optional)"
-                type="text"
                 value={redirectProtocol}
                 onChange={(event) => updateRedirectProtocol(event.target.value)}
-                placeholder="https"
                 disabled={editorDisabled}
-              />
+              >
+                <option value="">Provider default</option>
+                <option value="http">http</option>
+                <option value="https">https</option>
+              </SettingsSelect>
               <p className="md:col-span-2 ui-caption text-slate-500 dark:text-slate-400">
                 All requests will redirect to the host above. Index and routing rules are ignored.
               </p>

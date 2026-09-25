@@ -11,6 +11,7 @@ import {
   SettingsInput,
   SettingsSelect,
 } from "../../../components/settings/SettingsControls";
+import { SettingsAutocomplete } from "../../../components/settings/SettingsAutocomplete";
 import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
@@ -24,6 +25,7 @@ import {
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
+import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
@@ -65,6 +67,7 @@ function ReplicationRuleEditor({
   const editable = isReplicationRuleVisuallyEditable(rule);
   const summary = replicationRuleSummary(rule);
   const draft = readReplicationVisualRule(rule);
+  const { destinationBucketArns, prefixes } = useBucketFeatureSuggestions();
 
   if (!editable) {
     return (
@@ -136,21 +139,21 @@ function ReplicationRuleEditor({
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <SettingsInput
+        <SettingsAutocomplete
           label="Prefix / filter"
           value={draft.prefix}
-          onChange={(event) => onChange({ prefix: event.target.value })}
+          onChange={(value) => onChange({ prefix: value })}
           placeholder="logs/"
           disabled={disabled}
+          {...prefixes}
         />
-        <SettingsInput
+        <SettingsAutocomplete
           label="Destination bucket ARN"
           value={draft.destinationBucket}
-          onChange={(event) =>
-            onChange({ destinationBucket: event.target.value })
-          }
+          onChange={(value) => onChange({ destinationBucket: value })}
           placeholder="arn:aws:s3:::target-bucket"
           disabled={disabled}
+          {...destinationBucketArns}
         />
       </div>
 
