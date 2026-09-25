@@ -99,16 +99,6 @@ class S3ConnectionsService:
             raise S3ConnectionNotFoundError("S3Connection not found")
         return row
 
-    def validate_admin_shared_create(
-        self,
-        payload: S3ConnectionAdminCreate,
-    ) -> None:
-        self.endpoint_planner.plan(
-            None,
-            payload,
-            enforce_manual_endpoint_policy=False,
-        )
-
     def create_admin_shared(
         self,
         created_by_user_id: int,
@@ -146,19 +136,6 @@ class S3ConnectionsService:
         self.db.commit()
         self.db.refresh(row)
         return row
-
-    def validate_admin_shared_update(
-        self,
-        row: DBS3Connection,
-        payload: S3ConnectionAdminUpdate,
-        *,
-        update_credentials: bool = False,
-    ) -> None:
-        self._prepare_admin_shared_update(
-            row,
-            payload,
-            update_credentials=update_credentials,
-        )
 
     def update_admin_shared(
         self,
@@ -220,26 +197,6 @@ class S3ConnectionsService:
         if not row:
             raise S3ConnectionNotFoundError("S3Connection not found")
         if row.is_shared:
-            raise S3ConnectionNotFoundError("S3Connection not found")
-        return row
-
-    def get_visible(self, user_id: int, connection_id: int) -> DBS3Connection:
-        row = self.db.query(DBS3Connection).filter(DBS3Connection.id == connection_id).first()
-        if not row:
-            raise S3ConnectionNotFoundError("S3Connection not found")
-        if row.is_shared:
-            link = (
-                self.db.query(UserS3Connection)
-                .filter(
-                    UserS3Connection.user_id == user_id,
-                    UserS3Connection.s3_connection_id == row.id,
-                )
-                .first()
-            )
-            if not link:
-                raise S3ConnectionNotFoundError("S3Connection not found")
-            return row
-        if row.created_by_user_id != user_id:
             raise S3ConnectionNotFoundError("S3Connection not found")
         return row
 

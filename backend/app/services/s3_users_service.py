@@ -651,10 +651,6 @@ class S3UsersService:
         except RGWAdminError as exc:
             raise ValueError(f"Unable to delete access key: {exc}") from exc
 
-    def delete_user_db_only(self, user_id: int) -> None:
-        s3_user = self._get_s3_user(user_id)
-        self._delete_user_entry(s3_user)
-
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self._get_s3_user(user_id)
         admin = self._admin_for_user(s3_user)
