@@ -35,7 +35,7 @@ def _load_persisted_settings_from_disk(settings_path: Path) -> AppSettings:
     if not settings_path.exists():
         return AppSettings()
     data = json.loads(settings_path.read_text(encoding="utf-8"))
-    return AppSettings.model_validate(_normalize_legacy_persisted_settings(data))
+    return AppSettings.model_validate(data)
 
 
 def _open_settings_session():
@@ -44,27 +44,8 @@ def _open_settings_session():
     return SessionLocal()
 
 
-def _normalize_legacy_persisted_settings(data: object) -> object:
-    """Keep the historical admin-passkey policy for payloads saved before the field existed."""
-    if not isinstance(data, dict):
-        return data
-    normalized = dict(data)
-    general = normalized.get("general")
-    if "general" not in normalized:
-        general = {}
-    if isinstance(general, dict) and "require_passkey_for_admins" not in general:
-        general = dict(general)
-        general["require_passkey_for_admins"] = True
-        normalized["general"] = general
-    return normalized
-
-
 def _parse_settings_payload(payload: str) -> AppSettings:
-    try:
-        data = json.loads(payload)
-    except json.JSONDecodeError:
-        return AppSettings.model_validate_json(payload)
-    return AppSettings.model_validate(_normalize_legacy_persisted_settings(data))
+    return AppSettings.model_validate_json(payload)
 
 
 def _settings_to_json(settings: AppSettings) -> str:
