@@ -38,10 +38,6 @@ import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCa
 
 type AdminMetricsTab = "storage" | "usage-composition" | "usage-history" | "traffic";
 
-function extractError(err: unknown, fallback: string): string {
-  return extractApiError(err, fallback);
-}
-
 export default function AdminMetricsPage() {
   const { generalSettings } = useGeneralSettings();
   const [activeTab, setActiveTab] = useState<AdminMetricsTab>("storage");
@@ -92,7 +88,7 @@ export default function AdminMetricsPage() {
         if (!cancelled) {
           setEndpoints([]);
           setSelectedEndpointId(null);
-          setEndpointError(extractError(err, "Unable to retrieve the endpoint list."));
+          setEndpointError(extractApiError(err, "Unable to retrieve the endpoint list."));
         }
       } finally {
         if (!cancelled) {
@@ -127,7 +123,7 @@ export default function AdminMetricsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setStorageError(extractError(err, "Unable to load admin storage metrics."));
+          setStorageError(extractApiError(err, "Unable to load admin storage metrics."));
           setStorage(null);
         }
       } finally {
@@ -163,7 +159,7 @@ export default function AdminMetricsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setTrafficError(extractError(err, "Unable to retrieve RGW logs."));
+          setTrafficError(extractApiError(err, "Unable to retrieve RGW logs."));
           setTraffic(null);
         }
       } finally {
@@ -207,7 +203,7 @@ export default function AdminMetricsPage() {
       } catch (err) {
         if (!cancelled) {
           setUsageHistoryTrends(null);
-          setUsageHistoryError(extractError(err, "Unable to load usage history trends."));
+          setUsageHistoryError(extractApiError(err, "Unable to load usage history trends."));
         }
       } finally {
         if (!cancelled) {
@@ -235,7 +231,7 @@ export default function AdminMetricsPage() {
       setUsageStatsAggregate(data.aggregate);
     } catch (err) {
       setUsageStatsAggregate(null);
-      setUsageStatsError(extractError(err, "Unable to load managed accounts usage composition."));
+      setUsageStatsError(extractApiError(err, "Unable to load managed accounts usage composition."));
     } finally {
       setUsageStatsLoading(false);
     }
@@ -260,7 +256,7 @@ export default function AdminMetricsPage() {
       await loadUsageStatsAggregate();
     } catch (err) {
       if (!isCancelledError(err)) {
-        setUsageStatsError(extractError(err, "Unable to recalculate managed accounts usage composition."));
+        setUsageStatsError(extractApiError(err, "Unable to recalculate managed accounts usage composition."));
       }
     } finally {
       if (usageStatsAbortRef.current === controller) {
