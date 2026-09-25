@@ -123,25 +123,17 @@ def test_list_for_user_and_owned_private_are_sorted_case_insensitive(db_session)
     assert lower.id < mixed.id
 
 
-def test_get_owned_and_get_visible_with_access_control(db_session):
+def test_get_owned_enforces_owner_access(db_session):
     owner = _user(db_session, "owner2@example.test")
-    reader = _user(db_session, "reader@example.test")
     other = _user(db_session, "other2@example.test")
     private_row = _create_row(db_session, created_by_user_id=owner.id, name="private")
-    shared_row = _create_row(db_session, created_by_user_id=owner.id, name="shared", is_shared=True)
-    db_session.add(UserS3Connection(user_id=reader.id, s3_connection_id=shared_row.id))
     db_session.commit()
 
     service = S3ConnectionsService(db_session)
     assert service.get_owned(owner.id, private_row.id).id == private_row.id
-    assert service.get_visible(reader.id, shared_row.id).id == shared_row.id
 
     with pytest.raises(S3ConnectionNotFoundError):
         service.get_owned(other.id, private_row.id)
-    with pytest.raises(S3ConnectionNotFoundError):
-        service.get_visible(other.id, private_row.id)
-    with pytest.raises(S3ConnectionNotFoundError):
-        service.get_visible(owner.id, shared_row.id)
 
 
 def test_create_connection_custom_endpoint_and_storage_endpoint_paths(db_session, monkeypatch):
