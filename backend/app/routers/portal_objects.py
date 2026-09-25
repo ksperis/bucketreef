@@ -23,7 +23,7 @@ from app.models.portal_versions import (
 from app.routers.dependencies import get_audit_service, get_portal_account_access
 from app.routers.portal_common import (
     get_portal_service_dependency,
-    raise_portal_storage_runtime,
+    raise_portal_error,
 )
 from app.routers.portal_streams import (
     stream_portal_deleted_prefix_restore,
@@ -58,7 +58,7 @@ def portal_storage_space_version_cleanup_stream(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
     return stream_portal_storage_space_version_cleanup(
         request,
         actor=actor,
@@ -82,7 +82,7 @@ def portal_storage_space_object_detail(
     try:
         return service.get_storage_space_object_detail(actor, access, space_id, key)
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.get(
@@ -112,7 +112,7 @@ def portal_storage_space_object_versions(
             max_keys=max_keys,
         )
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.get("/storage-spaces/{space_id}/trash", response_model=PortalTrashResponse)
@@ -137,7 +137,7 @@ def portal_storage_space_trash(
             max_keys=max_keys,
         )
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.post(
@@ -162,7 +162,7 @@ def portal_restore_storage_space_object(
             version_id=payload.version_id,
         )
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.post("/storage-spaces/{space_id}/trash/restore-prefix/stream")
@@ -193,7 +193,7 @@ def portal_restore_deleted_prefix_stream(
             detail=sanitize_error_detail(str(exc)),
         ) from exc
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
     return stream_portal_deleted_prefix_restore(
         request,
         actor=actor,
@@ -218,7 +218,7 @@ def portal_delete_storage_space_object(
         deleted_key = service.delete_storage_space_object(actor, access, space_id, key)
         return PortalStorageObjectDeleteResponse(key=deleted_key, message="Deleted")
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.get("/storage-spaces/{space_id}/objects/download")
@@ -235,4 +235,4 @@ def portal_download_storage_space_object(
         download = service.download_storage_space_object(actor, access, space_id, key)
         return S3DownloadResponse(download)
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)

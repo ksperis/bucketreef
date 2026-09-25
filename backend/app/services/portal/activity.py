@@ -10,6 +10,7 @@ from app.models.portal_monitoring import PortalActivityItem, PortalAlert
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.services.audit_service import parse_audit_metadata
 from app.services.audit_policy import NON_PERSISTED_AUDIT_ACTIONS
+from app.services.portal.exceptions import PortalNotFoundError
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:
@@ -91,7 +92,7 @@ class PortalActivityMixin:
         visible_spaces = self._visible_storage_space_lookup(user, access)
         selected_space = visible_spaces.get(space_id) if space_id else None
         if space_id and selected_space is None:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         query_limit = min(max(limit, 1), 200)
         logs = (
             self.db.query(AuditLog)

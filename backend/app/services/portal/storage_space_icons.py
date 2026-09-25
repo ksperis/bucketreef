@@ -12,6 +12,7 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceIconSource,
 )
 from app.services.avatar_image_service import ALLOWED_AVATAR_CONTENT_TYPES, validate_avatar_image
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:
@@ -63,7 +64,7 @@ class PortalStorageSpaceIconsMixin:
     ) -> PortalStorageSpaceMetadata:
         metadata = self._storage_space_metadata(access.account, space_id)
         if metadata is None:
-            raise RuntimeError("Storage space icon not found or not allowed.")
+            raise PortalNotFoundError("Storage space icon not found or not allowed.")
         visible = self._storage_space_roles_by_bucket(
             user,
             access.account,
@@ -71,7 +72,7 @@ class PortalStorageSpaceIconsMixin:
             include_archived=True,
         )
         if metadata.bucket_name not in visible:
-            raise RuntimeError("Storage space icon not found or not allowed.")
+            raise PortalNotFoundError("Storage space icon not found or not allowed.")
         return metadata
 
     def set_storage_space_icon_choice(
@@ -84,7 +85,7 @@ class PortalStorageSpaceIconsMixin:
         preset: PortalStorageSpaceIconPreset | None = None,
     ) -> PortalStorageSpaceIcon:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise RuntimeError("Only project managers can configure Storage Space icons.")
+            raise PortalForbiddenError("Only project managers can configure Storage Space icons.")
         metadata = self._visible_storage_space_icon_metadata(user, access, space_id)
         if source == "uploaded":
             if not metadata.icon_image:
@@ -109,7 +110,7 @@ class PortalStorageSpaceIconsMixin:
         content_type: str | None,
     ) -> PortalStorageSpaceIcon:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise RuntimeError("Only project managers can configure Storage Space icons.")
+            raise PortalForbiddenError("Only project managers can configure Storage Space icons.")
         metadata = self._visible_storage_space_icon_metadata(user, access, space_id)
         detected_type = validate_avatar_image(payload, content_type)
         metadata.icon_image = payload
@@ -128,7 +129,7 @@ class PortalStorageSpaceIconsMixin:
         space_id: str,
     ) -> PortalStorageSpaceIcon:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise RuntimeError("Only project managers can configure Storage Space icons.")
+            raise PortalForbiddenError("Only project managers can configure Storage Space icons.")
         metadata = self._visible_storage_space_icon_metadata(user, access, space_id)
         metadata.icon_image = None
         metadata.icon_content_type = None
@@ -147,7 +148,7 @@ class PortalStorageSpaceIconsMixin:
     ) -> tuple[bytes, str, str]:
         metadata = self._visible_storage_space_icon_metadata(user, access, space_id)
         if not metadata.icon_image or metadata.icon_content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
-            raise RuntimeError("Storage space icon not found or not allowed.")
+            raise PortalNotFoundError("Storage space icon not found or not allowed.")
         version = str(
             int(metadata.icon_updated_at.timestamp() * 1_000_000)
             if metadata.icon_updated_at

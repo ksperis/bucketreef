@@ -13,6 +13,7 @@ from app.models.portal_usage import (
     PortalUsageStorageSpace,
 )
 from app.services.rgw_admin import RGWAdminError
+from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError
 from app.utils.usage_stats import extract_usage_stats
 
 if TYPE_CHECKING:
@@ -176,12 +177,12 @@ class PortalStateUsageMixin:
 
     def get_bucket_stats(self, user: User, access: "AccountAccess", bucket_name: str) -> Bucket:
         if not bucket_name:
-            raise RuntimeError("Bucket name requis.")
+            raise PortalBadRequestError("Bucket name requis.")
         account = access.account
         if not access.capabilities.can_manage_buckets:
             allowed = self.list_existing_user_bucket_access(user, access.account, access.portal_role)
             if bucket_name not in allowed:
-                raise RuntimeError("Accès bucket non autorisé.")
+                raise PortalForbiddenError("Accès bucket non autorisé.")
         try:
             rgw_admin = self._supervision_admin_for_account(account)
         except RGWAdminError as exc:  # pragma: no cover - defensive path

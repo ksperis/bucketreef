@@ -25,6 +25,8 @@ from app.services.portal.exceptions import (
     PortalAccessKeyLimitExceeded,
     PortalAccessKeyManagementDisabled,
     PortalAccessKeyProtected,
+    PortalBadRequestError,
+    PortalNotFoundError,
 )
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.time import utcnow
@@ -237,16 +239,16 @@ class PortalAccessKeysMixin:
         payload: PortalAccessKeyCreate,
     ) -> tuple[PortalStorageSpaceMetadata, str, str]:
         if payload.target_type != "external":
-            raise RuntimeError("External credential payload required.")
+            raise PortalBadRequestError("External credential payload required.")
         storage_space_id = (payload.storage_space_id or "").strip()
         if not storage_space_id:
-            raise RuntimeError("Storage Space is required for external credentials.")
+            raise PortalBadRequestError("Storage Space is required for external credentials.")
         external_email = (payload.external_email or "").strip()
         if not external_email:
-            raise RuntimeError("External user label is required.")
+            raise PortalBadRequestError("External user label is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, storage_space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_full_content_access(user, access, bucket_name)
         metadata = self._require_storage_space_active(access.account, bucket_name)
         if metadata is None:
@@ -354,7 +356,7 @@ class PortalAccessKeysMixin:
         metas = iam_service.list_access_keys(link.iam_username)
         meta = next((m for m in metas if m.access_key_id == access_key_id), None)
         if meta is None:
-            raise RuntimeError("Clé introuvable après mise à jour")
+            raise PortalNotFoundError("Clé introuvable après mise à jour")
         return portal_access_key_from_iam_metadata(
             meta,
             is_portal=False,

@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from app.core.database import get_db
-from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
 from app.models.access_context import AccountAccess
 from app.models.portal_sharing import (
@@ -27,13 +26,12 @@ from app.routers.dependencies import (
 )
 from app.routers.portal_common import (
     get_portal_service_dependency,
-    raise_portal_storage_runtime,
+    raise_portal_error,
 )
 from app.routers.s3_download_response import S3DownloadResponse
 from app.services.audit_service import AuditService
 from app.services.portal_service import PortalService
 from app.services.users_service import UsersService
-from app.utils.http_errors import raise_bad_gateway_from_runtime
 
 router = APIRouter()
 
@@ -58,7 +56,7 @@ def portal_storage_space_public_links(
             include_revoked=include_revoked,
         )
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.post("/storage-spaces/{space_id}/public-links", response_model=PortalPublicLink, status_code=status.HTTP_201_CREATED)
@@ -96,7 +94,7 @@ def create_portal_storage_space_public_link(
         )
         return link
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.delete("/storage-spaces/{space_id}/public-links/{link_id}", response_model=list[PortalPublicLink])
@@ -123,7 +121,7 @@ def revoke_portal_storage_space_public_link(
         )
         return links
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.get("/public-links/{token}/download")
@@ -134,13 +132,7 @@ def download_portal_public_link(
     try:
         download = service.download_public_link(token)
     except RuntimeError as exc:
-        detail = sanitize_error_detail(str(exc))
-        lowered = detail.lower()
-        if "not found" in lowered:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc
-        if "expired" in lowered or "revoked" in lowered or "archived" in lowered or "suspended" in lowered:
-            raise HTTPException(status_code=status.HTTP_410_GONE, detail=detail) from exc
-        raise_bad_gateway_from_runtime(exc)
+        raise_portal_error(exc)
     return S3DownloadResponse(download)
 
 
@@ -156,7 +148,7 @@ def portal_storage_space_shares(
     try:
         return service.list_storage_space_shares(actor, access, space_id)
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.get("/share-candidates", response_model=list[PortalStorageSpaceShareCandidate])
@@ -172,7 +164,7 @@ def portal_share_candidates(
     try:
         return service.list_storage_space_share_candidates(actor, access)
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.get("/storage-spaces/{space_id}/share-candidates", response_model=list[PortalStorageSpaceShareCandidate])
@@ -187,7 +179,7 @@ def portal_storage_space_share_candidates(
     try:
         return service.list_storage_space_share_candidates(actor, access, space_id)
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 def _resolve_share_target(payload: PortalStorageSpaceSharePayload, users_service: UsersService) -> User:
@@ -227,7 +219,7 @@ def grant_portal_storage_space_share(
         )
         return share
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.put("/storage-spaces/{space_id}/shares/{user_id}", response_model=PortalStorageSpaceShare)
@@ -259,7 +251,7 @@ def update_portal_storage_space_share(
         )
         return share
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.delete("/storage-spaces/{space_id}/shares/{user_id}", response_model=list[PortalStorageSpaceShare])
@@ -290,4 +282,4 @@ def revoke_portal_storage_space_share(
         )
         return shares
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)

@@ -20,7 +20,7 @@ from app.models.usage_history import UsageHistoryTrendResponse, UsageHistoryTren
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import (
     get_portal_service_dependency,
-    raise_portal_storage_runtime,
+    raise_portal_error,
 )
 from app.services.app_settings_service import load_app_settings
 from app.services.bucket_usage_stats_service import (
@@ -88,7 +88,7 @@ def portal_usage_stats_latest(
     try:
         spaces = portal_service.list_storage_spaces(actor, access)
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
     account_scope_id = str(access.account.id)
     targets = [
         BucketUsageStatsAggregateTarget(
@@ -146,7 +146,7 @@ def portal_storage_space_usage_stats(
     try:
         spaces = portal_service.list_storage_spaces(actor, access, include_archived=True)
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
     storage_space = next((space for space in spaces if space.id == space_id), None)
     if storage_space is None or not storage_space.internal_bucket_name:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage space not found")

@@ -8,6 +8,7 @@ from typing import Optional, TYPE_CHECKING
 from app.db import PortalAccountRole, S3Account, User
 from app.models.portal_versions import PortalStorageSpaceSettings, PortalStorageSpaceSettingsUpdate
 from app.services import s3_bucket_metadata, s3_client
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 
 if TYPE_CHECKING:
     from app.models.access_context import AccountAccess
@@ -95,7 +96,7 @@ class PortalStorageSpaceSettingsMixin:
             include_archived=True,
         )
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name, include_archived=True)
         metadata = self._storage_space_metadata(access.account, bucket_name)
         can_update = bool(
@@ -118,7 +119,7 @@ class PortalStorageSpaceSettingsMixin:
         payload: PortalStorageSpaceSettingsUpdate,
     ) -> PortalStorageSpaceSettings:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise RuntimeError("Portal manager rights required for Storage Space settings.")
+            raise PortalForbiddenError("Portal manager rights required for Storage Space settings.")
         bucket_name = self._resolve_storage_space_bucket_name(
             user,
             access,
@@ -126,7 +127,7 @@ class PortalStorageSpaceSettingsMixin:
             include_archived=True,
         )
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name, include_archived=True)
         self._require_storage_space_active(access.account, bucket_name)
 

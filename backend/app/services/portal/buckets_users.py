@@ -9,6 +9,7 @@ from app.models.app_settings import PortalSettings
 from app.models.bucket import Bucket
 from app.services import s3_bucket_access, s3_bucket_metadata, s3_client, s3_deletion
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
+from app.services.portal.exceptions import PortalForbiddenError
 from app.services.rgw_iam import RGWIAMService
 from app.services.storage_ops_bucket_listing_service import resolve_storage_ops_context_tenant
 from app.utils.account_roles import PortalAccountRoleValue
@@ -35,7 +36,7 @@ class PortalBucketsUsersMixin:
         )
         can_create_bucket = bool(access.capabilities.can_manage_buckets or is_portal_user_creation)
         if not can_create_bucket:
-            raise RuntimeError("Bucket creation not allowed for this role.")
+            raise PortalForbiddenError("Bucket creation not allowed for this role.")
         iam_service = self._get_iam_service(account)
         link, _, _ = self._ensure_portal_user(user, account, iam_service)
         self._sync_user_group_membership(

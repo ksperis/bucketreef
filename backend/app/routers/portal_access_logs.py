@@ -18,7 +18,7 @@ from app.routers.ceph_admin.listing_common import parse_filter_query
 from app.routers.dependencies import require_portal_manager
 from app.routers.portal_common import (
     get_portal_service_dependency,
-    raise_portal_storage_runtime,
+    raise_portal_error,
 )
 from app.services.portal_service import PortalService
 from app.utils.http_headers import build_attachment_content_disposition
@@ -60,7 +60,7 @@ def portal_server_access_logs_page(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
 
 
 @router.get("/access-logs/raw")
@@ -87,7 +87,7 @@ def portal_server_access_logs_raw(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)
     filename = (
         f"portal-server-access-logs-{date_from}.log"
         if date_from == date_to
