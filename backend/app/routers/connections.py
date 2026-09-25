@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.domain_errors import StorageEndpointNotFoundError
+from app.core.domain_errors import S3ConnectionNotFoundError, StorageEndpointNotFoundError
 from app.db import User
 from app.models.s3_connection import (
     S3Connection,
@@ -27,6 +27,7 @@ from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.services.tags_service import TagsService, serialize_tag_summaries
 from app.utils.tagging import TAG_DOMAIN_PRIVATE_CONNECTION_USER
 from app.core.sensitive_data import sanitize_error_detail
+from app.utils.http_errors import raise_bad_request_or_not_found
 
 router = APIRouter(prefix="/connections", tags=["connections"])
 
@@ -106,11 +107,8 @@ def validate_connection_credentials(
     service = S3ConnectionValidationService(db)
     try:
         return service.validate_credentials(payload, enforce_manual_endpoint_policy=True)
-    except KeyError as exc:
-        detail = exc.args[0] if exc.args else "Storage endpoint not found"
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_or_not_found(exc)
 
 
 @router.post("", response_model=S3Connection, status_code=status.HTTP_201_CREATED)
@@ -193,15 +191,8 @@ def update_connection(
             },
         )
         return updated
-    except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Connection not found")
-    except StorageEndpointNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Storage endpoint not found",
-        ) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc)))
+        raise_bad_request_or_not_found(exc)
 
 
 
@@ -238,8 +229,8 @@ def delete_connection(
             entity_id=connection_id,
             metadata=audit_meta,
         )
-    except KeyError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Connection not found")
+    except S3ConnectionNotFoundError as exc:
+        raise_bad_request_or_not_found(exc)
     except ManagedPrivateAccessCleanupPending as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

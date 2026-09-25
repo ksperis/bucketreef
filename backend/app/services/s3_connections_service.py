@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import S3ConnectionNotFoundError
 from app.db.s3_connection import ManagedPrivateAccess, S3Connection as DBS3Connection, UserS3Connection
 from app.models.s3_connection import (
     S3_CONNECTION_ENDPOINT_FIELDS,
@@ -95,7 +96,7 @@ class S3ConnectionsService:
     def get_admin_shared(self, connection_id: int) -> DBS3Connection:
         row = self.admin_shared_query().filter(DBS3Connection.id == connection_id).first()
         if row is None:
-            raise KeyError("S3Connection not found")
+            raise S3ConnectionNotFoundError("S3Connection not found")
         return row
 
     def validate_admin_shared_create(
@@ -217,15 +218,15 @@ class S3ConnectionsService:
             .first()
         )
         if not row:
-            raise KeyError("S3Connection not found")
+            raise S3ConnectionNotFoundError("S3Connection not found")
         if row.is_shared:
-            raise KeyError("S3Connection not found")
+            raise S3ConnectionNotFoundError("S3Connection not found")
         return row
 
     def get_visible(self, user_id: int, connection_id: int) -> DBS3Connection:
         row = self.db.query(DBS3Connection).filter(DBS3Connection.id == connection_id).first()
         if not row:
-            raise KeyError("S3Connection not found")
+            raise S3ConnectionNotFoundError("S3Connection not found")
         if row.is_shared:
             link = (
                 self.db.query(UserS3Connection)
@@ -236,10 +237,10 @@ class S3ConnectionsService:
                 .first()
             )
             if not link:
-                raise KeyError("S3Connection not found")
+                raise S3ConnectionNotFoundError("S3Connection not found")
             return row
         if row.created_by_user_id != user_id:
-            raise KeyError("S3Connection not found")
+            raise S3ConnectionNotFoundError("S3Connection not found")
         return row
 
     def create(self, user_id: int, payload: S3ConnectionCreate, *, commit: bool = True) -> S3Connection:

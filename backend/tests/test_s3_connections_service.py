@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
+
+from app.core.domain_errors import S3ConnectionNotFoundError
 from pydantic import ValidationError
 
 from app.db import (
@@ -134,11 +136,11 @@ def test_get_owned_and_get_visible_with_access_control(db_session):
     assert service.get_owned(owner.id, private_row.id).id == private_row.id
     assert service.get_visible(reader.id, shared_row.id).id == shared_row.id
 
-    with pytest.raises(KeyError):
+    with pytest.raises(S3ConnectionNotFoundError):
         service.get_owned(other.id, private_row.id)
-    with pytest.raises(KeyError):
+    with pytest.raises(S3ConnectionNotFoundError):
         service.get_visible(other.id, private_row.id)
-    with pytest.raises(KeyError):
+    with pytest.raises(S3ConnectionNotFoundError):
         service.get_visible(owner.id, shared_row.id)
 
 
