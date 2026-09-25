@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+from botocore.exceptions import ClientError
 from fastapi import HTTPException
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
@@ -44,6 +48,34 @@ def test_raise_bad_gateway_from_runtime_preserves_safe_runtime_message():
         assert exc.detail == "backend timeout"
     else:
         raise AssertionError("Expected HTTPException")
+
+
+@pytest.mark.parametrize(
+    ("cause", "expected_status"),
+    [
+        (RequestsTimeout("slow upstream"), 504),
+        (RequestsConnectionError("socket unavailable"), 503),
+        (
+            ClientError(
+                {
+                    "Error": {"Code": "AccessDenied", "Message": "denied"},
+                    "ResponseMetadata": {"HTTPStatusCode": 403},
+                },
+                "GetObject",
+            ),
+            403,
+        ),
+    ],
+)
+def test_raise_bad_gateway_from_runtime_uses_structured_causes(cause, expected_status):
+    wrapped = RuntimeError("upstream request failed")
+    wrapped.__cause__ = cause
+
+    with pytest.raises(HTTPException) as raised:
+        raise_bad_gateway_from_runtime(wrapped)
+
+    assert raised.value.status_code == expected_status
+    assert raised.value.detail == "upstream request failed"
 
 
 def test_raise_bad_request_from_value_error_redacts_sensitive_user_input():
