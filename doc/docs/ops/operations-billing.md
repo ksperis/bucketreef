@@ -29,7 +29,10 @@ curl -X POST "http://localhost:8000/api/internal/billing/collect/daily?day=YYYY-
   -H "X-Internal-Token: <INTERNAL_CRON_TOKEN>"
 ```
 
-Admins can also trigger one UTC day from `/admin/billing`. The result reports endpoint count, storage records, usage records, and partial collection errors.
+Admins can also trigger one UTC day from `/admin/billing`. The result reports
+endpoint count, storage records, usage records, and structured partial-collection
+errors (`stage`, endpoint, and subject identifiers when applicable). Exception
+details stay in backend logs instead of being returned by the API.
 
 ## Coverage
 

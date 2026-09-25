@@ -34,6 +34,21 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def _collection_error(
+    *,
+    stage: str,
+    endpoint_id: int,
+    subject: str | None = None,
+    subject_id: int | None = None,
+) -> dict[str, Any]:
+    error: dict[str, Any] = {"stage": stage, "endpoint_id": endpoint_id}
+    if subject is not None:
+        error["subject"] = subject
+    if subject_id is not None:
+        error["subject_id"] = subject_id
+    return error
+
+
 class BillingCollector:
     """Collect and persist daily RGW usage and storage billing inputs."""
 
@@ -71,7 +86,7 @@ class BillingCollector:
                     exc,
                 )
                 summary["errors"].append(
-                    {"endpoint_id": endpoint.id, "error": str(exc)}
+                    _collection_error(stage="endpoint", endpoint_id=endpoint.id)
                 )
                 continue
 
@@ -153,12 +168,22 @@ class BillingCollector:
                     exc,
                 )
                 errors.append(
-                    {"subject": "account", "subject_id": account.id, "error": str(exc)}
+                    _collection_error(
+                        stage="usage",
+                        endpoint_id=endpoint.id,
+                        subject="account",
+                        subject_id=account.id,
+                    )
                 )
             except Exception as exc:
                 logger.exception("Usage collection error for account %s", account.id)
                 errors.append(
-                    {"subject": "account", "subject_id": account.id, "error": str(exc)}
+                    _collection_error(
+                        stage="usage",
+                        endpoint_id=endpoint.id,
+                        subject="account",
+                        subject_id=account.id,
+                    )
                 )
 
         for s3_user in s3_users:
@@ -199,20 +224,22 @@ class BillingCollector:
                     exc,
                 )
                 errors.append(
-                    {
-                        "subject": "s3_user",
-                        "subject_id": s3_user.id,
-                        "error": str(exc),
-                    }
+                    _collection_error(
+                        stage="usage",
+                        endpoint_id=endpoint.id,
+                        subject="s3_user",
+                        subject_id=s3_user.id,
+                    )
                 )
             except Exception as exc:
                 logger.exception("Usage collection error for s3 user %s", s3_user.id)
                 errors.append(
-                    {
-                        "subject": "s3_user",
-                        "subject_id": s3_user.id,
-                        "error": str(exc),
-                    }
+                    _collection_error(
+                        stage="usage",
+                        endpoint_id=endpoint.id,
+                        subject="s3_user",
+                        subject_id=s3_user.id,
+                    )
                 )
         return created, errors
 
@@ -257,12 +284,22 @@ class BillingCollector:
                     exc,
                 )
                 errors.append(
-                    {"subject": "account", "subject_id": account.id, "error": str(exc)}
+                    _collection_error(
+                        stage="storage",
+                        endpoint_id=endpoint.id,
+                        subject="account",
+                        subject_id=account.id,
+                    )
                 )
             except Exception as exc:
                 logger.exception("Storage collection error for account %s", account.id)
                 errors.append(
-                    {"subject": "account", "subject_id": account.id, "error": str(exc)}
+                    _collection_error(
+                        stage="storage",
+                        endpoint_id=endpoint.id,
+                        subject="account",
+                        subject_id=account.id,
+                    )
                 )
 
         for s3_user in s3_users:
@@ -291,20 +328,22 @@ class BillingCollector:
                     exc,
                 )
                 errors.append(
-                    {
-                        "subject": "s3_user",
-                        "subject_id": s3_user.id,
-                        "error": str(exc),
-                    }
+                    _collection_error(
+                        stage="storage",
+                        endpoint_id=endpoint.id,
+                        subject="s3_user",
+                        subject_id=s3_user.id,
+                    )
                 )
             except Exception as exc:
                 logger.exception("Storage collection error for s3 user %s", s3_user.id)
                 errors.append(
-                    {
-                        "subject": "s3_user",
-                        "subject_id": s3_user.id,
-                        "error": str(exc),
-                    }
+                    _collection_error(
+                        stage="storage",
+                        endpoint_id=endpoint.id,
+                        subject="s3_user",
+                        subject_id=s3_user.id,
+                    )
                 )
         return created, errors
 
