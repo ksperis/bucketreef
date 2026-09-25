@@ -7,7 +7,7 @@ from typing import Optional
 
 import pytest
 
-from app.core.domain_errors import S3UserNotFoundError
+from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
 from app.db import (
     BillingAssignment,
     BillingRateCard,
@@ -543,6 +543,34 @@ def test_list_keys_marks_ui_key(db_session, monkeypatch):
 
     assert any(key.is_ui_managed for key in keys)
     assert any(key.access_key_id == extra.access_key_id for key in keys)
+
+
+def test_list_keys_types_missing_remote_user(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+
+    created = service.create_user(S3UserCreate(name="MissingRemote", uid="missing-remote", storage_endpoint_id=endpoint.id))
+    fake.remote_users.pop("missing-remote")
+
+    with pytest.raises(S3UserNotFoundError, match="RGW user not found"):
+        service.list_keys(created.id)
+
+
+def test_set_key_status_types_rgw_not_found(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+
+    created = service.create_user(S3UserCreate(name="MissingKey", uid="missing-key", storage_endpoint_id=endpoint.id))
+
+    def missing_key(*_args, **_kwargs):
+        raise RGWAdminError("missing", status_code=404, error_code="NoSuchKey")
+
+    monkeypatch.setattr(fake, "set_access_key_status", missing_key, raising=False)
+
+    with pytest.raises(S3AccessKeyNotFoundError, match="Access key not found"):
+        service.set_key_status(created.id, "AK-MISSING", False)
 
 
 def test_list_keys_uses_active_flag_when_status_is_missing(db_session, monkeypatch):

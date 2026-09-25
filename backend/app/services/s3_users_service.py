@@ -7,7 +7,7 @@ from typing import Any, Optional
 from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3UserNotFoundError
+from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     S3UserTag,
@@ -572,7 +572,7 @@ class S3UsersService:
         except RGWAdminError as exc:
             raise ValueError(f"Unable to list keys: {exc}") from exc
         if not user_info or user_info.get("not_found"):
-            raise ValueError("RGW user not found")
+            raise S3UserNotFoundError("RGW user not found")
         return RgwUserKeyParser.to_access_keys(
             admin.extract_keys(user_info),
             ui_managed_access_key=s3_user.rgw_access_key,
@@ -598,6 +598,8 @@ class S3UsersService:
             response = admin.create_access_key(s3_user.rgw_user_uid, tenant=None)
         except RGWAdminError as exc:
             raise ValueError(f"Unable to create access key: {exc}") from exc
+        if response.get("not_found"):
+            raise S3UserNotFoundError("RGW user not found")
         return RgwUserKeyParser.to_generated_key(
             admin.extract_keys(response),
             existing_access_keys=existing_access_keys,
@@ -619,12 +621,14 @@ class S3UsersService:
                 tenant=None,
             )
         except RGWAdminError as exc:
+            if exc.status_code == 404:
+                raise S3AccessKeyNotFoundError("Access key not found") from exc
             raise ValueError(f"Unable to update access key status: {exc}") from exc
         keys = self.list_keys(user_id)
         for key in keys:
             if key.access_key_id == normalized:
                 return key
-        raise ValueError("Access key not found after status update")
+        raise S3AccessKeyNotFoundError("Access key not found after status update")
 
     def delete_key(self, user_id: int, access_key: str) -> None:
         s3_user = self._get_s3_user(user_id)

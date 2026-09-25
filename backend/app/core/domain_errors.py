@@ -15,6 +15,10 @@ class S3UserNotFoundError(ResourceNotFoundError):
     pass
 
 
+class S3AccessKeyNotFoundError(ResourceNotFoundError):
+    pass
+
+
 class S3AccountNotFoundError(ResourceNotFoundError):
     pass
 

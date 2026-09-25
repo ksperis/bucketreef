@@ -17,7 +17,7 @@ from app.routers.dependencies import (
 from app.services.audit_service import AuditService
 from app.services.s3_users_service import S3UsersService, get_s3_users_service
 from app.services.managed_private_access_service import ManagedPrivateAccessService
-from app.core.sensitive_data import sanitize_error_detail
+from app.utils.http_errors import raise_bad_request_or_not_found
 
 router = APIRouter(prefix="/manager/ceph/keys", tags=["manager-ceph-keys"])
 
@@ -36,12 +36,6 @@ def _resolve_s3_user_id(account: S3ExecutionContext) -> int:
             detail="Ceph key management is not available for this context",
         )
     return s3_user_id
-
-
-def _translate_s3_user_error(exc: ValueError) -> HTTPException:
-    detail = sanitize_error_detail(str(exc))
-    code = status.HTTP_404_NOT_FOUND if "not found" in detail.lower() else status.HTTP_400_BAD_REQUEST
-    return HTTPException(status_code=code, detail=detail)
 
 
 @router.get("", response_model=list[S3UserAccessKey])
@@ -66,7 +60,7 @@ def list_ceph_access_keys(
                 key.managed_connection_id = provisioning.s3_connection_id
         return keys
     except ValueError as exc:
-        raise _translate_s3_user_error(exc) from exc
+        raise_bad_request_or_not_found(exc)
 
 
 @router.post("", response_model=S3UserGeneratedKey, status_code=status.HTTP_201_CREATED)
@@ -90,7 +84,7 @@ def create_ceph_access_key(
         )
         return key
     except ValueError as exc:
-        raise _translate_s3_user_error(exc) from exc
+        raise_bad_request_or_not_found(exc)
 
 
 @router.put("/{access_key}/status", response_model=S3UserAccessKey)
@@ -122,7 +116,7 @@ def update_ceph_access_key_status(
         )
         return updated
     except ValueError as exc:
-        raise _translate_s3_user_error(exc) from exc
+        raise_bad_request_or_not_found(exc)
 
 
 @router.delete(
@@ -157,5 +151,5 @@ def delete_ceph_access_key(
             metadata={"access_key_id": access_key},
         )
     except ValueError as exc:
-        raise _translate_s3_user_error(exc) from exc
+        raise_bad_request_or_not_found(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

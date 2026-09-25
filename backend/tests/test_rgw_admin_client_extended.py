@@ -79,8 +79,9 @@ def test_request_conflict_not_found_not_implemented_and_invalid_json(monkeypatch
     assert payload["not_implemented"] is True
 
     monkeypatch.setattr(client.session, "request", lambda *args, **kwargs: _Resp(status_code=500, text="boom"))
-    with pytest.raises(RGWAdminError, match="RGW admin error 500"):
+    with pytest.raises(RGWAdminError, match="RGW admin error 500") as raised:
         client._request("GET", "/admin/user")
+    assert raised.value.status_code == 500
 
     monkeypatch.setattr(client.session, "request", lambda *args, **kwargs: _Resp(status_code=200, payload=ValueError("bad"), text="not-json"))
     with pytest.raises(RGWAdminError, match="Unexpected RGW admin response format"):
