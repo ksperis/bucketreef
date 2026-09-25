@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from app.core.config import get_settings
+from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import S3Account, S3Connection, S3User
 from app.services.app_settings_service import load_app_settings
 from app.services.s3_client import get_s3_client
@@ -92,7 +93,7 @@ class BucketMigrationExecutionContextMixin:
                 raise ValueError("Invalid connection context id")
             conn = self.db.query(S3Connection).filter(S3Connection.id == int(suffix)).first()
             if not conn:
-                raise ValueError("S3Connection not found")
+                raise S3ConnectionNotFoundError("S3Connection not found")
             return S3ExecutionContext.from_connection(conn)
 
         if value.startswith("s3u-"):
@@ -101,12 +102,12 @@ class BucketMigrationExecutionContextMixin:
                 raise ValueError("Invalid S3 user context id")
             s3_user = self.db.query(S3User).filter(S3User.id == int(suffix)).first()
             if not s3_user:
-                raise ValueError("S3 user not found")
+                raise S3UserNotFoundError("S3 user not found")
             return S3ExecutionContext.from_s3_user(s3_user)
 
         if not value.isdigit():
             raise ValueError("Invalid account context id")
         account = self.db.query(S3Account).filter(S3Account.id == int(value)).first()
         if not account:
-            raise ValueError("S3 account not found")
+            raise S3AccountNotFoundError("S3 account not found")
         return account
