@@ -14,6 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.domain_errors import BillingSubjectNotFoundError
 from app.db import (
     BillingAssignment,
     BillingRateCard,
@@ -323,7 +324,7 @@ class BillingService:
         else:
             raise ValueError("Invalid subject type")
         if not subject:
-            raise ValueError("Subject not found")
+            raise BillingSubjectNotFoundError("Subject not found")
 
         usage_rows = self._usage_rows_for_subject(period, endpoint_id, subject_type, subject_id)
         storage_rows = self._storage_rows_for_subject(period, endpoint_id, subject_type, subject_id)

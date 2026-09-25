@@ -19,6 +19,7 @@ from app.services.operation_lease_service import (
     billing_daily_operation_name,
     billing_operation_lease_ttl_seconds,
 )
+from app.utils.http_errors import raise_bad_request_or_not_found
 from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
@@ -123,7 +124,7 @@ def billing_subject_detail(
     try:
         return service.subject_detail(month, endpoint_id, subject_type, subject_id)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=sanitize_error_detail(str(exc))) from exc
+        raise_bad_request_or_not_found(exc)
 
 
 @router.get("/export.csv")
