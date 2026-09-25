@@ -12,6 +12,7 @@ class OnboardingPreference(Base):
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     dismissed = Column(Boolean, nullable=False, default=False)
+    initial_setup_completed_at = Column(UTCDateTime(), nullable=True)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
 

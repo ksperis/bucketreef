@@ -68,19 +68,12 @@ class OnboardingService:
         if not actor.is_active or not allowed:
             raise OnboardingError("admin_required", 403)
 
-    @staticmethod
-    def is_v2(row) -> bool:
-        try:
-            return json.loads(row.draft_json).get("version") == 2
-        except (TypeError, ValueError, AttributeError):
-            return False
-
     def get(self, actor, journey_id):
         self._require_admin(actor)
         row = self.db.query(OnboardingJourney).filter_by(
             id=str(journey_id), user_id=actor.id
         ).first()
-        if row is None or not self.is_v2(row):
+        if row is None:
             raise OnboardingError("journey_not_found", 404)
         return row
 
@@ -323,12 +316,11 @@ class OnboardingService:
             .order_by(OnboardingJourney.updated_at.desc())
             .all()
         )
-        v2_rows = [row for row in rows if self.is_v2(row)]
-        journeys = [self.output(actor, row) for row in v2_rows]
+        journeys = [self.output(actor, row) for row in rows]
         complete = (
-            bool(v2_rows[0].configured_at)
-            if v2_rows
-            else any(row.configured_at for row in rows)
+            bool(rows[0].configured_at)
+            if rows
+            else bool(preference and preference.initial_setup_completed_at)
         )
         endpoint_configured = self.db.query(StorageEndpoint.id).first() is not None
         storage_access_configured = (
@@ -362,7 +354,7 @@ class OnboardingService:
         identifier = str(UUID(str(journey_id)))
         with self.editing(actor):
             row = self.db.get(OnboardingJourney, identifier)
-            if row is not None and (row.user_id != actor.id or not self.is_v2(row)):
+            if row is not None and row.user_id != actor.id:
                 raise OnboardingError("journey_not_found", 404)
             if row is None:
                 if payload.revision is not None:

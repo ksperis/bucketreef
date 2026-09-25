@@ -11,6 +11,7 @@ from alembic.operations import Operations
 from sqlalchemy.dialects import postgresql
 
 from app.db import OnboardingJourney, OnboardingPreference
+from app.db.utc_datetime import UTCDateTime
 
 
 @pytest.mark.parametrize("dismissed", [False, True])
@@ -28,7 +29,15 @@ def test_upgrade_preserves_only_existing_admin_dismissal_and_downgrades(monkeypa
         connection.execute(sa.text("INSERT INTO app_settings VALUES ('default', :payload)"), {"payload": json.dumps({"onboarding": {"dismissed": dismissed}})})
         monkeypatch.setattr(module, "op", Operations(MigrationContext.configure(connection)))
         module.upgrade()
-        rows = connection.execute(sa.select(OnboardingPreference.__table__).order_by(OnboardingPreference.user_id)).all()
+        preferences = sa.table(
+            "onboarding_preferences",
+            sa.column("user_id", sa.Integer()),
+            sa.column("dismissed", sa.Boolean()),
+            sa.column("updated_at", UTCDateTime()),
+        )
+        rows = connection.execute(
+            sa.select(preferences).order_by(preferences.c.user_id)
+        ).all()
         assert [(row.user_id, row.dismissed) for row in rows] == [(1, dismissed), (2, dismissed)]
         assert all(row.updated_at.tzinfo is not None for row in rows)
         assert sa.inspect(connection).get_indexes("onboarding_journeys")[0]["column_names"] == ["user_id"]

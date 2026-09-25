@@ -98,11 +98,11 @@ Admin Ops credentials that are missing the RGW user/account caps required for
 Manager/Portal provisioning. Partial setup retains checkpoints and requires a
 fresh summary before changed choices can be applied.
 
-`complete` means the newest version-2 journey is configured. For upgrade
-compatibility, an installation with only an older configured onboarding row is
-also treated as complete until a new version-2 journey is started. Completed or
-dismissed onboarding is removed from the normal Admin navigation; General
-settings remains the explicit re-entry point.
+`complete` means the newest version-2 journey is configured. If no current
+journey exists, it may reflect the canonical initial-completion marker imported
+by the database migration from a pre-v2 setup. Runtime code accepts only
+version-2 journeys. Completed or dismissed onboarding is removed from the
+normal Admin navigation; General settings remains the explicit re-entry point.
 
 ## Error contract
 
