@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi import HTTPException
 
+from app.core.domain_errors import S3AccessKeyNotFoundError
 from app.db import User, UserRole
 from app.main import app
 from app.models.s3_user import S3UserAccessKey, S3UserGeneratedKey
@@ -68,6 +69,16 @@ class _FakePortalKeyLockedService(_FakeS3UsersService):
 
     def delete_key(self, user_id: int, access_key: str) -> None:  # noqa: ARG002
         raise ValueError("Cannot delete the interface access key; rotate it instead")
+
+
+class _FakeMissingKeyService(_FakeS3UsersService):
+    def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:  # noqa: ARG002
+        raise S3AccessKeyNotFoundError("Access key not found")
+
+
+class _FakeValidationWithNotFoundWording(_FakeS3UsersService):
+    def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:  # noqa: ARG002
+        raise ValueError("Upstream metadata was not found in a valid format")
 
 
 def _account_context(*, s3_user_id: int | None = 77) -> S3ExecutionContext:
@@ -235,3 +246,25 @@ def test_manager_ceph_keys_rejects_deleting_portal_key(client):
 
     assert response.status_code == 400, response.text
     assert "cannot delete" in response.json()["detail"].lower()
+
+
+def test_manager_ceph_keys_maps_typed_missing_key_to_not_found(client):
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
+    app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = _FakeMissingKeyService
+
+    response = client.put("/api/manager/ceph/keys/AK-MISSING/status", json={"active": False})
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Access key not found"
+
+
+def test_manager_ceph_keys_does_not_infer_not_found_from_validation_text(client):
+    app.dependency_overrides[manager_ceph_keys_router.require_manager_rgw_access_key_management] = lambda: _account_context()
+    app.dependency_overrides[manager_ceph_keys_router.get_current_account_user] = _ui_user
+    app.dependency_overrides[manager_ceph_keys_router.get_manager_ceph_s3_users_service] = _FakeValidationWithNotFoundWording
+
+    response = client.put("/api/manager/ceph/keys/AK-BAD/status", json={"active": False})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Upstream metadata was not found in a valid format"

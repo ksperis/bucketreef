@@ -20,7 +20,16 @@ logger = logging.getLogger(__name__)
 
 
 class RGWAdminError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: Optional[int] = None,
+        error_code: Optional[str] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_code = error_code
 
 
 @dataclass(frozen=True)
@@ -195,7 +204,9 @@ class RGWAdminTransport:
             )
             raise RGWAdminError(
                 f"RGW admin error {resp.status_code} "
-                f"code={error_code or 'unknown'} detail={safe_detail}"
+                f"code={error_code or 'unknown'} detail={safe_detail}",
+                status_code=resp.status_code,
+                error_code=error_code,
             )
         if not self._response_has_body(resp):
             return {}
