@@ -7,6 +7,7 @@ from typing import Any, Optional
 from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import S3UserNotFoundError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     S3UserTag,
@@ -48,11 +49,6 @@ from app.utils.name_ordering import name_order_by
 from app.utils.usage_stats import aggregate_bucket_usage
 
 logger = logging.getLogger(__name__)
-
-
-class S3UserNotFoundError(ValueError):
-    pass
-
 
 def _extract_max_buckets(payload: Any) -> Optional[int]:
     user_payload = extract_rgw_user_payload(payload)

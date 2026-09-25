@@ -5,6 +5,7 @@ from typing import NoReturn
 
 from fastapi import HTTPException, status
 
+from app.core.domain_errors import ResourceNotFoundError
 from app.core.sensitive_data import sanitize_error_detail as _sanitize_error_detail
 
 
@@ -40,6 +41,15 @@ def _upstream_status_code(exc: Exception) -> int:
 
 def raise_bad_request_from_value_error(exc: ValueError) -> NoReturn:
     raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+
+
+def raise_bad_request_or_not_found(exc: ValueError) -> NoReturn:
+    status_code = (
+        status.HTTP_404_NOT_FOUND
+        if isinstance(exc, ResourceNotFoundError)
+        else status.HTTP_400_BAD_REQUEST
+    )
+    raise_http_exception_from_exception(status_code, exc)
 
 
 def raise_http_exception_from_exception(status_code: int, exc: Exception) -> NoReturn:

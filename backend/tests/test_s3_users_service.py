@@ -7,6 +7,7 @@ from typing import Optional
 
 import pytest
 
+from app.core.domain_errors import S3UserNotFoundError
 from app.db import (
     BillingAssignment,
     BillingRateCard,
@@ -32,7 +33,7 @@ from app.models.s3_user import (
 )
 from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.s3_users_service import S3UserNotFoundError, S3UsersService
+from app.services.s3_users_service import S3UsersService
 
 
 class FakeRGWAdmin:

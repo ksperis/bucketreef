@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import User
 from app.models.s3_connection import (
     S3Connection,
@@ -18,7 +19,6 @@ from app.models.tagging import TagDefinitionListResponse
 from app.routers.dependencies import get_current_account_user
 from app.services.audit_service import AuditService
 from app.services.effective_access_service import EffectiveAccessService
-from app.services.s3_connection_endpoint_planner import StorageEndpointNotFoundError
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.managed_private_access_errors import ManagedPrivateAccessCleanupPending
 from app.services.managed_private_access_service import ManagedPrivateAccessService

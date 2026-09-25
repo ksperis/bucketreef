@@ -1,0 +1,19 @@
+# Copyright (c) 2026 Laurent Barbe
+# Licensed under the Apache License, Version 2.0
+"""Shared domain errors used across service and API boundaries."""
+
+
+class ResourceNotFoundError(ValueError):
+    """Raised when a requested BucketReef-managed resource does not exist."""
+
+
+class StorageEndpointNotFoundError(ResourceNotFoundError):
+    pass
+
+
+class S3UserNotFoundError(ResourceNotFoundError):
+    pass
+
+
+class S3AccountNotFoundError(ResourceNotFoundError):
+    pass

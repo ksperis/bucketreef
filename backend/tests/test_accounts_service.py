@@ -6,7 +6,8 @@ from typing import Optional
 import pytest
 from pydantic import ValidationError
 
-from app.services.s3_accounts_service import S3AccountNotFoundError, S3AccountsService
+from app.core.domain_errors import S3AccountNotFoundError
+from app.services.s3_accounts_service import S3AccountsService
 from app.db import (
     BillingAssignment,
     BillingRateCard,

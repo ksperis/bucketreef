@@ -1,7 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import logging
-from typing import NoReturn
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from sqlalchemy.orm import Session
@@ -24,13 +23,9 @@ from app.services.identity_security_policy import (
     require_admin_interactive_session,
     require_admin_sensitive_action,
 )
-from app.services.storage_endpoints_service import (
-    StorageEndpointNotFoundError,
-    StorageEndpointsService,
-    get_storage_endpoints_service,
-)
+from app.services.storage_endpoints_service import StorageEndpointsService, get_storage_endpoints_service
 from app.services.tags_service import serialize_tag_summaries
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import raise_bad_request_or_not_found
 
 router = APIRouter(prefix="/admin/storage-endpoints", tags=["admin-storage-endpoints"])
 logger = logging.getLogger(__name__)
@@ -38,15 +33,6 @@ logger = logging.getLogger(__name__)
 
 def get_service(db: Session = Depends(get_db)) -> StorageEndpointsService:
     return get_storage_endpoints_service(db)
-
-
-def _raise_service_error(exc: ValueError) -> NoReturn:
-    status_code = (
-        status.HTTP_404_NOT_FOUND
-        if isinstance(exc, StorageEndpointNotFoundError)
-        else status.HTTP_400_BAD_REQUEST
-    )
-    raise_http_exception_from_exception(status_code, exc)
 
 
 @router.get("", response_model=list[StorageEndpoint])
@@ -77,7 +63,7 @@ def detect_storage_endpoint_features(
     try:
         return service.detect_features(payload)
     except ValueError as exc:
-        _raise_service_error(exc)
+        raise_bad_request_or_not_found(exc)
 
 
 @router.get("/{endpoint_id}", response_model=StorageEndpoint)
@@ -90,7 +76,7 @@ def get_storage_endpoint(
     try:
         return service.get_endpoint(endpoint_id, include_admin_ops_permissions=include_admin_ops_permissions)
     except ValueError as exc:
-        _raise_service_error(exc)
+        raise_bad_request_or_not_found(exc)
 
 
 @router.post("", response_model=StorageEndpoint, status_code=status.HTTP_201_CREATED)
@@ -122,7 +108,7 @@ def create_storage_endpoint(
         background_tasks.add_task(run_initial_healthchecks, endpoint_id=created.id)
         return created
     except ValueError as exc:
-        _raise_service_error(exc)
+        raise_bad_request_or_not_found(exc)
 
 
 @router.put("/{endpoint_id}", response_model=StorageEndpoint)
@@ -153,7 +139,7 @@ def update_storage_endpoint(
         )
         return updated
     except ValueError as exc:
-        _raise_service_error(exc)
+        raise_bad_request_or_not_found(exc)
 
 
 @router.put("/{endpoint_id}/tags", response_model=StorageEndpoint)
@@ -176,7 +162,7 @@ def update_storage_endpoint_tags(
         )
         return updated
     except ValueError as exc:
-        _raise_service_error(exc)
+        raise_bad_request_or_not_found(exc)
 
 
 @router.put("/{endpoint_id}/default", response_model=StorageEndpoint)
@@ -201,7 +187,7 @@ def set_default_storage_endpoint(
         )
         return updated
     except ValueError as exc:
-        _raise_service_error(exc)
+        raise_bad_request_or_not_found(exc)
 
 
 @router.delete("/{endpoint_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -221,4 +207,4 @@ def delete_storage_endpoint(
             entity_id=str(endpoint_id),
         )
     except ValueError as exc:
-        _raise_service_error(exc)
+        raise_bad_request_or_not_found(exc)
