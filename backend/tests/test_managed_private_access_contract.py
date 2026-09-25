@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 import pytest
+from fastapi import status
 from pydantic import ValidationError
 
 from app.main import app
@@ -9,6 +10,8 @@ from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
     ManagedRGWUserPrivateAccessRequest,
 )
+from app.routers.manager.private_access import _translate_error
+from app.services.managed_private_access_errors import ManagedPrivateAccessNotFound
 
 
 @pytest.mark.parametrize(
@@ -68,3 +71,10 @@ def test_openapi_response_has_no_secret_or_generated_key_model():
     assert set(response_schema.get("properties", {})) == {"provisioning_id", "status", "connection"}
     assert "/api/manager/private-access/rgw-user" in schema["paths"]
     assert "/api/manager/private-access/provisionings/{provisioning_id}/retry-cleanup" in schema["paths"]
+
+
+def test_missing_cleanup_error_maps_to_not_found():
+    translated = _translate_error(ManagedPrivateAccessNotFound("Managed cleanup not found"))
+
+    assert translated.status_code == status.HTTP_404_NOT_FOUND
+    assert translated.detail == "Managed cleanup not found"

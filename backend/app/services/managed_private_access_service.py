@@ -24,6 +24,7 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessConflict,
     ManagedPrivateAccessError,
     ManagedPrivateAccessForbidden,
+    ManagedPrivateAccessNotFound,
 )
 from app.services.managed_private_access_sources import (
     ManagedPrivateAccessDestination,
@@ -284,7 +285,7 @@ class ManagedPrivateAccessService:
             .first()
         )
         if provisioning is None:
-            raise KeyError("Managed private access cleanup not found")
+            raise ManagedPrivateAccessNotFound("Managed private access cleanup not found")
         self.delete_owned_connection(user=user, connection_id=connection_id)
 
     def retry_provisioning_cleanup(self, *, user: User, provisioning_id: int) -> None:
@@ -300,7 +301,7 @@ class ManagedPrivateAccessService:
             .first()
         )
         if provisioning is None:
-            raise KeyError("Managed private access provisioning cleanup not found")
+            raise ManagedPrivateAccessNotFound("Managed private access provisioning cleanup not found")
         provisioning.state = "deleting"
         provisioning.updated_at = utcnow()
         self.db.commit()

@@ -26,6 +26,7 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessConflict,
     ManagedPrivateAccessError,
     ManagedPrivateAccessForbidden,
+    ManagedPrivateAccessNotFound,
 )
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 
@@ -33,6 +34,8 @@ router = APIRouter(prefix="/manager/private-access", tags=["manager-private-acce
 
 
 def _translate_error(exc: ManagedPrivateAccessError) -> HTTPException:
+    if isinstance(exc, ManagedPrivateAccessNotFound):
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=sanitize_error_detail(str(exc)))
     if isinstance(exc, ManagedPrivateAccessForbidden):
         return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=sanitize_error_detail(str(exc)))
     if isinstance(exc, ManagedPrivateAccessCleanupPending):
@@ -88,8 +91,6 @@ def retry_private_access_cleanup(
 ) -> Response:
     try:
         ManagedPrivateAccessService(db).retry_cleanup(user=user, connection_id=connection_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Managed cleanup not found") from exc
     except ManagedPrivateAccessError as exc:
         raise _translate_error(exc) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -106,8 +107,6 @@ def retry_private_access_provisioning_cleanup(
             user=user,
             provisioning_id=provisioning_id,
         )
-    except KeyError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Managed provisioning cleanup not found") from exc
     except ManagedPrivateAccessError as exc:
         raise _translate_error(exc) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)

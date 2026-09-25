@@ -39,6 +39,7 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessConflict,
     ManagedPrivateAccessError,
     ManagedPrivateAccessForbidden,
+    ManagedPrivateAccessNotFound,
 )
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services import app_settings_service
@@ -588,6 +589,17 @@ def test_failed_compensation_is_durable_cleanup_pending(db_session, monkeypatch)
         action="managed_private_access.compensation.retry.success"
     ).one()
     assert "NEVER-IN-RESPONSE" not in (retry_audit.message or "")
+
+
+def test_retry_cleanup_uses_typed_not_found_errors(db_session):
+    user = _user(db_session, email="missing-cleanup@example.test")
+    service = ManagedPrivateAccessService(db_session)
+
+    with pytest.raises(ManagedPrivateAccessNotFound, match="cleanup not found"):
+        service.retry_cleanup(user=user, connection_id=999)
+
+    with pytest.raises(ManagedPrivateAccessNotFound, match="provisioning cleanup not found"):
+        service.retry_provisioning_cleanup(user=user, provisioning_id=999)
 
 
 def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkeypatch):
