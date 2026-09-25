@@ -130,7 +130,7 @@ def test_release_gates_cover_all_architectures_and_artifacts():
     from plan import select
     from render_gitlab import render
     from distribution import REQUIRED
-    ci = render({**select("release", []), "sha": "a" * 40})
+    ci = render({**select("prepare-release", []), "sha": "a" * 40})
     assert ci[".multiarch-image-scan"]["parallel"]["matrix"] == [{"IMAGE_ARCH": ["amd64", "arm64"]}]
     assert set(REQUIRED) <= {need["job"] for need in ci["release-ready"]["needs"]}
     assert "release-ready" in {need["job"] for need in ci["finalize-release"]["needs"]}

@@ -102,7 +102,7 @@ def test_ci_builds_scans_and_promotes_scheduler_image():
     from plan import select
     from render_gitlab import render
     qualification = render({**select("qualify", []), "sha": "a" * 40})
-    release = render({**select("release", []), "sha": "a" * 40})
+    release = render({**select("prepare-release", []), "sha": "a" * 40})
     assert "build-scheduler" in qualification
     assert "scheduler-image-vuln-scan" in qualification
     assert "scheduler-release-image-vuln-scan" in release
