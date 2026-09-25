@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-09 canonical onboarding journeys
+
+Migration `0131_canonical_onboarding_journeys` removes pre-v2 onboarding
+journey rows. A configured historical journey is reduced to the per-admin
+`initial_setup_completed_at` marker so the setup assistant stays completed
+until that administrator starts a new current journey. Historical incomplete
+journeys were already hidden by the current UI and are discarded.
+
+After the migration, runtime onboarding code accepts only version-2 journey
+payloads and no longer parses older journey formats. Downgrade removes the
+completion marker and cannot reconstruct deleted historical drafts.
+
 ## 2026-09 canonical S3 identity whitespace
 
 Migration `0127_canonical_s3_identity_whitespace` trims surrounding whitespace

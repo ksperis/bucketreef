@@ -153,17 +153,18 @@ def account_feature_config(*, iam=True):
     )
 
 
-def test_status_is_per_user_and_legacy_configured_journey_counts_until_v2_starts(guided, db_session):
+def test_status_is_per_user_and_imported_completion_counts_until_new_journey_starts(guided, db_session):
     user = actor(db_session)
     other = actor(db_session)
-    legacy = OnboardingJourney(
-        id=str(uuid4()),
-        user_id=user.id,
-        draft_json=json.dumps({"workspace": "manager"}),
-        resources_json="{}",
-        configured_at=utcnow(),
+    from app.db import OnboardingPreference
+
+    db_session.add(
+        OnboardingPreference(
+            user_id=user.id,
+            dismissed=False,
+            initial_setup_completed_at=utcnow(),
+        )
     )
-    db_session.add(legacy)
     db_session.commit()
 
     assert guided.status(user).complete is True
