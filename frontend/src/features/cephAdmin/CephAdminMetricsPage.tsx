@@ -31,10 +31,6 @@ import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 
 type CephAdminMetricsTab = "storage" | "usage-composition" | "traffic";
 
-function extractError(err: unknown, fallback: string): string {
-  return extractApiError(err, fallback);
-}
-
 export default function CephAdminMetricsPage() {
   const {
     selectedEndpointId,
@@ -82,7 +78,7 @@ export default function CephAdminMetricsPage() {
       setUsageStatsAggregate(data.aggregate);
     } catch (err) {
       setUsageStatsAggregate(null);
-      setUsageStatsError(extractError(err, "Unable to load cluster usage composition."));
+      setUsageStatsError(extractApiError(err, "Unable to load cluster usage composition."));
     } finally {
       setUsageStatsLoading(false);
     }
@@ -108,7 +104,7 @@ export default function CephAdminMetricsPage() {
       await loadUsageStatsAggregate();
     } catch (err) {
       if (!isCancelledError(err)) {
-        setUsageStatsError(extractError(err, "Unable to recalculate cluster usage composition."));
+        setUsageStatsError(extractApiError(err, "Unable to recalculate cluster usage composition."));
       }
     } finally {
       if (usageStatsAbortRef.current === controller) {
@@ -161,7 +157,7 @@ export default function CephAdminMetricsPage() {
       } catch (err) {
         if (!cancelled) {
           setStorage(null);
-          setStorageError(extractError(err, "Unable to load cluster storage metrics."));
+          setStorageError(extractApiError(err, "Unable to load cluster storage metrics."));
         }
       } finally {
         if (!cancelled) {
@@ -198,7 +194,7 @@ export default function CephAdminMetricsPage() {
       } catch (err) {
         if (!cancelled) {
           setTraffic(null);
-          setTrafficError(extractError(err, "Unable to retrieve RGW logs."));
+          setTrafficError(extractApiError(err, "Unable to retrieve RGW logs."));
         }
       } finally {
         if (!cancelled) {

@@ -72,8 +72,6 @@ import {
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import BucketCreateWorkflow from "./BucketCreateWorkflow";
 
-const extractError = (err: unknown, fallback = "Unexpected error"): string => extractApiError(err, fallback);
-
 function QuotaBar({ usedBytes, quotaBytes }: { usedBytes?: number | null; quotaBytes?: number | null }) {
   if (!quotaBytes || quotaBytes <= 0) {
     return <span className="ui-body text-slate-500 dark:text-slate-400">-</span>;
@@ -411,7 +409,7 @@ export default function BucketsPage() {
       } catch (err) {
         setFeatureTooltipState((prev) => ({
           ...prev,
-          [key]: { status: "error", message: extractError(err, "Unable to load bucket feature details.") },
+          [key]: { status: "error", message: extractApiError(err, "Unable to load bucket feature details.") },
         }));
       } finally {
         delete featureTooltipInflightRef.current[key];
@@ -512,7 +510,7 @@ export default function BucketsPage() {
         setBuckets(enrichedData);
       } catch (err) {
         if (fetchRequestRef.current !== requestId) return;
-        setError(extractError(err, "Unable to update selected bucket details."));
+        setError(extractApiError(err, "Unable to update selected bucket details."));
       } finally {
         if (fetchRequestRef.current === requestId) {
           setEnrichingColumns(false);
@@ -520,7 +518,7 @@ export default function BucketsPage() {
       }
     } catch (err) {
       if (fetchRequestRef.current !== requestId || controller.signal.aborted) return;
-      setError(extractError(err, "Unable to load buckets from the storage endpoint."));
+      setError(extractApiError(err, "Unable to load buckets from the storage endpoint."));
       setBaseLoadFailed(true);
       setDataStale(true);
       setEnrichingColumns(false);
@@ -628,7 +626,7 @@ export default function BucketsPage() {
       await fetchBuckets(accountIdForApi ?? null);
       return { created: true };
     } catch (err) {
-      setActionError(extractError(err, "Unable to create the bucket."));
+      setActionError(extractApiError(err, "Unable to create the bucket."));
       return { created: false };
     } finally {
       setCreating(false);
@@ -669,7 +667,7 @@ export default function BucketsPage() {
       await fetchBuckets(accountIdForApi ?? null);
       return;
     } catch (err) {
-      const msg = extractError(err, `Unable to delete bucket '${name}'.`);
+      const msg = extractApiError(err, `Unable to delete bucket '${name}'.`);
       const notEmpty = msg.toLowerCase().includes("not empty");
       const conflict = isApiError(err) && err.response?.status === 409;
       if (notEmpty || conflict) {
