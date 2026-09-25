@@ -43,13 +43,27 @@ class GitHub:
             raise RuntimeError(f"GitHub {method} {target} failed with HTTP {error.code}") from None
 
 
-def resolve_tag(api, tag: str) -> str:
-    ref = api.request(f"git/ref/tags/{tag}")["object"]
+def resolve_tag(api, tag: str, *, missing_ok: bool = False) -> str | None:
+    kwargs = {"missing_ok": True} if missing_ok else {}
+    ref_record = api.request(f"git/ref/tags/{tag}", **kwargs)
+    if ref_record is None:
+        return None
+    ref = ref_record["object"]
     while ref["type"] == "tag":
         ref = api.request(f"git/tags/{ref['sha']}")["object"]
     if ref["type"] != "commit":
         raise RuntimeError("Release tag does not resolve to a commit")
     return ref["sha"]
+
+
+def ensure_tag(api, tag: str, sha: str) -> None:
+    existing = resolve_tag(api, tag, missing_ok=True)
+    if existing is not None and existing != sha:
+        raise RuntimeError("GitHub release tag points to another commit")
+    if existing is None:
+        api.request("git/refs", method="POST", data={"ref": f"refs/tags/{tag}", "sha": sha})
+    if resolve_tag(api, tag) != sha:
+        raise RuntimeError("GitHub release tag was not created at the validated commit")
 
 
 def publish(api, version: str, sha: str, directory: Path, latest: bool, notes: str, *, finalize: bool = True):

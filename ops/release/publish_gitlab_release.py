@@ -16,7 +16,7 @@ from publish_github_release import ASSETS, REPOSITORY
 from release_notes import ROOT, version_tuple
 
 
-def resolve_git_tag(version: str, *, root=ROOT, remote="origin") -> str:
+def resolve_git_tag(version: str, *, root=ROOT, remote="origin", missing_ok: bool = False) -> str | None:
     """GitLab 18.1 job tokens support Git transport, but not the Tags API."""
     version_tuple(version)
     ref = f"refs/tags/v{version}"
@@ -24,6 +24,8 @@ def resolve_git_tag(version: str, *, root=ROOT, remote="origin") -> str:
         ["git", "ls-remote", "--exit-code", remote, ref, ref + "^{}"],
         cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
     )
+    if result.returncode == 2 and missing_ok:
+        return None
     if result.returncode:
         raise RuntimeError("Unable to verify the existing GitLab release tag")
     refs = dict(line.split()[::-1] for line in result.stdout.splitlines())
@@ -56,21 +58,30 @@ def publish(api, version: str, sha: str, notes: str, *, root=ROOT, remote="origi
     if not re.fullmatch(r"[0-9a-f]{40}", sha) or not notes.strip():
         raise ValueError("Expected full commit SHA and non-empty release notes")
     tag = f"v{version}"
-    # Do not let release creation implicitly create a tag at a different ref.
-    if resolve_git_tag(version, root=root, remote=remote) != sha:
+    existing_tag = resolve_git_tag(version, root=root, remote=remote, missing_ok=True)
+    if existing_tag is not None and existing_tag != sha:
         raise RuntimeError("GitLab tag SHA differs from the validated commit")
     links = [{"name": name, "url": f"https://github.com/{REPOSITORY}/releases/download/{tag}/{name}", "link_type": "package"} for name in ASSETS]
     release = api.request(f"releases/{tag}", missing_ok=True)
     if release is None:
-        release = api.request("releases", method="POST", data={
+        payload = {
             "tag_name": tag, "name": tag, "description": notes,
             "assets": {"links": links},
+        }
+        if existing_tag is None:
+            # GitLab creates the stable tag at this exact commit as part of the
+            # release creation. This keeps the tag/publication window minimal.
+            payload["ref"] = sha
+        release = api.request("releases", method="POST", data={
+            **payload,
         })
     actual_links = {link["name"]: (link["url"], link.get("link_type")) for link in release["assets"]["links"]}
     if (release["description"] != notes or release["name"] != tag
         or release["commit"]["id"] != sha
         or any(actual_links.get(link["name"]) != (link["url"], link["link_type"]) for link in links)):
         raise RuntimeError("Published GitLab release differs; refusing to replace it")
+    if resolve_git_tag(version, root=root, remote=remote) != sha:
+        raise RuntimeError("GitLab release tag was not created at the validated commit")
     return release["_links"]["self"]
 
 

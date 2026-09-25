@@ -21,7 +21,8 @@ integration and changes to CI select all relevant checks conservatively.
 | Protected GitLab main/dev push | Compare to the last successful integration on that branch, or the current SHA parent when no baseline exists, then revalidate selected work |
 | Effective version metadata change on main | Complete qualification, including Ceph and all official images |
 | Web pipeline on main, `CI_MODE=qualify` | Complete qualification of the pipeline's exact main SHA, including docs-only revisions, plus the release preflight |
-| Protected stable `vX.Y.Z` push | Check qualification, rescan and distribute existing artifacts; no image rebuild |
+| Web pipeline on main, `CI_MODE=prepare-release` | Promote and validate the exact qualified SHA, then create stable tags/releases only after `release-ready` |
+| Protected stable `vX.Y.Z` push | Verify that the tag belongs to an already-published matching GitHub/GitLab release; no build or distribution |
 | Schedule on main, `CI_MODE=regression` | All autonomous checks and Ceph, without producing official images |
 | Schedule on main, `CI_MODE=security` | Dependency/secret checks and both architectures of the latest qualified public images |
 | Schedule on main, `CI_MODE=secrets-history` | Full-history secret scan only |
@@ -33,7 +34,7 @@ Version detection compares version fields, rather than treating every lockfile
 edit as a new release. Cancellation or failure does not advance the integration
 baseline: the next integration compares against the previous completed successful
 parent and child pipeline with verifiable `integration.json`. A docs deployment,
-maintenance run or release tag cannot become that baseline. The read API failing
+maintenance run or release tag verification cannot become that baseline. The read API failing
 is an error. Integration and manual qualification always carry an explicit baseline;
 when no successful baseline exists yet, they use the current commit's parent.
 Only the scheduled `secrets-history` profile enables the detector's full-history mode.
@@ -128,7 +129,8 @@ failure diagnostics.
 One Trivy JSON scan produces table and CycloneDX output, preserving HIGH/CRITICAL,
 ignore-unfixed and reviewed `.trivyignore` exceptions. Qualification records six
 architecture-specific scan receipts with job IDs, exact image inputs, report
-hashes, tool versions and timestamps. Release pipelines rescan the same digests.
+hashes, tool versions and timestamps. `prepare-release` pipelines rescan the same
+digests before any stable tag exists.
 Secret detection requires a successful analyzer report and zero unresolved findings.
 Public PostgreSQL CI URLs and synthetic AWS identifiers used in redaction tests
 and screenshots are exempt only when the detector rule, file and complete
@@ -164,11 +166,12 @@ does not apply them remotely:
 4. Configure the environment-scoped secrets above, token expiration/rotation,
    Ceph lab isolation and Cloudflare permissions. The first new pipeline fails
    closed until the read token and required lab configuration are present.
-5. Keep explicit, fast-forward synchronization of main/dev and matching tags
-   between GitHub and GitLab. Preserve commit SHAs; never recreate commits or move
-   published tags. After qualification and `release-preflight` succeed, use
-   `ops/release/tag.py X.Y.Z` to verify both `main` refs and push GitHub first,
-   then GitLab idempotently.
+5. Keep explicit, fast-forward synchronization of main/dev between GitHub and
+   GitLab. Preserve commit SHAs; never recreate commits or move published tags.
+   After qualification and `release-preflight` succeed, start a protected web
+   pipeline on the same `main` SHA with `CI_MODE=prepare-release`. The finalizer
+   creates the GitHub tag and the GitLab Release/tag only after all distribution
+   checks pass. The former manual tagging helper is exceptional-only.
 6. Keep qualification and distribution manifests, reports, bundles and referenced
    image digests indefinitely (`expire_in: never` on evidence jobs). Exclude their
    registry tags/manifests from cleanup. Back up GitLab artifacts and registry;

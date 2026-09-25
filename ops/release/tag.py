@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create and push one immutable stable release tag to GitHub, then GitLab."""
+"""Exceptional manual tag helper. Normal releases use CI_MODE=prepare-release."""
 from __future__ import annotations
 
 import argparse

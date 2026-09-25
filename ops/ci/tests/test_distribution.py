@@ -67,7 +67,9 @@ def test_qualification_requires_completed_pipeline_and_unchanged_registry(monkey
 
 @pytest.mark.parametrize('stage', expected_names(dist.REQUIRED))
 @pytest.mark.parametrize('status', ['failed', 'canceled', 'skipped', 'missing'])
-def test_global_distribution_gate_requires_every_job_and_matrix_member(monkeypatch, stage, status):
+def test_global_distribution_gate_requires_every_job_and_matrix_member(monkeypatch, tmp_path, stage, status):
+    monkeypatch.chdir(tmp_path)
+    dist.write('ci-plan.json', {'profile':'prepare-release','sha':SHA})
     monkeypatch.setenv('CI_PIPELINE_ID', '20')
     monkeypatch.setenv('RELEASE_VERSION', '1.2.3')
     monkeypatch.setattr(dist, 'source_record', qualified)
@@ -75,7 +77,7 @@ def test_global_distribution_gate_requires_every_job_and_matrix_member(monkeypat
     jobs = [j for j in jobs if status != 'missing' or j['name'] != stage]
     for job in jobs:
         if job['name'] == stage: job['status'] = status
-    api = SimpleNamespace(jobs=lambda _: jobs, get=lambda _: {'sha':SHA,'ref':'v1.2.3','source':'parent_pipeline'})
+    api = SimpleNamespace(jobs=lambda _: jobs, get=lambda _: {'sha':SHA,'ref':'main','source':'parent_pipeline'})
     monkeypatch.setattr(dist, 'verify_public', lambda: pytest.fail('Registry checks must follow the job gate'))
     with pytest.raises(ValueError): dist.ready(api)
 
@@ -96,8 +98,24 @@ def test_finalization_rechecks_artifacts_before_any_public_mutation(monkeypatch,
     dist.write('distribution-ready.json', {'files': {'bundle': 'original'}})
     monkeypatch.setattr(dist, 'GitLabAPI', lambda: None)
     monkeypatch.setattr(dist, 'ready', lambda _: {'files': {'bundle': 'changed'}})
+    monkeypatch.setattr(dist, 'ensure_github_tag', lambda *args: pytest.fail('Premature stable tag creation'))
     monkeypatch.setattr(dist, 'github', lambda **kwargs: pytest.fail('Premature GitHub publication'))
     with pytest.raises(ValueError, match='stale'): dist.finalize()
+
+
+def test_finalization_rechecks_both_main_refs_before_creating_tag(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    proof = {'fixture':True, 'bundles':{'files':{}}}
+    dist.write('distribution-ready.json', proof)
+    for name, value in {'RELEASE_VERSION':'1.2.3', 'CI_COMMIT_SHA':SHA, 'GITHUB_RELEASE_TOKEN':'fixture',
+                        'CI_API_V4_URL':'fixture','CI_PROJECT_ID':'1','CI_JOB_TOKEN':'fixture'}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(dist, 'GitLabAPI', lambda: object())
+    monkeypatch.setattr(dist, 'ready', lambda _: proof)
+    monkeypatch.setattr(dist, 'verify_remote_main', lambda *args: (_ for _ in ()).throw(RuntimeError('main moved')))
+    monkeypatch.setattr(dist, 'ensure_github_tag', lambda *args: pytest.fail('Stable tag must follow the main check'))
+    with pytest.raises(RuntimeError, match='main moved'):
+        dist.finalize()
 
 
 def test_interrupted_finalization_can_resume_and_older_retries_do_not_move_aliases(monkeypatch, tmp_path):
@@ -112,8 +130,10 @@ def test_interrupted_finalization_can_resume_and_older_retries_do_not_move_alias
     Path('dist/release-notes/github.md').write_text('Notes')
     monkeypatch.setattr(dist, 'GitLabAPI', lambda: None)
     monkeypatch.setattr(dist, 'ready', lambda _: proof)
+    monkeypatch.setattr(dist, 'verify_remote_main', lambda *args: None)
     monkeypatch.setattr(dist, 'verify_public_release', lambda *args, **kwargs: None)
     calls = []
+    monkeypatch.setattr(dist, 'ensure_github_tag', lambda *args: calls.append('tag'))
     monkeypatch.setattr(dist, 'github', lambda **kwargs: calls.append('github'))
     def fail(*args):
         calls.append('gitlab')
@@ -121,11 +141,41 @@ def test_interrupted_finalization_can_resume_and_older_retries_do_not_move_alias
     monkeypatch.setattr(dist, 'publish_gitlab', fail)
     monkeypatch.setattr(dist, 'copy_image', lambda *args, **kwargs: calls.append('alias'))
     with pytest.raises(RuntimeError): dist.finalize()
-    assert calls == ['github', 'gitlab']
+    assert calls == ['tag', 'github', 'gitlab']
     monkeypatch.setattr(dist, 'publish_gitlab', lambda *args: calls.append('gitlab'))
     monkeypatch.setattr(dist, 'published_versions', lambda *args: ['1.2.3','1.2.10'])
     dist.finalize()
-    assert calls == ['github','gitlab','github','gitlab']
+    assert calls == ['tag','github','gitlab','tag','github','gitlab']
+
+
+def test_tag_pipeline_only_accepts_an_already_published_matching_release(monkeypatch):
+    for name, value in {'RELEASE_VERSION':'1.2.3', 'CI_COMMIT_SHA':SHA,
+                        'CI_API_V4_URL':'fixture','CI_PROJECT_ID':'1','CI_JOB_TOKEN':'fixture'}.items():
+        monkeypatch.setenv(name, value)
+    state = {'github': None, 'gitlab': None}
+
+    class GitHub:
+        def request(self, path, **kwargs):
+            assert path == 'releases/tags/v1.2.3'
+            return state['github']
+
+    class GitLab:
+        def request(self, path, **kwargs):
+            assert path == 'releases/v1.2.3'
+            return state['gitlab']
+
+    monkeypatch.setattr(dist, 'GitHub', lambda token: GitHub())
+    monkeypatch.setattr(dist, 'GitLab', lambda *args: GitLab())
+    monkeypatch.setattr(dist, 'resolve_tag', lambda *args, **kwargs: SHA)
+    monkeypatch.setattr(dist, 'resolve_git_tag', lambda *args, **kwargs: SHA)
+
+    with pytest.raises(RuntimeError, match='GitHub stable tag'):
+        dist.verify_release_tag()
+    state['github'] = {'draft':False, 'prerelease':False, 'name':'v1.2.3'}
+    with pytest.raises(RuntimeError, match='GitLab stable tag'):
+        dist.verify_release_tag()
+    state['gitlab'] = {'name':'v1.2.3', 'commit':{'id':SHA}}
+    dist.verify_release_tag()
 
 
 def test_public_release_verification_retries_only_transient_visibility(monkeypatch, tmp_path):
@@ -157,7 +207,7 @@ def test_public_release_verification_retries_only_transient_visibility(monkeypat
 
 
 def test_child_graphs_cover_every_profile_without_optional_or_dangling_edges():
-    for profile in ('qualify', 'release', 'docs', 'recover-release', 'security', 'regression', 'secrets-history', 'bootstrap-release-bundles'):
+    for profile in ('qualify', 'prepare-release', 'release', 'docs', 'recover-release', 'security', 'regression', 'secrets-history', 'bootstrap-release-bundles'):
         plan = {**select(profile, []), 'sha': SHA, 'parent_id': 9}
         if profile == 'bootstrap-release-bundles':
             plan['bootstrap_version'] = '1.2.3'
@@ -171,8 +221,14 @@ def test_child_graphs_cover_every_profile_without_optional_or_dangling_edges():
             assert set(PUBLIC) <= set(config)
             assert 'ceph-functional-tests' in config
             assert config['integration-ready']['artifacts']['expire_in'] == 'never'
-        if profile == 'release':
+        if profile == 'prepare-release':
             assert not any(name.startswith('build-') for name in config)
+            assert 'release-ready' in config and 'finalize-release' in config
+            assert 'prepare-github-release' not in config
+        if profile == 'release':
+            assert 'finalize-release' not in config
+            assert 'verify-release-tag' in config
+            assert 'publish-candidate-images' not in config
         if profile == 'recover-release':
             assert 'finalize-release' not in config
 
@@ -328,6 +384,7 @@ def test_global_gate_records_files_and_rechecks_original_qualification(monkeypat
     monkeypatch.setenv('CI_COMMIT_SHA',SHA)
     monkeypatch.setenv('CI_PIPELINE_ID','20')
     record = qualified()
+    dist.write('ci-plan.json', {'profile':'prepare-release','sha':SHA})
     dist.write('qualification.json', record)
     for path in dist.files():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -335,7 +392,7 @@ def test_global_gate_records_files_and_rechecks_original_qualification(monkeypat
     bundles = {'schema':1,'sha':SHA,'version':'1.2.3','digest':DIGEST,'files':bundle_registry.hashes(Path('dist/release'))}
     dist.write('bundle-distribution.json', bundles)
     jobs = [{'id':i,'name':name,'status':'success','commit':{'id':SHA}} for i,name in enumerate(expected_names(dist.REQUIRED))]
-    api = SimpleNamespace(jobs=lambda _:jobs, get=lambda _: {'sha':SHA,'ref':'v1.2.3','source':'parent_pipeline'})
+    api = SimpleNamespace(jobs=lambda _:jobs, get=lambda _: {'sha':SHA,'ref':'main','source':'parent_pipeline'})
     monkeypatch.setattr(dist, 'find', lambda api,sha,pipeline: copy.deepcopy(record))
     monkeypatch.setattr(dist, 'inspect', lambda *args,**kwargs: IMAGE)
     proof = dist.ready(api)

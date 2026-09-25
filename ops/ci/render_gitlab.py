@@ -18,12 +18,16 @@ def render(plan):
     source = templates()
     names = set(plan["jobs"])
     profile = plan["profile"]
-    if profile == "release":
+    if profile == "prepare-release":
         # The same list is checked against real GitLab job results before release.
         import sys
         sys.path.insert(0, str(ROOT / "ops/release"))
         from distribution import REQUIRED
         names = {*REQUIRED, "release-ready", "finalize-release"}
+    elif profile == "release":
+        # Stable tags are created by finalize-release. A tag pipeline only verifies
+        # the already-published release and never distributes artifacts.
+        names = {"release-tag-metadata", "verify-release-tag"}
     elif profile == "recover-release":
         names = {"recover-gitlab-release"}
     elif profile == "release-history":

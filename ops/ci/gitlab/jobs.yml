@@ -54,22 +54,34 @@ release-tag-metadata:
     GIT_DEPTH: '0'
   before_script:
   - apt-get update && apt-get install --yes --no-install-recommends coreutils git
-  - case "$CI_COMMIT_TAG" in v0.*.1) python3 -m pip install -r backend/requirements.txt ;; esac
+  - release_version="${CI_COMMIT_TAG#v}"; if [ -z "$CI_COMMIT_TAG" ]; then release_version=$(python3 -c 'import json; print(json.load(open("frontend/package.json"))["version"])'); fi; case "$release_version" in 0.*.1) python3 -m pip install -r backend/requirements.txt ;; esac
   script:
   - |-
     release_tag="${CI_COMMIT_TAG:-}"
-    if ! printf '%s\n' "$release_tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-      echo "Release tag must match vX.Y.Z"
-      exit 1
+    if [ -n "$release_tag" ]; then
+      if ! printf '%s\n' "$release_tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+        echo "Release tag must match vX.Y.Z"
+        exit 1
+      fi
+      release_version="${release_tag#v}"
+    else
+      if [ "$CI_COMMIT_BRANCH" != "$CI_DEFAULT_BRANCH" ]; then
+        echo "Release preparation must run on $CI_DEFAULT_BRANCH"
+        exit 1
+      fi
+      release_version=$(python3 -c 'import json; print(json.load(open("frontend/package.json"))["version"])')
     fi
-
-    release_version="${release_tag#v}"
     release_minor="${release_version%.*}"
     python3 ops/release/check_version.py "$release_version"
     python3 ops/release/schema_baseline.py "$release_version" --check
     git fetch --quiet origin "$CI_DEFAULT_BRANCH"
-    if ! git merge-base --is-ancestor "$CI_COMMIT_SHA" FETCH_HEAD; then
-      echo "Release tag must point to a commit included in $CI_DEFAULT_BRANCH"
+    if [ -n "$release_tag" ]; then
+      if ! git merge-base --is-ancestor "$CI_COMMIT_SHA" FETCH_HEAD; then
+        echo "Release tag must point to a commit included in $CI_DEFAULT_BRANCH"
+        exit 1
+      fi
+    elif [ "$(git rev-parse FETCH_HEAD)" != "$CI_COMMIT_SHA" ]; then
+      echo "Release preparation requires the current $CI_DEFAULT_BRANCH commit"
       exit 1
     fi
 
@@ -678,21 +690,6 @@ publish-candidate-images:
   resource_group: public-release-candidates
   script:
   - python3 ops/release/distribution.py candidates
-prepare-github-release:
-  image: python:3.12-alpine
-  before_script:
-  - apk add --no-cache skopeo git
-  environment:
-    name: release-public
-    action: prepare
-  stage: promote
-  needs:
-  - release-tag-metadata
-  - release-bundles
-  - publish-helm-release
-  resource_group: public-release
-  script:
-  - python3 ops/release/distribution.py draft
 release-public-images-check:
   stage: deploy
   image: python:3.12-alpine
@@ -724,7 +721,6 @@ release-ready:
   - scheduler-release-image-vuln-scan
   - publish-candidate-images
   - publish-helm-release
-  - prepare-github-release
   - release-public-images-check
   - release-kind-onboarding-smoke
   - release-bundle-smoke
@@ -756,6 +752,18 @@ finalize-release:
   resource_group: public-release
   script:
   - python3 ops/release/distribution.py finalize
+verify-release-tag:
+  stage: deploy
+  image: python:3.12-alpine
+  needs:
+  - release-tag-metadata
+  before_script:
+  - apk add --no-cache git
+  environment:
+    name: ci-public-distribution
+    action: verify
+  script:
+  - python3 ops/release/distribution.py verify-release-tag
 publish-release-bundles:
   stage: promote
   image: python:3.12-alpine
