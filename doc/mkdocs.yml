@@ -176,3 +176,5 @@ nav:
           - API reference: developer/api-reference.md
           - Listings feature matrix: developer/listings-feature-matrix.md
           - Table presentation inventory: developer/listing-presentation-inventory.md
+          - Interface convergence implementation record: developer/interface-convergence.md
+          - Settings UI implementation record: developer/settings-ui-follow-up.md
