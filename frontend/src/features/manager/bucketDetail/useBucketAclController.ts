@@ -130,6 +130,12 @@ export function useBucketAclController({
     setStatus(null);
   };
 
+  const reset = () => {
+    setDraft(snapshot);
+    setError(null);
+    setStatus(null);
+  };
+
   const save = async () => {
     if (!bucketName || !enabled) return;
     const aclValue =
@@ -172,6 +178,7 @@ export function useBucketAclController({
     load,
     loading,
     preset: draft.preset,
+    reset,
     save,
     saving,
     status,

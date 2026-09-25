@@ -11,9 +11,9 @@ import {
   SettingsInput,
   SettingsSelect,
 } from "../../../components/settings/SettingsControls";
+import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { cx, uiCardMutedClass } from "../../../components/ui/styles";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import {
@@ -42,6 +42,7 @@ type BucketReplicationFeatureProps = {
 };
 
 type ReplicationSummaryRow = {
+  index: number;
   key: string;
   rule: unknown;
 };
@@ -187,20 +188,24 @@ export default function BucketReplicationFeature({
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error,
     hasAdvancedTopLevelFields,
     hasUnsupportedZone,
     jsonText,
     loading,
-    openEditor,
+    openEditorFor,
+    openEditorWithNew,
+    openJsonEditor,
     removeRule,
+    removeRuleDirect,
     role,
     ruleCount,
     rules,
     saveDraft,
     saving,
+    setRuleEnabled,
     status,
-    summaryRole,
     summaryRules,
     updateEditorMode,
     updateJsonText,
@@ -218,6 +223,7 @@ export default function BucketReplicationFeature({
   const summaryRows = useMemo<ReplicationSummaryRow[]>(
     () =>
       summaryRules.map((rule, index) => ({
+        index,
         key: `${replicationRuleSummary(rule).id}-${index}`,
         rule,
       })),
@@ -227,7 +233,7 @@ export default function BucketReplicationFeature({
   const summaryColumns: Array<DataTableColumn<ReplicationSummaryRow>> = [
     {
       id: "id",
-      label: "ID",
+      label: "Rule",
       primary: true,
       headerClassName: "min-w-40",
       cellClassName: "min-w-40",
@@ -238,12 +244,18 @@ export default function BucketReplicationFeature({
       label: "Status",
       headerClassName: "w-px whitespace-nowrap",
       cellClassName: "w-px whitespace-nowrap",
-      render: ({ rule }) => {
+      render: ({ rule, index }) => {
         const value = replicationRuleSummary(rule).status;
         return (
-          <UiBadge tone={value === "Enabled" ? "success" : "neutral"}>
-            {value}
-          </UiBadge>
+          <div className="flex items-center gap-2">
+            <SettingsSwitch
+              checked={value === "Enabled"}
+              ariaLabel={`${replicationRuleSummary(rule).id} enabled`}
+              onChange={(checked) => setRuleEnabled(index, checked)}
+              disabled={saving || featureDisabled || !isReplicationRuleVisuallyEditable(rule)}
+            />
+            <span>{value}</span>
+          </div>
         );
       },
     },
@@ -269,13 +281,34 @@ export default function BucketReplicationFeature({
       render: ({ rule }) => replicationRuleSummary(rule).destination,
     },
     {
-      id: "delete-marker",
-      label: "Delete markers",
-      headerClassName: "w-px whitespace-nowrap",
+      id: "manage",
+      label: "Manage",
+      mobileRole: "actions",
+      headerClassName: "w-px whitespace-nowrap text-right",
       cellClassName: "w-px whitespace-nowrap",
-      render: ({ rule }) => replicationRuleSummary(rule).deleteMarkerStatus,
+      render: ({ index }) => (
+        <div className="bucket-feature-row-actions">
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={() => openEditorFor(index)}
+            disabled={saving || featureDisabled}
+          >
+            Edit
+          </SettingsButton>
+          <SettingsButton
+            type="button"
+            variant="danger"
+            onClick={() => removeRuleDirect(index)}
+            disabled={saving || featureDisabled}
+          >
+            Remove
+          </SettingsButton>
+        </div>
+      ),
     },
   ];
+  const visibleRules = rules.filter((_, index) => editorTargetIndex === null || index === editorTargetIndex);
 
   const visualEditor = (
     <div className="space-y-4">
@@ -319,7 +352,9 @@ export default function BucketReplicationFeature({
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
-          {rules.map(({ uiId, rule }, index) => (
+          {visibleRules.map(({ uiId, rule }) => {
+            const index = rules.findIndex((entry) => entry.uiId === uiId);
+            return (
             <ReplicationRuleEditor
               key={uiId}
               index={index}
@@ -329,7 +364,8 @@ export default function BucketReplicationFeature({
               onChange={(patch) => updateRule(uiId, patch)}
               onRemove={() => removeRule(uiId)}
             />
-          ))}
+            );
+          })}
         </BucketFeatureEditorList>
       )}
     </div>
@@ -363,19 +399,24 @@ export default function BucketReplicationFeature({
         error={error}
         successMessage={status}
         editDisabled={featureDisabled || busy}
-        onEdit={openEditor}
+        editLabel="JSON"
+        onEdit={openJsonEditor}
+        primaryAction={
+          <SettingsButton
+            type="button"
+            variant="primary"
+            onClick={openEditorWithNew}
+            disabled={featureDisabled || busy}
+          >
+            Add rule
+          </SettingsButton>
+        }
         testId="bucket-feature-replication"
       >
         {blocked ? (
           <EndpointFeatureDisabledNotice featureLabel="Bucket replication" />
         ) : (
           <div className="space-y-3">
-            <div className={cx(uiCardMutedClass, "px-3 py-2")}>
-              <p className="settings-description">Role</p>
-              <p className="mt-1 break-all font-mono ui-caption text-slate-700 dark:text-slate-200">
-                {summaryRole || "Not set"}
-              </p>
-            </div>
             <DataTableShell
               columns={summaryColumns}
               rows={summaryRows}
@@ -386,7 +427,19 @@ export default function BucketReplicationFeature({
               emptyMessage="No replication rules configured on this bucket."
               primaryColumnId="id"
               responsiveCards
+              containerClassName="bucket-feature-collection-table"
             />
+            <div className="bucket-feature-add-row">
+              <span>Enable, disable, remove or create ordinary replication rules here; advanced fields stay in the editor.</span>
+              <SettingsButton
+                type="button"
+                variant="secondary"
+                onClick={openEditorWithNew}
+                disabled={featureDisabled || busy}
+              >
+                + Add rule
+              </SettingsButton>
+            </div>
           </div>
         )}
       </BucketFeatureSummarySection>

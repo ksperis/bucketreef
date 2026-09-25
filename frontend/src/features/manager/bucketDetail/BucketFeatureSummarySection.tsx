@@ -4,6 +4,7 @@
  */
 import type { ReactNode } from "react";
 import { SettingsButton } from "../../../components/settings/SettingsControls";
+import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import BucketFeatureSection from "./BucketFeatureSection";
 import type { BucketFeatureMode, BucketFeatureVisualState } from "./bucketFeatureState";
@@ -19,6 +20,8 @@ type BucketFeatureSummarySectionProps = {
   error?: string | null;
   successMessage?: ReactNode;
   editDisabled?: boolean;
+  editLabel?: string;
+  primaryAction?: ReactNode;
   onEdit: () => void;
   children: ReactNode;
   testId?: string;
@@ -35,6 +38,8 @@ export default function BucketFeatureSummarySection({
   error,
   successMessage,
   editDisabled = false,
+  editLabel,
+  primaryAction,
   onEdit,
   children,
   testId,
@@ -45,31 +50,34 @@ export default function BucketFeatureSummarySection({
       description={description}
       mode={mode}
       visualState={visualState}
-      presentation="workbench"
+      presentation="collection"
       successMessage={successMessage}
       busy={loading}
       showConfiguredBadge={false}
       testId={testId}
       actions={
-        <div className="flex flex-wrap items-center gap-2">
-          {visualState === "configured" && metadata ? <span className="settings-description">{metadata}</span> : null}
+        <>
+          {metadata ? (
+            <UiBadge tone={visualState === "configured" ? "primary" : "neutral"}>
+              {metadata}
+            </UiBadge>
+          ) : null}
           <SettingsButton
             type="button"
             variant="secondary"
             onClick={onEdit}
             disabled={loading || Boolean(error) || editDisabled || visualState === "disabled"}
           >
-            {visualState === "neutral" ? "Configure" : "Edit"}
+            {editLabel ?? (visualState === "neutral" ? "Configure" : "Edit")}
           </SettingsButton>
-        </div>
+          {primaryAction}
+        </>
       }
     >
       {loading ? (
         <UiInlineMessage>{loadingMessage}</UiInlineMessage>
       ) : error ? (
         <UiInlineMessage tone="error">{error}</UiInlineMessage>
-      ) : visualState === "neutral" ? (
-        null
       ) : (
         children
       )}

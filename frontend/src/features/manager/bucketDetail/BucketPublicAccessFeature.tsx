@@ -2,12 +2,15 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useState } from "react";
 import type { BucketPublicAccessBlock } from "../../../api/bucketContracts";
 import { SettingsButton } from "../../../components/settings/SettingsControls";
 import { SettingsItem, SettingsSwitch } from "../../../components/settings/SettingsLayout";
+import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
+import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketPublicAccessController } from "./useBucketPublicAccessController";
 
@@ -45,6 +48,7 @@ const publicAccessOptions: {
 ];
 
 export default function BucketPublicAccessFeature({ controller }: BucketPublicAccessFeatureProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
   const {
     config,
     dirty,
@@ -52,6 +56,7 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
     fullyEnabled,
     loading,
     partiallyEnabled,
+    reset,
     save,
     saving,
     status,
@@ -63,46 +68,81 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
     configured: fullyEnabled || partiallyEnabled,
     unsaved: dirty,
   });
+  const enabledCount = publicAccessOptions.filter((option) => Boolean(config[option.key])).length;
+  const closeEditor = () => {
+    reset();
+    setEditorOpen(false);
+  };
 
   return (
-    <BucketFeatureSection
-      title="Block public access"
-      description="Manage the four S3 public access block flags. Configure each option below."
-      mode="graphical"
-      visualState={visualState}
-      successMessage={status}
-      busy={saving || loading}
-      testId="bucket-feature-block-public-access"
-      actions={
-        <SettingsButton
-          type="button"
-          onClick={save}
-          disabled={notImplemented || loading || saving || !dirty}
-          variant="primary"
+    <>
+      <BucketFeatureSection
+        title="Block public access"
+        description="S3 public-access protection flags."
+        mode="graphical"
+        visualState={visualState}
+        stateLabel={dirty ? undefined : fullyEnabled ? "Enabled" : partiallyEnabled ? "Partial" : "Inactive"}
+        stateTone={partiallyEnabled ? "warning" : fullyEnabled ? "primary" : "neutral"}
+        successMessage={status}
+        busy={loading}
+        testId="bucket-feature-block-public-access"
+      >
+        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
+        <div className="bucket-feature-summary-row">
+          <div className="bucket-feature-summary-value">
+            <strong>{enabledCount} of 4</strong> protections enabled
+          </div>
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={() => setEditorOpen(true)}
+            disabled={notImplemented || loading || saving}
+          >
+            Edit
+          </SettingsButton>
+        </div>
+        <div className="bucket-feature-flags">
+          {publicAccessOptions.map((option) => (
+            <div key={option.key} className="bucket-feature-flag">
+              <span>{option.label}</span>
+              <UiBadge tone={config[option.key] ? "primary" : "neutral"}>
+                {config[option.key] ? "On" : "Off"}
+              </UiBadge>
+            </div>
+          ))}
+        </div>
+      </BucketFeatureSection>
+
+      {editorOpen ? (
+        <BucketFeatureSettingsDialog
+          title="Edit block public access"
+          dirty={dirty}
+          busy={saving}
+          error={error}
+          saveDisabled={notImplemented || loading}
+          onSave={save}
+          onClose={closeEditor}
         >
-          {saving ? "Saving..." : "Save"}
-        </SettingsButton>
-      }
-    >
-      {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
-      <div>
-        {publicAccessOptions.map((option) => (
-          <SettingsItem
-            key={option.key}
-            compact
-            title={option.label}
-            description={option.description}
-            action={
-              <SettingsSwitch
-                checked={Boolean(config[option.key])}
-                ariaLabel={option.label}
-                onChange={(checked) => update(option.key, checked)}
-                disabled={notImplemented || loading || saving}
+          <div>
+            {publicAccessOptions.map((option) => (
+              <SettingsItem
+                key={option.key}
+                compact
+                title={option.label}
+                description={option.description}
+                action={
+                  <SettingsSwitch
+                    checked={Boolean(config[option.key])}
+                    ariaLabel={option.label}
+                    onChange={(checked) => update(option.key, checked)}
+                    disabled={notImplemented || loading || saving}
+                  />
+                }
               />
-            }
-          />
-        ))}
-      </div>
-    </BucketFeatureSection>
+            ))}
+          </div>
+        </BucketFeatureSettingsDialog>
+      ) : null}
+    </>
   );
 }

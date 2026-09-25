@@ -160,6 +160,29 @@ describe("useBucketCorsController", () => {
     expect(savedRules[0]).toEqual(advancedRule);
   });
 
+  it("removes a CORS rule inline without rewriting the remaining advanced rule", async () => {
+    const advancedRule = {
+      ID: "advanced",
+      AllowedMethods: ["GET"],
+      AllowedOrigins: ["https://advanced.example"],
+      CustomExtension: { preserve: true },
+    };
+    apiMocks.getBucketCors.mockResolvedValue({
+      rules: [
+        { AllowedMethods: ["GET"], AllowedOrigins: ["https://remove.example"] },
+        advancedRule,
+      ],
+    });
+    apiMocks.putBucketCors.mockImplementation(async (_accountId, _bucketName, rules) => ({ rules }));
+    const { result } = renderCors();
+
+    await act(async () => result.current.load());
+    await act(async () => result.current.removeRuleDirect(0));
+
+    expect(apiMocks.putBucketCors).toHaveBeenCalledWith("acc-1", "reports", [advancedRule]);
+    expect(result.current.rules).toEqual([advancedRule]);
+  });
+
   it("keeps invalid JSON on the JSON tab and rejects non-array JSON", async () => {
     apiMocks.getBucketCors.mockResolvedValue({ rules: [] });
     const { result } = renderCors();

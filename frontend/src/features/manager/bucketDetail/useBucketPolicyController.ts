@@ -79,6 +79,7 @@ export function useBucketPolicyController({
   const [jsonText, setJsonText] = useState("{}");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
+  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -115,18 +116,45 @@ export function useBucketPolicyController({
     }
   }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
-  const openEditor = useCallback(() => {
-    const nextDraft = clonePolicy(policy);
+  const openEditorDraft = useCallback((
+    nextDraft: PolicyDocumentRecord,
+    mode: BucketFeatureEditorMode,
+    targetIndex: number | null,
+  ) => {
     setDraftPolicy(nextDraft);
     setJsonText(policyText(nextDraft));
-    setEditorMode("visual");
+    setEditorMode(mode);
+    setEditorTargetIndex(targetIndex);
     setEditorError(null);
     setStatus(null);
     setEditorOpen(true);
-  }, [policy]);
+  }, []);
+
+  const openEditor = useCallback(() => {
+    openEditorDraft(clonePolicy(policy), "visual", null);
+  }, [openEditorDraft, policy]);
+
+  const openEditorFor = useCallback((index: number) => {
+    openEditorDraft(clonePolicy(policy), "visual", index);
+  }, [openEditorDraft, policy]);
+
+  const openJsonEditor = useCallback(() => {
+    openEditorDraft(clonePolicy(policy), "json", null);
+  }, [openEditorDraft, policy]);
+
+  const openEditorWithNew = useCallback(() => {
+    const nextDraft = clonePolicy(policy);
+    const statements = policyStatements(nextDraft);
+    const withNewStatement = withPolicyStatements(
+      nextDraft,
+      [...statements, createVisualPolicyStatement(nextStatementSid(nextDraft))],
+    );
+    openEditorDraft(withNewStatement, "visual", statements.length);
+  }, [openEditorDraft, policy]);
 
   const closeEditor = useCallback(() => {
     setEditorOpen(false);
+    setEditorTargetIndex(null);
     setEditorError(null);
   }, []);
 
@@ -157,6 +185,7 @@ export function useBucketPolicyController({
       current,
       [...policyStatements(current), createVisualPolicyStatement(nextStatementSid(current))],
     ));
+    setEditorTargetIndex(null);
     setEditorError(null);
   }, []);
 
@@ -235,6 +264,27 @@ export function useBucketPolicyController({
     return normalizePolicy(saved.policy ?? nextPolicy);
   }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
 
+  const removeStatementDirect = useCallback(async (index: number) => {
+    if (saving) return;
+    setSaving(true);
+    setLoadError(null);
+    setStatus(null);
+    try {
+      const nextPolicy = withPolicyStatements(
+        clonePolicy(policy),
+        policyStatements(policy).filter((_, statementIndex) => statementIndex !== index),
+      );
+      const savedPolicy = await persistPolicy(nextPolicy);
+      if (savedPolicy === null) return;
+      applyBaseline(savedPolicy);
+      setStatus(isPolicyConfigurationEmpty(savedPolicy) ? "Bucket policy deleted" : "Policy statement removed");
+    } catch (removeFailure) {
+      setLoadError(extractApiError(removeFailure, "Unable to update the bucket policy."));
+    } finally {
+      setSaving(false);
+    }
+  }, [applyBaseline, persistPolicy, policy, saving]);
+
   const saveDraft = useCallback(async () => {
     if (!bucketName || !enabled || saving) return;
     let nextPolicy = draftPolicy;
@@ -264,6 +314,7 @@ export function useBucketPolicyController({
       setDraftPolicy(clonePolicy(savedPolicy));
       setJsonText(policyText(savedPolicy));
       setStatus(isPolicyConfigurationEmpty(savedPolicy) ? "Bucket policy deleted" : "Bucket policy updated");
+      setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
       setEditorError(extractApiError(saveFailure, "Unable to update the bucket policy."));
@@ -326,15 +377,20 @@ export function useBucketPolicyController({
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error: loadError,
     jsonText,
     load,
     loading,
     openEditor,
+    openEditorFor,
+    openEditorWithNew,
+    openJsonEditor,
     policy,
     remove,
     removeDraftCondition,
     removeDraftStatement,
+    removeStatementDirect,
     saveDraft,
     saving,
     statementCount: statements.length,

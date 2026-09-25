@@ -72,6 +72,7 @@ import {
 } from "./bucketDetail/bucketDetailConstants";
 import { formatBytes } from "../../utils/format";
 import type { UiRole } from "../../api/users";
+import BucketFeatureGrid from "./bucketDetail/BucketFeatureGrid";
 
 function getUserRole(): UiRole | null {
   return readStoredUser()?.role ?? null;
@@ -1269,8 +1270,17 @@ function BucketDetailPageContent({
             id: "properties",
             label: "Properties",
             content: (
-              <div className="settings-compact">
-                <div>
+              <BucketFeatureGrid
+                title="Bucket properties"
+                description="Configured features are highlighted. Changes remain scoped to each S3 feature."
+                summary={`${[
+                  versioningController.isEnabled,
+                  objectLockController.persistentlyEnabled,
+                  encryptionController.configured,
+                  lifecycleController.hasRules,
+                  bucketTagsController.configured,
+                ].filter(Boolean).length} configured`}
+              >
                   <BucketVersioningFeature
                     controller={versioningController}
                     disableBlocked={versioningDisableBlocked}
@@ -1283,20 +1293,28 @@ function BucketDetailPageContent({
                     controller={encryptionController}
                     enabled={sseFeatureEnabled}
                   />
-                  <BucketLifecycleFeature controller={lifecycleController} />
                   <BucketTagsFeature
-                      controller={bucketTagsController}
-                      onRequestClear={() => setPendingConfigurationDelete("tags")}
-                    />
-                </div>
-              </div>
+                    controller={bucketTagsController}
+                    onRequestClear={() => setPendingConfigurationDelete("tags")}
+                  />
+                  <BucketLifecycleFeature controller={lifecycleController} />
+              </BucketFeatureGrid>
             ),
           },
           {
             id: "permissions",
             label: "Permissions",
             content: (
-              <div className="settings-compact">
+              <BucketFeatureGrid
+                title="Bucket permissions"
+                description="Configured protections and access rules are highlighted. Common list actions stay on this page."
+                summary={`${[
+                  publicAccessController.fullyEnabled || publicAccessController.partiallyEnabled,
+                  Boolean(bucketAclController.acl),
+                  policyController.configured,
+                  corsController.configured,
+                ].filter(Boolean).length} configured`}
+              >
                 <BucketPublicAccessFeature controller={publicAccessController} />
 
                 <BucketAclFeature controller={bucketAclController} />
@@ -1308,20 +1326,32 @@ function BucketDetailPageContent({
                 />
 
                 <BucketCorsFeature controller={corsController} />
-
-              </div>
+              </BucketFeatureGrid>
             ),
           },
           {
             id: "advanced",
             label: "Advanced",
             content: (
-              <div className="settings-compact">
+              <BucketFeatureGrid
+                title="Advanced bucket features"
+                description="Configured integrations are highlighted; collections expose their common row actions directly."
+                summary={`${[
+                  websiteController.configured,
+                  isCephEndpoint && replicationController.configured,
+                  accessLoggingController.configured,
+                  notificationsController.configured,
+                ].filter(Boolean).length} configured`}
+              >
                 <BucketWebsiteFeature
                   blocked={!staticWebsiteEnabled}
                   bucketName={bucketName}
                   controller={websiteController}
                   onRequestDelete={() => setPendingConfigurationDelete("website")}
+                />
+                <BucketAccessLoggingFeature
+                  controller={accessLoggingController}
+                  onRequestDisable={() => setPendingConfigurationDelete("access-logging")}
                 />
                 {isCephEndpoint && (
                   <BucketReplicationFeature
@@ -1329,14 +1359,10 @@ function BucketDetailPageContent({
                     controller={replicationController}
                   />
                 )}
-                <BucketAccessLoggingFeature
-                  controller={accessLoggingController}
-                  onRequestDisable={() => setPendingConfigurationDelete("access-logging")}
-                />
                 <BucketNotificationsFeature
                   controller={notificationsController}
                 />
-              </div>
+              </BucketFeatureGrid>
             ),
           },
           {

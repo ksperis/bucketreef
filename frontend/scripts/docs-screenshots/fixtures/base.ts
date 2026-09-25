@@ -1456,6 +1456,7 @@ const CEPH_ENDPOINTS = [
       metrics: true,
       static_website: true,
       sns: true,
+      sse: true,
       replication: true,
     },
   },

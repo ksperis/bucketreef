@@ -133,6 +133,11 @@ export function useBucketPublicAccessController({
     setError(null);
     setStatus(null);
   };
+  const reset = () => {
+    setConfig(normalize(snapshot));
+    setError(null);
+    setStatus(null);
+  };
   const fullyEnabled = publicAccessKeys.every((key) => config[key] === true);
   const partiallyEnabled =
     !fullyEnabled && publicAccessKeys.some((key) => config[key] === true);
@@ -146,6 +151,7 @@ export function useBucketPublicAccessController({
     load,
     loading,
     partiallyEnabled,
+    reset,
     save,
     saving,
     status,

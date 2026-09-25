@@ -2,14 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useMemo } from "react";
-import DataTableShell, { type DataTableColumn } from "../../../components/list/DataTableShell";
 import {
   SettingsButton,
   SettingsInput,
   SettingsSelect,
 } from "../../../components/settings/SettingsControls";
 import UiBadge from "../../../components/ui/UiBadge";
+import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import {
@@ -19,7 +18,7 @@ import {
   BucketFeatureEditorToolbar,
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
-import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
+import BucketFeatureSection from "./BucketFeatureSection";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
@@ -35,11 +34,6 @@ type BucketEncryptionController = ReturnType<typeof useBucketEncryptionControlle
 type BucketEncryptionFeatureProps = {
   controller: BucketEncryptionController;
   enabled: boolean;
-};
-
-type EncryptionTableRow = {
-  index: number;
-  rule: EncryptionRuleRecord;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -199,46 +193,7 @@ export default function BucketEncryptionFeature({
     configured,
     unsaved: false,
   });
-  const rows = useMemo<EncryptionTableRow[]>(
-    () => rules.map((rule, index) => ({ index, rule })),
-    [rules],
-  );
-  const columns: Array<DataTableColumn<EncryptionTableRow>> = [
-    {
-      id: "rule",
-      label: "Rule",
-      primary: true,
-      headerClassName: "min-w-28",
-      cellClassName: "min-w-28",
-      render: ({ rule, index }) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <span>Rule {index + 1}</span>
-          {!isEncryptionRuleVisuallyEditable(rule) ? <UiBadge tone="warning">Advanced</UiBadge> : null}
-        </div>
-      ),
-    },
-    {
-      id: "algorithm",
-      label: "Algorithm",
-      headerClassName: "min-w-28",
-      cellClassName: "min-w-28 font-mono",
-      render: ({ rule }) => ruleAlgorithm(rule),
-    },
-    {
-      id: "kmsKey",
-      label: "KMS key",
-      headerClassName: "min-w-48",
-      cellClassName: "min-w-48 break-all font-mono",
-      render: ({ rule }) => ruleKmsKey(rule),
-    },
-    {
-      id: "bucketKey",
-      label: "Bucket key",
-      headerClassName: "min-w-32",
-      cellClassName: "min-w-32",
-      render: ({ rule }) => ruleBucketKey(rule),
-    },
-  ];
+  const primaryRule = rules[0];
 
   const visualEditor = (
     <div className="space-y-3">
@@ -290,40 +245,48 @@ export default function BucketEncryptionFeature({
 
   return (
     <>
-      <BucketFeatureSummarySection
+      <BucketFeatureSection
         title="Server-side encryption"
         description="Default S3 encryption applied to new objects in this bucket."
+        mode="hybrid"
         visualState={visualState}
-        metadata={
-          disabled
-            ? undefined
-            : configured
-              ? `Enabled · ${ruleCount === 1 ? "1 rule" : `${ruleCount} rules`}`
-              : "Disabled · 0 rules"
-        }
-        loading={loading}
-        error={error}
+        stateLabel={disabled ? undefined : configured ? "Configured" : "Inactive"}
         successMessage={status}
-        editDisabled={disabled || saving}
-        onEdit={openEditor}
+        busy={loading}
         testId="bucket-feature-encryption"
       >
         {!enabled ? (
           <EndpointFeatureDisabledNotice featureLabel="Server-side encryption" />
+        ) : error ? (
+          <UiInlineMessage tone="error">{error}</UiInlineMessage>
+        ) : loading ? (
+          <UiInlineMessage>Loading encryption configuration...</UiInlineMessage>
         ) : (
-          <DataTableShell
-            columns={columns}
-            rows={rows}
-            rowKey={(row) => `encryption-rule-${row.index}`}
-            status={rows.length === 0 ? "empty" : "ready"}
-            loadingMessage="Loading encryption rules..."
-            errorMessage="Unable to load encryption rules."
-            emptyMessage="Default bucket encryption is disabled."
-            primaryColumnId="rule"
-            responsiveCards
-          />
+          <div className="bucket-feature-summary-row">
+            <div className={configured ? "bucket-feature-summary-value" : "bucket-feature-summary-muted"}>
+              {primaryRule ? (
+                <>
+                  <strong>{ruleAlgorithm(primaryRule)}</strong>
+                  {ruleKmsKey(primaryRule) !== "—"
+                    ? ` · ${ruleKmsKey(primaryRule)}`
+                    : " · S3 managed key"}
+                  {ruleCount > 1 ? ` · ${ruleCount} rules` : ""}
+                </>
+              ) : (
+                "No default encryption configuration."
+              )}
+            </div>
+            <SettingsButton
+              type="button"
+              variant="secondary"
+              onClick={openEditor}
+              disabled={disabled || saving}
+            >
+              {configured ? "Edit" : "Configure"}
+            </SettingsButton>
+          </div>
         )}
-      </BucketFeatureSummarySection>
+      </BucketFeatureSection>
 
       {editorOpen ? (
         <BucketFeatureEditorDialog

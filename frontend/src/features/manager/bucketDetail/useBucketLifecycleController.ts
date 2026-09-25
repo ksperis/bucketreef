@@ -73,6 +73,7 @@ export function useBucketLifecycleController({
   const [jsonText, setJsonText] = useState("[]");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
+  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [lastRemovedRule, setLastRemovedRule] = useState<{
     index: number;
     rule: LifecycleRuleRecord;
@@ -117,19 +118,44 @@ export function useBucketLifecycleController({
     }
   }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
-  const openEditor = useCallback(() => {
-    const nextDraft = cloneRules(rules);
+  const openEditorDraft = useCallback((
+    nextDraft: LifecycleRuleRecord[],
+    mode: BucketFeatureEditorMode,
+    targetIndex: number | null,
+  ) => {
     setDraftRules(nextDraft);
     setJsonText(rulesText(nextDraft));
-    setEditorMode("visual");
+    setEditorMode(mode);
+    setEditorTargetIndex(targetIndex);
     setLastRemovedRule(null);
     setEditorError(null);
     setStatus(null);
     setEditorOpen(true);
-  }, [rules]);
+  }, []);
+
+  const openEditor = useCallback(() => {
+    openEditorDraft(cloneRules(rules), "visual", null);
+  }, [openEditorDraft, rules]);
+
+  const openEditorFor = useCallback((index: number) => {
+    openEditorDraft(cloneRules(rules), "visual", index);
+  }, [openEditorDraft, rules]);
+
+  const openJsonEditor = useCallback(() => {
+    openEditorDraft(cloneRules(rules), "json", null);
+  }, [openEditorDraft, rules]);
+
+  const openEditorWithNew = useCallback(() => {
+    const nextDraft = [
+      ...cloneRules(rules),
+      createVisualLifecycleRule(createRuleId()),
+    ];
+    openEditorDraft(nextDraft, "visual", nextDraft.length - 1);
+  }, [openEditorDraft, rules]);
 
   const closeEditor = useCallback(() => {
     setEditorOpen(false);
+    setEditorTargetIndex(null);
     setEditorError(null);
     setLastRemovedRule(null);
   }, []);
@@ -155,6 +181,7 @@ export function useBucketLifecycleController({
         return;
       }
       setDraftRules(parsed.rules);
+      setEditorTargetIndex(null);
       setLastRemovedRule(null);
       setEditorMode("visual");
     },
@@ -163,6 +190,7 @@ export function useBucketLifecycleController({
 
   const addDraftRule = useCallback(() => {
     setDraftRules((current) => [...current, createVisualLifecycleRule(createRuleId())]);
+    setEditorTargetIndex(null);
     setEditorError(null);
   }, []);
 
@@ -194,6 +222,60 @@ export function useBucketLifecycleController({
     setEditorError(null);
   }, []);
 
+  const persistRules = useCallback(async (nextRules: LifecycleRuleRecord[]) => {
+    if (!bucketName || !enabled || (cephAdmin && !endpointId)) return null;
+    if (nextRules.length === 0) {
+      if (cephAdmin) {
+        await deleteCephAdminBucketLifecycle(endpointId as number, bucketName);
+      } else {
+        await deleteBucketLifecycle(accountId, bucketName);
+      }
+      return [];
+    }
+    const saved = cephAdmin
+      ? await putCephAdminBucketLifecycle(endpointId as number, bucketName, nextRules)
+      : await putBucketLifecycle(accountId, bucketName, nextRules);
+    return normalizeRules(saved.rules ?? nextRules);
+  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+
+  const persistDirectRules = useCallback(async (
+    nextRules: LifecycleRuleRecord[],
+    successMessage: string,
+  ) => {
+    if (saving) return;
+    setSaving(true);
+    setLoadError(null);
+    setStatus(null);
+    try {
+      const savedRules = await persistRules(nextRules);
+      if (savedRules === null) return;
+      applyBaseline(savedRules);
+      setStatus(successMessage);
+    } catch (mutationFailure) {
+      setLoadError(extractApiError(mutationFailure, "Unable to update lifecycle rules."));
+    } finally {
+      setSaving(false);
+    }
+  }, [applyBaseline, persistRules, saving]);
+
+  const removeRuleDirect = useCallback((index: number) => {
+    void persistDirectRules(
+      rules.filter((_, ruleIndex) => ruleIndex !== index),
+      "Lifecycle rule removed",
+    );
+  }, [persistDirectRules, rules]);
+
+  const setRuleEnabled = useCallback((index: number, checked: boolean) => {
+    void persistDirectRules(
+      rules.map((rule, ruleIndex) =>
+        ruleIndex === index
+          ? { ...rule, Status: checked ? "Enabled" : "Disabled" }
+          : rule,
+      ),
+      `Lifecycle rule ${checked ? "enabled" : "disabled"}`,
+    );
+  }, [persistDirectRules, rules]);
+
   const saveDraft = useCallback(async () => {
     if (!bucketName || !enabled || saving) return;
     let nextRules = draftRules;
@@ -217,30 +299,14 @@ export function useBucketLifecycleController({
     setEditorError(null);
     setStatus(null);
     try {
-      if (nextRules.length === 0) {
-        if (cephAdmin) {
-          if (!endpointId) return;
-          await deleteCephAdminBucketLifecycle(endpointId, bucketName);
-        } else {
-          await deleteBucketLifecycle(accountId, bucketName);
-        }
-        applyBaseline([]);
-        setStatus("Lifecycle deleted");
-      } else {
-        let saved;
-        if (cephAdmin) {
-          if (!endpointId) return;
-          saved = await putCephAdminBucketLifecycle(endpointId, bucketName, nextRules);
-        } else {
-          saved = await putBucketLifecycle(accountId, bucketName, nextRules);
-        }
-        const savedRules = normalizeRules(saved.rules ?? nextRules);
-        applyBaseline(savedRules);
-        setDraftRules(cloneRules(savedRules));
-        setJsonText(rulesText(savedRules));
-        setStatus("Lifecycle updated");
-      }
+      const savedRules = await persistRules(nextRules);
+      if (savedRules === null) return;
+      applyBaseline(savedRules);
+      setDraftRules(cloneRules(savedRules));
+      setJsonText(rulesText(savedRules));
+      setStatus(savedRules.length === 0 ? "Lifecycle deleted" : "Lifecycle updated");
       setLastRemovedRule(null);
+      setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
       setEditorError(extractApiError(saveFailure, "Invalid or unsaved lifecycle."));
@@ -248,15 +314,13 @@ export function useBucketLifecycleController({
       setSaving(false);
     }
   }, [
-    accountId,
     applyBaseline,
     bucketName,
-    cephAdmin,
     draftRules,
     editorMode,
     enabled,
-    endpointId,
     jsonText,
+    persistRules,
     saving,
   ]);
 
@@ -279,6 +343,7 @@ export function useBucketLifecycleController({
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error: loadError,
     hasRules: rules.length > 0,
     jsonText,
@@ -286,13 +351,18 @@ export function useBucketLifecycleController({
     load,
     loading,
     openEditor,
+    openEditorFor,
+    openEditorWithNew,
+    openJsonEditor,
     removeDraftRule,
+    removeRuleDirect,
     restoreLastRemovedRule,
     ruleCount: rules.length,
     rules,
     saveDraft,
     saving,
     status,
+    setRuleEnabled,
     updateDraftRule,
     updateEditorMode,
     updateJsonText,

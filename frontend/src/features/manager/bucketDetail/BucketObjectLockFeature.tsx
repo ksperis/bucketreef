@@ -2,11 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { useState } from "react";
 import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import { SettingsItem, SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
+import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketObjectLockController } from "./useBucketObjectLockController";
 
@@ -24,6 +26,7 @@ export default function BucketObjectLockFeature({
   controller,
   onEnableVersioningDraft,
 }: BucketObjectLockFeatureProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
   const {
     active,
     configuration,
@@ -51,49 +54,54 @@ export default function BucketObjectLockFeature({
     configured: persistentlyEnabled,
     unsaved: dirty,
   });
+  const closeEditor = () => {
+    reset();
+    setEditorOpen(false);
+  };
+  const retentionSummary = configuration?.mode && (configuration.days != null || configuration.years != null)
+    ? `${configuration.mode}${configuration.days != null ? ` · ${configuration.days} day(s)` : ""}${configuration.years != null ? ` · ${configuration.years} year(s)` : ""}`
+    : "No default retention policy.";
 
   return (
-    <BucketFeatureSection
-      title="Object Lock"
-      description="WORM / default retention."
-      mode="graphical"
-      visualState={visualState}
-      successMessage={status}
-      busy={saving || loading}
-      testId="bucket-feature-object-lock"
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <SettingsButton
-            type="button"
-            onClick={reset}
-            variant="secondary"
-            disabled={loading || Boolean(loadError) || saving || !dirty}
-          >
-            Reset
-          </SettingsButton>
-          <SettingsButton
-            type="submit"
-            form={formId}
-            disabled={saving || loading || Boolean(loadError) || !dirty}
-            variant="primary"
-          >
-            {saving ? "Saving..." : "Save"}
-          </SettingsButton>
-        </div>
-      }
-    >
-      <div className="space-y-2">
+    <>
+      <BucketFeatureSection
+        title="Object Lock"
+        description="WORM retention and legal-hold prerequisites."
+        mode="graphical"
+        visualState={visualState}
+        stateLabel={dirty ? undefined : persistentlyEnabled ? "Enabled" : "Inactive"}
+        successMessage={status}
+        busy={loading}
+        testId="bucket-feature-object-lock"
+      >
         {loading && <UiInlineMessage>Loading Object Lock configuration...</UiInlineMessage>}
         {loadError && <UiInlineMessage tone="error">{loadError}</UiInlineMessage>}
-        {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
-        <form
-          id={formId}
-          className="space-y-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
+        <div className="bucket-feature-summary-row">
+          <div className={persistentlyEnabled ? "bucket-feature-summary-value" : "bucket-feature-summary-muted"}>
+            {persistentlyEnabled ? retentionSummary : "No default retention policy."}
+          </div>
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={() => setEditorOpen(true)}
+            disabled={loading || Boolean(loadError) || notImplemented}
+          >
+            {persistentlyEnabled ? "Edit" : "Configure"}
+          </SettingsButton>
+        </div>
+      </BucketFeatureSection>
+
+      {editorOpen ? (
+        <BucketFeatureSettingsDialog
+          title="Configure Object Lock"
+          dirty={dirty}
+          busy={saving}
+          error={error}
+          saveDisabled={loading || Boolean(loadError)}
+          onSave={save}
+          onClose={closeEditor}
         >
+          <div id={formId} className="space-y-2">
           <SettingsItem
             compact
             title="Enable Object Lock"
@@ -166,8 +174,9 @@ export default function BucketObjectLockFeature({
               </p>
             </>
           ) : null}
-        </form>
-      </div>
-    </BucketFeatureSection>
+          </div>
+        </BucketFeatureSettingsDialog>
+      ) : null}
+    </>
   );
 }

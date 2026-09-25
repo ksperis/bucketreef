@@ -311,22 +311,24 @@ export default function BucketPolicyFeature({
 }: BucketPolicyFeatureProps) {
   const {
     addDraftStatement,
-    allowCount,
     closeEditor,
     configured,
-    denyCount,
     draftPolicy,
     draftSignature,
     dirty,
     editorError,
     editorMode,
     editorOpen,
+    editorTargetIndex,
     error,
     jsonText,
     loading,
-    openEditor,
+    openEditorFor,
+    openEditorWithNew,
+    openJsonEditor,
     removeDraftCondition,
     removeDraftStatement,
+    removeStatementDirect,
     saveDraft,
     saving,
     statementCount,
@@ -349,12 +351,12 @@ export default function BucketPolicyFeature({
   );
   const draftStatements = useMemo(() => policyStatements(draftPolicy), [draftPolicy]);
   const metadata = configured
-    ? `${statementCount} ${statementCount === 1 ? "statement" : "statements"} · ${allowCount} Allow · ${denyCount} Deny`
-    : "Not configured · 0 statements";
+    ? `${statementCount} ${statementCount === 1 ? "statement" : "statements"}`
+    : "0 statements";
   const summaryColumns: Array<DataTableColumn<PolicySummaryRow>> = [
     {
       id: "sid",
-      label: "Sid",
+      label: "Statement",
       primary: true,
       headerClassName: "min-w-40",
       cellClassName: "min-w-40",
@@ -388,19 +390,49 @@ export default function BucketPolicyFeature({
     },
     {
       id: "action",
-      label: "Action",
+      label: "Actions",
       headerClassName: "min-w-52",
       cellClassName: "min-w-52 break-all",
       render: ({ statement }) => policyValueSummary(statement.Action),
     },
     {
       id: "resource",
-      label: "Resource",
+      label: "Resources",
       headerClassName: "min-w-64",
       cellClassName: "min-w-64 break-all",
       render: ({ statement }) => policyValueSummary(statement.Resource),
     },
+    {
+      id: "manage",
+      label: "Manage",
+      mobileRole: "actions",
+      headerClassName: "w-px whitespace-nowrap text-right",
+      cellClassName: "w-px whitespace-nowrap",
+      render: ({ index }) => (
+        <div className="bucket-feature-row-actions">
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={() => openEditorFor(index)}
+            disabled={saving || notImplemented}
+          >
+            Edit
+          </SettingsButton>
+          <SettingsButton
+            type="button"
+            variant="danger"
+            onClick={() => void removeStatementDirect(index)}
+            disabled={saving || notImplemented}
+          >
+            Remove
+          </SettingsButton>
+        </div>
+      ),
+    },
   ];
+  const visibleDraftStatements = draftStatements
+    .map((statement, index) => ({ statement, index }))
+    .filter(({ index }) => editorTargetIndex === null || index === editorTargetIndex);
 
   const visualEditor = (
     <div className="space-y-3">
@@ -423,7 +455,7 @@ export default function BucketPolicyFeature({
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
-          {draftStatements.map((statement, index) => (
+          {visibleDraftStatements.map(({ statement, index }) => (
             <PolicyStatementEditor
               key={`${policyStatementSid(statement, index)}-${index}`}
               index={index}
@@ -462,7 +494,18 @@ export default function BucketPolicyFeature({
         error={error}
         successMessage={status}
         editDisabled={notImplemented || saving}
-        onEdit={openEditor}
+        editLabel="JSON"
+        onEdit={openJsonEditor}
+        primaryAction={
+          <SettingsButton
+            type="button"
+            variant="primary"
+            onClick={openEditorWithNew}
+            disabled={notImplemented || loading || saving}
+          >
+            Add statement
+          </SettingsButton>
+        }
         testId="bucket-feature-policy"
       >
         <DataTableShell
@@ -475,7 +518,19 @@ export default function BucketPolicyFeature({
           emptyMessage="No bucket policy configured."
           primaryColumnId="sid"
           responsiveCards
+          containerClassName="bucket-feature-collection-table"
         />
+        <div className="bucket-feature-add-row">
+          <span>Add or remove statements here; detailed principals, conditions and JSON stay in the editor.</span>
+          <SettingsButton
+            type="button"
+            variant="secondary"
+            onClick={openEditorWithNew}
+            disabled={notImplemented || loading || saving}
+          >
+            + Add statement
+          </SettingsButton>
+        </div>
       </BucketFeatureSummarySection>
 
       {editorOpen ? (
