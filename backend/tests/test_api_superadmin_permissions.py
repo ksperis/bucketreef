@@ -3,6 +3,7 @@
 from app.db import StorageEndpoint, StorageProvider, User, UserRole
 from app.main import app
 from app.routers import dependencies
+from app.routers.admin import storage_endpoints as storage_endpoints_router
 from fastapi.testclient import TestClient
 
 
@@ -102,3 +103,27 @@ def test_superadmin_can_update_storage_endpoint_tags(client: TestClient, db_sess
     assert resp.status_code == 200, resp.text
     assert [tag["label"] for tag in resp.json()["tags"]] == ["prod", "rgw-a"]
     assert [tag["color_key"] for tag in resp.json()["tags"]] == ["neutral", "neutral"]
+
+
+def test_storage_endpoint_error_status_does_not_depend_on_message_text(client: TestClient):
+    class FakeService:
+        def update_endpoint_tags(self, endpoint_id, payload):
+            raise ValueError("Validation metadata was not found in the submitted configuration")
+
+    previous_service = app.dependency_overrides.get(storage_endpoints_router.get_service)
+    previous_superadmin = app.dependency_overrides.get(dependencies.get_current_ui_superadmin)
+    app.dependency_overrides[storage_endpoints_router.get_service] = FakeService
+    app.dependency_overrides[dependencies.get_current_ui_superadmin] = _superadmin_user
+    try:
+        resp = client.put("/api/admin/storage-endpoints/999999/tags", json={"tags": []})
+    finally:
+        if previous_service is None:
+            app.dependency_overrides.pop(storage_endpoints_router.get_service, None)
+        else:
+            app.dependency_overrides[storage_endpoints_router.get_service] = previous_service
+        if previous_superadmin is None:
+            app.dependency_overrides.pop(dependencies.get_current_ui_superadmin, None)
+        else:
+            app.dependency_overrides[dependencies.get_current_ui_superadmin] = previous_superadmin
+
+    assert resp.status_code == 400, resp.text
