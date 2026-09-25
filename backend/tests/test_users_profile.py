@@ -7,11 +7,13 @@ import json
 import pytest
 from pydantic import ValidationError
 
+from app.core.domain_errors import AvatarNotFoundError
 from app.core.security import get_password_hash, verify_password
 from app.db import PortalAccountRole, User, UserRole, UserS3Account
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.routers import dependencies
+from app.services.user_avatar_service import UserAvatarService
 from uuid import uuid4
 from tests.s3_account_factory import make_s3_account
 
@@ -137,6 +139,13 @@ def test_avatar_upload_rejects_unsupported_content(client, db_session):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Avatar image must be a PNG or JPEG file."
+
+
+def test_missing_user_avatar_uses_typed_not_found_error(db_session):
+    viewer = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
+
+    with pytest.raises(AvatarNotFoundError, match="Avatar not found"):
+        UserAvatarService(db_session).image_for_viewer(viewer, viewer.id)
 
 
 def test_user_avatar_requires_a_shared_portal_account(client, db_session):

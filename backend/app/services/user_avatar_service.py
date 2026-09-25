@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import AvatarNotFoundError
 from app.db import (
     PortalAccountRole,
     UiGroupS3Account,
@@ -148,9 +149,9 @@ class UserAvatarService:
     def image_for_viewer(self, viewer: User, target_user_id: int) -> tuple[bytes, str, str]:
         target = self.db.query(User).filter(User.id == target_user_id, User.is_active.is_(True)).first()
         if target is None or not target.avatar_image or target.avatar_content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
-            raise ValueError("Avatar not found.")
+            raise AvatarNotFoundError("Avatar not found.")
         if not self._can_view(viewer, target):
-            raise ValueError("Avatar not found.")
+            raise AvatarNotFoundError("Avatar not found.")
         version = str(int(target.avatar_updated_at.timestamp()) if target.avatar_updated_at else 0)
         return bytes(target.avatar_image), str(target.avatar_content_type), version
 
