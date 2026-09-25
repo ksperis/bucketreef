@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import (
     ManagerAccountRole,
     Base,
@@ -365,6 +366,21 @@ def test_create_migration_creates_items_and_defaults(db_session):
     by_source = {item.source_bucket: item for item in migration.items}
     assert by_source["bucket-a"].target_bucket == "mig-bucket-a"
     assert by_source["bucket-b"].target_bucket == "custom-b"
+
+
+@pytest.mark.parametrize(
+    ("context_id", "error_type"),
+    [
+        ("conn-999999", S3ConnectionNotFoundError),
+        ("s3u-999999", S3UserNotFoundError),
+        ("999999", S3AccountNotFoundError),
+    ],
+)
+def test_migration_context_resolution_types_missing_resources(db_session, context_id, error_type):
+    service = BucketMigrationService(db_session)
+
+    with pytest.raises(error_type):
+        service._context_to_account(context_id)
 
 
 def test_create_migration_uses_admin_default_parallelism(db_session):
