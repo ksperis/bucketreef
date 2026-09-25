@@ -37,7 +37,7 @@ from app.services.identity_security_policy import (
 )
 from app.services.mfa_reset_service import MfaResetService
 from app.services.users_service import UsersService
-from app.utils.http_errors import raise_bad_request_or_not_found
+from app.utils.http_errors import raise_http_error_from_value_error
 
 
 router = APIRouter(prefix="/admin", tags=["admin-identity-security"])
@@ -252,7 +252,7 @@ def revoke_user_external_identity(
     try:
         ExternalIdentityUserService(db).revoke_identity(identity.id, reason="administrator_identity_revoked")
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=actor,
         scope="security",
@@ -277,7 +277,7 @@ def restore_user_external_identity(
     try:
         restored = ExternalIdentityUserService(db).restore_identity(identity.id)
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=actor,
         scope="security",

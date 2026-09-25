@@ -28,7 +28,7 @@ from app.services.operation_lease_service import (
     OperationLeaseService,
     default_operation_lease_ttl_seconds,
 )
-from app.utils.http_errors import raise_bad_request_or_not_found
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(prefix="/admin/health", tags=["admin-healthchecks"])
 
@@ -64,7 +64,7 @@ def health_series(
     try:
         return EndpointHealthSeries(**service.build_series(endpoint_id, window))
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.get("/incidents", response_model=EndpointHealthIncidentsResponse)
@@ -79,7 +79,7 @@ def health_incidents(
     try:
         return EndpointHealthIncidentsResponse(**service.build_incidents(endpoint_id, window))
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.get("/raw-checks", response_model=EndpointHealthRawChecksResponse)
@@ -96,7 +96,7 @@ def health_raw_checks(
     try:
         return EndpointHealthRawChecksResponse(**service.build_raw_checks(endpoint_id, window, page=page, page_size=page_size))
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.get("/overview", response_model=EndpointHealthOverviewResponse)
@@ -150,7 +150,7 @@ def workspace_health_overview(
             )
         )
     except ValueError as exc:
-        raise_bad_request_or_not_found(exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("/run")
