@@ -7,7 +7,11 @@ from typing import Any, Optional
 from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
+from app.core.domain_errors import (
+    S3AccessKeyNotFoundError,
+    S3UserNotFoundError,
+    StorageEndpointNotFoundError,
+)
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     S3UserTag,
@@ -65,7 +69,7 @@ class S3UsersService:
     def _resolve_endpoint(self, storage_endpoint_id: int) -> StorageEndpoint:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == storage_endpoint_id).first()
         if not endpoint:
-            raise ValueError("Storage endpoint not found.")
+            raise StorageEndpointNotFoundError("Storage endpoint not found.")
         if endpoint.provider != StorageProvider.CEPH.value:
             raise ValueError("Only Ceph endpoints are allowed for S3 users.")
         if not resolve_feature_flags(endpoint).admin_enabled:
@@ -76,7 +80,7 @@ class S3UsersService:
     def _endpoint_for_user(s3_user: S3UserModel) -> StorageEndpoint:
         endpoint = s3_user.storage_endpoint
         if endpoint is None:
-            raise ValueError("Storage endpoint not found for S3 user.")
+            raise StorageEndpointNotFoundError("Storage endpoint not found for S3 user.")
         return endpoint
 
     def _admin_for_endpoint(self, endpoint: StorageEndpoint) -> RGWAdminClient:

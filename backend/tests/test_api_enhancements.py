@@ -141,6 +141,16 @@ def test_admin_account_mutations_require_a_canonical_endpoint(client: TestClient
     assert removed_create_fields_response.status_code == 422
 
 
+def test_admin_account_create_maps_missing_storage_endpoint_to_not_found(client: TestClient):
+    response = client.post(
+        "/api/admin/accounts",
+        json={"name": "missing-storage", "storage_endpoint_id": 999},
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Storage endpoint not found."
+
+
 
 def test_manager_create_bucket_passes_versioning_and_location(client: TestClient):
     captured: dict[str, object] = {}

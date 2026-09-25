@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3AccountNotFoundError
+from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFoundError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     AccountIAMUser,
@@ -91,7 +91,7 @@ class S3AccountsService:
     def _resolve_storage_endpoint(self, storage_endpoint_id: int, require_ceph: bool = False) -> StorageEndpoint:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == storage_endpoint_id).first()
         if not endpoint:
-            raise ValueError("Storage endpoint not found.")
+            raise StorageEndpointNotFoundError("Storage endpoint not found.")
         if require_ceph and endpoint.provider != StorageProvider.CEPH.value:
             raise ValueError("This endpoint is not a Ceph endpoint.")
         return endpoint
