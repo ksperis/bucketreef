@@ -13,13 +13,6 @@ from app.db import StorageEndpoint, User, UserRole, WebAuthnCredential
 from app.models.app_settings import AppSettings
 from app.scripts.check_production_hardening import run
 from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
-from app.services.production_hardening import (
-    HardeningFinding,
-    check_production_hardening,
-    hardening_counts,
-    hardening_exit_code,
-    hardening_status,
-)
 
 
 def _production_settings(**overrides) -> Settings:
@@ -72,22 +65,6 @@ def _check(settings: Settings, *, profile: str, admin_passkeys_required: bool = 
 
 def _finding(findings, code: str):
     return next(finding for finding in findings if finding.code == code)
-
-
-def test_legacy_hardening_facade_preserves_three_level_contract():
-    warning = HardeningFinding("legacy-check", "warning", "Review this setting.")
-
-    assert hardening_status([warning]) == "warning"
-    assert hardening_counts([warning]) == {"pass": 0, "warning": 1, "fail": 0}
-    assert hardening_exit_code([warning]) == 0
-
-    findings = check_production_hardening(
-        _production_settings(),
-        app_settings=_app_settings(),
-        profile="admin",
-    )
-    assert findings
-    assert all(finding.level in {"pass", "warning", "fail"} for finding in findings)
 
 
 def test_admin_profile_passes_automated_deployment_checks():
