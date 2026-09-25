@@ -14,7 +14,7 @@ from app.models.portal_monitoring import PortalAlert
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import (
     get_portal_service_dependency,
-    raise_portal_storage_runtime,
+    raise_portal_error,
 )
 from app.services.app_settings_service import load_app_settings
 from app.services.healthcheck_query_service import HealthCheckQueryService
@@ -74,4 +74,4 @@ def portal_alerts(
         health_alerts = _portal_endpoint_alerts(access, db)
         return service.dedupe_portal_alerts([*health_alerts, *alerts])[:limit]
     except RuntimeError as exc:
-        raise_portal_storage_runtime(exc)
+        raise_portal_error(exc)

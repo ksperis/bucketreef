@@ -23,7 +23,13 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceVisibility,
 )
 from app.services import s3_client, s3_deletion
-from app.services.portal.exceptions import PortalStorageSpaceNotEmpty
+from app.services.portal.exceptions import (
+    PortalBadRequestError,
+    PortalConflictError,
+    PortalForbiddenError,
+    PortalNotFoundError,
+    PortalStorageSpaceNotEmpty,
+)
 from app.services.rgw_admin import RGWAdminError
 from app.utils.time import utcnow
 from app.utils.usage_stats import extract_usage_stats
@@ -56,11 +62,11 @@ class PortalStorageSpacesMixin:
         is_portal_user = access.portal_role == PortalAccountRole.PORTAL_USER.value
         is_portal_manager = access.portal_role == PortalAccountRole.PORTAL_MANAGER.value
         if not (is_portal_manager or (allow_private_create and is_portal_user)):
-            raise RuntimeError("Storage Space creation not allowed for this role.")
+            raise PortalForbiddenError("Storage Space creation not allowed for this role.")
         if is_portal_user and visibility != "private":
-            raise RuntimeError("Portal users can only create private Storage Spaces.")
+            raise PortalForbiddenError("Portal users can only create private Storage Spaces.")
         if visibility == "private" and not allow_private_create:
-            raise RuntimeError("Private Storage Space creation is disabled for this project.")
+            raise PortalForbiddenError("Private Storage Space creation is disabled for this project.")
         share_scope, account_member_role = self._normalize_storage_space_sharing(
             visibility,
             share_scope,
@@ -77,7 +83,7 @@ class PortalStorageSpacesMixin:
         existing = {space.internal_bucket_name or space.id for space in self.list_storage_spaces(user, access, include_archived=True)}
         if naming_mode == "named_bucket":
             if not portal_settings.allow_portal_named_bucket_create:
-                raise RuntimeError("Named bucket Storage Space creation is not allowed for this account.")
+                raise PortalForbiddenError("Named bucket Storage Space creation is not allowed for this account.")
             bucket_name = self._unique_storage_space_bucket_name(name, existing)
             origin = "portal_named"
             name_editable = False
@@ -143,15 +149,15 @@ class PortalStorageSpacesMixin:
     ) -> PortalStorageSpaceSummary:
         cleaned_bucket_name = (bucket_name or "").strip()
         if not cleaned_bucket_name:
-            raise RuntimeError("Bucket name requis.")
+            raise PortalBadRequestError("Bucket name requis.")
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise RuntimeError("Storage Space import not allowed for this role.")
+            raise PortalForbiddenError("Storage Space import not allowed for this role.")
         portal_settings = self._effective_portal_settings(access.account)
         if visibility == "private" and not portal_settings.allow_private_storage_space_create:
-            raise RuntimeError("Private Storage Space creation is disabled for this project.")
+            raise PortalForbiddenError("Private Storage Space creation is disabled for this project.")
         metadata = self._storage_space_metadata(access.account, cleaned_bucket_name)
         if metadata is not None:
-            raise RuntimeError("Bucket is already registered as a Storage Space.")
+            raise PortalConflictError("Bucket is already registered as a Storage Space.")
         share_scope, account_member_role = self._normalize_storage_space_sharing(
             visibility,
             share_scope,
@@ -172,7 +178,7 @@ class PortalStorageSpacesMixin:
             **self._s3_client_kwargs(access.account),
         )
         if cleaned_bucket_name not in {bucket.get("name") for bucket in buckets}:
-            raise RuntimeError("Bucket not found for this account.")
+            raise PortalNotFoundError("Bucket not found for this account.")
         iam_service = self._get_iam_service(access.account)
         link, _, _ = self._ensure_portal_user(user, access.account, iam_service)
         self._sync_user_group_membership(
@@ -230,7 +236,7 @@ class PortalStorageSpacesMixin:
     ) -> PortalStorageSpaceSummary:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id, include_archived=True)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name, include_archived=True)
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None:
@@ -241,14 +247,14 @@ class PortalStorageSpacesMixin:
         if name is not None:
             current_name = self._display_storage_space_name(bucket_name, metadata)
             if not metadata.name_editable and name != current_name:
-                raise RuntimeError("Storage Space name cannot be changed for this bucket.")
+                raise PortalForbiddenError("Storage Space name cannot be changed for this bucket.")
             if metadata.name_editable:
                 metadata.display_name = name
         if description is not None:
             metadata.description = description
         next_visibility = visibility if visibility is not None else self._metadata_visibility(metadata)
         if next_visibility != self._metadata_visibility(metadata):
-            raise RuntimeError("Storage Space visibility cannot be changed after creation.")
+            raise PortalForbiddenError("Storage Space visibility cannot be changed after creation.")
         next_share_scope = share_scope if share_scope is not None else self._metadata_share_scope(metadata)
         next_account_member_role = account_member_role
         if account_member_role is None and share_scope is None:
@@ -278,7 +284,7 @@ class PortalStorageSpacesMixin:
         self.db.commit()
         storage_space = self.get_storage_space(user, access, bucket_name)
         if storage_space is None:
-            raise RuntimeError("Storage space not found after update.")
+            raise PortalNotFoundError("Storage space not found after update.")
         return storage_space
 
     def take_private_storage_space_ownership(
@@ -288,16 +294,16 @@ class PortalStorageSpacesMixin:
         space_id: str,
     ) -> PortalStorageSpaceSummary:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise RuntimeError("Only project managers can take ownership of a private Storage Space.")
+            raise PortalForbiddenError("Only project managers can take ownership of a private Storage Space.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id, include_archived=True)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None or self._metadata_visibility(metadata) != "private":
-            raise RuntimeError("Ownership applies only to private Storage Spaces.")
+            raise PortalForbiddenError("Ownership applies only to private Storage Spaces.")
         previous_owner_id = metadata.owner_user_id
         if previous_owner_id == user.id:
-            raise RuntimeError("You already own this private Storage Space.")
+            raise PortalForbiddenError("You already own this private Storage Space.")
         metadata.owner_user_id = user.id
         metadata.updated_at = utcnow()
         self.db.add(metadata)
@@ -314,7 +320,7 @@ class PortalStorageSpacesMixin:
             raise
         storage_space = self.get_storage_space(user, access, bucket_name)
         if storage_space is None:
-            raise RuntimeError("Storage space not found after ownership transfer.")
+            raise PortalNotFoundError("Storage space not found after ownership transfer.")
         return storage_space
 
     def _storage_space_deletion_usage(
@@ -340,10 +346,10 @@ class PortalStorageSpacesMixin:
     ) -> dict[str, Any]:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id, include_archived=True)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         roles_by_bucket = self._storage_space_roles_by_bucket(
             user,
             access.account,
@@ -351,7 +357,7 @@ class PortalStorageSpacesMixin:
             include_archived=True,
         )
         if roles_by_bucket.get(bucket_name) not in {"Owner", "Manager"}:
-            raise RuntimeError("Full content access required for this storage space.")
+            raise PortalForbiddenError("Full content access required for this storage space.")
 
         bucket_exists, used_bytes, object_count = self._storage_space_deletion_usage(
             access.account,

@@ -29,6 +29,7 @@ from app.models.portal_sharing import (
     PortalCollaboratorTrend,
     PortalCollaboratorsResponse,
 )
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 from app.services.user_avatar_service import UserAvatarService
 from app.utils.time import utcnow
 
@@ -258,9 +259,9 @@ class PortalCollaboratorsMixin:
         member_map = self._portal_account_member_map(access.account)
         member = member_map.get(target_user_id)
         if member is None:
-            raise RuntimeError("Portal collaborator not found.")
+            raise PortalNotFoundError("Portal collaborator not found.")
         if user.id != target_user_id and not access.capabilities.can_manage_portal_users:
-            raise RuntimeError("Reviewing this collaborator is not allowed.")
+            raise PortalForbiddenError("Reviewing this collaborator is not allowed.")
 
         target, portal_role, sources = member
         source_dates = self._portal_collaborator_source_dates(access.account, {target_user_id})

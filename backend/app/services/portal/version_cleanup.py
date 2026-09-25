@@ -19,6 +19,7 @@ from app.services.bucket_purge_service import BucketPurgeCancelled
 from app.services.object_listing_temp_store import TemporarySqliteStore
 from app.services.object_version_cleanup_store import ObjectVersionCleanupStore, ObjectVersionScanCounts
 from app.services import s3_deletion
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 
 if TYPE_CHECKING:
     from app.models.access_context import AccountAccess
@@ -47,10 +48,10 @@ class PortalStorageSpaceVersionCleanupMixin:
     ) -> PortalStorageSpaceVersionCleanupTarget:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         portal_settings = self._effective_portal_settings(access.account)
         if not portal_settings.storage_space_version_cleanup_enabled:
-            raise RuntimeError("Storage Space history cleanup is not allowed for this account.")
+            raise PortalForbiddenError("Storage Space history cleanup is not allowed for this account.")
         self._require_storage_space_full_content_access(user, access, bucket_name)
         self._require_storage_space_active(access.account, bucket_name)
         metadata = self._storage_space_metadata(access.account, bucket_name)

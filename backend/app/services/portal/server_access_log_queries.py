@@ -24,6 +24,7 @@ from app.models.portal_access_logs import (
 )
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 from app.services.portal.server_access_log_records import (
     apply_server_access_log_filter,
     dash_to_none,
@@ -114,7 +115,7 @@ class PortalServerAccessLogQueriesMixin:
         visible_spaces = self._visible_storage_space_lookup(user, access)
         selected_space = visible_spaces.get(space_id) if space_id else None
         if space_id and selected_space is None:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         candidate_spaces = [selected_space] if selected_space else list(visible_spaces.values())
         space_by_bucket: dict[str, PortalStorageSpaceSummary] = {}
         seen_space_ids: set[str] = set()
@@ -295,7 +296,7 @@ class PortalServerAccessLogQueriesMixin:
         timezone_offset_minutes: int = 0,
     ) -> list[PortalServerAccessLogEntry]:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise RuntimeError("Only project managers can access Portal server access logs")
+            raise PortalForbiddenError("Only project managers can access Portal server access logs")
         try:
             selected_date = date_cls.fromisoformat(date)
         except ValueError as exc:
@@ -374,7 +375,7 @@ class PortalServerAccessLogQueriesMixin:
         max_objects: int = 10000,
     ) -> str:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise RuntimeError("Only project managers can access Portal server access logs")
+            raise PortalForbiddenError("Only project managers can access Portal server access logs")
         try:
             start_date = date_cls.fromisoformat(date_from)
             end_date = date_cls.fromisoformat(date_to)

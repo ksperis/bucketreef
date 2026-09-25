@@ -21,6 +21,7 @@ from app.models.portal_versions import (
     PortalTrashResponse,
 )
 from app.services.aws_client_config import StorageRequestProfile
+from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError, PortalNotFoundError
 from app.services.s3_client import get_s3_client
 from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -70,7 +71,7 @@ class PortalObjectsMixin:
     ) -> PortalStorageSpaceRole:
         role = self._user_storage_space_role(user, access, bucket_name)
         if role is None:
-            raise RuntimeError("Storage Space content access not allowed for this role.")
+            raise PortalForbiddenError("Storage Space content access not allowed for this role.")
         return role
 
     def _portal_object_client(
@@ -82,7 +83,7 @@ class PortalObjectsMixin:
     ):
         link = self._existing_portal_link(user, account)
         if not link or not link.active_access_key or not link.active_secret_key:
-            raise RuntimeError("Portal IAM credentials are not provisioned for this user.")
+            raise PortalForbiddenError("Portal IAM credentials are not provisioned for this user.")
         endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(account)
         client_options = {
             "endpoint": endpoint,
@@ -170,10 +171,10 @@ class PortalObjectsMixin:
         max_keys: int = 1000,
     ) -> PortalStorageObjectVersionsResponse:
         if not key:
-            raise RuntimeError("Object key is required.")
+            raise PortalBadRequestError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         role = self._require_storage_space_content_role(user, access, bucket_name)
         client = self._portal_object_client(user, access.account)
         versioning_status = self._storage_space_versioning_status(client, bucket_name, space_id)
@@ -230,7 +231,7 @@ class PortalObjectsMixin:
     ) -> PortalTrashResponse:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         role = self._require_storage_space_content_role(user, access, bucket_name)
         client = self._portal_object_client(user, access.account)
         versioning_status = self._storage_space_versioning_status(client, bucket_name, space_id)
@@ -328,8 +329,8 @@ class PortalObjectsMixin:
             if not key_marker:
                 break
         if not current_is_deleted:
-            raise RuntimeError(f"Object '{target_key}' is not in the trash.")
-        raise RuntimeError(f"No restorable version was found for object '{target_key}'.")
+            raise PortalNotFoundError(f"Object '{target_key}' is not in the trash.")
+        raise PortalNotFoundError(f"No restorable version was found for object '{target_key}'.")
 
     def restore_storage_space_object_version(
         self,
@@ -341,15 +342,15 @@ class PortalObjectsMixin:
         version_id: Optional[str] = None,
     ) -> PortalStorageObjectRestoreResponse:
         if not key:
-            raise RuntimeError("Object key is required.")
+            raise PortalBadRequestError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         if self._require_storage_space_content_role(user, access, bucket_name) == "Viewer":
-            raise RuntimeError("Restore not allowed for this storage space role.")
+            raise PortalForbiddenError("Restore not allowed for this storage space role.")
         client = self._portal_object_client(user, access.account, request_profile="long_running")
         if self._storage_space_versioning_status(client, bucket_name, space_id) == "Disabled":
-            raise RuntimeError("File history is not enabled for this storage space.")
+            raise PortalForbiddenError("File history is not enabled for this storage space.")
         source_version_id = version_id or self._latest_restorable_storage_space_version(
             client,
             bucket_name,
@@ -404,7 +405,7 @@ class PortalObjectsMixin:
             code = str(error.get("Code") or "").lower()
             status_code = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
             if code in {"404", "nosuchkey", "notfound"} or status_code == 404:
-                raise RuntimeError(f"Object '{target_key}' not found in storage space '{space_id}'.") from exc
+                raise PortalNotFoundError(f"Object '{target_key}' not found in storage space '{space_id}'.") from exc
             raise RuntimeError(f"Unable to load object '{target_key}' in storage space '{space_id}': {exc}") from exc
         except BotoCoreError as exc:
             raise RuntimeError(f"Unable to load object '{target_key}' in storage space '{space_id}': {exc}") from exc
@@ -417,10 +418,10 @@ class PortalObjectsMixin:
         key: str,
     ) -> S3ObjectDownload:
         if not key:
-            raise RuntimeError("Object key is required.")
+            raise PortalBadRequestError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_content_role(user, access, bucket_name)
         client = self._portal_object_client(user, access.account, request_profile="long_running")
         try:
@@ -473,10 +474,10 @@ class PortalObjectsMixin:
         key: str,
     ) -> PortalStorageObjectDetail:
         if not key:
-            raise RuntimeError("Object key is required.")
+            raise PortalBadRequestError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_content_role(user, access, bucket_name)
         client = self._portal_object_client(user, access.account)
         resp = self._head_storage_space_object(client, bucket_name, space_id, key)
@@ -503,12 +504,12 @@ class PortalObjectsMixin:
         key: str,
     ) -> str:
         if not key:
-            raise RuntimeError("Object key is required.")
+            raise PortalBadRequestError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         if self._require_storage_space_content_role(user, access, bucket_name) == "Viewer":
-            raise RuntimeError("Delete not allowed for this storage space role.")
+            raise PortalForbiddenError("Delete not allowed for this storage space role.")
         client = self._portal_object_client(user, access.account)
         try:
             client.delete_object(Bucket=bucket_name, Key=key)

@@ -12,6 +12,12 @@ from app.core.config import get_settings
 from app.db import PortalAccountRole, PortalPublicLink as DBPortalPublicLink, S3Account, User
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.models.portal_sharing import PortalPublicLink
+from app.services.portal.exceptions import (
+    PortalBadRequestError,
+    PortalForbiddenError,
+    PortalGoneError,
+    PortalNotFoundError,
+)
 from app.services.s3_client import get_s3_client
 from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -72,7 +78,7 @@ class PortalPublicLinksMixin:
     ) -> list[PortalPublicLink]:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
         self._require_storage_space_active(access.account, bucket_name)
@@ -85,7 +91,7 @@ class PortalPublicLinksMixin:
             None,
         )
         if storage_space is None:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         query = self.db.query(DBPortalPublicLink).filter(
             DBPortalPublicLink.account_id == access.account.id,
             DBPortalPublicLink.bucket_name == bucket_name,
@@ -108,17 +114,17 @@ class PortalPublicLinksMixin:
         expires_at: Optional[datetime] = None,
     ) -> PortalPublicLink:
         if not object_key:
-            raise RuntimeError("Object key is required.")
+            raise PortalBadRequestError("Object key is required.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
         self._require_storage_space_active(access.account, bucket_name)
         if access.portal_role == PortalAccountRole.PORTAL_MANAGER.value:
             self._require_storage_space_shared(access.account, bucket_name)
         elif not self._portal_user_can_create_external_sharing(user, access, bucket_name):
-            raise RuntimeError("External sharing is disabled for this Portal user.")
+            raise PortalForbiddenError("External sharing is disabled for this Portal user.")
         storage_space = next(
             (
                 item
@@ -128,10 +134,10 @@ class PortalPublicLinksMixin:
             None,
         )
         if storage_space is None:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         expires_at = self._normalize_storage_space_datetime(expires_at)
         if expires_at is not None and expires_at <= utcnow():
-            raise RuntimeError("Public link expiration must be in the future.")
+            raise PortalBadRequestError("Public link expiration must be in the future.")
         client = self._portal_object_client(user, access.account)
         self._head_storage_space_object(client, bucket_name, space_id, object_key)
         token = secrets.token_urlsafe(32)
@@ -159,7 +165,7 @@ class PortalPublicLinksMixin:
     ) -> list[PortalPublicLink]:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
         self._require_storage_space_active(access.account, bucket_name)
@@ -173,7 +179,7 @@ class PortalPublicLinksMixin:
             .first()
         )
         if link is None:
-            raise RuntimeError("Public link not found.")
+            raise PortalNotFoundError("Public link not found.")
         link.revoked_at = utcnow()
         self.db.add(link)
         self.db.commit()
@@ -182,16 +188,16 @@ class PortalPublicLinksMixin:
     def download_public_link(self, token: str) -> S3ObjectDownload:
         link = self.db.query(DBPortalPublicLink).filter(DBPortalPublicLink.token == token).first()
         if link is None:
-            raise RuntimeError("Public link not found.")
+            raise PortalNotFoundError("Public link not found.")
         link_status = self._public_link_status(link)
         if link_status != "Active":
-            raise RuntimeError(f"Public link is {link_status.lower()}.")
+            raise PortalGoneError(f"Public link is {link_status.lower()}.")
         account = self.db.query(S3Account).filter(S3Account.id == link.account_id).first()
         if account is None:
-            raise RuntimeError("Public link account not found.")
+            raise PortalNotFoundError("Public link account not found.")
         metadata = self._storage_space_metadata(account, link.bucket_name)
         if metadata and metadata.archived_at:
-            raise RuntimeError("Public link is archived.")
+            raise PortalGoneError("Public link is archived.")
         access_key, secret_key = self._account_credentials(account)
         endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(account)
         client = get_s3_client(

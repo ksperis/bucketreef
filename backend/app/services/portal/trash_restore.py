@@ -19,6 +19,7 @@ from app.models.portal_versions import (
 )
 from app.services.bucket_purge_service import BucketPurgeCancelled
 from app.services.object_listing_temp_store import TemporarySqliteStore
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 from app.services.object_restore_store import (
     ObjectRestoreScanCounts,
     ObjectRestoreStore,
@@ -214,9 +215,9 @@ class PortalDeletedPrefixRestoreMixin:
         target_prefix = prefix if prefix.endswith("/") else f"{prefix}/"
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
         if not bucket_name:
-            raise RuntimeError("Storage space not found or not allowed.")
+            raise PortalNotFoundError("Storage space not found or not allowed.")
         if self._require_storage_space_content_role(user, access, bucket_name) == "Viewer":
-            raise RuntimeError("Restore not allowed for this storage space role.")
+            raise PortalForbiddenError("Restore not allowed for this storage space role.")
         self._require_storage_space_active(access.account, bucket_name)
         client = self._portal_object_client(
             user,
