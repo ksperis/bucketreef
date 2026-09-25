@@ -1021,10 +1021,10 @@ export default function ManagerDashboard() {
   const objectQuota = managerLimits?.quota_max_objects ?? null;
   const visibleBucketCount = bucketUnavailableReason ? null : bucketCount;
   const bucketQuota = managerLimits?.max_buckets ?? null;
-  const iamUserCount = iamUnavailableReason ? null : iamOverview?.iam_users ?? stats?.total_iam_users ?? null;
-  const iamGroupCount = iamUnavailableReason ? null : iamOverview?.iam_groups ?? stats?.total_iam_groups ?? null;
-  const iamRoleCount = iamUnavailableReason ? null : iamOverview?.iam_roles ?? stats?.total_iam_roles ?? null;
-  const iamPolicyCount = iamUnavailableReason ? null : iamOverview?.iam_policies ?? stats?.total_iam_policies ?? null;
+  const iamUserCount = iamUnavailableReason ? null : iamOverview?.iam_users ?? null;
+  const iamGroupCount = iamUnavailableReason ? null : iamOverview?.iam_groups ?? null;
+  const iamRoleCount = iamUnavailableReason ? null : iamOverview?.iam_roles ?? null;
+  const iamPolicyCount = iamUnavailableReason ? null : iamOverview?.iam_policies ?? null;
   const userQuota = managerLimits?.max_users ?? null;
   const roleQuota = managerLimits?.max_roles ?? null;
   const groupQuota = managerLimits?.max_groups ?? null;

@@ -78,10 +78,6 @@ def _load_principal_bucket_stats(rgw_admin: RGWAdminClient, uid: str) -> dict:
     bucket_usage, total_bytes, total_objects, total_buckets = summarize_bucket_usage(extract_bucket_list(payload))
     return {
         "total_buckets": total_buckets,
-        "total_iam_users": 0,
-        "total_iam_groups": 0,
-        "total_iam_roles": 0,
-        "total_iam_policies": 0,
         "total_bytes": total_bytes or 0,
         "total_objects": total_objects or 0,
         "bucket_usage": bucket_usage,

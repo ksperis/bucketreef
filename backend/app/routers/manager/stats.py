@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,33 +17,21 @@ from app.routers.dependencies import (
     require_metrics_capable_manager,
     require_usage_capable_manager,
 )
-from app.routers.manager.access import require_manager_capabilities
 from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
 from app.services.app_settings_service import load_app_settings
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.rgw_admin import RGWAdminError
-from app.services.rgw_iam import get_iam_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficService, TrafficWindow
 from app.services.usage_trends_service import account_usage_trend_filters, build_account_usage_trends
 from app.services.usage_history_service import UsageHistoryService
-from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.time import utcnow
 from app.utils.usage_stats import build_bucket_overview
 
 router = APIRouter(prefix="/manager/stats", tags=["manager-stats"])
 
-logger = logging.getLogger(__name__)
 settings = get_settings()
-
-
-def _safe_list(operation: str, func):
-    try:
-        return func()
-    except Exception as exc:  # pragma: no cover - defensive logging
-        logger.warning("Unable to fetch IAM %s stats: %s", operation, exc)
-        return []
 
 
 @router.get("/overview")
@@ -53,7 +40,6 @@ def account_stats(
     bucket_service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(require_usage_capable_manager),
 ) -> dict:
-    caps = require_manager_capabilities(account)
     if not account.rgw_account_id and not account.rgw_user_uid:
         raise HTTPException(status_code=400, detail="Storage metrics not available for this account")
     try:
@@ -64,27 +50,6 @@ def account_stats(
             status_code=502,
             detail=f"Unable to fetch buckets: {sanitized_error_log_detail(exc)}",
         ) from exc
-
-    users: list = []
-    groups: list = []
-    roles: list = []
-    policies: list = []
-    if caps.can_manage_iam:
-        access_key, secret_key = account.effective_rgw_credentials()
-        if not access_key or not secret_key:
-            raise HTTPException(status_code=400, detail="Execution context credentials are missing")
-        endpoint, region, verify_tls = resolve_iam_client_options(account)
-        iam = get_iam_service(
-            access_key,
-            secret_key,
-            endpoint=endpoint,
-            region=region,
-            verify_tls=verify_tls,
-        )
-        users = _safe_list("users", iam.list_users)
-        groups = _safe_list("groups", iam.list_groups)
-        roles = _safe_list("roles", iam.list_roles)
-        policies = _safe_list("policies", iam.list_policies)
 
     total_bytes = sum((bucket.used_bytes or 0) for bucket in buckets if bucket.used_bytes is not None)
     total_objects = sum((bucket.object_count or 0) for bucket in buckets if bucket.object_count is not None)
@@ -100,10 +65,6 @@ def account_stats(
 
     return {
         "total_buckets": total_buckets,
-        "total_iam_users": len(users),
-        "total_iam_groups": len(groups),
-        "total_iam_roles": len(roles),
-        "total_iam_policies": len(policies),
         "total_bytes": total_bytes,
         "total_objects": total_objects,
         "bucket_usage": bucket_usage,

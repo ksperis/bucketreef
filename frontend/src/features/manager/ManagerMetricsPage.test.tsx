@@ -100,10 +100,6 @@ function buildStatsResult(overrides?: Record<string, unknown>) {
   return {
     stats: {
       total_buckets: 1,
-      total_iam_users: 0,
-      total_iam_groups: 0,
-      total_iam_roles: 0,
-      total_iam_policies: 0,
       bucket_usage: [{ name: "alpha", used_bytes: 42, object_count: 2 }],
     },
     loading: false,
