@@ -10,6 +10,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import (
     EndpointHealthCheck,
     EndpointHealthLatest,
@@ -93,7 +94,7 @@ class HealthCheckQueryService:
     def build_series(self, endpoint_id: int, window: HealthWindow) -> dict:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         profile = resolve_healthcheck_profile(endpoint)
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
@@ -381,7 +382,7 @@ class HealthCheckQueryService:
             endpoints_query = endpoints_query.filter(StorageEndpoint.id == endpoint_id)
         endpoints = endpoints_query.all()
         if endpoint_id is not None and not endpoints:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
 
         now = utcnow()
         stale_after_seconds = max(1, int(settings.healthcheck_interval_seconds)) * 2
@@ -441,7 +442,7 @@ class HealthCheckQueryService:
     def build_incidents(self, endpoint_id: int, window: HealthWindow) -> dict:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         profile = resolve_healthcheck_profile(endpoint)
         latest_scope = self._load_latest_scope_by_endpoint([endpoint_id]).get(endpoint_id)
         check_mode = _coerce_check_mode(
@@ -492,7 +493,7 @@ class HealthCheckQueryService:
     def build_raw_checks(self, endpoint_id: int, window: HealthWindow, page: int = 1, page_size: int = 25) -> dict:
         endpoint = self.db.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint_id).first()
         if not endpoint:
-            raise ValueError("Endpoint not found.")
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
         safe_page = max(1, int(page))
