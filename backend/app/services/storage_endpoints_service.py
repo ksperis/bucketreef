@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import (
     S3Account,
     S3Connection,
@@ -54,11 +55,6 @@ from app.utils.storage_endpoint_features import (
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
-
-class StorageEndpointNotFoundError(ValueError):
-    pass
-
 
 class StorageEndpointsService:
     def __init__(self, db: Session) -> None:

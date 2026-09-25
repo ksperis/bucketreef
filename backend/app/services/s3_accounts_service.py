@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import S3AccountNotFoundError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     AccountIAMUser,
@@ -57,11 +58,6 @@ from app.utils.name_ordering import name_order_by
 
 
 logger = logging.getLogger(__name__)
-
-
-class S3AccountNotFoundError(ValueError):
-    pass
-
 
 @dataclass(frozen=True)
 class _PreparedAccountImport:

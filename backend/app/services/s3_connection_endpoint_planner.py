@@ -5,6 +5,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db.s3_connection import S3Connection as DBS3Connection
 from app.db.storage_endpoint import StorageEndpoint
 from app.models.s3_connection import (
@@ -21,11 +22,6 @@ from app.utils.s3_connection_endpoint import (
     custom_endpoint_update_base,
 )
 from app.utils.s3_endpoint import validate_user_supplied_s3_endpoint
-
-
-class StorageEndpointNotFoundError(ValueError):
-    pass
-
 
 class S3ConnectionEndpointPlanner:
     """Resolve one canonical managed or custom endpoint before persistence."""

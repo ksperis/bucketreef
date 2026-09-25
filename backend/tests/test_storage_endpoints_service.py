@@ -8,6 +8,7 @@ import requests
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import (
     BillingAssignment,
     BillingRateCard,
@@ -36,10 +37,7 @@ from app.models.storage_endpoint import (
     StorageEndpointUpdate,
 )
 from app.services.rgw_admin import RGWAdminError
-from app.services.storage_endpoints_service import (
-    StorageEndpointNotFoundError,
-    StorageEndpointsService,
-)
+from app.services.storage_endpoints_service import StorageEndpointsService
 from app.utils.storage_endpoint_features import (
     AWS_DEFAULT_REGION,
     AWS_IAM_ENDPOINT,

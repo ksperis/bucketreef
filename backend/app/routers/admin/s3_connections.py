@@ -9,6 +9,7 @@ from sqlalchemy import exists, func
 from sqlalchemy.orm import Session, aliased
 
 from app.core.database import get_db
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import (
     S3Connection,
     S3ConnectionTag,
@@ -44,7 +45,6 @@ from app.services.s3_connections_service import (
     ACTIVE_MANAGED_SOURCE_UPDATE_ERROR,
     S3ConnectionsService,
 )
-from app.services.s3_connection_endpoint_planner import StorageEndpointNotFoundError
 from app.services.s3_connection_validation_service import S3ConnectionValidationService
 from app.services.tags_service import TagsService, serialize_tag_summaries
 from app.services.ui_group_avatar_service import UiGroupAvatarService

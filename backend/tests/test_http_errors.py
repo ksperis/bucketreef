@@ -9,9 +9,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
 from app import main
+from app.core.domain_errors import ResourceNotFoundError
 from app.core.sensitive_data import sanitize_error_detail
 from app.utils.http_errors import (
     raise_bad_gateway_from_runtime,
+    raise_bad_request_or_not_found,
     raise_bad_request_from_value_error,
     raise_http_exception_from_exception,
 )
@@ -50,6 +52,26 @@ def test_raise_bad_request_from_value_error_redacts_sensitive_user_input():
     except HTTPException as exc:
         assert exc.status_code == 400
         assert exc.detail == "invalid callback secret_access_key=<redacted>"
+    else:
+        raise AssertionError("Expected HTTPException")
+
+
+def test_raise_bad_request_or_not_found_maps_domain_absence_to_not_found():
+    try:
+        raise_bad_request_or_not_found(ResourceNotFoundError("missing resource"))
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail == "missing resource"
+    else:
+        raise AssertionError("Expected HTTPException")
+
+
+def test_raise_bad_request_or_not_found_keeps_other_value_errors_as_bad_request():
+    try:
+        raise_bad_request_or_not_found(ValueError("invalid request"))
+    except HTTPException as exc:
+        assert exc.status_code == 400
+        assert exc.detail == "invalid request"
     else:
         raise AssertionError("Expected HTTPException")
 
