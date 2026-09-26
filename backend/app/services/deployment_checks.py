@@ -23,7 +23,7 @@ from app.db import (
     WebhookEndpoint,
 )
 from app.models.app_settings import AppSettings
-from app.services.webhook_service import webhook_runtime_config
+from app.services.webhook_service import webhook_dispatcher_enabled, webhook_runtime_config
 from app.utils.network_targets import host_matches_allowlist
 from app.utils.s3_connection_endpoint import parse_custom_endpoint_config
 
@@ -202,11 +202,12 @@ def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[Unc
         if not host_matches_allowlist(hostname, settings.user_supplied_s3_endpoint_allowed_hosts):
             uncovered.add(UncoveredTarget("user-s3-endpoint", hostname or "<invalid>"))
 
-    webhook_hosts = webhook_runtime_config(settings).allowed_hosts
-    for (webhook_url,) in db.query(WebhookEndpoint.url).all():
-        hostname = _hostname(webhook_url or "") or "<invalid>"
-        if not host_matches_allowlist(hostname, webhook_hosts):
-            uncovered.add(UncoveredTarget("webhook", hostname))
+    if webhook_dispatcher_enabled(settings):
+        webhook_hosts = webhook_runtime_config(settings).allowed_hosts
+        for (webhook_url,) in db.query(WebhookEndpoint.url).all():
+            hostname = _hostname(webhook_url or "") or "<invalid>"
+            if not host_matches_allowlist(hostname, webhook_hosts):
+                uncovered.add(UncoveredTarget("webhook", hostname))
     return sorted(uncovered)
 
 
