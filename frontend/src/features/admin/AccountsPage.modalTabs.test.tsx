@@ -21,6 +21,7 @@ const getStorageEndpointMock = vi.fn();
 const listMinimalUsersMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
+const effectiveAccessPanelMountedMock = vi.fn();
 let portalEnabled = false;
 
 const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
@@ -99,6 +100,13 @@ vi.mock("../../api/groups", () => ({
 vi.mock("../../api/tags", () => ({
   listAdminTagDefinitions: (domain: unknown) => listAdminTagDefinitionsMock(domain),
   listPrivateConnectionTagDefinitions: vi.fn(),
+}));
+
+vi.mock("./AdminEffectiveAccessPanel", () => ({
+  default: (props: unknown) => {
+    effectiveAccessPanelMountedMock(props);
+    return <div>Effective access panel</div>;
+  },
 }));
 
 describe("AccountsPage modal tabs", () => {
@@ -346,6 +354,22 @@ describe("AccountsPage modal tabs", () => {
         ]),
       })
     );
+  });
+
+  it("loads Effective access only when the account tab is opened", async () => {
+    render(<AccountsPage />);
+    await screen.findByText("acc-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await screen.findByRole("tab", { name: "General" });
+    expect(effectiveAccessPanelMountedMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Effective access" }));
+    expect(await screen.findByText("Effective access panel")).toBeInTheDocument();
+    expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
+      scope: "rgw_account",
+      targetId: 1,
+      contextLabel: "acc-1",
+    }));
   });
 
   it("submits direct UI group links from the account edit tab", async () => {

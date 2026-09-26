@@ -202,6 +202,7 @@ describe("buildAdminNav", () => {
       "Portal Requests",
       "Billing",
       "Usage History",
+      "Access audit",
       "Audit trail",
     ]);
     expect(overview?.links.find((link) => link.label === "Getting started")?.iconName).toBe("tools");

@@ -36,6 +36,7 @@ describe("route snapshot", () => {
       "/admin/users",
       "/admin/groups",
       "/admin/identity-security",
+      "/admin/access-audit",
       "/admin/audit",
       "/admin/metrics",
       "/admin/portal-requests",

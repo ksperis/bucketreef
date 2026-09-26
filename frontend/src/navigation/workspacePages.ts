@@ -61,6 +61,7 @@ export const ADMIN_PAGE_CONTRACTS = {
   "portal-requests": { label: "Portal Requests", path: "/admin/portal-requests" },
   billing: { label: "Billing", path: "/admin/billing" },
   "usage-history": { label: "Usage History", path: "/admin/usage-history" },
+  "access-audit": { label: "Access audit", path: "/admin/access-audit" },
   audit: { label: "Audit trail", path: "/admin/audit" },
   "general-settings": { label: "General", path: "/admin/general-settings" },
   "authentication-settings": { label: "Authentication", path: "/admin/authentication-settings" },

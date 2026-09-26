@@ -70,9 +70,10 @@ import AdminQuotaFields from "./AdminQuotaFields";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
+import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
 
 type SortField = "name" | "uid";
-type EditTab = "general" | "users" | "groups" | "privileged";
+type EditTab = "general" | "users" | "groups" | "privileged" | "effective_access";
 
 function getS3UserSearchCandidates(user: S3User): Array<string | number | null | undefined> {
   return [
@@ -986,6 +987,7 @@ export default function S3UsersPage() {
                 { id: "users", label: "Linked UI users" },
                 { id: "groups", label: "Linked UI groups" },
                 { id: "privileged", label: "Privileged access", visible: canManagePrivilegedTargets },
+                { id: "effective_access", label: "Effective access" },
               ]}
             >
 
@@ -1331,18 +1333,29 @@ export default function S3UsersPage() {
                 ]}
               />
             )}
+            {editTab === "effective_access" && (
+              <AdminEffectiveAccessPanel
+                scope="rgw_user"
+                targetId={editingUser.id}
+                contextLabel={editingUser.name}
+              />
+            )}
             </WorkflowTabs>
 
             <WorkflowActions>
-              <UiButton variant="secondary" onClick={editCloseGuard.requestClose}>
-                Cancel
-              </UiButton>
-              <UiButton
-                type="submit"
-                disabled={editBusy}
-              >
-                {editBusy ? "Saving..." : "Save changes"}
-              </UiButton>
+              {editTab === "effective_access" ? (
+                <UiButton variant="secondary" onClick={editCloseGuard.requestClose}>Done</UiButton>
+              ) : <>
+                <UiButton variant="secondary" onClick={editCloseGuard.requestClose}>
+                  Cancel
+                </UiButton>
+                <UiButton
+                  type="submit"
+                  disabled={editBusy}
+                >
+                  {editBusy ? "Saving..." : "Save changes"}
+                </UiButton>
+              </>}
             </WorkflowActions>
             {editCloseGuard.confirmationDialog}
           </form>

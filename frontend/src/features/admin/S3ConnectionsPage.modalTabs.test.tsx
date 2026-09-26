@@ -13,6 +13,7 @@ const listMinimalUsersMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
 const listStorageEndpointsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
+const effectiveAccessPanelMountedMock = vi.fn();
 
 function expectBefore(first: Element, second: Element) {
   expect(Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
@@ -56,6 +57,13 @@ vi.mock("../../api/storageEndpoints", () => ({
 vi.mock("../../api/tags", () => ({
   listAdminTagDefinitions: (domain: unknown) => listAdminTagDefinitionsMock(domain),
   listPrivateConnectionTagDefinitions: vi.fn(),
+}));
+
+vi.mock("./AdminEffectiveAccessPanel", () => ({
+  default: (props: unknown) => {
+    effectiveAccessPanelMountedMock(props);
+    return <div>Effective access panel</div>;
+  },
 }));
 
 const makeConnection = (id: number, overrides?: Partial<Record<string, unknown>>) => ({
@@ -265,6 +273,21 @@ describe("S3ConnectionsPage modal tabs", () => {
         user_ids: [11, 13],
       })
     );
+  });
+
+  it("loads Effective access only when the shared connection tab is opened", async () => {
+    render(<S3ConnectionsPage />);
+    await screen.findByText("connection-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(effectiveAccessPanelMountedMock).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Effective access" }));
+    expect(await screen.findByText("Effective access panel")).toBeInTheDocument();
+    expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
+      scope: "s3_connection",
+      targetId: 1,
+      contextLabel: "connection-1",
+    }));
   });
 
   it("updates metadata and credentials through one Admin request", async () => {

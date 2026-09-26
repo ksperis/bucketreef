@@ -48,6 +48,7 @@ const FirstAdminSetupPage = lazy(() => import("./features/auth/FirstAdminSetupPa
 const OidcCallbackPage = lazy(() => import("./features/auth/OidcCallbackPage"));
 const UnauthorizedPage = lazy(() => import("./features/auth/UnauthorizedPage"));
 const S3AccountsPage = lazy(() => import("./features/admin/AccountsPage"));
+const AccessAuditPage = lazy(() => import("./features/admin/AccessAuditPage"));
 const AuditLogsPage = lazy(() => import("./features/admin/AuditLogsPage"));
 const UsersPage = lazy(() => import("./features/admin/UsersPage"));
 const GroupsPage = lazy(() => import("./features/admin/GroupsPage"));
@@ -253,6 +254,7 @@ export const buildAdminNav = (
           : []),
         ...(billingEnabled ? [workspacePageLink(ADMIN_PAGE_CONTRACTS.billing)] : []),
         ...(usageHistoryEnabled ? [workspacePageLink(ADMIN_PAGE_CONTRACTS["usage-history"])] : []),
+        workspacePageLink(ADMIN_PAGE_CONTRACTS["access-audit"]),
         workspacePageLink(ADMIN_PAGE_CONTRACTS.audit),
       ],
     },
@@ -348,6 +350,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
               <Route path="users" element={<UsersPage />} />
               <Route path="groups" element={<GroupsPage />} />
               <Route path="identity-security" element={<IdentitySecurityPage />} />
+              <Route path="access-audit" element={<AccessAuditPage />} />
               <Route path="audit" element={<AuditLogsPage />} />
               <Route path="metrics" element={<AdminMetricsPage />} />
               <Route path="portal-requests" element={<AdminPortalRequestsPage />} />

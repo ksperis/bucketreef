@@ -12,6 +12,7 @@ const deleteUserMock = vi.fn();
 const beginRecentWebAuthnVerificationMock = vi.fn();
 const finishRecentWebAuthnVerificationMock = vi.fn();
 const authenticatePasskeyMock = vi.fn();
+const effectiveAccessPanelMountedMock = vi.fn();
 
 const listMinimalS3AccountsMock = vi.fn();
 const listMinimalS3UsersMock = vi.fn();
@@ -92,6 +93,13 @@ vi.mock("./UserAuthenticationPanel", () => ({
     <button type="button" onClick={() => onBusyChange(true)}>Start authentication action</button>
     <button type="button" onClick={() => onBusyChange(false)}>Complete authentication action</button>
   </div>,
+}));
+
+vi.mock("./AdminEffectiveAccessPanel", () => ({
+  default: (props: unknown) => {
+    effectiveAccessPanelMountedMock(props);
+    return <div>Effective access panel</div>;
+  },
 }));
 
 describe("UsersPage modal tabs", () => {
@@ -757,6 +765,7 @@ describe("UsersPage modal tabs", () => {
       "Associations",
       "Workspaces",
       "Connections",
+      "Effective access",
     ]);
     expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
@@ -769,6 +778,28 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByText("Mass management workspaces")).toBeInTheDocument();
     expect(screen.getByText("Ceph Admin access")).toBeInTheDocument();
     expect(screen.getByText("Storage Ops access")).toBeInTheDocument();
+  });
+
+  it("loads Effective access only when the edit tab is opened", async () => {
+    listUsersMock.mockResolvedValue({
+      items: [{ id: 9, email: "audit.user@example.com", full_name: "Audit User", role: "ui_user", account_links: [] }],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    render(<UsersPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(effectiveAccessPanelMountedMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Effective access" }));
+    expect(await screen.findByText("Effective access panel")).toBeInTheDocument();
+    expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 9,
+      contextLabel: "Audit User",
+      showUserColumn: false,
+    }));
   });
 
   it("uses a single Done action for the immediate Authentication workflow", async () => {
