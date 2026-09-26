@@ -44,7 +44,9 @@ describe("AssociationPrincipalStack", () => {
     );
     fireEvent.mouseEnter(tooltip);
     const visualTooltip = screen.getByRole("tooltip", { name: "Linked principals details" });
-    expect(visualTooltip.parentElement).toHaveClass("w-96", "p-2");
+    expect(visualTooltip.parentElement).toHaveClass("w-[32rem]", "p-2");
+    expect(within(visualTooltip).getByText("Alice Example · alice@example.com")).toHaveClass("break-words", "whitespace-normal");
+    expect(within(visualTooltip).getByText("Alice Example · alice@example.com")).not.toHaveClass("truncate");
     expect(within(visualTooltip).getByText("Portal user")).toBeInTheDocument();
     expect(within(visualTooltip).getByText("Portal user")).toHaveClass("ui-list-badge");
     expect(within(visualTooltip).getByText("Account administrator")).toBeInTheDocument();
@@ -109,6 +111,7 @@ describe("AssociationPrincipalStack", () => {
   });
 
   it("renders three category badges and bounds the complete association tooltip", () => {
+    const longAccountName = "Research archive account with a long descriptive name";
     render(
       <CompactAssociationSummary
         tooltipLimit={3}
@@ -120,7 +123,7 @@ describe("AssociationPrincipalStack", () => {
             items: [
               {
                 id: 1,
-                label: "Research",
+                label: longAccountName,
                 role_labels: [
                   "Account administrator",
                   "Direct: Portal user",
@@ -148,10 +151,13 @@ describe("AssociationPrincipalStack", () => {
 
     const summary = screen.getByLabelText("4 linked associations");
     expect(summary).toHaveAccessibleDescription(
-      "Linked associations (4)\nRGW account: Research — Roles: Account administrator\nRGW account: Archive — Roles: Portal user\nRGW user: research-user\n… 1 more",
+      `Linked associations (4)\nRGW account: ${longAccountName} — Roles: Account administrator\nRGW account: Archive — Roles: Portal user\nRGW user: research-user\n… 1 more`,
     );
     fireEvent.focus(summary);
     const visualTooltip = screen.getByRole("tooltip", { name: "Linked associations details" });
+    expect(visualTooltip.parentElement).toHaveClass("w-[32rem]", "p-2");
+    expect(within(visualTooltip).getByText(longAccountName)).toHaveClass("break-words", "whitespace-normal");
+    expect(within(visualTooltip).getByText(longAccountName)).not.toHaveClass("truncate");
     expect(within(visualTooltip).getByText("Account administrator")).toBeInTheDocument();
     expect(within(visualTooltip).queryByText("Direct access")).not.toBeInTheDocument();
     expect(within(visualTooltip).getByText("+1 more entry")).toBeInTheDocument();

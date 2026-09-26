@@ -55,6 +55,8 @@ type AssociationRoleTooltipEntry = {
   roles: string[];
 };
 
+type AssociationRoleTooltipDetailTone = "semantic" | "neutral";
+
 function roleBadgeTone(role: string): "warning" | "info" | "success" | "neutral" {
   const normalized = role.toLowerCase();
   if (normalized.includes("admin") || normalized.includes("manager")) return "warning";
@@ -73,12 +75,17 @@ function isAccessProvenanceLabel(role: string): boolean {
   );
 }
 
-function tooltipDescription(label: string, entries: AssociationRoleTooltipEntry[], remaining: number): string {
+function tooltipDescription(
+  label: string,
+  entries: AssociationRoleTooltipEntry[],
+  remaining: number,
+  detailLabel: string,
+): string {
   const lines = [
     `${label} (${entries.length + remaining})`,
     ...entries.map((entry) => {
       const identity = `${entry.descriptionKindLabel ? `${entry.descriptionKindLabel}: ` : ""}${entry.identity}`;
-      return entry.roles.length > 0 ? `${identity} — Roles: ${entry.roles.join(", ")}` : identity;
+      return entry.roles.length > 0 ? `${identity} — ${detailLabel}: ${entry.roles.join(", ")}` : identity;
     }),
   ];
   if (remaining > 0) lines.push(`… ${remaining} more`);
@@ -91,6 +98,8 @@ export function AssociationRoleTooltip({
   tooltipLimit = DEFAULT_TOOLTIP_LIMIT,
   ariaLabel,
   focusable = false,
+  detailLabel = "Roles",
+  detailTone = "semantic",
   children,
 }: {
   label: string;
@@ -98,6 +107,8 @@ export function AssociationRoleTooltip({
   tooltipLimit?: number;
   ariaLabel: string;
   focusable?: boolean;
+  detailLabel?: string;
+  detailTone?: AssociationRoleTooltipDetailTone;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -107,7 +118,7 @@ export function AssociationRoleTooltip({
   const boundedLimit = Math.max(1, tooltipLimit);
   const listedEntries = useMemo(() => entries.slice(0, boundedLimit), [boundedLimit, entries]);
   const remaining = entries.length - listedEntries.length;
-  const description = tooltipDescription(label, listedEntries, remaining);
+  const description = tooltipDescription(label, listedEntries, remaining, detailLabel);
 
   const cancelClose = () => {
     if (closeTimerRef.current != null) {
@@ -153,8 +164,8 @@ export function AssociationRoleTooltip({
         anchorRef={anchorRef}
         placement="bottom-start"
         offset={4}
-        minWidth={340}
-        className="pointer-events-auto max-h-[calc(100vh-1rem)] w-96 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+        minWidth={420}
+        className="pointer-events-auto max-h-[calc(100vh-1rem)] w-[32rem] overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900"
       >
         <div
           role="tooltip"
@@ -170,23 +181,23 @@ export function AssociationRoleTooltip({
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {listedEntries.map((entry) => (
-              <div key={entry.key} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 py-1">
+              <div key={entry.key} className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 py-1">
                 <div className="flex min-w-0 flex-1 items-baseline gap-1">
                   {entry.kindLabel ? (
                     <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                       {entry.kindLabel}
                     </span>
                   ) : null}
-                  <span className="min-w-0 truncate text-[11px] font-medium leading-4 text-slate-800 dark:text-slate-100">
+                  <span className="min-w-0 break-words whitespace-normal text-[11px] font-medium leading-4 text-slate-800 dark:text-slate-100">
                     {entry.identity}
                   </span>
                 </div>
                 {entry.roles.length > 0 ? (
-                  <div className="flex shrink-0 flex-wrap justify-end gap-0.5">
+                  <div className="flex max-w-[58%] shrink-0 flex-wrap justify-end gap-0.5">
                     {entry.roles.map((role) => (
                       <ListBadge
                         key={`${entry.key}:${role}`}
-                        tone={roleBadgeTone(role)}
+                        tone={detailTone === "neutral" ? "neutral" : roleBadgeTone(role)}
                       >
                         {role}
                       </ListBadge>
