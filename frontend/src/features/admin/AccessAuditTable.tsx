@@ -11,6 +11,7 @@ import type {
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import type { ListTableStatus } from "../../components/list/listTableStatus";
 import UiBadge from "../../components/ui/UiBadge";
+import { AssociationRoleTooltip } from "./AssociationSummary";
 
 const scopeLabels: Record<AccessAuditScope, string> = {
   platform: "Platform",
@@ -44,33 +45,31 @@ function TargetCell({ row }: { row: AccessAuditRow }) {
 
 function RightsCell({ row }: { row: AccessAuditRow }) {
   const visible = row.rights.slice(0, 3);
+  const entries = row.rights.map((right) => ({
+    key: right.code,
+    identity: right.label,
+    roles: right.sources.map(sourceLabel),
+  }));
   return (
-    <div className="flex max-w-[34rem] flex-wrap gap-1" title={row.rights.map((right) => right.label).join(", ")}>
-      {visible.map((right) => <UiBadge key={right.code}>{right.label}</UiBadge>)}
-      {row.rights.length > visible.length ? <UiBadge>+{row.rights.length - visible.length}</UiBadge> : null}
-    </div>
+    <AssociationRoleTooltip
+      label="Effective rights"
+      entries={entries}
+      ariaLabel={`${row.rights.length} effective right${row.rights.length === 1 ? "" : "s"}`}
+      focusable
+      detailLabel="Sources"
+      detailTone="neutral"
+    >
+      <span className="inline-flex max-w-full flex-wrap gap-1">
+        {visible.map((right) => <UiBadge key={right.code}>{right.label}</UiBadge>)}
+        {row.rights.length > visible.length ? <UiBadge>+{row.rights.length - visible.length}</UiBadge> : null}
+      </span>
+    </AssociationRoleTooltip>
   );
 }
 
 function sourceLabel(source: AccessAuditRow["rights"][number]["sources"][number]) {
-  return source.kind === "direct" ? "Direct" : source.group_name || `Group #${source.group_id}`;
-}
-
-function GrantedViaCell({ row }: { row: AccessAuditRow }) {
-  const visible = row.rights.slice(0, 3);
-  return (
-    <div className="max-w-[34rem] space-y-1 ui-caption">
-      {visible.map((right) => (
-        <div key={right.code} className="min-w-0" title={`${right.label}: ${right.sources.map(sourceLabel).join(", ")}`}>
-          <span className="font-medium text-[var(--ui-text)]">{right.label}:</span>{" "}
-          <span className="text-[var(--ui-text-muted)]">{right.sources.map(sourceLabel).join(", ") || "—"}</span>
-        </div>
-      ))}
-      {row.rights.length > visible.length ? (
-        <div className="text-[var(--ui-text-muted)]">+{row.rights.length - visible.length} more rights</div>
-      ) : null}
-    </div>
-  );
+  if (source.kind === "direct") return "Direct";
+  return source.group_name ? `UI Group: ${source.group_name}` : `UI Group #${source.group_id}`;
 }
 
 type Props = {
@@ -126,13 +125,8 @@ export default function AccessAuditTable({
       id: "rights",
       label: "Effective rights",
       header: "Effective rights",
+      cellClassName: "w-full",
       render: (row) => <RightsCell row={row} />,
-    },
-    {
-      id: "sources",
-      label: "Granted via",
-      header: "Granted via",
-      render: (row) => <GrantedViaCell row={row} />,
     },
   ];
 

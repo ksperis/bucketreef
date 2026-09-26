@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
@@ -49,7 +49,9 @@ describe("AdminEffectiveAccessPanel", () => {
       page_size: 25,
     })));
     expect(await screen.findByText("RGW user access")).toBeInTheDocument();
-    expect(screen.getByText("Direct")).toBeInTheDocument();
+    const rights = screen.getByLabelText("1 effective right");
+    fireEvent.focus(rights);
+    expect(within(screen.getByRole("tooltip", { name: "Effective rights details" })).getByText("Direct")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View in Access audit" })).toHaveAttribute(
       "href",
       "/admin/access-audit?scope=rgw_user&target_id=42",

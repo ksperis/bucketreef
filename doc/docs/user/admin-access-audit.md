@@ -8,9 +8,9 @@ UI Group inheritance are combined.
 
 Each row represents one UI user and one permission target. The supported scopes
 are **Platform**, **RGW Account**, **RGW User**, and **S3 Connection**. The
-**Effective rights** column lists the resulting BucketReef rights, while
-**Granted via** identifies whether each right comes from a direct assignment,
-one or more UI Groups, or both.
+**Effective rights** column lists the resulting BucketReef rights. Hover or
+focus that list to review every right together with its source: a direct
+assignment, one or more UI Groups, or both.
 
 Inactive UI users remain visible so their saved authorization state can still
 be reviewed. Private S3 connections are excluded from the Admin inventory;
