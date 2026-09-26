@@ -10,8 +10,8 @@ from app.db import Base, User, UserRole
 from app.main import app
 from app.routers import dependencies
 from app.services.bucket_listing_cache import invalidate_bucket_listing_cache
-from app.services.bucket_migration.webhooks import reset_bucket_migration_webhook_dispatcher_for_tests
 from app.services.bucket_migration.worker import reset_bucket_migration_worker_for_tests
+from app.services.webhook_worker import reset_webhook_delivery_worker_for_tests
 
 
 @pytest.fixture(scope="session")
@@ -97,9 +97,9 @@ def reset_env_managed_storage_endpoints(monkeypatch):
 @pytest.fixture(autouse=True)
 def reset_bucket_migration_workers():
     reset_bucket_migration_worker_for_tests()
-    reset_bucket_migration_webhook_dispatcher_for_tests()
+    reset_webhook_delivery_worker_for_tests()
     try:
         yield
     finally:
         reset_bucket_migration_worker_for_tests()
-        reset_bucket_migration_webhook_dispatcher_for_tests()
+        reset_webhook_delivery_worker_for_tests()

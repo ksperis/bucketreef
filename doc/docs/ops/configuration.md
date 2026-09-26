@@ -25,7 +25,7 @@ Configuration is split between backend environment variables and UI settings.
 | Enterprise authentication | Admin **Settings > Authentication** or env-managed OIDC/LDAP providers | TLS verification, provider priority, write-only secrets, startup warnings. |
 | Portal self-service behavior | Admin Portal settings | Portal account links, Storage Space defaults, access-key policy, IAM group projections. |
 | Browser exposure | Browser app settings and sub-flags | Root Browser, Manager Browser, Portal Browser, Ceph Admin Browser, endpoint capability. |
-| Notifications | Quota notification app settings plus runtime SMTP secret | `SMTP_PASSWORD`, user opt-in, global watch policy, test email action. |
+| Notifications | Quota notification settings and Admin **Settings > Webhooks** | `SMTP_PASSWORD`, quota user opt-in/global watch policy, and the `WEBHOOK_*` runtime delivery/security settings. |
 
 ## Minimum day-one settings
 
@@ -54,13 +54,14 @@ Key areas:
   precise ingress or reverse-proxy CIDRs. Forwarded client addresses are
   ignored for untrusted direct peers.
 - Outbound targets: `USER_SUPPLIED_S3_ENDPOINT_ALLOWED_HOSTS` and
-  `BUCKET_MIGRATION_WEBHOOK_ALLOWED_HOSTS`. In production, an empty list blocks
+  `WEBHOOK_ALLOWED_HOSTS`. In production, an empty list blocks
   the corresponding user-controlled destinations. Entries match only the exact
   hostname; use an explicit `*.example.com` entry for subdomains. The wildcard
   does not include the apex hostname. User-supplied S3 endpoints remain HTTPS
   and public. Webhooks remain HTTPS by default; private HTTP webhooks require
-  both `BUCKET_MIGRATION_WEBHOOK_ALLOW_PRIVATE_TARGETS=true` and an explicit
-  host allowlist entry.
+  both `WEBHOOK_ALLOW_PRIVATE_TARGETS=true` and an explicit host allowlist
+  entry. See [Operations: webhooks](operations-webhooks.md) for delivery,
+  signing, retries, and compatibility aliases.
 - Database: `DATABASE_URL` (SQLite defaults to `backend/app.db`; relative SQLite paths are normalized against `backend/`). Multi-backend deployments require PostgreSQL.
 - CORS: `CORS_ORIGINS`.
 - Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
@@ -78,6 +79,11 @@ Key areas:
 - Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `BILLING_OPERATION_LEASE_TTL_SECONDS`.
 - Shared history retention: `BILLING_DAILY_RETENTION_DAYS`, `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`, `QUOTA_HISTORY_DAILY_RETENTION_DAYS`.
 - User notification retention: `USER_NOTIFICATIONS_RETENTION_DAYS` (default `90`; `0` disables purge) and the daily `NOTIFICATION_RETENTION_CRON_SCHEDULE` Compose job or `notificationRetentionCronJob` Helm job.
+- Durable webhook delivery: `WEBHOOK_WORKER_ENABLED`,
+  `WEBHOOK_POLL_INTERVAL_SECONDS`, `WEBHOOK_WORKER_LEASE_SECONDS`,
+  `WEBHOOK_TIMEOUT_SECONDS`, `WEBHOOK_WORKERS`, `WEBHOOK_MAX_ATTEMPTS`,
+  `WEBHOOK_RETRY_INITIAL_SECONDS`, `WEBHOOK_RETRY_MAX_SECONDS`, and
+  `WEBHOOK_RETENTION_DAYS`.
 - Quota SMTP secret: `SMTP_PASSWORD`.
 - Interactive storage budgets: `STORAGE_INTERACTIVE_CONNECT_TIMEOUT_SECONDS` (default `2`),
   `STORAGE_INTERACTIVE_READ_TIMEOUT_SECONDS` (default `5`), and
@@ -99,8 +105,10 @@ python -m app.scripts.preflight_outbound_targets
 ```
 
 The command reports only uncovered hostnames and exits non-zero while an
-existing user-created S3 connection or migration webhook is outside its
-allowlist. Admin-registered storage endpoints are intentionally excluded.
+existing user-created S3 connection or global webhook endpoint is outside its
+allowlist. Persisted webhook endpoints are checked regardless of which event
+types they receive. Admin-registered storage endpoints are intentionally
+excluded.
 
 Validate the complete runtime boundary with:
 

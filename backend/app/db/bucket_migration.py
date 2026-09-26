@@ -41,7 +41,6 @@ class BucketMigration(Base):
     lock_target_writes = Column(Boolean, nullable=False, default=True, server_default="1")
     use_same_endpoint_copy = Column(Boolean, nullable=False, default=False, server_default="0")
     auto_grant_source_read_for_copy = Column(Boolean, nullable=False, default=False, server_default="0")
-    webhook_url = Column(String, nullable=True)
     mapping_prefix = Column(String, nullable=True)
 
     status = Column(String, nullable=False, default="draft", server_default="draft", index=True)

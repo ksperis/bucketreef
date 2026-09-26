@@ -7,26 +7,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 
-from app.core.config import get_settings
 from app.core.sensitive_data import sanitize_error_detail, sanitize_log_text
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.utils.network_targets import validate_outbound_url
-
-settings = get_settings()
 
 _READ_ONLY_POLICY_SID = "BucketReefMigrationReadOnlyDeny"
 _TARGET_WRITE_LOCK_POLICY_SID = "BucketReefMigrationTargetWriteLockDeny"
 _SOURCE_COPY_GRANT_POLICY_SID = "BucketReefMigrationSourceCopyGrantAllow"
 _MIGRATION_USER_AGENT_MARKER = "bucketreef-migration-worker"
-_WEBHOOK_TIMEOUT_SECONDS = max(0.1, float(settings.bucket_migration_webhook_timeout_seconds or 2.0))
-_WEBHOOK_ALLOW_PRIVATE_TARGETS = bool(settings.bucket_migration_webhook_allow_private_targets)
-_WEBHOOK_ALLOWED_HOSTS = {
-    str(host or "").strip().lower()
-    for host in (settings.bucket_migration_webhook_allowed_hosts or [])
-    if str(host or "").strip()
-}
-_WEBHOOK_QUEUE_SIZE = max(1, min(int(settings.bucket_migration_webhook_queue_size or 500), 10_000))
-_WEBHOOK_WORKERS = max(1, min(int(settings.bucket_migration_webhook_workers or 1), 8))
 _SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD = 500
 _SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS = 10.0
 _RUN_ACTIONS_WAIT_TIMEOUT_SECONDS = 5.0
@@ -176,14 +163,6 @@ class _MigrationRuntimeLimits:
     max_active_per_endpoint: int
 
 
-@dataclass(frozen=True)
-class _WebhookDispatchTask:
-    webhook_url: str
-    payload: dict[str, Any]
-    migration_id: int
-    item_id: Optional[int]
-
-
 def _chunked(items: list[str], size: int) -> list[list[str]]:
     return [items[i : i + size] for i in range(0, len(items), size)]
 
@@ -260,17 +239,3 @@ def _serialize_event_metadata(metadata: Optional[dict[str, Any]]) -> Optional[st
         "preview": _truncate_db_text(serialized, max_chars=1024),
     }
     return _json_dumps(fallback_payload)
-
-
-def _validate_webhook_target_url(webhook_url: str) -> None:
-    production = settings.app_env == "production"
-    allow_http = not production or _WEBHOOK_ALLOW_PRIVATE_TARGETS
-    validate_outbound_url(
-        webhook_url,
-        field_name="webhook_url",
-        allowed_schemes=("http", "https") if allow_http else ("https",),
-        scheme_label="http(s)" if allow_http else "https",
-        allowed_hosts=_WEBHOOK_ALLOWED_HOSTS if production else (_WEBHOOK_ALLOWED_HOSTS or None),
-        allow_private_targets=_WEBHOOK_ALLOW_PRIVATE_TARGETS,
-        private_target_hint="; set BUCKET_MIGRATION_WEBHOOK_ALLOW_PRIVATE_TARGETS=true to allow it",
-    )

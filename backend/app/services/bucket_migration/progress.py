@@ -10,6 +10,8 @@ from app.core.config import get_settings
 from app.core.sensitive_data import sanitize_error_detail
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
 from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
+from app.services.webhook_service import WebhookEventPublisher
 from app.utils.time import utcnow
 
 from ._shared import (
@@ -25,8 +27,6 @@ from ._shared import (
     _truncate_db_text,
     _truncate_optional_db_text,
 )
-from .webhooks import get_bucket_migration_webhook_dispatcher
-
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -410,63 +410,28 @@ class BucketMigrationProgressMixin:
             created_at=created_at,
         )
         self.db.add(entry)
-        self._enqueue_migration_webhook(
+        payload = self._build_migration_webhook_data(
             migration,
             item=item,
             level=level,
             message=safe_message,
             metadata=safe_metadata,
-            created_at=created_at,
-        )
-
-    def _enqueue_migration_webhook(
-        self,
-        migration: BucketMigration,
-        *,
-        item: Optional[BucketMigrationItem],
-        level: str,
-        message: str,
-        metadata: Optional[dict[str, Any]],
-        created_at: Any,
-    ) -> None:
-        webhook_url = (migration.webhook_url or "").strip()
-        if not webhook_url:
-            return
-
-        payload = self._build_migration_webhook_payload(
-            migration,
-            item=item,
-            level=level,
-            message=message,
-            metadata=metadata,
-            created_at=created_at,
         )
         try:
-            self._validate_configured_webhook_url(webhook_url)
-        except ValueError as exc:
+            WebhookEventPublisher(self.db).publish_event_in_current_transaction(
+                event_type=MIGRATION_EVENT_TYPE,
+                data=payload,
+                occurred_at=created_at,
+            )
+        except Exception as exc:  # noqa: BLE001
             logger.warning(
-                "Bucket migration webhook target rejected by security policy: migration=%s item=%s error=%s",
+                "Failed to queue webhook for bucket migration event: migration=%s item=%s error=%s",
                 migration.id,
                 item.id if item else None,
                 exc,
             )
-            return
 
-        dispatcher = get_bucket_migration_webhook_dispatcher()
-        enqueued = dispatcher.enqueue(
-            webhook_url=webhook_url,
-            payload=payload,
-            migration_id=int(migration.id),
-            item_id=int(item.id) if item else None,
-        )
-        if not enqueued:
-            logger.warning(
-                "Bucket migration webhook dropped because dispatch queue is full: migration=%s item=%s",
-                migration.id,
-                item.id if item else None,
-            )
-
-    def _build_migration_webhook_payload(
+    def _build_migration_webhook_data(
         self,
         migration: BucketMigration,
         *,
@@ -474,7 +439,6 @@ class BucketMigrationProgressMixin:
         level: str,
         message: str,
         metadata: Optional[dict[str, Any]],
-        created_at: Any,
     ) -> dict[str, Any]:
         safe_metadata: Optional[dict[str, Any]] = None
         if metadata is not None:
@@ -484,11 +448,7 @@ class BucketMigrationProgressMixin:
             else:
                 safe_metadata = {"value": normalized_metadata}
 
-        created_iso = created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at)
-
         payload: dict[str, Any] = {
-            "type": "bucket_migration.event",
-            "occurred_at": created_iso,
             "migration": {
                 "id": migration.id,
                 "status": migration.status,

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
-from ._shared import _json_dumps, _validate_webhook_target_url
+from ._shared import _json_dumps
 
 
 class BucketMigrationPersistenceMixin:
@@ -76,9 +75,3 @@ class BucketMigrationPersistenceMixin:
         raise PermissionError(
             "Cross-account migrations require admin access on both source and target account contexts"
         )
-
-    def _validate_configured_webhook_url(self, webhook_url: str) -> None:
-        try:
-            _validate_webhook_target_url(webhook_url)
-        except ValueError as exc:
-            raise ValueError(sanitized_error_log_detail(exc)) from exc

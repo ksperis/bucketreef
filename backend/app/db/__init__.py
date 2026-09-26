@@ -55,6 +55,7 @@ from .portal_request import PortalAdminRequest, PortalAdminRequestMessage
 from .backend_coordination import AppSetting, BackendOperationLease
 from .first_admin_bootstrap import FirstAdminBootstrap
 from .onboarding import OnboardingJourney, OnboardingPreference
+from .webhook import WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
 
 __all__ = [
     "Base",
@@ -128,4 +129,7 @@ __all__ = [
     "FirstAdminBootstrap",
     "OnboardingJourney",
     "OnboardingPreference",
+    "WebhookEndpoint",
+    "WebhookEndpointSubscription",
+    "WebhookDelivery",
 ]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import logging
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -17,6 +18,11 @@ from app.db import (
 )
 from app.services.healthcheck_common import HealthCheckResult
 from app.services.user_notifications_service import UserNotificationsService
+from app.services.webhook_catalog import ENDPOINT_HEALTH_EVENT_TYPE
+from app.services.webhook_service import WebhookEventPublisher
+
+
+logger = logging.getLogger(__name__)
 
 
 class EndpointHealthNotificationsService:
@@ -70,8 +76,6 @@ class EndpointHealthNotificationsService:
         previous_statuses: dict[tuple[int, str], str],
     ) -> int:
         admin_ids = self._active_admin_ids()
-        if not admin_ids:
-            return 0
         created = 0
         for result in results:
             current = result.status.value
@@ -93,31 +97,45 @@ class EndpointHealthNotificationsService:
                 if result.error_message is not None
                 else None
             )
-            created += UserNotificationsService(self.db).create_notifications(
-                user_ids=admin_ids,
-                notification_type="endpoint_health",
-                severity=severity,
-                title=title,
-                message=message,
-                subject_type="endpoint",
-                storage_endpoint_id=int(endpoint.id),
-                event_key=(
-                    f"endpoint_health:{endpoint.id}:{result.check_mode}:"
-                    f"{previous or 'none'}:{current}:{result.checked_at.isoformat()}"
-                ),
-                payload={
-                    "endpoint_id": int(endpoint.id),
-                    "endpoint_name": endpoint.name,
-                    "previous_status": previous,
-                    "current_status": current,
-                    "check_mode": result.check_mode,
-                    "http_status": result.http_status,
-                    "latency_ms": result.latency_ms,
-                    "error_message": safe_error,
-                    "checked_at": result.checked_at.isoformat(),
-                },
-                created_at=result.checked_at,
-            )
+            payload = {
+                "endpoint_id": int(endpoint.id),
+                "endpoint_name": endpoint.name,
+                "previous_status": previous,
+                "current_status": current,
+                "check_mode": result.check_mode,
+                "http_status": result.http_status,
+                "latency_ms": result.latency_ms,
+                "error_message": safe_error,
+                "checked_at": result.checked_at.isoformat(),
+            }
+            if admin_ids:
+                created += UserNotificationsService(self.db).create_notifications(
+                    user_ids=admin_ids,
+                    notification_type="endpoint_health",
+                    severity=severity,
+                    title=title,
+                    message=message,
+                    subject_type="endpoint",
+                    storage_endpoint_id=int(endpoint.id),
+                    event_key=(
+                        f"endpoint_health:{endpoint.id}:{result.check_mode}:"
+                        f"{previous or 'none'}:{current}:{result.checked_at.isoformat()}"
+                    ),
+                    payload=payload,
+                    created_at=result.checked_at,
+                )
+            try:
+                WebhookEventPublisher(self.db).publish_event_in_current_transaction(
+                    event_type=ENDPOINT_HEALTH_EVENT_TYPE,
+                    data=payload,
+                    occurred_at=result.checked_at,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Failed to queue endpoint health webhook endpoint=%s: %s",
+                    endpoint.id,
+                    exc,
+                )
         return created
 
     def _active_admin_ids(self) -> list[int]:

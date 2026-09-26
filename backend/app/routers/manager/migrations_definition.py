@@ -81,7 +81,6 @@ def create_migration(
             "strong_integrity_check": bool(payload.strong_integrity_check),
             "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),
             "auto_grant_source_read_for_copy": bool(migration.auto_grant_source_read_for_copy),
-            "webhook_enabled": bool((payload.webhook_url or "").strip()),
             "items": len(payload.buckets),
         },
     )
@@ -121,7 +120,6 @@ def update_migration(
             "strong_integrity_check": bool(payload.strong_integrity_check),
             "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),
             "auto_grant_source_read_for_copy": bool(migration.auto_grant_source_read_for_copy),
-            "webhook_enabled": bool((payload.webhook_url or "").strip()),
             "items": len(payload.buckets),
         },
     )

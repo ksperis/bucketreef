@@ -75,10 +75,12 @@ compared explicitly.
   list disables user-supplied endpoints. Admin-managed endpoint flows are
   exempt and may keep private or `http://` endpoints when an internal
   deployment explicitly requires them.
-- Production migration webhooks require an exact or explicit wildcard entry in
-  `BUCKET_MIGRATION_WEBHOOK_ALLOWED_HOSTS`. HTTPS is mandatory unless private
-  targets are explicitly enabled; the destination is DNS-revalidated before
-  every delivery and redirects stay disabled.
+- Production webhook endpoints require an exact or explicit wildcard entry in
+  `WEBHOOK_ALLOWED_HOSTS`. HTTPS is mandatory unless private targets are
+  explicitly enabled with `WEBHOOK_ALLOW_PRIVATE_TARGETS`; the destination is
+  DNS-revalidated before every delivery and redirects stay disabled. Signing
+  secrets are write-only after creation/rotation and every request is signed
+  with HMAC-SHA256. See [Operations: webhooks](operations-webhooks.md).
 
 ## Audit and traceability
 

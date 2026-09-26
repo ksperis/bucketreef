@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import io
-import ipaddress
 import json
 import time
 from types import SimpleNamespace
@@ -29,18 +28,20 @@ from app.db import (
     UserRole,
     UserS3Account,
     UserS3User,
+    WebhookDelivery,
 )
 from app.models.bucket_migration import BucketMigrationBucketMapping, BucketMigrationCreateRequest
-from app.services.bucket_migration import _shared as migration_shared
+from app.models.webhook import WebhookEndpointPayload
 from app.services.bucket_migration._shared import (
     _BucketVersionEntry,
     _DB_ERROR_MESSAGE_MAX_CHARS,
     _DB_EVENT_MESSAGE_MAX_CHARS,
     _VersionedObjectDetails,
 )
-from app.services.bucket_migration.webhooks import _BucketMigrationWebhookDispatcher
 from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
+from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
+from app.services.webhook_service import WebhookService
 
 
 def _create_user(db_session) -> User:
@@ -598,7 +599,6 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
             lock_target_writes=False,
             use_same_endpoint_copy=False,
             auto_grant_source_read_for_copy=False,
-            webhook_url="https://example.com/migration",
             buckets=[
                 BucketMigrationBucketMapping(source_bucket="bucket-a"),
                 BucketMigrationBucketMapping(source_bucket="bucket-c", target_bucket="custom-c"),
@@ -616,7 +616,6 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert updated.use_same_endpoint_copy is False
     assert updated.auto_grant_source_read_for_copy is False
     assert updated.mapping_prefix == "new-"
-    assert updated.webhook_url == "https://example.com/migration"
     assert updated.status == "draft"
     assert updated.precheck_status == "pending"
     assert updated.precheck_report_json is None
@@ -3778,173 +3777,6 @@ def test_rollback_failed_items_blocks_when_any_source_may_be_deleted(db_session)
         assert "source data may have been deleted" in str(exc)
 
 
-def test_create_migration_rejects_invalid_webhook_url(db_session):
-    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
-    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    db_session.commit()
-
-    try:
-        BucketMigrationCreateRequest(
-            source_context_id=str(source.id),
-            target_context_id=str(target.id),
-            mode="one_shot",
-            webhook_url="ftp://invalid.example.test/hook",
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
-        )
-        assert False, "Expected payload validation to fail when webhook_url is invalid"
-    except Exception as exc:  # noqa: BLE001
-        assert "webhook_url must be a valid http(s) URL" in str(exc)
-
-
-def test_create_migration_rejects_private_webhook_target(db_session):
-    user = _create_user(db_session)
-    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
-    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    db_session.commit()
-
-    service = BucketMigrationService(db_session)
-    payload = BucketMigrationCreateRequest(
-        source_context_id=str(source.id),
-        target_context_id=str(target.id),
-        mode="one_shot",
-        webhook_url="http://127.0.0.1:9001/hook",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
-    )
-
-    try:
-        service.create_migration(payload, user)
-        assert False, "Expected private webhook target to be rejected"
-    except ValueError as exc:
-        assert "private or local network" in str(exc)
-
-
-def test_update_migration_rejects_private_webhook_target(db_session):
-    user = _create_user(db_session)
-    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
-    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    db_session.commit()
-
-    service = BucketMigrationService(db_session)
-    migration = service.create_migration(
-        BucketMigrationCreateRequest(
-            source_context_id=str(source.id),
-            target_context_id=str(target.id),
-            mode="one_shot",
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
-        ),
-        user,
-    )
-
-    payload = BucketMigrationCreateRequest(
-        source_context_id=str(source.id),
-        target_context_id=str(target.id),
-        mode="one_shot",
-        webhook_url="http://localhost:8080/hook",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
-    )
-
-    try:
-        service.update_draft_migration(migration.id, payload)
-        assert False, "Expected private webhook target to be rejected on update"
-    except ValueError as exc:
-        assert "private or local network" in str(exc)
-
-
-def test_production_webhook_requires_explicit_allowed_host(monkeypatch):
-    monkeypatch.setattr(migration_shared.settings, "app_env", "production")
-    monkeypatch.setattr(migration_shared, "_WEBHOOK_ALLOWED_HOSTS", set())
-    monkeypatch.setattr(migration_shared, "_WEBHOOK_ALLOW_PRIVATE_TARGETS", False)
-
-    with pytest.raises(ValueError, match="host is not allowed by policy"):
-        migration_shared._validate_webhook_target_url("https://hooks.example.test/migration")
-
-
-def test_production_webhook_accepts_approved_https_target(monkeypatch):
-    monkeypatch.setattr(migration_shared.settings, "app_env", "production")
-    monkeypatch.setattr(migration_shared, "_WEBHOOK_ALLOWED_HOSTS", {"hooks.example.test"})
-    monkeypatch.setattr(migration_shared, "_WEBHOOK_ALLOW_PRIVATE_TARGETS", False)
-    monkeypatch.setattr(
-        "app.utils.network_targets.resolve_hostname_ips",
-        lambda _host: {ipaddress.ip_address("93.184.216.34")},
-    )
-
-    migration_shared._validate_webhook_target_url("https://hooks.example.test/migration")
-
-
-def test_production_private_http_webhook_needs_private_option_and_allowlist(monkeypatch):
-    monkeypatch.setattr(migration_shared.settings, "app_env", "production")
-    monkeypatch.setattr(migration_shared, "_WEBHOOK_ALLOWED_HOSTS", {"hooks.internal.example.test"})
-    monkeypatch.setattr(
-        "app.utils.network_targets.resolve_hostname_ips",
-        lambda _host: {ipaddress.ip_address("10.0.0.12")},
-    )
-
-    monkeypatch.setattr(migration_shared, "_WEBHOOK_ALLOW_PRIVATE_TARGETS", False)
-    with pytest.raises(ValueError, match="valid https URL"):
-        migration_shared._validate_webhook_target_url("http://hooks.internal.example.test/migration")
-
-    monkeypatch.setattr(migration_shared, "_WEBHOOK_ALLOW_PRIVATE_TARGETS", True)
-    migration_shared._validate_webhook_target_url("http://hooks.internal.example.test/migration")
-
-
-def test_add_event_notifies_webhook_when_configured(db_session):
-    user = _create_user(db_session)
-    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
-    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    db_session.commit()
-
-    service = BucketMigrationService(db_session)
-    payload = BucketMigrationCreateRequest(
-        source_context_id=str(source.id),
-        target_context_id=str(target.id),
-        mode="one_shot",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
-    )
-    migration = service.create_migration(payload, user)
-    migration.webhook_url = "https://example.com/migration"
-    item = migration.items[0]
-
-    captured: dict[str, object] = {}
-
-    class _Dispatcher:
-        def enqueue(self, *, webhook_url, payload, migration_id, item_id):
-            captured["webhook_url"] = webhook_url
-            captured["payload"] = payload
-            captured["migration_id"] = migration_id
-            captured["item_id"] = item_id
-            return True
-
-    with patch("app.services.bucket_migration.persistence._validate_webhook_target_url", return_value=None):
-        with patch(
-            "app.services.bucket_migration.progress.get_bucket_migration_webhook_dispatcher",
-            return_value=_Dispatcher(),
-        ):
-            service._add_event(
-                migration,
-                item=item,
-                level="info",
-                message="Sync batch completed.",
-                metadata={"copied": 12, "deleted": 1},
-            )
-
-    assert captured["webhook_url"] == "https://example.com/migration"
-    assert captured["migration_id"] == migration.id
-    assert captured["item_id"] == item.id
-
-    payload = captured["payload"]
-    assert isinstance(payload, dict)
-    assert payload["type"] == "bucket_migration.event"
-    assert payload["migration"]["id"] == migration.id
-    assert payload["migration"]["status"] == migration.status
-    assert payload["migration"]["strong_integrity_check"] is False
-    assert payload["migration"]["use_same_endpoint_copy"] is False
-    assert payload["item"]["id"] == item.id
-    assert payload["item"]["source_bucket"] == item.source_bucket
-    assert payload["item"]["target_bucket"] == item.target_bucket
-    assert payload["event"]["message"] == "Sync batch completed."
-    assert payload["event"]["metadata"]["copied"] == 12
-
-
 def test_add_event_sanitizes_exception_text_before_persistence(db_session):
     user = _create_user(db_session)
     source = _create_account(
@@ -3990,88 +3822,6 @@ def test_add_event_sanitizes_exception_text_before_persistence(db_session):
     assert "AKIA1234567890ABCDEF" not in persisted
     assert "rgw.example.test" not in persisted
     assert "deadbeef" not in persisted
-
-
-def test_add_event_webhook_queue_full_does_not_break_migration_events(db_session):
-    user = _create_user(db_session)
-    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
-    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    db_session.commit()
-
-    service = BucketMigrationService(db_session)
-    payload = BucketMigrationCreateRequest(
-        source_context_id=str(source.id),
-        target_context_id=str(target.id),
-        mode="one_shot",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
-    )
-    migration = service.create_migration(payload, user)
-    migration.webhook_url = "https://example.com/migration"
-
-    class _FullDispatcher:
-        def enqueue(self, **_kwargs):
-            return False
-
-    with patch("app.services.bucket_migration.persistence._validate_webhook_target_url", return_value=None):
-        with patch(
-            "app.services.bucket_migration.progress.get_bucket_migration_webhook_dispatcher",
-            return_value=_FullDispatcher(),
-        ):
-            service._add_event(
-                migration,
-                level="warning",
-                message="Webhook queue full must be ignored.",
-                metadata={"reason": "test"},
-            )
-    db_session.flush()
-
-
-def test_bucket_migration_webhook_dispatcher_posts_with_redirects_disabled_and_configured_timeout():
-    dispatcher = _BucketMigrationWebhookDispatcher(queue_size=10, workers=1, timeout_seconds=1.7)
-    task = SimpleNamespace(
-        webhook_url="https://example.com/migration",
-        payload={"hello": "world"},
-        migration_id=44,
-        item_id=None,
-    )
-    with patch("app.services.bucket_migration.webhooks._validate_webhook_target_url", return_value=None):
-        with patch("app.services.bucket_migration.webhooks.requests.post") as mocked_post:
-            mocked_post.return_value = SimpleNamespace(status_code=202)
-            dispatcher._deliver(task)
-
-    assert mocked_post.call_count == 1
-    _args, kwargs = mocked_post.call_args
-    assert kwargs["allow_redirects"] is False
-    assert kwargs["timeout"] == 1.7
-
-
-def test_add_event_webhook_failure_does_not_break_migration_events(db_session):
-    user = _create_user(db_session)
-    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
-    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    db_session.commit()
-
-    service = BucketMigrationService(db_session)
-    payload = BucketMigrationCreateRequest(
-        source_context_id=str(source.id),
-        target_context_id=str(target.id),
-        mode="one_shot",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
-    )
-    migration = service.create_migration(payload, user)
-    migration.webhook_url = "https://example.com/migration"
-
-    task = SimpleNamespace(
-        webhook_url=migration.webhook_url,
-        payload={"x": 1},
-        migration_id=migration.id,
-        item_id=None,
-    )
-    dispatcher = _BucketMigrationWebhookDispatcher(queue_size=10, workers=1, timeout_seconds=1.0)
-    with patch("app.services.bucket_migration.webhooks._validate_webhook_target_url", return_value=None):
-        with patch("app.services.bucket_migration.webhooks.requests.post", side_effect=RuntimeError("network down")):
-            dispatcher._deliver(task)
-    db_session.flush()
 
 
 def test_delete_migration_allows_final_statuses_and_draft(db_session):
@@ -4484,7 +4234,16 @@ def test_apply_target_lock_fails_when_lock_cannot_be_applied(db_session):
     assert warning_event is None
 
 
-def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session):
+def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkeypatch):
+    monkeypatch.setattr("app.services.webhook_service.validate_webhook_target_url", lambda *_args, **_kwargs: None)
+    webhook = WebhookService(db_session).create_endpoint(
+        WebhookEndpointPayload(
+            name="migration-events",
+            url="https://hooks.example.test/migrations",
+            enabled=True,
+            event_types=[MIGRATION_EVENT_TYPE],
+        )
+    )
     migration = BucketMigration(
         source_context_id="10",
         target_context_id="20",
@@ -4529,6 +4288,9 @@ def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session):
         .first()
     )
     assert event is not None
+    delivery = db_session.query(WebhookDelivery).filter(WebhookDelivery.endpoint_id == webhook.id).one()
+    assert delivery.event_type == MIGRATION_EVENT_TYPE
+    assert json.loads(delivery.payload_json)["data"]["migration"]["id"] == migration.id
 
 
 

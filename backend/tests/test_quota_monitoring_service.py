@@ -25,8 +25,10 @@ from app.db import (
     UserS3Account,
     UserS3User,
     UserUiGroup,
+    WebhookDelivery,
 )
 from app.models.app_settings import AppSettings
+from app.models.webhook import WebhookEndpointPayload
 from app.services import quota_monitoring_service
 from app.services.quota_alert_email_service import QuotaAlertEmailService
 from app.services.quota_alert_recipients_service import (
@@ -34,6 +36,8 @@ from app.services.quota_alert_recipients_service import (
 )
 from app.services.quota_monitoring_service import QuotaMonitoringService
 from app.services.quota_subject import SubjectContext
+from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
+from app.services.webhook_service import WebhookService
 
 
 class _FakeAdminClient:
@@ -342,6 +346,15 @@ def test_usage_collection_failure_does_not_block_remaining_subjects(
 def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint)
+    monkeypatch.setattr("app.services.webhook_service.validate_webhook_target_url", lambda *_args, **_kwargs: None)
+    webhook = WebhookService(db_session).create_endpoint(
+        WebhookEndpointPayload(
+            name="quota-events",
+            url="https://hooks.example.test/quota",
+            enabled=True,
+            event_types=[QUOTA_THRESHOLD_EVENT_TYPE],
+        )
+    )
 
     recipient = _seed_user(db_session, email="account-admin@example.test")
     db_session.add(
@@ -411,6 +424,9 @@ def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch
     state = db_session.query(QuotaAlertState).first()
     assert state is not None
     assert state.last_level == "threshold"
+    deliveries = db_session.query(WebhookDelivery).filter(WebhookDelivery.endpoint_id == webhook.id).all()
+    assert len(deliveries) == 3
+    assert {delivery.event_type for delivery in deliveries} == {QUOTA_THRESHOLD_EVENT_TYPE}
 
 
 def test_recipient_resolution_for_account_s3_user_and_global_watch(db_session):

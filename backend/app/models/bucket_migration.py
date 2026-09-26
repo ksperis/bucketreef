@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal, Optional
-from urllib.parse import urlparse
-
 from pydantic import Field, model_validator
 
 from app.models.base import ApiModel
@@ -68,7 +66,6 @@ class BucketMigrationCreateRequest(ApiModel):
     lock_target_writes: bool = True
     use_same_endpoint_copy: bool = False
     auto_grant_source_read_for_copy: Optional[bool] = None
-    webhook_url: Optional[str] = None
     parallelism_max: Optional[int] = Field(default=None, ge=1, le=128)
 
     @model_validator(mode="after")
@@ -76,13 +73,6 @@ class BucketMigrationCreateRequest(ApiModel):
         self.source_context_id = (self.source_context_id or "").strip()
         self.target_context_id = (self.target_context_id or "").strip()
         self.mapping_prefix = (self.mapping_prefix or "").strip()
-        if self.webhook_url is not None:
-            normalized_webhook_url = self.webhook_url.strip()
-            self.webhook_url = normalized_webhook_url or None
-            if self.webhook_url is not None:
-                parsed = urlparse(self.webhook_url)
-                if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-                    raise ValueError("webhook_url must be a valid http(s) URL")
         if not self.source_context_id:
             raise ValueError("source_context_id is required")
         if not self.target_context_id:
@@ -148,7 +138,6 @@ class BucketMigrationView(ApiModel):
     lock_target_writes: bool
     use_same_endpoint_copy: bool = False
     auto_grant_source_read_for_copy: bool = False
-    webhook_url: Optional[str] = None
     mapping_prefix: Optional[str] = None
 
     status: BucketMigrationStatus

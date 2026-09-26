@@ -82,7 +82,7 @@ def test_settings_parse_outbound_host_allowlists(monkeypatch):
         "USER_SUPPLIED_S3_ENDPOINT_ALLOWED_HOSTS",
         '["s3.example.test", "*.storage.example.test"]',
     )
-    monkeypatch.setenv("BUCKET_MIGRATION_WEBHOOK_ALLOWED_HOSTS", '["hooks.example.test", "*.events.example.test"]')
+    monkeypatch.setenv("WEBHOOK_ALLOWED_HOSTS", '["hooks.example.test", "*.events.example.test"]')
 
     settings = Settings(_env_file=None)
 
@@ -90,7 +90,7 @@ def test_settings_parse_outbound_host_allowlists(monkeypatch):
         "s3.example.test",
         "*.storage.example.test",
     ]
-    assert settings.bucket_migration_webhook_allowed_hosts == [
+    assert settings.webhook_allowed_hosts == [
         "hooks.example.test",
         "*.events.example.test",
     ]

@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class _DraftMigrationConfiguration:
     mappings: list[tuple[str, str]]
-    webhook_url: str | None
     use_same_endpoint_copy: bool
     auto_grant_source_read_for_copy: bool
     parallelism: int
@@ -87,10 +86,6 @@ class BucketMigrationPlanningMixin:
         self._assert_context_authorized_for_mutation(payload.target_context_id)
         self._assert_cross_account_admin_contexts(payload.source_context_id, payload.target_context_id)
 
-        webhook_url = (payload.webhook_url or "").strip() or None
-        if webhook_url:
-            self._validate_configured_webhook_url(webhook_url)
-
         source_ctx = self._resolve_context(payload.source_context_id)
         target_ctx = self._resolve_context(payload.target_context_id)
         if not source_ctx.endpoint:
@@ -117,7 +112,6 @@ class BucketMigrationPlanningMixin:
         )
         return _DraftMigrationConfiguration(
             mappings=mappings,
-            webhook_url=webhook_url,
             use_same_endpoint_copy=use_same_endpoint_copy,
             auto_grant_source_read_for_copy=auto_grant_source_read_for_copy,
             parallelism=max(1, min(requested_parallelism, int(limits.parallelism_max))),
@@ -138,7 +132,6 @@ class BucketMigrationPlanningMixin:
             "lock_target_writes": bool(payload.lock_target_writes),
             "use_same_endpoint_copy": configuration.use_same_endpoint_copy,
             "auto_grant_source_read_for_copy": configuration.auto_grant_source_read_for_copy,
-            "webhook_enabled": bool(configuration.webhook_url),
             "parallelism_max": configuration.parallelism,
             "items": len(configuration.mappings),
         }
@@ -239,7 +232,6 @@ class BucketMigrationPlanningMixin:
             lock_target_writes=bool(payload.lock_target_writes),
             use_same_endpoint_copy=configuration.use_same_endpoint_copy,
             auto_grant_source_read_for_copy=configuration.auto_grant_source_read_for_copy,
-            webhook_url=configuration.webhook_url,
             mapping_prefix=payload.mapping_prefix or None,
             status="draft",
             precheck_status="pending",
@@ -293,7 +285,6 @@ class BucketMigrationPlanningMixin:
         migration.lock_target_writes = bool(payload.lock_target_writes)
         migration.use_same_endpoint_copy = configuration.use_same_endpoint_copy
         migration.auto_grant_source_read_for_copy = configuration.auto_grant_source_read_for_copy
-        migration.webhook_url = configuration.webhook_url
         migration.mapping_prefix = payload.mapping_prefix or None
         migration.parallelism_max = configuration.parallelism
         migration.status = "draft"

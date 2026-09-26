@@ -75,7 +75,6 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         lock_target_writes=bool(migration.lock_target_writes),
         use_same_endpoint_copy=bool(migration.use_same_endpoint_copy),
         auto_grant_source_read_for_copy=bool(migration.auto_grant_source_read_for_copy),
-        webhook_url=migration.webhook_url,
         mapping_prefix=migration.mapping_prefix,
         status=migration.status,
         pause_requested=bool(migration.pause_requested),

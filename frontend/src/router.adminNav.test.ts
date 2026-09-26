@@ -74,6 +74,7 @@ describe("buildAdminNav", () => {
       "Manager",
       "Browser",
       "Portal",
+      "Webhooks",
       "Production readiness",
       "Key Rotation",
       "API tokens",
