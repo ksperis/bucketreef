@@ -25,7 +25,7 @@ export type AccessAuditRightCode =
   | "rgw_user_access"
   | "shared_connection_access";
 
-export type AccessAuditGrantSource = {
+type AccessAuditGrantSource = {
   kind: AccessAuditSourceKind;
   group_id?: number | null;
   group_name?: string | null;
@@ -58,7 +58,7 @@ export type AccessAuditRow = {
 export type AccessAuditSortBy = "user" | "scope" | "target";
 export type AccessAuditSortDir = "asc" | "desc";
 
-export type AccessAuditQuery = {
+type AccessAuditQuery = {
   page?: number;
   page_size?: number;
   search?: string;

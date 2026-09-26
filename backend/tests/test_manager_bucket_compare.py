@@ -321,9 +321,12 @@ def test_require_bucket_compare_enabled_blocks_without_user_tool_access(db_sessi
     settings = AppSettings()
     settings.general.bucket_compare_enabled = True
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    user = _tool_user(bucket_compare=False)
+    db_session.add(user)
+    db_session.flush()
 
     with pytest.raises(HTTPException) as exc:
-        dependencies_router.require_bucket_compare_enabled(_tool_user(bucket_compare=False), db=db_session)
+        dependencies_router.require_bucket_compare_enabled(user, db=db_session)
 
     assert exc.value.status_code == 403
     assert str(exc.value.detail) == "Not authorized"

@@ -214,23 +214,34 @@ setup("bootstrap reusable admin and browser auth", async ({ browser, page }) => 
   await page.getByLabel("Password", { exact: true }).fill(E2E_ADMIN_PASSWORD);
   await page.getByLabel("Confirm password").fill(E2E_ADMIN_PASSWORD);
   await page.getByRole("button", { name: "Create administrator" }).click();
-  await expect(page.getByRole("heading", { name: "Create your administrator passkey" })).toBeVisible();
-  await page.getByRole("button", { name: "Create passkey" }).click();
-  await expect(page.getByText("Save these one-time recovery codes now.")).toBeVisible();
-  await page.getByRole("button", { name: "I saved these recovery codes" }).click();
   await expect(page).toHaveURL(/\/admin(?:\?.*)?$/);
 
-  await assertOk(
-    await page.request.post("/api/auth/logout", { headers: await csrfHeaders(page) }),
-    "Admin logout failed",
-  );
-  await page.goto("/login");
+  await page.goto("/admin/profile?tab=security");
+  await expect(page.getByRole("heading", { name: "My profile" })).toBeVisible();
+  await page.getByRole("button", { name: "Add passkey" }).click();
+  const passkeyDialog = page.getByRole("dialog", { name: "Add passkey" });
+  await passkeyDialog.getByLabel("Passkey name").fill("E2E administrator");
+  await passkeyDialog.getByRole("button", { name: "Add passkey" }).click();
+  await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
+
   await page.locator('input[type="email"]').fill(E2E_ADMIN_EMAIL);
   await page.locator('input[type="password"]').fill(E2E_ADMIN_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Verify your passkey" })).toBeVisible();
   await page.getByRole("button", { name: "Use passkey" }).click();
   await expect(page).toHaveURL(/\/admin(?:\?.*)?$/);
+
+  const settingsResponse = await page.request.get("/api/admin/settings");
+  await assertOk(settingsResponse, "Unable to load application settings");
+  const appSettings = await settingsResponse.json();
+  appSettings.general.require_passkey_for_admins = true;
+  await assertOk(
+    await page.request.put("/api/admin/settings", {
+      headers: await csrfHeaders(page),
+      data: appSettings,
+    }),
+    "Unable to require administrator passkeys for E2E",
+  );
 
   await ensureUser(page, {
     email: E2E_USER_EMAIL,

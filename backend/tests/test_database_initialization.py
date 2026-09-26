@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+import json
 
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
@@ -120,9 +121,11 @@ def test_versioned_database_upgrades_from_0118_and_preserves_data(sqlite_databas
     with sqlite_database.connect() as connection:
         assert _database_revision(connection) == _alembic_head()
         assert "first_admin_bootstrap" in sa.inspect(connection).get_table_names()
-        assert connection.scalar(
+        payload = json.loads(connection.scalar(
             sa.select(AppSetting.payload_json).where(AppSetting.key == "bootstrap-test")
-        ) == '{"preserved":true}'
+        ))
+        assert payload["preserved"] is True
+        assert payload["general"]["require_passkey_for_admins"] is True
 
 
 def test_versioned_sqlite_upgrade_preserves_referencing_rows_with_foreign_keys_enabled(
