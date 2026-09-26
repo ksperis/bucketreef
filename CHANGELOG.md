@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.9 - 2026-09-26
+
+### Added
+
+- Added durable Admin webhook endpoints with event subscriptions, signed delivery, retry tracking, delivery history, and migration-callback integration.
+- Added an Admin effective-access audit to explain direct and group-derived rights across storage targets.
+- Added guided JSON editors and context-aware autocomplete for advanced bucket configuration workflows.
+
+### Changed
+
+- Redesigned Manager and Ceph Admin bucket configuration cards around compact summaries and focused editing dialogs while preserving existing S3 behavior.
+- Consolidated backend domain-error handling, association validation, identity resolution, statistics, billing, health, and storage-service contracts to remove redundant compatibility paths.
+- Updated release publication so stable tags and releases are created only after the exact qualified distribution, public images, Helm chart, bundles, scans, and smoke tests are ready.
+
+### Fixed/Security
+
+- Enforced split-deployment runtime-surface boundaries and removed remaining hardening compatibility fallbacks.
+- Fixed lifecycle-rule scope preservation, multi-backend webhook dispatch isolation, and several typed upstream/resource-not-found error paths.
+- Aligned frontend tests with the redesigned bucket configuration UX and fixed release secret-fixture resolution from the repository root.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path. Migrations `0130_canonical_admin_passkey_policy`, `0131_canonical_onboarding_journeys`, and `0132_webhook_endpoints` preserve the Admin passkey policy, migrate legacy onboarding completion state, and add durable webhook storage.
+- This patch release does not create a new schema baseline.
+
+### Tests
+
+- Expanded backend and frontend coverage for webhooks, effective-access auditing, guided settings editors, bucket configuration, runtime-surface security, migration compatibility, and release publication.
+- Release qualification validates the exact prepared SHA across the mandatory application suite, Ceph checks, multi-architecture images and scans, Helm/Compose contracts, Kind onboarding, and public release bundles before finalization.
+
 ## 0.2.8 - 2026-09-24
 
 ### Changed
