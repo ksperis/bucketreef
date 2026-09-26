@@ -293,6 +293,14 @@ def test_operator_reset_cli_prints_after_session_close(monkeypatch, db_session, 
 
 
 def test_first_admin_command_requires_confirmation_and_minimum_password(db_session):
+    with pytest.raises(FirstAdminError, match="valid email address"):
+        create_first_admin(
+            db_session,
+            email="first@example.test",
+            full_name="First Admin",
+            password="correct horse battery staple",
+            confirmation="CREATE FIRST ADMIN first@example.test",
+        )
     with pytest.raises(FirstAdminError, match="Confirmation"):
         create_first_admin(
             db_session,
