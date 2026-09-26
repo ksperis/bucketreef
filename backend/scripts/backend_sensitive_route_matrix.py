@@ -131,6 +131,15 @@ EXPECTED_GUARDS: dict[tuple[str, str], str] = {
     **_entries("usage_stats.py", ADMIN_AUTH, "stream_admin_managed_usage_stats_aggregate"),
     **_entries("users.py", RECENT_WEBAUTHN, "create_user", "update_user", "delete_user"),
     **_entries("users.py", ADMIN_AUTH, "upload_user_avatar", "delete_user_avatar"),
+    **_entries(
+        "webhooks.py",
+        RECENT_WEBAUTHN,
+        "create_webhook_endpoint",
+        "update_webhook_endpoint",
+        "delete_webhook_endpoint",
+        "rotate_webhook_secret",
+        "test_webhook_endpoint",
+    ),
 }
 
 
