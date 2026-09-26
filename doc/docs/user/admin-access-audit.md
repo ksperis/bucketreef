@@ -40,6 +40,16 @@ global Access audit with the corresponding context filters applied.
 The tab reflects persisted state. Save pending association or permission
 changes before using it to verify the resulting access.
 
+## Visual example
+
+The Admin workspace provides the navigation context for the global access
+audit and the related user, account, RGW user, and shared-connection editors.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="../../assets/screenshots/user/workspace-admin.light.png" alt="Admin workspace with platform-level navigation for access review" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="../../assets/screenshots/user/workspace-admin.dark.png" alt="Admin workspace with platform-level navigation for access review" loading="lazy">
+</div>
+
 ## Related pages
 
 - [Workspace: Admin](workspace-admin.md)

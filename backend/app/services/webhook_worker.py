@@ -170,11 +170,11 @@ class WebhookDeliveryWorker:
                     allow_redirects=False,
                 )
             except requests.RequestException as exc:
-                self._retry_or_fail(delivery, error=str(exc))
+                self._retry_or_fail(delivery, error=str(sanitize_error_detail(str(exc))))
                 db.commit()
                 return
             except Exception as exc:  # noqa: BLE001
-                self._retry_or_fail(delivery, error=str(exc))
+                self._retry_or_fail(delivery, error=str(sanitize_error_detail(str(exc))))
                 db.commit()
                 return
 

@@ -82,9 +82,12 @@ def test_require_bucket_integrity_enabled_blocks_without_user_tool_access(db_ses
     settings = AppSettings()
     settings.general.bucket_integrity_check_enabled = True
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    user = _manager_tool_user(bucket_integrity_check=False)
+    db_session.add(user)
+    db_session.flush()
 
     with pytest.raises(HTTPException) as exc:
-        dependencies_router.require_bucket_integrity_check_enabled(_manager_tool_user(bucket_integrity_check=False), db=db_session)
+        dependencies_router.require_bucket_integrity_check_enabled(user, db=db_session)
 
     assert exc.value.status_code == 403
     assert str(exc.value.detail) == "Not authorized"
