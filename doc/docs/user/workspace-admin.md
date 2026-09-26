@@ -16,9 +16,10 @@ Use **Admin** for platform governance and global configuration.
 4. Use **Connections** for S3 connections.
 5. Use **Storage Backends** for endpoints and endpoint status.
 6. Use **Usage & Metrics** to review endpoint-scoped storage, usage composition, usage history, and traffic from tabbed categories.
-7. Use **Audit & Reporting** for billing, stored usage-history snapshots, and
-   the control-plane/security audit trail. Object operations are investigated
-   in S3 provider access logs, not Admin Audit.
+7. Use **Audit & Reporting** for the effective-access inventory, billing,
+   stored usage-history snapshots, and the control-plane/security audit trail.
+   Object operations are investigated in S3 provider access logs, not Admin
+   Audit.
 8. If superadmin, use **Settings** pages for global behavior, authentication options, UI-managed OIDC/LDAP providers, and key rotation.
 
 The RGW Accounts page uses `/admin/s3-accounts`. The former frontend alias
@@ -173,6 +174,13 @@ Use **Remove** to unlink the account instead of saving two absent roles.
 Direct and group grants combine independently for each workspace; removing a
 direct grant does not revoke an equivalent right inherited from a UI group.
 
+The **Effective access** tab on UI Users, RGW Accounts, RGW Users, and Shared S3
+Connections provides a read-only view of the saved result after those direct
+and inherited grants are combined. Use **Audit & Reporting > Access audit** for
+the global searchable inventory and CSV export. This authorization review covers
+BucketReef UI rights; storage-side IAM policies, bucket policies, and S3 ACLs
+remain outside its scope.
+
 New links initially select **Portal user** with no Manager access when Portal
 is enabled, or **Account administrator** with no Portal access when it is off.
 Review this choice before adding the link. Disabling Portal makes its controls
@@ -229,6 +237,7 @@ image up to 1 MiB. Group images never use Gravatar or an OIDC profile image.
 - [Feature: Admin Usage and Metrics](feature-admin-metrics.md)
 - [Feature: Usage History in Admin](feature-usage-history-admin.md)
 - [Feature: Key Rotation in Admin](feature-key-rotation-admin.md)
+- [Admin: Effective Access Audit](admin-access-audit.md)
 - [Admin: Audit](admin-audit.md)
 - [Storage admin runbook](admin-runbook-storage-admin.md)
 - [Workspace: Manager](workspace-manager.md)

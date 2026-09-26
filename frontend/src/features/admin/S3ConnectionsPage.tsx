@@ -46,6 +46,7 @@ import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textM
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
+import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import S3ConnectionIdentityFields from "../shared/S3ConnectionIdentityFields";
 import { useS3ConnectionFormValidation } from "../shared/useS3ConnectionFormValidation";
@@ -67,6 +68,7 @@ import {
   type S3ConnectionEndpointMode,
 } from "../shared/s3ConnectionFormModel";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
+import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
 
 const credentialOwnerTypeOptions = [
   { value: "", label: "(none)" },
@@ -74,7 +76,7 @@ const credentialOwnerTypeOptions = [
   { value: "account_user", label: "Account user" },
   { value: "s3_user", label: "S3 user" },
 ];
-type EditTab = "general" | "users" | "groups";
+type EditTab = "general" | "users" | "groups" | "effective_access";
 
 function getConnectionSearchCandidates(connection: S3ConnectionAdminItem): Array<string | number | null | undefined> {
   return [
@@ -1131,7 +1133,8 @@ export default function S3ConnectionsPage() {
             </UiInlineMessage>
           )}
           <SettingsForm label="Edit shared S3 connection" onSubmit={submitEdit} busy={editBusy}
-            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving...">
+            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
+            actions={editTab === "effective_access" ? <SettingsButton variant="secondary" onClick={editCloseGuard.requestClose}>Done</SettingsButton> : undefined}>
             <WorkflowTabs<EditTab>
               panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
               activeTab={editTab}
@@ -1142,6 +1145,7 @@ export default function S3ConnectionsPage() {
                 { id: "general", label: "General" },
                 { id: "users", label: "Linked UI users" },
                 { id: "groups", label: "Linked UI groups" },
+                { id: "effective_access", label: "Effective access" },
               ]}
             >
 
@@ -1373,6 +1377,13 @@ export default function S3ConnectionsPage() {
                   </AdminAssociationPickerPanel>
                 )}
               </div>
+            )}
+            {editTab === "effective_access" && (
+              <AdminEffectiveAccessPanel
+                scope="s3_connection"
+                targetId={editing.id}
+                contextLabel={editing.name}
+              />
             )}
             </WorkflowTabs>
 

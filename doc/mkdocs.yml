@@ -89,6 +89,7 @@ nav:
           - "Portal: Activity": user/portal-activity.md
           - "Portal: Settings": user/portal-settings.md
       - Admin Features:
+          - "Admin: Effective Access Audit": user/admin-access-audit.md
           - "Admin: Audit": user/admin-audit.md
           - "Feature: Endpoint Status in Admin": user/feature-endpoint-status-admin.md
           - "Feature: Billing in Admin": user/feature-billing-admin.md

@@ -32,6 +32,7 @@ from app.routers import execution_contexts
 from app.routers import connections as user_connections
 from app.routers.admin import s3_accounts as admin_s3_accounts
 from app.routers.admin import audit as admin_audit
+from app.routers.admin import access_audit as admin_access_audit
 from app.routers.admin import stats as admin_stats
 from app.routers.admin import billing as admin_billing
 from app.routers.admin import usage_history as admin_usage_history
@@ -251,6 +252,7 @@ if any(
     app.include_router(execution_contexts.router, prefix=settings.api_v1_prefix)
     app.include_router(user_connections.router, prefix=settings.api_v1_prefix)
 if runtime_surface_enabled(settings, "admin"):
+    app.include_router(admin_access_audit.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_s3_accounts.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_s3_users.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_s3_connections.router, prefix=settings.api_v1_prefix)

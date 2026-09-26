@@ -88,8 +88,9 @@ import type { AccountSelection } from "./UserAccountAssociationsPanel";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
+import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
 
-type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access" | "connections";
+type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access" | "connections" | "effective_access";
 type AuxiliaryLoadState = "idle" | "loading" | "loaded" | "error";
 
 const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
@@ -103,6 +104,7 @@ const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "general", label: profileMessages.preferencesTab.en },
   { id: "authentication", label: profileMessages.security.en },
   ...userWorkflowTabs.filter((tab) => tab.id !== "general"),
+  { id: "effective_access", label: "Effective access" },
 ];
 
 const adminProfileText: ProfileText = (key) => profileMessages[key].en;
@@ -1588,7 +1590,7 @@ export default function UsersPage() {
           )}
           <SettingsForm label="Edit UI user" busy={busyId === editingUser.id || avatarBusy} onSubmit={submitEdit}
             onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
-            actions={editModalTab === "authentication" ? (
+            actions={editModalTab === "authentication" || editModalTab === "effective_access" ? (
               <SettingsButton variant="secondary" disabled={authenticationBusy} onClick={editCloseGuard.requestClose}>Done</SettingsButton>
             ) : undefined}>
             <WorkflowTabs<UserModalTab>
@@ -1835,6 +1837,14 @@ export default function UsersPage() {
                 setShowPanel={setShowEditGroupPanel}
                 selections={editGroupSelections}
                 setSelections={setEditGroupSelections}
+              />
+            )}
+
+            {editModalTab === "effective_access" && (
+              <AdminEffectiveAccessPanel
+                userId={editingUser.id}
+                contextLabel={editingUser.full_name || editingUser.email}
+                showUserColumn={false}
               />
             )}
             </WorkflowTabs>
