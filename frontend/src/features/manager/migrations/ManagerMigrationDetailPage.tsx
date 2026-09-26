@@ -910,9 +910,6 @@ export default function ManagerMigrationDetailPage() {
                 <p className="ui-caption text-slate-500 dark:text-slate-400">
                   Strong integrity check: {formatYesNo(migrationDetail.strong_integrity_check)}
                 </p>
-                <p className="ui-caption text-slate-500 dark:text-slate-400">
-                  Webhook: {migrationDetail.webhook_url ? migrationDetail.webhook_url : "not configured"}
-                </p>
               </div>
             )}
           </section>

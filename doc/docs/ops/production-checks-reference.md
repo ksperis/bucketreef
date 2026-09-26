@@ -178,7 +178,7 @@ Admin/user split deployments must carry both trusted public origins and the same
 
 **Classification:** Critical.
 
-Persisted user-controlled S3 endpoints and migration webhooks must be covered by their configured outbound allowlists. The check reports only hostnames, never URLs, credentials, query strings, or secrets.
+Persisted user-controlled S3 endpoints and global webhook endpoints must be covered by their configured outbound allowlists. The check reports only hostnames, never URLs, credentials, query strings, or secrets.
 
 The compatibility preflight remains available:
 

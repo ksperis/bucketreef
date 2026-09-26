@@ -50,6 +50,7 @@ from app.routers.admin import portal_requests as admin_portal_requests
 from app.routers.admin import identity_security as admin_identity_security
 from app.routers.admin import navigation as admin_navigation
 from app.routers.admin import production_readiness as admin_production_readiness
+from app.routers.admin import webhooks as admin_webhooks
 from app.routers.ceph_admin import endpoints as ceph_admin_endpoints
 from app.routers.ceph_admin import accounts as ceph_admin_accounts
 from app.routers.ceph_admin import account_profiles as ceph_admin_account_profiles
@@ -90,6 +91,7 @@ from app.routers.manager import integrity as manager_integrity
 from app.routers.manager import purge as manager_purge
 from app.routers.manager import usage_stats as manager_usage_stats
 from app.services.bucket_migration.worker import get_bucket_migration_worker
+from app.services.webhook_worker import get_webhook_delivery_worker
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.deployment_checks import DeploymentCheckFinding, run_deployment_checks, startup_blocking_findings
 from app.routers.dependencies import (
@@ -162,14 +164,20 @@ async def lifespan(_app: FastAPI):
     init_db(engine, SessionLocal)
     _run_startup_deployment_checks()
     worker = None
+    webhook_worker = None
     if settings.bucket_migration_worker_enabled:
         worker = get_bucket_migration_worker(SessionLocal)
         worker.start()
+    if settings.webhook_worker_enabled:
+        webhook_worker = get_webhook_delivery_worker(SessionLocal)
+        webhook_worker.start()
     try:
         yield
     finally:
         if worker:
             worker.stop()
+        if webhook_worker:
+            webhook_worker.stop()
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -266,6 +274,7 @@ if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_identity_security.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_navigation.router, prefix=settings.api_v1_prefix)
     app.include_router(admin_production_readiness.router, prefix=settings.api_v1_prefix)
+    app.include_router(admin_webhooks.router, prefix=settings.api_v1_prefix)
 if runtime_surface_enabled(settings, "ceph_admin"):
     app.include_router(ceph_admin_endpoints.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
     app.include_router(ceph_admin_accounts.router, prefix=settings.api_v1_prefix, dependencies=[Depends(require_ceph_admin_enabled)])

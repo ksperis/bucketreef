@@ -37,6 +37,8 @@ from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.quota_subject import SubjectContext
 from app.services.quota_usage_history_service import QuotaUsageHistoryService
 from app.services.user_notifications_service import UserNotificationsService
+from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
+from app.services.webhook_service import WebhookEventPublisher
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_admin_endpoint
 from app.utils.time import utcnow
@@ -403,6 +405,27 @@ class QuotaMonitoringService:
                 created_at=run.now,
             )
         )
+        try:
+            WebhookEventPublisher(self.db).publish_event_in_current_transaction(
+                event_type=QUOTA_THRESHOLD_EVENT_TYPE,
+                data={
+                    **content.payload,
+                    "subject_id": int(subject.subject_id),
+                    "endpoint_id": int(subject.endpoint_id),
+                    "previous_level": transition.previous_level,
+                    "title": content.title,
+                    "message": content.message,
+                    "severity": content.severity,
+                },
+                occurred_at=run.now,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to queue quota webhook for %s:%s: %s",
+                subject.subject_type,
+                subject.subject_id,
+                exc,
+            )
         self._send_alert_email(
             subject,
             snapshot,

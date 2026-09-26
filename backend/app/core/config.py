@@ -529,6 +529,63 @@ class Settings(BaseSettings):
         120,
         description="Duration of worker lease on a migration before takeover is allowed (BUCKET_MIGRATION_WORKER_LEASE_SECONDS)",
     )
+    webhook_worker_enabled: bool = Field(
+        True,
+        description="Enable durable webhook delivery worker (WEBHOOK_WORKER_ENABLED)",
+    )
+    webhook_poll_interval_seconds: float = Field(
+        1.0,
+        gt=0,
+        description="Polling interval for durable webhook deliveries (WEBHOOK_POLL_INTERVAL_SECONDS)",
+    )
+    webhook_worker_lease_seconds: int = Field(
+        120,
+        ge=15,
+        description="Global webhook dispatcher lease duration (WEBHOOK_WORKER_LEASE_SECONDS)",
+    )
+    webhook_timeout_seconds: float = Field(
+        5.0,
+        gt=0,
+        description="HTTP timeout for webhook deliveries (WEBHOOK_TIMEOUT_SECONDS)",
+    )
+    webhook_allow_private_targets: bool = Field(
+        False,
+        description="Allow webhook targets on private/local networks (WEBHOOK_ALLOW_PRIVATE_TARGETS)",
+    )
+    webhook_allowed_hosts: list[str] = Field(
+        default_factory=list,
+        description="Production allow-list for webhook target hosts (WEBHOOK_ALLOWED_HOSTS)",
+    )
+    webhook_workers: int = Field(
+        4,
+        ge=1,
+        le=16,
+        description="Maximum parallel webhook deliveries (WEBHOOK_WORKERS)",
+    )
+    webhook_max_attempts: int = Field(
+        8,
+        ge=1,
+        le=32,
+        description="Maximum webhook delivery attempts (WEBHOOK_MAX_ATTEMPTS)",
+    )
+    webhook_retry_initial_seconds: int = Field(
+        30,
+        ge=1,
+        description="Initial webhook retry delay (WEBHOOK_RETRY_INITIAL_SECONDS)",
+    )
+    webhook_retry_max_seconds: int = Field(
+        3600,
+        ge=1,
+        description="Maximum webhook retry delay (WEBHOOK_RETRY_MAX_SECONDS)",
+    )
+    webhook_retention_days: int = Field(
+        30,
+        ge=0,
+        description="Retention for terminal webhook deliveries; 0 disables purge (WEBHOOK_RETENTION_DAYS)",
+    )
+
+    # Deprecated aliases retained for one upgrade window. New WEBHOOK_* values
+    # take precedence when both are explicitly configured.
     bucket_migration_webhook_timeout_seconds: float = Field(
         2.0,
         gt=0,
@@ -552,7 +609,10 @@ class Settings(BaseSettings):
         500,
         ge=1,
         le=10000,
-        description="Maximum in-memory queue size for bucket migration webhooks (BUCKET_MIGRATION_WEBHOOK_QUEUE_SIZE)",
+        description=(
+            "Deprecated compatibility setting; ignored because webhook deliveries now use a durable database queue "
+            "(BUCKET_MIGRATION_WEBHOOK_QUEUE_SIZE)"
+        ),
     )
     bucket_migration_webhook_workers: int = Field(
         1,
@@ -567,6 +627,7 @@ class Settings(BaseSettings):
         return _normalize_sqlite_database_url(value)
 
     @field_validator(
+        "webhook_allowed_hosts",
         "bucket_migration_webhook_allowed_hosts",
         "user_supplied_s3_endpoint_allowed_hosts",
         mode="before",

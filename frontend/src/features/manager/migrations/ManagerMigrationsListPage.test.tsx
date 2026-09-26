@@ -35,7 +35,6 @@ function buildMigration(id: number, status: string) {
     lock_target_writes: true,
     use_same_endpoint_copy: false,
     auto_grant_source_read_for_copy: false,
-    webhook_url: null,
     mapping_prefix: "",
     status,
     pause_requested: false,

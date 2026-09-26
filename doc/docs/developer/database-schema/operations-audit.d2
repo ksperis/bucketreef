@@ -61,6 +61,43 @@ Legend: {
     "created_at": "DATETIME [NN]"
     "read_at": "DATETIME"
   }
+  "webhook_endpoints": {
+    class: table
+    tooltip: "PK: id\nUnique: uq_webhook_endpoints_name(name)\nIndexes: ix_webhook_endpoints_enabled_id(enabled, id) [index]; ix_webhook_endpoints_id(id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "name": "VARCHAR [NN]"
+    "url": "TEXT [NN]"
+    "enabled": "BOOLEAN [NN]"
+    "signing_secret": "VARCHAR"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+  }
+  "webhook_endpoint_subscriptions": {
+    class: table
+    tooltip: "PK: id\nUnique: uq_webhook_endpoint_subscription(endpoint_id, event_type)\nIndexes: ix_webhook_endpoint_subscriptions_endpoint_id(endpoint_id) [index]; ix_webhook_endpoint_subscriptions_id(id) [index]; ix_webhook_subscriptions_event_endpoint(event_type, endpoint_id) [index]"
+    "id": "INTEGER [PK, NN]"
+    "endpoint_id": "INTEGER [FK, NN]"
+    "event_type": "VARCHAR [NN]"
+  }
+  "webhook_deliveries": {
+    class: table
+    tooltip: "PK: id\nUnique: uq_webhook_deliveries_delivery_id(delivery_id)\nIndexes: ix_webhook_deliveries_created_at(created_at) [index]; ix_webhook_deliveries_due(status, next_attempt_at, id) [index]; ix_webhook_deliveries_endpoint_created(endpoint_id, created_at, id) [index]; ix_webhook_deliveries_endpoint_id(endpoint_id) [index]; ix_webhook_deliveries_event(event_id, endpoint_id) [index]; ix_webhook_deliveries_event_id(event_id) [index]; ix_webhook_deliveries_event_type(event_type) [index]; ix_webhook_deliveries_id(id) [index]; ix_webhook_deliveries_next_attempt_at(next_attempt_at) [index]; ix_webhook_deliveries_status(status) [index]"
+    "id": "INTEGER [PK, NN]"
+    "delivery_id": "VARCHAR [NN]"
+    "event_id": "VARCHAR [NN]"
+    "endpoint_id": "INTEGER [FK, NN]"
+    "event_type": "VARCHAR [NN]"
+    "payload_json": "TEXT [NN]"
+    "is_test": "BOOLEAN [NN]"
+    "status": "VARCHAR [NN]"
+    "attempt_count": "INTEGER [NN]"
+    "next_attempt_at": "DATETIME [NN]"
+    "last_http_status": "INTEGER"
+    "last_error": "TEXT"
+    "created_at": "DATETIME [NN]"
+    "updated_at": "DATETIME [NN]"
+    "delivered_at": "DATETIME"
+  }
   "bucket_migrations": {
     class: table
     tooltip: "PK: id\nIndexes: ix_bucket_migrations_created_at(created_at) [index]; ix_bucket_migrations_created_by_user_id(created_by_user_id) [index]; ix_bucket_migrations_id(id) [index]; ix_bucket_migrations_precheck_status(precheck_status) [index]; ix_bucket_migrations_source_context_id(source_context_id) [index]; ix_bucket_migrations_source_target(source_context_id, target_context_id) [index]; ix_bucket_migrations_status(status) [index]; ix_bucket_migrations_status_created(status, created_at) [index]; ix_bucket_migrations_target_context_id(target_context_id) [index]; ix_bucket_migrations_updated_at(updated_at) [index]; ix_bucket_migrations_worker_lease(worker_lease_until, status) [index]; ix_bucket_migrations_worker_lease_owner(worker_lease_owner) [index]; ix_bucket_migrations_worker_lease_until(worker_lease_until) [index]"
@@ -75,7 +112,6 @@ Legend: {
     "lock_target_writes": "BOOLEAN [NN]"
     "use_same_endpoint_copy": "BOOLEAN [NN]"
     "auto_grant_source_read_for_copy": "BOOLEAN [NN]"
-    "webhook_url": "VARCHAR"
     "mapping_prefix": "VARCHAR"
     "status": "VARCHAR [NN]"
     "pause_requested": "BOOLEAN [NN]"
@@ -201,5 +237,7 @@ Legend: {
 "user_notifications"."s3_user_id" -> "s3_users"
 "user_notifications"."storage_endpoint_id" -> "storage_endpoints"
 "user_notifications"."user_id" -> "users": "ondelete=CASCADE"
+"webhook_endpoint_subscriptions"."endpoint_id" -> "webhook_endpoints"."id": "ondelete=CASCADE"
+"webhook_deliveries"."endpoint_id" -> "webhook_endpoints"."id": "ondelete=CASCADE"
 "bucket_migration_events"."item_id" -> "bucket_migration_items"."id"
 "bucket_migration_events"."migration_id" -> "bucket_migrations"."id"

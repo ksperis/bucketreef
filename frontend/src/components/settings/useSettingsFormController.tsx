@@ -63,7 +63,7 @@ export function useSettingsFormController({
   return {
     t, labels, locked, requestClose, submit, runAction,
     confirmationDialog: guard.confirmationDialog,
-    navigationGuard: (<SettingsNavigationGuard dirty={unsaved || locked} discardDisabled={locked}
+    navigationGuard: (<SettingsNavigationGuard dirty={!completed && (unsaved || locked)} discardDisabled={!completed && locked}
       onDiscard={() => onClose("navigation")} {...guardLabels}
       title={locked ? t({ en: "Operation in progress", fr: "Opération en cours", de: "Vorgang läuft" }) : guardLabels.title}
       description={locked ? t({

@@ -9,7 +9,7 @@ import { useSettingsFormController } from "./useSettingsFormController";
 /** Native page form sharing the dialog's draft and pending-operation contract. */
 export default function SettingsWorkflowForm({
   title, description, breadcrumbs, backLabel, contentVariant, width = "standard", formLabel = title,
-  dirty, busy = false, loading = false, disabled = false, readOnly = false, error, submitLabel,
+  dirty, busy = false, loading = false, disabled = false, readOnly = false, completed = false, error, submitLabel,
   busyLabel = submitLabel, onSubmit, onClose, children,
 }: Pick<ComponentProps<typeof WorkflowPage>, "title" | "description" | "breadcrumbs" | "backLabel" | "contentVariant" | "width"> & {
   formLabel?: string;
@@ -18,6 +18,7 @@ export default function SettingsWorkflowForm({
   loading?: boolean;
   disabled?: boolean;
   readOnly?: boolean;
+  completed?: boolean;
   error?: string | null;
   submitLabel: string;
   busyLabel?: string;
@@ -26,7 +27,7 @@ export default function SettingsWorkflowForm({
   children: ReactNode;
 }) {
   const { labels, locked, requestClose, submit, confirmationDialog, navigationGuard } = useSettingsFormController({
-    dirty: dirty && !readOnly, busy, disabled: disabled || loading || readOnly, onSubmit, onClose,
+    dirty: dirty && !readOnly, busy, disabled: disabled || loading || readOnly, completed, onSubmit, onClose,
   });
   return <>
     <WorkflowPage title={title} description={description} breadcrumbs={breadcrumbs}

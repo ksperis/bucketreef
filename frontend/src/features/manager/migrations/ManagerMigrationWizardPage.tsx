@@ -57,7 +57,6 @@ export default function ManagerMigrationWizardPage() {
   const [lockTargetWrites, setLockTargetWrites] = useState<boolean>(true);
   const [useSameEndpointCopy, setUseSameEndpointCopy] = useState<boolean>(false);
   const [autoGrantSourceReadForCopy, setAutoGrantSourceReadForCopy] = useState<boolean>(false);
-  const [webhookUrl, setWebhookUrl] = useState<string>("");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState<boolean>(false);
 
   const [step, setStep] = useState<WizardStep>(0);
@@ -203,7 +202,6 @@ export default function ManagerMigrationWizardPage() {
         setAutoGrantSourceReadForCopy(
           detail.use_same_endpoint_copy ? Boolean(detail.auto_grant_source_read_for_copy) : false
         );
-        setWebhookUrl(detail.webhook_url ?? "");
         setShowAdvancedOptions(true);
       })
       .catch((error) => {
@@ -328,7 +326,6 @@ export default function ManagerMigrationWizardPage() {
         lock_target_writes: lockTargetWrites,
         use_same_endpoint_copy: useSameEndpointCopy,
         auto_grant_source_read_for_copy: useSameEndpointCopy ? autoGrantSourceReadForCopy : false,
-        webhook_url: webhookUrl.trim() || undefined,
       };
 
       const detail =
@@ -680,13 +677,6 @@ export default function ManagerMigrationWizardPage() {
                     </UiCheckboxField>
                   </div>
 
-                  <UiInput
-                    label="Webhook URL"
-                    type="url"
-                    value={webhookUrl}
-                    onChange={(event) => setWebhookUrl(event.target.value)}
-                    placeholder="https://example.net/migration-events"
-                  />
                 </div>
               )}
             </div>
@@ -710,7 +700,6 @@ export default function ManagerMigrationWizardPage() {
                   { label: "Auto-grant source read", value: autoGrantSourceReadForCopy ? "yes" : "no" },
                   { label: "Delete source", value: deleteSource ? "yes" : "no" },
                   { label: "Strong integrity check", value: strongIntegrityCheck ? "yes" : "no" },
-                  { label: "Webhook", value: webhookUrl.trim() || "not configured" },
                 ].map((entry) => (
                   <div key={`wizard-summary-${entry.label}`} className="grid grid-cols-[140px_1fr] items-start gap-2">
                     <p className="ui-caption text-slate-500 dark:text-slate-400">{entry.label}</p>

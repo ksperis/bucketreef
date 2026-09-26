@@ -116,7 +116,7 @@ to render until this boundary is supplied.
 
 Production now fails closed for user-controlled outbound destinations. Populate
 `USER_SUPPLIED_S3_ENDPOINT_ALLOWED_HOSTS` for user-created S3 connections and
-`BUCKET_MIGRATION_WEBHOOK_ALLOWED_HOSTS` for migration callbacks before the
+`WEBHOOK_ALLOWED_HOSTS` for webhook endpoints before the
 upgrade. A plain entry authorizes only that exact hostname; subdomains require
 an explicit `*.example.com` entry, which does not authorize the apex.
 
@@ -133,6 +133,21 @@ operator updates the allowlist. Admin-registered storage endpoints remain
 available. Existing webhook URLs outside the webhook allowlist cannot be saved
 or delivered. Production webhooks use HTTPS unless the private-target option
 and an explicit host allowlist entry are both configured.
+
+Migration `0132_webhook_endpoints` replaces the former per-migration
+`bucket_migrations.webhook_url` field with global Admin-managed webhook
+endpoints and a durable delivery queue. Distinct legacy migration callback URLs
+are imported once as disabled endpoints subscribed to
+`manager.bucket_migration.event`; they intentionally have no signing secret and
+must be reviewed, assigned a new secret, and enabled by a super-administrator.
+
+For one upgrade window, `BUCKET_MIGRATION_WEBHOOK_TIMEOUT_SECONDS`,
+`BUCKET_MIGRATION_WEBHOOK_ALLOW_PRIVATE_TARGETS`,
+`BUCKET_MIGRATION_WEBHOOK_ALLOWED_HOSTS`, and
+`BUCKET_MIGRATION_WEBHOOK_WORKERS` remain fallback aliases if their new
+`WEBHOOK_*` equivalents are not explicitly configured. The new variables take
+precedence. `BUCKET_MIGRATION_WEBHOOK_QUEUE_SIZE` is accepted but ignored
+because queue state is now durable in the database.
 
 ## 2026-09 Manager and Portal account-role split
 

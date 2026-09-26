@@ -13,7 +13,6 @@ from app.core.config import DeploymentProfile, Settings, is_local_origin, is_wea
 from app.core.database import is_sqlite_url
 from app.core.runtime_surfaces import RuntimeSurface, runtime_surface_enabled
 from app.db import (
-    BucketMigration,
     LdapProvider,
     OidcProvider,
     S3Connection,
@@ -21,8 +20,10 @@ from app.db import (
     User,
     UserRole,
     WebAuthnCredential,
+    WebhookEndpoint,
 )
 from app.models.app_settings import AppSettings
+from app.services.webhook_service import webhook_runtime_config
 from app.utils.network_targets import host_matches_allowlist
 from app.utils.s3_connection_endpoint import parse_custom_endpoint_config
 
@@ -201,11 +202,11 @@ def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[Unc
         if not host_matches_allowlist(hostname, settings.user_supplied_s3_endpoint_allowed_hosts):
             uncovered.add(UncoveredTarget("user-s3-endpoint", hostname or "<invalid>"))
 
-    webhooks = db.query(BucketMigration.webhook_url).filter(BucketMigration.webhook_url.is_not(None)).all()
-    for (webhook_url,) in webhooks:
+    webhook_hosts = webhook_runtime_config(settings).allowed_hosts
+    for (webhook_url,) in db.query(WebhookEndpoint.url).all():
         hostname = _hostname(webhook_url or "") or "<invalid>"
-        if not host_matches_allowlist(hostname, settings.bucket_migration_webhook_allowed_hosts):
-            uncovered.add(UncoveredTarget("migration-webhook", hostname))
+        if not host_matches_allowlist(hostname, webhook_hosts):
+            uncovered.add(UncoveredTarget("webhook", hostname))
     return sorted(uncovered)
 
 

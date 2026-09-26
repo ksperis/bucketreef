@@ -15,6 +15,7 @@ from app.db import AuditLog, User
 from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.audit_policy import should_persist_audit_action
+from app.services.webhook_service import WebhookEventPublisher
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,27 @@ class AuditService:
         except SQLAlchemyError as exc:
             self.db.rollback()
             logger.warning("Failed to persist audit log for action %s: %s", action, exc)
+            return
+
+        try:
+            WebhookEventPublisher(self.db).publish_audit_event(
+                scope=scope,
+                action=action,
+                user_email=resolved_user_email,
+                user_role=resolved_user_role,
+                entity_type=entity_type,
+                entity_id=str(entity_id) if entity_id is not None else None,
+                account_id=resolved_account_id,
+                account_name=resolved_account_name,
+                status=status,
+                message=message,
+                metadata=parse_audit_metadata(payload.metadata_json),
+                occurred_at=payload.created_at,
+                commit=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.db.rollback()
+            logger.warning("Failed to queue webhook for audit action %s: %s", action, exc)
 
     def list_logs(
         self,

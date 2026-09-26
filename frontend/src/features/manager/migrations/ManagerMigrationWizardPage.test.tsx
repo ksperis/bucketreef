@@ -93,7 +93,6 @@ describe("ManagerMigrationWizardPage", () => {
     expect(screen.queryByRole("checkbox", { name: "Strong integrity check before source deletion" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Show" }));
     expect(screen.getByRole("button", { name: "Hide" })).toHaveClass("ui-button-base");
-    expect(screen.getByLabelText("Webhook URL")).toHaveClass("ui-control");
     expect(screen.getByRole("checkbox", { name: "Strong integrity check before source deletion" })).toBeInTheDocument();
     const sameEndpointCopyOption = screen.getByRole("checkbox", { name: "Use x-amz-copy-source (same endpoint only)" });
     const autoGrantOption = screen.getByRole("checkbox", {
@@ -133,7 +132,6 @@ describe("ManagerMigrationWizardPage", () => {
       lock_target_writes: true,
       use_same_endpoint_copy: false,
       auto_grant_source_read_for_copy: false,
-      webhook_url: undefined,
     });
 
     await waitFor(() => {
@@ -235,7 +233,6 @@ describe("ManagerMigrationWizardPage", () => {
       lock_target_writes: true,
       use_same_endpoint_copy: true,
       auto_grant_source_read_for_copy: true,
-      webhook_url: undefined,
     });
     await waitFor(() => {
       expect(startManagerMigrationMock).toHaveBeenCalledWith(77);

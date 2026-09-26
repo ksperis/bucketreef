@@ -15,11 +15,15 @@ from app.db import (
     User,
     UserNotification,
     UserRole,
+    WebhookDelivery,
 )
+from app.models.webhook import WebhookEndpointPayload
 from app.services.endpoint_health_notifications_service import (
     EndpointHealthNotificationsService,
 )
 from app.services.healthcheck_common import HealthCheckResult
+from app.services.webhook_catalog import ENDPOINT_HEALTH_EVENT_TYPE
+from app.services.webhook_service import WebhookService
 from app.utils.time import utcnow
 
 
@@ -79,6 +83,7 @@ def _result(
 
 def test_endpoint_health_notifications_follow_transitions_and_admin_scope(
     db_session,
+    monkeypatch,
 ):
     endpoint = StorageEndpoint(
         name="Transition endpoint",
@@ -112,6 +117,15 @@ def test_endpoint_health_notifications_follow_transitions_and_admin_scope(
     )
     db_session.add_all([endpoint, admin, superadmin, inactive_admin, standard_user])
     db_session.commit()
+    monkeypatch.setattr("app.services.webhook_service.validate_webhook_target_url", lambda *_args, **_kwargs: None)
+    webhook = WebhookService(db_session).create_endpoint(
+        WebhookEndpointPayload(
+            name="health-events",
+            url="https://hooks.example.test/health",
+            enabled=True,
+            event_types=[ENDPOINT_HEALTH_EVENT_TYPE],
+        )
+    )
     service = EndpointHealthNotificationsService(db_session)
     endpoints = {int(endpoint.id): endpoint}
 
@@ -176,6 +190,18 @@ def test_endpoint_health_notifications_follow_transitions_and_admin_scope(
     assert degraded_payload["current_status"] == "degraded"
     assert degraded_payload["error_message"] == "access_key=<redacted> timed out"
     assert "AKIA1234567890123456" not in rows[0].message
+
+    deliveries = (
+        db_session.query(WebhookDelivery)
+        .filter(WebhookDelivery.endpoint_id == webhook.id)
+        .order_by(WebhookDelivery.id)
+        .all()
+    )
+    assert len(deliveries) == 4
+    assert {delivery.event_type for delivery in deliveries} == {ENDPOINT_HEALTH_EVENT_TYPE}
+    webhook_payload = json.loads(deliveries[0].payload_json)
+    assert webhook_payload["data"]["current_status"] == "degraded"
+    assert webhook_payload["data"]["error_message"] == "access_key=<redacted> timed out"
 
 
 def test_previous_endpoint_status_uses_latest_raw_check(db_session):

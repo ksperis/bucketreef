@@ -68,6 +68,8 @@ const AuthenticationSettingsPage = lazy(() => import("./features/admin/Authentic
 const ManagerSettingsPage = lazy(() => import("./features/admin/ManagerSettingsPage"));
 const AdminPortalSettingsPage = lazy(() => import("./features/admin/PortalSettingsPage"));
 const BrowserSettingsPage = lazy(() => import("./features/admin/BrowserSettingsPage"));
+const WebhookSettingsPage = lazy(() => import("./features/admin/WebhookSettingsPage"));
+const WebhookEndpointPage = lazy(() => import("./features/admin/WebhookEndpointPage"));
 const AuthProviderPage = lazy(() => import("./features/admin/settings/AuthProviderPage"));
 const KeyRotationPage = lazy(() => import("./features/admin/KeyRotationPage"));
 const BucketsPage = lazy(() => import("./features/manager/BucketsPage"));
@@ -133,6 +135,7 @@ const ADMIN_SETTINGS_PATHS = [
   "/admin/manager-settings",
   "/admin/browser-settings",
   "/admin/portal-settings",
+  "/admin/webhook-settings",
   "/admin/production-readiness",
   "/admin/key-rotation",
   "/admin/api-tokens",
@@ -169,6 +172,7 @@ export const buildAdminNav = (
       disabled: !portalEnabled,
       disabledHint: !portalEnabled ? "Portal feature is disabled in General settings." : undefined,
     },
+    workspacePageLink(ADMIN_PAGE_CONTRACTS["webhook-settings"]),
     {
       ...workspacePageLink(ADMIN_PAGE_CONTRACTS["production-readiness"]),
       iconName: "shield" as const,
@@ -360,6 +364,9 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                 <Route path="manager-settings" element={<ManagerSettingsPage />} />
                 <Route path="portal-settings" element={<AdminPortalSettingsRoute />} />
                 <Route path="browser-settings" element={<BrowserSettingsPage />} />
+                <Route path="webhook-settings" element={<WebhookSettingsPage />} />
+                <Route path="webhook-settings/new" element={<WebhookEndpointPage />} />
+                <Route path="webhook-settings/:endpointId" element={<WebhookEndpointPage />} />
                 <Route path="key-rotation" element={<KeyRotationPage />} />
                 <Route path="api-tokens" element={<ApiTokensPage />} />
               </Route>
