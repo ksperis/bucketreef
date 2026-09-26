@@ -69,11 +69,11 @@ describe("BucketEncryptionFeature", () => {
 
     const section = screen.getByTestId("bucket-feature-encryption");
     expect(section).toHaveAttribute("data-feature-state", "configured");
-    expect(screen.getByText("Enabled · 2 rules")).toBeInTheDocument();
-    expect(within(section).getByText("AES256")).toBeInTheDocument();
-    expect(within(section).getByText("aws:kms")).toBeInTheDocument();
-    expect(within(section).getByText("kms-key-1")).toBeInTheDocument();
-    expect(within(section).getByText("Enabled")).toBeInTheDocument();
+    expect(within(section).getByText("Configured")).toBeInTheDocument();
+    const summary = within(section).getByText("AES256").parentElement;
+    expect(summary).toHaveTextContent("AES256 · S3 managed key · 2 rules");
+    expect(within(section).queryByText("aws:kms")).not.toBeInTheDocument();
+    expect(within(section).queryByText("kms-key-1")).not.toBeInTheDocument();
     expect(within(section).queryByRole("textbox")).not.toBeInTheDocument();
     expect(within(section).queryByRole("button", { name: /remove|disable|save/i })).not.toBeInTheDocument();
 
@@ -152,6 +152,6 @@ describe("BucketEncryptionFeature", () => {
     const section = screen.getByTestId("bucket-feature-encryption");
     expect(section).toHaveAttribute("data-feature-state", "disabled");
     expect(within(section).getByText("Server-side encryption is disabled on this endpoint.")).toBeInTheDocument();
-    expect(within(section).getByRole("button", { name: "Edit" })).toBeDisabled();
+    expect(within(section).queryByRole("button")).not.toBeInTheDocument();
   });
 });
