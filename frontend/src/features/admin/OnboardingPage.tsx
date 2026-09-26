@@ -290,6 +290,7 @@ export default function OnboardingPage() {
   const [previewPending, setPreviewPending] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [previewNonce, setPreviewNonce] = useState(0);
+  const [validationNonce, setValidationNonce] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [internalNavigation, setInternalNavigation] = useState(false);
@@ -408,6 +409,7 @@ export default function OnboardingPage() {
       storedSupervisionCredentials,
       supervisionAccessKey,
       supervisionSecretKey,
+      validationNonce,
       validationEndpointUrl,
       validationRegion,
       validationVerifyTls,
@@ -836,7 +838,13 @@ export default function OnboardingPage() {
         {error && (
           <UiInlineMessage tone="error">
             {error}{" "}
-            <UiButton variant="ghost" onClick={() => setPreviewNonce((value) => value + 1)}>
+            <UiButton
+              variant="ghost"
+              onClick={() => {
+                setPreviewNonce((value) => value + 1);
+                setValidationNonce((value) => value + 1);
+              }}
+            >
               {t(copy.retry)}
             </UiButton>
           </UiInlineMessage>

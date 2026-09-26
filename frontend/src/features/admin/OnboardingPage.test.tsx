@@ -524,6 +524,59 @@ describe("simplified onboarding", () => {
     expect(await screen.findByRole("tab", { name: "2. Prepare BucketReef" })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("revalidates preserved endpoint credentials when retrying after apply fails", async () => {
+    mocks.applyOnboardingJourney.mockRejectedValueOnce(new Error("apply failed"));
+    mocks.listStorageEndpoints.mockResolvedValue([
+      {
+        ...cephEndpoint,
+        admin_access_key: null,
+        has_admin_secret: false,
+        supervision_access_key: null,
+        has_supervision_secret: false,
+      },
+    ]);
+
+    renderPage();
+    await screen.findByRole("option", { name: /Lab Ceph/ });
+    fireEvent.change(screen.getByRole("combobox", { name: "Endpoint" }), {
+      target: { value: "3" },
+    });
+    await continueWhenReady();
+    await screen.findByRole("checkbox", { name: /Manager with a sample RGW Account/ });
+    await continueWhenReady();
+
+    fireEvent.change(await screen.findByLabelText("Admin Ops access key"), {
+      target: { value: "admin-access" },
+    });
+    fireEvent.change(screen.getByLabelText("Admin Ops secret key"), {
+      target: { value: "admin-secret" },
+    });
+    fireEvent.change(screen.getByLabelText("Supervision Ops access key"), {
+      target: { value: "supervision-access" },
+    });
+    fireEvent.change(screen.getByLabelText("Supervision Ops secret key"), {
+      target: { value: "supervision-secret" },
+    });
+    await continueWhenReady();
+
+    const applyButton = await screen.findByRole("button", { name: "Apply configuration" });
+    await waitFor(() => expect(applyButton).toBeEnabled());
+    fireEvent.click(applyButton);
+
+    const retryButton = await screen.findByRole("button", { name: "Retry" });
+    fireEvent.click(screen.getByRole("tab", { name: "3. Credentials" }));
+    expect(screen.getByLabelText("Admin Ops access key")).toHaveValue("admin-access");
+    expect(screen.getByLabelText("Supervision Ops access key")).toHaveValue("supervision-access");
+    const validationCalls = mocks.detectStorageEndpointFeatures.mock.calls.length;
+
+    fireEvent.click(retryButton);
+
+    await waitFor(() =>
+      expect(mocks.detectStorageEndpointFeatures.mock.calls.length).toBeGreaterThan(validationCalls),
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
+  });
+
   it("keeps the first-run surface accessible", async () => {
     const { container } = renderPage();
     await screen.findByRole("tab", { name: "1. Connect storage" });
