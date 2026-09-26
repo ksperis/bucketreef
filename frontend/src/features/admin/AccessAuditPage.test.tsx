@@ -79,7 +79,11 @@ describe("AccessAuditPage", () => {
       "w-px",
       "whitespace-nowrap",
     );
+    expect(screen.getByText("Ceph Admin", { selector: ".ui-badge-base" })).toHaveClass("bg-amber-50");
+    expect(screen.getByText("Storage Ops", { selector: ".ui-badge-base" })).toHaveClass("bg-sky-50");
+    expect(screen.getByText("Manager · Bucket compare", { selector: ".ui-badge-base" })).toHaveClass("bg-primary-50");
     expect(screen.getByText("+1")).toBeInTheDocument();
+    expect(screen.getByText("+1")).toHaveClass("bg-slate-50");
     const rights = screen.getByLabelText("4 effective rights");
     expect(rights).toHaveAccessibleDescription(
       "Effective rights (4)\nCeph Admin — Sources: Direct\nStorage Ops — Sources: UI Group: Storage admins\nManager · Bucket compare — Sources: Direct, UI Group: Storage admins\nManager · Bucket migration — Sources: UI Group: Migration team",

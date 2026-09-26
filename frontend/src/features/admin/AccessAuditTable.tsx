@@ -11,6 +11,7 @@ import type {
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import type { ListTableStatus } from "../../components/list/listTableStatus";
 import UiBadge from "../../components/ui/UiBadge";
+import type { UiTone } from "../../components/ui/styles";
 import { AssociationRoleTooltip } from "./AssociationSummary";
 
 const scopeLabels: Record<AccessAuditScope, string> = {
@@ -18,6 +19,25 @@ const scopeLabels: Record<AccessAuditScope, string> = {
   rgw_account: "RGW Account",
   rgw_user: "RGW User",
   s3_connection: "S3 Connection",
+};
+
+const rightTones: Record<AccessAuditRow["rights"][number]["code"], UiTone> = {
+  ceph_admin: "warning",
+  storage_ops: "info",
+  manager_bucket_compare: "primary",
+  manager_bucket_integrity_check: "primary",
+  manager_bucket_migration: "primary",
+  manager_feature_rules: "primary",
+  manager_bucket_purge: "primary",
+  private_connection_create: "success",
+  managed_private_connection_provision: "success",
+  browser_advanced_features: "success",
+  account_administrator: "warning",
+  portal_manager: "info",
+  portal_user: "info",
+  manager_browser_data_access: "success",
+  rgw_user_access: "neutral",
+  shared_connection_access: "success",
 };
 
 function PrincipalCell({ row }: { row: AccessAuditRow }) {
@@ -60,7 +80,9 @@ function RightsCell({ row }: { row: AccessAuditRow }) {
       detailTone="neutral"
     >
       <span className="inline-flex max-w-full flex-wrap gap-1">
-        {visible.map((right) => <UiBadge key={right.code}>{right.label}</UiBadge>)}
+        {visible.map((right) => (
+          <UiBadge key={right.code} tone={rightTones[right.code]}>{right.label}</UiBadge>
+        ))}
         {row.rights.length > visible.length ? <UiBadge>+{row.rights.length - visible.length}</UiBadge> : null}
       </span>
     </AssociationRoleTooltip>
