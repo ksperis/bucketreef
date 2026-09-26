@@ -74,6 +74,11 @@ describe("AccessAuditPage", () => {
 
     expect(await screen.findByText("Example User")).toBeInTheDocument();
     expect(screen.queryByText("Granted via")).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Scope/ })).toHaveClass("w-px", "whitespace-nowrap");
+    expect(screen.getByText("Platform", { selector: ".ui-badge-base" }).closest("td")).toHaveClass(
+      "w-px",
+      "whitespace-nowrap",
+    );
     expect(screen.getByText("+1")).toBeInTheDocument();
     const rights = screen.getByLabelText("4 effective rights");
     expect(rights).toHaveAccessibleDescription(

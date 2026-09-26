@@ -112,6 +112,8 @@ export default function AccessAuditTable({
       id: "scope",
       label: "Scope",
       field: "scope",
+      headerClassName: "w-px whitespace-nowrap",
+      cellClassName: "w-px whitespace-nowrap",
       render: (row) => <UiBadge>{scopeLabels[row.scope]}</UiBadge>,
     },
     {
