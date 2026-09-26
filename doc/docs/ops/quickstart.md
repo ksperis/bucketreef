@@ -73,8 +73,10 @@ running, the command prints an expiring, one-time URL:
 http://localhost:8080/setup/first-admin#token=...
 ```
 
-Open it within 15 minutes, create the first super-administrator and enroll a
-passkey. The page removes the fragment and keeps the token only in memory.
+Open it within 15 minutes and create the first super-administrator. Passkey
+enrollment is optional during this onboarding flow; enroll one from
+**Profile > Security** and enable **Require passkeys for administrators** before
+production. The page removes the fragment and keeps the token only in memory.
 If the link expires, run `bucketreef-quickstart start` again. Before initialization
 this replaces the previous token; after users exist it prints the login URL.
 Connecting storage is optional after setup.
