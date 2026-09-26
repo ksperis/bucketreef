@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
 
+from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -24,6 +25,7 @@ from app.utils.time import utcnow
 
 
 FIRST_ADMIN_BOOTSTRAP_ID = 1
+_EMAIL_ADAPTER = TypeAdapter(EmailStr)
 DEFAULT_BOOTSTRAP_TTL_MINUTES = 15
 
 
@@ -58,7 +60,13 @@ class FirstAdminBootstrapService:
 
     @staticmethod
     def _normalize_email(email: str) -> str:
-        return str(email or "").strip().lower()
+        try:
+            validated = _EMAIL_ADAPTER.validate_python(str(email or "").strip())
+        except ValidationError as exc:
+            raise FirstAdminBootstrapError(
+                "Email must be a valid email address"
+            ) from exc
+        return str(validated).lower()
 
     @staticmethod
     def _normalize_full_name(full_name: Optional[str]) -> Optional[str]:
