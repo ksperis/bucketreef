@@ -83,7 +83,9 @@ Key areas:
   `WEBHOOK_POLL_INTERVAL_SECONDS`, `WEBHOOK_WORKER_LEASE_SECONDS`,
   `WEBHOOK_TIMEOUT_SECONDS`, `WEBHOOK_WORKERS`, `WEBHOOK_MAX_ATTEMPTS`,
   `WEBHOOK_RETRY_INITIAL_SECONDS`, `WEBHOOK_RETRY_MAX_SECONDS`, and
-  `WEBHOOK_RETENTION_DAYS`.
+  `WEBHOOK_RETENTION_DAYS`. In split deployments, event publication uses the
+  shared PostgreSQL queue but outbound dispatch runs only on the Admin-capable
+  release; `user` and `ceph-admin-high-security` profiles disable the worker.
 - Quota SMTP secret: `SMTP_PASSWORD`.
 - Interactive storage budgets: `STORAGE_INTERACTIVE_CONNECT_TIMEOUT_SECONDS` (default `2`),
   `STORAGE_INTERACTIVE_READ_TIMEOUT_SECONDS` (default `5`), and

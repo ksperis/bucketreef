@@ -9,3 +9,4 @@ services:
       FEATURE_PORTAL_ENABLED: "true"
       FEATURE_BROWSER_ENABLED: "true"
       SCHEDULED_JOBS_ENABLED: "false"
+      WEBHOOK_WORKER_ENABLED: "false"

@@ -71,3 +71,17 @@ def test_preflight_accepts_exact_and_explicit_wildcard_coverage(db_session):
     )
 
     assert find_uncovered_outbound_targets(db_session, settings) == []
+
+
+def test_non_dispatcher_profile_does_not_require_webhook_allowlist(db_session):
+    _persist_targets(db_session)
+    settings = Settings(
+        _env_file=None,
+        deployment_profile="user",
+        feature_admin_enabled=False,
+        webhook_worker_enabled=True,
+        user_supplied_s3_endpoint_allowed_hosts=["s3.uncovered.example.test"],
+        webhook_allowed_hosts=[],
+    )
+
+    assert find_uncovered_outbound_targets(db_session, settings) == []

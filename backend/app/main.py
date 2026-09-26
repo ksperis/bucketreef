@@ -91,6 +91,7 @@ from app.routers.manager import integrity as manager_integrity
 from app.routers.manager import purge as manager_purge
 from app.routers.manager import usage_stats as manager_usage_stats
 from app.services.bucket_migration.worker import get_bucket_migration_worker
+from app.services.webhook_service import webhook_dispatcher_enabled
 from app.services.webhook_worker import get_webhook_delivery_worker
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.deployment_checks import DeploymentCheckFinding, run_deployment_checks, startup_blocking_findings
@@ -168,7 +169,7 @@ async def lifespan(_app: FastAPI):
     if settings.bucket_migration_worker_enabled:
         worker = get_bucket_migration_worker(SessionLocal)
         worker.start()
-    if settings.webhook_worker_enabled:
+    if webhook_dispatcher_enabled(settings):
         webhook_worker = get_webhook_delivery_worker(SessionLocal)
         webhook_worker.start()
     try:

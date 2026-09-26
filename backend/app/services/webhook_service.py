@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.runtime_surfaces import runtime_surface_enabled
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
 from app.models.webhook import (
@@ -36,6 +37,7 @@ from app.utils.network_targets import validate_outbound_url
 from app.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
+_WEBHOOK_DISPATCH_PROFILES = {"full", "admin", "admin-no-ceph-admin"}
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,24 @@ class WebhookRuntimeConfig:
     retention_days: int
     poll_interval_seconds: float
     lease_seconds: int
+
+
+def webhook_dispatcher_enabled(settings: Settings | None = None) -> bool:
+    """Return whether this backend runtime is allowed to deliver webhooks.
+
+    Webhook events may be queued by any backend sharing the application
+    database, but outbound delivery belongs to an Admin-capable runtime. This
+    keeps split user and high-security Ceph Admin pools from taking the global
+    dispatcher lease or becoming the network egress point for Admin-managed
+    integrations.
+    """
+
+    settings = settings or get_settings()
+    return bool(
+        settings.webhook_worker_enabled
+        and settings.deployment_profile in _WEBHOOK_DISPATCH_PROFILES
+        and runtime_surface_enabled(settings, "admin")
+    )
 
 
 def _field_was_set(settings: Settings, field: str) -> bool:

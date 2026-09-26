@@ -11,7 +11,7 @@
 {{- fail (printf "deploymentProfile=%s cannot own scheduled jobs; enable CronJobs only on the admin/full release." $deploymentProfile) -}}
 {{- end -}}
 {{- if ne $deploymentProfile "full" -}}
-{{- range $featureName := list "CEPH_ADMIN_HIGH_SECURITY_MODE" "FEATURE_ADMIN_ENABLED" "FEATURE_CEPH_ADMIN_ENABLED" "FEATURE_STORAGE_OPS_ENABLED" "FEATURE_MANAGER_ENABLED" "FEATURE_PORTAL_ENABLED" "FEATURE_BROWSER_ENABLED" "SCHEDULED_JOBS_ENABLED" -}}
+{{- range $featureName := list "CEPH_ADMIN_HIGH_SECURITY_MODE" "FEATURE_ADMIN_ENABLED" "FEATURE_CEPH_ADMIN_ENABLED" "FEATURE_STORAGE_OPS_ENABLED" "FEATURE_MANAGER_ENABLED" "FEATURE_PORTAL_ENABLED" "FEATURE_BROWSER_ENABLED" "SCHEDULED_JOBS_ENABLED" "WEBHOOK_WORKER_ENABLED" -}}
 {{- if hasKey $.Values.backend.env $featureName -}}
 {{- fail (printf "%s is controlled by deploymentProfile=%s and must not be set in backend.env." $featureName $deploymentProfile) -}}
 {{- end -}}
@@ -98,6 +98,8 @@ spec:
               value: "false"
             - name: SCHEDULED_JOBS_ENABLED
               value: "true"
+            - name: WEBHOOK_WORKER_ENABLED
+              value: "true"
             {{- else if eq $deploymentProfile "admin-no-ceph-admin" }}
             - name: FEATURE_ADMIN_ENABLED
               value: "true"
@@ -113,6 +115,8 @@ spec:
               value: "false"
             - name: SCHEDULED_JOBS_ENABLED
               value: "true"
+            - name: WEBHOOK_WORKER_ENABLED
+              value: "true"
             {{- else if eq $deploymentProfile "user" }}
             - name: FEATURE_ADMIN_ENABLED
               value: "false"
@@ -127,6 +131,8 @@ spec:
             - name: FEATURE_BROWSER_ENABLED
               value: "true"
             - name: SCHEDULED_JOBS_ENABLED
+              value: "false"
+            - name: WEBHOOK_WORKER_ENABLED
               value: "false"
             {{- else if eq $deploymentProfile "ceph-admin-high-security" }}
             - name: CEPH_ADMIN_HIGH_SECURITY_MODE
@@ -144,6 +150,8 @@ spec:
             - name: FEATURE_BROWSER_ENABLED
               value: "false"
             - name: SCHEDULED_JOBS_ENABLED
+              value: "false"
+            - name: WEBHOOK_WORKER_ENABLED
               value: "false"
             {{- end }}
             - name: TRUSTED_PROXY_CIDRS

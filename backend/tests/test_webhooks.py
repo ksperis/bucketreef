@@ -13,11 +13,13 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.schema import CreateTable
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import Settings
-from app.db import User, UserRole, WebhookDelivery, WebhookEndpoint
+from app.db import User, UserRole, WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
 from app.models.webhook import WebhookEndpointPayload
 from app.services.audit_policy import should_persist_audit_action
 from app.services.audit_service import AuditService
@@ -27,6 +29,7 @@ from app.services.webhook_service import (
     WebhookEventPublisher,
     WebhookService,
     validate_webhook_target_url,
+    webhook_dispatcher_enabled,
     webhook_runtime_config,
 )
 from app.services.webhook_worker import WebhookDeliveryWorker
@@ -282,6 +285,48 @@ def test_webhook_runtime_lease_always_exceeds_http_timeout():
     )
     assert runtime.timeout_seconds == 45.2
     assert runtime.lease_seconds >= 56
+
+
+@pytest.mark.parametrize(
+    ("profile", "admin_enabled", "worker_enabled", "expected"),
+    [
+        ("full", None, True, True),
+        ("admin", True, True, True),
+        ("admin-no-ceph-admin", True, True, True),
+        ("user", False, True, False),
+        ("ceph-admin-high-security", False, True, False),
+        ("admin", True, False, False),
+        ("full", False, True, False),
+    ],
+)
+def test_webhook_dispatcher_is_owned_only_by_admin_capable_profiles(
+    profile,
+    admin_enabled,
+    worker_enabled,
+    expected,
+):
+    settings = Settings(
+        _env_file=None,
+        deployment_profile=profile,
+        feature_admin_enabled=admin_enabled,
+        webhook_worker_enabled=worker_enabled,
+    )
+
+    assert webhook_dispatcher_enabled(settings) is expected
+
+
+def test_webhook_schema_compiles_for_postgresql_with_timezone_and_cascade():
+    dialect = postgresql.dialect()
+    endpoint_sql = str(CreateTable(WebhookEndpoint.__table__).compile(dialect=dialect))
+    subscription_sql = str(CreateTable(WebhookEndpointSubscription.__table__).compile(dialect=dialect))
+    delivery_sql = str(CreateTable(WebhookDelivery.__table__).compile(dialect=dialect))
+
+    assert "TIMESTAMP WITH TIME ZONE" in endpoint_sql
+    assert delivery_sql.count("TIMESTAMP WITH TIME ZONE") >= 4
+    assert "ON DELETE CASCADE" in subscription_sql
+    assert "ON DELETE CASCADE" in delivery_sql
+    assert "SERIAL" in endpoint_sql
+    assert "SERIAL" in delivery_sql
 
 
 def test_worker_signs_exact_body_and_marks_success(db_session, monkeypatch):
