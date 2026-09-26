@@ -45,6 +45,11 @@ def test_sensitive_route_matrix_keeps_high_risk_routes_guarded():
         ("app/routers/admin/users.py", "create_user"): RECENT_WEBAUTHN,
         ("app/routers/admin/users.py", "update_user"): RECENT_WEBAUTHN,
         ("app/routers/admin/settings.py", "update_settings"): RECENT_WEBAUTHN,
+        ("app/routers/admin/webhooks.py", "create_webhook_endpoint"): RECENT_WEBAUTHN,
+        ("app/routers/admin/webhooks.py", "update_webhook_endpoint"): RECENT_WEBAUTHN,
+        ("app/routers/admin/webhooks.py", "delete_webhook_endpoint"): RECENT_WEBAUTHN,
+        ("app/routers/admin/webhooks.py", "rotate_webhook_secret"): RECENT_WEBAUTHN,
+        ("app/routers/admin/webhooks.py", "test_webhook_endpoint"): RECENT_WEBAUTHN,
     }
 
     assert {key: EXPECTED_GUARDS[key] for key in expected} == expected
