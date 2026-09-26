@@ -22,6 +22,10 @@ import {
   TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS,
   TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS,
 } from "../../components/topbarControlWidths";
+import {
+  canAccessPrivateConnectionsSection,
+  readStoredUser,
+} from "../../utils/workspaces";
 
 export type BrowserSidebarBodyRenderer = (args: SidebarBodyRenderArgs) => ReactNode;
 
@@ -54,6 +58,10 @@ function BrowserShell() {
   const [iamIdentity, setIamIdentity] = useState<string | null>(null);
   const [identityAccessMode, setIdentityAccessMode] = useState<ContextAccessMode>(null);
   const [sidebarBody, setSidebarBodyState] = useState<BrowserSidebarBodyRenderer | null>(null);
+  const canManagePrivateConnections = useMemo(
+    () => canAccessPrivateConnectionsSection(readStoredUser()),
+    [],
+  );
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const isBrowserExplorerRoute = normalizedPath === "/browser";
   const selected = contexts.find((a) => a.id === selectedContextId);
@@ -175,12 +183,14 @@ function BrowserShell() {
               description={
                 contexts.length > 0
                   ? "Choose a private connection explicitly to start browsing."
-                  : "Accounts, RGW users and shared connections are unavailable in Browser. Create a private connection with a dedicated access key."
+                  : canManagePrivateConnections
+                    ? "Accounts, RGW users and shared connections are unavailable in Browser. Create a private connection with a dedicated access key."
+                    : "Accounts, RGW users and shared connections are unavailable in Browser. Ask your administrator to allow manual private connections before adding a dedicated access key."
               }
-              primaryAction={{
+              primaryAction={canManagePrivateConnections ? {
                 label: "Manage private connections",
                 to: "/browser/profile?tab=connections",
-              }}
+              } : undefined}
               tone="warning"
               className="h-full"
             />

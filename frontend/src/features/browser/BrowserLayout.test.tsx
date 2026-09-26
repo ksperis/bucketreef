@@ -9,6 +9,7 @@ import BrowserLayout, { useBrowserSidebarSlot } from "./BrowserLayout";
 
 const useBrowserContextMock = vi.fn();
 const fetchManagerContextMock = vi.hoisted(() => vi.fn(() => new Promise<never>(() => undefined)));
+const canAccessPrivateConnectionsSectionMock = vi.hoisted(() => vi.fn(() => false));
 let capturedLayoutProps: {
   headerTitle?: string;
   hideSidebar?: boolean;
@@ -32,6 +33,11 @@ vi.mock("./BrowserContext", () => ({
 
 vi.mock("../../api/managerContext", () => ({
   fetchManagerContext: fetchManagerContextMock,
+}));
+
+vi.mock("../../utils/workspaces", () => ({
+  canAccessPrivateConnectionsSection: canAccessPrivateConnectionsSectionMock,
+  readStoredUser: () => ({ id: 1 }),
 }));
 
 vi.mock("../../components/Layout", () => ({
@@ -123,6 +129,8 @@ describe("BrowserLayout", () => {
     capturedSelectorProps = null;
     useBrowserContextMock.mockReset();
     fetchManagerContextMock.mockClear();
+    canAccessPrivateConnectionsSectionMock.mockReset();
+    canAccessPrivateConnectionsSectionMock.mockReturnValue(false);
   });
 
   it("keeps Browser on the shared topbar shell with a custom sidebar slot", async () => {
@@ -195,7 +203,32 @@ describe("BrowserLayout", () => {
 
     expect(screen.getByRole("heading", { name: "Browser", level: 1 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "No private Browser connection", level: 2 })).toBeInTheDocument();
+    expect(screen.getByText(/Ask your administrator to allow manual private connections/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Manage private connections" })).not.toBeInTheDocument();
     expect(screen.queryByText("Browser page content")).not.toBeInTheDocument();
+  });
+
+  it("links to private connection management when the user can access it", () => {
+    canAccessPrivateConnectionsSectionMock.mockReturnValue(true);
+    useBrowserContextMock.mockReturnValue(buildBrowserContext({
+      contexts: [],
+      selectedContextId: null,
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/browser"]}>
+        <Routes>
+          <Route path="/browser" element={<BrowserLayout />}>
+            <Route index element={<BrowserSidebarSlotConsumer />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: "Manage private connections" })).toHaveAttribute(
+      "href",
+      "/browser/profile?tab=connections",
+    );
   });
 
   it("replaces the workspace sidebar with standard Browser navigation on the profile route", async () => {
