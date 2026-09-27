@@ -152,6 +152,8 @@ function managerCephAccountContext(accountId: string) {
     requiresS3AccountSelection: true,
     accessMode: "admin",
     managerBucketQuotaEnabled: true,
+    managerStatsEnabled: true,
+    managerStatsMessage: null,
   };
 }
 
@@ -170,6 +172,8 @@ describe("BucketDetailPage replication state", () => {
       requiresS3AccountSelection: false,
       accessMode: "admin",
       managerBucketQuotaEnabled: false,
+      managerStatsEnabled: false,
+      managerStatsMessage: null,
     });
     useCephAdminEndpointMock.mockReturnValue({
       selectedEndpointId: 1,
@@ -1597,6 +1601,8 @@ describe("BucketDetailPage replication state", () => {
       requiresS3AccountSelection: true,
       accessMode: "connection",
       managerBucketQuotaEnabled: false,
+      managerStatsEnabled: false,
+      managerStatsMessage: "Supervision credentials are not configured for this endpoint.",
     });
 
     render(
@@ -1606,7 +1612,7 @@ describe("BucketDetailPage replication state", () => {
     );
 
     await waitFor(() => {
-      expect(getBucketStatsMock).toHaveBeenCalled();
+      expect(getBucketStatsMock).toHaveBeenCalledWith("conn-aws", "demo-bucket", { with_stats: false });
     });
 
     const metricsTab = screen.getByRole("tab", { name: "Metrics" });
@@ -1617,9 +1623,7 @@ describe("BucketDetailPage replication state", () => {
     expect(screen.getByText("Current usage and quota")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Traffic" })).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available in the Usage stats tab."
-      )
+      screen.getByText("Supervision credentials are not configured for this endpoint.")
     ).toBeInTheDocument();
   });
 
