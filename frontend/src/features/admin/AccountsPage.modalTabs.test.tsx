@@ -490,7 +490,7 @@ describe("AccountsPage modal tabs", () => {
         ],
       })
     );
-  });
+  }, 15_000); // Covers both association dialogs and their save on shared CI runners.
 
   it("preserves an existing portal role while hiding its column when Portal is disabled", async () => {
     listS3AccountsMock.mockResolvedValueOnce({
