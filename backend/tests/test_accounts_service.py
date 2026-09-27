@@ -153,10 +153,17 @@ def test_create_account_with_root(db_session, monkeypatch):
 
 
 class FakeRGWAdminProvisioning(FakeRGWAdmin):
-    def __init__(self, *, account_exists: bool = False, root_exists: bool = False):
+    def __init__(
+        self,
+        *,
+        account_exists: bool = False,
+        root_exists: bool = False,
+        account_conflict: bool = False,
+    ):
         super().__init__()
         self.account_exists = account_exists
         self.root_exists = root_exists
+        self.account_conflict = account_conflict
         self.calls: list[tuple[str, object]] = []
 
     def get_account(
@@ -172,6 +179,12 @@ class FakeRGWAdminProvisioning(FakeRGWAdmin):
 
     def create_account(self, account_id: str, account_name: str):
         self.calls.append(("create_account", account_id))
+        if self.account_conflict:
+            return {
+                "conflict": True,
+                "status_code": 409,
+                "error_code": "AccountAlreadyExists",
+            }
         self.account_exists = True
         return super().create_account(account_id, account_name)
 
@@ -244,6 +257,26 @@ def test_ensure_provisioned_account_keeps_fresh_account_and_root_on_same_client(
         ("create_root", account_id),
     ]
     assert not any(call[0] == "get_user" for call in fake_admin.calls)
+
+
+def test_ensure_provisioned_account_stops_when_remote_name_is_already_used(
+    db_session, monkeypatch
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdminProvisioning(account_conflict=True)
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+
+    with pytest.raises(ValueError, match="another account already uses this name or email"):
+        svc.ensure_provisioned_account(
+            S3AccountCreate(
+                name="BucketReef sample",
+                storage_endpoint_id=endpoint.id,
+            ),
+            "RGW42177749789247960",
+        )
+
+    assert not any(call[0] == "create_root" for call in fake_admin.calls)
+    assert db_session.query(S3Account).count() == 0
 
 
 def test_ensure_provisioned_account_resumes_orphaned_account_without_recreating_it(

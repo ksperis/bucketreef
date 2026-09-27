@@ -324,12 +324,17 @@ class OnboardingSetupService:
             index += 1
         return candidate
 
-    def _unique_account_name(self):
-        base = "BucketReef sample"
+    def _unique_account_name(self, rgw_account_id: str):
+        # RGW account names are globally unique on the endpoint, including
+        # accounts left behind by an interrupted setup that are not present in
+        # BucketReef's local database. Derive the sample name from the durable
+        # account id so retries keep the same name and new journeys do not
+        # collide with those remote accounts.
+        base = f"BucketReef-sample-{rgw_account_id[-8:]}"
         candidate = base
         index = 2
         while self.db.query(S3Account.id).filter_by(name=candidate).first():
-            candidate = f"{base} {index}"
+            candidate = f"{base}-{index}"
             index += 1
         return candidate
 
@@ -349,7 +354,7 @@ class OnboardingSetupService:
 
         account_name = resources.get("account_name")
         if not account_name:
-            account_name = self._unique_account_name()
+            account_name = self._unique_account_name(identifier)
             self.progress.checkpoint(row, account_name=account_name)
 
         row.pending_step = "account"
