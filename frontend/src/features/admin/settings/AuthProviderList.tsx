@@ -25,6 +25,8 @@ import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../../utils/apiError";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 type Provider = OidcProviderAdminItem | LdapProviderAdminItem;
 export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
   const navigate = useNavigate();
@@ -96,7 +98,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
       <div className="mb-2 flex justify-end">
         <SettingsButton
           variant="secondary"
-          disabled={busy}
+          disabled={isDemo || busy}
           onClick={() => navigate(`${path}/new`)}
         >
           Add {name} provider
@@ -133,7 +135,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
             <div className="flex flex-wrap gap-2">
               <SettingsButton
                 variant="secondary"
-                disabled={busy}
+                disabled={isDemo || busy}
                 aria-label={`${provider.editable ? "Edit" : "View"} ${name} provider ${provider.provider_id}`}
                 onClick={() =>
                   navigate(
@@ -146,7 +148,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
               {provider.editable && (
                 <SettingsButton
                   variant="ghost"
-                  disabled={busy}
+                  disabled={isDemo || busy}
                   aria-label={`Delete ${name} provider ${provider.provider_id}`}
                   onClick={() => setSelected(provider)}
                 >

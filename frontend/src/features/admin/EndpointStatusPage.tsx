@@ -310,7 +310,7 @@ export default function EndpointStatusPage() {
       description="Global operational view across all storage endpoints."
       breadcrumbs={adminPageBreadcrumbs("endpoint-status")}
       actions={[
-        { label: runLoading ? "Running..." : "Check now", onClick: handleRunNow },
+        { label: runLoading ? "Running..." : "Check now", onClick: handleRunNow, disabled: import.meta.env.MODE === "demo" },
         { label: "Refresh", onClick: loadAll, variant: "ghost" },
       ]}
     >

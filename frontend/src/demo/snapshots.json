@@ -1,0 +1,360 @@
+{
+  "health-summary": {
+    "generated_at": "2026-03-08T09:00:00Z",
+    "endpoints": [
+      {
+        "endpoint_id": 11,
+        "name": "Paris · Production",
+        "endpoint_url": "https://ceph-paris.demo.invalid",
+        "status": "up",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 82,
+        "http_status": 200,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-paris.demo.invalid",
+        "error_message": null
+      },
+      {
+        "endpoint_id": 12,
+        "name": "Lyon · Archive",
+        "endpoint_url": "https://ceph-lyon.demo.invalid",
+        "status": "degraded",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 390,
+        "http_status": 200,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-lyon.demo.invalid",
+        "error_message": "High latency"
+      }
+    ]
+  },
+  "health-overview": {
+    "generated_at": "2026-03-08T09:00:00Z",
+    "window": "week",
+    "start": "2026-03-01T09:00:00Z",
+    "end": "2026-03-08T09:00:00Z",
+    "endpoints": [
+      {
+        "endpoint_id": 11,
+        "name": "Paris · Production",
+        "endpoint_url": "https://ceph-paris.demo.invalid",
+        "status": "up",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 82,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-paris.demo.invalid",
+        "availability_pct": 99.7,
+        "baseline_latency_ms": 80,
+        "timeline": [
+          {
+            "timestamp": "2026-03-07T09:00:00Z",
+            "status": "up",
+            "latency_ms": 84
+          },
+          {
+            "timestamp": "2026-03-08T09:00:00Z",
+            "status": "up",
+            "latency_ms": 82
+          }
+        ]
+      },
+      {
+        "endpoint_id": 12,
+        "name": "Lyon · Archive",
+        "endpoint_url": "https://ceph-lyon.demo.invalid",
+        "status": "degraded",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 390,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-lyon.demo.invalid",
+        "availability_pct": 94.4,
+        "baseline_latency_ms": 210,
+        "timeline": [
+          {
+            "timestamp": "2026-03-07T09:00:00Z",
+            "status": "up",
+            "latency_ms": 205
+          },
+          {
+            "timestamp": "2026-03-08T09:00:00Z",
+            "status": "degraded",
+            "latency_ms": 390,
+            "reason": "High latency"
+          }
+        ]
+      }
+    ]
+  },
+  "health-workspace-admin": {
+    "generated_at": "2026-03-08T09:00:00Z",
+    "incident_highlight_minutes": 720,
+    "endpoint_count": 2,
+    "up_count": 1,
+    "degraded_count": 1,
+    "down_count": 0,
+    "unknown_count": 0,
+    "endpoints": [
+      {
+        "endpoint_id": 11,
+        "name": "Paris · Production",
+        "endpoint_url": "https://ceph-paris.demo.invalid",
+        "status": "up",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 86,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-paris.demo.invalid"
+      },
+      {
+        "endpoint_id": 12,
+        "name": "Lyon · Archive",
+        "endpoint_url": "https://ceph-lyon.demo.invalid",
+        "status": "degraded",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 420,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-lyon.demo.invalid"
+      }
+    ],
+    "incidents": [
+      {
+        "endpoint_id": 12,
+        "endpoint_name": "Lyon · Archive",
+        "endpoint_url": "https://ceph-lyon.demo.invalid",
+        "status": "degraded",
+        "start": "2026-03-08T09:00:00Z",
+        "end": null,
+        "duration_minutes": 18,
+        "check_mode": "http",
+        "ongoing": true,
+        "recent": true
+      }
+    ]
+  },
+  "manager-usage-trends": {
+    "storage": {
+      "window": "month",
+      "label": "last 30 days",
+      "period_start": "2026-02-08",
+      "used_bytes": 41000,
+      "used_objects": 640,
+      "bucket_count": null,
+      "collected_at": "2026-02-08T09:00:00Z"
+    },
+    "objects": {
+      "window": "month",
+      "label": "last 30 days",
+      "period_start": "2026-02-08",
+      "used_bytes": 41000,
+      "used_objects": 640,
+      "bucket_count": null,
+      "collected_at": "2026-02-08T09:00:00Z"
+    },
+    "buckets": {
+      "window": "month",
+      "label": "last 30 days",
+      "period_start": "2026-02-08",
+      "used_bytes": null,
+      "used_objects": null,
+      "bucket_count": 6,
+      "collected_at": "2026-02-08T09:00:00Z"
+    }
+  },
+  "manager-health": {
+    "generated_at": "2026-03-08T09:00:00Z",
+    "incident_highlight_minutes": 720,
+    "endpoint_count": 2,
+    "up_count": 1,
+    "degraded_count": 1,
+    "down_count": 0,
+    "unknown_count": 0,
+    "endpoints": [
+      {
+        "endpoint_id": 11,
+        "name": "Paris · Production",
+        "endpoint_url": "https://ceph-paris.demo.invalid",
+        "status": "up",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 86,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-paris.demo.invalid"
+      },
+      {
+        "endpoint_id": 12,
+        "name": "Lyon · Archive",
+        "endpoint_url": "https://ceph-lyon.demo.invalid",
+        "status": "degraded",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 420,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-lyon.demo.invalid"
+      }
+    ],
+    "incidents": [
+      {
+        "endpoint_id": 12,
+        "endpoint_name": "Lyon · Archive",
+        "endpoint_url": "https://ceph-lyon.demo.invalid",
+        "status": "degraded",
+        "start": "2026-03-08T09:00:00Z",
+        "end": null,
+        "duration_minutes": 18,
+        "check_mode": "http",
+        "ongoing": true,
+        "recent": true
+      }
+    ]
+  },
+  "manager-activity": [
+    {
+      "id": 101,
+      "created_at": "2026-03-08T08:55:00Z",
+      "action": "put_bucket_lifecycle",
+      "entity_type": "bucket",
+      "entity_id": "helios-logs",
+      "account_id": 101,
+      "account_name": "Helios Retail",
+      "status": "success",
+      "user_email": "alex.martin@example.com"
+    },
+    {
+      "id": 102,
+      "created_at": "2026-03-08T08:35:00Z",
+      "action": "create_access_key",
+      "entity_type": "iam_user",
+      "entity_id": "backup-service",
+      "account_id": 101,
+      "account_name": "Helios Retail",
+      "status": "success",
+      "user_email": "alex.martin@example.com"
+    }
+  ],
+  "portal-usage-trends": {
+    "storage": {
+      "window": "month",
+      "label": "last 30 days",
+      "period_start": "2026-02-08",
+      "used_bytes": 41000,
+      "used_objects": 640,
+      "bucket_count": null,
+      "collected_at": "2026-02-08T09:00:00Z"
+    },
+    "objects": {
+      "window": "month",
+      "label": "last 30 days",
+      "period_start": "2026-02-08",
+      "used_bytes": 41000,
+      "used_objects": 640,
+      "bucket_count": null,
+      "collected_at": "2026-02-08T09:00:00Z"
+    },
+    "buckets": {
+      "window": "month",
+      "label": "last 30 days",
+      "period_start": "2026-02-08",
+      "used_bytes": null,
+      "used_objects": null,
+      "bucket_count": 6,
+      "collected_at": "2026-02-08T09:00:00Z"
+    }
+  },
+  "portal-endpoint-health": {
+    "generated_at": "2026-03-08T09:00:00Z",
+    "incident_highlight_minutes": 720,
+    "endpoint_count": 2,
+    "up_count": 1,
+    "degraded_count": 1,
+    "down_count": 0,
+    "unknown_count": 0,
+    "endpoints": [
+      {
+        "endpoint_id": 11,
+        "name": "Paris · Production",
+        "endpoint_url": "https://ceph-paris.demo.invalid",
+        "status": "up",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 86,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-paris.demo.invalid"
+      },
+      {
+        "endpoint_id": 12,
+        "name": "Lyon · Archive",
+        "endpoint_url": "https://ceph-lyon.demo.invalid",
+        "status": "degraded",
+        "checked_at": "2026-03-08T09:00:00Z",
+        "latency_ms": 420,
+        "check_mode": "http",
+        "check_target_url": "https://ceph-lyon.demo.invalid"
+      }
+    ],
+    "incidents": [
+      {
+        "endpoint_id": 12,
+        "endpoint_name": "Lyon · Archive",
+        "endpoint_url": "https://ceph-lyon.demo.invalid",
+        "status": "degraded",
+        "start": "2026-03-08T09:00:00Z",
+        "end": null,
+        "duration_minutes": 18,
+        "check_mode": "http",
+        "ongoing": true,
+        "recent": true
+      }
+    ]
+  },
+  "portal-activity": [
+    {
+      "id": 1,
+      "created_at": "2026-03-08T09:00:00Z",
+      "actor": "Jordan Martin",
+      "action": "Created storage space",
+      "target": "Documents · Helios Retail",
+      "storage_space_id": "space-1",
+      "storage_space_name": "Documents · Helios Retail",
+      "ip_address": "192.168.1.10",
+      "status": "success"
+    },
+    {
+      "id": 2,
+      "created_at": "2026-03-08T08:42:00Z",
+      "actor": "Morgan Martin",
+      "action": "Shared",
+      "target": "Media · Helios Retail",
+      "storage_space_id": "space-2",
+      "storage_space_name": "Media · Helios Retail",
+      "ip_address": "192.168.1.23",
+      "status": "success"
+    },
+    {
+      "id": 3,
+      "created_at": "2026-03-08T08:15:00Z",
+      "actor": "Sam Martin",
+      "action": "Updated settings",
+      "target": "Documents · Helios Retail",
+      "storage_space_id": "space-1",
+      "storage_space_name": "Documents · Helios Retail",
+      "ip_address": "192.168.1.10",
+      "status": "success"
+    }
+  ],
+  "portal-alerts": [
+    {
+      "id": "quota-genomics",
+      "tone": "warning",
+      "title": "Historical quota review",
+      "description": "The autumn campaign quota request is waiting for platform approval.",
+      "severity_label": "Warning",
+      "storage_space_id": "space-1",
+      "created_at": "2026-03-08T09:00:00Z"
+    },
+    {
+      "id": "expiring-public-link",
+      "tone": "info",
+      "title": "Shared link expiring",
+      "description": "A review link expires in 2 days.",
+      "severity_label": "Info",
+      "storage_space_id": "space-2",
+      "created_at": "2026-03-08T09:00:00Z"
+    }
+  ]
+}

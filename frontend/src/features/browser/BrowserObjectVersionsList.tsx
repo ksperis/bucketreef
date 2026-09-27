@@ -9,6 +9,8 @@ import { formatBytes } from "../../utils/format";
 
 import { formatDateTime } from "./browserUtils";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 type BrowserObjectVersionsListProps = {
   title?: string;
   versions: BrowserObjectVersion[];
@@ -65,7 +67,7 @@ export default function BrowserObjectVersionsList({
                   <ListBadge tone="success">latest</ListBadge>
                 )}
               </div>}
-              <div className="flex flex-wrap items-center gap-2">
+              {!isDemo && <div className="flex flex-wrap items-center gap-2">
                 {!ver.is_delete_marker && !ver.is_latest && (
                   <ListActionButton type="button" onClick={() => onRestoreVersion(ver)}>
                     Restore
@@ -74,7 +76,7 @@ export default function BrowserObjectVersionsList({
                 <ListActionButton variant="danger" type="button" onClick={() => onDeleteVersion(ver)}>
                   {ver.is_delete_marker ? "Delete marker" : "Delete version"}
                 </ListActionButton>
-              </div>
+              </div>}
             </div>
             <div className="mt-2 space-y-1 ui-caption text-slate-500 dark:text-slate-400">
               {ver.version_id && <div>v: {ver.version_id}</div>}

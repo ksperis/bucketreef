@@ -26,6 +26,7 @@ integration and changes to CI select all relevant checks conservatively.
 | Schedule on main, `CI_MODE=regression` | All autonomous checks and Ceph, without producing official images |
 | Schedule on main, `CI_MODE=security` | Dependency/secret checks and both architectures of the latest qualified public images |
 | Schedule on main, `CI_MODE=secrets-history` | Full-history secret scan only |
+| Web pipeline on main, `CI_MODE=bootstrap-demo` | First static demo publication; later updates follow release finalization |
 | Web pipeline on main, `CI_MODE=docs` | Strict docs build, screenshot inventory and Cloudflare deployment only |
 | Web pipeline on main, `CI_MODE=recover-release` | Recover GitLab metadata for an existing public release only |
 | Web pipeline on main, `CI_MODE=bootstrap-release-bundles` | Create the immutable OCI bundle package from an already-published stable tag; requires `BUNDLE_BOOTSTRAP_VERSION=X.Y.Z` |
@@ -44,7 +45,8 @@ PostgreSQL/migrations and Vulture; runtime changes also select browser checks,
 Ceph and image tests. The security contract scans every mutating `/admin` route,
 requires an explicit guard classification, detects guard downgrades/drift, and
 publishes `gl-security-reports/backend-sensitive-routes.md`. Frontend selects the existing
-quality suite, Vitest and browser tests. Dependency changes add the corresponding
+quality suite, Vitest, browser tests and the static demo browser suite.
+See [Static interactive demo](static-demo.md) for coverage and publication. Dependency changes add the corresponding
 Trivy scans; `npm audit --omit=dev --audit-level=high` remains in frontend quality.
 Release scripts select Python tests and Helm/Compose contracts. Deploy changes
 also select image onboarding checks. Cron/scheduler selects Python/ops contracts,
@@ -87,6 +89,7 @@ Configure protected, masked/hidden variables with these environment scopes:
 | `ci-ceph` | Dedicated Ceph lab credentials used only by `ceph-functional-tests` |
 | Common protected scope (`*`) | One Project `GITLAB_CI_READ_API_TOKEN`, Reporter + `read_api`, used by protected orchestration, preflight and release evidence jobs |
 | `release-public` | `GHCR_USERNAME` / `GHCR_TOKEN` with package publication rights and `GITHUB_RELEASE_TOKEN` with repository Contents-write rights |
+| `demo-production` | Protected Cloudflare account ID and Pages Edit token for the static demo |
 | `docs-production` | Cloudflare Pages token limited to the documentation project and account |
 
 Keep a single protected, masked/hidden read token instead of duplicating it per

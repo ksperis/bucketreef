@@ -76,7 +76,7 @@ export default function BucketUsageStatsAggregateCard({
           >
             Cancel calculation
           </UiButton>
-        ) : onRecalculate ? (
+        ) : onRecalculate && import.meta.env.MODE !== "demo" ? (
           <UiButton
             size="xs"
             variant="secondary"

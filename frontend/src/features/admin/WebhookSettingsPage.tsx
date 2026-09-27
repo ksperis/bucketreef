@@ -31,6 +31,8 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import { extractApiError } from "../../utils/apiError";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 function formatDate(value?: string | null): string {
   if (!value) return "-";
   const date = new Date(value);
@@ -201,7 +203,7 @@ export default function WebhookSettingsPage() {
           </ListActionLink>
           <ListActionButton
             onClick={() => void sendTest(endpoint)}
-            disabled={!endpoint.has_signing_secret || busyId !== null}
+            disabled={isDemo || !endpoint.has_signing_secret || busyId !== null}
             title={!endpoint.has_signing_secret ? "Generate a signing secret first." : undefined}
           >
             Test
@@ -209,7 +211,7 @@ export default function WebhookSettingsPage() {
           <ListActionButton
             variant="danger"
             onClick={() => requestDelete(endpoint)}
-            disabled={busyId !== null}
+            disabled={isDemo || busyId !== null}
           >
             Delete
           </ListActionButton>
@@ -227,7 +229,7 @@ export default function WebhookSettingsPage() {
         title="Webhooks"
         description="Notify external systems when BucketReef control-plane events occur."
         breadcrumbs={adminPageBreadcrumbs("webhook-settings")}
-        actions={[{ label: "Add endpoint", to: "/admin/webhook-settings/new" }]}
+        actions={isDemo ? [] : [{ label: "Add endpoint", to: "/admin/webhook-settings/new" }]}
       />
 
       {error && endpoints.length > 0 && <PageBanner tone="error">{error}</PageBanner>}

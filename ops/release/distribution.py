@@ -24,7 +24,7 @@ from publish_gitlab_release import GitLab, publish as publish_gitlab, resolve_gi
 import bundle_registry
 from recover_gitlab_release import PublicGitHub, verify_public_release
 
-REQUIRED = ["release-tag-metadata", "release-source-images-ready", "release-bundles",
+REQUIRED = ["frontend-demo", "release-tag-metadata", "release-source-images-ready", "release-bundles",
             "publish-candidate-images", "publish-helm-release", "publish-release-bundles",
             "release-public-bundles-check",
             "release-public-images-check", "release-kind-onboarding-smoke", "release-bundle-smoke",

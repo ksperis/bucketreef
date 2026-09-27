@@ -62,6 +62,8 @@ import {
   triggerJsonDownload,
 } from "../../utils/download";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 type CompareRunItem = {
   sourceBucket: string;
   targetBucket: string;
@@ -1006,7 +1008,7 @@ export default function ManagerBucketCompareModal({
                                   >
                                     {downloadInFlight === downloadId ? "Downloading..." : "Download"}
                                   </ListActionButton>
-                                  {section.action && includeRemediation && (
+                                  {!isDemo && section.action && includeRemediation && (
                                     <ListActionButton
                                       variant={remediationVariant}
                                       disabled={running || item.status !== "success" || Boolean(item.actionRunning)}
@@ -1054,7 +1056,7 @@ export default function ManagerBucketCompareModal({
                                           Copy keys
                                         </ListActionButton>
                                       )}
-                                      {section.action && (
+                                      {!isDemo && section.action && (
                                         <ListActionButton
                                           variant={section.action.type === "delete_target_only" ? "danger" : "secondary"}
                                           disabled={

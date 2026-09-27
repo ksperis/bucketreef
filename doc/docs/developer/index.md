@@ -27,3 +27,6 @@ This section documents architecture and design intent at high level.
 9. [First contribution](first-contribution.md)
 10. [UI theme guidelines](ui-theme-guidelines.md)
 11. [Docs maintenance](docs-maintenance.md)
+
+The [static interactive demo](static-demo.md) documents the local simulation,
+coverage boundaries, browser tests and release-gated publication.

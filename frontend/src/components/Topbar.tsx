@@ -139,21 +139,26 @@ export default function Topbar({
     const target = controlsStripRef.current;
     if (!target) return;
 
-    const update = () => {
-      const width = target.getBoundingClientRect().width;
+    const updateWidth = (width: number) => {
       if (width > 0) {
         setControlsAvailableWidth(Math.floor(width));
       }
     };
+    const update = () => updateWidth(target.getBoundingClientRect().width);
 
     update();
 
     if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(() => {
-        update();
+      let resizeFrame = 0;
+      const observer = new ResizeObserver(([entry]) => {
+        // Use the delivered measurement, without forcing a layout while
+        // WebKit is delivering resize notifications.
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => updateWidth(entry.contentRect.width));
       });
       observer.observe(target);
       return () => {
+        cancelAnimationFrame(resizeFrame);
         observer.disconnect();
       };
     }

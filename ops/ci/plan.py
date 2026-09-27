@@ -12,12 +12,12 @@ COMPONENTS = ("backend", "frontend", "scheduler")
 PUBLIC = (
     "project-naming", "ci-contract", "secret-scan", "backend-tests",
     "backend-security-contract", "backend-postgresql-tests", "backend-deadcode", "backend-vuln-scan",
-    "frontend-quality", "frontend-tests", "frontend-browser-e2e",
+    "frontend-quality", "frontend-tests", "frontend-browser-e2e", "frontend-demo",
     "frontend-vuln-scan", "helm-contract", "compose-contract", "docs-build",
     "docs-screenshots", "scheduler-contract",
 )
 BACKEND = {"backend-tests", "backend-security-contract", "backend-postgresql-tests", "backend-deadcode"}
-FRONTEND = {"frontend-quality", "frontend-tests"}
+FRONTEND = {"frontend-quality", "frontend-tests", "frontend-demo"}
 DOCS = {"docs-build", "docs-screenshots"}
 DEPLOY = {"backend-tests", "helm-contract", "compose-contract"}
 VERSION_FILES = ("frontend/package.json", "frontend/package-lock.json",
@@ -72,7 +72,7 @@ def classify(*, source: str, ref: str, protected: bool, mode: str = "auto", tag:
         raise ValueError("Private pipelines require main or dev")
     if source == "push" and mode == "auto":
         return "integration"
-    if source == "web" and ref == "main" and mode in {"qualify", "prepare-release", "docs", "recover-release", "release-history", "bootstrap-release-bundles"}:
+    if source == "web" and ref == "main" and mode in {"qualify", "prepare-release", "docs", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         return mode
     if source == "schedule" and ref == "main" and mode in {"regression", "security", "secrets-history"}:
         return mode
@@ -80,7 +80,7 @@ def classify(*, source: str, ref: str, protected: bool, mode: str = "auto", tag:
 
 
 def select(profile: str, paths: list[str] | None, *, ref: str = "main", version: bool = False) -> dict:
-    if profile not in {"pr", "integration", "qualify", "prepare-release", "release", "docs", "regression", "security", "secrets-history", "recover-release", "release-history", "bootstrap-release-bundles"}:
+    if profile not in {"pr", "integration", "qualify", "prepare-release", "release", "docs", "regression", "security", "secrets-history", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         raise ValueError("Unknown CI profile")
     if profile == "integration" and ref == "main" and version:
         profile = "qualify"
@@ -132,13 +132,15 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
         add(PUBLIC, "full validation: profile, CI change, unknown path or unavailable baseline")
         images.update(COMPONENTS)
         ceph = True
-    if profile == "docs":
+    if profile == "bootstrap-demo":
+        selected, images, ceph = {"frontend-demo"}, set(), False
+    elif profile == "docs":
         selected, images, ceph = set(DOCS), set(), False
     elif profile == "security":
         selected, images, ceph = {"backend-vuln-scan", "frontend-vuln-scan", "secret-scan", "scan-published-images"}, set(), False
     elif profile == "secrets-history":
         selected, images, ceph = {"secret-scan"}, set(), False
-    elif profile in {"prepare-release", "release", "recover-release", "release-history", "bootstrap-release-bundles"}:
+    elif profile in {"prepare-release", "release", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         selected, images, ceph = set(), set(), False
     if profile == "pr":
         images, ceph = set(), False

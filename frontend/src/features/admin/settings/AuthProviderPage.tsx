@@ -36,6 +36,8 @@ import {
 import OidcProviderFields from "./OidcProviderFields";
 import LdapProviderFields from "./LdapProviderFields";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 const backPath = "/admin/authentication-settings";
 type Metadata = {
   provider_id: string;
@@ -168,7 +170,7 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
       active = false;
     };
   }, [adapter, providerId, accept, loadAttempt]);
-  const readOnly = Boolean(provider && !provider.editable);
+  const readOnly = isDemo || Boolean(provider && !provider.editable);
   const title = `${providerId ? (readOnly ? "View" : "Edit") : "Add"} ${adapter.kind} provider`;
   const close = (reason?: "navigation") => {
     form.cancel();
