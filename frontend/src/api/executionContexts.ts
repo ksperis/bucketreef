@@ -18,6 +18,7 @@ export type ExecutionContext = {
   kind: ExecutionContextKind;
   id: string;
   display_name: string;
+  connection_scope?: "shared" | "private" | null;
   tags: TagDefinitionSummary[];
   endpoint_tags: TagDefinitionSummary[];
   manager_role?: ManagerAccountRole | null;

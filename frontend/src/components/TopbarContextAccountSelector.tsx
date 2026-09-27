@@ -102,7 +102,9 @@ export default function TopbarContextAccountSelector({
           const label = formatAccountLabel(context);
           const description =
             context.kind === "connection"
-              ? "Private connection"
+              ? context.connection_scope === "shared"
+                ? "Shared connection"
+                : "Private connection"
               : context.kind === "s3_user"
                 ? "S3 user identity"
                 : "RGW account";

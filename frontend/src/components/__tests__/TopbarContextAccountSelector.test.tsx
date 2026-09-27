@@ -85,6 +85,30 @@ describe("TopbarContextAccountSelector", () => {
     ]);
   });
 
+  it("distinguishes shared and private connection contexts", async () => {
+    const user = userEvent.setup();
+    renderSelector({
+      contexts: [
+        makeContext({
+          id: "conn-private",
+          kind: "connection",
+          display_name: "Personal storage",
+          connection_scope: "private",
+        }),
+        makeContext({
+          id: "conn-shared",
+          kind: "connection",
+          display_name: "Team storage",
+          connection_scope: "shared",
+        }),
+      ],
+    });
+
+    const listbox = await openMenu(user);
+    expect(within(listbox).getByRole("option", { name: /Personal storage.*Private connection/ })).toBeInTheDocument();
+    expect(within(listbox).getByRole("option", { name: /Team storage.*Shared connection/ })).toBeInTheDocument();
+  });
+
   it("uses id as deterministic tie-breaker when type, name and label are identical", async () => {
     const user = userEvent.setup();
     const onContextChange = vi.fn();
