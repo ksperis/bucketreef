@@ -4,6 +4,7 @@
  */
 import { CLIENT_STORAGE_KEYS, clearAuthStorage, readClientStorage } from "../utils/clientStorage";
 import { deferRecoveryAuthRedirect } from "../auth/recoveryCodeHandoff";
+import { broadcastSessionEnded } from "../auth/sessionEvents";
 import { readStoredUser } from "../utils/workspaces";
 import { coordinateAuthRefresh } from "./authRefreshCoordinator";
 
@@ -92,7 +93,7 @@ export function timeoutForRequestProfile(profile: ApiRequestProfile): number {
 function handleAuthRedirect() {
   if (typeof window === "undefined") return;
   clearAuthStorage();
-  window.dispatchEvent(new CustomEvent("bucketreef:session-ended"));
+  broadcastSessionEnded();
   if (deferRecoveryAuthRedirect()) return;
   if (window.location.pathname !== "/login") window.location.replace("/login");
 }
