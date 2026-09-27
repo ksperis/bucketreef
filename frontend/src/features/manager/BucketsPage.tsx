@@ -928,7 +928,7 @@ export default function BucketsPage() {
             status={tableStatus}
             loadingMessage="Loading buckets..."
             errorMessage="Unable to load buckets."
-            emptyMessage="No buckets."
+            emptyMessage={filter.trim() ? "No buckets match this search." : "No buckets."}
           />
         </ListPageSection>
       )}
