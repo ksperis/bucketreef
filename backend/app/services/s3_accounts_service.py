@@ -218,6 +218,14 @@ class S3AccountsService:
         safe = re.sub(r"\s+", "-", base)
         return safe or "bucketreef-admin-user"
 
+    @staticmethod
+    def _ensure_account_creation_succeeded(result: Any) -> None:
+        if isinstance(result, dict) and result.get("conflict"):
+            raise ValueError(
+                "RGW account creation failed: another account already uses "
+                "this name or email."
+            )
+
     def _account_rgw_users(
         self,
         account_identifier: Optional[str],
@@ -657,9 +665,13 @@ class S3AccountsService:
         resume = bool(remote and not remote.get("not_found"))
         if not remote or remote.get("not_found"):
             try:
-                admin.create_account(account_id=rgw_account_id, account_name=payload.name)
+                create_result = admin.create_account(
+                    account_id=rgw_account_id,
+                    account_name=payload.name,
+                )
             except RGWAdminError as exc:
                 raise ValueError(f"RGW account creation failed: {exc}") from exc
+            self._ensure_account_creation_succeeded(create_result)
         elif remote.get("name") != payload.name:
             raise ValueError("Provisioned RGW account does not match the requested name")
         root_uid, access_key, secret_key = self._ensure_provisioned_root_credentials(
@@ -696,7 +708,11 @@ class S3AccountsService:
         rgw_account_id = self._generate_account_id()
         # Create account in RGW
         try:
-            admin.create_account(account_id=rgw_account_id, account_name=payload.name)
+            create_result = admin.create_account(
+                account_id=rgw_account_id,
+                account_name=payload.name,
+            )
+            self._ensure_account_creation_succeeded(create_result)
             logger.debug("Created RGW account %s (%s)", rgw_account_id, payload.name)
         except RGWAdminError as exc:
             raise ValueError(f"RGW account creation failed: {exc}") from exc

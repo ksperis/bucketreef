@@ -373,6 +373,9 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     assert ep.ceph_admin_secret_key is None
     assert db_session.query(S3Account).count() == 1
     account = db_session.get(S3Account, result.resources["account_id"])
+    assert account.name == (
+        f"BucketReef-sample-{account.rgw_account_id[-8:]}"
+    )
     link = (
         db_session.query(UserS3Account)
         .filter_by(user_id=user.id, account_id=account.id)
