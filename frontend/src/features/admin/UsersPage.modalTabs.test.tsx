@@ -340,6 +340,41 @@ describe("UsersPage modal tabs", () => {
     });
   });
 
+  it("distinguishes an empty search result from an empty user list", async () => {
+    listUsersMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 12,
+            email: "responsive.user@example.com",
+            full_name: "Responsive User",
+            role: "ui_user",
+            last_login_at: null,
+          },
+        ],
+        total: 1,
+        page: 1,
+        page_size: 25,
+        has_next: false,
+      })
+      .mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        page_size: 25,
+        has_next: false,
+      });
+
+    render(<UsersPage />);
+
+    fireEvent.change(await screen.findByLabelText("Search"), {
+      target: { value: "missing" },
+    });
+
+    expect(await screen.findByText("No users match this search.")).toBeInTheDocument();
+    expect(screen.queryByText("No users.")).not.toBeInTheDocument();
+  });
+
   it("preserves an existing portal role while hiding its column when Portal is disabled", async () => {
     listUsersMock.mockResolvedValue({
       items: [
