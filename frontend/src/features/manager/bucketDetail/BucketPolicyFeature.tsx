@@ -30,6 +30,7 @@ import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
   isPolicyStatementVisuallyEditable,
+  parsePolicyJson,
   policyListText,
   policyPrincipalSummary,
   policyStatementEffect,
@@ -38,6 +39,7 @@ import {
   policyValueSummary,
   readPolicyVisualStatement,
   splitPolicyListText,
+  validateVisualPolicy,
   type PolicyConditionEntry,
   type PolicyPrincipalMode,
   type PolicyStatementRecord,
@@ -362,6 +364,10 @@ export default function BucketPolicyFeature({
     configured,
     unsaved: false,
   });
+  const visualValidationError =
+    editorMode === "visual" ? validateVisualPolicy(draftPolicy) : null;
+  const jsonValidationError =
+    editorMode === "json" ? parsePolicyJson(jsonText).error : null;
   const summaryRows = useMemo<PolicySummaryRow[]>(
     () => statements.map((statement, index) => ({ index, statement })),
     [statements],
@@ -559,6 +565,7 @@ export default function BucketPolicyFeature({
           dirty={dirty}
           busy={saving}
           error={editorError}
+          saveDisabled={Boolean(visualValidationError || jsonValidationError)}
           visualContent={visualEditor}
           jsonContent={jsonEditor}
           onSave={saveDraft}

@@ -285,6 +285,28 @@ describe("BucketDetailPage replication state", () => {
     return event.defaultPrevented;
   }
 
+  it("disables CORS saves while JSON is invalid", async () => {
+    const user = userEvent.setup();
+    const router = renderNavigableBucket();
+    try {
+      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      const section = screen.getByTestId("bucket-feature-cors");
+      await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
+      await user.click(within(section).getByRole("button", { name: "JSON", exact: true }));
+      const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
+
+      fireEvent.change(within(dialog).getByLabelText("CORS rules (JSON)"), {
+        target: { value: "{invalid" },
+      });
+
+      expect(within(dialog).getByText(/Invalid JSON:/)).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+      expect(putBucketCorsMock).not.toHaveBeenCalled();
+    } finally {
+      router.dispose();
+    }
+  });
+
   it.each(["manager", "ceph-admin"] as const)("guards route, history, context and reload exits from a dirty %s CORS modal", async (mode) => {
     const user = userEvent.setup();
     const router = renderNavigableBucket(mode);

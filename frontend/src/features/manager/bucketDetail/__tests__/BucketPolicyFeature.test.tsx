@@ -71,6 +71,25 @@ describe("BucketPolicyFeature", () => {
     vi.clearAllMocks();
   });
 
+  it("disables policy saves while JSON is invalid", async () => {
+    apiMocks.getBucketPolicy.mockResolvedValue({ policy: simplePolicy });
+    const user = userEvent.setup();
+    renderPolicyFeature();
+
+    const section = await screen.findByTestId("bucket-feature-policy");
+    await waitFor(() => expect(within(section).getByText("ReadObjects")).toBeInTheDocument());
+    await user.click(within(section).getByRole("button", { name: "JSON", exact: true }));
+    const dialog = screen.getByRole("dialog", { name: "Edit bucket policy" });
+
+    fireEvent.change(within(dialog).getByLabelText("Bucket policy (JSON)"), {
+      target: { value: "{invalid" },
+    });
+
+    expect(within(dialog).getByText(/Invalid JSON:/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
+  });
+
   it("keeps Properties read-only and guards Cancel for a dirty Visual draft", async () => {
     apiMocks.getBucketPolicy.mockResolvedValue({ policy: simplePolicy });
     const user = userEvent.setup();
