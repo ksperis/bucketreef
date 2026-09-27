@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { Suspense, lazy, useMemo } from "react";
-import { Navigate, Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useLocation } from "react-router-dom";
+import { Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import { useGeneralSettings } from "./components/GeneralSettingsContext";
 import FeatureDisabledPage from "./features/shared/FeatureDisabledPage";
@@ -47,6 +47,7 @@ const LoginPage = lazy(() => import("./features/auth/LoginPage"));
 const FirstAdminSetupPage = lazy(() => import("./features/auth/FirstAdminSetupPage"));
 const OidcCallbackPage = lazy(() => import("./features/auth/OidcCallbackPage"));
 const UnauthorizedPage = lazy(() => import("./features/auth/UnauthorizedPage"));
+const NotFoundPage = lazy(() => import("./features/auth/NotFoundPage"));
 const S3AccountsPage = lazy(() => import("./features/admin/AccountsPage"));
 const AccessAuditPage = lazy(() => import("./features/admin/AccessAuditPage"));
 const AuditLogsPage = lazy(() => import("./features/admin/AuditLogsPage"));
@@ -494,7 +495,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
       <Route path="/setup/first-admin" element={<FirstAdminSetupPage />} />
       <Route path="/oidc/:provider/callback" element={<OidcCallbackPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Route>
   );
 }
