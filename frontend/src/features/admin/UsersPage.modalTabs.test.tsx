@@ -375,6 +375,31 @@ describe("UsersPage modal tabs", () => {
     expect(screen.queryByText("No users.")).not.toBeInTheDocument();
   });
 
+  it("clears a failed creation error when the create workflow is cancelled", async () => {
+    createUserMock.mockRejectedValue(new Error("Password must be at least 12 characters long"));
+
+    render(<UsersPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "candidate@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "short" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts[0]).toHaveTextContent("Password must be at least 12 characters long");
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByRole("heading", { name: "UI Users" })).toBeInTheDocument();
+    expect(screen.queryAllByRole("alert")).toHaveLength(0);
+  });
+
   it("preserves an existing portal role while hiding its column when Portal is disabled", async () => {
     listUsersMock.mockResolvedValue({
       items: [
