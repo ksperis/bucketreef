@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider, useLanguage } from "./language";
 import { setSessionUserCache } from "../utils/workspaces";
@@ -10,8 +10,8 @@ function CurrentLanguage() {
 }
 
 describe("browser language selection", () => {
-  beforeEach(() => setSessionUserCache(null));
-  afterEach(() => { cleanup(); setSessionUserCache(null); vi.restoreAllMocks(); });
+  beforeEach(() => { window.localStorage.clear(); setSessionUserCache(null); });
+  afterEach(() => { cleanup(); window.localStorage.clear(); setSessionUserCache(null); vi.restoreAllMocks(); });
 
   it.each([
     { languages: ["zh", "en"], expected: "zh" },
@@ -35,5 +35,18 @@ describe("browser language selection", () => {
     setSessionUserCache({ ui_language: "zh" });
     render(<LanguageProvider><CurrentLanguage /></LanguageProvider>);
     expect(screen.getByRole("status")).toHaveTextContent("zh");
+  });
+
+  it("keeps the saved account language after the session is cleared", () => {
+    vi.spyOn(window.navigator, "languages", "get").mockReturnValue(["fr", "en"]);
+    setSessionUserCache({ ui_language: "en" });
+    render(<LanguageProvider><CurrentLanguage /></LanguageProvider>);
+
+    expect(screen.getByRole("status")).toHaveTextContent("en");
+    act(() => setSessionUserCache(null));
+
+    expect(screen.getByRole("status")).toHaveTextContent("en");
+    expect(document.documentElement.lang).toBe("en");
+    expect(window.localStorage.getItem("languagePreference")).toBe("en");
   });
 });

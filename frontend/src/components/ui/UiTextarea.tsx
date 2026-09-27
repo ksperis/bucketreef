@@ -4,6 +4,7 @@
  */
 import { TextareaHTMLAttributes, forwardRef, ReactNode } from "react";
 import UiField from "./UiField";
+import { useLocalizedNativeValidation } from "./nativeValidation";
 import { cx, uiInputClass } from "./styles";
 
 type UiTextareaSize = "compact" | "md";
@@ -23,9 +24,10 @@ type UiTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
 
 const UiTextarea = forwardRef<HTMLTextAreaElement, UiTextareaProps>(function UiTextarea(
   { label, hint, error, fieldClassName, className, id, size = "md",
-    "aria-describedby": describedBy, "aria-invalid": ariaInvalid, ...props },
+    "aria-describedby": describedBy, "aria-invalid": ariaInvalid, onInput, onInvalid, ...props },
   ref
 ) {
+  const validationHandlers = useLocalizedNativeValidation<HTMLTextAreaElement>(onInvalid, onInput);
   return (
     <UiField label={label} hint={hint} error={error} htmlFor={id} describedBy={describedBy} className={fieldClassName}>
       {({ id: resolvedId, describedBy, invalid }) => (
@@ -35,6 +37,7 @@ const UiTextarea = forwardRef<HTMLTextAreaElement, UiTextareaProps>(function UiT
           aria-describedby={describedBy}
           aria-invalid={invalid || ariaInvalid}
           className={cx(uiInputClass, uiTextareaSizeClasses[size], className)}
+          {...validationHandlers}
           {...props}
         />
       )}
