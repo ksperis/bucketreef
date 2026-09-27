@@ -295,6 +295,28 @@ describe("BucketOpsWorkbench atomic quota columns", () => {
     );
   });
 
+  it("explains missing Storage Ops summary metrics in the bucket list", async () => {
+    mocks.listStorageOpsBuckets.mockResolvedValue({
+      items: [
+        {
+          ...baseBucket,
+          used_bytes: null,
+          object_count: null,
+        },
+      ],
+      ...baseResponse,
+    });
+
+    renderStorageOps();
+
+    expect(
+      await screen.findByText(
+        "Storage usage metrics are unavailable for 1 visible context. Used and Objects are shown as — for those rows.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("-")).toHaveLength(2);
+  });
+
   it("persists the current page and page size before opening a bucket", async () => {
     let storedAtNavigation: Record<string, { page?: number; pageSize?: number }> | null = null;
     mocks.navigate.mockImplementation(() => {

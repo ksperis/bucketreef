@@ -1063,6 +1063,16 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
     error,
     rowCount: items.length,
   });
+  const storageOpsMissingStatsCount = isStorageOps
+    ? items.filter(
+        (bucket) => bucket.used_bytes == null || bucket.object_count == null,
+      ).length
+    : 0;
+  const storageOpsStatsWarning = storageOpsMissingStatsCount > 0
+    ? `Storage usage metrics are unavailable for ${storageOpsMissingStatsCount} visible ${
+        storageOpsMissingStatsCount === 1 ? "context" : "contexts"
+      }. Used and Objects are shown as — for those rows.`
+    : null;
 
   return (
     <div
@@ -1086,6 +1096,9 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       {error && <PageBanner tone="error">{error}</PageBanner>}
       {uiTagsError && <PageBanner tone="error">Bucket UI tags: {uiTagsError}</PageBanner>}
       {statsWarning && <PageBanner tone="warning">{statsWarning}</PageBanner>}
+      {!statsWarning && storageOpsStatsWarning && (
+        <PageBanner tone="warning">{storageOpsStatsWarning}</PageBanner>
+      )}
 
       {!selectedEndpointId && shell.emptyState ? <PageEmptyState {...shell.emptyState} /> : null}
       <ListPageSection variant="page"
