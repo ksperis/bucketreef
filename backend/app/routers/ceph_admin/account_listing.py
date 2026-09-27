@@ -224,7 +224,7 @@ class _AccountListingPipeline:
             item_count=len(results),
             cancel_check=self.cancel_check,
         )
-        filtered_results = self._apply_search(results)
+        filtered_results = self._search(results)
         page_items, total, has_next = self._paginate(filtered_results)
         page_items = self._enrich_page(page_items)
         self.progress.emit(
@@ -343,35 +343,6 @@ class _AccountListingPipeline:
         invoke_cancel_check(self.cancel_check)
         return enriched
 
-    def _apply_search(
-        self,
-        results: list[CephAdminRgwAccountSummary],
-    ) -> list[CephAdminRgwAccountSummary]:
-        filtered = self._search(results)
-        if not self._needs_profile_search_fallback(results, filtered):
-            return filtered
-        self.progress.emit(
-            percent=82,
-            stage="profile_enrichment",
-            processed=0,
-            total=len(results),
-            message="Loading account profiles",
-            force=True,
-        )
-        searchable = enrich_accounts(
-            results,
-            {"profile"},
-            self.ctx,
-            progress=self.progress,
-            progress_stage="profile_enrichment",
-            progress_message="Loading account profiles",
-            progress_start=82,
-            progress_end=84,
-            cancel_check=self.cancel_check,
-        )
-        invoke_cancel_check(self.cancel_check)
-        return self._search(searchable)
-
     def _search(
         self,
         results: list[CephAdminRgwAccountSummary],
@@ -387,19 +358,6 @@ class _AccountListingPipeline:
                 needle in account.account_id.lower()
                 or needle in (account.account_name or "").lower()
             ),
-        )
-
-    def _needs_profile_search_fallback(
-        self,
-        results: list[CephAdminRgwAccountSummary],
-        filtered: list[CephAdminRgwAccountSummary],
-    ) -> bool:
-        return bool(
-            not filtered
-            and isinstance(self.search, str)
-            and self.search.strip()
-            and self.parsed_filter is None
-            and any(not (account.account_name or "").strip() for account in results)
         )
 
     def _paginate(
