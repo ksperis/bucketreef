@@ -321,7 +321,7 @@ describe("BucketDetailPage replication state", () => {
       expect(await screen.findByText("Bucket inventory")).toBeVisible();
       expect(warnsBeforeUnload()).toBe(false);
     } finally { router.dispose(); }
-  });
+  }, 15_000); // This combined navigation journey needs headroom on shared CI runners.
 
   it("preserves unrelated page drafts and protects an open CORS modal from Refresh", async () => {
     const user = userEvent.setup();
