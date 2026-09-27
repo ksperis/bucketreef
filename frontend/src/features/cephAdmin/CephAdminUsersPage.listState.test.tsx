@@ -123,6 +123,18 @@ describe("CephAdminUsersPage list states", () => {
     expect(await screen.findByText("No users.")).toBeInTheDocument();
   });
 
+  it("explains when active filters return no users", async () => {
+    listCephAdminUsersMock.mockResolvedValue({ items: [], total: 0 });
+
+    renderPage();
+
+    expect(await screen.findByText("No users.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Quick filter"), { target: { value: "missing-user" } });
+
+    expect(await screen.findByText("No users match the current filters.")).toBeInTheDocument();
+    expect(screen.queryByText("No users.")).not.toBeInTheDocument();
+  });
+
   it("shows error banner and error row when list loading fails with no rows", async () => {
     listCephAdminUsersMock.mockRejectedValueOnce(new Error("Users API down"));
 

@@ -1143,7 +1143,7 @@ export default function CephAdminUsersPage() {
             status={tableStatus}
             loadingMessage="Loading users..."
             errorMessage="Unable to load users."
-            emptyMessage="No users."
+            emptyMessage={quickFilterActive || advancedFilterActive ? "No users match the current filters." : "No users."}
             primaryColumnId="uid"
             overflowXHidden={showAdvancedFilter}
             responsiveCards
