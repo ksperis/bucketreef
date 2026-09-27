@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../api/client";
 import { LanguageProvider } from "../../components/language";
 import { ThemeProvider } from "../../components/theme";
 import LoginPage from "./LoginPage";
@@ -9,6 +10,7 @@ import LoginPage from "./LoginPage";
 const mocks = vi.hoisted(() => ({
   fetchLdapProviders: vi.fn(),
   fetchOidcProviders: vi.fn(),
+  login: vi.fn(),
   loginWithLdap: vi.fn(),
   fetchGeneralSettings: vi.fn(),
   fetchLoginSettings: vi.fn(),
@@ -18,7 +20,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../api/auth", () => ({
   fetchLdapProviders: (...args: unknown[]) => mocks.fetchLdapProviders(...args),
   fetchOidcProviders: (...args: unknown[]) => mocks.fetchOidcProviders(...args),
-  login: vi.fn(),
+  login: (...args: unknown[]) => mocks.login(...args),
   loginWithKeys: vi.fn(),
   loginWithLdap: (...args: unknown[]) => mocks.loginWithLdap(...args),
   startOidcLogin: vi.fn(),
@@ -73,11 +75,16 @@ function renderLoginPage(initialEntry = "/login") {
   );
 }
 
-describe("LoginPage LDAP", () => {
+describe("LoginPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     window.history.replaceState({}, "", "/login");
     window.localStorage.clear();
     vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.fetchOidcProviders.mockResolvedValue([]);
     mocks.fetchLdapProviders.mockResolvedValue([{ id: "corp", display_name: "Corporate LDAP" }]);
     mocks.fetchLoginSettings.mockResolvedValue({
@@ -142,6 +149,54 @@ describe("LoginPage LDAP", () => {
 
     await user.click(screen.getByRole("button", { name: "Hide password" }));
     expect(passwordInput).toHaveAttribute("type", "password");
+  });
+
+  it.each([
+    [
+      "rejected credentials",
+      new ApiError("Request failed with status 401", {
+        response: { status: 401, data: { detail: "Invalid credentials" }, headers: {} },
+      }),
+      "Invalid email or password.",
+    ],
+    [
+      "an unreachable backend",
+      new ApiError("Failed to fetch"),
+      "Unable to reach BucketReef. Check your connection and try again.",
+    ],
+    [
+      "a request timeout",
+      new ApiError("Request timeout", { code: "ETIMEDOUT" }),
+      "Unable to reach BucketReef. Check your connection and try again.",
+    ],
+    [
+      "rate limiting",
+      new ApiError("Request failed with status 429", {
+        response: { status: 429, data: { detail: "Too many attempts" }, headers: {} },
+      }),
+      "Too many sign-in attempts. Try again later.",
+    ],
+    [
+      "an unexpected server failure",
+      new ApiError("Request failed with status 500", {
+        response: { status: 500, data: { detail: "Internal error" }, headers: {} },
+      }),
+      "Unable to sign in. Try again.",
+    ],
+  ])("distinguishes %s during password sign-in", async (_case, loginError, expected) => {
+    const user = userEvent.setup();
+    mocks.login.mockRejectedValueOnce(loginError);
+    renderLoginPage();
+
+    await user.type(await screen.findByLabelText("Email"), "unknown@example.test");
+    await user.type(screen.getByLabelText("Password"), "incorrect-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(expected);
+    expect(mocks.login).toHaveBeenCalledWith(
+      "unknown@example.test",
+      "incorrect-password",
+    );
   });
 
   it("keeps BucketReef visible when a secondary customer logo is configured", async () => {
