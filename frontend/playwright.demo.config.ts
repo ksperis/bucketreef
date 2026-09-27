@@ -5,7 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   workers: process.env.CI ? 2 : 3,
   timeout: 45_000,
-  expect: { timeout: 10_000 },
+  expect: { timeout: process.env.CI ? 20_000 : 10_000 },
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["junit", { outputFile: "../gl-test-reports/demo-junit.xml" }]] : "list",
   outputDir: "test-results/demo",

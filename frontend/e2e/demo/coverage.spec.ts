@@ -14,10 +14,11 @@ test("coverage: retained screens resolve every business request", async ({ page 
   for (const route of routes) {
     await page.goto(route);
     await page.getByRole("navigation", { name: "Demo profiles" }).waitFor();
-    await page.waitForTimeout(350);
+    await expect(page.locator("main"), `${route}: workspace rendered`).toBeVisible();
+    await expect(page.getByText("Loading...", { exact: true })).toHaveCount(0);
+    await page.waitForFunction(() => window.__bucketreefDemo.requests.length === window.__bucketreefDemo.responses.length);
     const failures = await page.evaluate(() => [...window.__bucketreefDemo.failures, ...window.__bucketreefDemo.responses.filter(r => r.status >= 400).map(r => `${r.path}: HTTP ${r.status}`)]);
     problems.push(...failures.map(f => `${route}: ${f}`));
-    if (!(await page.locator("main").count())) problems.push(`${route}: no workspace rendered`);
   }
   expect(problems).toEqual([]);
 });
