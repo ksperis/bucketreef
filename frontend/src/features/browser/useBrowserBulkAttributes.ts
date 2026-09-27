@@ -95,6 +95,56 @@ export function createBrowserBulkAttributesDraft(): BrowserBulkAttributesDraft {
   };
 }
 
+export function validateBrowserBulkAttributesDraft(
+  draft: BrowserBulkAttributesDraft,
+): string | null {
+  if (
+    !draft.applyMetadata &&
+    !draft.applyTags &&
+    !draft.applyStorageClass &&
+    !draft.applyAcl &&
+    !draft.applyLegalHold &&
+    !draft.applyRetention
+  ) {
+    return "Select at least one attribute to update.";
+  }
+
+  const expiresIso = draft.metadata.expires.trim()
+    ? toIsoString(draft.metadata.expires)
+    : "";
+  const metadataHasValues =
+    Boolean(draft.metadata.contentType.trim()) ||
+    Boolean(draft.metadata.cacheControl.trim()) ||
+    Boolean(draft.metadata.contentDisposition.trim()) ||
+    Boolean(draft.metadata.contentEncoding.trim()) ||
+    Boolean(draft.metadata.contentLanguage.trim()) ||
+    Boolean(expiresIso) ||
+    parseKeyValueLines(draft.metadataEntries).length > 0;
+
+  if (draft.applyMetadata && draft.metadata.expires.trim() && !expiresIso) {
+    return "Provide a valid expires date.";
+  }
+  if (draft.applyMetadata && !metadataHasValues) {
+    return "Provide at least one metadata field.";
+  }
+  if (draft.applyStorageClass && !draft.storageClass) {
+    return "Select a storage class.";
+  }
+  if (draft.applyTags && parseKeyValueLines(draft.tags).length === 0) {
+    return "Provide at least one valid key=value tag.";
+  }
+  const retentionIso = draft.retentionDate.trim()
+    ? toIsoString(draft.retentionDate)
+    : "";
+  if (
+    draft.applyRetention &&
+    (!draft.retentionMode || !draft.retentionDate.trim() || !retentionIso)
+  ) {
+    return "Provide retention mode and date.";
+  }
+  return null;
+}
+
 export function useBrowserBulkAttributes({
   accountId,
   bucketName,
@@ -172,15 +222,9 @@ export function useBrowserBulkAttributes({
 
   const apply = useCallback(async () => {
     if (!bucketName || !enabled) return;
-    if (
-      !draft.applyMetadata &&
-      !draft.applyTags &&
-      !draft.applyStorageClass &&
-      !draft.applyAcl &&
-      !draft.applyLegalHold &&
-      !draft.applyRetention
-    ) {
-      setError("Select at least one attribute to update.");
+    const validationError = validateBrowserBulkAttributesDraft(draft);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -189,45 +233,9 @@ export function useBrowserBulkAttributes({
     const expiresIso = draft.metadata.expires.trim()
       ? toIsoString(draft.metadata.expires)
       : "";
-    const metadataHasValues =
-      Boolean(draft.metadata.contentType.trim()) ||
-      Boolean(draft.metadata.cacheControl.trim()) ||
-      Boolean(draft.metadata.contentDisposition.trim()) ||
-      Boolean(draft.metadata.contentEncoding.trim()) ||
-      Boolean(draft.metadata.contentLanguage.trim()) ||
-      Boolean(expiresIso) ||
-      metadataPairs.length > 0;
-
-    if (draft.applyMetadata && !metadataHasValues) {
-      setError("Provide at least one metadata field.");
-      return;
-    }
-    if (draft.applyStorageClass && !draft.storageClass) {
-      setError("Select a storage class.");
-      return;
-    }
-    if (
-      draft.applyMetadata &&
-      draft.metadata.expires.trim() &&
-      !expiresIso
-    ) {
-      setError("Provide a valid expires date.");
-      return;
-    }
-    if (draft.applyTags && tagsPairs.length === 0) {
-      setError("Provide at least one tag.");
-      return;
-    }
     const retentionIso = draft.retentionDate
       ? toIsoString(draft.retentionDate)
       : "";
-    if (
-      draft.applyRetention &&
-      (!draft.retentionMode || !draft.retentionDate || !retentionIso)
-    ) {
-      setError("Provide retention mode and date.");
-      return;
-    }
 
     setLoading(true);
     setError(null);

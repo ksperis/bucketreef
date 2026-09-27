@@ -12,7 +12,10 @@ import UiSelect from "../../components/ui/UiSelect";
 import UiTextarea from "../../components/ui/UiTextarea";
 import { stableSignature } from "../../utils/stableSignature";
 import { aclOptions, storageClassOptions } from "./browserConstants";
-import type { BrowserBulkAttributesDraft } from "./useBrowserBulkAttributes";
+import {
+  validateBrowserBulkAttributesDraft,
+  type BrowserBulkAttributesDraft,
+} from "./useBrowserBulkAttributes";
 
 const metadataFields = [
   ["contentType", "Content-Type"],
@@ -71,16 +74,21 @@ export default function BrowserBulkAttributesModal({
       ...previous,
       metadata: { ...previous.metadata, [key]: value },
     }));
+  const draftValidationError = validateBrowserBulkAttributesDraft(draft);
 
   return (
     <SettingsFormDialog title="Bulk attributes" draftKey={stableSignature(draft)}
       busy={loading} error={error} onSubmit={onApply} onClose={onClose}
+      submitDisabled={Boolean(draftValidationError)}
       submitLabel={loading ? "Updating..." : "Apply changes"} maxWidthClass="max-w-3xl">
       <InlineSummary label="Targets" items={[
         { label: "Files", value: fileCount },
         { label: "Folders", value: folderCount, hint: folderCount > 0 ? "Folders expanded to files." : undefined },
       ]} />
       {summary && <UiInlineMessage tone="success" role="status">{summary}</UiInlineMessage>}
+      {draftValidationError && (
+        <UiInlineMessage tone="info">{draftValidationError}</UiInlineMessage>
+      )}
       <div className="settings-stack">
         <AttributeOption label="Metadata headers" checked={draft.applyMetadata} onChange={(value) => updateDraft("applyMetadata", value)}>
           <div className="grid gap-3 sm:grid-cols-2">
