@@ -14,6 +14,17 @@ export const triggerBlobDownload = (filename: string, blob: Blob) => {
   window.URL.revokeObjectURL(url);
 };
 
+export const triggerUrlDownload = (filename: string, url: string) => {
+  if (typeof window === "undefined") return;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
 export const triggerDownload = (
   filename: string,
   content: string,

@@ -56,6 +56,8 @@ export const presignObjectWithSts = async (
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: payload.key,
+      ResponseContentDisposition:
+        payload.response_content_disposition ?? undefined,
       VersionId: payload.version_id ?? undefined,
     });
     const url = await getSignedUrl(client, command, { expiresIn });

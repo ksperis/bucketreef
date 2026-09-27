@@ -147,8 +147,20 @@ export const buildObjectDetailsTabs = ({
   return tabs;
 };
 
-export const buildInlinePreviewDisposition = (filename: string) => {
-  const fallback = filename.replace(/[^\x20-\x7E]+/g, "_").replace(/"/g, '\\"');
+const buildObjectContentDisposition = (
+  disposition: "attachment" | "inline",
+  filename: string,
+  fallbackName: string,
+) => {
+  const fallback = filename
+    .replace(/[^\x20-\x7E]+/g, "_")
+    .replace(/["\\]/g, "\\$&");
   const encoded = encodeURIComponent(filename);
-  return `inline; filename="${fallback || "preview"}"; filename*=UTF-8''${encoded}`;
+  return `${disposition}; filename="${fallback || fallbackName}"; filename*=UTF-8''${encoded}`;
 };
+
+export const buildInlinePreviewDisposition = (filename: string) =>
+  buildObjectContentDisposition("inline", filename, "preview");
+
+export const buildAttachmentDownloadDisposition = (filename: string) =>
+  buildObjectContentDisposition("attachment", filename, "download");

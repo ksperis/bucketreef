@@ -10,12 +10,16 @@ import type {
   PresignedUrl,
 } from "../../api/browserTransfers";
 import { runWithConcurrency } from "../../utils/concurrency";
-import { triggerBlobDownload } from "../../utils/download";
+import {
+  triggerBlobDownload,
+  triggerUrlDownload,
+} from "../../utils/download";
 import {
   buildBrowserFolderDownloadPlan,
   downloadBrowserFolderArchive,
   resolveBrowserFolderArchiveLabel,
 } from "./browserFolderDownload";
+import { buildAttachmentDownloadDisposition } from "./browserObjectDetailsModel";
 import {
   downloadBrowserTransferBlob,
   downloadBrowserTransferStream,
@@ -490,8 +494,10 @@ export function useBrowserDownloads({
             key: item.key,
             operation: "get_object",
             expires_in: 900,
+            response_content_disposition:
+              buildAttachmentDownloadDisposition(item.name || "download"),
           });
-          window.open(presign.url, "_blank");
+          triggerUrlDownload(item.name || "download", presign.url);
         }
       } catch {
         onStatus(

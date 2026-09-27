@@ -3,6 +3,7 @@ import {
   formatDownloadTimestamp,
   triggerDownload,
   triggerJsonDownload,
+  triggerUrlDownload,
 } from "./download";
 
 const originalCreateObjectUrl = Object.getOwnPropertyDescriptor(
@@ -57,6 +58,21 @@ describe("triggerDownload", () => {
     expect(click).toHaveBeenCalledOnce();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:test");
     expect(document.querySelector('a[download="report.csv"]')).toBeNull();
+  });
+
+  it("downloads a remote URL from the current page without leaving an anchor", () => {
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    triggerUrlDownload("report.txt", "https://objects.example.test/report.txt");
+
+    expect(click).toHaveBeenCalledOnce();
+    const link = click.mock.instances[0] as HTMLAnchorElement;
+    expect(link.download).toBe("report.txt");
+    expect(link.href).toBe("https://objects.example.test/report.txt");
+    expect(link.rel).toBe("noopener");
+    expect(document.querySelector('a[download="report.txt"]')).toBeNull();
   });
 
   it("downloads JSON with the canonical serialization and MIME type", async () => {

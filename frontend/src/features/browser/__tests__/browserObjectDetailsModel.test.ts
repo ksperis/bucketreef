@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ARCHIVE_STORAGE_CLASSES,
+  buildAttachmentDownloadDisposition,
   buildInlinePreviewDisposition,
   buildObjectDetailsTabs,
   formatRestoreStatus,
@@ -38,10 +39,13 @@ describe("browserObjectDetailsModel", () => {
     expect(isObjectLockUnavailableMessage("AccessDenied for retention")).toBe(false);
   });
 
-  it("keeps modal routing and inline preview disposition deterministic", () => {
+  it("keeps modal routing and object dispositions deterministic", () => {
     expect(nextTabAfterDeleted(true)).toBe("versions");
     expect(nextTabAfterDeleted(false)).toBe("preview");
     expect(buildInlinePreviewDisposition('rapport "été".txt')).toContain('filename="rapport \\"_t_\\".txt"');
+    expect(buildAttachmentDownloadDisposition('rapport "été".txt')).toBe(
+      'attachment; filename="rapport \\"_t_\\".txt"; filename*=UTF-8\'\'rapport%20%22%C3%A9t%C3%A9%22.txt',
+    );
   });
 
   it("builds tabs for Advanced, Standard, and deleted object states", () => {
