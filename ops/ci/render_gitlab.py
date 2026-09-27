@@ -23,7 +23,9 @@ def render(plan):
         import sys
         sys.path.insert(0, str(ROOT / "ops/release"))
         from distribution import REQUIRED
-        names = {*REQUIRED, "release-ready", "finalize-release"}
+        names = {*REQUIRED, "release-ready", "finalize-release", "demo-deploy"}
+    elif profile == "bootstrap-demo":
+        names = {"frontend-demo", "demo-bootstrap"}
     elif profile == "release":
         # Stable tags are created by finalize-release. A tag pipeline only verifies
         # the already-published release and never distributes artifacts.
@@ -43,7 +45,7 @@ def render(plan):
     payload = base64.b64encode(json.dumps(plan).encode()).decode()
     config = {
         "workflow": {"rules": [{"if": '$CI_PIPELINE_SOURCE == "parent_pipeline" && $CI_COMMIT_REF_PROTECTED == "true"'}, {"when": "never"}]},
-        "stages": ["plan", "test", "build", "security", "promote", "deploy", "evidence", "finalize"],
+        "stages": ["plan", "test", "build", "security", "promote", "deploy", "evidence", "finalize", "publish-demo"],
         "default": {"interruptible": False, "retry": {"max": 1, "when": ["api_failure", "runner_system_failure", "stuck_or_timeout_failure"]}, "tags": ["bucketreef-protected"]},
         **yaml.safe_load((ROOT / "ops/ci/gitlab/variables.yml").read_text()),
         "pipeline-plan": {"stage": "plan", "image": "python:3.12-slim", "script": [f"python3 -c \"import base64; open('ci-plan.json','wb').write(base64.b64decode('{payload}'))\""], "artifacts": {"paths": ["ci-plan.json"]}},
@@ -88,8 +90,8 @@ def render(plan):
             requirements = [*ROOT.glob("backend/requirements*.txt"), ROOT / "doc/requirements.txt", ROOT / "ops/ci/requirements.txt"]
             digest = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(requirements))).hexdigest()[:20]
             caches.append({"key": f"trusted-pip-{TOOLS['python']}-{digest}", "paths": [".cache/pip/"]})
-        if name in {"frontend-quality", "frontend-tests", "frontend-browser-e2e", "docs-deploy"}:
-            lock = "ops/cloudflare/package-lock.json" if name == "docs-deploy" else "frontend/package-lock.json"
+        if name in {"frontend-quality", "frontend-tests", "frontend-browser-e2e", "frontend-demo", "docs-deploy", "demo-deploy", "demo-bootstrap"}:
+            lock = "ops/cloudflare/package-lock.json" if name in {"docs-deploy", "demo-deploy", "demo-bootstrap"} else "frontend/package-lock.json"
             caches.append({"key": {"prefix": f"trusted-npm-{TOOLS['node']}", "files": [lock]}, "paths": [".cache/npm/"]})
         if caches:
             job["cache"] = caches

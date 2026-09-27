@@ -136,6 +136,12 @@ jobs:
     uses: ./.github/workflows/validate-task.yml
     with:
       task: docs-screenshots
+  frontend-demo:
+    needs: [plan]
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'frontend-demo') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: frontend-demo
   required:
     name: CI / required
     if: ${{ always() }}
@@ -152,6 +158,7 @@ jobs:
     - frontend-quality
     - frontend-tests
     - frontend-browser-e2e
+    - frontend-demo
     - frontend-vuln-scan
     - helm-contract
     - compose-contract

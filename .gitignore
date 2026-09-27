@@ -29,6 +29,7 @@ pytestdebug.log
 doc/site/
 node_modules/
 dist/
+dist-demo/
 .vite/
 frontend/playwright-report/
 frontend/test-results/

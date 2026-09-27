@@ -95,6 +95,8 @@ import SettingsNavigationGuard from "../../components/settings/SettingsNavigatio
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { settingsLabels } from "../../components/settings/settingsLabels";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 type PendingAccessChange = {
   mode: PortalAccessMode;
   accountMemberRole: PortalStorageSpaceAccountMemberRole;
@@ -733,7 +735,7 @@ function StorageSpaceDetail() {
               onRestoreObject: canModifyObjects
                 ? setTrashRestoreTarget
                 : undefined,
-              onRestorePrefix: canModifyObjects
+              onRestorePrefix: !isDemo && canModifyObjects
                 ? setDeletedPrefixRestoreTarget
                 : undefined,
             }}

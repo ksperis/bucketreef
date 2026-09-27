@@ -492,7 +492,7 @@ export default function EndpointStatusDetailPage() {
       description={selectedEndpoint?.endpoint_url || "Detailed health history and incidents for one endpoint."}
       breadcrumbs={adminPageBreadcrumbs("endpoint-status", { label: "Details" })}
       actions={[
-        { label: runLoading ? "Running..." : "Check now", onClick: handleRunNow },
+        { label: runLoading ? "Running..." : "Check now", onClick: handleRunNow, disabled: import.meta.env.MODE === "demo" },
         { label: "Refresh", onClick: loadAll, variant: "ghost" },
         { label: "Back", to: "/admin/endpoint-status", variant: "ghost" },
       ]}

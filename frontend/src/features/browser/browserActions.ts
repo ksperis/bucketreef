@@ -9,6 +9,8 @@ import {
   objectPreviewKind,
 } from "../shared/ObjectPreview";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 export type BrowserActionId =
   | "uploadFiles"
   | "uploadFolder"
@@ -336,6 +338,9 @@ function applyBrowserFunctionalPolicy(
   return Object.fromEntries(
     Object.entries(actions).map(([id, action]) => {
       const actionId = id as BrowserActionId;
+      if (isDemo && ["paste", "copy", "cut", "restore", "restoreToDate", "cleanOldVersions", "multipartUploads", "createPublicLink", "copyUrl", "advanced"].includes(actionId)) {
+        return [actionId, { ...action, visible: false, enabled: false }];
+      }
       const profileAllows =
         profile === "advanced" ||
         (profile === "standard" &&

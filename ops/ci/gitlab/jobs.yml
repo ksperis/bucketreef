@@ -246,6 +246,51 @@ frontend-browser-e2e:
     - frontend/test-results/
     reports:
       junit: gl-test-reports/frontend-browser-e2e-junit.xml
+frontend-demo:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.58.2-noble
+  needs: []
+  before_script:
+  - sh ops/ci/install-node.sh
+  - npm ci --prefix frontend --no-audit --no-fund
+  script:
+  - sh ops/ci/tasks/run.sh frontend-demo
+  artifacts:
+    when: always
+    expire_in: never
+    paths:
+    - frontend/dist-demo/
+    - gl-test-reports/demo-junit.xml
+    - frontend/test-results/demo/
+    reports:
+      junit: gl-test-reports/demo-junit.xml
+.demo-publication:
+  stage: publish-demo
+  image: node:24.21.0-bookworm
+  environment:
+    name: demo-production
+    url: https://demo.bucketreef.ksperis.com
+    deployment_tier: production
+  resource_group: cloudflare-demo-production
+  before_script:
+  - npm ci --prefix ops/cloudflare --no-audit --no-fund
+  script:
+  - node --test ops/cloudflare/deploy-demo.test.mjs
+  - node ops/cloudflare/deploy-demo.mjs
+  artifacts:
+    expire_in: never
+    paths:
+    - demo-deployment.json
+    - frontend/dist-demo/
+demo-deploy:
+  extends: .demo-publication
+  needs:
+  - frontend-demo
+  - finalize-release
+demo-bootstrap:
+  extends: .demo-publication
+  needs:
+  - frontend-demo
 frontend-vuln-scan:
   extends: .trivy-job
   stage: test
@@ -713,6 +758,7 @@ release-ready:
     name: ci-orchestration
     action: verify
   needs:
+  - frontend-demo
   - release-tag-metadata
   - release-source-images-ready
   - release-bundles

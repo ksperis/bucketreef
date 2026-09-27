@@ -128,6 +128,8 @@ import {
   sanitizeExportFilenamePart,
 } from "./bucketOpsPresentation";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 const extractError = (err: unknown): string => {
   return extractApiError(err, "Unexpected error");
 };
@@ -1184,7 +1186,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
             isStorageOps={isStorageOps}
             onShowConfigBackupModal={!isStorageOps ? () => setShowConfigBackupModal(true) : undefined}
             onShowCompareModal={() => setShowCompareModal(true)}
-            onShowIndexCheckModal={!isStorageOps ? () => void openSelectedBucketIndexChecks() : undefined}
+            onShowIndexCheckModal={!isDemo && !isStorageOps ? () => void openSelectedBucketIndexChecks() : undefined}
             onShowIntegrityModal={() => setShowIntegrityModal(true)}
             onShowPurgeModal={
               generalSettings.bucket_purge_enabled ? () => setShowPurgeModal(true) : undefined
@@ -1243,7 +1245,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
           onClose={() => setShowCompareModal(false)}
         />
       )}
-      {!isStorageOps && indexCheckTargets && selectedEndpointId && (
+      {!isDemo && !isStorageOps && indexCheckTargets && selectedEndpointId && (
         <CephAdminBucketIndexCheckPage
           endpointId={selectedEndpointId}
           endpointName={selectedEndpoint?.name}

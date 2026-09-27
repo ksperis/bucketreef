@@ -45,6 +45,8 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import { extractApiError } from "../../utils/apiError";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 const backPath = "/admin/webhook-settings";
 
 type RouteState = {
@@ -385,6 +387,7 @@ export default function WebhookEndpointPage() {
   return (
     <>
       <SettingsWorkflowForm
+        readOnly={isDemo}
         title={title}
         description="Configure delivery, signing and the BucketReef events sent to this external endpoint."
         formLabel="Webhook endpoint configuration"
@@ -445,7 +448,7 @@ export default function WebhookEndpointPage() {
                   action={(
                     <SettingsSwitch
                       checked={form.draft.enabled}
-                      disabled={missingSecret}
+                      disabled={isDemo || missingSecret}
                       ariaLabel="Endpoint enabled"
                       onChange={(enabled) => form.setDraft((current) => ({ ...current, enabled }))}
                     />
@@ -473,7 +476,7 @@ export default function WebhookEndpointPage() {
                       </UiBadge>
                     )}
                     action={(
-                      <SettingsButton type="button" variant="secondary" disabled={actionBusy} onClick={requestRotateSecret}>
+                      <SettingsButton type="button" variant="secondary" disabled={isDemo || actionBusy} onClick={requestRotateSecret}>
                         {endpoint?.has_signing_secret ? "Rotate secret" : "Generate secret"}
                       </SettingsButton>
                     )}
@@ -587,7 +590,7 @@ export default function WebhookEndpointPage() {
                     <SettingsButton
                       type="button"
                       variant="secondary"
-                      disabled={actionBusy || form.dirty || !endpoint.has_signing_secret}
+                      disabled={isDemo || actionBusy || form.dirty || !endpoint.has_signing_secret}
                       title={form.dirty ? "Save changes before sending a test." : !endpoint.has_signing_secret ? "Generate a signing secret first." : undefined}
                       onClick={() => void sendTest()}
                     >
@@ -618,7 +621,7 @@ export default function WebhookEndpointPage() {
                 title="Danger zone"
                 description="Permanently remove this webhook endpoint and its delivery history."
               >
-                <SettingsButton type="button" variant="danger" disabled={actionBusy} onClick={requestDelete}>
+                <SettingsButton type="button" variant="danger" disabled={isDemo || actionBusy} onClick={requestDelete}>
                   Delete endpoint
                 </SettingsButton>
               </SettingsSection>

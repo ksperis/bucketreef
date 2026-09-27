@@ -58,6 +58,8 @@ import {
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import { usePortalAccountContext } from "./PortalAccountContext";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 type BusyAction = "collaborator" | "quota" | "setting" | "refresh" | null;
 type CollaboratorAction = "add" | "remove";
 type RequestDialog = "collaborator" | "storage-limit" | "setting" | null;
@@ -142,6 +144,7 @@ export default function PortalRequestsPage() {
   const showRequestHelpTab =
     accountLoading || !requestPermissionResolved || canRequestManagedChanges;
   const canRequestSettingChange = Boolean(
+    !isDemo &&
     canRequestManagedChanges &&
       projectSettings &&
       !projectSettings.delegated_to_portal_managers,

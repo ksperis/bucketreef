@@ -27,7 +27,12 @@
     "chunks:check": "node ./scripts/check-chunk-cycles.mjs",
     "check": "npm run lint && npm run typecheck && npm run deadcode:check && npm run listings:check && npm run test && npm run build && npm run chunks:check && npm run budget:check",
     "check:ci": "npm run lint && npm run typecheck && npm run deadcode:check && npm run listings:check && npm run build && npm run chunks:check && npm run budget:check",
-    "listings:check": "node ./scripts/check-listing-presentation.mjs"
+    "listings:check": "node ./scripts/check-listing-presentation.mjs",
+    "dev:demo": "vite --mode demo",
+    "build:demo": "vite build --mode demo",
+    "test:demo": "npm run build:demo && playwright test -c playwright.demo.config.ts",
+    "demo:isolation": "node ./scripts/check-demo-isolation.mjs",
+    "preview:demo": "node ./scripts/serve-demo.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1098.0",

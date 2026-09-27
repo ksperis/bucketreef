@@ -12,6 +12,8 @@ import SettingsNavigationGuard from "../../../components/settings/SettingsNaviga
 import { adminPageBreadcrumbs } from "../adminBreadcrumbs";
 import type { useAppSettingsDraft } from "./useAppSettingsDraft";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 export default function AdminSettingsFrame({
   title,
   description,
@@ -49,7 +51,7 @@ export default function AdminSettingsFrame({
         <div>
           <SettingsButton
             variant="ghost"
-            disabled={!form.settings || form.busy}
+            disabled={isDemo || !form.settings || form.busy}
             onClick={() => setReset(true)}
           >
             Reset to defaults
@@ -58,6 +60,7 @@ export default function AdminSettingsFrame({
       }
     >
       <div className="settings-compact">
+        {isDemo && <UiInlineMessage tone="info">Read-only demo settings. Feature execution and external integrations are disabled.</UiInlineMessage>}
         {form.error && (
           <div className="mb-4" role="alert">
             <UiInlineMessage tone="error">{form.error}</UiInlineMessage>
@@ -76,17 +79,18 @@ export default function AdminSettingsFrame({
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              void form.save();
+              if (!isDemo) void form.save();
             }}
             noValidate
           >
-            <fieldset disabled={form.busy} className="min-w-0">
+            <fieldset disabled={isDemo || form.busy} className="min-w-0">
               {children}
             </fieldset>
           </form>
         )}
         {additionalContent}
         <SettingsActions
+          disabled={isDemo}
           dirty={form.dirty}
           busy={form.busy}
           onSave={() => void form.save()}

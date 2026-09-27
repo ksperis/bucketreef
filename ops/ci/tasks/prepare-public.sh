@@ -5,6 +5,9 @@ case "$1" in
   ci-contract) python3 -m pip install -r ops/ci/requirements.txt; sudo sh ops/ci/install-linters.sh ;;
   docs-build) python3 -m pip install -r doc/requirements.txt ;;
   frontend-quality|frontend-tests) npm ci --prefix frontend --no-audit --no-fund ;;
+  frontend-demo)
+    npm ci --prefix frontend --no-audit --no-fund
+    cd frontend; npx playwright install --with-deps chromium firefox webkit ;;
   frontend-browser-e2e)
     python3 -m pip install -r backend/requirements-browser-e2e.txt
     npm ci --prefix frontend --no-audit --no-fund

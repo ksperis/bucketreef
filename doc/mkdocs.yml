@@ -170,6 +170,7 @@ nav:
           - First contribution: developer/first-contribution.md
           - Contributing: developer/contributing.md
           - CI/CD: developer/ci-cd.md
+          - Static interactive demo: developer/static-demo.md
           - Release distribution: developer/releases.md
           - AI assistant guidelines: developer/ai-assistant-guidelines.md
           - Docs maintenance: developer/docs-maintenance.md

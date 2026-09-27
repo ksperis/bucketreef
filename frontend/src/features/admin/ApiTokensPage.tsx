@@ -34,6 +34,8 @@ import { extractApiError } from "../../utils/apiError";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import { stableSignature } from "../../utils/stableSignature";
 
+const isDemo = import.meta.env.MODE === "demo";
+
 type TokenStatus = "active" | "expired" | "revoked";
 
 type RevealedToken = {
@@ -291,7 +293,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
     : "";
   const headerActions = [
     {
-      label: "Create token",
+      label: "Create token", disabled: isDemo,
       onClick: openCreateModal,
     },
   ];
@@ -334,7 +336,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
           <ListActionButton
             type="button"
             onClick={() => handleRevoke(token)}
-            disabled={isBusy}
+            disabled={isDemo || isBusy}
              variant="danger"
           >
             {isBusy ? "Revoking..." : "Revoke"}
@@ -411,7 +413,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
             </UiCheckboxField>
           }
           actions={<ListActionButton onClick={() => void loadTokens()} loading={loading}>Refresh</ListActionButton>}
-          headingActions={!showPageHeader ? <ListActionButton variant="primary" onClick={openCreateModal}>Create token</ListActionButton> : undefined}
+          headingActions={!showPageHeader ? <ListActionButton variant="primary" disabled={isDemo} onClick={openCreateModal}>Create token</ListActionButton> : undefined}
       >
         <DataTableShell
           columns={tokenTableColumns}
@@ -434,7 +436,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
             <p className="settings-description">
               Create a token for automation (Ansible, CI, scripts). Its secret will be shown once.
             </p>
-            <fieldset disabled={creating} className="settings-fields">
+            <fieldset disabled={isDemo || creating} className="settings-fields">
               <div className="settings-fields sm:grid-cols-2">
                 <UiInput
                   ref={nameRef}
@@ -483,13 +485,13 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
                 type="button"
                 onClick={createCloseGuard.requestClose}
                 variant="secondary"
-                disabled={creating}
+                disabled={isDemo || creating}
               >
                 Cancel
               </SettingsButton>
               <SettingsButton
                 type="submit"
-                disabled={creating}
+                disabled={isDemo || creating}
               >
                 {creating ? "Creating..." : "Create token"}
               </SettingsButton>
