@@ -129,6 +129,21 @@ describe("LoginPage LDAP", () => {
     expect(passwordInput).toHaveAttribute("autocomplete", "current-password");
   });
 
+  it("lets users reveal and hide the password", async () => {
+    const user = userEvent.setup();
+    renderLoginPage();
+
+    const passwordInput = await screen.findByLabelText("Password");
+    expect(passwordInput).toHaveAttribute("type", "password");
+
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: "Hide password" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+  });
+
   it("keeps BucketReef visible when a secondary customer logo is configured", async () => {
     mocks.fetchLoginSettings.mockResolvedValueOnce({
       allow_login_access_keys: false,
