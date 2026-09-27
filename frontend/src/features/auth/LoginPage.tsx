@@ -37,7 +37,7 @@ import {
   resolvePostLoginPathWithWorkspaceAccess,
   type SessionUser,
 } from "../../utils/workspaces";
-import { AuthButton, AuthInput, AuthSelect } from "./AuthFormControls";
+import { AuthButton, AuthInput, AuthPasswordInput, AuthSelect } from "./AuthFormControls";
 import { AuthBrandBackdrop, AuthCard, AuthCenteredPage } from "./AuthSurface";
 
 type LoginMode = "password" | "keys" | "ldap";
@@ -520,7 +520,7 @@ export default function LoginPage() {
                   </AuthSelect>
                 )}
                 <AuthInput id="ldap-username" label="Username" type="text" autoComplete="username" value={ldapUsername} onChange={(e) => setLdapUsername(e.target.value)} placeholder="jane.doe or jane@example.com" required />
-                <AuthInput id="ldap-password" label="Password" type="password" autoComplete="current-password" value={ldapPassword} onChange={(e) => setLdapPassword(e.target.value)} required />
+                <AuthPasswordInput id="ldap-password" label="Password" autoComplete="current-password" value={ldapPassword} onChange={(e) => setLdapPassword(e.target.value)} required />
                 {(error || ldapError) && (
                   <UiInlineMessage tone="error">{error || ldapError}</UiInlineMessage>
                 )}
@@ -531,7 +531,7 @@ export default function LoginPage() {
             ) : mode === "password" || !allowAccessKeys ? (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
                 <AuthInput id="login-email" label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <AuthInput id="login-password" label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <AuthPasswordInput id="login-password" label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 {error && (
                   <UiInlineMessage tone="error">{error}</UiInlineMessage>
                 )}
@@ -542,7 +542,7 @@ export default function LoginPage() {
             ) : (
               <form onSubmit={handleKeyLogin} className="space-y-4">
                 <AuthInput id="login-access-key" label="Access key" type="text" autoComplete="username" value={accessKey} onChange={(e) => setAccessKey(e.target.value)} placeholder="ACCESS_KEY" required />
-                <AuthInput id="login-secret-key" label="Secret key" type="password" autoComplete="current-password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} required />
+                <AuthPasswordInput id="login-secret-key" label="Secret key" secretLabel="secret key" autoComplete="current-password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} required />
                 {(allowEndpointList || allowCustomEndpoint) && (
                   <div className="space-y-3">
                     {allowEndpointList && (

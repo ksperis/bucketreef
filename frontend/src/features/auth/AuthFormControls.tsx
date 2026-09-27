@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
@@ -21,6 +21,38 @@ export function AuthInput({ className, labelClassName, ...props }: ComponentProp
       labelClassName={cx(authFieldLabelClass, labelClassName)}
       className={cx(authControlClass, className)}
     />
+  );
+}
+
+type AuthPasswordInputProps = Omit<ComponentProps<typeof AuthInput>, "type"> & {
+  secretLabel?: string;
+};
+
+export function AuthPasswordInput({
+  className,
+  secretLabel = "password",
+  ...props
+}: AuthPasswordInputProps) {
+  const [visible, setVisible] = useState(false);
+  const actionLabel = `${visible ? "Hide" : "Show"} ${secretLabel}`;
+
+  return (
+    <div className="relative">
+      <AuthInput
+        {...props}
+        type={visible ? "text" : "password"}
+        className={cx("pr-20", className)}
+      />
+      <button
+        type="button"
+        aria-label={actionLabel}
+        aria-pressed={visible}
+        onClick={() => setVisible((current) => !current)}
+        className="absolute bottom-2.5 right-3 ui-caption font-semibold text-primary-700 hover:text-primary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+      >
+        {visible ? "Hide" : "Show"}
+      </button>
+    </div>
   );
 }
 
