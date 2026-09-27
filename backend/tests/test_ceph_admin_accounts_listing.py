@@ -216,14 +216,43 @@ def test_ceph_admin_accounts_listing_cache_is_reused_for_quick_filter_changes():
     assert rgw_admin.list_accounts_include_details == [False]
 
 
-def test_ceph_admin_accounts_search_by_name_falls_back_to_profile_enrichment():
-    accounts_payload = ["RGW03", "RGW01", "RGW02"]
-    account_details = {
-        "RGW01": _build_account_payload("RGW01", account_name="Alpha"),
-        "RGW02": _build_account_payload("RGW02", account_name="Beta"),
-        "RGW03": _build_account_payload("RGW03", account_name="Gamma"),
-    }
-    ctx, rgw_admin = _build_ctx(endpoint_id=2201, accounts_payload=accounts_payload, account_details=account_details)
+def test_ceph_admin_accounts_search_miss_does_not_enrich_account_profiles():
+    accounts_payload = [f"RGW{index:017d}" for index in range(1_923)]
+    ctx, rgw_admin = _build_ctx(
+        endpoint_id=2201,
+        accounts_payload=accounts_payload,
+        account_details={},
+    )
+
+    result = accounts_router.list_rgw_accounts(
+        page=1,
+        page_size=25,
+        search="missing-account",
+        advanced_filter=None,
+        sort_by="account_id",
+        sort_dir="asc",
+        include=[],
+        ctx=ctx,
+    )
+
+    assert result.items == []
+    assert result.total == 0
+    assert rgw_admin.list_accounts_calls == 1
+    assert rgw_admin.list_accounts_include_details == [False]
+    assert rgw_admin.get_account_calls == 0
+
+
+def test_ceph_admin_accounts_search_by_compact_name_avoids_detail_fetch():
+    accounts_payload = [
+        {"id": "RGW03", "name": "Gamma"},
+        {"id": "RGW01", "name": "Alpha"},
+        {"id": "RGW02", "name": "Beta"},
+    ]
+    ctx, rgw_admin = _build_ctx(
+        endpoint_id=2202,
+        accounts_payload=accounts_payload,
+        account_details={},
+    )
 
     result = accounts_router.list_rgw_accounts(
         page=1,
@@ -240,7 +269,7 @@ def test_ceph_admin_accounts_search_by_name_falls_back_to_profile_enrichment():
     assert result.items[0].account_name == "Beta"
     assert rgw_admin.list_accounts_calls == 1
     assert rgw_admin.list_accounts_include_details == [False]
-    assert rgw_admin.get_account_calls == 3
+    assert rgw_admin.get_account_calls == 0
 
 
 def test_ceph_admin_accounts_advanced_filter_uses_cached_listing_and_lazy_include():
