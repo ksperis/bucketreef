@@ -1422,6 +1422,7 @@ describe("manager shell pages", () => {
     expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", "Search by name");
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "missing" } });
     expect(screen.queryByText("bucket-responsive")).not.toBeInTheDocument();
+    expect(screen.getByText("No buckets match this search.")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "responsive" } });
     expect(screen.getByText("bucket-responsive")).toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
