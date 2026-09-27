@@ -101,6 +101,29 @@ describe("BucketOpsBulkExecutionPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("disables apply when the preview contains no changes", () => {
+    render(
+      <BucketOpsBulkExecutionPanel
+        {...createProps({
+          applyDisabled: false,
+          previewDisabled: false,
+          previewItems: [
+            {
+              bucket: "archive",
+              before: [{ text: "Enabled", tone: "neutral" }],
+              after: [{ text: "Enabled", tone: "neutral" }],
+              changed: false,
+            },
+          ],
+          previewReady: true,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Changes: 0 / Unchanged: 1 / Errors: 0")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply changes" })).toBeDisabled();
+  });
+
   it("renders paste errors and shared progress without duplicating progress markup", () => {
     render(
       <BucketOpsBulkExecutionPanel
