@@ -5,6 +5,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { logout as logoutRequest } from "../api/auth";
+import { broadcastSessionEnded } from "../auth/sessionEvents";
 import Header from "./Header";
 import Sidebar, { SidebarLink, SidebarSection, type SidebarBodyRenderArgs } from "./Sidebar";
 import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
@@ -78,6 +79,7 @@ export default function Layout({
       console.warn("Unable to revoke refresh session", err);
     });
     clearAuthStorage();
+    broadcastSessionEnded();
     window.location.href = "/login";
   };
   const hasTopbarControls = Boolean(topbarControls) || Boolean(topbarControlDescriptors?.length);

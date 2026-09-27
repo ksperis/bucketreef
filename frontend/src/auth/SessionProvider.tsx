@@ -7,6 +7,10 @@ import { fetchCurrentSession, type AuthenticationResponse, type CurrentSessionRe
 import { clearAuthStorage, removeClientStorage, CLIENT_STORAGE_KEYS } from "../utils/clientStorage";
 import type { SessionUser } from "../utils/workspaces";
 import { readStoredUser, setSessionUserCache } from "../utils/workspaces";
+import {
+  isSessionEndedStorageEvent,
+  SESSION_ENDED_EVENT,
+} from "./sessionEvents";
 
 type SessionContextValue = {
   loading: boolean;
@@ -99,8 +103,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
     const ended = () => clear();
-    window.addEventListener("bucketreef:session-ended", ended);
-    return () => window.removeEventListener("bucketreef:session-ended", ended);
+    const storageEnded = (event: StorageEvent) => {
+      if (isSessionEndedStorageEvent(event)) clear();
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, ended);
+    window.addEventListener("storage", storageEnded);
+    return () => {
+      window.removeEventListener(SESSION_ENDED_EVENT, ended);
+      window.removeEventListener("storage", storageEnded);
+    };
   }, [clear, refresh]);
 
   const value = useMemo(() => ({
