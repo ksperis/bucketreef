@@ -203,6 +203,8 @@ function BucketDetailPageContent({
     accountIdForApi,
     requiresS3AccountSelection,
     managerBucketQuotaEnabled,
+    managerStatsEnabled,
+    managerStatsMessage,
   } = s3AccountContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
@@ -484,8 +486,8 @@ function BucketDetailPageContent({
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.metrics ?? true;
     }
-    return selectedS3Account?.storage_endpoint_capabilities?.metrics ?? true;
-  }, [isCephAdmin, selectedEndpoint, selectedS3Account]);
+    return Boolean(managerStatsEnabled) && (selectedS3Account?.storage_endpoint_capabilities?.metrics ?? true);
+  }, [isCephAdmin, managerStatsEnabled, selectedEndpoint, selectedS3Account]);
   const canViewBucketMetrics = hasContext;
   const canViewLiveBucketMetrics = Boolean(isCephEndpoint && usageFeatureEnabled);
 
@@ -1423,8 +1425,9 @@ function BucketDetailPageContent({
                 </MetricsCard>
                 {!canViewLiveBucketMetrics && (
                   <PageBanner>
-                    Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain
-                    available in the Usage stats tab.
+                    {!isCephAdmin && managerStatsMessage
+                      ? managerStatsMessage
+                      : "Live endpoint metrics are unavailable. BucketReef usage stats calculated from bucket listings remain available in the Usage stats tab."}
                   </PageBanner>
                 )}
                 {canViewLiveBucketMetrics &&

@@ -8,11 +8,13 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from hashlib import sha256
 import json
+import logging
 from threading import Lock
 from time import monotonic
 from typing import Callable, Literal, Optional
 
 from app.db import S3Connection, StorageProvider
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client
 from app.utils.normalize import (
@@ -21,6 +23,9 @@ from app.utils.normalize import (
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
 from app.utils.cache import prune_expired_lru_cache
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -191,12 +196,17 @@ class ConnectionIdentityService:
             )
             payload = rgw_admin.get_user_by_access_key(access_key, allow_not_found=True)
         except RGWAdminError as exc:
+            logger.warning(
+                "Unable to resolve RGW identity for connection id=%s: %s",
+                connection.id,
+                sanitized_error_log_detail(exc),
+            )
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
                 rgw_account_id=None,
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
-                reason=f"RGW identity is unavailable: unable to resolve RGW identity ({exc}).",
+                reason="RGW identity is unavailable: unable to resolve RGW identity for this connection.",
             )
 
         uid, account_id = _identity_from_rgw_payload(payload)

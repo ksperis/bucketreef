@@ -222,7 +222,9 @@ def test_identical_concurrent_lookups_share_completion_and_release_state(monkeyp
                     assert owner.result().iam_identity == "shared-user"
                 else:
                     assert owner.result().eligible is False
-                    assert "lookup interrupted" in owner.result().reason
+                    assert owner.result().reason == (
+                        "RGW identity is unavailable: unable to resolve RGW identity for this connection."
+                    )
                 assert len(identity_service._CACHE) == 1
             else:
                 for task in (owner, waiter):
