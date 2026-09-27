@@ -1530,7 +1530,7 @@ export default function UsersPage() {
           status={tableStatus}
           loadingMessage="Loading users..."
           errorMessage="Unable to load users."
-          emptyMessage="No users."
+          emptyMessage={filter.trim() ? "No users match this search." : "No users."}
           primaryColumnId="user"
           responsiveCards
           tableClassName="ui-data-table"
