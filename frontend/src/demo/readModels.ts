@@ -1,10 +1,15 @@
 import type { CurrentSessionResponse } from "../api/auth";
 import type { ExecutionContext, WorkspaceAccess } from "../api/executionContexts";
-import type { ManagerTrafficStats } from "../api/stats";
-import { bucketView, GiB, settings } from "./state";
+import type { ManagerTrafficStats, ManagerUsageTrendBaseline } from "../api/stats";
+import type { UsageHistoryTrendPoint } from "../api/usageHistory";
+import { bucketView, GiB, settings, type DemoState } from "./state";
 import { accountView } from "./governance";
 import { accountGrant, json, page, required, scopedAccount, type DemoRequest } from "./http";
 import snapshots from "./snapshots.json";
+
+export type DemoStorageTrendBaseline = ManagerUsageTrendBaseline & {
+  demo_storage_points: Pick<UsageHistoryTrendPoint, "period_start" | "used_bytes">[];
+};
 
 const snapshotPaths: Record<string, keyof typeof snapshots> = {
   "/admin/health/summary": "health-summary", "/admin/health/overview": "health-overview",
@@ -13,6 +18,26 @@ const snapshotPaths: Record<string, keyof typeof snapshots> = {
   "/portal/activity": "portal-activity", "/portal/alerts": "portal-alerts",
   "/manager/stats/usage-trends": "manager-usage-trends", "/portal/usage-trends": "portal-usage-trends",
 };
+
+// A repeatable 90-day workload: quiet days, batch imports and occasional cleanup.
+// Normalize it so the latest historical point matches the seeded inventory.
+const storageActivity = [0];
+for (let day = 1; day < 90; day++) {
+  const dailyGrowth = [1.2, .6, 2.1, 1.5, .8, .1, 0][day % 7];
+  const batchImport = day === 18 ? 10 : day === 43 ? 16 : day === 67 ? 12 : 0;
+  const cleanup = day === 34 ? 8 : day === 76 ? 11 : 0;
+  storageActivity.push(storageActivity[day - 1] + dailyGrowth + batchImport - cleanup);
+}
+const storageProgress = storageActivity.map(value => value / storageActivity[89]);
+
+function historicalUsage(inventory: DemoState["snapshotInventory"], day: number) {
+  return {
+    used_bytes: Math.round(inventory.reduce((total, bucket) => total + bucket.bytes, 0) * (.45 + .55 * storageProgress[day])),
+    used_objects: Math.round(inventory.reduce((total, bucket) => total + bucket.objects, 0) * (.7 + .3 * storageProgress[day])),
+    bucket_count: Math.round(inventory.length * (.8 + .2 * day / 89)),
+  };
+}
+
 function datedSnapshot(value: unknown, initializedAt: string): unknown {
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value)) {
     const date = new Date(Date.parse(value) + Date.parse(initializedAt) - Date.parse("2026-03-08T09:00:00Z"));
@@ -80,9 +105,10 @@ export function readModels(c: DemoRequest): Response | undefined {
   const security = path.match(/^\/admin\/users\/(\d+)\/security$/);
   if (security) return json({ user_id: Number(security[1]), ...required(state.users.find(u => u.id === Number(security[1]))), has_local_password: true, passkey_required: false, passkeys: [], external_identities: [], sessions: [] });
   if (path.endsWith("/usage-trends") && (path.startsWith("/manager/") || path.startsWith("/portal/"))) {
-    const account = scopedAccount(c); const baseline = state.snapshotInventory.filter(b => b.accountId === account.id).reduce((n, b) => n + b.bytes, 0);
-    const prior = { window: "month", label: "last 30 days · snapshot", period_start: state.history[59].timestamp.slice(0, 10), used_bytes: baseline * .8, used_objects: 640, bucket_count: 6, collected_at: state.history[59].timestamp };
-    return json({ storage: prior, objects: prior, buckets: prior });
+    const account = scopedAccount(c); const inventory = state.snapshotInventory.filter(b => b.accountId === account.id);
+    const prior: ManagerUsageTrendBaseline = { window: "month", label: "last 30 days · snapshot", period_start: state.history[59].timestamp.slice(0, 10), ...historicalUsage(inventory, 59), collected_at: state.history[59].timestamp };
+    const storage: DemoStorageTrendBaseline = { ...prior, demo_storage_points: state.history.slice(59).map((p, i) => ({ period_start: p.timestamp, used_bytes: historicalUsage(inventory, 59 + i).used_bytes })) };
+    return json({ storage, objects: prior, buckets: prior });
   }
   if (snapshotPaths[path]) return json(datedSnapshot(snapshots[snapshotPaths[path]], state.initializedAt));
   if (/^\/admin\/health\/(series|incidents|raw-checks|latency-overview|incidents-global)$/.test(path)) {
@@ -119,7 +145,6 @@ export function readModels(c: DemoRequest): Response | undefined {
     const scopeName = scopeObject?.[1] === "storage-spaces" ? state.spaces.find(s => s.id === decodeURIComponent(scopeObject[2]))?.bucketName : scopeObject ? decodeURIComponent(scopeObject[2]) : undefined;
     const selected = state.buckets.filter(b => (!account || b.accountId === account.id) && (!eid || b.endpointId === eid) && (!scopeName || b.name === scopeName)).map(bucketView);
     const snapshot = state.snapshotInventory.filter(b => (!account || b.accountId === account.id) && (!eid || b.endpointId === eid) && (!scopeName || b.bucketName === scopeName));
-    const snapshotBytes = snapshot.reduce((n, b) => n + b.bytes, 0), snapshotObjects = snapshot.reduce((n, b) => n + b.objects, 0);
     const bytes = selected.reduce((n, b) => n + (b.used_bytes ?? 0), 0), count = selected.reduce((n, b) => n + (b.object_count ?? 0), 0);
     if (path.endsWith("/traffic")) {
       const window = c.url.searchParams.get("window") ?? "month";
@@ -128,10 +153,11 @@ export function readModels(c: DemoRequest): Response | undefined {
       return json({ window, start: series[0].timestamp, end: series.at(-1)!.timestamp, resolution: "daily", data_points: series.length, series, totals: { ...totals, success_rate: totals.success_ops / totals.ops }, bucket_rankings: selected.map((b, i) => ({ bucket: b.name, bytes_total: (40 + i) * GiB, bytes_in: (20 + i) * GiB, bytes_out: 20 * GiB, ops: 25000 + i * 1500, success_ops: 24980 + i * 1500, success_ratio: .999 })), user_rankings: [], request_breakdown: [{ group: "GetObject", bytes_in: 0, bytes_out: totals.bytes_out, ops: totals.ops / 2 }], category_breakdown: [{ category: "write", bytes_in: totals.bytes_in, bytes_out: 0, ops: totals.ops / 2 }] } satisfies ManagerTrafficStats);
     }
     if (path.endsWith("usage-history-trends") || path.endsWith("usage-history/trends")) {
-      const points = state.history.map((p, i) => ({ period_start: p.timestamp.slice(0, 10), used_bytes: Math.round(snapshotBytes * (.45 + .55 * i / 89)), used_objects: Math.round(snapshotObjects * (.7 + .3 * i / 89)), bucket_count: Math.round(snapshot.length * (.8 + .2 * i / 89)), subjects_count: 5, samples_count: 24, collected_at: p.timestamp }));
-      return json({ window: c.url.searchParams.get("window") ?? "month", granularity: "daily", available: true, points, summary: { total_records: 450, points_count: points.length, subjects_count: 5, latest_used_bytes: points.at(-1)!.used_bytes, latest_used_objects: points.at(-1)!.used_objects, latest_bucket_count: 30, latest_collected_at: state.initializedAt } });
+      const subjects = new Set(snapshot.map(b => b.accountId)).size;
+      const points = state.history.map((p, i) => ({ period_start: p.timestamp.slice(0, 10), ...historicalUsage(snapshot, i), subjects_count: subjects, samples_count: 24, collected_at: p.timestamp }));
+      return json({ window: c.url.searchParams.get("window") ?? "month", granularity: "daily", available: true, points, summary: { total_records: points.length * subjects, points_count: points.length, subjects_count: subjects, latest_used_bytes: points.at(-1)!.used_bytes, latest_used_objects: points.at(-1)!.used_objects, latest_bucket_count: points.at(-1)!.bucket_count, latest_collected_at: state.initializedAt } });
     }
-    if (path === "/admin/usage-history") { const records = state.history.flatMap((p, i) => state.accounts.map(a => ({ id: i * 10000 + a.id, granularity: "daily", period_start: p.timestamp, storage_endpoint_id: a.storage_endpoint_id, endpoint_name: a.storage_endpoint_name, subject_type: "account", subject_id: a.id, subject_name: a.name, used_bytes: Math.round(state.snapshotInventory.filter(b => b.accountId === a.id).reduce((n, b) => n + b.bytes, 0) * (.45 + .55 * i / 89)), used_objects: Math.round(720 * (.7 + .3 * i / 89)), bucket_count: 6, quota_size_bytes: 500 * GiB, samples_count: 24, collected_at: p.timestamp })));
+    if (path === "/admin/usage-history") { const records = state.history.flatMap((p, i) => state.accounts.map(a => ({ id: i * 10000 + a.id, granularity: "daily", period_start: p.timestamp, storage_endpoint_id: a.storage_endpoint_id, endpoint_name: a.storage_endpoint_name, subject_type: "account", subject_id: a.id, subject_name: a.name, ...historicalUsage(state.snapshotInventory.filter(b => b.accountId === a.id), i), quota_size_bytes: 500 * GiB, samples_count: 24, collected_at: p.timestamp })));
       return json({ ...page(records, c.url), summary: { total_records: records.length, subjects_count: 5, latest_collected_at: state.initializedAt } }); }
     if (path.endsWith("/usage") || path.endsWith("usage-summary")) return json({ available: true, source: "portal", label: account?.name, used_bytes: bytes, used_objects: count, object_count: count, quota_max_size_bytes: (account?.quota_max_size_gb ?? 500) * GiB, quota_max_objects: account?.quota_max_objects });
     if (path.includes("usage-stats")) {
@@ -139,7 +165,7 @@ export function readModels(c: DemoRequest): Response | undefined {
       return json(path.includes("/buckets/") || path.includes("/storage-spaces/") ? { snapshot: { ...aggregate, bucket_name: path.split("/").at(-2), scan_mode: "versions", version_listing_available: true, calculated_at: state.initializedAt } } : { aggregate });
     }
     return json({ total_accounts: state.accounts.length, total_users: state.users.length, total_admins: 2, total_s3_users: 15, total_buckets: selected.length, total_bytes: bytes, total_objects: count, bucket_count: selected.length, bucket_usage: selected,
-      bucket_overview: { bucket_count: selected.length, non_empty_buckets: selected.filter(b => b.object_count).length, empty_buckets: selected.filter(b => !b.object_count).length, avg_bucket_size_bytes: bytes / (selected.length || 1), avg_objects_per_bucket: count / (selected.length || 1), largest_bucket: selected[0], most_objects_bucket: selected[0] },
+      bucket_overview: { bucket_count: selected.length, non_empty_buckets: selected.filter(b => b.object_count).length, empty_buckets: selected.filter(b => !b.object_count).length, avg_bucket_size_bytes: bytes / (selected.length || 1), avg_objects_per_bucket: count / (selected.length || 1), largest_bucket: [...selected].sort((a, b) => (b.used_bytes ?? 0) - (a.used_bytes ?? 0))[0], most_objects_bucket: [...selected].sort((a, b) => (b.object_count ?? 0) - (a.object_count ?? 0))[0] },
       storage_totals: { used_bytes: bytes, object_count: count, bucket_count: selected.length, accounts_with_usage: state.accounts.length, owners_with_usage: state.accounts.length },
       account_usage: state.accounts.map(a => ({ account_id: String(a.id), account_name: a.name, ...accountView(c, a) })), owner_usage: state.accounts.map(a => ({ owner: a.rgw_account_id, used_bytes: accountView(c, a).used_bytes, bucket_count: accountView(c, a).bucket_count })), s3_user_usage: [], generated_at: state.initializedAt });
   }

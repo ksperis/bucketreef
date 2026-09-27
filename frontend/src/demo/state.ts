@@ -154,7 +154,15 @@ export function createSeed(): DemoState {
     account_links: [], account_details: [], s3_user_details: [], s3_connection_details: [], created_at: at(90), updated_at: at(i),
   }));
   const buckets: DemoBucket[] = [];
-  for (const account of accounts) for (const suffix of ["documents", "media", "reports", "backups", "logs", "datasets"]) {
+  // Different account workloads, ordered as documents/media/reports/backups/logs/datasets.
+  const objectCounts = [
+    [38, 87, 156, 24, 269, 146],
+    [64, 43, 118, 21, 181, 353],
+    [52, 314, 73, 36, 129, 56],
+    [46, 68, 194, 28, 241, 263],
+    [41, 59, 92, 32, 287, 89],
+  ];
+  for (const [accountIndex, account] of accounts.entries()) for (const [bucketIndex, suffix] of ["documents", "media", "reports", "backups", "logs", "datasets"].entries()) {
     const bucket = newBucket(`${account.name.toLowerCase().split(" ")[0]}-${suffix}`, account);
     bucket.creation_date = at(90 - buckets.length);
     putObject(bucket, "README.txt", new Blob([`Welcome to ${account.name}.\nThis is the previous demo revision.\n`], { type: "text/plain" }), false, at(3));
@@ -162,7 +170,8 @@ export function createSeed(): DemoState {
     putObject(bucket, "quarterly-report.csv", new Blob(["month,requests,storage_gib\nJuly,128450,42\nAugust,148090,49\nSeptember,175280,58\n"], { type: "text/csv" }), false, at(2));
     putObject(bucket, "architecture.json", new Blob([JSON.stringify({ project: account.name, endpoints: ["Paris", "Lyon"], replicas: 3 }, null, 2)], { type: "application/json" }), false, at(4));
     putObject(bucket, "reef.svg", new Blob(['<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#073b4c"/><circle cx="320" cy="170" r="100" fill="#06d6a0"/><text x="320" y="315" text-anchor="middle" fill="white" font-family="sans-serif" font-size="30">BucketReef · demo</text></svg>'], { type: "image/svg+xml" }), false, at(5));
-    for (let i = 0; i < 116; i++) { const object = putObject(bucket, `exports/2026/${String(i + 1).padStart(4, "0")}.json`, new Blob([JSON.stringify({ record: i + 1, project: account.name, status: "processed", amount: 120 + i * 7, note: "Demo payload excerpt. Seeded dataset sizes represent a production inventory." })], { type: "application/json" }), false, at(i % 90)); object.versions[0].size = (4 + (i % 32) * 16) * MiB; }
+    const exportCount = objectCounts[accountIndex][bucketIndex] - bucket.objects.length;
+    for (let i = 0; i < exportCount; i++) { const object = putObject(bucket, `exports/2026/${String(i + 1).padStart(4, "0")}.json`, new Blob([JSON.stringify({ record: i + 1, project: account.name, status: "processed", amount: 120 + i * 7, note: "Demo payload excerpt. Seeded dataset sizes represent a production inventory." })], { type: "application/json" }), false, at(i % 90)); object.versions[0].size = (4 + (i % 32) * 16) * MiB; }
     buckets.push(bucket);
   }
   const spaces: DemoSpace[] = buckets.slice(0, 12).map((b, i) => ({
