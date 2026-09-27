@@ -6,6 +6,7 @@ import { useId, useMemo, type ComponentProps, type HTMLAttributes, type ReactNod
 import { Link } from "react-router-dom";
 import type { HealthCheckStatus } from "../api/healthchecks";
 import type { ManagerUsageTrendBaseline } from "../api/stats";
+import type { DemoStorageTrendBaseline } from "../demo/readModels";
 import { formatBytes } from "../utils/format";
 import UiBadge from "./ui/UiBadge";
 import UiButton, { UiButtonLink } from "./ui/UiButton";
@@ -92,6 +93,14 @@ export function buildWorkspaceStorageEvolutionPoints(
   referenceDate: string | Date | null | undefined
 ): WorkspaceDashboardStorageEvolutionPoint[] {
   if (currentValue == null) return [];
+  if (import.meta.env.MODE === "demo") {
+    const samples = (baseline as DemoStorageTrendBaseline | null | undefined)?.demo_storage_points;
+    if (samples?.length) {
+      const points = samples.map(point => ({ timestampMs: Date.parse(point.period_start), usedBytes: point.used_bytes }));
+      const endMs = workspaceTimestampMs(referenceDate) ?? points[points.length - 1].timestampMs;
+      return [...points.filter(point => point.timestampMs < endMs), { timestampMs: endMs, usedBytes: Math.max(0, currentValue) }];
+    }
+  }
   const endMs = workspaceTimestampMs(referenceDate) ?? workspaceTimestampMs(baseline?.collected_at) ?? Date.now();
   const days = workspaceTrendWindowDays(baseline);
   const startMs = endMs - days * DAY_MS;

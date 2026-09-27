@@ -38,11 +38,18 @@ cannot turn a production build into a demo.
 
 The seed contains two Ceph endpoints, five accounts, 60 application users,
 30 buckets, 12 Storage Spaces and 3,600 current object entries, plus previous
-README versions. Admin, Manager, Portal, Browser and Ceph use the same resource
-collections. Inventory totals and quotas follow changes; 90 days of historical
-snapshots remain fixed until reset. Dataset sizes represent a production
+README versions. Each bucket has a distinct object count (21–353), with different
+workloads across accounts. Admin, Manager, Portal, Browser and Ceph use the same
+resource collections. Inventory totals and quotas follow changes; 90 days of historical
+snapshots remain fixed until reset. Storage trends share a deterministic scenario
+with quiet days, batch imports and occasional decreases; their final point matches
+the initial inventory. Dataset sizes represent a production
 inventory; their downloads contain small sample payloads. Uploaded files retain
 their actual bytes. The coverage dialog makes this distinction explicit.
+
+Dashboard mini-charts receive the same historical samples through the local
+adapter's `demo_storage_points` metadata on the storage baseline. This extension
+and its reader are excluded from the normal build; no backend API changes.
 
 IndexedDB stores one typed state envelope, including binary file contents.
 Files are encoded as ArrayBuffers at the persistence boundary and reconstructed
@@ -58,6 +65,8 @@ the state format becomes incompatible: users see a reset explanation and must
 explicitly confirm before their saved state is replaced. There are no data
 migrations, cross-tab live synchronization, schedulers or background workers.
 A reload reads the last committed state from another tab.
+Seed-only changes preserve that state too: use **Reset demo** to load the revised
+initial inventory in a browser that already has saved demo data.
 
 ## Coverage contract
 
