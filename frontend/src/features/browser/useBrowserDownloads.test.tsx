@@ -10,6 +10,7 @@ const downloadMocks = vi.hoisted(() => ({
   downloadBrowserTransferBlob: vi.fn(),
   downloadBrowserTransferStream: vi.fn(),
   triggerBlobDownload: vi.fn(),
+  triggerUrlDownload: vi.fn(),
 }));
 
 vi.mock("./browserFolderDownload", async () => ({
@@ -29,6 +30,7 @@ vi.mock("./browserObjectTransferTransport", async () => ({
 
 vi.mock("../../utils/download", () => ({
   triggerBlobDownload: downloadMocks.triggerBlobDownload,
+  triggerUrlDownload: downloadMocks.triggerUrlDownload,
 }));
 
 function item(key: string, type: "file" | "folder" = "file"): BrowserItem {
@@ -96,9 +98,8 @@ describe("useBrowserDownloads", () => {
     });
   });
 
-  it("opens a presigned URL for an ordinary direct download", async () => {
+  it("downloads an ordinary direct object through an attachment URL", async () => {
     const options = createOptions();
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const { result } = renderHook(() => useBrowserDownloads(options));
 
     await act(async () => {
@@ -109,13 +110,15 @@ describe("useBrowserDownloads", () => {
       key: "docs/report.txt",
       operation: "get_object",
       expires_in: 900,
+      response_content_disposition: expect.stringMatching(
+        /^attachment; filename="report\.txt";/,
+      ),
     });
-    expect(openSpy).toHaveBeenCalledWith(
+    expect(downloadMocks.triggerUrlDownload).toHaveBeenCalledWith(
+      "report.txt",
       "https://download.example/report.txt",
-      "_blank",
     );
     expect(options.transferReporter.start).not.toHaveBeenCalled();
-    openSpy.mockRestore();
   });
 
   it("downloads controlled objects as blobs and reports completion", async () => {
