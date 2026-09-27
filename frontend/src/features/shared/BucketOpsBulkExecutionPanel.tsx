@@ -286,7 +286,7 @@ export default function BucketOpsBulkExecutionPanel({
           <UiButton
             size="sm"
             onClick={() => void onApply()}
-            disabled={applyDisabled}
+            disabled={applyDisabled || previewStats.changed === 0}
             loading={applyLoading}
           >
             {applyLoading ? "Applying..." : "Apply changes"}
