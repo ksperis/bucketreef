@@ -72,5 +72,46 @@ describe("Browser bulk action modals", () => {
 
     expect(screen.getByText("Attributes failed")).toHaveClass("border-rose-200");
     expect(screen.getByText("Attributes updated")).toHaveClass("border-emerald-200");
+    expect(screen.getByRole("button", { name: "Apply changes" })).toBeDisabled();
+    expect(screen.getByText("Select at least one attribute to update.")).toBeInTheDocument();
+  });
+
+  it("enables bulk attributes only for a complete mutation", () => {
+    const baseProps = {
+      error: null,
+      fileCount: 1,
+      folderCount: 0,
+      loading: false,
+      onApply: vi.fn(),
+      onClose: vi.fn(),
+      setDraft: vi.fn(),
+      summary: null,
+    };
+    const { rerender } = render(
+      <BrowserBulkAttributesModal
+        {...baseProps}
+        draft={{
+          ...createBrowserBulkAttributesDraft(),
+          applyTags: true,
+          tags: "not-a-pair",
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Apply changes" })).toBeDisabled();
+    expect(screen.getByText("Provide at least one valid key=value tag.")).toBeInTheDocument();
+
+    rerender(
+      <BrowserBulkAttributesModal
+        {...baseProps}
+        draft={{
+          ...createBrowserBulkAttributesDraft(),
+          applyTags: true,
+          tags: "env=prod",
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Apply changes" })).toBeEnabled();
   });
 });

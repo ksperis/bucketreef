@@ -1,7 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserItem } from "./browserTypes";
-import { useBrowserBulkAttributes } from "./useBrowserBulkAttributes";
+import {
+  createBrowserBulkAttributesDraft,
+  useBrowserBulkAttributes,
+  validateBrowserBulkAttributesDraft,
+} from "./useBrowserBulkAttributes";
 
 const apiMocks = vi.hoisted(() => ({
   updateObjectAcl: vi.fn(),
@@ -69,6 +73,44 @@ describe("useBrowserBulkAttributes", () => {
     Object.values(apiMocks).forEach((mock) =>
       mock.mockResolvedValue(undefined),
     );
+  });
+
+  it("derives no-op availability from the same rules used by apply", () => {
+    const draft = createBrowserBulkAttributesDraft();
+    expect(validateBrowserBulkAttributesDraft(draft)).toBe(
+      "Select at least one attribute to update.",
+    );
+    expect(
+      validateBrowserBulkAttributesDraft({
+        ...draft,
+        applyTags: true,
+        tags: "not-a-pair",
+      }),
+    ).toBe("Provide at least one valid key=value tag.");
+    expect(
+      validateBrowserBulkAttributesDraft({
+        ...draft,
+        applyTags: true,
+        tags: "env=prod",
+      }),
+    ).toBeNull();
+    expect(
+      validateBrowserBulkAttributesDraft({
+        ...draft,
+        applyMetadata: true,
+        metadata: {
+          ...draft.metadata,
+          contentType: "text/plain",
+          expires: "not-a-date",
+        },
+      }),
+    ).toBe("Provide a valid expires date.");
+    expect(
+      validateBrowserBulkAttributesDraft({
+        ...draft,
+        applyAcl: true,
+      }),
+    ).toBeNull();
   });
 
   it("keeps eligible targets and reports skipped deleted objects", () => {
