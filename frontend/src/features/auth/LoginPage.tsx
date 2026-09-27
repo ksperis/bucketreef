@@ -29,6 +29,7 @@ import { useTheme } from "../../components/theme";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { PRODUCT_NAME, PRODUCT_SUBTITLE } from "../../constants/product";
 import { CLIENT_STORAGE_KEYS, removeClientStorage, writeClientStorage } from "../../utils/clientStorage";
+import { classifyApiError } from "../../utils/apiError";
 import { useSession } from "../../auth/SessionProvider";
 import { authenticatePasskey, createPasskey } from "../../auth/webauthn";
 import { prefetchWorkspaceBranch } from "../../utils/routePrefetch";
@@ -41,6 +42,24 @@ import { AuthButton, AuthInput, AuthPasswordInput, AuthSelect } from "./AuthForm
 import { AuthBrandBackdrop, AuthCard, AuthCenteredPage } from "./AuthSurface";
 
 type LoginMode = "password" | "keys" | "ldap";
+
+function passwordLoginErrorMessage(error: unknown): string {
+  const failure = classifyApiError(error, "Unable to sign in. Try again.");
+  if (failure.status === 401) {
+    return "Invalid email or password.";
+  }
+  if (failure.status === 429) {
+    return "Too many sign-in attempts. Try again later.";
+  }
+  if (
+    failure.kind === "timeout" ||
+    failure.kind === "unavailable" ||
+    failure.kind === "invalid_response"
+  ) {
+    return "Unable to reach BucketReef. Check your connection and try again.";
+  }
+  return "Unable to sign in. Try again.";
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -227,7 +246,7 @@ export default function LoginPage() {
       await finishLogin(res, "password");
     } catch (err) {
       console.error(err);
-      setError("Invalid credentials or server unavailable");
+      setError(passwordLoginErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -533,7 +552,7 @@ export default function LoginPage() {
                 <AuthInput id="login-email" label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 <AuthPasswordInput id="login-password" label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 {error && (
-                  <UiInlineMessage tone="error">{error}</UiInlineMessage>
+                  <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>
                 )}
                 <AuthButton type="submit" disabled={loading}>
                   {loading ? "Signing in..." : "Sign in"}
