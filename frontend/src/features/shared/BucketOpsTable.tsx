@@ -30,6 +30,7 @@ type BucketOpsTableProps = {
   loadingDetails: boolean;
   onSort: (field: SortField) => void;
   showAdvancedFilter: boolean;
+  responsiveCards?: boolean;
   sort: { field: SortField; direction: "asc" | "desc" };
   status: ListTableStatus;
   usageFeatureEnabled: boolean;
@@ -93,6 +94,7 @@ export default function BucketOpsTable({
   loadingDetails,
   onSort,
   showAdvancedFilter,
+  responsiveCards = false,
   sort,
   status,
   usageFeatureEnabled,
@@ -104,7 +106,11 @@ export default function BucketOpsTable({
       tabIndex={showAdvancedFilter ? -1 : 0}
       className={`bucket-ops-table-scroll ${showAdvancedFilter ? "overflow-x-hidden" : "overflow-x-auto"}`}
     >
-      <table className="ui-data-table !table-auto !w-max min-w-full divide-y divide-slate-200 dark:divide-slate-800">
+      <table
+        className={`ui-data-table !table-auto !w-max min-w-full divide-y divide-slate-200 dark:divide-slate-800 ${
+          responsiveCards ? "responsive-data-table bucket-ops-table-responsive" : ""
+        }`}
+      >
         <thead className="bg-slate-50 dark:bg-slate-900/50">
           <tr>
             {columns.map((column) => {
@@ -179,6 +185,20 @@ export default function BucketOpsTable({
                     loadingDetails,
                     detailLoadingColumnIds,
                   )}
+                  data-label={
+                    responsiveCards && !["select", "name", "actions"].includes(column.id)
+                      ? column.label
+                      : undefined
+                  }
+                  data-mobile-actions={
+                    responsiveCards && column.id === "actions" ? "true" : undefined
+                  }
+                  data-mobile-primary={
+                    responsiveCards && column.id === "name" ? "true" : undefined
+                  }
+                  data-mobile-select={
+                    responsiveCards && column.id === "select" ? "true" : undefined
+                  }
                 >
                   {column.render(bucket)}
                 </td>

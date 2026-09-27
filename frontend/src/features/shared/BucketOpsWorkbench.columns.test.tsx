@@ -271,6 +271,7 @@ describe("BucketOpsWorkbench atomic quota columns", () => {
     renderStorageOps();
 
     expect(await screen.findByRole("columnheader", { name: "Act." })).toHaveClass("w-16");
+    expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     const bucketButton = await screen.findByRole("button", { name: "bucket-a" });
     const row = bucketButton.closest("tr");
     expect(row).not.toBeNull();

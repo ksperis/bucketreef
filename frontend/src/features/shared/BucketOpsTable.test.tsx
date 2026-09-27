@@ -92,6 +92,48 @@ describe("BucketOpsTable", () => {
     expect(screen.getByRole("region", { name: "Bucket list" })).toHaveAttribute("tabindex", "0");
   });
 
+  it("uses the shared responsive card contract when requested", () => {
+    render(
+      <BucketOpsTable
+        columns={[
+          ...columns,
+          {
+            id: "actions",
+            label: "Act.",
+            render: () => <button type="button">Actions</button>,
+          },
+        ]}
+        detailLoadingColumnIds={new Set()}
+        items={[bucket]}
+        loadingDetails={false}
+        onSort={vi.fn()}
+        responsiveCards
+        showAdvancedFilter={false}
+        sort={{ field: "name", direction: "asc" }}
+        status="ready"
+        usageFeatureEnabled
+      />,
+    );
+
+    expect(screen.getByRole("table")).toHaveClass(
+      "responsive-data-table",
+      "bucket-ops-table-responsive",
+    );
+    expect(screen.getByRole("checkbox", { name: "Select archive" }).closest("td")).toHaveAttribute(
+      "data-mobile-select",
+      "true",
+    );
+    expect(screen.getByText("archive").closest("td")).toHaveAttribute(
+      "data-mobile-primary",
+      "true",
+    );
+    expect(screen.getByText("42").closest("td")).toHaveAttribute("data-label", "Used");
+    expect(screen.getByRole("button", { name: "Actions" }).closest("td")).toHaveAttribute(
+      "data-mobile-actions",
+      "true",
+    );
+  });
+
   it.each([
     ["loading", "Loading buckets..."],
     ["error", "Unable to load buckets."],

@@ -29,3 +29,21 @@
     background: var(--ui-hover);
   }
 }
+
+@media (max-width: 767px) {
+  .bucket-ops-table-responsive tbody tr {
+    position: relative;
+    padding-right: 3.25rem;
+  }
+
+  .bucket-ops-table-responsive tbody td[data-mobile-select="true"] {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 1;
+  }
+
+  .bucket-ops-table-responsive tbody td[data-mobile-primary="true"] {
+    padding-right: 0.5rem !important;
+  }
+}
