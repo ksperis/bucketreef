@@ -1361,6 +1361,19 @@ describe("BucketDetailPage replication state", () => {
       NoncurrentVersionExpiration: { NoncurrentDays: 90 },
     });
 
+    fireEvent.change(jsonEditor, { target: { value: "{invalid" } });
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(jsonEditor, {
+      target: {
+        value: JSON.stringify([
+          {
+            Status: "Enabled",
+            NoncurrentVersionExpiration: { NoncurrentDays: 90 },
+          },
+        ]),
+      },
+    });
+
     await user.click(within(dialog).getByRole("tab", { name: "Visual" }));
     expect(within(dialog).getByLabelText("Expire noncurrent versions after (days)")).toHaveValue(90);
     expect(putCephAdminBucketLifecycleMock).not.toHaveBeenCalled();

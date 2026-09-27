@@ -36,6 +36,7 @@ import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
   isLifecycleRuleVisuallyEditable,
   lifecycleVisualRuleValidationError,
+  parseLifecycleRulesJson,
   readLifecycleVisualRule,
   validateLifecycleVisualRules,
   type LifecycleVisualRuleDraft,
@@ -302,6 +303,8 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
   });
   const visualValidationError =
     editorMode === "visual" ? validateLifecycleVisualRules(draftRules) : null;
+  const jsonValidationError =
+    editorMode === "json" ? parseLifecycleRulesJson(jsonText).error : null;
   const rows = useMemo<LifecycleTableRow[]>(
     () =>
       rules.map((rule, index) => {
@@ -520,7 +523,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
           dirty={dirty}
           busy={saving}
           error={editorError}
-          saveDisabled={Boolean(visualValidationError)}
+          saveDisabled={Boolean(visualValidationError || jsonValidationError)}
           visualContent={visualEditor}
           jsonContent={jsonEditor}
           onSave={saveDraft}
