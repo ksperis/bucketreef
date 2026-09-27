@@ -722,6 +722,7 @@ export default function UsersPage() {
 
   const closeCreateModal = () => {
     setShowCreateModal(false);
+    setActionError(null);
     resetCreateModalState();
   };
 
