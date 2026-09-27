@@ -27,7 +27,9 @@ import { resolveFeatureVisualState } from "./bucketFeatureState";
 import {
   corsMethods,
   isCorsRuleVisuallyEditable,
+  parseCorsRulesJson,
   readCorsVisualRule,
+  validateVisualCorsRules,
   type CorsMethod,
   type CorsRuleRecord,
   type CorsVisualRuleDraft,
@@ -305,6 +307,10 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
     configured,
     unsaved: false,
   });
+  const visualValidationError =
+    editorMode === "visual" ? validateVisualCorsRules(draftRules) : null;
+  const jsonValidationError =
+    editorMode === "json" ? parseCorsRulesJson(jsonText).error : null;
   const rows = useMemo<CorsTableRow[]>(
     () => rules.map((rule, index) => ({ index, rule })),
     [rules],
@@ -491,6 +497,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
           dirty={dirty}
           busy={saving}
           error={editorError}
+          saveDisabled={Boolean(visualValidationError || jsonValidationError)}
           visualContent={visualEditor}
           jsonContent={jsonEditor}
           onSave={saveDraft}
