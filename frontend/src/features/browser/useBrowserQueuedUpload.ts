@@ -51,6 +51,7 @@ type UseBrowserQueuedUploadOptions = {
   sseCustomerKeyBase64: string | null;
   startOperation: OperationRegistry["startOperation"];
   transferReporter?: BrowserTransferReporter;
+  allowProxyFallback: boolean;
   updateOperation: OperationRegistry["updateOperation"];
   useProxyTransfers: boolean;
 };
@@ -67,6 +68,7 @@ export function useBrowserQueuedUpload({
   sseCustomerKeyBase64,
   startOperation,
   transferReporter,
+  allowProxyFallback,
   updateOperation,
   useProxyTransfers,
 }: UseBrowserQueuedUploadOptions) {
@@ -166,23 +168,24 @@ export function useBrowserQueuedUpload({
               : 0;
             updateOperation(operationId, { progress });
           };
-          await uploadBrowserFile({
+          const uploadProxyFile = () =>
+            proxyUpload(
+              accountId,
+              bucket,
+              key,
+              file,
+              onProgress,
+              controller.signal,
+              sseCustomerKeyBase64,
+              undefined,
+              requestOptions,
+            );
+          const uploadFile = (mode: "direct" | "proxy") => uploadBrowserFile({
             file,
-            mode: useProxyTransfers ? "proxy" : "direct",
+            mode,
             signal: controller.signal,
             onProgress,
-            uploadProxy: () =>
-              proxyUpload(
-                accountId,
-                bucket,
-                key,
-                file,
-                onProgress,
-                controller.signal,
-                sseCustomerKeyBase64,
-                undefined,
-                requestOptions,
-              ),
+            uploadProxy: uploadProxyFile,
             presign: () =>
               presignObject(bucket, {
                 key,
@@ -191,6 +194,22 @@ export function useBrowserQueuedUpload({
                 expires_in: 1800,
               }),
           });
+          try {
+            await uploadFile(useProxyTransfers ? "proxy" : "direct");
+          } catch (directError) {
+            if (
+              useProxyTransfers ||
+              !allowProxyFallback ||
+              !isLikelyCorsError(directError)
+            ) {
+              throw directError;
+            }
+            updateOperation(operationId, { label: "Proxy upload fallback" });
+            onWarning(
+              "Direct upload was unavailable, so BucketReef completed it through the proxy.",
+            );
+            await uploadFile("proxy");
+          }
         }
         completeOperation(operationId, "done");
         if (transferId) {
@@ -229,6 +248,7 @@ export function useBrowserQueuedUpload({
     },
     [
       clearOperationController,
+      allowProxyFallback,
       completeOperation,
       createOperationController,
       onStatus,

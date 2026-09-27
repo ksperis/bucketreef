@@ -111,6 +111,10 @@ export const findTreeNodeByPrefix = (nodes: TreeNode[], targetPrefix: string): T
 export const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export const isLikelyCorsError = (error: unknown) => {
+  if (error instanceof TypeError) {
+    const message = error.message.toLowerCase();
+    return message.includes("failed to fetch") || message.includes("networkerror");
+  }
   if (!isApiError(error)) return false;
   if (!error.response) return true;
   return error.code === "ERR_NETWORK" || error.message === "Network Error";
