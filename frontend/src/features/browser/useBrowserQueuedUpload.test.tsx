@@ -74,6 +74,7 @@ function createOptions() {
       complete: vi.fn(),
       fail: vi.fn(),
     },
+    allowProxyFallback: true,
     updateOperation: vi.fn(),
     useProxyTransfers: false,
   };
@@ -185,6 +186,36 @@ describe("useBrowserQueuedUpload", () => {
     expect(options.updateOperation).toHaveBeenCalledWith("op-1", {
       progress: 60,
     });
+  });
+
+  it("falls back to the proxy when a direct browser upload cannot reach S3", async () => {
+    uploadMocks.uploadBrowserFile
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(undefined);
+    const options = createOptions();
+    const { result } = renderHook(() => useBrowserQueuedUpload(options));
+
+    let uploaded = false;
+    await act(async () => {
+      uploaded = await result.current(makeItem());
+    });
+
+    expect(uploadMocks.uploadBrowserFile).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ mode: "direct" }),
+    );
+    expect(uploadMocks.uploadBrowserFile).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ mode: "proxy" }),
+    );
+    expect(options.updateOperation).toHaveBeenCalledWith("op-1", {
+      label: "Proxy upload fallback",
+    });
+    expect(options.onWarning).toHaveBeenCalledWith(
+      "Direct upload was unavailable, so BucketReef completed it through the proxy.",
+    );
+    expect(options.completeOperation).toHaveBeenCalledWith("op-1", "done");
+    expect(uploaded).toBe(true);
   });
 
   it("marks an aborted upload as cancelled", async () => {
