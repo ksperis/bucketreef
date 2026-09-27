@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { CLIENT_STORAGE_KEYS, readClientStorage, writeClientStorage } from "../utils/clientStorage";
 import { readStoredUser, SESSION_USER_UPDATED_EVENT } from "../utils/workspaces";
 
 export type UiLanguage = "en" | "fr" | "de" | "zh";
@@ -25,6 +26,11 @@ function parseStoredUserLanguage(): UiLanguagePreference {
   const lang = parsed?.ui_language;
   if (lang === "en" || lang === "fr" || lang === "de" || lang === "zh") {
     return lang;
+  }
+  if (parsed) return "auto";
+  const persisted = readClientStorage(CLIENT_STORAGE_KEYS.languagePreference);
+  if (persisted === "auto" || SUPPORTED_LANGUAGES.includes(persisted as UiLanguage)) {
+    return persisted as UiLanguagePreference;
   }
   return "auto";
 }
@@ -63,6 +69,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setLanguageState(resolveLanguage(languagePreference));
+    writeClientStorage(CLIENT_STORAGE_KEYS.languagePreference, languagePreference);
   }, [languagePreference]);
 
   useEffect(() => {

@@ -4,6 +4,7 @@
  */
 import { SelectHTMLAttributes, forwardRef, ReactNode } from "react";
 import UiField from "./UiField";
+import { useLocalizedNativeValidation } from "./nativeValidation";
 import { cx, uiInputClass } from "./styles";
 
 type UiSelectSize = "compact" | "md";
@@ -24,9 +25,10 @@ type UiSelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> & {
 
 const UiSelect = forwardRef<HTMLSelectElement, UiSelectProps>(function UiSelect(
   { label, hint, error, fieldClassName, labelClassName, className, id, size = "md", children,
-    "aria-describedby": describedBy, "aria-invalid": ariaInvalid, ...props },
+    "aria-describedby": describedBy, "aria-invalid": ariaInvalid, onInput, onInvalid, ...props },
   ref
 ) {
+  const validationHandlers = useLocalizedNativeValidation<HTMLSelectElement>(onInvalid, onInput);
   return (
     <UiField label={label} hint={hint} error={error} htmlFor={id} describedBy={describedBy} className={fieldClassName} labelClassName={labelClassName}>
       {({ id: resolvedId, describedBy, invalid }) => (
@@ -36,6 +38,7 @@ const UiSelect = forwardRef<HTMLSelectElement, UiSelectProps>(function UiSelect(
           aria-describedby={describedBy}
           aria-invalid={invalid || ariaInvalid}
           className={cx(uiInputClass, uiSelectSizeClasses[size], className)}
+          {...validationHandlers}
           {...props}
         >
           {children}
