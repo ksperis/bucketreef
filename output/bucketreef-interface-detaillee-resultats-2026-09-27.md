@@ -6,11 +6,11 @@ Le lot de 80 scénarios a été exécuté sur une instance Docker dédiée const
 
 Résultat global :
 
-- **49 scénarios atteints** ;
+- **52 scénarios atteints** ;
 - **25 scénarios partiels** ;
-- **5 scénarios non atteints** ;
+- **2 scénarios non atteints** ;
 - **1 scénario bloqué par l’outillage de test** ;
-- **10 défauts évidents corrigés et commités séparément** ;
+- **11 défauts évidents corrigés et commités séparément** ;
 - plusieurs défauts plus importants restent à traiter, en particulier la recherche Ceph Admin Accounts et les métriques Manager.
 
 La vérification a porté sur l’état visible, la persistance après rechargement, les retours d’erreur, l’effet réel sur S3 et, lorsque pertinent, la cohérence entre Manager, Browser, Ceph Admin et Storage Ops. Les captures ont été inspectées pendant le parcours aux formats 1440×900, 1024×768 et 390×844.
@@ -76,8 +76,8 @@ Ces ressources n’ont pas été supprimées afin de conserver les preuves et de
 | UI-40 | Parcourir tous les onglets d’un bucket | Atteint | Overview, Objects, Quota, Usage stats, Properties, Permissions, Advanced et Metrics chargent. |
 | UI-41 | Ajouter, modifier et supprimer un tag | Partiel | Ajout et persistance après rechargement vérifiés. Le tag de preuve a été conservé ; suppression finale non exécutée. |
 | UI-42 | Modifier puis restaurer CORS | Partiel | La règle pour l’origine locale est enregistrée et visible dans Manager et Ceph Admin. La configuration d’origine n’a pas été restaurée afin de conserver la preuve. |
-| UI-43 | JSON CORS invalide | Non atteint | Le cas JSON CORS invalide n’a pas été isolé dans ce lot. |
-| UI-44 | JSON de policy invalide | Non atteint | Le cas JSON de policy invalide n’a pas été isolé dans ce lot. |
+| UI-43 | JSON CORS invalide | Atteint | L’éditeur signalait l’erreur mais laissait Save actif. Après correction, `{invalid` affiche l’erreur de syntaxe et désactive Save. |
+| UI-44 | JSON de policy invalide | Atteint | Même défaut reproduit puis corrigé : l’erreur est visible et Save reste désactivé, sans appel d’écriture. |
 | UI-45 | ACL et Block Public Access | Partiel | Lecture cohérente : ACL privée/full control et BPA à 0/4. Les mutations n’ont pas été appliquées. |
 | UI-46 | Option réversible de bucket | Atteint | Versioning suspendu, enregistré, puis réactivé et enregistré. |
 | UI-47 | Lifecycle Visual/JSON et annulation | Atteint | `{invalid` déclenche l’erreur de syntaxe et Save est maintenant désactivé ; fermeture sans mutation. |
@@ -93,7 +93,7 @@ Ces ressources n’ont pas été supprimées afin de conserver les preuves et de
 | UI-57 | Télécharger et comparer le fichier | Partiel | Le backend `/download` répond 200 avec le bon objet. L’événement de téléchargement du navigateur intégré a expiré, donc la sauvegarde client n’est pas prouvée. |
 | UI-58 | Détails objet, ETag, taille, date et métadonnées | Atteint | Le tiroir de détail expose les propriétés attendues et les versions. |
 | UI-59 | Copier/coller un objet | Atteint | La sélection de deux objets et la copie affichent le statut « Items copied ». |
-| UI-60 | Dialogue de suppression puis annulation | Non atteint | Aucun dialogue de suppression d’objet n’a été validé dans ce second lot. |
+| UI-60 | Dialogue de suppression puis annulation | Atteint | Le dialogue « Delete objects » a été ouvert pour le fichier JSON puis annulé ; le fichier reste visible dans la liste. |
 | UI-61 | Versions et sélection | Atteint | Latest et version antérieure sont listées et sélectionnables. |
 | UI-62 | URL présignée à courte durée | Partiel | URL générée et copiée avec le bucket correct. L’expiration effective n’a pas été attendue jusqu’à son terme. |
 | UI-63 | Sélection multiple et actions Browser | Atteint | Deux objets sélectionnés, barre d’actions et copie fonctionnelles. Un défaut séparé subsiste : Apply peut être actif dans Bulk attributes sans changement utile. |
@@ -131,8 +131,9 @@ Tous les commits sont locaux et n’ont pas été poussés.
 | `72f88026` | Désactiver Apply quand une opération Storage Ops ne produit aucun changement | 4 tests du panneau d’exécution, typecheck et vérification navigateur |
 | `d0ec7013` | Ajouter Show/Hide pour mot de passe, LDAP et secret key | 8 tests Auth, typecheck, build de production et vérification navigateur |
 | `8d740c58` | Propager la fin de session entre onglets | 15 tests Session/API/Layout, typecheck, build de production et test réel à deux onglets |
+| `07dc75c` | Désactiver Save pour un JSON CORS ou Policy invalide | 52 tests Manager ciblés, typecheck, build de production et vérification des deux éditeurs |
 
-Les messages des dix commits respectent le format Conventional Commit avec les sections `Why:`, `What:` et `Validation:` et ont été contrôlés avec `backend/scripts/validate_ai_commit_message.py`.
+Les messages des onze commits respectent le format Conventional Commit avec les sections `Why:`, `What:` et `Validation:` et ont été contrôlés avec `backend/scripts/validate_ai_commit_message.py`.
 
 ## Problèmes importants restant à traiter
 
