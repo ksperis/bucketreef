@@ -199,6 +199,9 @@ def test_manager_workspace_returns_allowed_contexts_including_s3_users(db_sessio
     assert f"conn-{manager_connection.id}" in context_ids
     assert f"conn-{browser_only_connection.id}" not in context_ids
     assert any(context.kind == "s3_user" for context in contexts)
+    assert next(
+        context for context in contexts if context.id == f"conn-{manager_connection.id}"
+    ).connection_scope == "private"
 
 
 def test_manager_workspace_catalog_omits_dynamic_quota_limits(db_session):
@@ -268,6 +271,7 @@ def test_browser_workspace_returns_only_owned_private_connections(db_session):
 
     assert context_ids == {f"conn-{connection_a.id}", f"conn-{connection_b.id}"}
     assert {context.kind for context in contexts} == {"connection"}
+    assert {context.connection_scope for context in contexts} == {"private"}
 
 
 def test_browser_workspace_rejects_shared_and_expired_connections(db_session):

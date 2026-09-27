@@ -155,6 +155,7 @@ def connection_execution_context_from_db(
         kind="connection",
         id=f"conn-{connection.id}",
         display_name=connection.name,
+        connection_scope="shared" if connection.is_shared else "private",
         **endpoint_projection,
         tags=tags_service.filter_selector_visible(tags_service.get_connection_tags(connection)),
         endpoint_tags=endpoint_tags,

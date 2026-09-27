@@ -19,6 +19,7 @@ class ExecutionContext(ApiModel):
     kind: Literal["account", "connection", "s3_user", "portal_account"]
     id: str
     display_name: str
+    connection_scope: Optional[Literal["shared", "private"]] = None
     manager_role: Optional[ManagerAccountRoleValue] = None
     portal_role: Optional[PortalAccountRoleValue] = None
     rgw_account_id: Optional[str] = None
