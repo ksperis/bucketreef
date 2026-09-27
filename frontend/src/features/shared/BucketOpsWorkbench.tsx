@@ -1205,6 +1205,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
           items={items}
           loadingDetails={loadingDetails}
           onSort={toggleSort}
+          responsiveCards={isStorageOps}
           showAdvancedFilter={showAdvancedFilter}
           sort={sort}
           status={tableStatus}
