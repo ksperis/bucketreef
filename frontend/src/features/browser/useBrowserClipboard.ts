@@ -23,6 +23,7 @@ import {
   completeMultipartUpload,
   initiateMultipartUpload,
   presignPart,
+  proxyUploadPart,
 } from "../../api/browserMultipart";
 import { runWithConcurrency } from "../../utils/concurrency";
 import type { BrowserFunctionalProfile } from "./browserActions";
@@ -241,6 +242,7 @@ export function useBrowserClipboard({
     ClipboardTransferParameters["uploadMultipartStream"]
   >(
     async ({
+      mode,
       selector,
       bucket,
       key,
@@ -255,9 +257,10 @@ export function useBrowserClipboard({
         stream,
         sizeBytes,
         contentType,
-        partSize: PART_SIZE,
+        partSize: Math.max(PART_SIZE, Math.ceil(sizeBytes / 10000 / 1048576) * 1048576),
         signal,
         lifecycle: {
+          uploadPart: mode === "proxy" ? async (uploadId, number, blob, partSignal) => (await proxyUploadPart(selector, bucket, uploadId, key, number, blob, partSignal, sseCustomerKeyBase64, requestOptions)).etag : undefined,
           initiate: async () => {
             const result = await initiateMultipartUpload(
               selector,
@@ -546,6 +549,7 @@ export function useBrowserClipboard({
                   bucket: task.sourceBucket,
                   key: task.sourceKey,
                   etag: sourceMetadata.etag ?? undefined,
+                  versionId: sourceMetadata.version_id ?? undefined,
                   sseCustomerKeyBase64: sourceSseCustomerKeyBase64,
                 },
                 destination: {

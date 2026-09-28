@@ -1,3 +1,5 @@
+import { cloneElement } from "react";
+import type { BrowserPreset } from "../../api/browserPresets";
 import BrowserPresetsControl from "./BrowserPresetsControl";
 import BrowserTransfersControl from "./BrowserTransfersControl";
 import { useBrowserTransferHistory } from "./useBrowserTransferHistory";
@@ -866,7 +868,7 @@ export default function BrowserPage({
   useDismissibleLayer({
     open: showSearchOptionsMenu,
     insideRefs: [searchControlRef, searchOptionsMenuRef],
-    onDismiss: () => setShowSearchOptionsMenu(false),
+    onDismiss: reason => { setShowSearchOptionsMenu(false); if (reason === "escape") searchOptionsButtonRef.current?.focus(); },
   });
 
   useEffect(() => {
@@ -1827,9 +1829,24 @@ export default function BrowserPage({
     openCreateBucketForm();
   }, [bucketManagementEnabled, openCreateBucketForm, setBucketFilter]);
 
+  const presetControl = useMemo(() => (<BrowserPresetsControl contextLabels={Object.fromEntries(browserContext.contexts.map(context => [context.id, context.display_name]))} availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []} accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")} lockedBucket={resolvedLockedBucketName} current={{ name: normalizedPrefix || bucketName, kind: "view", surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix, view: { query: filter, scope: searchScope, recursive: searchRecursive, exact_match: searchExactMatch, case_sensitive: searchCaseSensitive, item_type: typeFilter, storage_class: storageFilter, sort_key: sortKey, sort_direction: sortDirection, columns: effectiveVisibleColumns, file_filters: { min_size: fileFilterQuery.minSize, max_size: fileFilterQuery.maxSize, modified_after: fileFilterQuery.modifiedAfter, modified_before: fileFilterQuery.modifiedBefore, extensions: fileFilters.extensions.split(",").map(value => value.trim()).filter(Boolean) } } }} onApply={preset => requestDetailsDrawerTransition(() => {
+                if (preset.context !== String(accountIdForApi ?? "")) {
+                  const nextParams = new URLSearchParams(searchParams); nextParams.set("ctx", preset.context); nextParams.set("bucket", preset.bucket); nextParams.set("prefix", preset.prefix); navigate({ pathname: location.pathname, search: nextParams.toString() });
+                } else { setBucketName(preset.bucket); setPrefix(preset.prefix); }
+                clearActiveItem();
+                if (preset.view) {
+                  const view = preset.view;
+                  setFilter(view.query); changeSearchScope(view.scope); setSearchRecursive(view.recursive); setSearchExactMatch(view.exact_match); setSearchCaseSensitive(view.case_sensitive); setTypeFilter(view.item_type); setStorageFilter(view.storage_class);
+                  const localDate = (value?: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+                  setFileFilters({ minSize: view.file_filters.min_size == null ? "" : String(view.file_filters.min_size), maxSize: view.file_filters.max_size == null ? "" : String(view.file_filters.max_size), modifiedAfter: localDate(view.file_filters.modified_after), modifiedBefore: localDate(view.file_filters.modified_before), extensions: view.file_filters.extensions?.join(", ") ?? "" });
+                  applyColumns(view.columns); setSort({ key: view.sort_key, direction: view.sort_direction });
+                }
+              })} />), [isMainBrowserPath, browserContext.contexts, storedUser, resolvedLockedBucketName, normalizedPrefix, bucketName, workspaceSurface, accountIdForApi, filter, searchScope, searchRecursive, searchExactMatch, searchCaseSensitive, typeFilter, storageFilter, sortKey, sortDirection, effectiveVisibleColumns, fileFilterQuery, fileFilters.extensions, requestDetailsDrawerTransition, searchParams, navigate, location.pathname, setBucketName, setPrefix, clearActiveItem, setFilter, changeSearchScope, setSearchRecursive, setSearchExactMatch, setSearchCaseSensitive, setTypeFilter, setStorageFilter, setFileFilters, applyColumns, setSort]);
+
   const renderWorkspaceSidebarBody = useCallback<BrowserSidebarBodyRenderer>(
     ({ compact, variant, closeMobile }) => (
       <BrowserWorkspaceSidebar
+        favorites={cloneElement(presetControl, { variant: "sidebar", compact, onApply: (preset: BrowserPreset) => { presetControl.props.onApply(preset); if (variant === "mobile") closeMobile(); } })}
         compact={compact}
         variant={variant}
         closeMobile={closeMobile}
@@ -1862,6 +1879,7 @@ export default function BrowserPage({
       />
     ),
     [
+      presetControl,
       bucketError,
       bucketFilter,
       bucketManagementEnabled,
@@ -1967,7 +1985,7 @@ export default function BrowserPage({
     openObjectDetails(item, "versions");
   };
 
-  const localTransferOwner = storedUser && storedUser.authType !== "s3_session" ? String(storedUser.id) : "";
+  const localTransferOwner = storedUser?.authType === "s3_session" ? (storedUser.localRecoveryId ? `s3:${storedUser.localRecoveryId}` : "") : storedUser?.id != null ? String(storedUser.id) : "";
   useBrowserTransferHistory(localTransferOwner, workspaceSurface, operations, uploadQueue, setWarningMessage);
   const startQueuedUpload = useBrowserQueuedUpload({
     owner: localTransferOwner,
@@ -2466,6 +2484,9 @@ export default function BrowserPage({
       caseSensitive={searchCaseSensitive}
       typeFilter={typeFilter}
       hasFileFilters={hasFileFilters}
+      fileFilters={fileFilters}
+      onFileFiltersChange={setFileFilters}
+      portal={isPortalProfile}
       storageFilter={storageFilter}
       storageClasses={searchableStorageClasses}
       canReset={hasActiveSearchFilters}
@@ -2483,6 +2504,39 @@ export default function BrowserPage({
     />
   );
 
+  const transferControl = (<BrowserTransfersControl owner={localTransferOwner} workspace={workspaceSurface} accountId={String(accountIdForApi ?? "")} currentBucket={bucketName}
+                lockedBucket={resolvedLockedBucketName} hasSseKey={Boolean(sseCustomerKeyBase64)} canWrite={resolvedCapabilityFacts.canWriteObjects}
+                operations={operations} onCancel={cancelOperation} onOpenDestination={target => requestDetailsDrawerTransition(() => {
+                  if (isMainBrowserPath) { const params = new URLSearchParams(location.search); params.set("bucket", target.bucket); params.set("prefix", target.prefix); navigate({ pathname: location.pathname, search: params.toString() }); }
+                  else { setBucketName(target.bucket); setPrefix(target.prefix); }
+                })}
+                onAbort={async record => {
+                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi ?? "") || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
+                  await withLocalUploadLock(record.id, async () => {
+                    await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
+                    await removeLocalUpload(record.id);
+                  });
+                }}
+                onResume={async (record, file) => {
+                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi ?? "") || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
+                  await verifyBrowserResumeFile(record, file, new AbortController().signal);
+                  const choice = (await prepareWrites([{ id: record.id, key: record.key, size: record.size }], record.bucket))[0];
+                  if (!choice) return;
+                  let resumeRecord: LocalUpload | undefined = record;
+                  if (choice.key !== record.key) {
+                    await withLocalUploadLock(record.id, async () => {
+                      await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
+                      await removeLocalUpload(record.id);
+                    });
+                    resumeRecord = undefined;
+                  }
+                  showOperationsBar();
+                  await startQueuedUpload({ id: crypto.randomUUID(), file, relativePath: record.name, key: choice.key, bucket: record.bucket,
+                    accountId: record.accountId, groupId: crypto.randomUUID(), groupLabel: record.name, groupKind: "files", itemLabel: record.name,
+                    writeGuard: choice.writeGuard, resumeRecord });
+                  refreshUploadedListing(prefix);
+                }} />);
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       {isEmbeddedBrowserPath ? (
@@ -2494,6 +2548,7 @@ export default function BrowserPage({
         <div className={browserShellClasses}>
         <div className={browserChromeShellClasses}>
           <BrowserToolbar
+            utilityActions={<>{!showWorkspaceSidebar && presetControl}{transferControl}</>}
             helpActions={[...Object.values(pathActionStates).filter((action) => action.section !== "selection"), ...Object.values(selectionActionStates).filter((action) => action.section === "selection")]}
             compactMode={compactMode}
             bucketSelector={{
@@ -2733,51 +2788,6 @@ export default function BrowserPage({
               />
             )}
             <div className="flex min-h-0 h-full min-w-0 flex-1 flex-col gap-3">
-              <BrowserTransfersControl owner={localTransferOwner} workspace={workspaceSurface} accountId={String(accountIdForApi ?? "")} currentBucket={bucketName}
-                lockedBucket={resolvedLockedBucketName} hasSseKey={Boolean(sseCustomerKeyBase64)} canWrite={resolvedCapabilityFacts.canWriteObjects}
-                operations={operations} onCancel={cancelOperation} onOpenDestination={target => requestDetailsDrawerTransition(() => {
-                  if (isMainBrowserPath) { const params = new URLSearchParams(location.search); params.set("bucket", target.bucket); params.set("prefix", target.prefix); navigate({ pathname: location.pathname, search: params.toString() }); }
-                  else { setBucketName(target.bucket); setPrefix(target.prefix); }
-                })}
-                onAbort={async record => {
-                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi) || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
-                  await withLocalUploadLock(record.id, async () => {
-                    await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
-                    await removeLocalUpload(record.id);
-                  });
-                }}
-                onResume={async (record, file) => {
-                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi) || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
-                  await verifyBrowserResumeFile(record, file, new AbortController().signal);
-                  const choice = (await prepareWrites([{ id: record.id, key: record.key, size: record.size }], record.bucket))[0];
-                  if (!choice) return;
-                  let resumeRecord: LocalUpload | undefined = record;
-                  if (choice.key !== record.key) {
-                    await withLocalUploadLock(record.id, async () => {
-                      await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
-                      await removeLocalUpload(record.id);
-                    });
-                    resumeRecord = undefined;
-                  }
-                  showOperationsBar();
-                  await startQueuedUpload({ id: crypto.randomUUID(), file, relativePath: record.name, key: choice.key, bucket: record.bucket,
-                    accountId: record.accountId, groupId: crypto.randomUUID(), groupLabel: record.name, groupKind: "files", itemLabel: record.name,
-                    writeGuard: choice.writeGuard, resumeRecord });
-                  refreshUploadedListing(prefix);
-                }} />
-              <div className="shrink-0"><BrowserPresetsControl availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []} accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")} lockedBucket={resolvedLockedBucketName} current={{ name: normalizedPrefix || bucketName, kind: "view", surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix, view: { query: filter, scope: searchScope, recursive: searchRecursive, exact_match: searchExactMatch, case_sensitive: searchCaseSensitive, item_type: typeFilter, storage_class: storageFilter, sort_key: sortKey, sort_direction: sortDirection, columns: effectiveVisibleColumns, file_filters: { min_size: fileFilterQuery.minSize, max_size: fileFilterQuery.maxSize, modified_after: fileFilterQuery.modifiedAfter, modified_before: fileFilterQuery.modifiedBefore, extensions: fileFilters.extensions.split(",").map(value => value.trim()).filter(Boolean) } } }} onApply={preset => requestDetailsDrawerTransition(() => {
-                if (preset.context !== String(accountIdForApi ?? "")) {
-                  const nextParams = new URLSearchParams(searchParams); nextParams.set("ctx", preset.context); nextParams.set("bucket", preset.bucket); nextParams.set("prefix", preset.prefix); navigate({ pathname: location.pathname, search: nextParams.toString() });
-                } else { setBucketName(preset.bucket); setPrefix(preset.prefix); }
-                clearActiveItem();
-                if (preset.view) {
-                  const view = preset.view;
-                  setFilter(view.query); changeSearchScope(view.scope); setSearchRecursive(view.recursive); setSearchExactMatch(view.exact_match); setSearchCaseSensitive(view.case_sensitive); setTypeFilter(view.item_type); setStorageFilter(view.storage_class);
-                  const localDate = (value?: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
-                  setFileFilters({ minSize: view.file_filters.min_size == null ? "" : String(view.file_filters.min_size), maxSize: view.file_filters.max_size == null ? "" : String(view.file_filters.max_size), modifiedAfter: localDate(view.file_filters.modified_after), modifiedBefore: localDate(view.file_filters.modified_before), extensions: view.file_filters.extensions?.join(", ") ?? "" });
-                  applyColumns(view.columns); setSort({ key: view.sort_key, direction: view.sort_direction });
-                }
-              })} /></div>
               {bucketName && <BrowserSearchControls portal={isPortalProfile} scope={searchScope} recursive={searchRecursive} onScope={changeSearchScope} onRecursive={setSearchRecursive} filters={fileFilters} onFilters={setFileFilters} loading={objectsLoading || objectsLoadingMore} partial={objectsIsTruncated} active={hasActiveSearchFilters} empty={listItems.length === 0} foldersOnly={typeFilter === "folder"} failed={Boolean(objectsIssue)} />}
               <BrowserObjectExplorer
                 viewportRef={objectsListViewportRef}

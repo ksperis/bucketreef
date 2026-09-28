@@ -172,6 +172,10 @@ vi.mock("../../api/browserObjects", async () => {
   };
 });
 
+vi.mock("../../api/browserConflicts", () => ({
+  inspectBrowserDestinations: async (_account: string, _bucket: string, keys: string[]) => ({ protection: "conditional", objects: keys.map(key => ({ key, exists: false, etag: null })) }),
+}));
+
 vi.mock("../../api/browserBuckets", async () => {
   const actual =
     await vi.importActual<typeof import("../../api/browserBuckets")>(
@@ -566,12 +570,21 @@ async function openActionsMoreMenu(user: ReturnType<typeof userEvent.setup>) {
   return waitForOpenedMoreMenu(previousMenus);
 }
 
+async function openDisplaySubmenu(user: ReturnType<typeof userEvent.setup>, menu: HTMLElement) {
+  if (within(menu).queryAllByRole("menuitemradio").length) return menu;
+  const existing = screen.queryByRole("menu", { name: "Display" });
+  if (existing) return existing;
+  await user.click(within(menu).getByRole("menuitem", { name: "Display" }));
+  return screen.findByRole("menu", { name: "Display" });
+}
+
 async function openColumnsSubmenuFromMore(
   user: ReturnType<typeof userEvent.setup>,
 ) {
   const moreMenu = await openContextMoreMenu(user);
+  await user.click(within(moreMenu).getByRole("menuitem", { name: "Display" }));
   await user.click(
-    within(moreMenu).getByRole("menuitem", { name: /^Columns/i }),
+    within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitem", { name: /^Columns/i }),
   );
   return await screen.findByRole("menu", { name: "Columns" });
 }
@@ -727,13 +740,14 @@ describe("BrowserPage interactions", () => {
       (
         _accountId: string,
         _bucketName: string,
-        payload?: { prefix?: string },
+        payload?: { prefix?: string; includeFolderMarkers?: boolean },
       ) => {
         const prefix = payload?.prefix ?? "";
         if (prefix === "docs/") {
           return Promise.resolve({
             prefix: "docs/",
             objects: [
+              ...(payload?.includeFolderMarkers ? [{ key: "docs/", size: 0, etag: '"empty"' }] : []),
               {
                 key: "docs/readme.txt",
                 size: 42,
@@ -821,14 +835,15 @@ describe("BrowserPage interactions", () => {
       key: "a.txt",
       size: 10,
       metadata: {},
-      content_type: "text/plain",
+      etag: '"stable-etag"',
+    content_type: "text/plain",
     });
     getObjectTagsMock.mockResolvedValue({
       key: "a.txt",
       tags: [],
       version_id: null,
     });
-    copyObjectMock.mockResolvedValue(undefined);
+    copyObjectMock.mockResolvedValue({ copied: true, deleted: false });
     deleteObjectsMock.mockResolvedValue(1);
     updateObjectMetadataMock.mockResolvedValue(undefined);
     updateObjectTagsMock.mockResolvedValue(undefined);
@@ -899,7 +914,8 @@ describe("BrowserPage interactions", () => {
       name: "a.txt",
       size: 10,
       last_modified: "2026-03-10T10:00:00Z",
-      content_type: "text/plain",
+      etag: '"stable-etag"',
+    content_type: "text/plain",
       storage_class: "STANDARD",
       encryption: null,
       preview_type: "text",
@@ -1012,11 +1028,12 @@ describe("BrowserPage interactions", () => {
   });
 
   it("shows header config menu only on /browser", async () => {
+    const user = userEvent.setup();
     const browserView = renderPage({ initialEntry: "/browser" });
     await findRowByLabel("a.txt");
     const mainMenu = openHeaderConfigMenu();
     expect(
-      within(mainMenu).getByRole("menuitemradio", {
+      within(await openDisplaySubmenu(user, mainMenu)).getByRole("menuitemradio", {
         name: "Compact",
       }),
     ).toHaveAttribute("aria-checked", "true");
@@ -1047,7 +1064,7 @@ describe("BrowserPage interactions", () => {
     const mainMenu = openHeaderConfigMenu();
     expect(within(mainMenu).queryByText("Reset columns")).not.toBeInTheDocument();
     expect(
-      within(mainMenu).getByRole("menuitemradio", {
+      within(await openDisplaySubmenu(user, mainMenu)).getByRole("menuitemradio", {
         name: "Compact",
       }),
     ).toHaveAttribute("aria-checked", "true");
@@ -1057,7 +1074,7 @@ describe("BrowserPage interactions", () => {
       within(moreMenu).queryByRole("menuitem", { name: "Path details" }),
     ).not.toBeInTheDocument();
     await user.click(
-      within(moreMenu).getByRole("menuitemradio", {
+      within(await openDisplaySubmenu(user, moreMenu)).getByRole("menuitemradio", {
         name: "Comfortable",
       }),
     );
@@ -1066,7 +1083,7 @@ describe("BrowserPage interactions", () => {
     expect(
       screen.queryByRole("group", { name: "Details view" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Search options" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search options" })).toBeInTheDocument();
     expect(screen.queryByText("Versions", { exact: true })).not.toBeInTheDocument();
     await user.click(
       within(await findRowByLabel("docs")).getByRole("button", {
@@ -1149,7 +1166,7 @@ describe("BrowserPage interactions", () => {
       { workspaceSurface: "portal" },
     );
 
-    expect(screen.queryByRole("button", { name: "Search options" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search options" })).toBeInTheDocument();
     expect(within(rowA).queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
     expect(within(rowA).getByRole("button", { name: "Open file a.txt" })).toBeInTheDocument();
     expect(
@@ -1486,7 +1503,7 @@ describe("BrowserPage interactions", () => {
     ).not.toHaveClass("min-h-11");
     const headerConfigMenu = openHeaderConfigMenu();
     expect(
-      within(headerConfigMenu).getByRole("menuitemradio", {
+      within(await openDisplaySubmenu(user, headerConfigMenu)).getByRole("menuitemradio", {
         name: "Compact",
       }),
     ).toHaveAttribute("aria-checked", "true");
@@ -1494,7 +1511,7 @@ describe("BrowserPage interactions", () => {
     fireEvent.keyDown(document.body, { key: "Escape" });
     const moreMenu = await openContextMoreMenu(user);
     expect(
-      within(moreMenu).getByRole("menuitemradio", {
+      within(await openDisplaySubmenu(user, moreMenu)).getByRole("menuitemradio", {
         name: "Compact",
       }),
     ).toHaveAttribute("aria-checked", "true");
@@ -1520,7 +1537,7 @@ describe("BrowserPage interactions", () => {
 
     await user.click(selector);
     expect(screen.getByPlaceholderText("Filter storage spaces")).toBeInTheDocument();
-    expect(screen.getAllByText("Storage Spaces", { exact: true })).toHaveLength(2);
+    expect(screen.getAllByText("Storage Spaces", { exact: true })).toHaveLength(3); // Includes the sidebar tab.
     expect(screen.getByText("1 of 1 storage space")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Filter buckets")).not.toBeInTheDocument();
     expect(screen.queryByText("Buckets", { exact: true })).not.toBeInTheDocument();
@@ -2045,7 +2062,8 @@ describe("BrowserPage interactions", () => {
               items: [
                 {
                   key: "a.txt",
-                  content_type: "text/plain",
+                  etag: '"stable-etag"',
+    content_type: "text/plain",
                   tags_count: null,
                   metadata_count: 2,
                   cache_control: null,
@@ -2067,7 +2085,8 @@ describe("BrowserPage interactions", () => {
                 },
                 {
                   key: "c.txt",
-                  content_type: "text/plain",
+                  etag: '"stable-etag"',
+    content_type: "text/plain",
                   tags_count: null,
                   metadata_count: 2,
                   cache_control: null,
@@ -2254,7 +2273,7 @@ describe("BrowserPage interactions", () => {
 
     let menu = openHeaderConfigMenu();
     await user.click(
-      within(menu).getByRole("menuitemradio", {
+      within(await openDisplaySubmenu(user, menu)).getByRole("menuitemradio", {
         name: "Comfortable",
       }),
     );
@@ -2268,7 +2287,7 @@ describe("BrowserPage interactions", () => {
 
     menu = openHeaderConfigMenu();
     await user.click(
-      within(menu).getByRole("menuitemradio", { name: "Compact" }),
+      within(await openDisplaySubmenu(user, menu)).getByRole("menuitemradio", { name: "Compact" }),
     );
     rowA = await findRowByLabel("a.txt");
     expect(rowA).toHaveClass("h-9");
@@ -2353,7 +2372,7 @@ describe("BrowserPage interactions", () => {
       within(menu).queryByRole("menuitem", { name: "Operations overview" }),
     ).not.toBeInTheDocument();
     expect(
-      within(menu).getByRole("menuitemradio", { name: "Compact" }),
+      within(await openDisplaySubmenu(user, menu)).getByRole("menuitemradio", { name: "Compact" }),
     ).toHaveAttribute("aria-checked", "true");
     expect(within(menu).getByText("Transfers")).toBeInTheDocument();
     expect(within(menu).getByText("Current path")).toBeInTheDocument();
@@ -2369,7 +2388,7 @@ describe("BrowserPage interactions", () => {
     ).toBeInTheDocument();
     expect(
       within(menu).getByRole("menuitem", { name: "Paste" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
     expect(
       within(menu).getByRole("menuitem", { name: "Copy path" }),
     ).toBeInTheDocument();
@@ -2377,7 +2396,7 @@ describe("BrowserPage interactions", () => {
       within(menu).getByRole("menuitem", { name: "Bucket details" }),
     ).toBeInTheDocument();
     expect(
-      within(menu).getByRole("menuitemcheckbox", { name: "Folders panel" }),
+      within(await openDisplaySubmenu(user, menu)).getByRole("menuitemcheckbox", { name: "Folders panel" }),
     ).toHaveAttribute("aria-checked", "false");
   });
 
@@ -2621,6 +2640,7 @@ describe("BrowserPage interactions", () => {
         {
           key: "portal-direct.txt",
           operation: "put_object",
+          write_guard: { exists: false, etag: null },
           content_type: "text/plain",
           expires_in: 1800,
         },
@@ -2689,7 +2709,7 @@ describe("BrowserPage interactions", () => {
     const menu = await openContextMoreMenu(user);
     expect(
       within(menu).getByRole("menuitem", { name: "Bucket details" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
   });
 
   it("keeps Bucket settings available in embedded Advanced browsers", async () => {
@@ -2719,46 +2739,12 @@ describe("BrowserPage interactions", () => {
     expect(
       await screen.findByRole("combobox", { name: "Search scope" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "Object type filter" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "Storage class filter" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("checkbox", {
-        name: "Search recursively in subfolders",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("checkbox", { name: "Use exact match" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("checkbox", { name: "Case-sensitive search" }),
-    ).toBeInTheDocument();
-
-    await user.type(
-      screen.getByRole("textbox", { name: "Search objects" }),
-      "a",
-    );
-    const recursiveSearch = screen.getByRole("checkbox", {
-      name: "Search recursively in subfolders",
-    });
-    await user.click(recursiveSearch);
-    expect(recursiveSearch).toBeChecked();
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Search scope" }),
-      "bucket",
-    );
-    expect(recursiveSearch).not.toBeChecked();
-    expect(recursiveSearch).toBeDisabled();
-
-    await user.click(screen.getByRole("button", { name: "Close" }));
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("combobox", { name: "Search scope" }),
-      ).not.toBeInTheDocument();
-    });
+    await user.click(screen.getByText("Matching options"));
+    expect(screen.getByRole("combobox", { name: "Object type filter" })).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Search scope" }), "recursive");
+    await user.type(screen.getByRole("textbox", { name: "Extensions, separated by commas" }), "csv");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(listBrowserObjectsMock).toHaveBeenCalledWith("acc-1", "bucket-1", expect.objectContaining({ recursive: true, extensions: "csv" })));
 
     const optionsButton = screen.getByRole("button", {
       name: "Search options",
@@ -2824,7 +2810,7 @@ describe("BrowserPage interactions", () => {
     const firstRender = renderPage();
     await findRowByLabel("a.txt");
     const menu = await openContextMoreMenu(user);
-    await user.click(within(menu).getByRole("menuitemcheckbox", { name: "Folders panel" }));
+    await user.click(within(await openDisplaySubmenu(user, menu)).getByRole("menuitemcheckbox", { name: "Folders panel" }));
     expect(screen.getByRole("region", { name: "Current bucket" })).toBeInTheDocument();
     firstRender.unmount();
     renderPage();
@@ -3069,7 +3055,7 @@ describe("BrowserPage interactions", () => {
       expect(within(toolbar).getByRole("button", { name: "Download" })).toBeEnabled();
 
       await user.click(moreButton);
-      const sheet = await screen.findByRole("dialog", { name: "a.txt" });
+      const sheet = await screen.findByRole("dialog", { name: "Selection" });
       expect(within(sheet).getByRole("button", { name: "Close actions" })).toHaveFocus();
       expect(within(sheet).getByRole("button", { name: "Delete" })).toBeInTheDocument();
 
@@ -4105,7 +4091,7 @@ describe("BrowserPage interactions", () => {
     ).toBeInTheDocument();
     expect(
       within(menu).getByRole("menuitem", { name: "Paste" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
     expect(
       within(menu).queryByRole("menuitemcheckbox", { name: /Folders panel/i }),
     ).not.toBeInTheDocument();
@@ -4187,7 +4173,7 @@ describe("BrowserPage interactions", () => {
       (
         _accountId: string,
         _bucketName: string,
-        payload?: { prefix?: string },
+        payload?: { prefix?: string; includeFolderMarkers?: boolean },
       ) => {
         const nextPrefix = payload?.prefix ?? "";
         if (nextPrefix === "docs/") {
@@ -4523,7 +4509,8 @@ describe("BrowserPage interactions", () => {
       key: "a.txt",
       size: 10,
       metadata: {},
-      content_type: "text/plain",
+      etag: '"stable-etag"',
+    content_type: "text/plain",
       storage_class: "GLACIER",
       version_id: "version-2",
     });
@@ -4804,6 +4791,7 @@ describe("BrowserPage interactions", () => {
           source_key: "a.txt",
           destination_key: "docs/a.txt",
           move: false,
+          write_guard: { exists: false, etag: null },
         },
         expect.any(AbortSignal),
         undefined,
@@ -4875,7 +4863,7 @@ describe("BrowserPage interactions", () => {
       (
         accountId: string,
         _bucketName: string,
-        payload?: { prefix?: string },
+        payload?: { prefix?: string; includeFolderMarkers?: boolean },
       ) => {
         const prefix = payload?.prefix ?? "";
         if (prefix === "docs/") {
@@ -5245,6 +5233,7 @@ describe("BrowserPage interactions", () => {
         {
           key: "small-direct.txt",
           operation: "put_object",
+          write_guard: { exists: false, etag: null },
           content_type: "text/plain",
           expires_in: 1800,
         },
@@ -5375,7 +5364,8 @@ describe("BrowserPage interactions", () => {
           key,
           size: 10,
           metadata: {},
-          content_type: "text/plain",
+          etag: '"stable-etag"',
+    content_type: "text/plain",
         };
       },
     );
@@ -5410,7 +5400,7 @@ describe("BrowserPage interactions", () => {
       expect(deleteObjectsMock).toHaveBeenCalledWith(
         "acc-1",
         "bucket-1",
-        [{ key: "a.txt" }],
+        [{ key: "a.txt", if_match: '"stable-etag"' }],
         undefined,
         undefined,
       );
@@ -5432,7 +5422,8 @@ describe("BrowserPage interactions", () => {
         key,
         size: selector === "acc-1" ? 10 : 11,
         metadata: {},
-        content_type: "text/plain",
+        etag: '"stable-etag"',
+    content_type: "text/plain",
       }),
     );
 
@@ -5454,7 +5445,7 @@ describe("BrowserPage interactions", () => {
     ).toBeEnabled();
   });
 
-  it("lists folder contents from the source context and recreates the destination folder", async () => {
+  it("copies folder markers and contents from the source context", async () => {
     const user = userEvent.setup();
     const view = renderPage({ accountIdForApi: "acc-1" });
 
@@ -5463,7 +5454,8 @@ describe("BrowserPage interactions", () => {
         key,
         size: 42,
         metadata: {},
-        content_type: "text/plain",
+        etag: '"stable-etag"',
+    content_type: "text/plain",
       }),
     );
 
@@ -5475,11 +5467,8 @@ describe("BrowserPage interactions", () => {
     await pasteFromCurrentPath(user);
 
     await waitFor(() => {
-      expect(createFolderMock).toHaveBeenCalledWith(
-        "acc-2",
-        "bucket-1",
-        "docs/",
-      );
+      expect(createFolderMock).not.toHaveBeenCalled();
+      expect(presignObjectMock).toHaveBeenCalledWith("acc-2", "bucket-1", expect.objectContaining({ key: "docs/", operation: "put_object", write_guard: { exists: false, etag: null } }), null, undefined);
       expect(listBrowserObjectsMock).toHaveBeenCalledWith(
         "acc-1",
         "bucket-1",
@@ -5525,12 +5514,7 @@ describe("BrowserPage interactions", () => {
 
     await waitFor(() => {
       expect(proxyDownloadMock).toHaveBeenCalledWith(
-        "acc-1",
-        "bucket-1",
-        "a.txt",
-        expect.any(AbortSignal),
-        null,
-        undefined,
+        "acc-1", "bucket-1", "a.txt", expect.any(AbortSignal), null, undefined, undefined, '"stable-etag"',
       );
       expect(proxyUploadMock).toHaveBeenCalledWith(
         "acc-2",
@@ -5542,6 +5526,7 @@ describe("BrowserPage interactions", () => {
         null,
         "a.txt",
         undefined,
+        { exists: false, etag: null },
       );
     });
     expect(copyObjectMock).not.toHaveBeenCalled();

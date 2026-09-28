@@ -118,6 +118,7 @@ class BrowserContextMixin:
         item_type: str,
         storage_class: Optional[str],
         recursive: bool,
+        include_folder_markers: bool = False,
         file_filters: BrowserFileFilters | None = None,
     ) -> tuple:
         return (
@@ -132,6 +133,7 @@ class BrowserContextMixin:
             item_type,
             storage_class or "",
             bool(recursive),
+            bool(include_folder_markers),
             file_filters.signature if file_filters else (),
         )
 
@@ -149,6 +151,7 @@ class BrowserContextMixin:
         recursive: bool,
         sort_by: BrowserObjectSortBy,
         sort_dir: BrowserObjectSortDir,
+        include_folder_markers: bool = False,
         file_filters: BrowserFileFilters | None = None,
     ) -> tuple:
         return (
@@ -161,6 +164,7 @@ class BrowserContextMixin:
             item_type,
             storage_class or "",
             bool(recursive),
+            bool(include_folder_markers),
             file_filters.signature if file_filters else (),
             sort_by,
             sort_dir,

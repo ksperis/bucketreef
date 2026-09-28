@@ -1,3 +1,4 @@
+import { useBrowserText } from "./browserMessages";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "../../components/Modal";
 import { ListActionButton } from "../../components/list/ListControls";
@@ -21,6 +22,7 @@ export function numberedBrowserKey(key: string, number: number) {
 }
 
 export function useBrowserWriteConflicts(account: S3AccountSelector, bucket: string, options: BrowserRequestOptions | undefined, sseKey: string | null, versioning: boolean) {
+  const tr = useBrowserText();
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const pending = useRef<Dialog | null>(null);
@@ -82,19 +84,19 @@ export function useBrowserWriteConflicts(account: S3AccountSelector, bucket: str
     serial.current = result.catch(() => undefined);
     return result;
   }, [account, bucket, options, sseKey]);
-  const conflictDialog = dialog && <Modal title="Resolve destination conflicts" onClose={() => dialog.finish(null)}>
-    <p className="mb-3 ui-caption">{versioning ? "Replacing an object creates a new current version." : "Replacing may permanently overwrite the current object; versioning is not confirmed."}</p>
-    <p className="mb-3 ui-caption">{dialog.protection === "conditional" ? "Writes will check that the destination has not changed." : "This provider uses a preflight check. Concurrent changes cannot be excluded atomically."}</p>
-    <div className="mb-3 flex flex-wrap gap-2">{(["replace", "skip", "keep"] as Choice[]).map((choice) => <ListActionButton key={choice} onClick={() => setChoices(Object.fromEntries(dialog.conflicts.filter((conflict) => choice !== "replace" || !conflict.duplicate).map((conflict) => [conflict.target.id, choice])))}>{choice === "replace" ? "Replace all" : choice === "skip" ? "Skip all" : "Keep both for all"}</ListActionButton>)}</div>
-    <div className="max-h-96 overflow-auto"><table className="ui-data-table"><thead><tr><th>Destination</th><th>Incoming</th><th>Existing</th><th>Decision</th></tr></thead><tbody>{dialog.conflicts.map(({ target, destination, duplicate }) => <tr key={target.id}>
-      <td className="break-all">{target.key}{duplicate && <p>Duplicate target in this batch</p>}</td>
-      <td>{target.size == null ? "Unknown size" : formatBytes(target.size)}<p>{target.modified || ""}</p></td>
-      <td>{destination.size == null ? "Unknown size" : formatBytes(destination.size)}<p>{destination.modified || ""}</p></td>
+  const conflictDialog = dialog && <Modal title={tr("Resolve destination conflicts")} onClose={() => dialog.finish(null)}>
+    <p className="mb-3 ui-caption">{versioning ? tr("Replacing an object creates a new current version.") : tr("Replacing may permanently overwrite the current object; versioning is not confirmed.")}</p>
+    <p className="mb-3 ui-caption">{dialog.protection === "conditional" ? tr("Writes will check that the destination has not changed.") : tr("This provider uses a preflight check. Concurrent changes cannot be excluded atomically.")}</p>
+    <div className="mb-3 flex flex-wrap gap-2">{(["replace", "skip", "keep"] as Choice[]).map((choice) => <ListActionButton key={choice} onClick={() => setChoices(Object.fromEntries(dialog.conflicts.filter((conflict) => choice !== "replace" || !conflict.duplicate).map((conflict) => [conflict.target.id, choice])))}>{choice === "replace" ? tr("Replace all") : choice === "skip" ? tr("Skip all") : tr("Keep both for all")}</ListActionButton>)}</div>
+    <div className="max-h-96 overflow-auto"><table className="ui-data-table"><thead><tr><th>{tr("Destination")}</th><th>{tr("Incoming")}</th><th>{tr("Existing")}</th><th>{tr("Decision")}</th></tr></thead><tbody>{dialog.conflicts.map(({ target, destination, duplicate }) => <tr key={target.id}>
+      <td className="break-all">{target.key}{duplicate && <p>{tr("Duplicate target in this batch")}</p>}</td>
+      <td>{target.size == null ? tr("Unknown size") : formatBytes(target.size)}<p>{target.modified || ""}</p></td>
+      <td>{destination.size == null ? tr("Unknown size") : formatBytes(destination.size)}<p>{destination.modified || ""}</p></td>
       <td><select className="ui-control" aria-label={`Decision for ${target.key}`} value={choices[target.id] || ""} onChange={(event) => setChoices((previous) => ({ ...previous, [target.id]: event.target.value as Choice }))}>
-        <option value="" disabled>Choose…</option><option value="replace" disabled={duplicate}>Replace</option><option value="skip">Skip</option><option value="keep">Keep both</option>
+        <option value="" disabled>{tr("Choose…")}</option><option value="replace" disabled={duplicate}>{tr("Replace")}</option><option value="skip">{tr("Skip")}</option><option value="keep">{tr("Keep both")}</option>
       </select></td>
     </tr>)}</tbody></table></div>
-    <div className="mt-3 flex justify-end gap-2"><ListActionButton onClick={() => dialog.finish(null)}>Cancel batch</ListActionButton><ListActionButton variant="primary" disabled={dialog.conflicts.some(({ target }) => !choices[target.id])} onClick={() => dialog.finish(choices)}>Apply decisions</ListActionButton></div>
+    <div className="mt-3 flex justify-end gap-2"><ListActionButton onClick={() => dialog.finish(null)}>{tr("Cancel batch")}</ListActionButton><ListActionButton variant="primary" disabled={dialog.conflicts.some(({ target }) => !choices[target.id])} onClick={() => dialog.finish(choices)}>{tr("Apply decisions")}</ListActionButton></div>
   </Modal>;
   return { prepare, conflictDialog };
 }

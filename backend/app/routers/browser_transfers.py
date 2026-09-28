@@ -111,6 +111,7 @@ def download_object(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
+    if_match: Optional[str] = None,
     account: S3ExecutionContext = Depends(get_account_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
@@ -126,6 +127,7 @@ def download_object(
             account,
             key,
             version_id=version_id,
+            **({"if_match": if_match} if if_match else {}),
             sse_customer=sse_customer,
         )
         return S3DownloadResponse(download)

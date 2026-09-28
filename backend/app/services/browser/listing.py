@@ -77,6 +77,7 @@ class BrowserListingMixin:
         item_type: Optional[str] = None,
         storage_class: Optional[str] = None,
         recursive: bool = False,
+        include_folder_markers: bool = False,
         file_filters: BrowserFileFilters | None = None,
     ) -> ListBrowserObjectsResponse:
         normalized_prefix = prefix or ""
@@ -99,7 +100,8 @@ class BrowserListingMixin:
             item_type=type_filter,
             storage_class=storage_filter,
             recursive=recursive,
-            file_filters=file_filters,
+            include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
         )
         cached = _OBJECT_LIST_CACHE.get(object_cache_key)
         if cached is not None:
@@ -124,6 +126,7 @@ class BrowserListingMixin:
                 item_type=type_filter,
                 storage_class=storage_filter,
                 recursive=recursive,
+                include_folder_markers=include_folder_markers,
                 file_filters=file_filters,
             ),
             matches_query=self._build_query_matcher(
@@ -161,6 +164,7 @@ class BrowserListingMixin:
         item_type: Optional[str] = None,
         storage_class: Optional[str] = None,
         recursive: bool = False,
+        include_folder_markers: bool = False,
         file_filters: BrowserFileFilters | None = None,
         sort_by: BrowserObjectSortBy,
         sort_dir: BrowserObjectSortDir,
@@ -182,7 +186,8 @@ class BrowserListingMixin:
             item_type=type_filter,
             storage_class=storage_filter,
             recursive=recursive,
-            file_filters=file_filters,
+            include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
             sort_by=sort_by,
             sort_dir=sort_dir,
         )
@@ -198,6 +203,7 @@ class BrowserListingMixin:
                 item_type=type_filter,
                 storage_class=storage_filter,
                 recursive=recursive,
+                include_folder_markers=include_folder_markers,
                 file_filters=file_filters,
                 sort_by=sort_by,
                 sort_dir=sort_dir,
@@ -227,6 +233,7 @@ class BrowserListingMixin:
         item_type: Optional[str] = None,
         storage_class: Optional[str] = None,
         recursive: bool = False,
+        include_folder_markers: bool = False,
         file_filters: BrowserFileFilters | None = None,
         sort_by: BrowserObjectSortBy = "name",
         sort_dir: BrowserObjectSortDir = "asc",
@@ -248,6 +255,7 @@ class BrowserListingMixin:
                 item_type=item_type,
                 storage_class=storage_class,
                 recursive=recursive,
+                include_folder_markers=include_folder_markers,
                 file_filters=file_filters,
             )
 
@@ -261,7 +269,8 @@ class BrowserListingMixin:
             item_type=item_type,
             storage_class=storage_class,
             recursive=recursive,
-            file_filters=file_filters,
+            include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
             sort_by=sort_by,
             sort_dir=sort_dir,
         )
@@ -281,6 +290,7 @@ class BrowserListingMixin:
                 ),
                 storage_class=(storage_class or "").strip() or None,
                 recursive=recursive,
+                include_folder_markers=include_folder_markers,
                 file_filters=file_filters,
                 sort_by=sort_by,
                 sort_dir=sort_dir,

@@ -26,6 +26,8 @@ import {
 type BrowserTransferMode = "direct" | "proxy";
 
 type BrowserTransferObjectRef = {
+  versionId?: string;
+  etag?: string;
   selector: S3AccountSelector;
   bucket: string;
   key: string;
@@ -55,11 +57,15 @@ const presignDownload = async (
     sseCustomerKeyBase64,
     options,
     directPresign,
+    versionId,
+    etag,
   }: BrowserTransferDownloadParams,
 ): Promise<PresignedUrl> => {
   const payload: PresignRequest = {
     key,
     operation: "get_object",
+    ...(versionId ? { version_id: versionId } : {}),
+    ...(etag ? { if_match: etag } : {}),
     expires_in: 900,
   };
   if (directPresign) {
@@ -94,6 +100,8 @@ export const downloadBrowserTransferBlob = async (
       signal,
       sseCustomerKeyBase64,
       options,
+      params.versionId,
+      params.etag,
     );
   }
   const signedDownload = await presignDownload(params);
@@ -117,7 +125,7 @@ export const downloadBrowserTransferStream = async (
     options,
   } = params;
   if (mode === "proxy") {
-    const query = withS3AccountParam({ key }, selector);
+    const query = withS3AccountParam({ key, version_id: params.versionId, if_match: params.etag }, selector);
     const url = buildApiUrl(
       `/browser/buckets/${encodeURIComponent(bucket)}/download`,
       query ?? undefined,

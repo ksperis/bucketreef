@@ -12,6 +12,7 @@ export type ClipboardCopyCheckpoint = { sourceEtag: string; destinationEtag: str
 type ClipboardTransferObjectRef = {
   writeGuard?: BrowserWriteGuard;
   etag?: string;
+  versionId?: string;
   selector: S3AccountSelector;
   bucket: string;
   key: string;
@@ -31,6 +32,7 @@ type ClipboardTransferUploadBlobRef = ClipboardTransferObjectRef & {
 };
 
 type ClipboardTransferUploadStreamRef = ClipboardTransferObjectRef & {
+  mode: ClipboardTransferMode;
   stream: ReadableStream<Uint8Array>;
   sizeBytes: number;
   contentType?: string | null;
@@ -91,7 +93,7 @@ export async function transferClipboardObjectBetweenContexts({
   );
 
   const shouldUseMultipart =
-    destinationMode === "direct" && sizeBytes >= multipartThresholdBytes;
+    sizeBytes >= multipartThresholdBytes;
 
   if (shouldUseMultipart) {
     const stream = await downloadStream({
@@ -101,6 +103,7 @@ export async function transferClipboardObjectBetweenContexts({
     });
     await uploadMultipartStream({
       ...destination,
+      mode: destinationMode,
       stream,
       sizeBytes,
       contentType,
@@ -126,7 +129,7 @@ export async function transferClipboardObjectBetweenContexts({
   }
 
   const verified = await verifyObject(destination);
-  if (verified.sizeBytes !== sizeBytes) {
+  if (verified.sizeBytes !== sizeBytes || !verified.etag) {
     throw new Error(
       `Copy verification failed for '${destination.key}' (size mismatch).`,
     );

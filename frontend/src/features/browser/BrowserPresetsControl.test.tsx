@@ -10,6 +10,13 @@ vi.mock("../../api/browserObjects", () => ({ listBrowserObjects: mocks.objects }
 const current: BrowserPresetInput = { name: "Saved", kind: "favorite", context: "101", bucket: "reports", prefix: "études//", surface: "browser", workspace: "browser", view: null };
 const saved: BrowserPreset = { ...current, id: "saved", revision: 1, created_at: "2026-09-28T00:00:00Z", updated_at: "2026-09-28T00:00:00Z" };
 describe("saved Browser locations", () => {
+  it("shows the bucket and execution context below each sidebar favorite", async () => {
+    mocks.list.mockResolvedValue([saved]);
+    render(<BrowserPresetsControl current={current} accountUser onApply={vi.fn()} variant="sidebar" contextLabels={{ "101": "Research" }} />);
+    expect(await screen.findByText("Saved")).toBeVisible();
+    expect(screen.getByTitle("reports / études// · Research")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Locations" })).toContainElement(screen.getByText("Saved"));
+  });
   beforeEach(() => { vi.clearAllMocks(); mocks.list.mockResolvedValue([saved]); mocks.buckets.mockResolvedValue({ items: [{ name: "reports" }] }); mocks.objects.mockResolvedValue({ objects: [], prefixes: [] }); });
   it("rechecks the exact saved identity before applying a location", async () => {
     const apply = vi.fn(); render(<BrowserPresetsControl current={current} accountUser onApply={apply} />);

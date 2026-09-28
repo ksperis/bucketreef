@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-export type VersionDiffLine = { kind: "equal" | "added" | "removed"; text: string };
+type VersionDiffLine = { kind: "equal" | "added" | "removed"; text: string };
 
 // Bounded LCS: retain common edges, and use a changed block for a large middle.
 // A coarse block is still lossless: replaying removals/additions reconstructs either source.

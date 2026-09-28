@@ -10,7 +10,7 @@ import { formatBytes } from "../../utils/format";
 import ObjectPreview, { OBJECT_PREVIEW_MAX_BYTES, OBJECT_PREVIEW_TEXT_MAX_BYTES, objectPreviewKind } from "./ObjectPreview";
 import { objectVersionDiff } from "./objectVersionDiff";
 
-export type InspectableObjectVersion = { version_id?: string | null; size?: number | null; last_modified?: string | null; is_delete_marker?: boolean };
+type InspectableObjectVersion = { version_id?: string | null; size?: number | null; last_modified?: string | null; is_delete_marker?: boolean };
 type Props = { name: string; versions: InspectableObjectVersion[]; loadVersion: (versionId: string, signal: AbortSignal) => Promise<Blob> };
 
 function VersionContent({ name, selected, loadVersion }: { name: string; selected: InspectableObjectVersion[]; loadVersion: Props["loadVersion"] }) {

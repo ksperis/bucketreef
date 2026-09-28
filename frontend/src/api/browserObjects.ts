@@ -45,6 +45,7 @@ export async function listBrowserObjects(
       item_type: options?.type && options.type !== "all" ? options.type : undefined,
       storage_class: options?.storageClass && options.storageClass !== "all" ? options.storageClass : undefined,
       recursive: options?.recursive ? true : undefined,
+      include_folder_markers: options?.includeFolderMarkers ? true : undefined,
       min_size: options?.minSize,
       max_size: options?.maxSize,
       modified_after: options?.modifiedAfter,
@@ -312,7 +313,7 @@ export async function restoreObject(
   );
 }
 
-export type BrowserCopyResult = { copied?: boolean; source_deleted?: boolean; reason?: string; source_etag?: string; destination_etag?: string; checkpoint?: import("./browserContracts").CopiedObjectCheckpoint };
+type BrowserCopyResult = { copied?: boolean; source_deleted?: boolean; reason?: string; source_etag?: string; destination_etag?: string; checkpoint?: import("./browserContracts").CopiedObjectCheckpoint };
 
 export async function copyObject(
   accountId: S3AccountSelector,

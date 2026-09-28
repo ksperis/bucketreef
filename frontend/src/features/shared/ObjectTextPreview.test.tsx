@@ -9,6 +9,7 @@ describe("bounded structured previews", () => {
       ["name", "value"], ["é, test", "two\nlines"], ['a"b', "3"],
     ]);
     expect(parsePreviewCsv("a;b\n1;2")).toEqual([["a", "b"], ["1", "2"]]);
+    expect(parsePreviewCsv('"a,b,c,d";value\n"é, f";42')).toEqual([["a,b,c,d", "value"], ["é, f", "42"]]);
     expect(() => parsePreviewCsv('a,b\n"unterminated')).toThrow();
     expect(() => parsePreviewCsv('a,b\n1,2,3')).toThrow();
     expect(() => parsePreviewCsv('a,b\n"a"x,2')).toThrow();

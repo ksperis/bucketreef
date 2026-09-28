@@ -31,6 +31,7 @@ export type PresignRequest = {
   content_type?: string | null;
   response_content_disposition?: string | null;
   version_id?: string | null;
+  if_match?: string;
 };
 
 export type PresignedUrl = {
@@ -118,11 +119,12 @@ export async function proxyDownload(
   sseCustomerKeyBase64?: string | null,
   options?: BrowserRequestOptions,
   versionId?: string | null,
+  ifMatch?: string,
 ): Promise<Blob> {
   const { data } = await client.get(
     `/browser/buckets/${encodeURIComponent(bucketName)}/download`,
     {
-      params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId),
+      params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}), ...(ifMatch ? { if_match: ifMatch } : {}) }, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),

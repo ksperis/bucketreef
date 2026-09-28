@@ -59,7 +59,7 @@ export default function ObjectTextPreview({ name, contentType, content, truncate
     {structure?.kind === "fallback" ? <p className="ui-caption">{t({ en: "Raw text: invalid, truncated or too complex for a structured preview.", fr: "Texte brut : contenu invalide, tronqué ou trop complexe pour un aperçu structuré.", de: "Rohtext: ungültiger, gekürzter oder zu komplexer Inhalt.", zh: "原始文本：内容无效、已截断或过于复杂。" })}</p> : null}
     <div className={`${heightClassName} overflow-auto rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] p-3 ui-caption`}>
       {raw || query || !structured ? <pre className="whitespace-pre-wrap break-words">{query ? highlighted() : content}</pre>
-        : structure.kind === "csv" ? <table className="w-full text-left"><thead><tr>{structure.rows[0].map((cell, index) => <th className="border-b p-2" scope="col" key={index}>{cell}</th>)}</tr></thead><tbody>{structure.rows.slice(1).map((row, index) => <tr key={index}>{row.map((cell, column) => <td className="border-b p-2 whitespace-pre-wrap" key={column}>{cell}</td>)}</tr>)}</tbody></table>
+        : structure.kind === "csv" ? <table className="ui-data-table w-full text-left"><thead><tr>{structure.rows[0].map((cell, index) => <th className="border-b p-2" scope="col" key={index}>{cell}</th>)}</tr></thead><tbody>{structure.rows.slice(1).map((row, index) => <tr key={index}>{row.map((cell, column) => <td className="border-b p-2 whitespace-pre-wrap" key={column}>{cell}</td>)}</tr>)}</tbody></table>
           : <div className="font-mono"><JsonNode value={structure.value} /></div>}
     </div>
   </div>;

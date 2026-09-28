@@ -23,6 +23,21 @@ def _account() -> S3Account:
     return account
 
 
+@pytest.mark.parametrize("sort_by", ["name", "size"])
+def test_recursive_operation_manifests_include_empty_folder_markers_without_polluting_normal_lists(monkeypatch, sort_by):
+    class Client:
+        def list_objects_v2(self, **kwargs):
+            return {"Contents": [{"Key": key, "Size": size, "ETag": '"etag"'} for key, size in
+                                  [("docs/", 0), ("docs/empty/", 0), ("docs/readme.txt", 12)]], "IsTruncated": False}
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _: Client())
+    account = _account()
+    normal = service.list_objects("bucket", account, prefix="docs/", recursive=True, item_type="file", sort_by=sort_by)
+    manifest = service.list_objects("bucket", account, prefix="docs/", recursive=True, item_type="file", sort_by=sort_by, include_folder_markers=True)
+    assert [item.key for item in normal.objects] == ["docs/readme.txt"]
+    assert {item.key for item in manifest.objects} == {"docs/", "docs/empty/", "docs/readme.txt"}
+
+
 @pytest.fixture(autouse=True)
 def _clear_browser_caches():
     browser_shared._OBJECT_LIST_CACHE.invalidate_where(lambda _key: True)
