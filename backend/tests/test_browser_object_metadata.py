@@ -116,9 +116,6 @@ def test_copy_object_preserves_literal_tag_pairs(monkeypatch):
     calls: list[tuple[str, dict[str, object]]] = []
 
     class FakeClient:
-        def head_object(self, **kwargs):
-            return {"ETag": '"source-etag"', "ContentLength": 10}
-
         def copy_object(self, **kwargs):  # noqa: ANN001
             calls.append(("copy", kwargs))
             return {"VersionId": "v2"}
@@ -149,7 +146,6 @@ def test_copy_object_preserves_literal_tag_pairs(monkeypatch):
             "Bucket": "bucket-a",
             "Key": "destination.txt",
             "CopySource": {"Bucket": "bucket-a", "Key": "source.txt"},
-            "CopySourceIfMatch": '"source-etag"',
             "TaggingDirective": "REPLACE",
             "Tagging": "+tag+=+value+&+=literal-space-key",
         },

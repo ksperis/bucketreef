@@ -313,21 +313,18 @@ export async function restoreObject(
   );
 }
 
-type BrowserCopyResult = { copied?: boolean; source_deleted?: boolean; reason?: string; source_etag?: string; destination_etag?: string };
-
 export async function copyObject(
   accountId: S3AccountSelector,
   bucketName: string,
   payload: CopyObjectPayload,
   signal?: AbortSignal,
   options?: BrowserRequestOptions,
-): Promise<BrowserCopyResult> {
-  const { data } = await client.post<BrowserCopyResult>(`/browser/buckets/${encodeURIComponent(bucketName)}/copy`, payload, {
+): Promise<void> {
+  await client.post(`/browser/buckets/${encodeURIComponent(bucketName)}/copy`, payload, {
     params: withS3AccountParam(undefined, accountId),
     headers: buildBrowserWorkspaceHeaders(options),
     signal,
   });
-  return data;
 }
 
 export async function deleteObjects(

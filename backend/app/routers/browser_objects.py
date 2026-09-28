@@ -11,7 +11,6 @@ from app.models.browser import (
     CleanupObjectVersionsPayload,
     CleanupObjectVersionsResponse,
     CopyObjectPayload,
-    BrowserWritePreflightRequest,
     CreateFolderPayload,
     DeleteObjectsPayload,
     ListObjectVersionsResponse,
@@ -35,25 +34,6 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_bad_gateway_from_runtime
 
 router = APIRouter()
-
-@router.post("/buckets/{bucket_name}/write-preflight")
-def write_preflight(
-    bucket_name: str,
-    payload: BrowserWritePreflightRequest,
-    account: S3ExecutionContext = Depends(get_account_context),
-    service: BrowserService = Depends(get_browser_service),
-    sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
-    _: ManagerActor = Depends(get_current_account_admin),
-) -> dict:
-    if any(not key or len(key.encode("utf-8")) > 1024 for key in payload.keys):
-        raise HTTPException(status_code=422, detail="Invalid object key")
-    if sse_customer:
-        require_sse_feature(account)
-    try:
-        return service.inspect_write_destinations(bucket_name, account, payload.keys, sse_customer)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
-
 
 
 @router.get("/buckets/{bucket_name}/versions", response_model=ListObjectVersionsResponse)
@@ -287,8 +267,8 @@ def copy_object(
             detail="Missing source or destination key",
         )
     try:
-        result = service.copy_object(bucket_name, account, payload)
-        return {"message": "ok", **(result or {})}
+        service.copy_object(bucket_name, account, payload)
+        return {"message": "ok"}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

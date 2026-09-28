@@ -3,8 +3,6 @@ import { cloneElement } from "react";
 import type { BrowserFavorite } from "../../api/browserFavorites";
 import BrowserFavoritesControl from "./BrowserFavoritesControl";
 import BrowserSearchControls from "./BrowserSearchControls";
-import BrowserDestinationDialog, { type BrowserDestinationRequest } from "./BrowserDestinationDialog";
-import { useBrowserWriteConflicts } from "./useBrowserWriteConflicts";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -1378,10 +1376,7 @@ export default function BrowserPage({
     requestOptions: browserRequestOptions,
   });
 
-  const [destinationRequest, setDestinationRequest] = useState<BrowserDestinationRequest | null>(null);
-  const openDestination = (items: BrowserItem[], mode: BrowserDestinationRequest["mode"]) => setDestinationRequest({ items, mode });
 
-  const { prepare: prepareWrites, conflictDialog } = useBrowserWriteConflicts(accountIdForApi, bucketName, browserRequestOptions, sseCustomerKeyBase64, isVersioningEnabled);
 
   const {
     canPaste: canPasteInFunctionalProfile,
@@ -1389,9 +1384,7 @@ export default function BrowserPage({
     copy: handleCopyItems,
     cut: handleCutItems,
     paste: handlePasteItems,
-    transferTo,
   } = useBrowserClipboard({
-    prepareWrites,
     accountId: accountIdForApi,
     bucketName,
     cancelCopyDetails,
@@ -2028,7 +2021,6 @@ export default function BrowserPage({
     handleFolderInputChange,
     removeQueuedUpload,
   } = useBrowserUploadQueue({
-    prepareWrites,
     accountId: accountIdForApi,
     bucketName,
     cancelOperationController,
@@ -2368,9 +2360,6 @@ export default function BrowserPage({
       },
       copyUrl: () => handleCopyUrl(selectionPrimary),
       copy: () => handleCopyItems(selectionItems),
-      rename: () => openDestination(selectionItems, "rename"),
-      copyTo: () => openDestination(selectionItems, "copy"),
-      moveTo: () => openDestination(selectionItems, "move"),
       cut: () => handleCutItems(selectionItems),
       bulkAttributes: () => openBulkAttributesModal(selectionItems),
       advanced: () => {
@@ -2397,9 +2386,6 @@ export default function BrowserPage({
       restore: () => restoreDeletedItem(item),
       copyUrl: () => handleCopyUrl(item),
       copy: () => handleCopyItems([item]),
-      rename: () => openDestination([item], "rename"),
-      copyTo: () => openDestination([item], "copy"),
-      moveTo: () => openDestination([item], "move"),
       cut: () => handleCutItems([item]),
       bulkAttributes: () => openBulkAttributesModal([item]),
       restoreToDate: () => openBulkRestoreModal([item]),
@@ -2915,8 +2901,6 @@ export default function BrowserPage({
           summary={toolbarSelectionSummary}
         />
       )}
-      {destinationRequest && <BrowserDestinationDialog request={destinationRequest} accountId={accountIdForApi} sourceBucket={bucketName} initialPrefix={normalizedPrefix} options={browserRequestOptions} onClose={() => setDestinationRequest(null)} onSubmit={destination => { const request = destinationRequest; setDestinationRequest(null); void transferTo(request.items, destination, request.mode === "rename" ? "move" : request.mode).catch(error => setWarningMessage(error instanceof Error ? error.message : "Transfer failed.")); }} />}
-      {conflictDialog}
       <BrowserContextMenu
         contextMenu={contextMenu}
         contextMenuRef={contextMenuRef}
@@ -2952,7 +2936,6 @@ export default function BrowserPage({
           void handleCopyPath(path);
         }}
         onCopyItems={handleCopyItems}
-        onTransferItems={openDestination}
         onCutItems={handleCutItems}
         onOpenBulkAttributes={openBulkAttributesModal}
         onOpenBulkRestore={openBulkRestoreModal}

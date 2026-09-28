@@ -58,7 +58,7 @@ Select the execution context before choosing a bucket. The same bucket name may 
   cleanup, copy path, and Advanced path details.
 - The desktop selection bar exposes primary selection shortcuts only while a
   selection exists. Mobile uses a safe-area bottom bar and bottom sheet.
-- Selection actions include download, ZIP, rename, copy/move to a destination, open, copy URL, copy, cut, bulk attributes, advanced actions, restore, and delete when the current selection allows them.
+- Selection actions include download, ZIP, open, copy URL, copy, cut, bulk attributes, advanced actions, restore, and delete when the current selection allows them.
 - File entry points such as `Preview`, `Versions`, and advanced object actions converge into the same details drawer, each opening the most relevant tab first.
 - Long-running bulk actions surface in **Operations overview**, where queued, active, completed, and failed work stays visible without leaving Browser.
 - `More` remains available in embedded Manager, Ceph Admin, and Portal Browser
@@ -158,27 +158,11 @@ transfers; expand its secondary information for CORS diagnostics. This technical
 status does not grant storage access. Unavailable actions expose their reason
 in the action menus, including keyboard and touch access.
 
-## Destination conflicts
+## Uploads and clipboard writes
 
-Uploads and copies inspect destination keys before starting. Existing objects
-require an explicit Replace, Skip or Keep both decision, individually or for
-the batch. Keep both checks a numbered name before the extension. Duplicate
-keys within one batch must be skipped or assigned distinct names. A denied
-inspection never means the object is absent.
+Uploads and pasted objects use the provider's normal S3 write behavior. An existing key is replaced, or a new current version is created when versioning is enabled. There is no name-conflict prompt or automatic numbered destination.
 
-Destinations are rechecked when writing. AWS endpoints additionally use signed
-conditional writes; other providers use an explicitly non-atomic preflight.
-Changes detected after a decision stop the affected operation; retry it after
-reviewing the new destination. Conditions are never silently removed after a
-provider rejection. Replacement may overwrite data when versioning is disabled.
-
-### Rename, copy and move
-
-The selection menu and item menu provide **Rename**, **Copy to…** and **Move to…** for current files and folders. Choose a destination in the current storage context and review the source → destination summary. In Portal, destinations are the project's accessible Storage Spaces; read-only destinations cannot receive objects. Cross-context clipboard transfers still require the Advanced profile.
-
-Overlapping selections are expanded once, including empty-folder marker objects. A folder cannot be copied or moved inside itself. Conflicts use the same explicit decisions as uploads. Renaming moves the current keys; historical versions remain at the original keys. Objects above the single S3 copy limit use multipart server-side copy. Cross-context reads use the selected version or an ETag condition to avoid silently copying a changed source.
-
-Before deleting a source, Browser checks its identity and verifies the copied result. Changed sources, failed verification and unsupported conditional deletion produce **Copied, not deleted**, retaining the source. A multipart ETag is checked against the copy result, not compared with the source's ETag. Provider support for conditional deletion must be qualified against the deployed RGW version; no unconditional delete fallback is used.
+Use **Copy** or **Cut**, navigate to the destination, and choose **Paste**. Cross-context transfers require the Advanced profile. A move removes the source only after the copy passes the existing verification; failed transfers remain visible in Operations. Folder and object names retain their exact S3 spelling.
 
 ### Search scopes and file filters
 

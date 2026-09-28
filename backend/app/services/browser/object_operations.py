@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 from urllib.parse import urlencode
 
+from fastapi import HTTPException
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.models.browser import (
@@ -21,8 +22,8 @@ from app.models.browser import (
     PresignedUrl,
     SseCustomerContext,
 )
-from .write_conflicts import check_destination, observe_destination, supports_conditional_writes
-from fastapi import HTTPException
+from app.services.s3_deletion import delete_objects
+from app.services.s3_execution_context import S3ExecutionTarget
 
 
 def require_multipart_write_access(account, bucket_name):
@@ -32,15 +33,8 @@ def require_multipart_write_access(account, bucket_name):
         if space is None or space.role == "Viewer":
             raise HTTPException(status_code=403, detail="Storage Space permissions do not allow this upload")
 
-from app.services.s3_deletion import delete_objects
-from app.services.s3_execution_context import S3ExecutionTarget
-
 
 class BrowserObjectOperationsMixin:
-    def inspect_write_destinations(self, bucket_name, account, keys, sse_customer=None):
-        client = self._client(account)
-        return {"objects": [observe_destination(client, bucket_name, key, self._sse_customer_params(sse_customer)) for key in dict.fromkeys(keys)], "protection": "conditional" if supports_conditional_writes(account) else "preflight"}
-
     def presign(
         self,
         bucket_name: str,
@@ -59,9 +53,6 @@ class BrowserObjectOperationsMixin:
             params["ResponseContentDisposition"] = payload.response_content_disposition
         try:
             if payload.operation == "get_object":
-                if payload.if_match:
-                    params["IfMatch"] = '"' + payload.if_match.strip('"') + '"'
-                    headers["If-Match"] = params["IfMatch"]
                 url = client.generate_presigned_url(
                     "get_object",
                     Params=params,
@@ -76,9 +67,6 @@ class BrowserObjectOperationsMixin:
                 )
                 return PresignedUrl(url=url, method="DELETE", expires_in=expires, headers=headers)
             if payload.operation == "put_object":
-                conditions = check_destination(client, account, bucket_name, payload.key, payload.write_guard, self._sse_customer_params(sse_customer))
-                params.update(conditions)
-                headers.update({"If-Match" if name == "IfMatch" else "If-None-Match": value for name, value in conditions.items()})
                 if payload.content_type:
                     headers["Content-Type"] = payload.content_type
                 url = client.generate_presigned_url(
@@ -96,9 +84,7 @@ class BrowserObjectOperationsMixin:
         bucket_name: str,
         account: S3ExecutionTarget,
         payload: CopyObjectPayload,
-    ) -> dict:
-        from .object_copy import copy_snapshot
-        from fastapi import HTTPException
+    ) -> None:
         source_bucket = payload.source_bucket or bucket_name
         spaces = getattr(account, "portal_storage_spaces", None)
         if spaces is not None:
@@ -110,17 +96,93 @@ class BrowserObjectOperationsMixin:
         if payload.move and source_bucket == bucket_name and payload.source_key == payload.destination_key:
             raise RuntimeError("Cannot move an object onto itself")
         client = self._client(account, request_profile="long_running")
-
-        try:
-            source_head = client.head_object(Bucket=source_bucket, Key=payload.source_key, **({"VersionId": payload.source_version_id} if payload.source_version_id else {}))
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to read source '{payload.source_key}': {exc}") from exc
-        affected = (bucket_name, source_bucket) if payload.move else (bucket_name,)
-        with self._object_mutation(account, *affected):
+        copy_source: dict[str, str] = {
+            "Bucket": source_bucket,
+            "Key": payload.source_key,
+        }
+        if payload.source_version_id:
+            copy_source["VersionId"] = payload.source_version_id
+        kwargs = {
+            "Bucket": bucket_name,
+            "Key": payload.destination_key,
+            "CopySource": copy_source,
+        }
+        if payload.replace_metadata:
+            source_head_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
+            if payload.source_version_id:
+                source_head_kwargs["VersionId"] = payload.source_version_id
             try:
-                return copy_snapshot(client, account, bucket_name, payload, source_head)
+                source_head = client.head_object(**source_head_kwargs)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to copy object '{payload.source_key}': {exc}") from exc
+                raise RuntimeError(
+                    f"Unable to fetch metadata for '{payload.source_key}' before copy: {exc}"
+                ) from exc
+            kwargs["MetadataDirective"] = "REPLACE"
+            kwargs["Metadata"] = payload.metadata or {}
+            for source_field, target_field in (
+                ("ContentType", "ContentType"),
+                ("CacheControl", "CacheControl"),
+                ("ContentDisposition", "ContentDisposition"),
+                ("ContentEncoding", "ContentEncoding"),
+                ("ContentLanguage", "ContentLanguage"),
+                ("Expires", "Expires"),
+                ("StorageClass", "StorageClass"),
+            ):
+                value = source_head.get(source_field)
+                if value is not None:
+                    kwargs[target_field] = value
+        if payload.replace_tags:
+            tag_str = urlencode([(tag.key, tag.value) for tag in payload.tags])
+            kwargs["TaggingDirective"] = "REPLACE"
+            if tag_str:
+                kwargs["Tagging"] = tag_str
+        if payload.acl:
+            kwargs["ACL"] = payload.acl
+        affected_buckets = (bucket_name, source_bucket) if payload.move else (bucket_name,)
+        with self._object_mutation(account, *affected_buckets):
+            try:
+                resp = client.copy_object(**kwargs)
+                destination_version_id = resp.get("VersionId")
+                if payload.replace_tags:
+                    tagging_kwargs: dict[str, object] = {
+                        "Bucket": bucket_name,
+                        "Key": payload.destination_key,
+                    }
+                    if destination_version_id:
+                        tagging_kwargs["VersionId"] = destination_version_id
+                    tag_set = [
+                        {"Key": tag.key, "Value": tag.value}
+                        for tag in payload.tags
+                    ]
+                    if tag_set:
+                        client.put_object_tagging(**tagging_kwargs, Tagging={"TagSet": tag_set})
+                    else:
+                        client.delete_object_tagging(**tagging_kwargs)
+                if payload.move:
+                    source_head_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
+                    if payload.source_version_id:
+                        source_head_kwargs["VersionId"] = payload.source_version_id
+                    source_head = client.head_object(**source_head_kwargs)
+                    destination_head_kwargs = {"Bucket": bucket_name, "Key": payload.destination_key}
+                    if destination_version_id:
+                        destination_head_kwargs["VersionId"] = destination_version_id
+                    destination_head = client.head_object(**destination_head_kwargs)
+                    source_etag = self._clean_etag(source_head.get("ETag"))
+                    destination_etag = self._clean_etag(destination_head.get("ETag"))
+                    source_size = int(source_head.get("ContentLength") or 0)
+                    destination_size = int(destination_head.get("ContentLength") or 0)
+                    if source_size != destination_size:
+                        raise RuntimeError("Copy verification failed (size mismatch).")
+                    if not source_etag or not destination_etag:
+                        raise RuntimeError("Copy verification failed (missing ETag).")
+                    if source_etag != destination_etag:
+                        raise RuntimeError("Copy verification failed (ETag mismatch).")
+                    delete_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
+                    if payload.source_version_id:
+                        delete_kwargs["VersionId"] = payload.source_version_id
+                    client.delete_object(**delete_kwargs)
+            except (ClientError, BotoCoreError) as exc:
+                raise RuntimeError(f"Unable to copy object '{payload.source_key}' -> '{payload.destination_key}': {exc}") from exc
 
     def delete_objects(
         self,
@@ -143,14 +205,7 @@ class BrowserObjectOperationsMixin:
         client = self._client(account)
         with self._object_mutation(account, bucket_name):
             try:
-                conditional_keys = {obj.key for obj in payload.objects if obj.if_match}
-                for obj in payload.objects:
-                    if obj.if_match:
-                        # A move must not silently fall back to unconditional deletion.
-                        client.delete_object(Bucket=bucket_name, Key=obj.key, IfMatch='"' + obj.if_match.strip('"') + '"', **({"VersionId": obj.version_id} if obj.version_id else {}))
-                ordinary = [item for item in items if item["Key"] not in conditional_keys]
-                if ordinary:
-                    delete_objects(client, bucket_name, ordinary)
+                delete_objects(client, bucket_name, items)
             except (ClientError, BotoCoreError) as exc:
                 raise RuntimeError(f"Unable to delete objects in bucket '{bucket_name}': {exc}") from exc
         return len(items)
@@ -245,9 +300,9 @@ class BrowserObjectOperationsMixin:
         payload: PresignPartRequest,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> PresignPartResponse:
-        require_multipart_write_access(account, bucket_name)
         if not payload.upload_id:
             raise RuntimeError("Upload id is required to presign a part")
+        require_multipart_write_access(account, bucket_name)
         client = self._client(account)
         expires = payload.expires_in or 900
         params = {
@@ -275,11 +330,10 @@ class BrowserObjectOperationsMixin:
         key: str,
         upload_id: str,
         payload: CompleteMultipartUploadRequest,
-        sse_customer: Optional[SseCustomerContext] = None,
     ) -> None:
-        require_multipart_write_access(account, bucket_name)
         if not payload.parts:
             raise RuntimeError("No parts provided to complete multipart upload")
+        require_multipart_write_access(account, bucket_name)
         client = self._client(account, request_profile="long_running")
         sorted_parts = sorted(payload.parts, key=lambda part: part.part_number)
         completed = [{"ETag": part.etag, "PartNumber": part.part_number} for part in sorted_parts]
@@ -290,8 +344,6 @@ class BrowserObjectOperationsMixin:
                     Key=key,
                     UploadId=upload_id,
                     MultipartUpload={"Parts": completed},
-                    **check_destination(client, account, bucket_name, key, payload.write_guard, self._sse_customer_params(sse_customer)),
-                    **self._sse_customer_params(sse_customer),
                 )
             except (ClientError, BotoCoreError) as exc:
                 raise RuntimeError(f"Unable to complete multipart upload for '{key}': {exc}") from exc

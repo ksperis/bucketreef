@@ -213,18 +213,7 @@ class ObjectRestoreRequest(ApiModel):
     version_id: Optional[str] = None
 
 
-class BrowserWriteGuard(ApiModel):
-    exists: bool
-    etag: Optional[str] = Field(default=None, max_length=1024)
-
-
-class BrowserWritePreflightRequest(ApiModel):
-    keys: list[str] = Field(min_length=1, max_length=200)
-
-
 class PresignRequest(ApiModel):
-    if_match: Optional[str] = None
-    write_guard: Optional[BrowserWriteGuard] = None
     key: str
     operation: Literal["get_object", "put_object", "delete_object"]
     expires_in: int = Field(default=900, ge=60, le=43200)
@@ -294,12 +283,10 @@ class CompletedPart(ApiModel):
 
 
 class CompleteMultipartUploadRequest(ApiModel):
-    write_guard: Optional[BrowserWriteGuard] = None
     parts: list[CompletedPart]
 
 
 class CopyObjectPayload(ApiModel):
-    write_guard: Optional[BrowserWriteGuard] = None
     source_bucket: Optional[str] = None
     source_key: str
     destination_key: str
@@ -313,7 +300,6 @@ class CopyObjectPayload(ApiModel):
 
 
 class DeleteObjectEntry(ApiModel):
-    if_match: Optional[str] = Field(default=None, max_length=1024)
     key: str
     version_id: Optional[str] = None
 

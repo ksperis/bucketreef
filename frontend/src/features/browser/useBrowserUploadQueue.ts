@@ -1,4 +1,3 @@
-import type { PrepareBrowserWrites } from "./useBrowserWriteConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -28,7 +27,6 @@ import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry"
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
 type UseBrowserUploadQueueOptions = {
-  prepareWrites?: PrepareBrowserWrites;
   accountId: S3AccountSelector;
   bucketName: string;
   cancelOperationController: OperationRegistry["cancelOperationController"];
@@ -47,7 +45,6 @@ type UseBrowserUploadQueueOptions = {
 };
 
 export function useBrowserUploadQueue({
-  prepareWrites,
   accountId,
   bucketName,
   cancelOperationController,
@@ -186,7 +183,7 @@ export function useBrowserUploadQueue({
   }, [flushRefreshIfIdle, recordUploadedKey, startUpload, updateQueue]);
 
   const addFiles = useCallback(
-    async (items: UploadCandidate[]) => {
+    (items: UploadCandidate[]) => {
       if (!bucketName || !enabled || items.length === 0) return;
       if (items.length > 1) onShowOperations();
       onWarning(null);
@@ -196,7 +193,7 @@ export function useBrowserUploadQueue({
         0,
         parallelismRef.current - activeUploadsRef.current,
       );
-      let queuedItems: UploadQueueItem[] = items.map((candidate) => {
+      const queuedItems = items.map((candidate) => {
         const relativePath = normalizeUploadPath(
           candidate.relativePath || candidate.file.name,
         );
@@ -207,7 +204,6 @@ export function useBrowserUploadQueue({
           relativePath,
           key: `${normalizedPrefix}${relativePath}`,
           bucket: bucketName,
-          // Empty selector means the authenticated S3 session's bound identity.
           accountId: String(accountId ?? ""),
           groupId: grouping.groupId,
           groupLabel: grouping.groupLabel,
@@ -215,16 +211,6 @@ export function useBrowserUploadQueue({
           itemLabel: grouping.itemLabel,
         } satisfies UploadQueueItem;
       });
-      if (prepareWrites) {
-        try {
-          const prepared = await prepareWrites(queuedItems.map((item) => ({ id: item.id, key: item.key, size: item.file.size, modified: new Date(item.file.lastModified).toISOString() })), bucketName);
-          const byId = new Map(prepared.map((item) => [item.id, item]));
-          queuedItems = queuedItems.flatMap((item) => { const ready = byId.get(item.id); return ready ? [{ ...item, key: ready.key, writeGuard: ready.writeGuard }] : []; });
-        } catch (error) {
-          onStatus(error instanceof Error ? error.message : "Destination inspection failed."); return;
-        }
-      }
-      if (!mountedRef.current || queuedItems.length === 0) return;
       const availableForNew = Math.max(
         0,
         availableSlots - previousQueueCount,
@@ -252,7 +238,6 @@ export function useBrowserUploadQueue({
       onStatus,
       onWarning,
       processQueue,
-      prepareWrites,
       updateQueue,
     ],
   );

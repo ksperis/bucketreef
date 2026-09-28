@@ -1,4 +1,3 @@
-import type { BrowserWriteGuard } from "./browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -197,7 +196,6 @@ export type ObjectRestoreRequest = {
 };
 
 export type CopyObjectPayload = {
-  write_guard?: BrowserWriteGuard;
   source_bucket?: string;
   source_key: string;
   destination_key: string;
@@ -211,7 +209,6 @@ export type CopyObjectPayload = {
 };
 
 export type DeleteObjectEntry = {
-  if_match?: string;
   key: string;
   version_id?: string | null;
 };

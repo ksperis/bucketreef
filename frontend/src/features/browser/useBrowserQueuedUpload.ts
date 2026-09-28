@@ -144,9 +144,8 @@ export function useBrowserQueuedUpload({
                   bucket,
                   uploadId,
                   key,
-                  { parts, write_guard: item.writeGuard },
+                  { parts },
                   requestOptions,
-                  sseCustomerKeyBase64,
                 ),
               abort: (uploadId) =>
                 abortMultipartUpload(
@@ -180,7 +179,6 @@ export function useBrowserQueuedUpload({
               sseCustomerKeyBase64,
               undefined,
               requestOptions,
-              item.writeGuard,
             );
           const uploadFile = (mode: "direct" | "proxy") => uploadBrowserFile({
             file,
@@ -192,7 +190,6 @@ export function useBrowserQueuedUpload({
               presignObject(bucket, {
                 key,
                 operation: "put_object",
-                write_guard: item.writeGuard,
                 content_type: file.type || undefined,
                 expires_in: 1800,
               }),

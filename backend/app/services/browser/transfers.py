@@ -11,8 +11,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.models.browser import BrowserStsCredentials, SseCustomerContext, StsStatus, BrowserWriteGuard
-from .write_conflicts import check_destination
+from app.models.browser import BrowserStsCredentials, SseCustomerContext, StsStatus
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.s3_object_download import S3ObjectDownload
 from ._shared import _resolve_endpoint
@@ -57,7 +56,6 @@ class BrowserTransfersMixin:
         file_obj,
         content_type: Optional[str],
         sse_customer: Optional[SseCustomerContext] = None,
-        write_guard: Optional[BrowserWriteGuard] = None,
     ) -> None:
         client = self._client(account, request_profile="long_running")
         extra_args = {}
@@ -67,10 +65,7 @@ class BrowserTransfersMixin:
         try:
             file_obj.seek(0)
             with self._object_mutation(account, bucket_name):
-                conditions = check_destination(client, account, bucket_name, key, write_guard, self._sse_customer_params(sse_customer))
-                if write_guard is not None:
-                    client.put_object(Bucket=bucket_name, Key=key, Body=file_obj, **extra_args, **conditions)
-                elif extra_args:
+                if extra_args:
                     client.upload_fileobj(file_obj, bucket_name, key, ExtraArgs=extra_args)
                 else:
                     client.upload_fileobj(file_obj, bucket_name, key)
@@ -86,11 +81,10 @@ class BrowserTransfersMixin:
         key: str,
         content_type: Optional[str],
         sse_customer: Optional[SseCustomerContext] = None,
-        write_guard: Optional[BrowserWriteGuard] = None,
     ) -> None:
         file_obj = getattr(file, "file", file)
         resolved_content_type = content_type or getattr(file, "content_type", None) or "application/octet-stream"
-        self.proxy_upload(bucket_name, account, key, file_obj, resolved_content_type, sse_customer=sse_customer, write_guard=write_guard)
+        self.proxy_upload(bucket_name, account, key, file_obj, resolved_content_type, sse_customer=sse_customer)
 
     def _filename_from_content_disposition(self, value: Optional[str]) -> Optional[str]:
         if not value:
@@ -120,15 +114,12 @@ class BrowserTransfersMixin:
         key: str,
         *,
         version_id: Optional[str] = None,
-        if_match: Optional[str] = None,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> S3ObjectDownload:
         client = self._client(account, request_profile="long_running")
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
-        if if_match:
-            kwargs["IfMatch"] = '"' + if_match.strip('"') + '"'
         kwargs.update(self._sse_customer_params(sse_customer))
         try:
             resp = client.get_object(**kwargs)
