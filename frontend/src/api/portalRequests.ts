@@ -48,7 +48,7 @@ type PortalUserRemovalRequestCreate = {
   reason?: string | null;
 };
 
-export type PortalRoleChangeRequestCreate = {
+type PortalRoleChangeRequestCreate = {
   request_type: "portal_user_access";
   intent: "role_change";
   target_user_id: number;

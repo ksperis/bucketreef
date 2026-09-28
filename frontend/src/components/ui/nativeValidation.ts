@@ -92,7 +92,7 @@ function rangeMessage(kind: "min" | "max", value: string, locale: UiLanguage): s
   return translated(message, locale);
 }
 
-export function localizedNativeValidationMessage(
+function localizedNativeValidationMessage(
   control: NativeValidationControl,
   locale: UiLanguage,
 ): string {
