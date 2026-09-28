@@ -10,6 +10,10 @@ from .portal.activity import PortalActivityMixin
 from .portal.buckets_users import PortalBucketsUsersMixin
 from .portal.collaborators import PortalCollaboratorsMixin
 from .portal.iam import PortalIamMixin
+from .portal.iam_contracts import (
+    PORTAL_MANAGER_GROUP_NAME,
+    PORTAL_USER_GROUP_NAME,
+)
 from .portal.iam_policy_documents import PortalIamPolicyDocumentsMixin
 from .portal.objects import PortalObjectsMixin
 from .portal.public_links import PortalPublicLinksMixin
@@ -56,8 +60,8 @@ class PortalService(
         self.db = db
         self._inline_policy_name = "portal-self-service"
         self._manager_group_policy_name = "portal-manager"
-        self._manager_group_name = "portal-manager"
-        self._user_group_name = "portal-user"
+        self._manager_group_name = PORTAL_MANAGER_GROUP_NAME
+        self._user_group_name = PORTAL_USER_GROUP_NAME
         self._bucket_access_policy_name = "portal-user-buckets"
         self._external_access_policy_name = "portal-external-storage-space"
         self._bucket_access_sid = "PortalUserBuckets"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.db import ManagerAccountRole, PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
+from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.models.s3_account import AccountUserLink, S3AccountUpdate
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_topics_resolver import normalize_account_key
@@ -63,6 +64,7 @@ def _seed_endpoint(
     is_default: bool = False,
     account_enabled: bool = True,
     admin_enabled: bool = True,
+    iam_enabled: bool = False,
 ) -> StorageEndpoint:
     endpoint = StorageEndpoint(
         name=name,
@@ -74,6 +76,7 @@ def _seed_endpoint(
             "features:\n"
             f"  admin:\n    enabled: {'true' if admin_enabled else 'false'}\n"
             f"  account:\n    enabled: {'true' if account_enabled else 'false'}\n"
+            f"  iam:\n    enabled: {'true' if iam_enabled else 'false'}\n"
         ),
         is_default=is_default,
         is_editable=True,
@@ -334,6 +337,156 @@ def test_delete_account_guardrails_and_success(db_session, monkeypatch):
     service.delete_account(account.id, delete_rgw=True)
     assert admin.deleted_accounts == ["RGW-DEL-1"]
     assert db_session.query(S3Account).filter(S3Account.id == account.id).first() is None
+
+
+class _FakeAccountIAM:
+    def __init__(
+        self,
+        *,
+        users: list[IAMUser] | None = None,
+        groups: list[IAMGroup] | None = None,
+        roles: list[IAMRole] | None = None,
+        group_members: dict[str, list[IAMUser]] | None = None,
+        inline_policies: dict[str, list[str]] | None = None,
+    ) -> None:
+        self.users = users or []
+        self.groups = groups or []
+        self.roles = roles or []
+        self.group_members = group_members or {}
+        self.inline_policies = inline_policies or {}
+        self.calls: list[tuple[str, ...]] = []
+
+    def list_users(self):
+        self.calls.append(("list_users",))
+        return self.users
+
+    def list_groups(self):
+        self.calls.append(("list_groups",))
+        return self.groups
+
+    def list_roles(self):
+        self.calls.append(("list_roles",))
+        return self.roles
+
+    def list_group_users(self, group_name: str):
+        self.calls.append(("list_group_users", group_name))
+        return self.group_members.get(group_name, [])
+
+    def detach_group_policy(self, group_name: str, policy_arn: str):
+        self.calls.append(("detach_group_policy", group_name, policy_arn))
+
+    def list_group_inline_policies(self, group_name: str):
+        self.calls.append(("list_group_inline_policies", group_name))
+        return self.inline_policies.get(group_name, [])
+
+    def delete_group_inline_policy(self, group_name: str, policy_name: str):
+        self.calls.append(("delete_group_inline_policy", group_name, policy_name))
+
+    def delete_group(self, group_name: str):
+        self.calls.append(("delete_group", group_name))
+
+
+def _prepare_account_deletion_checks(service, admin, monkeypatch):
+    monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 0))
+    monkeypatch.setattr(service, "_account_rgw_users", lambda *args, **kwargs: (0, []))
+    monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
+    monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
+
+
+def test_delete_account_removes_empty_portal_groups_before_root_user(db_session, monkeypatch):
+    endpoint = _seed_endpoint(
+        db_session,
+        name="ceph-delete-portal-groups",
+        is_default=True,
+        iam_enabled=True,
+    )
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="delete-portal-groups",
+        rgw_account_id="RGW-DEL-IAM-1",
+    )
+    service, admin = _service(db_session)
+    iam = _FakeAccountIAM(
+        groups=[
+            IAMGroup(name="portal-manager", policies=["arn:policy:manager"]),
+            IAMGroup(name="portal-user"),
+        ],
+        inline_policies={
+            "portal-manager": ["portal-manager"],
+            "portal-user": ["portal-user-buckets"],
+        },
+    )
+    events: list[str] = []
+    original_delete_group = iam.delete_group
+
+    def record_group_delete(group_name: str):
+        original_delete_group(group_name)
+        events.append(f"group:{group_name}")
+
+    iam.delete_group = record_group_delete  # type: ignore[method-assign]
+    monkeypatch.setattr(service, "_iam_for_account", lambda _account: iam)
+    monkeypatch.setattr(service, "_delete_root_user", lambda _account: events.append("root"))
+    monkeypatch.setattr(admin, "delete_account", lambda _account_id: events.append("account"))
+    _prepare_account_deletion_checks(service, admin, monkeypatch)
+
+    service.delete_account(account.id, delete_rgw=True)
+
+    assert ("detach_group_policy", "portal-manager", "arn:policy:manager") in iam.calls
+    assert ("delete_group_inline_policy", "portal-manager", "portal-manager") in iam.calls
+    assert ("delete_group_inline_policy", "portal-user", "portal-user-buckets") in iam.calls
+    assert events == ["group:portal-manager", "group:portal-user", "root", "account"]
+
+
+@pytest.mark.parametrize(
+    ("iam", "expected_fragment"),
+    [
+        (
+            _FakeAccountIAM(groups=[IAMGroup(name="custom-group")]),
+            "groups=1",
+        ),
+        (
+            _FakeAccountIAM(roles=[IAMRole(name="custom-role")]),
+            "roles=1",
+        ),
+        (
+            _FakeAccountIAM(
+                groups=[IAMGroup(name="portal-user")],
+                group_members={"portal-user": [IAMUser(name="member")]},
+            ),
+            "groups_with_members=1",
+        ),
+    ],
+    ids=("unexpected-group", "role", "portal-group-member"),
+)
+def test_delete_account_preserves_root_when_iam_resources_remain(
+    db_session,
+    monkeypatch,
+    iam,
+    expected_fragment,
+):
+    endpoint = _seed_endpoint(
+        db_session,
+        name="ceph-delete-iam-guard",
+        is_default=True,
+        iam_enabled=True,
+    )
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="delete-iam-guard",
+        rgw_account_id="RGW-DEL-IAM-GUARD",
+    )
+    service, admin = _service(db_session)
+    _prepare_account_deletion_checks(service, admin, monkeypatch)
+    monkeypatch.setattr(service, "_iam_for_account", lambda _account: iam)
+
+    with pytest.raises(ValueError, match=expected_fragment):
+        service.delete_account(account.id, delete_rgw=True)
+
+    assert admin.deleted_users == []
+    assert admin.deleted_accounts == []
+    assert db_session.query(S3Account).filter(S3Account.id == account.id).one()
 
 
 def test_delete_root_user_success_and_failure(db_session, monkeypatch):
