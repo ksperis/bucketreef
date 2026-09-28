@@ -192,11 +192,6 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Abbrechen",
     "取消"
   ],
-  "Transfers and recovery": [
-    "Transferts et reprise",
-    "Transfers und Wiederaufnahme",
-    "传输和恢复"
-  ],
   "Personal to your account, synchronized across browsers.": [
     "Personnels à votre compte et synchronisés entre navigateurs.",
     "Persönlich für Ihr Konto, browserübergreifend synchronisiert.",

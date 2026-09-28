@@ -1,4 +1,3 @@
-import type { LocalUpload } from "./browserTransferStore";
 import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2025 Laurent Barbe
@@ -33,7 +32,7 @@ export type TreeNode = {
   isLoading: boolean;
 };
 
-export type OperationCompletionStatus = "done" | "failed" | "cancelled" | "paused";
+export type OperationCompletionStatus = "done" | "failed" | "cancelled";
 
 export type OperationDetailsKind =
   | "download"
@@ -43,12 +42,6 @@ export type OperationDetailsKind =
   | "other";
 
 export type OperationItem = {
-  resultCounts?: { succeeded: number; failed: number; cancelled: number };
-  recoveryId?: string;
-  pause?: () => void;
-  destination?: { accountId: string; bucket: string; prefix: string };
-  completedTimestamp?: number;
-  retry?: () => Promise<void>;
   id: string;
   label: string;
   path: string;
@@ -72,7 +65,6 @@ export type UploadCandidate = {
 };
 
 export type UploadQueueItem = {
-  resumeRecord?: LocalUpload;
   writeGuard?: BrowserWriteGuard;
   id: string;
   file: File;

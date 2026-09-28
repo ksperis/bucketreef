@@ -1,4 +1,3 @@
-import type { BrowserObject } from "../../api/browserContracts";
 import { buildBrowserSelectionManifest } from "./browserSelectionManifest";
 /*
  * Copyright (c) 2026 Laurent Barbe
@@ -59,9 +58,7 @@ type BrowserArchivePreparation =
       excludedCount: number;
       canDownload: boolean;
       error?: string;
-      items: BrowserItem[];
       basePrefix: string;
-      objects: BrowserObject[];
       plan: BrowserFolderDownloadPlan;
     };
 
@@ -122,13 +119,6 @@ export function useBrowserDownloads({
   const [archivePreparation, setArchivePreparation] =
     useState<BrowserArchivePreparation | null>(null);
   const archiveInventoryControllerRef = useRef<AbortController | null>(null);
-  const prepareArchiveRef = useRef<
-    (
-      items: BrowserItem[],
-      basePrefix?: string,
-      retryObjects?: BrowserObject[],
-    ) => Promise<void>
-  >();
 
   useEffect(
     () => () => archiveInventoryControllerRef.current?.abort("unmount"),
@@ -218,9 +208,7 @@ export function useBrowserDownloads({
 
   const executeArchive = useCallback(
     async (
-      items: BrowserItem[],
       basePrefix: string,
-      objects: BrowserObject[],
       folderLabel: string,
       plan: BrowserFolderDownloadPlan,
       output: BrowserArchiveOutput,
@@ -230,7 +218,7 @@ export function useBrowserDownloads({
         "downloading",
         output.kind === "stream" ? "Streaming zip" : "Downloading archive",
         `${bucketName}/${basePrefix}`,
-        { kind: "download", cancelable: true, destination: { accountId: String(accountId), bucket: bucketName, prefix: basePrefix } },
+        { kind: "download", cancelable: true },
       );
       const controller = createOperationController(operationId);
       let completionStatus: OperationCompletionStatus = "done";
@@ -269,11 +257,6 @@ export function useBrowserDownloads({
           targets: plan.targets,
           totalBytes: plan.totalBytes,
         });
-        updateOperation(operationId, { resultCounts: {
-          succeeded: archiveResult.cancelled ? 0 : plan.targets.length - archiveResult.failedKeys.length,
-          failed: plan.excluded.length + archiveResult.failedKeys.length,
-          cancelled: archiveResult.cancelled ? plan.targets.length - archiveResult.failedKeys.length : 0,
-        } });
         if (archiveResult.cancelled) {
           completionStatus = "cancelled";
           onStatus(`Download cancelled for ${folderLabel}`);
@@ -281,8 +264,6 @@ export function useBrowserDownloads({
           return;
         }
         if (archiveResult.failedKeys.length > 0) {
-          const failed = new Set(archiveResult.failedKeys);
-          updateOperation(operationId, { retry: async () => { updateOperation(operationId, { retry: undefined }); await prepareArchiveRef.current?.(items, basePrefix, objects.filter(object => failed.has(object.key))); } });
           completionStatus = "failed";
           completionError = `Downloaded ${folderLabel} with ${archiveResult.failedKeys.length} failed file(s).`;
           onStatus(completionError);
@@ -304,12 +285,7 @@ export function useBrowserDownloads({
             "Unable to download folder.",
           );
           onStatus(completionError);
-          updateOperation(operationId, {
-            retry: async () => {
-              updateOperation(operationId, { retry: undefined });
-              await prepareArchiveRef.current?.(items, basePrefix, objects);
-            },
-          });
+
         }
       } finally {
         clearOperationController(operationId);
@@ -331,7 +307,6 @@ export function useBrowserDownloads({
       showOperations,
       startOperation,
       streamingZipThresholdMb,
-      accountId,
       updateDownloadDetail,
       updateOperation,
     ],
@@ -341,7 +316,6 @@ export function useBrowserDownloads({
     async function prepareArchive(
       items: BrowserItem[],
       basePrefix = "",
-      retryObjects?: BrowserObject[],
     ) {
       if (!bucketName || !enabled || !items.length) return;
       archiveInventoryControllerRef.current?.abort("replaced");
@@ -349,12 +323,10 @@ export function useBrowserDownloads({
       archiveInventoryControllerRef.current = controller;
       onWarning(null);
       const folderLabel = resolveBrowserFolderArchiveLabel(
-        `${items.length === 1 ? items[0].name : "selection"}${retryObjects ? "-retry" : ""}`,
+        items.length === 1 ? items[0].name : "selection",
         basePrefix,
       );
-      const totalFolders = retryObjects
-        ? 0
-        : items.filter((item) => item.type === "folder" && !item.isDeleted)
+      const totalFolders = items.filter((item) => item.type === "folder" && !item.isDeleted)
             .length;
       setArchivePreparation({
         phase: "inventorying",
@@ -364,7 +336,6 @@ export function useBrowserDownloads({
       });
       try {
         const objects =
-          retryObjects ??
           (await buildBrowserSelectionManifest(
             items,
             listAllObjectsForPrefix,
@@ -417,9 +388,7 @@ export function useBrowserDownloads({
             error: canDownload
               ? undefined
               : "This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser.",
-            items,
             basePrefix,
-            objects,
             plan,
           });
           return;
@@ -429,9 +398,7 @@ export function useBrowserDownloads({
         }
         setArchivePreparation(null);
         await executeArchive(
-          items,
           basePrefix,
-          objects,
           folderLabel,
           plan,
           { kind: "memory" },
@@ -471,7 +438,6 @@ export function useBrowserDownloads({
       streamingZipThresholdMb,
     ],
   );
-  prepareArchiveRef.current = downloadArchive;
 
   const savePreparedArchive = useCallback(async () => {
     if (archivePreparation?.phase !== "ready" || !archivePreparation.canDownload) {
@@ -496,9 +462,7 @@ export function useBrowserDownloads({
       const prepared = archivePreparation;
       setArchivePreparation(null);
       await executeArchive(
-        prepared.items,
         prepared.basePrefix,
-        prepared.objects,
         prepared.folderLabel,
         prepared.plan,
         { kind: "stream", fileHandle },
@@ -536,13 +500,12 @@ export function useBrowserDownloads({
         "downloading",
         `Downloading ${files.length} files`,
         currentPath || bucketName,
-        { kind: "download", cancelable: true, destination: { accountId: String(accountId), bucket: bucketName, prefix: files[0]?.key.slice(0, files[0].key.lastIndexOf("/") + 1) ?? "" } },
+        { kind: "download", cancelable: true },
       );
       const controller = createOperationController(operationId);
       let completionStatus: OperationCompletionStatus = "done";
       let completionError: string | undefined;
       const targets = files.map((item) => ({ item, detailId: makeId() }));
-      const downloadedKeys = new Set<string>();
       setDownloadDetails((previous) => ({
         ...previous,
         [operationId]: targets.map((target) => ({
@@ -587,7 +550,6 @@ export function useBrowserDownloads({
                 controller.signal,
               );
               triggerBlobDownload(target.item.name || "download", blob);
-              downloadedKeys.add(target.item.key);
               updateDownloadDetail(operationId, target.detailId, "done");
               if (reportedId) {
                 transferReporter?.complete(
@@ -659,12 +621,7 @@ export function useBrowserDownloads({
       } finally {
         clearOperationController(operationId);
         completeOperation(operationId, completionStatus, completionError);
-        const remaining = files.filter(item => !downloadedKeys.has(item.key));
-        updateOperation(operationId, { resultCounts: { succeeded: downloadedKeys.size, failed: failedCount, cancelled: Math.max(0, remaining.length - failedCount) } });
-        if (remaining.length) updateOperation(operationId, { retry: async () => {
-          updateOperation(operationId, { retry: undefined });
-          await runFileDownloads(remaining);
-        } });
+
       }
     },
     [
@@ -674,7 +631,6 @@ export function useBrowserDownloads({
       completeOperation,
       createOperationController,
       currentPath,
-      accountId,
       downloadBlob,
       onStatus,
       parallelism,

@@ -20,13 +20,12 @@ const createLifecycle = (): BrowserMultipartUploadLifecycle => ({
 });
 
 describe("browser multipart uploads", () => {
-  it("streams proxy parts and aborts instead of completing a truncated source", async () => {
+  it("aborts a direct multipart stream instead of completing a truncated source", async () => {
     const lifecycle = createLifecycle();
-    lifecycle.uploadPart = vi.fn().mockResolvedValue("etag");
+    fetchMock.mockResolvedValue(new Response(null, { status: 200, headers: { ETag: "etag" } }));
     const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new Uint8Array(9)); controller.close(); } });
     await expect(uploadBrowserStreamMultipart({ stream, sizeBytes: 10, partSize: 5, lifecycle })).rejects.toThrow("size mismatch");
-    expect(lifecycle.uploadPart).toHaveBeenCalledOnce();
-    expect(lifecycle.presignPart).not.toHaveBeenCalled();
+    expect(lifecycle.presignPart).toHaveBeenCalledOnce();
     expect(lifecycle.complete).not.toHaveBeenCalled();
     expect(lifecycle.abort).toHaveBeenCalledWith("upload-1");
   });
@@ -155,41 +154,6 @@ describe("browser multipart uploads", () => {
     ]);
     expect(lifecycle.abort).not.toHaveBeenCalled();
     expect(stream.locked).toBe(false);
-  });
-
-  it.each(["pause", "cancel"])("%s keeps or aborts a resumable multipart upload", async reason => {
-    const lifecycle = createLifecycle();
-    const controller = new AbortController();
-    lifecycle.uploadPart = vi.fn(async () => { controller.abort(reason); throw new DOMException("Stopped", "AbortError"); });
-    await expect(uploadBrowserFileMultipart({ file: new File(["abcdefgh"], "file"), partSize: 4, concurrency: 1, controller, lifecycle, onProgress: vi.fn(),
-      resume: { uploadId: "saved", keepOnError: true, onInitiated: vi.fn(), onPart: vi.fn() },
-    })).rejects.toThrow("Stopped");
-    expect(lifecycle.initiate).not.toHaveBeenCalled();
-    expect(lifecycle.complete).not.toHaveBeenCalled();
-    if (reason === "pause") expect(lifecycle.abort).not.toHaveBeenCalled();
-    else expect(lifecycle.abort).toHaveBeenCalledWith("saved");
-  });
-
-  it("resends only missing parts via the proxy and awaits receipts before completion", async () => {
-    const lifecycle = createLifecycle();
-    lifecycle.uploadPart = vi.fn(async (_id, number, blob) => { expect(blob.size).toBe(4); return `part-${number}`; });
-    const onPart = vi.fn();
-    await uploadBrowserFileMultipart({ file: new File(["abcdefgh"], "file"), partSize: 4, concurrency: 2, controller: new AbortController(), lifecycle, onProgress: vi.fn(),
-      resume: { uploadId: "saved", parts: [{ part_number: 1, etag: "part-1" }], keepOnError: true, onInitiated: vi.fn(), onPart },
-    });
-    expect(lifecycle.uploadPart).toHaveBeenCalledTimes(1);
-    expect(onPart).toHaveBeenCalledWith({ part_number: 2, etag: "part-2", size: 4 });
-    expect(lifecycle.complete).toHaveBeenCalledWith("saved", [{ part_number: 1, etag: "part-1" }, { part_number: 2, etag: "part-2" }]);
-    expect(lifecycle.presignPart).not.toHaveBeenCalled();
-  });
-
-  it("does not complete or discard parts after a retained failure", async () => {
-    const lifecycle = createLifecycle();
-    lifecycle.uploadPart = vi.fn().mockRejectedValue(new Error("session expired"));
-    await expect(uploadBrowserFileMultipart({ file: new File(["abcdefgh"], "file"), partSize: 4, concurrency: 2, controller: new AbortController(), lifecycle, onProgress: vi.fn(),
-      resume: { uploadId: "saved", keepOnError: true, onInitiated: vi.fn(), onPart: vi.fn() },
-    })).rejects.toThrow("session expired");
-    expect(lifecycle.complete).not.toHaveBeenCalled(); expect(lifecycle.abort).not.toHaveBeenCalled();
   });
 
   it("surfaces S3 error details when a stream part is rejected", async () => {

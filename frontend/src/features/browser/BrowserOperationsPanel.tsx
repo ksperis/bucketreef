@@ -55,7 +55,7 @@ type OperationRowProps = {
   progress: number;
   statusLabel: string;
   statusClasses: string;
-  actionLabel?: "Stop" | "Stop all" | "Retry failures";
+  actionLabel?: "Stop" | "Stop all";
   onAction?: () => void;
 };
 
@@ -87,7 +87,7 @@ function OperationRow({
           </div>
         </div>
         {actionLabel && onAction ? (
-          <ListActionButton type="button" variant={actionLabel === "Retry failures" ? "secondary" : "danger"} onClick={onAction}>
+          <ListActionButton type="button" variant="danger" onClick={onAction}>
             {actionLabel}
           </ListActionButton>
         ) : null}
@@ -185,29 +185,26 @@ export default function BrowserOperationsPanel({
       const activeCount = group.activeItems.length;
       const queuedCount = group.queuedItems.length;
       const failedCount = group.completedItems.filter((item) => item.completionStatus === "failed").length;
-      const pausedCount = group.completedItems.filter(item => item.completionStatus === "paused").length;
-      const completedCount = group.completedItems.length - failedCount - pausedCount;
+      const completedCount = group.completedItems.length - failedCount;
       const isCompleted = activeCount === 0 && queuedCount === 0 && group.completedItems.length > 0;
       const status = buildOperationStatusPill({
         hasFailed: failedCount > 0,
         isCompleted,
         queuedOnly: activeCount === 0 && queuedCount > 0,
         status: "uploading",
-        completionStatus: failedCount > 0 ? "failed" : pausedCount > 0 ? "paused" : "done",
+        completionStatus: failedCount > 0 ? "failed" : "done",
       });
       return (
         <OperationRow
           title={group.kind === "folder" ? `Upload folder ${group.label}` : `Upload ${group.label}`}
           subtitle={group.totalBytes > 0 ? `${formatBytes(group.totalBytes)} total` : undefined}
-          summary={`${activeCount} active · ${queuedCount} queued · ${completedCount} completed · ${failedCount} failed${pausedCount ? ` · ${pausedCount} paused` : ""}`}
+          summary={`${activeCount} active · ${queuedCount} queued · ${completedCount} completed · ${failedCount} failed`}
           progress={group.progress}
           statusLabel={status.label}
           statusClasses={status.classes}
           actionLabel={activeCount > 0 || queuedCount > 0 ? "Stop all" : undefined}
           onAction={activeCount > 0 || queuedCount > 0 ? () => cancelUploadGroup(group.id) : undefined}
           extraActions={<div className="flex flex-col gap-1">
-            {group.activeItems.some(op => op.pause) ? <ListActionButton onClick={() => group.activeItems.forEach(op => op.pause?.())}>Pause</ListActionButton> : null}
-            {!activeCount && !queuedCount && group.completedItems.some(op => op.retry) ? <ListActionButton onClick={async () => { for (const op of group.completedItems) await op.retry?.(); }}>{pausedCount ? "Resume" : "Retry failures"}</ListActionButton> : null}
           </div>}
         />
       );
@@ -231,8 +228,8 @@ export default function BrowserOperationsPanel({
           progress={op.progress}
           statusLabel={status.label}
           statusClasses={status.classes}
-          actionLabel={isCompleted && op.retry ? "Retry failures" : !isCompleted && op.cancelable ? "Stop" : undefined}
-          onAction={isCompleted && op.retry ? () => void op.retry?.() : !isCompleted && op.cancelable ? () => cancelOperation(op.id) : undefined}
+          actionLabel={!isCompleted && op.cancelable ? "Stop" : undefined}
+          onAction={!isCompleted && op.cancelable ? () => cancelOperation(op.id) : undefined}
         />
       );
     }
@@ -263,8 +260,8 @@ export default function BrowserOperationsPanel({
         progress={group.op.progress}
         statusLabel={status.label}
         statusClasses={status.classes}
-        actionLabel={group.op.completedAt && group.op.retry ? "Retry failures" : group.op.cancelable && !group.op.completedAt ? (entry.type === "download" ? "Stop" : "Stop all") : undefined}
-        onAction={group.op.completedAt && group.op.retry ? () => void group.op.retry?.() : group.op.cancelable && !group.op.completedAt ? () => cancelOperation(group.op.id) : undefined}
+        actionLabel={group.op.cancelable && !group.op.completedAt ? (entry.type === "download" ? "Stop" : "Stop all") : undefined}
+        onAction={group.op.cancelable && !group.op.completedAt ? () => cancelOperation(group.op.id) : undefined}
       />
     );
   };

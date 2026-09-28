@@ -202,7 +202,7 @@ Temporary S3 sessions cannot synchronize favorites. Standalone and embedded work
 
 Unsafe archive paths (including traversal, absolute/ambiguous paths and case/Unicode or file/folder collisions) are excluded with an explanation in operation details. Objects are never silently overwritten inside the archive. Large selections use streaming to a file when supported. Without streaming, a selection at or above the configured ZIP threshold is blocked before downloading its contents; select fewer files or use a browser with streaming file support. The threshold concerns the total input bytes; archive packaging also needs working memory.
 
-**Retry failures** produces a complementary archive containing only files that failed to download. Successful files are not downloaded again. ZIP generation does not resume after closing the browser.
+ZIP failures and exclusions remain visible in the operation details. ZIP generation does not resume after closing the browser.
 
 ### Structured previews and navigation
 
@@ -210,16 +210,8 @@ CSV files display an inert table, including quoted and multiline cells. JSON fil
 
 **Previous** and **Next** navigate among the current listing's loaded, non-deleted files without changing the selection or loading additional pages. Pending changes in an editable details drawer still require the existing discard confirmation. Preview limits remain 50 MiB per object and 64 KiB of text (UTF-8 bytes, including Portal-supplied text). There is no new Office renderer or active HTML preview.
 
-### Local transfer history, retry and upload recovery
+### Transfer progress
 
-Open **Transfers and recovery** for the session's operations, their destinations and locally saved multipart uploads. **Retry failures** repeats only unsuccessful files. Copies and moves retain completed copy steps in the current session: a move retries only source deletion after checking the original source and copied destination again. Closing the page loses these copy/move steps; it does not resume server-side copies or ZIP generation.
+Transfers show their progress and results during the current session. Stop cancels an active operation. Failed transfers can be started again through the normal upload, download or clipboard actions; no failed-item replay or persistent history is kept.
 
-Uploads of at least 25 MiB use multipart in direct and proxy mode. **Pause** preserves uploaded parts; **Cancel** aborts the remote multipart upload. After returning and signing in, select the original context and destination, then reselect the original file. A worker hashes every block and rejects different file contents. Browser reconciles saved receipts with S3 ListParts and sends only missing or invalid parts. Unrecognized remote parts are safely resent. No upload resumes automatically and no background worker keeps uploading after browser closure.
-
-Recovery metadata lives only in IndexedDB: identity/context references, destination, multipart identifier, file characteristics, block fingerprint and completed part receipts. It contains no file payload, S3 credentials, presigned URL or SSE-C key. Supply the original SSE-C key again in the destination's encryption settings. Access is checked again when reading parts, sending parts and completing the upload. A vanished remote upload is explicitly non-resumable. Browser uses an exclusive Web Lock so only one tab can resume or cancel the same saved upload.
-
-Local recovery requires an authenticated identity, IndexedDB, Web Locks and worker support. UI accounts use their account identity. Temporary S3 sessions use an opaque, server-derived reference to the endpoint and access key: sign in with the original key to find their pending uploads. The reference grants no access and contains no S3 credential. Changing that key or the deployment's primary credential-encryption key makes those old local entries undiscoverable under the new identity.
-
-Where local recovery is unavailable, ordinary uploads remain possible but interrupted uploads restart. Clearing or evicting browser storage loses recovery information; S3 lifecycle rules may also remove incomplete uploads. **Forget local entry** removes local tracking only, while **Cancel remote upload** abandons the S3 multipart upload. Pending entries do not expire automatically.
-
-The local history retains the last 20 completed batches for 30 days, separately from server audit logs. It is scoped to the current identity and Browser surface, and is not synchronized between browsers. Small uploads and downloads restart from the beginning. Large native downloads remain managed by the browser's download manager. Server storage is used only for the previously documented favorites/views collection, never for upload tracking.
+Closing or reloading the Browser interrupts transfers. Multipart uploads are not resumable after returning. Retired local recovery records are cleared without aborting remote uploads; authorized operators can inspect and abort orphaned multiparts through the existing multipart tools.

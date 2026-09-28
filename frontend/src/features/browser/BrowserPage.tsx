@@ -1,11 +1,7 @@
+import { retireBrowserTransferStorage } from "./browserRetiredTransferStorage";
 import { cloneElement } from "react";
 import type { BrowserFavorite } from "../../api/browserFavorites";
 import BrowserFavoritesControl from "./BrowserFavoritesControl";
-import BrowserTransfersControl from "./BrowserTransfersControl";
-import { useBrowserTransferHistory } from "./useBrowserTransferHistory";
-import { abortMultipartUpload } from "../../api/browserMultipart";
-import { removeLocalUpload, withLocalUploadLock, type LocalUpload } from "./browserTransferStore";
-import { verifyBrowserResumeFile } from "./browserResumableUpload";
 import BrowserSearchControls from "./BrowserSearchControls";
 import BrowserDestinationDialog, { type BrowserDestinationRequest } from "./BrowserDestinationDialog";
 import { useBrowserWriteConflicts } from "./useBrowserWriteConflicts";
@@ -304,8 +300,8 @@ export default function BrowserPage({
   const isCephAdminContext = executionContextKind === "ceph_admin";
   const isS3UserContext = executionContextKind === "s3_user";
   const isConnectionContext = executionContextKind === "connection";
+  useEffect(retireBrowserTransferStorage, []);
   const [showBucketMenu, setShowBucketMenu] = useState(false);
-  const [showTransfersModal, setShowTransfersModal] = useState(false);
   const {
     settings: browserSettings,
     usageError: usageSummaryError,
@@ -2002,11 +1998,7 @@ export default function BrowserPage({
     openObjectDetails(item, "versions");
   };
 
-  const localTransferOwner = storedUser?.authType === "s3_session" ? (storedUser.localRecoveryId ? `s3:${storedUser.localRecoveryId}` : "") : storedUser?.id != null ? String(storedUser.id) : "";
-  useBrowserTransferHistory(localTransferOwner, workspaceSurface, operations, uploadQueue, setWarningMessage);
   const startQueuedUpload = useBrowserQueuedUpload({
-    owner: localTransferOwner,
-    prepareWrites,
     clearOperationController,
     completeOperation,
     createOperationController,
@@ -2527,38 +2519,6 @@ export default function BrowserPage({
     />
   );
 
-  const transferControl = (<BrowserTransfersControl open={showTransfersModal} onOpenChange={setShowTransfersModal} owner={localTransferOwner} workspace={workspaceSurface} accountId={String(accountIdForApi ?? "")} currentBucket={bucketName}
-                lockedBucket={resolvedLockedBucketName} hasSseKey={Boolean(sseCustomerKeyBase64)} canWrite={resolvedCapabilityFacts.canWriteObjects}
-                operations={operations} onCancel={cancelOperation} onOpenDestination={target => requestDetailsDrawerTransition(() => {
-                  if (isMainBrowserPath) navigate(buildBrowserLocationPath(location.pathname, location.search, location.hash, { bucketName: target.bucket, prefix: target.prefix }));
-                  else { setBucketName(target.bucket); setPrefix(target.prefix); }
-                })}
-                onAbort={async record => {
-                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi ?? "") || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
-                  await withLocalUploadLock(record.id, async () => {
-                    await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
-                    await removeLocalUpload(record.id);
-                  });
-                }}
-                onResume={async (record, file) => {
-                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi ?? "") || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
-                  await verifyBrowserResumeFile(record, file, new AbortController().signal);
-                  const choice = (await prepareWrites([{ id: record.id, key: record.key, size: record.size }], record.bucket))[0];
-                  if (!choice) return;
-                  let resumeRecord: LocalUpload | undefined = record;
-                  if (choice.key !== record.key) {
-                    await withLocalUploadLock(record.id, async () => {
-                      await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
-                      await removeLocalUpload(record.id);
-                    });
-                    resumeRecord = undefined;
-                  }
-                  showOperationsBar();
-                  await startQueuedUpload({ id: crypto.randomUUID(), file, relativePath: record.name, key: choice.key, bucket: record.bucket,
-                    accountId: record.accountId, groupId: crypto.randomUUID(), groupLabel: record.name, groupKind: "files", itemLabel: record.name,
-                    writeGuard: choice.writeGuard, resumeRecord });
-                  refreshUploadedListing(prefix);
-                }} />);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
@@ -2675,7 +2635,6 @@ export default function BrowserPage({
                 operationsCount: hasToolbarOperationsAction
                   ? operationsPanelTotalCount
                   : undefined,
-                onOpenTransfers: () => setShowTransfersModal(true),
                 onOpenOperations: openOperationsDetailsModal,
               },
               layout: {
@@ -2716,7 +2675,6 @@ export default function BrowserPage({
             onRunPathAction={runPathAction}
             onRunSelectionAction={runSelectionAction}
           />
-          {transferControl}
         </div>
 
         {(bucketError || statusMessage || corsInformation || warnings.length > 0) && (

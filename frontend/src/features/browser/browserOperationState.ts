@@ -50,9 +50,7 @@ export function completeOperationById(
     operation.id === operationId
       ? {
           ...operation,
-          progress: status === "paused" ? operation.progress : 100,
-          completedTimestamp: Date.now(),
-          pause: undefined,
+          progress: 100,
           cancelable: false,
           completedAt,
           completionStatus: status,
