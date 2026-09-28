@@ -11,7 +11,8 @@
       "playwright.agent.config.ts",
       "playwright.e2e.config.ts",
       "playwright.docs.config.ts",
-      "playwright.demo.config.ts"
+      "playwright.demo.config.ts",
+      "playwright.errors.config.ts"
     ]
   },
   "ignoreDependencies": ["react-router-dom-real"]

@@ -11,7 +11,7 @@ import { DEFAULT_GENERAL_SETTINGS, useGeneralSettings } from "../../components/G
 import BrandMark from "../../components/BrandMark";
 import { useLanguage } from "../../components/language";
 import { useTheme } from "../../components/theme";
-import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import ErrorState from "../../components/errors/ErrorState";
 import { PRODUCT_NAME } from "../../constants/product";
 import { useSession } from "../../auth/SessionProvider";
 import { coordinateOidcCallback } from "./oidcCallbackCoordinator";
@@ -21,7 +21,6 @@ import {
   resolvePostLoginPathWithWorkspaceAccess,
   type SessionUser,
 } from "../../utils/workspaces";
-import { AuthButton } from "./AuthFormControls";
 import { AuthCard, AuthCenteredPage } from "./AuthSurface";
 
 export default function OidcCallbackPage() {
@@ -116,24 +115,14 @@ export default function OidcCallbackPage() {
     };
   }, [acceptAuthentication, navigate, provider, runtimeSurfaces, searchParams, setGeneralSettings, setLanguagePreference, setTheme]);
 
+  if (error) return <ErrorState kind="auth_failed" description={error} presentation="full" />;
+
   return (
     <AuthCenteredPage>
       <AuthCard className="max-w-md p-8 text-center">
           <BrandMark alt={PRODUCT_NAME} className="mx-auto mb-5 h-16 w-16" />
           <h1 className="mb-2 text-2xl font-semibold text-slate-900">Signing you in</h1>
           {processing && <p className="ui-body text-slate-500">Please wait...</p>}
-          {error && (
-            <>
-              <UiInlineMessage tone="error">{error}</UiInlineMessage>
-              <AuthButton
-                type="button"
-                className="mt-6"
-                onClick={() => navigate("/login", { replace: true })}
-              >
-                Back to login
-              </AuthButton>
-            </>
-          )}
       </AuthCard>
     </AuthCenteredPage>
   );

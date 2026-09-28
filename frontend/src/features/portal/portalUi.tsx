@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import type { PortalStorageSpaceVisibility } from "../../api/portal";
 import PageBanner, { type PageBannerTone } from "../../components/PageBanner";
+import ErrorState from "../../components/errors/ErrorState";
 import type { UiTone } from "../../components/ui/styles";
 import type {
   PortalWorkspaceRole,
@@ -18,6 +19,7 @@ export function PortalPageState({
   tone?: PageBannerTone;
   children: ReactNode;
 }) {
+  if (tone === "error") return <ErrorState error={typeof children === "string" ? new Error(children) : undefined} presentation="embedded" />;
   return (
     <div className="space-y-4">
       <PageBanner tone={tone}>{children}</PageBanner>

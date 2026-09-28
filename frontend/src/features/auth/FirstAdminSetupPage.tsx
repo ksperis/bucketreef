@@ -11,6 +11,7 @@ import {
 } from "../../api/auth";
 import { useSession } from "../../auth/SessionProvider";
 import BrandMark from "../../components/BrandMark";
+import ErrorState from "../../components/errors/ErrorState";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { PRODUCT_NAME } from "../../constants/product";
 import { extractApiError } from "../../utils/apiError";
@@ -46,6 +47,7 @@ export default function FirstAdminSetupPage() {
   const [checking, setChecking] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<unknown>(null);
 
   useLayoutEffect(() => {
     clearBootstrapTokenFragment();
@@ -68,12 +70,7 @@ export default function FirstAdminSetupPage() {
       })
       .catch((statusError) => {
         if (mounted) {
-          setError(
-            extractApiError(
-              statusError,
-              "Unable to check bootstrap availability.",
-            ),
-          );
+          setAvailabilityError(statusError);
         }
       })
       .finally(() => {
@@ -129,6 +126,15 @@ export default function FirstAdminSetupPage() {
       setSubmitting(false);
     }
   };
+
+  if (!checking && availabilityError) return <ErrorState error={availabilityError} presentation="full" onRetry={async () => {
+    // The single-use token has already been removed from the address bar.
+    // Retry in place so a transient outage cannot discard it through a reload.
+    const status = await fetchFirstAdminBootstrapStatus();
+    if (!status.available) navigate("/login", { replace: true });
+    else setAvailabilityError(null);
+  }} />;
+  if (!checking && !token) return <ErrorState kind="invalid_link" presentation="full" />;
 
   return (
     <AuthCenteredPage radial className="py-10">

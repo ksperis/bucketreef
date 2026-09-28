@@ -37,9 +37,9 @@ describe("UnauthorizedPage", () => {
     const { container } = renderPage("light");
 
     expect(document.documentElement).not.toHaveClass("dark");
-    expect(container.querySelector("main")).toHaveClass("bg-slate-50", "dark:bg-slate-950");
-    expect(container.querySelector("section")).toHaveClass("ui-surface-card");
-    expect(screen.getByRole("heading", { name: "Unauthorized access" })).toBeInTheDocument();
+    expect(container.querySelector(".error-state--full")).toBeInTheDocument();
+    expect(container.querySelector("section")).toHaveClass("error-state-content");
+    expect(screen.getByRole("heading", { name: "This passage is reserved." })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("link", { name: "Switch account" })).toHaveAttribute("href", "/login");
   });
@@ -48,8 +48,8 @@ describe("UnauthorizedPage", () => {
     const { container } = renderPage("dark");
 
     expect(document.documentElement).toHaveClass("dark");
-    expect(container.querySelector("main")).toHaveClass("bg-slate-50", "dark:bg-slate-950");
-    expect(container.querySelector("section")).toHaveClass("ui-surface-card");
+    expect(container.querySelector(".error-state--full")).toBeInTheDocument();
+    expect(container.querySelector("section")).toHaveClass("error-state-content");
     expect(screen.queryByRole("link", { name: "Back to workspace" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Switch account" })).toHaveAttribute("href", "/login");
   });

@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ErrorState from "../../components/errors/ErrorState";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -106,6 +107,8 @@ export default function WebhookEndpointPage() {
   const [events, setEvents] = useState<WebhookEventDefinition[]>([]);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailure, setLoadFailure] = useState<unknown>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [deliveriesLoading, setDeliveriesLoading] = useState(false);
   const [deliveriesError, setDeliveriesError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(invalidEndpointId ? "Webhook endpoint not found." : null);
@@ -156,6 +159,8 @@ export default function WebhookEndpointPage() {
     let active = true;
     setLoading(true);
     setError(null);
+    setLoadFailure(null);
+    setEndpoint(null);
     const requests: [Promise<WebhookEventDefinition[]>, Promise<WebhookEndpoint | null>] = [
       listWebhookEvents(),
       isCreate || numericEndpointId === null
@@ -173,13 +178,13 @@ export default function WebhookEndpointPage() {
         }
       })
       .catch((loadError) => {
-        if (active) setError(extractApiError(loadError, "Unable to load webhook configuration."));
+        if (active) setLoadFailure(loadError);
       })
       .finally(() => {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [acceptDraft, endpointId, invalidEndpointId, isCreate, loadDeliveries, numericEndpointId]);
+  }, [acceptDraft, endpointId, invalidEndpointId, isCreate, loadAttempt, loadDeliveries, numericEndpointId]);
 
   const selectedEvents = useMemo(() => new Set(form.draft.event_types), [form.draft.event_types]);
   const allEvents = selectedEvents.has("*");
@@ -383,6 +388,12 @@ export default function WebhookEndpointPage() {
 
   const title = isCreate ? "Add webhook endpoint" : endpoint ? `Edit webhook: ${endpoint.name}` : "Webhook endpoint";
   const selectedExactCount = form.draft.event_types.filter((value) => value !== "*").length;
+
+  if (!loading && (invalidEndpointId || loadFailure || (!isCreate && !endpoint))) {
+    return <ErrorState kind={invalidEndpointId ? "invalid_link" : loadFailure ? undefined : "not_found"}
+      error={loadFailure} onRetry={() => setLoadAttempt((attempt) => attempt + 1)}
+      secondaryAction={{ label: "Back to webhooks", to: backPath }} />;
+  }
 
   return (
     <>

@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ErrorState from "../../components/errors/ErrorState";
 import PortalAddPeopleWorkflow from "./PortalAddPeopleWorkflow";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -76,7 +77,6 @@ import {
 import PortalStorageSpaceStatistics from "./PortalStorageSpaceStatistics";
 import PortalStorageSpaceHistoryCleanupWorkflow from "./PortalStorageSpaceHistoryCleanupWorkflow";
 import {
-  PortalPageState,
   portalStorageSpaceStatusTone,
   resolvePortalWorkspacePageState,
 } from "./portalUi";
@@ -567,7 +567,7 @@ function StorageSpaceDetail() {
   if (pageState) return pageState;
 
   if (!space || !accountIdForApi) {
-    return <PortalPageState>{t({ en: "Space not available.", fr: "Espace indisponible.", de: "Bereich nicht verfügbar.", zh: "空间不可用。" })}</PortalPageState>;
+    return <ErrorState kind="not_found" presentation="embedded" />;
   }
 
   const browserAvailable =

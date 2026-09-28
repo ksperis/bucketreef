@@ -5,7 +5,7 @@
 import { CLIENT_STORAGE_KEYS, clearAuthStorage, readClientStorage } from "../utils/clientStorage";
 import { deferRecoveryAuthRedirect } from "../auth/recoveryCodeHandoff";
 import { broadcastSessionEnded } from "../auth/sessionEvents";
-import { readStoredUser } from "../utils/workspaces";
+import { readStoredUser, setSessionUserCache } from "../utils/workspaces";
 import { coordinateAuthRefresh } from "./authRefreshCoordinator";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
@@ -90,12 +90,21 @@ export function timeoutForRequestProfile(profile: ApiRequestProfile): number {
   return profile === "interactive" ? INTERACTIVE_REQUEST_TIMEOUT_MS : LONG_RUNNING_REQUEST_TIMEOUT_MS;
 }
 
+let pendingAuthRedirect: string | null = null;
+
 function handleAuthRedirect() {
   if (typeof window === "undefined") return;
+  const hadSession = Boolean(readStoredUser());
   clearAuthStorage();
+  setSessionUserCache(null);
   broadcastSessionEnded();
   if (deferRecoveryAuthRedirect()) return;
-  if (window.location.pathname !== "/login") window.location.replace("/login");
+  if (!pendingAuthRedirect && !["/login", "/session-expired"].includes(window.location.pathname)) {
+    // Concurrent rejected requests must not overwrite the first expired-session
+    // destination after its in-memory identity has already been cleared.
+    pendingAuthRedirect = hadSession ? "/session-expired" : "/login";
+    window.location.replace(pendingAuthRedirect);
+  }
 }
 
 function isAuthEndpoint(url: string): boolean {
@@ -165,6 +174,11 @@ async function refreshCookies(): Promise<void> {
         signal: timeout.signal,
       });
       if (!response.ok) throw new ApiError("Unable to refresh session", { response: { status: response.status, data: await parseResponse(response), headers: Object.fromEntries(response.headers.entries()) } });
+    } catch (error) {
+      if (isApiError(error)) throw error;
+      throw new ApiError(timeout.signal?.aborted ? "Session refresh timeout" : "Failed to fetch", {
+        code: timeout.signal?.aborted ? "ETIMEDOUT" : undefined, cause: error,
+      });
     } finally {
       timeout.cleanup();
     }
@@ -197,9 +211,13 @@ async function request<T>(method: string, path: string, data?: unknown, config: 
         await refreshCookies();
         return request<T>(method, path, data, { ...config, _retry: true });
       } catch (error) {
-        handleAuthRedirect();
+        // A temporarily unreachable refresh endpoint is not an expired session.
+        if (isApiError(error) && [401, 403, 419].includes(error.response?.status ?? 0)) handleAuthRedirect();
         throw error;
       }
+    }
+    if ((response.status === 401 || response.status === 419) && !isAuthEndpoint(url) && config._retry) {
+      handleAuthRedirect();
     }
     const parsed = await parseResponse(response, config.responseType);
     const responseHeaders = Object.fromEntries(response.headers.entries());

@@ -33,18 +33,17 @@ describe("FeatureDisabledPage", () => {
     const { container } = renderPage("light");
 
     expect(document.documentElement).not.toHaveClass("dark");
-    expect(container.querySelector("main")).toHaveClass("bg-slate-50", "dark:bg-slate-950");
-    expect(container.querySelector("section")).toHaveClass("ui-surface-card");
-    expect(screen.getByRole("heading", { name: "Browser disabled" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: "Switch account" })).toHaveAttribute("href", "/login");
+    expect(container.querySelector(".error-state")).toHaveClass("error-state--full");
+    expect(container.querySelector("section")).toHaveAttribute("data-error-kind", "feature_disabled");
+    expect(screen.getByRole("heading", { name: "This passage is closed for now." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go to sign in" })).toHaveAttribute("href", "/login");
   });
 
   it("renders with the dark theme shell", () => {
     const { container } = renderPage("dark");
 
     expect(document.documentElement).toHaveClass("dark");
-    expect(container.querySelector("main")).toHaveClass("bg-slate-50", "dark:bg-slate-950");
-    expect(container.querySelector("section")).toHaveClass("ui-surface-card");
+    expect(container.querySelector(".error-state")).toHaveClass("error-state--full");
+    expect(container.querySelector("section")).toHaveAttribute("data-error-kind", "feature_disabled");
   });
 });

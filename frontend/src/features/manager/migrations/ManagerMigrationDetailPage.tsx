@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ErrorState from "../../../components/errors/ErrorState";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -93,11 +94,11 @@ function isInFocus(item: BucketMigrationItemView, focus: BucketFocus): boolean {
 export default function ManagerMigrationDetailPage() {
   const { migrationId } = useParams<{ migrationId: string }>();
   const parsedMigrationId = migrationId ? Number(migrationId) : NaN;
-  const migrationIdValue = Number.isFinite(parsedMigrationId) ? parsedMigrationId : null;
+  const migrationIdValue = Number.isSafeInteger(parsedMigrationId) && parsedMigrationId > 0 ? parsedMigrationId : null;
 
   const navigate = useNavigate();
   const { contextLabelById } = useManagerContexts();
-  const { migrationDetail, detailLoading, detailError, setDetailError, refresh } = useManagerMigrationDetail(migrationIdValue);
+  const { migrationDetail, detailLoading, detailError, loadFailure, setDetailError, refresh } = useManagerMigrationDetail(migrationIdValue);
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedPrecheckItems, setExpandedPrecheckItems] = useState<Record<number, boolean>>({});
@@ -397,14 +398,11 @@ export default function ManagerMigrationDetailPage() {
   }, [failedItemCount, migrationDetail, pendingConfirmation]);
 
   if (!migrationIdValue) {
-    return (
-      <PageShell
-        title="Bucket Migration"
-        description="Invalid migration identifier."
-        breadcrumbs={managerPageBreadcrumbs("migration", { label: "Details" })}
-        actions={[{ label: "Back to list", onClick: () => navigate("/manager/migrations") }]}
-      />
-    );
+    return <ErrorState kind="invalid_link" primaryAction={{ label: "Back to list", to: "/manager/migrations" }} />;
+  }
+  if (!detailLoading && !migrationDetail) {
+    return <ErrorState kind={loadFailure ? undefined : "not_found"} error={loadFailure} onRetry={refresh}
+      secondaryAction={{ label: "Back to list", to: "/manager/migrations" }} />;
   }
 
   return (
@@ -422,9 +420,6 @@ export default function ManagerMigrationDetailPage() {
 
       {detailLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">Refreshing...</p>}
       {detailError && <p className="ui-caption text-rose-600 dark:text-rose-300">{detailError}</p>}
-      {!migrationDetail && !detailLoading && (
-        <p className="ui-caption text-slate-500 dark:text-slate-400">Migration not found or unavailable.</p>
-      )}
 
       {migrationDetail && (
         <>

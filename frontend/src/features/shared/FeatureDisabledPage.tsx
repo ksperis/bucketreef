@@ -1,20 +1,11 @@
-/*
- * Copyright (c) 2025 Laurent Barbe
- * Licensed under the Apache License, Version 2.0
- */
-import FullPageStatus from "../../components/FullPageStatus";
+/* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ErrorState from "../../components/errors/ErrorState";
+import { useI18n } from "../../i18n";
 
-type FeatureDisabledPageProps = {
-  feature: string;
-};
-
-export default function FeatureDisabledPage({ feature }: FeatureDisabledPageProps) {
-  return (
-    <FullPageStatus
-      title={`${feature} disabled`}
-      description="This feature has been disabled by an administrator. Contact your admin if you need access restored."
-      primaryAction={{ label: "Back to home", to: "/", variant: "primary" }}
-      secondaryAction={{ label: "Switch account", to: "/login" }}
-    />
-  );
+export default function FeatureDisabledPage({ feature }: { feature: string }) {
+  const { t } = useI18n();
+  return <ErrorState kind="feature_disabled" description={t({
+    en: `${feature} is disabled. Contact your administrator if you need access.`,
+    fr: `${feature} est désactivé. Contactez votre administrateur si vous en avez besoin.`,
+  })} />;
 }

@@ -240,7 +240,7 @@ describe("UsageHistoryPage", () => {
 
     renderPage();
 
-    expect(screen.getByText("Usage history disabled")).toBeInTheDocument();
+    expect(screen.getByText("Usage history is disabled. Contact your administrator if you need access.")).toBeInTheDocument();
     expect(mocks.listUsageHistory).not.toHaveBeenCalled();
   });
 });

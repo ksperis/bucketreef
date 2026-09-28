@@ -7,6 +7,7 @@ import { fetchCurrentSession, type AuthenticationResponse, type CurrentSessionRe
 import { clearAuthStorage, removeClientStorage, CLIENT_STORAGE_KEYS } from "../utils/clientStorage";
 import type { SessionUser } from "../utils/workspaces";
 import { readStoredUser, setSessionUserCache } from "../utils/workspaces";
+import { isApiError } from "../api/client";
 import {
   isSessionEndedStorageEvent,
   SESSION_ENDED_EVENT,
@@ -17,6 +18,7 @@ type SessionContextValue = {
   authenticated: boolean;
   user: SessionUser | null;
   session: CurrentSessionResponse | null;
+  bootstrapError: unknown;
   refresh: () => Promise<CurrentSessionResponse | null>;
   acceptAuthentication: (response: AuthenticationResponse, authType: SessionUser["authType"]) => void;
   clear: () => void;
@@ -47,16 +49,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<CurrentSessionResponse | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [bootstrapError, setBootstrapError] = useState<unknown>(null);
 
   const clear = useCallback(() => {
     clearAuthStorage();
     setSessionUserCache(null);
     setSession(null);
     setUser(null);
+    setBootstrapError(null);
   }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setBootstrapError(null);
     try {
       const current = await fetchCurrentSession();
       const nextUser = sessionUserFromResponse(current);
@@ -64,8 +69,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUser(nextUser);
       setSessionUserCache(nextUser);
       return current;
-    } catch {
-      clear();
+    } catch (error) {
+      if (isApiError(error) && [401, 403, 419].includes(error.response?.status ?? 0)) clear();
+      else setBootstrapError(error);
       return null;
     } finally {
       setLoading(false);
@@ -119,10 +125,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     authenticated: Boolean(session && user),
     user,
     session,
+    bootstrapError,
     refresh,
     acceptAuthentication,
     clear,
-  }), [acceptAuthentication, clear, loading, refresh, session, user]);
+  }), [acceptAuthentication, bootstrapError, clear, loading, refresh, session, user]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
@@ -136,6 +143,7 @@ export function useSession(): SessionContextValue {
     authenticated: Boolean(user),
     user,
     session: null,
+    bootstrapError: null,
     refresh: async () => null,
     acceptAuthentication: (response, authType) => {
       if (response.user) setSessionUserCache({ ...response.user, authType });

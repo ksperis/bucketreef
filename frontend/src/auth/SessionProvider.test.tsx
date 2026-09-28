@@ -4,6 +4,8 @@
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../api/client";
+import { readStoredUser } from "../utils/workspaces";
 import { fetchCurrentSession } from "../api/auth";
 import { SessionProvider, shouldBootstrapSession, useSession } from "./SessionProvider";
 import { SESSION_ENDED_STORAGE_KEY } from "./sessionEvents";
@@ -18,8 +20,10 @@ function SessionState() {
 }
 
 function AuthenticationState() {
-  const { authenticated } = useSession();
-  return <span>{authenticated ? "authenticated" : "signed out"}</span>;
+  const { authenticated, bootstrapError, refresh } = useSession();
+  return <><span>{authenticated ? "authenticated" : "signed out"}</span>
+    {bootstrapError ? <span>Service unavailable</span> : null}
+    <button onClick={() => { void refresh(); }}>Retry session</button></>;
 }
 
 describe("SessionProvider OIDC bootstrap", () => {
@@ -81,5 +85,38 @@ describe("SessionProvider OIDC bootstrap", () => {
     );
 
     await waitFor(() => expect(screen.getByText("signed out")).toBeInTheDocument());
+  });
+});
+
+
+describe("SessionProvider recovery", () => {
+  const session = {
+    authenticated: true as const,
+    user: { id: 42, email: "reader@example.test", role: "ui_user" as const },
+    auth_session: { id: "test-session", auth_type: "password", idle_expires_at: "2026-09-28T18:00:00Z", absolute_expires_at: "2026-09-29T18:00:00Z" },
+  };
+  it("preserves an authenticated session after a temporary outage and retries", async () => {
+    vi.mocked(fetchCurrentSession).mockReset().mockResolvedValueOnce(session)
+      .mockRejectedValueOnce(new ApiError("Unavailable", { response: { status: 503, data: {}, headers: {} } }))
+      .mockResolvedValueOnce(session);
+    render(<SessionProvider><AuthenticationState /></SessionProvider>);
+    await screen.findByText("authenticated");
+    fireEvent.click(screen.getByText("Retry session"));
+    await screen.findByText("Service unavailable");
+    expect(screen.getByText("authenticated")).toBeInTheDocument();
+    expect(readStoredUser()?.id).toBe(42);
+    fireEvent.click(screen.getByText("Retry session"));
+    await waitFor(() => expect(screen.queryByText("Service unavailable")).not.toBeInTheDocument());
+    expect(readStoredUser()?.id).toBe(42);
+  });
+  it.each([401, 403, 419])("clears a session rejected with %s", async (status) => {
+    vi.mocked(fetchCurrentSession).mockReset().mockResolvedValueOnce(session)
+      .mockRejectedValueOnce(new ApiError("Denied", { response: { status, data: {}, headers: {} } }));
+    render(<SessionProvider><AuthenticationState /></SessionProvider>);
+    await screen.findByText("authenticated");
+    fireEvent.click(screen.getByText("Retry session"));
+    await screen.findByText("signed out");
+    expect(readStoredUser()).toBeNull();
+    expect(screen.queryByText("Service unavailable")).not.toBeInTheDocument();
   });
 });

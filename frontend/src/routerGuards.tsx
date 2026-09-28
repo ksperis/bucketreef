@@ -15,16 +15,19 @@ import {
   getManagerToolAccess,
   hasPortalWorkspaceAccess,
   isAdminLikeRole,
+  readStoredUser,
   resolvePostLoginPath,
   setSessionUserCache,
   type SessionUser,
 } from "./utils/workspaces";
 import { prefetchWorkspaceBranch } from "./utils/routePrefetch";
+import UnauthorizedPage from "./features/auth/UnauthorizedPage";
+import ErrorState from "./components/errors/ErrorState";
 
 const USER_ROLE = "ui_user";
 
 function unauthorizedRoute() {
-  return <Navigate to="/unauthorized" replace />;
+  return <UnauthorizedPage />;
 }
 
 function renderWorkspaceFeature(loading: boolean, enabled: boolean, feature: string) {
@@ -57,8 +60,9 @@ export function RouteFallback() {
 }
 
 export function RequireAuth() {
-  const { loading, authenticated } = useSession();
+  const { loading, authenticated, bootstrapError, refresh } = useSession();
   if (loading) return <RouteFallback />;
+  if (bootstrapError) return <ErrorState error={bootstrapError} onRetry={refresh} presentation="full" />;
   if (!authenticated) return <Navigate to="/login" replace />;
   return <Outlet />;
 }
@@ -96,7 +100,13 @@ export function RequireManagerFeature() {
 export function RequirePortalAccess() {
   const { generalSettings, loading } = useGeneralSettings();
   const { authenticated, user: authenticatedUser } = useSession();
-  const [sessionUser, setSessionUser] = useState<SessionUser | null>(() => authenticatedUser);
+  const sessionIdentity = authenticatedUser?.id ?? authenticatedUser?.email;
+  const authenticatedPortalAccess = hasPortalWorkspaceAccess(authenticatedUser);
+  const [refreshedUser, setRefreshedUser] = useState<{ identity: typeof sessionIdentity; user: SessionUser } | null>(null);
+  const sessionUser = authenticatedPortalAccess ? authenticatedUser
+    : refreshedUser?.identity === sessionIdentity ? refreshedUser?.user : authenticatedUser;
+  const [refreshError, setRefreshError] = useState<unknown>(null);
+  const [refreshAttempt, setRefreshAttempt] = useState(0);
   const [refreshingSession, setRefreshingSession] = useState(() => {
     const storedUser = authenticatedUser;
     return Boolean(
@@ -107,19 +117,20 @@ export function RequirePortalAccess() {
   });
 
   useEffect(() => {
-    if (loading || !generalSettings.portal_enabled || hasPortalWorkspaceAccess(sessionUser)) return;
+    if (loading || !generalSettings.portal_enabled || authenticatedPortalAccess) return;
     if (typeof window === "undefined" || !authenticated) return;
     let cancelled = false;
     setRefreshingSession(true);
+    setRefreshError(null);
     fetchCurrentUser()
       .then((currentUser) => {
         if (cancelled) return;
-        const mergedUser = { ...(authenticatedUser ?? {}), ...currentUser } as SessionUser;
+        const mergedUser = { ...(readStoredUser() ?? {}), ...currentUser } as SessionUser;
         setSessionUserCache(mergedUser);
-        setSessionUser(mergedUser);
+        setRefreshedUser({ identity: sessionIdentity, user: mergedUser });
       })
-      .catch(() => {
-        // The API client handles auth redirects; the guard falls back to unauthorized.
+      .catch((error) => {
+        if (!cancelled) setRefreshError(error);
       })
       .finally(() => {
         if (!cancelled) setRefreshingSession(false);
@@ -127,7 +138,7 @@ export function RequirePortalAccess() {
     return () => {
       cancelled = true;
     };
-  }, [authenticated, authenticatedUser, generalSettings.portal_enabled, loading, sessionUser]);
+  }, [authenticated, authenticatedPortalAccess, generalSettings.portal_enabled, loading, refreshAttempt, sessionIdentity]);
 
   if (loading) {
     return <RouteFallback />;
@@ -135,13 +146,14 @@ export function RequirePortalAccess() {
   if (!generalSettings.portal_enabled) {
     return <FeatureDisabledPage feature="Portal" />;
   }
-  if (hasPortalWorkspaceAccess(sessionUser)) {
+  if (refreshError) return <ErrorState error={refreshError} onRetry={() => setRefreshAttempt((attempt) => attempt + 1)} />;
+  if (hasPortalWorkspaceAccess(sessionUser ?? null)) {
     return <Outlet />;
   }
   if (refreshingSession) {
     return <RouteFallback />;
   }
-  if (!hasPortalWorkspaceAccess(sessionUser)) {
+  if (!hasPortalWorkspaceAccess(sessionUser ?? null)) {
     return unauthorizedRoute();
   }
   return <Outlet />;

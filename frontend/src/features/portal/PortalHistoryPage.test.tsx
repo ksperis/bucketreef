@@ -181,7 +181,7 @@ describe("PortalHistoryPage", () => {
     mocks.stateAvailable = false;
     mocks.workspaceError = "Workspace unavailable";
     renderPage("/portal/history?project=101&view=access");
-    expect(screen.getByText("Workspace unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "A little turbulence in the reef." })).toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent("view=access");
     expect(mocks.fetchPortalServerAccessLogPage).not.toHaveBeenCalled();
   });
