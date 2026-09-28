@@ -43,7 +43,6 @@ export function useBrowserObjectSort({
   }, []);
 
   return {
-    setSort,
     backendSortBy:
       sort.key === "storageClass" ? ("storage_class" as const) : sort.key,
     sortDirection: sort.direction,

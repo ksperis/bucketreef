@@ -188,15 +188,13 @@ File filters combine minimum/maximum bytes, inclusive modification dates and com
 
 Filtering takes place on the server before pagination, including sorted listings. **Partial results** means more listing pages remain; explicitly load more to continue. An empty result offers a wider scope without choosing it automatically. Ascending-name requests retain their bounded scan budget. Global sorted scans stop at 200 S3 pages or 20 seconds and ask you to narrow the scope or return to ascending-name pagination. No object-content or tag index is created.
 
-### Personal favorites and saved views
+### Personal path favorites
 
-The standalone sidebar has **Buckets / Favorites** tabs. Favorites contain **Locations** and **Saved views**; each item shows its bucket, path and context in a subtitle (the full value is also available on hover). Search this list or use the item's menu to manage it. In embedded surfaces, the compact star button opens the same collection.
+The standalone sidebar has **Buckets / Favorites** tabs. Each favorite shows its bucket, path and context in a subtitle. Search the list or use an item's menu to rename or remove it. Embedded surfaces use a compact star button.
 
-Use **Pin location / Save view** to pin the current location or save a named view containing the context, path, query, file filters, sorting and visible columns. Rename individual entries, update a saved view from the current view, or remove it. Changes synchronize through your UI account and refresh when the window regains focus. A stale edit or removal is rejected; refresh before trying again.
+Use **Pin location** to save the current context and exact path. Favorites synchronize through your UI account and refresh when the window regains focus. Concurrent edits or removals are rejected; refresh before retrying. Unavailable locations remain identifiable and never silently change execution identity.
 
-Standalone Browser, Manager, Ceph Admin and Portal have separate collections. Opening an entry rechecks the saved identity and location. Standalone Browser can switch to an available saved context. Integrations keep their workspace context: select the saved project/context or open its Storage Space first. An unavailable entry retains its original identity and can still be renamed or removed.
-
-Temporary S3 sessions cannot synchronize preferences. The static demo simulates this collection locally for each demo identity. This table contains only personal favorites/views, never upload tracking or transfer history.
+Temporary S3 sessions cannot synchronize favorites. Standalone and embedded workspace collections remain separate. Favorites do not save search, filters, sorting or columns. Previously saved views are removed by the path-favorites migration; existing path favorites retain their IDs and revision history.
 
 ### ZIP for a mixed selection
 
