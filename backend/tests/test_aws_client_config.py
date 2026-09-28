@@ -2,8 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import pytest
+
 from app.services.aws_client_config import build_interactive_aws_config
-from app.services import rgw_iam, s3_client, sns_client, sts_service
+from app.services import aws_client_config, rgw_iam, s3_client, sns_client, sts_service
 
 
 def _assert_interactive_config(config):
@@ -29,6 +31,47 @@ def test_interactive_aws_config_preserves_service_options():
 
     assert config.s3["addressing_style"] == "path"
     assert config.user_agent_extra == "bucketreef-test"
+
+
+@pytest.mark.parametrize(
+    ("supported_options", "expected_checksum_options"),
+    [
+        (set(), {}),
+        (
+            {
+                "request_checksum_calculation",
+                "response_checksum_validation",
+            },
+            {
+                "request_checksum_calculation": "when_required",
+                "response_checksum_validation": "when_required",
+            },
+        ),
+    ],
+)
+def test_interactive_aws_config_matches_botocore_checksum_capabilities(
+    monkeypatch,
+    supported_options,
+    expected_checksum_options,
+):
+    class FakeConfig:
+        OPTION_DEFAULTS = {option: None for option in supported_options}
+
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(aws_client_config, "Config", FakeConfig)
+
+    config = aws_client_config.build_interactive_aws_config()
+
+    actual_checksum_options = {
+        name: value
+        for name, value in config.kwargs.items()
+        if name.endswith("checksum_calculation")
+        or name.endswith("checksum_validation")
+    }
+    assert actual_checksum_options == expected_checksum_options
+    assert config.kwargs["signature_version"] == "s3v4"
 
 
 def test_s3_iam_sns_and_sts_clients_share_interactive_profile(monkeypatch):

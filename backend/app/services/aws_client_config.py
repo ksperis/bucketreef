@@ -11,6 +11,11 @@ from app.core.config import get_settings
 
 StorageRequestProfile = Literal["interactive", "long_running"]
 
+_CHECKSUM_CONFIG_OPTIONS = {
+    "request_checksum_calculation": "when_required",
+    "response_checksum_validation": "when_required",
+}
+
 
 def build_aws_config(
     *,
@@ -24,8 +29,6 @@ def build_aws_config(
     settings = get_settings()
     kwargs: dict[str, Any] = {
         "signature_version": signature_version,
-        "request_checksum_calculation": "when_required",
-        "response_checksum_validation": "when_required",
         "connect_timeout": float(settings.storage_interactive_connect_timeout_seconds),
         "read_timeout": float(
             settings.storage_long_running_read_timeout_seconds
@@ -37,6 +40,14 @@ def build_aws_config(
             "total_max_attempts": int(settings.storage_interactive_max_attempts),
         },
     }
+    supported_options = getattr(Config, "OPTION_DEFAULTS", {})
+    kwargs.update(
+        {
+            name: value
+            for name, value in _CHECKSUM_CONFIG_OPTIONS.items()
+            if name in supported_options
+        }
+    )
     if s3:
         kwargs["s3"] = s3
     if user_agent_extra:
@@ -56,4 +67,3 @@ def build_interactive_aws_config(
         s3=s3,
         user_agent_extra=user_agent_extra,
     )
-
