@@ -127,13 +127,34 @@ class ResourceTracker:
         errors: list[str] = []
         for migration_id in reversed(self.migrations):
             try:
+                # Test-only migrations retain source protections until explicit recovery.
+                # Wait for worker commands before deleting their durable recovery record.
+                import time
+                detail = self.admin_session.get(f"/manager/migrations/{migration_id}", expected_status=(200, 404))
+                if detail.get("available_actions", {}).get("stop", {}).get("enabled"):
+                    self.admin_session.post(f"/manager/migrations/{migration_id}/stop")
+                deadline = time.monotonic() + 90
+                while detail.get("preparation_status") == "checking" or detail.get("status") in {"queued", "running", "pause_requested", "cancel_requested"}:
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("Test migration did not become idle before cleanup")
+                    time.sleep(0.5)
+                    detail = self.admin_session.get(f"/manager/migrations/{migration_id}")
+                if detail.get("available_actions", {}).get("restore_access", {}).get("enabled"):
+                    self.admin_session.post(f"/manager/migrations/{migration_id}/restore-access", json={"confirmed": True}, expected_status=202)
+                    while True:
+                        detail = self.admin_session.get(f"/manager/migrations/{migration_id}")
+                        if detail.get("maintenance_status") == "completed":
+                            break
+                        if detail.get("maintenance_status") == "failed" or time.monotonic() >= deadline:
+                            raise RuntimeError("Test migration access restoration failed")
+                        time.sleep(0.5)
                 self.admin_session.delete(
                     f"/manager/migrations/{migration_id}",
                     expected_status=(204, 404),
                 )
                 if log:
                     log(f"Deleted migration {migration_id}")
-            except BackendAPIError as exc:
+            except (BackendAPIError, RuntimeError) as exc:
                 errors.append(f"migration {migration_id}: {exc}")
         self.migrations.clear()
 

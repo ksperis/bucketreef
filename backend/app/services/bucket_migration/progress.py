@@ -2,6 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from sqlalchemy import or_
+from app.core.sensitive_data import sanitized_error_log_detail
+
 import logging
 from datetime import timedelta
 from typing import Any, Optional
@@ -41,7 +44,7 @@ class BucketMigrationProgressMixin:
             .filter(
                 BucketMigration.id == migration_id,
                 BucketMigration.worker_lease_owner == worker_id,
-                BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.preparation_status == "checking", BucketMigration.maintenance_status.in_({"queued", "running"})),
             )
             .update(
                 {
@@ -78,10 +81,18 @@ class BucketMigrationProgressMixin:
     ) -> None:
         try:
             migration = self.db.query(BucketMigration).filter(BucketMigration.id == migration_id).first()
-            if not migration:
+            if not migration or (worker_id and migration.worker_lease_owner != worker_id):
                 return
 
             now = utcnow()
+            if migration.maintenance_status in {"queued", "running"}:
+                migration.maintenance_status = "failed"
+                migration.maintenance_error = sanitized_error_log_detail(error)
+                migration.worker_lease_owner = None
+                migration.worker_lease_until = None
+                migration.updated_at = now
+                self._commit()
+                return
             if migration.status in _FINAL_MIGRATION_STATUSES:
                 if worker_id and migration.worker_lease_owner == worker_id:
                     migration.worker_lease_owner = None
@@ -90,7 +101,7 @@ class BucketMigrationProgressMixin:
                     self._commit()
                 return
 
-            error_text = str(error or "unknown fatal error").strip() or "unknown fatal error"
+            error_text = sanitized_error_log_detail(error or "unknown fatal error")
             migration.status = "failed"
             migration.pause_requested = False
             migration.cancel_requested = False
@@ -134,7 +145,7 @@ class BucketMigrationProgressMixin:
         worker_id: Optional[str] = None,
         lease_seconds: Optional[int] = None,
     ) -> str:
-        migration = self.get_migration(migration_id)
+        migration = self.db.query(BucketMigration.worker_lease_owner, BucketMigration.worker_lease_until, BucketMigration.cancel_requested, BucketMigration.pause_requested, BucketMigration.status).filter(BucketMigration.id == migration_id).one()
         if worker_id:
             if migration.worker_lease_owner != worker_id:
                 return "lost_lease"
@@ -174,6 +185,7 @@ class BucketMigrationProgressMixin:
         target_ctx: Optional[_ResolvedContext],
         *,
         verify_restored: bool = False,
+        preserve_awaiting: bool = False,
     ) -> list[str]:
         if not any(item.target_lock_applied or item.target_policy_backup_json for item in migration.items):
             return []
@@ -182,9 +194,12 @@ class BucketMigrationProgressMixin:
 
         errors: list[str] = []
         for item in migration.items:
+            if preserve_awaiting and item.status == "awaiting_cutover":
+                continue
             if not (item.target_lock_applied or item.target_policy_backup_json):
                 continue
             try:
+                self._assert_workflow_lease()
                 expected_policy = _json_loads(item.target_policy_backup_json)
                 if item.target_policy_backup_json:
                     self._restore_target_write_lock_policy(target_ctx.account, item.target_bucket, item)
@@ -233,11 +248,9 @@ class BucketMigrationProgressMixin:
             if not (item.read_only_applied or item.source_policy_backup_json):
                 continue
             try:
+                self._assert_workflow_lease()
                 expected_policy = _json_loads(item.source_policy_backup_json)
-                if item.source_policy_backup_json:
-                    self._restore_source_policy(item.source_bucket, source_ctx.account, item)
-                else:
-                    self._remove_managed_read_only_statement(item.source_bucket, source_ctx.account)
+                self._restore_checked_policy(source_ctx.account, item.source_bucket, expected_policy)
                 if verify_restored:
                     self._verify_restored_bucket_policy(
                         source_ctx.account,
@@ -331,7 +344,7 @@ class BucketMigrationProgressMixin:
         awaiting_count = len([item for item in migration.items if item.status == "awaiting_cutover"])
         pending_count = len([item for item in migration.items if item.status in {"pending", "running", "paused"}])
 
-        if migration.mode == "pre_sync" and total_actionable > 0 and awaiting_count == total_actionable:
+        if migration.mode == "pre_sync" and awaiting_count > 0 and awaiting_count + migration.completed_items == total_actionable:
             migration.status = "awaiting_cutover"
             migration.worker_lease_owner = None
             migration.worker_lease_until = None
@@ -352,7 +365,7 @@ class BucketMigrationProgressMixin:
         migration.worker_lease_until = None
         migration.finished_at = utcnow()
         migration.updated_at = utcnow()
-        release_errors = self._release_target_write_locks(migration, target_ctx)
+        release_errors = self._release_target_write_locks(migration, target_ctx, verify_restored=True, preserve_awaiting=True)
         if release_errors:
             if migration.status == "completed":
                 migration.status = "completed_with_errors"
@@ -369,7 +382,7 @@ class BucketMigrationProgressMixin:
         skipped = 0
         awaiting = 0
         for item in migration.items:
-            if item.status in {"completed", "rolled_back"}:
+            if item.status == "completed":
                 completed += 1
             elif item.status == "failed":
                 failed += 1

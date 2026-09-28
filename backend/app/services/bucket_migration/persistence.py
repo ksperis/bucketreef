@@ -7,10 +7,26 @@ from typing import Any, Optional
 from app.db import BucketMigration, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
-from ._shared import _json_dumps
+from ._shared import _json_dumps, _WorkerLeaseLostError
 
 
 class BucketMigrationPersistenceMixin:
+    def _bind_workflow_lease(self, migration_id: int, worker_id: str | None) -> None:
+        self._workflow_migration_id = migration_id
+        self._workflow_worker_id = worker_id
+        self._assert_workflow_lease()
+
+    def _assert_workflow_lease(self) -> None:
+        worker_id = getattr(self, "_workflow_worker_id", None)
+        if not worker_id:
+            return
+        # Read scalar columns: the ORM identity map may still contain a former lease.
+        row = self.db.query(BucketMigration.worker_lease_owner, BucketMigration.worker_lease_until).filter(
+            BucketMigration.id == self._workflow_migration_id,
+        ).one()
+        if row.worker_lease_owner != worker_id or not row.worker_lease_until or row.worker_lease_until < utcnow():
+            raise _WorkerLeaseLostError("Migration worker lease lost")
+
     def _commit(self) -> None:
         self.db.commit()
 
@@ -30,8 +46,14 @@ class BucketMigrationPersistenceMixin:
         raise PermissionError("Not authorized for this context")
 
     def _creator_allowed_context_ids(self, migration: BucketMigration) -> set[str]:
+        user_id = migration.created_by_user_id
+        if migration.maintenance_status in {"queued", "running"}:
+            user_id = migration.maintenance_requested_by_user_id or user_id
+        return self._actor_allowed_context_ids(user_id)
+
+    def _actor_allowed_context_ids(self, user_id: int | None) -> set[str]:
         user = self.db.query(User).filter(
-            User.id == migration.created_by_user_id,
+            User.id == user_id,
             User.is_active.is_(True),
         ).first()
         if user is None:
@@ -44,6 +66,9 @@ class BucketMigrationPersistenceMixin:
         if required <= allowed:
             return
         missing = sorted(required - allowed)
+        # A preparation or cleanup failure must not erase the transfer outcome.
+        if migration.status == "draft" or migration.maintenance_status in {"queued", "running"}:
+            raise PermissionError("Migration creator access has been revoked for context(s): " + ", ".join(missing))
         migration.status = "failed"
         migration.error_message = "Migration access revoked for context(s): " + ", ".join(missing)
         migration.finished_at = utcnow()

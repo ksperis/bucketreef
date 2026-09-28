@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+from sqlalchemy import or_
 from typing import Optional
 
 from app.core.config import get_settings
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.time import utcnow
@@ -30,7 +32,15 @@ class BucketMigrationExecutionControlMixin:
     ) -> None:
         effective_lease_seconds = max(15, int(lease_seconds or settings.bucket_migration_worker_lease_seconds))
         migration = self.get_migration(migration_id)
+        self._bind_workflow_lease(migration_id, worker_id)
         self._assert_migration_creator_access(migration)
+        if migration.maintenance_status in {"queued", "running"}:
+            self.run_maintenance(migration_id, worker_id=worker_id, lease_seconds=effective_lease_seconds)
+            return
+        if migration.workflow_version != 2:
+            raise ValueError("Historical migrations cannot be replayed")
+        if migration.status not in _RUNNABLE_MIGRATION_STATUSES:
+            return
 
         if worker_id:
             if migration.worker_lease_owner != worker_id:
@@ -90,6 +100,8 @@ class BucketMigrationExecutionControlMixin:
                 return
 
             try:
+                self._execution_item = item
+                self._revalidate_transfer_preconditions(migration, items=[item])
                 item.status = "running"
                 if item.started_at is None:
                     item.started_at = utcnow()
@@ -108,7 +120,7 @@ class BucketMigrationExecutionControlMixin:
                     continue
                 failed_item.status = "failed"
                 failed_item.error_message = _truncate_optional_db_text(
-                    str(exc),
+                    sanitized_error_log_detail(exc),
                     max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
                 )
                 failed_item.finished_at = utcnow()
@@ -123,6 +135,7 @@ class BucketMigrationExecutionControlMixin:
                 self._commit()
 
         self.db.refresh(migration)
+        self._assert_workflow_lease()
         self._finalize_or_wait_cutover(migration, source_ctx=source_ctx, target_ctx=target_ctx)
         if worker_id and migration.worker_lease_owner == worker_id and migration.status not in _RUNNABLE_MIGRATION_STATUSES:
             migration.worker_lease_owner = None
@@ -135,7 +148,7 @@ class BucketMigrationExecutionControlMixin:
         rows = (
             self.db.query(BucketMigration.source_context_id, BucketMigration.target_context_id)
             .filter(
-                BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.maintenance_status.in_({"queued", "running"})),
                 BucketMigration.worker_lease_until.isnot(None),
                 BucketMigration.worker_lease_until >= now,
             )
@@ -169,7 +182,7 @@ class BucketMigrationExecutionControlMixin:
                 BucketMigration.target_context_id,
             )
             .filter(
-                BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.maintenance_status.in_({"queued", "running"})),
                 BucketMigration.worker_lease_until.isnot(None),
                 BucketMigration.worker_lease_until >= now,
             )

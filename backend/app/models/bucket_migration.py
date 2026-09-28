@@ -59,7 +59,7 @@ class BucketMigrationCreateRequest(ApiModel):
     buckets: list[BucketMigrationBucketMapping] = Field(default_factory=list, min_length=1)
 
     mapping_prefix: str = ""
-    mode: BucketMigrationMode = "one_shot"
+    mode: BucketMigrationMode = "pre_sync"
     copy_bucket_settings: bool = False
     delete_source: bool = False
     strong_integrity_check: bool = False
@@ -67,9 +67,12 @@ class BucketMigrationCreateRequest(ApiModel):
     use_same_endpoint_copy: bool = False
     auto_grant_source_read_for_copy: Optional[bool] = None
     parallelism_max: Optional[int] = Field(default=None, ge=1, le=128)
+    configuration_revision: Optional[int] = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def validate_payload(self):
+        if self.delete_source:
+            raise ValueError("Source deletion is a separate operation after migration verification")
         self.source_context_id = (self.source_context_id or "").strip()
         self.target_context_id = (self.target_context_id or "").strip()
         self.mapping_prefix = (self.mapping_prefix or "").strip()
@@ -87,6 +90,39 @@ class BucketMigrationCreateRequest(ApiModel):
         return self
 
 
+class BucketMigrationPrecheckRequest(ApiModel):
+    active_checks: bool = False
+
+
+class BucketMigrationStartRequest(ApiModel):
+    configuration_revision: int = Field(ge=1)
+    confirm_write_interruption: bool = False
+
+
+class BucketMigrationConfirmationRequest(ApiModel):
+    confirmed: bool = False
+
+
+class BucketMigrationActionAvailability(ApiModel):
+    enabled: bool
+    reason: Optional[str] = None
+
+
+class BucketMigrationDiagnostic(ApiModel):
+    code: str
+    severity: Literal["info", "warning", "error"]
+    level: Literal["info", "warning", "error"]
+    blocking: bool
+    scope: str
+    message: str
+    impact: Optional[str] = None
+    remediation: Optional[str] = None
+    permission: Optional[str] = None
+    context_id: Optional[str] = None
+    bucket: Optional[str] = None
+    details: Optional[dict] = None
+
+
 class BucketMigrationItemView(ApiModel):
     id: int
     source_bucket: str
@@ -97,6 +133,11 @@ class BucketMigrationItemView(ApiModel):
     read_only_applied: bool = False
     target_lock_applied: bool = False
     target_bucket_exists: bool = False
+    target_created_by_migration: bool = False
+    recovery_required: bool = False
+    source_deleted: bool = False
+    cleanup_status: str = "idle"
+    cleanup_error: Optional[str] = None
 
     objects_copied: int = 0
     objects_deleted: int = 0
@@ -146,6 +187,16 @@ class BucketMigrationView(ApiModel):
     precheck_status: BucketMigrationPrecheckStatus = "pending"
     precheck_report: Optional[dict] = None
     precheck_checked_at: Optional[datetime] = None
+    workflow_version: int = 2
+    configuration_revision: int = 1
+    checked_revision: Optional[int] = None
+    preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"] = "unverified"
+    preparation_active_checks: bool = False
+    preparation_completed_items: int = 0
+    maintenance_operation: Optional[str] = None
+    maintenance_status: str = "idle"
+    maintenance_error: Optional[str] = None
+    available_actions: dict[str, BucketMigrationActionAvailability] = Field(default_factory=dict)
 
     parallelism_max: int
 

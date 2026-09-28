@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import logging
+import ipaddress
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import or_
+
+from .workflow import require_action
 
 from app.core.domain_errors import BucketMigrationNotFoundError
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem, User
@@ -17,8 +21,8 @@ from app.utils.time import utcnow
 from ._shared import (
     _FINAL_MIGRATION_STATUSES,
     _RUNNABLE_MIGRATION_STATUSES,
-    _ResolvedContext,
     _json_dumps,
+    _json_loads,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,16 +37,64 @@ class _DraftMigrationConfiguration:
 
 
 class BucketMigrationPlanningMixin:
-    def _build_bucket_mappings(self, payload: BucketMigrationCreateRequest) -> list[tuple[str, str]]:
+    def _transition_command(self, migration: BucketMigration, **values) -> None:
+        """Fence competing commands before a worker or another editor can act."""
+        changed = (
+            self.db.query(BucketMigration)
+            .filter(
+                BucketMigration.id == migration.id,
+                BucketMigration.status == migration.status,
+                BucketMigration.configuration_revision
+                == migration.configuration_revision,
+                BucketMigration.preparation_status == migration.preparation_status,
+                BucketMigration.maintenance_status == migration.maintenance_status,
+            )
+            .update(values, synchronize_session=False)
+        )
+        if changed != 1:
+            self.db.rollback()
+            raise ValueError("This migration changed. Reload it before trying again.")
+        for name, value in values.items():
+            setattr(migration, name, value)
+
+    def _build_bucket_mappings(
+        self, payload: BucketMigrationCreateRequest
+    ) -> list[tuple[str, str]]:
         mappings: list[tuple[str, str]] = []
         seen_targets: set[str] = set()
         for entry in payload.buckets:
             source_bucket = (entry.source_bucket or "").strip()
-            target_bucket = ((entry.target_bucket or "").strip() or f"{payload.mapping_prefix}{source_bucket}").strip()
+            target_bucket = (
+                (entry.target_bucket or "").strip()
+                or f"{payload.mapping_prefix}{source_bucket}"
+            ).strip()
             if not source_bucket:
                 raise ValueError("source bucket is required")
             if not target_bucket:
-                raise ValueError(f"target bucket is required for source '{source_bucket}'")
+                raise ValueError(
+                    f"target bucket is required for source '{source_bucket}'"
+                )
+            invalid_name = (
+                not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", target_bucket)
+                or ".." in target_bucket
+                or ".-" in target_bucket
+                or "-." in target_bucket
+            )
+            try:
+                ipaddress.ip_address(target_bucket)
+                invalid_name = True
+            except ValueError:
+                pass
+            if (
+                invalid_name
+                or target_bucket.startswith(("xn--", "sthree-", "amzn-s3-demo-"))
+                or target_bucket.endswith(
+                    ("-s3alias", "--ol-s3", ".mrap", "--x-s3", "--table-s3")
+                )
+            ):
+                raise ValueError(
+                    f"Invalid destination bucket name '{target_bucket}'. Use 3–63 lowercase letters, numbers, dots or hyphens."
+                )
             if target_bucket in seen_targets:
                 raise ValueError(f"Duplicate target bucket mapping: {target_bucket}")
             seen_targets.add(target_bucket)
@@ -68,7 +120,7 @@ class BucketMigrationPlanningMixin:
             )
 
         if explicit_auto_grant is None:
-            auto_grant_source_read_for_copy = use_same_endpoint_copy
+            auto_grant_source_read_for_copy = False
         else:
             auto_grant_source_read_for_copy = bool(explicit_auto_grant)
 
@@ -84,7 +136,9 @@ class BucketMigrationPlanningMixin:
         mappings = self._build_bucket_mappings(payload)
         self._assert_context_authorized_for_mutation(payload.source_context_id)
         self._assert_context_authorized_for_mutation(payload.target_context_id)
-        self._assert_cross_account_admin_contexts(payload.source_context_id, payload.target_context_id)
+        self._assert_cross_account_admin_contexts(
+            payload.source_context_id, payload.target_context_id
+        )
 
         source_ctx = self._resolve_context(payload.source_context_id)
         target_ctx = self._resolve_context(payload.target_context_id)
@@ -99,9 +153,11 @@ class BucketMigrationPlanningMixin:
                 "target bucket must differ from source bucket. "
                 "Use a prefix or explicit mapping override."
             )
-        use_same_endpoint_copy, auto_grant_source_read_for_copy = self._resolve_same_endpoint_copy_options(
-            payload,
-            same_endpoint=same_endpoint,
+        use_same_endpoint_copy, auto_grant_source_read_for_copy = (
+            self._resolve_same_endpoint_copy_options(
+                payload,
+                same_endpoint=same_endpoint,
+            )
         )
 
         limits = self._load_runtime_limits()
@@ -218,7 +274,9 @@ class BucketMigrationPlanningMixin:
             else:
                 self._reset_draft_item(item, target_bucket, timestamp=timestamp)
 
-    def create_migration(self, payload: BucketMigrationCreateRequest, user: User) -> BucketMigration:
+    def create_migration(
+        self, payload: BucketMigrationCreateRequest, user: User
+    ) -> BucketMigration:
         configuration = self._resolve_draft_configuration(payload)
 
         migration = BucketMigration(
@@ -227,7 +285,7 @@ class BucketMigrationPlanningMixin:
             target_context_id=payload.target_context_id,
             mode=payload.mode,
             copy_bucket_settings=bool(payload.copy_bucket_settings),
-            delete_source=bool(payload.delete_source),
+            delete_source=False,
             strong_integrity_check=bool(payload.strong_integrity_check),
             lock_target_writes=bool(payload.lock_target_writes),
             use_same_endpoint_copy=configuration.use_same_endpoint_copy,
@@ -269,22 +327,39 @@ class BucketMigrationPlanningMixin:
         self.db.refresh(migration)
         return migration
 
-    def update_draft_migration(self, migration_id: int, payload: BucketMigrationCreateRequest) -> BucketMigration:
+    def update_draft_migration(
+        self, migration_id: int, payload: BucketMigrationCreateRequest
+    ) -> BucketMigration:
         migration = self.get_migration(migration_id)
         if migration.status != "draft":
             raise ValueError("Only draft migrations can be updated")
 
+        require_action(migration, "edit")
+        if payload.configuration_revision != migration.configuration_revision:
+            raise ValueError(
+                "This draft changed. Reload it before saving your changes."
+            )
         configuration = self._resolve_draft_configuration(payload)
+        self._transition_command(
+            migration,
+            configuration_revision=migration.configuration_revision + 1,
+            preparation_status="stale",
+        )
+        migration.checked_revision = None
+        migration.preparation_status = "stale"
+        migration.preparation_completed_items = 0
 
         migration.source_context_id = payload.source_context_id
         migration.target_context_id = payload.target_context_id
         migration.mode = payload.mode
         migration.copy_bucket_settings = bool(payload.copy_bucket_settings)
-        migration.delete_source = bool(payload.delete_source)
+        migration.delete_source = False
         migration.strong_integrity_check = bool(payload.strong_integrity_check)
         migration.lock_target_writes = bool(payload.lock_target_writes)
         migration.use_same_endpoint_copy = configuration.use_same_endpoint_copy
-        migration.auto_grant_source_read_for_copy = configuration.auto_grant_source_read_for_copy
+        migration.auto_grant_source_read_for_copy = (
+            configuration.auto_grant_source_read_for_copy
+        )
         migration.mapping_prefix = payload.mapping_prefix or None
         migration.parallelism_max = configuration.parallelism
         migration.status = "draft"
@@ -318,8 +393,13 @@ class BucketMigrationPlanningMixin:
         self.db.refresh(migration)
         return migration
 
-    def list_migrations(self, limit: int = 100, *, context_id: Optional[str] = None) -> list[BucketMigration]:
-        if self._authorized_context_ids is not None and not self._authorized_context_ids:
+    def list_migrations(
+        self, limit: int = 100, *, context_id: Optional[str] = None
+    ) -> list[BucketMigration]:
+        if (
+            self._authorized_context_ids is not None
+            and not self._authorized_context_ids
+        ):
             return []
         query = self.db.query(BucketMigration)
         if self._authorized_context_ids is not None:
@@ -329,7 +409,10 @@ class BucketMigrationPlanningMixin:
             )
         normalized_context_id = (context_id or "").strip()
         if normalized_context_id:
-            if self._authorized_context_ids is not None and normalized_context_id not in self._authorized_context_ids:
+            if (
+                self._authorized_context_ids is not None
+                and normalized_context_id not in self._authorized_context_ids
+            ):
                 return []
             query = query.filter(
                 or_(
@@ -337,10 +420,16 @@ class BucketMigrationPlanningMixin:
                     BucketMigration.target_context_id == normalized_context_id,
                 )
             )
-        return query.order_by(BucketMigration.created_at.desc()).limit(max(1, min(int(limit), 500))).all()
+        return (
+            query.order_by(BucketMigration.created_at.desc())
+            .limit(max(1, min(int(limit), 500)))
+            .all()
+        )
 
     def get_migration(self, migration_id: int) -> BucketMigration:
-        query = self.db.query(BucketMigration).filter(BucketMigration.id == migration_id)
+        query = self.db.query(BucketMigration).filter(
+            BucketMigration.id == migration_id
+        )
         if self._authorized_context_ids is not None:
             if not self._authorized_context_ids:
                 raise BucketMigrationNotFoundError("Migration not found")
@@ -362,13 +451,17 @@ class BucketMigrationPlanningMixin:
             .all()
         )
 
-    def list_recent_migration_events(self, migration_id: int, *, limit: int) -> list[BucketMigrationEvent]:
+    def list_recent_migration_events(
+        self, migration_id: int, *, limit: int
+    ) -> list[BucketMigrationEvent]:
         migration = self.get_migration(migration_id)
         safe_limit = max(1, min(int(limit), 1000))
         return (
             self.db.query(BucketMigrationEvent)
             .filter(BucketMigrationEvent.migration_id == migration.id)
-            .order_by(BucketMigrationEvent.created_at.desc(), BucketMigrationEvent.id.desc())
+            .order_by(
+                BucketMigrationEvent.created_at.desc(), BucketMigrationEvent.id.desc()
+            )
             .limit(safe_limit)
             .all()
         )
@@ -376,49 +469,58 @@ class BucketMigrationPlanningMixin:
     def delete_migration(self, migration_id: int) -> None:
         migration = self.get_migration(migration_id)
         if migration.status not in {*_FINAL_MIGRATION_STATUSES, "draft"}:
-            raise ValueError("Migration can only be deleted from a final status or from draft")
+            raise ValueError(
+                "Migration can only be deleted from a final status or from draft"
+            )
+        require_action(migration, "delete")
         self.db.delete(migration)
         self._commit()
 
-    def run_precheck(self, migration_id: int) -> BucketMigration:
+    def start_migration(
+        self,
+        migration_id: int,
+        *,
+        configuration_revision: int | None = None,
+        confirm_write_interruption: bool = False,
+    ) -> BucketMigration:
         migration = self.get_migration(migration_id)
         self._assert_migration_creator_access(migration)
-        self._assert_cross_account_admin_contexts(migration.source_context_id, migration.target_context_id)
-        if migration.status in {"running", "queued", "pause_requested", "cancel_requested"}:
-            raise ValueError("Precheck cannot run while migration is active")
-
-        checked_at = utcnow()
-        report = self._precheck_planner.run(migration, checked_at=checked_at)
-        errors = int(report.get("errors") or 0)
-        warnings = int(report.get("warnings") or 0)
-
-        migration.precheck_status = "failed" if errors > 0 else "passed"
-        migration.precheck_report_json = _json_dumps(report)
-        migration.precheck_checked_at = checked_at
-        migration.updated_at = checked_at
-        if errors > 0:
-            self._add_event(
-                migration,
-                level="warning",
-                message="Precheck failed.",
-                metadata={"errors": errors, "warnings": warnings},
+        self._assert_cross_account_admin_contexts(
+            migration.source_context_id, migration.target_context_id
+        )
+        require_action(migration, "start")
+        if configuration_revision != migration.configuration_revision:
+            raise ValueError(
+                "The checked configuration revision must match the current draft"
             )
-        else:
-            self._add_event(
-                migration,
-                level="info",
-                message="Precheck passed.",
-                metadata={"errors": 0, "warnings": warnings},
+        if migration.mode == "one_shot" and not confirm_write_interruption:
+            raise ValueError(
+                "Confirm the source write interruption before starting an immediate migration"
             )
-        self._commit()
-        self.db.refresh(migration)
-        return migration
+        try:
+            self._revalidate_transfer_preconditions(migration)
+        except ValueError as exc:
+            migration.preparation_status = "stale"
+            migration.checked_revision = None
+            migration.precheck_status = "failed"
+            report = _json_loads(migration.precheck_report_json) or {}
+            from .precheck import _check_entry
 
-    def start_migration(self, migration_id: int) -> BucketMigration:
-        migration = self.get_migration(migration_id)
-        self._assert_migration_creator_access(migration)
-        self._assert_cross_account_admin_contexts(migration.source_context_id, migration.target_context_id)
-        if migration.status not in {"draft", "paused"}:
+            report["checks"] = [
+                _check_entry(
+                    code="start_precondition_changed",
+                    severity="error",
+                    blocking=True,
+                    scope="migration",
+                    message=str(exc),
+                )
+            ]
+            report["errors"] = max(1, report.get("errors", 0))
+            report["status"] = "failed"
+            migration.precheck_report_json = _json_dumps(report)
+            self._commit()
+            raise
+        if migration.status not in {"draft"}:
             raise ValueError("Migration cannot be started from current status")
         if migration.precheck_status != "passed":
             raise ValueError("Precheck must pass before start. Run /precheck first.")
@@ -430,7 +532,7 @@ class BucketMigrationPlanningMixin:
                     "Precheck must be re-run before start. "
                     f"Item '{item.source_bucket}' -> '{item.target_bucket}' is not runnable: {exc}"
                 ) from exc
-        migration.status = "queued"
+        self._transition_command(migration, status="queued")
         migration.pause_requested = False
         migration.cancel_requested = False
         migration.worker_lease_owner = None
@@ -454,9 +556,13 @@ class BucketMigrationPlanningMixin:
     def request_pause(self, migration_id: int) -> BucketMigration:
         migration = self.get_migration(migration_id)
         if migration.status not in {"queued", "running", "pause_requested"}:
-            raise ValueError("Pause is only available while migration is queued or running")
-        migration.pause_requested = True
-        migration.status = "pause_requested"
+            raise ValueError(
+                "Pause is only available while migration is queued or running"
+            )
+        require_action(migration, "pause")
+        self._transition_command(
+            migration, status="pause_requested", pause_requested=True
+        )
         migration.updated_at = utcnow()
         self._add_event(migration, level="info", message="Pause requested.")
         self._commit()
@@ -465,11 +571,13 @@ class BucketMigrationPlanningMixin:
 
     def resume_migration(self, migration_id: int) -> BucketMigration:
         migration = self.get_migration(migration_id)
+        require_action(migration, "resume")
+        self._revalidate_transfer_preconditions(migration)
         if migration.status not in {"paused"}:
             raise ValueError("Resume is only available from paused status")
         migration.pause_requested = False
         migration.cancel_requested = False
-        migration.status = "queued"
+        self._transition_command(migration, status="queued")
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.updated_at = utcnow()
@@ -484,48 +592,29 @@ class BucketMigrationPlanningMixin:
 
     def stop_migration(self, migration_id: int) -> BucketMigration:
         migration = self.get_migration(migration_id)
-        if migration.status in {"completed", "completed_with_errors", "failed", "canceled", "rolled_back"}:
-            raise ValueError("Migration is already finished")
-        if migration.status in {"paused", "awaiting_cutover", "draft"}:
-            source_ctx: Optional[_ResolvedContext] = None
-            target_ctx: Optional[_ResolvedContext] = None
-            needs_source_cleanup = any(item.read_only_applied or item.source_policy_backup_json for item in migration.items)
-            needs_target_cleanup = any(item.target_lock_applied or item.target_policy_backup_json for item in migration.items)
-            if needs_source_cleanup:
-                try:
-                    source_ctx = self._resolve_context(migration.source_context_id)
-                except Exception as exc:  # noqa: BLE001
-                    self._add_event(
-                        migration,
-                        level="warning",
-                        message="Unable to resolve source context while stopping migration; source policy cleanup was skipped.",
-                        metadata={"error": str(exc)},
-                    )
-            if needs_target_cleanup:
-                try:
-                    target_ctx = self._resolve_context(migration.target_context_id)
-                except Exception as exc:  # noqa: BLE001
-                    self._add_event(
-                        migration,
-                        level="warning",
-                        message="Unable to resolve target context while stopping migration; target lock cleanup was skipped.",
-                        metadata={"error": str(exc)},
-                    )
-            self._mark_canceled(migration, source_ctx=source_ctx, target_ctx=target_ctx)
-        else:
-            migration.cancel_requested = True
-            migration.status = "cancel_requested"
+        require_action(migration, "stop")
+        self._transition_command(
+            migration, status="cancel_requested", cancel_requested=True
+        )
         migration.updated_at = utcnow()
         self._add_event(migration, level="info", message="Stop requested.")
         self._commit()
         self.db.refresh(migration)
         return migration
 
-    def continue_after_presync(self, migration_id: int) -> BucketMigration:
+    def continue_after_presync(
+        self, migration_id: int, *, confirmed: bool = False
+    ) -> BucketMigration:
         migration = self.get_migration(migration_id)
+        require_action(migration, "cutover")
+        if not confirmed:
+            raise ValueError("Confirm source write interruption before cutover")
+        self._revalidate_transfer_preconditions(migration)
         if migration.status != "awaiting_cutover":
-            raise ValueError("Continue is only available when migration is awaiting cutover")
-        migration.status = "queued"
+            raise ValueError(
+                "Continue is only available when migration is awaiting cutover"
+            )
+        self._transition_command(migration, status="queued")
         migration.pause_requested = False
         migration.cancel_requested = False
         migration.worker_lease_owner = None
@@ -536,12 +625,16 @@ class BucketMigrationPlanningMixin:
                 item.status = "pending"
                 item.step = "apply_read_only"
                 item.updated_at = utcnow()
-        self._add_event(migration, level="info", message="Cutover requested after pre-sync.")
+        self._add_event(
+            migration, level="info", message="Cutover requested after pre-sync."
+        )
         self._commit()
         self.db.refresh(migration)
         return migration
 
-    def claim_next_runnable_migration_id(self, *, worker_id: str, lease_seconds: int) -> Optional[int]:
+    def claim_next_runnable_migration_id(
+        self, *, worker_id: str, lease_seconds: int
+    ) -> Optional[int]:
         if not worker_id:
             raise ValueError("worker_id is required to claim a migration lease")
         now = utcnow()
@@ -560,7 +653,10 @@ class BucketMigrationPlanningMixin:
                     BucketMigration.target_context_id,
                 )
                 .filter(
-                    BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                    or_(
+                        BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                        BucketMigration.maintenance_status.in_({"queued", "running"}),
+                    ),
                     or_(
                         BucketMigration.worker_lease_until.is_(None),
                         BucketMigration.worker_lease_until < now,
@@ -578,13 +674,19 @@ class BucketMigrationPlanningMixin:
                 row.target_context_id,
                 cache=endpoint_cache,
             )
-            if any(endpoint_usage.get(key, 0) >= max_active_per_endpoint for key in endpoint_keys):
+            if any(
+                endpoint_usage.get(key, 0) >= max_active_per_endpoint
+                for key in endpoint_keys
+            ):
                 continue
             updated = (
                 self.db.query(BucketMigration)
                 .filter(
                     BucketMigration.id == migration_id,
-                    BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                    or_(
+                        BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                        BucketMigration.maintenance_status.in_({"queued", "running"}),
+                    ),
                     or_(
                         BucketMigration.worker_lease_until.is_(None),
                         BucketMigration.worker_lease_until < now,

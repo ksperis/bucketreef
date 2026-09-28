@@ -34,7 +34,7 @@ class BucketMigration(Base):
     source_context_id = Column(String, nullable=False, index=True)
     target_context_id = Column(String, nullable=False, index=True)
 
-    mode = Column(String, nullable=False, default="one_shot", server_default="one_shot")
+    mode = Column(String, nullable=False, default="pre_sync", server_default="pre_sync")
     copy_bucket_settings = Column(Boolean, nullable=False, default=False, server_default="0")
     delete_source = Column(Boolean, nullable=False, default=False, server_default="0")
     strong_integrity_check = Column(Boolean, nullable=False, default=False, server_default="0")
@@ -51,6 +51,17 @@ class BucketMigration(Base):
     precheck_status = Column(String, nullable=False, default="pending", server_default="pending", index=True)
     precheck_report_json = Column(Text, nullable=True)
     precheck_checked_at = Column(UTCDateTime(), nullable=True)
+    workflow_version = Column(Integer, nullable=False, default=2, server_default="2")
+    configuration_revision = Column(Integer, nullable=False, default=1, server_default="1")
+    checked_revision = Column(Integer, nullable=True)
+    preparation_status = Column(String, nullable=False, default="unverified", server_default="unverified", index=True)
+    preparation_active_checks = Column(Boolean, nullable=False, default=False, server_default="0")
+    preparation_completed_items = Column(Integer, nullable=False, default=0, server_default="0")
+    preparation_requested_at = Column(UTCDateTime(), nullable=True)
+    maintenance_operation = Column(String, nullable=True)
+    maintenance_status = Column(String, nullable=False, default="idle", server_default="idle")
+    maintenance_error = Column(Text, nullable=True)
+    maintenance_requested_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     parallelism_max = Column(Integer, nullable=False, default=16, server_default="16")
 
@@ -69,7 +80,7 @@ class BucketMigration(Base):
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
     updated_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
 
-    created_by = relationship("User", lazy="joined")
+    created_by = relationship("User", foreign_keys=[created_by_user_id], lazy="joined")
     items = relationship("BucketMigrationItem", back_populates="migration", cascade="all, delete-orphan")
     events = relationship("BucketMigrationEvent", back_populates="migration", cascade="all, delete-orphan")
 
@@ -94,6 +105,12 @@ class BucketMigrationItem(Base):
     read_only_applied = Column(Boolean, nullable=False, default=False, server_default="0")
     target_lock_applied = Column(Boolean, nullable=False, default=False, server_default="0")
     target_bucket_exists = Column(Boolean, nullable=False, default=False, server_default="0")
+    target_created_by_migration = Column(Boolean, nullable=False, default=False, server_default="0")
+    preparation_effects_json = Column(Text, nullable=True)
+    source_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
+    cleanup_status = Column(String, nullable=False, default="idle", server_default="idle")
+    cleanup_error = Column(Text, nullable=True)
+    cleanup_verification_json = Column(Text, nullable=True)
 
     objects_copied = Column(Integer, nullable=False, default=0, server_default="0")
     objects_deleted = Column(Integer, nullable=False, default=0, server_default="0")

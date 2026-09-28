@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "jest-axe";
 import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +13,8 @@ const runManagerMigrationPrecheckMock = vi.fn();
 const startManagerMigrationMock = vi.fn();
 
 vi.mock("../../../api/executionContexts", () => ({
-  listExecutionContexts: (...args: unknown[]) => listExecutionContextsMock(...args),
+  listExecutionContexts: (...args: unknown[]) =>
+    listExecutionContextsMock(...args),
 }));
 
 vi.mock("../../../api/managerBuckets", () => ({
@@ -23,11 +25,14 @@ vi.mock("../../../api/managerMigrations", async () => {
   const actual = await vi.importActual("../../../api/managerMigrations");
   return {
     ...actual,
-    createManagerMigration: (...args: unknown[]) => createManagerMigrationMock(...args),
+    createManagerMigration: (...args: unknown[]) =>
+      createManagerMigrationMock(...args),
     updateManagerMigration: vi.fn(),
     getManagerMigration: vi.fn(),
-    runManagerMigrationPrecheck: (...args: unknown[]) => runManagerMigrationPrecheckMock(...args),
-    startManagerMigration: (...args: unknown[]) => startManagerMigrationMock(...args),
+    runManagerMigrationPrecheck: (...args: unknown[]) =>
+      runManagerMigrationPrecheckMock(...args),
+    startManagerMigration: (...args: unknown[]) =>
+      startManagerMigrationMock(...args),
   };
 });
 
@@ -42,314 +47,235 @@ function DestinationProbe() {
   return <p>detail-{params.migrationId}</p>;
 }
 
+function setup() {
+  return render(
+    <MemoryRouter initialEntries={["/manager/migrations/new"]}>
+      <Routes>
+        <Route
+          path="/manager/migrations/new"
+          element={<ManagerMigrationWizardPage />}
+        />
+        <Route
+          path="/manager/migrations/:migrationId"
+          element={<DestinationProbe />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+async function selectBucket(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole("option", { name: "Target (tgt-ctx)" });
+  await user.selectOptions(
+    screen.getByLabelText("Destination context"),
+    "tgt-ctx",
+  );
+  await user.click(screen.getByRole("checkbox", { name: "Select bucket-a" }));
+}
+
 describe("ManagerMigrationWizardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listExecutionContextsMock.mockResolvedValue([
-      { id: "src-ctx", kind: "account", manager_role: "account_administrator", display_name: "Source", endpoint_id: 1 },
-      { id: "tgt-ctx", kind: "account", manager_role: "account_administrator", display_name: "Target", endpoint_id: 2 },
+      {
+        id: "src-ctx",
+        kind: "account",
+        manager_role: "account_administrator",
+        display_name: "Source",
+        endpoint_id: 1,
+      },
+      {
+        id: "tgt-ctx",
+        kind: "account",
+        manager_role: "account_administrator",
+        display_name: "Target",
+        endpoint_id: 2,
+      },
     ]);
-    listBucketsMock.mockResolvedValue([{ name: "bucket-a" }]);
-    createManagerMigrationMock.mockResolvedValue({ id: 77 });
-    runManagerMigrationPrecheckMock.mockResolvedValue({ id: 77, precheck_status: "passed", precheck_report: { errors: 0 } });
-    startManagerMigrationMock.mockResolvedValue({ id: 77, status: "queued", message: "started" });
+    listBucketsMock.mockImplementation((id: string) =>
+      Promise.resolve(id === "src-ctx" ? [{ name: "bucket-a" }] : []),
+    );
+    createManagerMigrationMock.mockResolvedValue({
+      id: 77,
+      configuration_revision: 1,
+    });
+    runManagerMigrationPrecheckMock.mockResolvedValue({
+      id: 77,
+      preparation_status: "checking",
+    });
   });
 
-  it("validates wizard steps and submits expected payload", async () => {
+  it("has no a11y violations with editable target names", async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/new"]}>
-        <Routes>
-          <Route path="/manager/migrations/new" element={<ManagerMigrationWizardPage />} />
-          <Route path="/manager/migrations/:migrationId" element={<DestinationProbe />} />
-        </Routes>
-      </MemoryRouter>
-    );
+    const { container } = setup();
+    await selectBucket(user);
+    expect((await axe(container)).violations).toEqual([]);
+  });
 
-    await screen.findByText("New migration");
-    expect(screen.getByRole("button", { name: "Back" })).toHaveClass("ui-button-base");
-    expect(screen.getByRole("button", { name: "Next" })).toHaveClass("ui-button-base");
-
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Target is required.")).toBeInTheDocument();
-
-    const targetSelect = screen.getByLabelText("Target");
-    expect(targetSelect).toHaveClass("ui-control");
-    await user.selectOptions(targetSelect, "tgt-ctx");
-    await user.click(screen.getByRole("checkbox", { name: "Select bucket-a" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
-    expect(screen.getByText("Target prefix/suffix mapping")).toBeInTheDocument();
-    expect(screen.getByLabelText("Prefix")).toHaveClass("ui-control");
-    expect(screen.getByLabelText("Suffix")).toHaveClass("ui-control");
-    await user.type(screen.getByLabelText("Prefix"), "mig-");
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
-    expect(screen.getByText("Strategy")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "One-shot migration" })).toHaveClass("text-primary");
-    expect(screen.getByRole("radio", { name: "One-shot migration" })).toHaveAttribute("value", "one_shot");
-    expect(screen.getByRole("radio", { name: "Pre-sync + cutover" })).toHaveClass("text-primary");
-    expect(screen.getByText("Pre-copy data before cutover to reduce the final transfer window.")).toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Strong integrity check before source deletion" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show" }));
-    expect(screen.getByRole("button", { name: "Hide" })).toHaveClass("ui-button-base");
-    expect(screen.getByRole("checkbox", { name: "Strong integrity check before source deletion" })).toBeInTheDocument();
-    const sameEndpointCopyOption = screen.getByRole("checkbox", { name: "Use x-amz-copy-source (same endpoint only)" });
-    const autoGrantOption = screen.getByRole("checkbox", {
-      name: "Auto-grant temporary source read for same-endpoint copy",
+  it("prepares inline mappings and queues only read-only checks", async () => {
+    const user = userEvent.setup();
+    setup();
+    await selectBucket(user);
+    const field = screen.getByRole("textbox", {
+      name: "Destination name for bucket-a",
     });
-    expect(sameEndpointCopyOption).toBeDisabled();
-    expect(sameEndpointCopyOption).not.toBeChecked();
-    expect(autoGrantOption).toBeDisabled();
-    expect(autoGrantOption).not.toBeChecked();
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
-    expect(screen.getByText("Summary")).toBeInTheDocument();
-    expect(screen.getByText("Operations plan")).toBeInTheDocument();
-    expect(screen.getByText("bucket-a -> mig-bucket-a")).toBeInTheDocument();
-    expect(
-      screen.getByText((_, element) =>
-        element?.textContent ===
-        "Precheck selects version_aware automatically for versioned buckets and replays versions plus delete markers."
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Use stream copy \(GetObject \+ upload\) for object replication\./)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Create migration" }));
-
-    await waitFor(() => {
-      expect(createManagerMigrationMock).toHaveBeenCalledTimes(1);
-    });
-
-    expect(createManagerMigrationMock).toHaveBeenCalledWith({
-      source_context_id: "src-ctx",
-      target_context_id: "tgt-ctx",
-      buckets: [{ source_bucket: "bucket-a", target_bucket: undefined }],
-      mapping_prefix: "mig-",
-      mode: "one_shot",
-      copy_bucket_settings: false,
-      delete_source: true,
-      strong_integrity_check: false,
-      lock_target_writes: true,
-      use_same_endpoint_copy: false,
-      auto_grant_source_read_for_copy: false,
-    });
-
-    await waitFor(() => {
-      expect(runManagerMigrationPrecheckMock).toHaveBeenCalledWith(77);
-    });
-    await waitFor(() => {
-      expect(startManagerMigrationMock).toHaveBeenCalledWith(77);
-    });
+    await user.clear(field);
+    await user.type(field, "new-bucket");
+    await user.click(screen.getByRole("button", { name: "Check migration" }));
     await screen.findByText("detail-77");
-  });
-
-  it("supports filtering source buckets and selecting filtered results", async () => {
-    const user = userEvent.setup();
-    listBucketsMock.mockResolvedValue([{ name: "bucket-a" }, { name: "logs-prod" }, { name: "archive-prod" }]);
-
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/new"]}>
-        <Routes>
-          <Route path="/manager/migrations/new" element={<ManagerMigrationWizardPage />} />
-          <Route path="/manager/migrations/:migrationId" element={<DestinationProbe />} />
-        </Routes>
-      </MemoryRouter>
+    expect(createManagerMigrationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source_context_id: "src-ctx",
+        target_context_id: "tgt-ctx",
+        buckets: [{ source_bucket: "bucket-a", target_bucket: "new-bucket" }],
+        mode: "pre_sync",
+        delete_source: false,
+        auto_grant_source_read_for_copy: false,
+      }),
     );
-
-    await screen.findByText("New migration");
-    expect(screen.getByLabelText("Filter source buckets")).toHaveClass("ui-control");
-    await user.type(screen.getByPlaceholderText("Filter source buckets"), "prod");
-    expect(screen.getByRole("checkbox", { name: "Select logs-prod" })).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Select archive-prod" })).toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Select bucket-a" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Select filtered" }));
-    expect(screen.getByText("2 selected / 3")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Clear" }));
-    expect(screen.getByText("0 selected / 3")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Select filtered" }));
-
-    await user.selectOptions(screen.getByLabelText("Target"), "tgt-ctx");
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
-    expect(screen.getByText("Target prefix/suffix mapping")).toBeInTheDocument();
-    expect(screen.getByText("logs-prod")).toBeInTheDocument();
-    expect(screen.getByText("archive-prod")).toBeInTheDocument();
-    expect(screen.queryByText("bucket-a")).not.toBeInTheDocument();
-  });
-
-  it("enables x-amz-copy-source on same endpoint and auto-enables auto-grant", async () => {
-    const user = userEvent.setup();
-    listExecutionContextsMock.mockResolvedValue([
-      { id: "src-ctx", kind: "account", manager_role: "account_administrator", display_name: "Source", endpoint_id: 1 },
-      { id: "tgt-ctx", kind: "account", manager_role: "account_administrator", display_name: "Target", endpoint_id: 1 },
-    ]);
-
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/new"]}>
-        <Routes>
-          <Route path="/manager/migrations/new" element={<ManagerMigrationWizardPage />} />
-          <Route path="/manager/migrations/:migrationId" element={<DestinationProbe />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await screen.findByText("New migration");
-    await user.selectOptions(screen.getByLabelText("Target"), "tgt-ctx");
-    await user.click(screen.getByRole("checkbox", { name: "Select bucket-a" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
-    await user.click(screen.getByRole("button", { name: "Show" }));
-    const sameEndpointCopyOption = screen.getByRole("checkbox", { name: "Use x-amz-copy-source (same endpoint only)" });
-    const autoGrantOption = screen.getByRole("checkbox", {
-      name: "Auto-grant temporary source read for same-endpoint copy",
-    });
-    expect(sameEndpointCopyOption).toBeEnabled();
-    expect(sameEndpointCopyOption).not.toBeChecked();
-    expect(autoGrantOption).toBeDisabled();
-    expect(autoGrantOption).not.toBeChecked();
-
-    await user.click(sameEndpointCopyOption);
-    expect(sameEndpointCopyOption).toBeChecked();
-    expect(autoGrantOption).toBeEnabled();
-    expect(autoGrantOption).toBeChecked();
-
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Create migration" }));
-
-    await waitFor(() => {
-      expect(createManagerMigrationMock).toHaveBeenCalledTimes(1);
-    });
-    expect(createManagerMigrationMock).toHaveBeenCalledWith({
-      source_context_id: "src-ctx",
-      target_context_id: "tgt-ctx",
-      buckets: [{ source_bucket: "bucket-a", target_bucket: undefined }],
-      mapping_prefix: "",
-      mode: "one_shot",
-      copy_bucket_settings: false,
-      delete_source: true,
-      strong_integrity_check: false,
-      lock_target_writes: true,
-      use_same_endpoint_copy: true,
-      auto_grant_source_read_for_copy: true,
-    });
-    await waitFor(() => {
-      expect(startManagerMigrationMock).toHaveBeenCalledWith(77);
-    });
-  });
-
-  it("does not auto-start migration when precheck reports errors", async () => {
-    const user = userEvent.setup();
-    runManagerMigrationPrecheckMock.mockResolvedValue({
-      id: 77,
-      precheck_status: "failed",
-      precheck_report: { errors: 1 },
-    });
-
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/new"]}>
-        <Routes>
-          <Route path="/manager/migrations/new" element={<ManagerMigrationWizardPage />} />
-          <Route path="/manager/migrations/:migrationId" element={<DestinationProbe />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await screen.findByText("New migration");
-    await user.selectOptions(screen.getByLabelText("Target"), "tgt-ctx");
-    await user.click(screen.getByRole("checkbox", { name: "Select bucket-a" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
-    await user.click(screen.getByRole("button", { name: "Create migration" }));
-
-    await waitFor(() => {
-      expect(runManagerMigrationPrecheckMock).toHaveBeenCalledWith(77);
-    });
+    expect(runManagerMigrationPrecheckMock).toHaveBeenCalledWith(77, false);
     expect(startManagerMigrationMock).not.toHaveBeenCalled();
   });
 
-  it("does not auto-start migration when precheck is still pending", async () => {
+  it("keeps the saved draft and entered names when queuing checks fails", async () => {
     const user = userEvent.setup();
-    runManagerMigrationPrecheckMock.mockResolvedValue({
-      id: 77,
-      precheck_status: "pending",
-      precheck_report: { errors: 0 },
-    });
-
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/new"]}>
-        <Routes>
-          <Route path="/manager/migrations/new" element={<ManagerMigrationWizardPage />} />
-          <Route path="/manager/migrations/:migrationId" element={<DestinationProbe />} />
-        </Routes>
-      </MemoryRouter>
+    setup();
+    await selectBucket(user);
+    runManagerMigrationPrecheckMock.mockRejectedValue(
+      new Error("Network unavailable"),
     );
-
-    await screen.findByText("New migration");
-    await user.selectOptions(screen.getByLabelText("Target"), "tgt-ctx");
-    await user.click(screen.getByRole("checkbox", { name: "Select bucket-a" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    await user.click(screen.getByRole("button", { name: "Create migration" }));
-
-    await waitFor(() => {
-      expect(runManagerMigrationPrecheckMock).toHaveBeenCalledWith(77);
-    });
-    expect(startManagerMigrationMock).not.toHaveBeenCalled();
-  });
-
-  it("filters non-admin account targets while keeping non-account contexts", async () => {
-    listExecutionContextsMock.mockResolvedValue([
-      { id: "src-ctx", kind: "account", manager_role: "account_administrator", display_name: "Source", endpoint_id: 1 },
-      { id: "acct-non-admin", kind: "account", manager_role: null, display_name: "Account portal", endpoint_id: 2 },
-      { id: "acct-admin", kind: "account", manager_role: "account_administrator", display_name: "Account admin", endpoint_id: 3 },
-      { id: "conn-7", kind: "connection", display_name: "Shared connection", endpoint_id: null },
-    ]);
-
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/new"]}>
-        <Routes>
-          <Route path="/manager/migrations/new" element={<ManagerMigrationWizardPage />} />
-          <Route path="/manager/migrations/:migrationId" element={<DestinationProbe />} />
-        </Routes>
-      </MemoryRouter>
+    await user.click(screen.getByRole("button", { name: "Check migration" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Draft #77 is saved",
     );
-
-    await screen.findByText("New migration");
-    const targetSelect = screen.getByLabelText("Target");
-    expect(screen.queryByRole("option", { name: /Account portal/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Account admin/ })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Shared connection/ })).toBeInTheDocument();
-    expect(targetSelect).toBeInTheDocument();
-  });
-
-  it("blocks cross-account account migration when one side is non-admin", async () => {
-    const user = userEvent.setup();
-    listExecutionContextsMock.mockResolvedValue([
-      { id: "src-ctx", kind: "account", manager_role: null, display_name: "Source", endpoint_id: 1 },
-      { id: "tgt-ctx", kind: "account", manager_role: "account_administrator", display_name: "Target", endpoint_id: 2 },
-    ]);
-
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/new"]}>
-        <Routes>
-          <Route path="/manager/migrations/new" element={<ManagerMigrationWizardPage />} />
-          <Route path="/manager/migrations/:migrationId" element={<DestinationProbe />} />
-        </Routes>
-      </MemoryRouter>
+    expect(screen.getByRole("link", { name: "Open checks" })).toHaveAttribute(
+      "href",
+      "/manager/migrations/77",
     );
-
-    await screen.findByText("New migration");
-    await user.selectOptions(screen.getByLabelText("Target"), "tgt-ctx");
-    await user.click(screen.getByRole("checkbox", { name: "Select bucket-a" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
     expect(
-      screen.getByText("Cross-account migrations require admin access on both source and target account contexts.")
+      screen.getByRole("textbox", { name: "Destination name for bucket-a" }),
+    ).toHaveValue("bucket-a");
+    expect(startManagerMigrationMock).not.toHaveBeenCalled();
+  });
+
+  it("shows invalid destination corrections and focuses the error summary", async () => {
+    const user = userEvent.setup();
+    setup();
+    await selectBucket(user);
+    const field = screen.getByRole("textbox", {
+      name: "Destination name for bucket-a",
+    });
+    await user.clear(field);
+    await user.type(field, "Invalid Name");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveAttribute("aria-describedby");
+    await user.click(screen.getByRole("button", { name: "Check migration" }));
+    expect(createManagerMigrationMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").parentElement).toHaveFocus();
+  });
+
+  it("blocks known existing destinations", async () => {
+    listBucketsMock.mockResolvedValue([{ name: "bucket-a" }]);
+    const user = userEvent.setup();
+    setup();
+    await selectBucket(user);
+    expect(
+      await screen.findByText("Destination already exists. Choose a new name."),
     ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Check migration" }));
+    expect(createManagerMigrationMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps bucket selection and mapping on the same screen", async () => {
+    listBucketsMock.mockImplementation((id: string) =>
+      Promise.resolve(
+        id === "src-ctx" ? [{ name: "bucket-a" }, { name: "logs-prod" }] : [],
+      ),
+    );
+    const user = userEvent.setup();
+    setup();
+    await screen.findByRole("checkbox", { name: "Select logs-prod" });
+    await user.type(screen.getByLabelText("Filter source buckets"), "prod");
+    await user.click(screen.getByRole("button", { name: "Select filtered" }));
+    expect(
+      screen.getByRole("textbox", { name: "Destination name for logs-prod" }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole("checkbox", { name: "Select bucket-a" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(
+      screen.getByRole("textbox", { name: "Destination name for logs-prod" }),
+    ).toBeDisabled();
+  });
+
+  it("does not implicitly enable grants when selecting storage copy", async () => {
+    listExecutionContextsMock.mockResolvedValue([
+      {
+        id: "src-ctx",
+        kind: "account",
+        manager_role: "account_administrator",
+        display_name: "Source",
+        endpoint_id: 1,
+      },
+      {
+        id: "tgt-ctx",
+        kind: "account",
+        manager_role: "account_administrator",
+        display_name: "Target",
+        endpoint_id: 1,
+      },
+    ]);
+    const user = userEvent.setup();
+    setup();
+    await selectBucket(user);
+    await user.click(screen.getByText("Advanced options"));
+    await user.click(
+      screen.getByRole("radio", { name: /Copy within storage/ }),
+    );
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Allow temporary source read grants for the destination identity",
+      }),
+    ).not.toBeChecked();
+  });
+
+  it("protects an edited draft when canceling", async () => {
+    const user = userEvent.setup();
+    setup();
+    await selectBucket(user);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(createManagerMigrationMock).not.toHaveBeenCalled();
+  });
+
+  it("filters account destinations without administrator access", async () => {
+    listExecutionContextsMock.mockResolvedValue([
+      {
+        id: "src-ctx",
+        kind: "account",
+        manager_role: "account_administrator",
+        display_name: "Source",
+        endpoint_id: 1,
+      },
+      {
+        id: "no-admin",
+        kind: "account",
+        manager_role: null,
+        display_name: "Forbidden",
+        endpoint_id: 2,
+      },
+      {
+        id: "conn-7",
+        kind: "connection",
+        display_name: "Shared connection",
+        endpoint_id: 2,
+      },
+    ]);
+    setup();
+    await screen.findByRole("option", { name: /Shared connection/ });
+    expect(
+      screen.queryByRole("option", { name: /Forbidden/ }),
+    ).not.toBeInTheDocument();
   });
 });

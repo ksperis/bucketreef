@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "jest-axe";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,21 +13,38 @@ const mockRollbackFailedManagerMigrationItems = vi.fn();
 const mockRollbackManagerMigration = vi.fn();
 const mockRollbackManagerMigrationItem = vi.fn();
 const mockStopManagerMigration = vi.fn();
+const mockPrecheck = vi.fn();
+const mockStart = vi.fn();
+const mockContinue = vi.fn();
+const mockMaintenance = vi.fn();
 
 vi.mock("../../../api/managerMigrations", async () => {
-  const actual = await vi.importActual<typeof import("../../../api/managerMigrations")>("../../../api/managerMigrations");
+  const actual = await vi.importActual<
+    typeof import("../../../api/managerMigrations")
+  >("../../../api/managerMigrations");
   return {
     ...actual,
-    deleteManagerMigration: (...args: unknown[]) => mockDeleteManagerMigration(...args),
-    rollbackFailedManagerMigrationItems: (...args: unknown[]) => mockRollbackFailedManagerMigrationItems(...args),
-    rollbackManagerMigration: (...args: unknown[]) => mockRollbackManagerMigration(...args),
-    rollbackManagerMigrationItem: (...args: unknown[]) => mockRollbackManagerMigrationItem(...args),
-    stopManagerMigration: (...args: unknown[]) => mockStopManagerMigration(...args),
+    runManagerMigrationPrecheck: (...args: unknown[]) => mockPrecheck(...args),
+    startManagerMigration: (...args: unknown[]) => mockStart(...args),
+    continueManagerMigration: (...args: unknown[]) => mockContinue(...args),
+    runManagerMigrationMaintenance: (...args: unknown[]) =>
+      mockMaintenance(...args),
+    deleteManagerMigration: (...args: unknown[]) =>
+      mockDeleteManagerMigration(...args),
+    rollbackFailedManagerMigrationItems: (...args: unknown[]) =>
+      mockRollbackFailedManagerMigrationItems(...args),
+    rollbackManagerMigration: (...args: unknown[]) =>
+      mockRollbackManagerMigration(...args),
+    rollbackManagerMigrationItem: (...args: unknown[]) =>
+      mockRollbackManagerMigrationItem(...args),
+    stopManagerMigration: (...args: unknown[]) =>
+      mockStopManagerMigration(...args),
   };
 });
 
 vi.mock("./hooks", () => ({
-  useManagerMigrationDetail: (migrationId: number | null) => mockUseManagerMigrationDetail(migrationId),
+  useManagerMigrationDetail: (migrationId: number | null) =>
+    mockUseManagerMigrationDetail(migrationId),
 }));
 
 vi.mock("../useManagerContexts", () => ({
@@ -71,7 +89,15 @@ function buildDetail() {
           delete_source_safe: true,
           rollback_safe: true,
           same_endpoint_copy_safe: true,
-          messages: [{ code: "target_exists", level: "warning", blocking: false, message: "Target bucket already exists; this item will be skipped." }],
+          messages: [
+            {
+              code: "target_exists",
+              level: "warning",
+              blocking: false,
+              message:
+                "Target bucket already exists; this item will be skipped.",
+            },
+          ],
         },
         {
           item_id: 103,
@@ -82,7 +108,14 @@ function buildDetail() {
           delete_source_safe: false,
           rollback_safe: false,
           same_endpoint_copy_safe: true,
-          messages: [{ code: "source_access_failed", level: "error", blocking: true, message: "Source bucket read/list check failed: access denied." }],
+          messages: [
+            {
+              code: "source_access_failed",
+              level: "error",
+              blocking: true,
+              message: "Source bucket read/list check failed: access denied.",
+            },
+          ],
         },
       ],
     },
@@ -205,155 +238,214 @@ function buildDetail() {
   } as const;
 }
 
+function show(overrides: Record<string, unknown> = {}) {
+  const detail = { ...buildDetail(), ...overrides };
+  mockUseManagerMigrationDetail.mockReturnValue({
+    migrationDetail: detail,
+    detailLoading: false,
+    detailError: null,
+    refresh: vi.fn(),
+  });
+  return render(
+    <MemoryRouter initialEntries={["/manager/migrations/11"]}>
+      <Routes>
+        <Route
+          path="/manager/migrations/:migrationId"
+          element={<ManagerMigrationDetailPage />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+const enabled = { enabled: true, reason: null };
+
 describe("ManagerMigrationDetailPage", () => {
   beforeEach(() => {
-    mockDeleteManagerMigration.mockReset().mockResolvedValue(undefined);
-    mockRollbackFailedManagerMigrationItems.mockReset().mockResolvedValue(undefined);
-    mockRollbackManagerMigration.mockReset().mockResolvedValue(undefined);
-    mockRollbackManagerMigrationItem.mockReset().mockResolvedValue(undefined);
-    mockStopManagerMigration.mockReset().mockResolvedValue(undefined);
+    vi.clearAllMocks();
     mockUseManagerContexts.mockReturnValue({
       contextLabelById: new Map([
         ["src-ctx", "Source"],
         ["tgt-ctx", "Target"],
       ]),
     });
-    mockUseManagerMigrationDetail.mockReturnValue({
-      migrationDetail: buildDetail(),
-      detailLoading: false,
-      detailError: null,
-      setDetailError: vi.fn(),
-      refresh: vi.fn(),
+  });
+
+  it("shows failed and successful buckets together without a misleading percentage", () => {
+    show({ available_actions: { pause: enabled } });
+    expect(
+      screen.getByText(
+        "1 buckets verified, 1 failed, 0 awaiting cutover, 0 not copied.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("25 objects transferred")).toBeInTheDocument();
+    expect(screen.getByText("bucket-completed")).toBeInTheDocument();
+    expect(screen.getByText("Final diff is not clean")).toBeInTheDocument();
+    expect(screen.queryByText(/100%/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Pause copy" })).toHaveLength(
+      1,
+    );
+  });
+
+  it("keeps blocked checks in preparation with visible diagnostics and no transfer progress", () => {
+    show({
+      status: "draft",
+      preparation_status: "blocked",
+      available_actions: { edit: enabled, precheck: enabled },
+      precheck_report: {
+        errors: 1,
+        items: [
+          {
+            item_id: 103,
+            blocking: true,
+            checks: [
+              {
+                code: "source_tags",
+                blocking: true,
+                message: "Cannot read source tags",
+                remediation: "Grant s3:GetObjectTagging.",
+              },
+            ],
+          },
+        ],
+      },
     });
+    expect(screen.getByText("Cannot read source tags")).toBeInTheDocument();
+    expect(
+      screen.getByText("Next: Grant s3:GetObjectTagging."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Correct configuration" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Transfer result" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Start copy" }),
+    ).not.toBeInTheDocument();
+    expect(mockStart).not.toHaveBeenCalled();
   });
 
-  it("shows focused bucket progress with and without source_count", async () => {
+  it("has no a11y violations in preparation and active-check confirmation", async () => {
     const user = userEvent.setup();
-    const { container } = render(
-      <MemoryRouter initialEntries={["/manager/migrations/11"]}>
-        <Routes>
-          <Route path="/manager/migrations/:migrationId" element={<ManagerMigrationDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    expect(screen.getByText(/bucket-running/)).toBeInTheDocument();
-    expect(screen.getByText(/bucket-failed/)).toBeInTheDocument();
-    expect(screen.queryByText(/bucket-completed/)).not.toBeInTheDocument();
-
-    expect(screen.getByText("Copy progress: 25/100 (25%)")).toBeInTheDocument();
-    expect(screen.queryByText(/Copy progress: 3\//)).not.toBeInTheDocument();
-    for (const pauseButton of screen.getAllByRole("button", { name: "Pause" })) {
-      expect(pauseButton).toHaveClass("ui-button-base");
-    }
-    expect(screen.getByRole("button", { name: "Focused" })).toHaveClass("ui-button-base");
-
-    const allFilter = screen.getByRole("button", { name: "All" });
-    expect(allFilter).toHaveClass("ui-button-base");
-    await user.click(allFilter);
-    expect(screen.getByText(/bucket-completed/)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Failed" }));
-    expect(screen.getByText(/bucket-failed/)).toBeInTheDocument();
-    expect(screen.queryByText(/bucket-running/)).not.toBeInTheDocument();
-
-    expect(screen.getByText("Precheck: 1 error(s), 0 warning(s)")).toBeInTheDocument();
-    expect(screen.getByText("Precheck report v2")).toBeInTheDocument();
-    expect(screen.getByText(/1 blocking error\(s\), 1 warning\(s\), 2 info/)).toBeInTheDocument();
-    const precheckDetailsToggle = screen.getAllByRole("button", { name: "Show precheck details" })[0];
-    expect(precheckDetailsToggle).toHaveClass("ui-button-base");
-    await user.click(precheckDetailsToggle);
-    expect(screen.getByText(/Source bucket read\/list check failed: access denied\./)).toBeInTheDocument();
-    expect(screen.getByText(/strategy: current_only \(current objects only\)/)).toBeInTheDocument();
-    expect(screen.queryByText("Precheck result:")).not.toBeInTheDocument();
-
-    const hasLegacyBucketListScroll = Array.from(container.querySelectorAll("div")).some((node) =>
-      String(node.className).includes("max-h-[520px]")
-    );
-    expect(hasLegacyBucketListScroll).toBe(false);
-  });
-
-  it("offers precheck action when draft precheck is pending", () => {
-    const pendingDetail = { ...buildDetail(), status: "draft", precheck_status: "pending" } as const;
-    mockUseManagerMigrationDetail.mockReturnValue({
-      migrationDetail: pendingDetail,
-      detailLoading: false,
-      detailError: null,
-      setDetailError: vi.fn(),
-      refresh: vi.fn(),
+    const { container } = show({
+      status: "draft",
+      preparation_status: "unverified",
+      available_actions: { precheck: enabled },
+      precheck_report: { errors: 0, items: [] },
     });
-
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/11"]}>
-        <Routes>
-          <Route path="/manager/migrations/:migrationId" element={<ManagerMigrationDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    expect(screen.getByRole("button", { name: "Run precheck" })).toHaveClass("ui-button-base");
+    expect((await axe(container)).violations).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Run active checks" }));
+    expect((await axe(screen.getByRole("dialog"))).violations).toEqual([]);
   });
 
-  it("confirms stopping an active migration before calling the API", async () => {
+  it("requires effect confirmation before active checks", async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/11"]}>
-        <Routes>
-          <Route path="/manager/migrations/:migrationId" element={<ManagerMigrationDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await user.click(screen.getByRole("button", { name: "Stop" }));
-    expect(screen.getByRole("heading", { name: "Stop migration?" })).toBeInTheDocument();
-    expect(mockStopManagerMigration).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("heading", { name: "Stop migration?" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Stop" }));
-    await user.click(screen.getByRole("button", { name: "Stop migration" }));
-    await waitFor(() => expect(mockStopManagerMigration).toHaveBeenCalledWith(11));
-  });
-
-  it("confirms migration, batch, item, and history rollback paths", async () => {
-    const user = userEvent.setup();
-    const failedDetail = { ...buildDetail(), status: "failed" } as const;
-    mockUseManagerMigrationDetail.mockReturnValue({
-      migrationDetail: failedDetail,
-      detailLoading: false,
-      detailError: null,
-      setDetailError: vi.fn(),
-      refresh: vi.fn(),
+    show({
+      status: "draft",
+      preparation_status: "blocked",
+      preparation_active_checks: false,
+      available_actions: { precheck: enabled },
+      precheck_report: { errors: 1, items: [] },
     });
-
-    render(
-      <MemoryRouter initialEntries={["/manager/migrations/11"]}>
-        <Routes>
-          <Route path="/manager/migrations/:migrationId" element={<ManagerMigrationDetailPage />} />
-        </Routes>
-      </MemoryRouter>
+    await user.click(screen.getByRole("button", { name: "Run active checks" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Source writes are temporarily blocked");
+    expect(mockPrecheck).not.toHaveBeenCalled();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Run active checks" }),
     );
+    await waitFor(() => expect(mockPrecheck).toHaveBeenCalledWith(11, true));
+    expect(mockStart).not.toHaveBeenCalled();
+  });
 
-    await user.click(screen.getByRole("button", { name: "Rollback migration" }));
-    expect(screen.getByRole("heading", { name: "Roll back migration?" })).toBeInTheDocument();
-    expect(mockRollbackManagerMigration).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+  it("starts only a backend-approved revision after a separate confirmation", async () => {
+    const user = userEvent.setup();
+    show({
+      status: "draft",
+      preparation_status: "ready",
+      configuration_revision: 4,
+      available_actions: { start: enabled },
+    });
+    await user.click(screen.getByRole("button", { name: "Start copy" }));
+    expect(mockStart).not.toHaveBeenCalled();
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Start copy",
+      }),
+    );
+    await waitFor(() => expect(mockStart).toHaveBeenCalledWith(11, 4, true));
+  });
 
-    await user.click(screen.getByRole("button", { name: "Rollback all failed (1)" }));
-    expect(screen.getByRole("heading", { name: "Roll back all failed buckets?" })).toBeInTheDocument();
-    expect(mockRollbackFailedManagerMigrationItems).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+  it("waits for explicit cutover and explains client reconfiguration", async () => {
+    const user = userEvent.setup();
+    show({
+      status: "awaiting_cutover",
+      mode: "pre_sync",
+      available_actions: { cutover: enabled },
+    });
+    expect(mockContinue).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Start cutover" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Update client applications");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Start cutover" }),
+    );
+    await waitFor(() => expect(mockContinue).toHaveBeenCalledWith(11, true));
+  });
 
-    await user.click(screen.getByRole("button", { name: "Rollback bucket" }));
-    expect(screen.getByRole("heading", { name: "Roll back this failed bucket?" })).toBeInTheDocument();
-    expect(screen.getByText("bucket-failed-copy")).toBeInTheDocument();
-    expect(mockRollbackManagerMigrationItem).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+  it("keeps source deletion in its own confirmed operation", async () => {
+    const user = userEvent.setup();
+    show({
+      status: "completed",
+      available_actions: { cleanup_source: enabled },
+    });
+    await user.click(screen.getByRole("button", { name: "Migration actions" }));
+    await user.click(
+      screen.getByRole("menuitem", { name: "Delete source buckets" }),
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("SHA-256");
+    expect(mockMaintenance).not.toHaveBeenCalled();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete source buckets" }),
+    );
+    await waitFor(() =>
+      expect(mockMaintenance).toHaveBeenCalledWith(11, "cleanup_source"),
+    );
+  });
 
-    await user.click(screen.getByRole("button", { name: "Delete migration" }));
-    expect(screen.getByRole("heading", { name: "Delete migration history?" })).toBeInTheDocument();
-    expect(screen.getByText(/Source and destination buckets will not be deleted/)).toBeInTheDocument();
-    expect(mockDeleteManagerMigration).not.toHaveBeenCalled();
+  it("retains the copy result when cleanup fails", () => {
+    show({
+      status: "completed",
+      maintenance_status: "failed",
+      maintenance_error: "Source deletion denied",
+      available_actions: { restore_access: enabled },
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The transfer result is retained",
+    );
+    expect(screen.getByText("bucket-completed")).toBeInTheDocument();
+  });
+
+  it("keeps confirmation open when the network request fails", async () => {
+    const user = userEvent.setup();
+    mockStart.mockRejectedValueOnce(new Error("Network unavailable"));
+    show({
+      status: "draft",
+      preparation_status: "ready",
+      configuration_revision: 1,
+      available_actions: { start: enabled },
+    });
+    await user.click(screen.getByRole("button", { name: "Start copy" }));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Start copy",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("dialog")).getByRole("alert"),
+      ).toHaveTextContent("Network unavailable"),
+    );
   });
 });

@@ -15,10 +15,11 @@ import { managerPageBreadcrumbs } from "../managerBreadcrumbs";
 import { useManagerContexts } from "../useManagerContexts";
 import { useManagerMigrationsList } from "./hooks";
 import {
-  computeProgress,
   formatDateTime,
-  statusChipClasses,
 } from "./shared";
+
+import UiBadge from "../../../components/ui/UiBadge";
+import { migrationLabel } from "./MigrationWorkflow";
 
 const SORT_PRIORITY: Record<BucketMigrationStatus, number> = {
   running: 0,
@@ -96,8 +97,6 @@ export default function ManagerMigrationsListPage() {
             )}
 
             {sortedMigrations.map((migration) => {
-              const done = migration.completed_items + migration.failed_items + migration.skipped_items;
-              const percent = computeProgress(done, migration.total_items);
               return (
                 <button
                   key={migration.id}
@@ -107,9 +106,7 @@ export default function ManagerMigrationsListPage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="ui-caption font-semibold text-slate-800 dark:text-slate-100">Migration #{migration.id}</p>
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusChipClasses(migration.status)}`}>
-                      {migration.status}
-                    </span>
+                    <UiBadge tone={migration.failed_items || migration.preparation_status === "blocked" ? "warning" : "info"}>{migrationLabel(migration)}</UiBadge>
                   </div>
 
                   <p className="mt-1 ui-caption text-slate-600 dark:text-slate-300">
@@ -117,12 +114,9 @@ export default function ManagerMigrationsListPage() {
                     {contextLabelById.get(migration.target_context_id) ?? migration.target_context_id}
                   </p>
 
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
-                  </div>
                   <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                     <p className="ui-caption text-slate-500 dark:text-slate-400">
-                      {done}/{migration.total_items} done ({percent}%)
+                      {migration.status === "draft" ? `${migration.preparation_completed_items ?? 0}/${migration.total_items} checked` : `${migration.completed_items} verified · ${migration.failed_items} failed · ${migration.awaiting_items} awaiting cutover · ${migration.skipped_items} not copied`}
                     </p>
                     <p className="ui-caption text-slate-500 dark:text-slate-400">updated: {formatDateTime(migration.updated_at)}</p>
                   </div>

@@ -7,6 +7,7 @@ import os
 import socket
 import threading
 import uuid
+from contextlib import contextmanager
 from typing import Optional
 
 from sqlalchemy.orm import sessionmaker
@@ -31,6 +32,7 @@ class BucketMigrationWorker:
         self._lease_seconds = max(15, int(lease_seconds))
         self._worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
         self._thread: Optional[threading.Thread] = None
+        self._preparation_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._wake_event = threading.Event()
         self._lock = threading.Lock()
@@ -47,6 +49,12 @@ class BucketMigrationWorker:
                 daemon=True,
             )
             self._thread.start()
+            self._preparation_thread = threading.Thread(
+                target=self._run_preparation_loop,
+                name="bucket-migration-preparation",
+                daemon=True,
+            )
+            self._preparation_thread.start()
 
     def stop(self, timeout: float = 10.0) -> None:
         with self._lock:
@@ -55,9 +63,56 @@ class BucketMigrationWorker:
             thread = self._thread
         if thread and thread.is_alive():
             thread.join(timeout=timeout)
+        if self._preparation_thread and self._preparation_thread.is_alive():
+            self._preparation_thread.join(timeout=timeout)
 
     def wake_up(self) -> None:
         self._wake_event.set()
+
+    @contextmanager
+    def _heartbeat(self, migration_id: int, worker_id: str):
+        stopped = threading.Event()
+
+        def renew():
+            while not stopped.wait(max(2, self._lease_seconds // 3)):
+                try:
+                    with self._session_factory() as db:
+                        if not BucketMigrationService(db)._renew_migration_lease(
+                            migration_id,
+                            worker_id=worker_id,
+                            lease_seconds=self._lease_seconds,
+                        ):
+                            return
+                except Exception:
+                    logger.exception("Migration lease heartbeat failed")
+
+        pulse = threading.Thread(target=renew, name="migration-lease", daemon=True)
+        pulse.start()
+        try:
+            yield
+        finally:
+            stopped.set()
+            pulse.join(timeout=2)
+
+    def _run_preparation_loop(self) -> None:
+        worker_id = f"{self._worker_id}:preparation"
+        while not self._stop_event.is_set():
+            try:
+                with self._session_factory() as db:
+                    service = BucketMigrationService(db)
+                    migration_id = service.claim_next_preparation_id(
+                        worker_id=worker_id, lease_seconds=self._lease_seconds
+                    )
+                if migration_id is not None:
+                    with self._heartbeat(
+                        migration_id, worker_id
+                    ), self._session_factory() as db:
+                        BucketMigrationService(db).run_precheck(
+                            migration_id, worker_id=worker_id
+                        )
+            except Exception:
+                logger.exception("Bucket migration preparation worker iteration failed")
+            self._stop_event.wait(self._poll_interval_seconds)
 
     def _run_loop(self) -> None:
         while not self._stop_event.is_set():
@@ -73,7 +128,9 @@ class BucketMigrationWorker:
                 if migration_id is not None:
                     processed = True
                     try:
-                        with self._session_factory() as db:
+                        with self._heartbeat(
+                            migration_id, self._worker_id
+                        ), self._session_factory() as db:
                             service = BucketMigrationService(db)
                             service.run_migration(
                                 migration_id,

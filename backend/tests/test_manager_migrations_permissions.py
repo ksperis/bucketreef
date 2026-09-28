@@ -148,7 +148,7 @@ def test_manager_migration_get_and_start_return_404_when_out_of_scope(client, db
         get_response = client.get(f"/api/manager/migrations/{migration_id}")
         assert get_response.status_code == 404
 
-        start_response = client.post(f"/api/manager/migrations/{migration_id}/start")
+        start_response = client.post(f"/api/manager/migrations/{migration_id}/start", json={"configuration_revision": 1})
         assert start_response.status_code == 404
     finally:
         app.dependency_overrides.pop(dependencies.get_current_bucket_migration_scope, None)
@@ -162,7 +162,8 @@ def test_manager_migration_create_rejects_context_out_of_scope(client):
             json={
                 "source_context_id": "99",
                 "target_context_id": "20",
-                "buckets": [{"source_bucket": "bucket-a"}],
+                "configuration_revision": 1,
+        "buckets": [{"source_bucket": "bucket-a"}],
             },
         )
         assert response.status_code == 403
@@ -179,7 +180,8 @@ def test_manager_migration_update_rejects_context_out_of_scope(client, db_sessio
             json={
                 "source_context_id": "10",
                 "target_context_id": "999",
-                "buckets": [{"source_bucket": "bucket-a"}],
+                "configuration_revision": 1,
+        "buckets": [{"source_bucket": "bucket-a"}],
             },
         )
         assert response.status_code == 403
@@ -195,7 +197,8 @@ def test_manager_migration_create_rejects_cross_account_when_one_account_not_adm
             json={
                 "source_context_id": "10",
                 "target_context_id": "20",
-                "buckets": [{"source_bucket": "bucket-a"}],
+                "configuration_revision": 1,
+        "buckets": [{"source_bucket": "bucket-a"}],
             },
         )
         assert response.status_code == 403
@@ -211,7 +214,7 @@ def test_manager_migration_precheck_and_start_reject_cross_account_non_admin_sco
         precheck_response = client.post(f"/api/manager/migrations/{migration_id}/precheck")
         assert precheck_response.status_code == 403
 
-        start_response = client.post(f"/api/manager/migrations/{migration_id}/start")
+        start_response = client.post(f"/api/manager/migrations/{migration_id}/start", json={"configuration_revision": 1})
         assert start_response.status_code == 403
     finally:
         app.dependency_overrides.pop(dependencies.get_current_bucket_migration_scope, None)

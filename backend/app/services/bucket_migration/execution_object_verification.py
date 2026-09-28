@@ -191,6 +191,7 @@ class BucketMigrationObjectVerificationMixin:
         key: str,
         *,
         version_id: Optional[str] = None,
+        control_check: Callable[[], str] | None = None,
     ) -> str:
         body = None
         hasher = hashlib.sha256()
@@ -203,10 +204,14 @@ class BucketMigrationObjectVerificationMixin:
             if body is None:
                 raise RuntimeError("response body is empty")
             while True:
+                if control_check:
+                    control_check()
                 chunk = body.read(8 * 1024 * 1024)
                 if not chunk:
                     break
                 hasher.update(chunk)
+        except _WorkerLeaseLostError:
+            raise
         except (ClientError, BotoCoreError, RuntimeError) as exc:
             raise RuntimeError(f"Unable to compute SHA-256 for '{key}' in bucket '{bucket_name}': {exc}") from exc
         finally:
@@ -470,4 +475,3 @@ class BucketMigrationObjectVerificationMixin:
             return -1, 0, [], method_counts
 
         return size_only_count, verified_count, failed_keys, method_counts
-

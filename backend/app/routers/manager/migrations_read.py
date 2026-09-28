@@ -152,7 +152,7 @@ async def stream_migration(
                         last_signature = signature
                         last_keepalive_at = monotonic()
 
-                        if _is_final_migration_status(detail.status):
+                        if _is_final_migration_status(detail.status) and detail.maintenance_status not in {"queued", "running"}:
                             stream_event_id += 1
                             yield _format_sse_event(
                                 "done",

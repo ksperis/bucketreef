@@ -216,33 +216,7 @@ class _MigrationItemExecutionLoop:
         )
 
     def _run_delete_source(self, _strategy: str) -> bool:
-        self.service._set_managed_block_policy(
-            self.item.source_bucket,
-            self.source_ctx.account,
-            deny_delete=False,
-        )
-        self.service._delete_source_bucket_with_retry(
-            self.item.source_bucket,
-            self.source_ctx.account,
-        )
-        self.service._finalize_target_versioning_state(
-            self.target_ctx.account,
-            self.item.target_bucket,
-            self.migration,
-            self.item,
-        )
-        self.item.status = "completed"
-        self.item.step = "completed"
-        self.item.finished_at = utcnow()
-        self.item.updated_at = utcnow()
-        self.service._add_event(
-            self.migration,
-            item=self.item,
-            level="info",
-            message="Source bucket deleted after clean diff.",
-        )
-        self.service._commit()
-        return False
+        raise RuntimeError("Source deletion requires a separate, confirmed cleanup operation")
 
     def _finish_terminal_step(self, _strategy: str) -> bool:
         if self.item.status == "running":

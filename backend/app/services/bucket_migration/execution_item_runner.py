@@ -20,6 +20,7 @@ from ._shared import (
 )
 from .execution_item_loop import _MigrationItemExecutionLoop
 from .execution_settings_copy import _BucketSettingsCopyRunner
+from .diagnostics import MigrationPermissionCheckError
 
 
 class BucketMigrationItemRunnerMixin:
@@ -114,21 +115,8 @@ class BucketMigrationItemRunnerMixin:
             self._fail_item_for_final_diff(migration, item, diff)
             return False
 
-        if migration.delete_source:
-            if not self._verify_source_deletion_safety(
-                migration,
-                item,
-                source_ctx,
-                target_ctx,
-                strategy=strategy,
-                control_check=control_check,
-            ):
-                return False
-            item.step = "delete_source"
-            item.updated_at = utcnow()
-            self._commit()
-            return True
-
+        if migration.strong_integrity_check and not self._verify_strong_integrity(migration, item, source_ctx, target_ctx, strategy=strategy, control_check=control_check):
+            return False
         self._complete_item_after_verification(migration, item, target_ctx)
         return False
 
@@ -155,7 +143,7 @@ class BucketMigrationItemRunnerMixin:
         )
         self._commit()
 
-    def _verify_source_deletion_safety(
+    def _verify_strong_integrity(
         self,
         migration: BucketMigration,
         item: BucketMigrationItem,
@@ -165,18 +153,6 @@ class BucketMigrationItemRunnerMixin:
         strategy: str,
         control_check: Callable[[], str],
     ) -> bool:
-        if not bool(getattr(migration, "strong_integrity_check", False)):
-            self._add_event(
-                migration,
-                item=item,
-                level="warning",
-                message=(
-                    "Strong integrity check is disabled; source deletion relies on "
-                    "md5/size diff only."
-                ),
-            )
-            return True
-
         (
             size_only_count,
             verified_count,
@@ -232,7 +208,7 @@ class BucketMigrationItemRunnerMixin:
         item.error_message = (
             "Final strong verification failed for "
             f"{len(failed_keys)} object(s) out of {size_only_count} size-only candidate(s); "
-            "automatic source deletion is blocked to prevent data loss."
+            "the source is retained."
         )
         item.finished_at = utcnow()
         item.updated_at = utcnow()
@@ -240,7 +216,7 @@ class BucketMigrationItemRunnerMixin:
             migration,
             item=item,
             level="error",
-            message="Source deletion blocked due to strong verification failures.",
+            message="Strong copy verification failed. Source retained.",
             metadata={
                 "size_only_count": size_only_count,
                 "verified_count": verified_count,
@@ -283,31 +259,18 @@ class BucketMigrationItemRunnerMixin:
         if migration.copy_bucket_settings:
             object_lock = self._configuration.get_bucket_object_lock(item.source_bucket, source_ctx.account)
             object_lock_enabled = bool(object_lock and object_lock.enabled)
-        try:
+        exists = self._precheck_bucket_exists(target_ctx, item.target_bucket)
+        if exists is None:
+            raise RuntimeError("Destination existence cannot be verified. Check destination access.")
+        if exists and not item.target_created_by_migration:
+            raise RuntimeError("Destination already exists and was not created by this migration. Choose a new name.")
+        if not exists:
             self._buckets.create_bucket(
-                item.target_bucket,
-                target_ctx.account,
-                versioning=(strategy == "version_aware"),
-                location_constraint=target_ctx.region,
-                object_lock_enabled=object_lock_enabled,
+                item.target_bucket, target_ctx.account, versioning=(strategy == "version_aware"),
+                location_constraint=target_ctx.region, object_lock_enabled=object_lock_enabled,
             )
-        except RuntimeError as exc:
-            if not self._is_bucket_already_exists_error(exc):
-                raise
-            item.target_bucket_exists = True
-            item.status = "skipped"
-            item.step = "skipped"
-            item.error_message = "Target bucket already exists; item skipped."
-            item.finished_at = utcnow()
-            self._add_event(
-                migration,
-                item=item,
-                level="info",
-                message="Target bucket already exists; item skipped.",
-                metadata={"target_bucket": item.target_bucket},
-            )
+            item.target_created_by_migration = True
             self._commit()
-            return False
 
         self._add_event(
             migration,
@@ -340,10 +303,13 @@ class BucketMigrationItemRunnerMixin:
                     self._restore_target_write_lock_policy(target_ctx.account, item.target_bucket, item)
                 else:
                     self._remove_managed_target_write_lock_statement(item.target_bucket, target_ctx.account)
-            except Exception as restore_exc:  # noqa: BLE001
+                self._verify_restored_bucket_policy(target_ctx.account, item.target_bucket, _json_loads(item.target_policy_backup_json))
+            except Exception as restore_exc:
                 lock_error = f"{lock_error}; restore attempt failed: {restore_exc}"
-            item.target_lock_applied = False
-            item.target_policy_backup_json = None
+            else:
+                item.target_lock_applied = False
+                item.target_policy_backup_json = None
+                self._commit()
             raise RuntimeError(f"Target write-lock policy could not be applied: {lock_error}") from exc
 
         item.step = "pre_sync" if migration.mode == "pre_sync" and not item.pre_sync_done else "apply_read_only"
@@ -365,6 +331,10 @@ class BucketMigrationItemRunnerMixin:
         *,
         control_check: Callable[[], str],
     ) -> None:
+        self._execution_item = item
+        if item.target_created_by_migration and migration.lock_target_writes and not item.target_lock_applied:
+            self._apply_target_write_lock_policy(target_ctx, item.target_bucket, item)
+            self._commit()
         _MigrationItemExecutionLoop(
             service=self,
             migration=migration,
@@ -382,6 +352,8 @@ class BucketMigrationItemRunnerMixin:
         target_bucket: str,
         migration: BucketMigration,
         item: BucketMigrationItem,
+        *,
+        strategy: str | None = None,
     ) -> None:
         _BucketSettingsCopyRunner(
             service=self,
@@ -391,25 +363,37 @@ class BucketMigrationItemRunnerMixin:
             target_bucket=target_bucket,
             migration=migration,
             item=item,
+            strategy=strategy,
         ).run()
 
-    def _precheck_can_list_bucket(self, source_ctx: _ResolvedContext, source_bucket: str) -> None:
+    def _precheck_can_list_bucket(self, source_ctx: _ResolvedContext, source_bucket: str) -> bool:
         client = self._context_client(source_ctx)
         try:
             page = client.list_objects_v2(Bucket=source_bucket, MaxKeys=1)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to list source bucket '{source_bucket}': {exc}") from exc
+            raise MigrationPermissionCheckError("Cannot list source bucket objects.", "s3:ListBucket", exc) from exc
 
         contents = page.get("Contents", []) or []
         sample_key = contents[0].get("Key") if contents and isinstance(contents[0], dict) else None
         if not isinstance(sample_key, str) or not sample_key:
-            return
+            return False
         try:
             client.head_object(Bucket=source_bucket, Key=sample_key)
+            response = client.get_object(Bucket=source_bucket, Key=sample_key)
+            body = response.get("Body")
+            if body is None:
+                raise RuntimeError("Source content response has no readable body")
+            try:
+                body.read(1)
+            finally:
+                body.close()
+            try:
+                client.get_object_tagging(Bucket=source_bucket, Key=sample_key)
+            except (ClientError, BotoCoreError) as exc:
+                raise MigrationPermissionCheckError("Cannot read source object tags (s3:GetObjectTagging).", "s3:GetObjectTagging", exc) from exc
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
-                f"Unable to read sample object '{sample_key}' in source bucket '{source_bucket}': {exc}"
-            ) from exc
+            raise MigrationPermissionCheckError("Cannot read source object contents.", "s3:GetObject", exc) from exc
+        return True
 
     def _sample_version_probe_candidate(
         self,
@@ -455,8 +439,9 @@ class BucketMigrationItemRunnerMixin:
         try:
             response = client.get_object(Bucket=source_bucket, Key=sample_key, VersionId=sample_version_id)
             body = response.get("Body")
-            if body is not None:
-                body.read(1)
+            if body is None:
+                raise RuntimeError("Source version content could not be read")
+            body.read(1)
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(
                 f"Unable to stream sample version '{sample_version_id}' for '{sample_key}' in source bucket "
@@ -598,7 +583,7 @@ class BucketMigrationItemRunnerMixin:
                         return True
                 except (ClientError, BotoCoreError):
                     return None
-                return False
+                return None
             raise RuntimeError(f"Unable to check bucket '{target_bucket}': {exc}") from exc
         except BotoCoreError as exc:
             raise RuntimeError(f"Unable to check bucket '{target_bucket}': {exc}") from exc

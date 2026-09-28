@@ -387,6 +387,7 @@ class BucketMigrationInspector:
         bucket_name: str,
         *,
         probe_policy: set[str] | frozenset[str] | None = None,
+        scan_versions: bool = True,
     ) -> dict[str, Any]:
         policy = set(
             probe_policy
@@ -396,7 +397,7 @@ class BucketMigrationInspector:
             policy=policy,
             endpoint_capabilities=self._endpoint_capabilities(ctx),
         )
-        values = self._collect_bucket_state(ctx, bucket_name, probe)
+        values = self._collect_bucket_state(ctx, bucket_name, probe, scan_versions=scan_versions)
         encryption = _encryption_profile(values.encryption)
         normalized_versioning = str(values.versioning_status or "").strip().lower()
         return {
@@ -425,6 +426,8 @@ class BucketMigrationInspector:
         ctx: Any,
         bucket_name: str,
         probe: _BucketFeatureProbe,
+        *,
+        scan_versions: bool = True,
     ) -> _BucketInspectionValues:
         account = ctx.account
         configuration = self._service._configuration
@@ -515,5 +518,5 @@ class BucketMigrationInspector:
             notifications=notifications,
             replication=replication,
             acl=acl,
-            version_scan=self.scan_bucket_versions(ctx, bucket_name),
+            version_scan=self.scan_bucket_versions(ctx, bucket_name) if scan_versions else {},
         )
