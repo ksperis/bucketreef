@@ -25,7 +25,10 @@ from app.core.database import get_db
 from app.core.sensitive_data import sanitize_error_detail
 from app.utils.http_errors import raise_http_error_from_value_error
 
+from app.routers.browser_presets import router as browser_presets_router
+
 router = APIRouter(prefix="/users", tags=["users"])
+router.include_router(browser_presets_router)
 
 
 @router.get("/me", response_model=UserOut)

@@ -181,3 +181,11 @@ Choose **This folder**, **With subfolders**, or **Whole bucket** directly above 
 File filters combine minimum/maximum bytes, inclusive modification dates and comma-separated extensions. Dates entered in the browser use your local time zone and are sent with their UTC offset. File filters exclude folders and deletion markers and cannot be combined with the Folders-only option. Existing exact matching, case sensitivity and storage-class options remain available.
 
 Filtering takes place on the server before pagination, including sorted listings. **Partial results** means more listing pages remain; explicitly load more to continue. An empty result offers a wider scope without choosing it automatically. Ascending-name requests retain their bounded scan budget. Global sorted scans stop at 200 S3 pages or 20 seconds and ask you to narrow the scope or return to ascending-name pagination. No object-content or tag index is created.
+
+### Personal favorites and saved views
+
+Open **Favorites and views** to pin the current location or save a named view containing the context, path, query, file filters, sorting and visible columns. Rename individual entries, update a saved view from the current view, or remove it. Changes synchronize through your UI account and refresh when the window regains focus. A stale edit or removal is rejected; refresh before trying again.
+
+Standalone Browser, Manager, Ceph Admin and Portal have separate collections. Opening an entry rechecks the saved identity and location. Standalone Browser can switch to an available saved context. Integrations keep their workspace context: select the saved project/context or open its Storage Space first. An unavailable entry retains its original identity and can still be renamed or removed.
+
+Temporary S3 sessions cannot synchronize preferences. The static demo simulates this collection locally for each demo identity. This table contains only personal favorites/views, never upload tracking or transfer history.
