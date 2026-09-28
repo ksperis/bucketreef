@@ -86,13 +86,13 @@ export function BrowserObjectTableScaffold({
       >
         <tr>
           <th
-            aria-label="Select all"
+            aria-label="Select loaded items"
             className={` ${headerPaddingClasses} !align-middle text-left `}
           >
             <ListSelectionCheckbox
               checked={allSelected}
               onChange={onToggleAll}
-              aria-label="Select all"
+              aria-label="Select loaded items"
               disabled={selectionDisabled}
             />
           </th>

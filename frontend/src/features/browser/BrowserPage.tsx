@@ -27,7 +27,7 @@ import {
   uiCardMutedClass,
   uiMenuClass,
 } from "../../components/ui/styles";
-import { formatBytes } from "../../utils/format";
+import { useBrowserSelectionVolume } from "./useBrowserSelectionVolume";
 import {
   CLIENT_STORAGE_KEYS,
   writeClientStorage,
@@ -974,7 +974,6 @@ export default function BrowserPage({
     removeItemsFromSelection,
     selectAllItems,
     selectableListItems,
-    selectedBytes,
     selectedCount,
     selectedIds,
     selectedItems,
@@ -2365,12 +2364,7 @@ export default function BrowserPage({
   const browserNoticeShellClasses = "shrink-0 pb-2";
   const browserContentShellClasses =
     "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
-  const toolbarSelectionSummary =
-    selectedCount === 1 && selectionPrimary
-      ? selectionPrimary.name
-      : selectedCount > 1
-        ? `${selectedCount} selected · ${formatBytes(selectedBytes)}`
-        : "No selection";
+  const toolbarSelectionSummary = useBrowserSelectionVolume(selectedItems, JSON.stringify([accountIdForApi, bucketName, normalizedPrefix]), listAllObjectsForPrefix);
   const toolbarCanUploadFiles = pathActionStates.uploadFiles.enabled;
   const toolbarCanUploadFolder = pathActionStates.uploadFolder.enabled;
   const toolbarCanCreateFolder = pathActionStates.newFolder.enabled;

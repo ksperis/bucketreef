@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -15,7 +16,7 @@ type BrowserMobileSelectionActionsProps = {
   onDownload: () => void;
   onOpen: () => void;
   onRunAction: (actionId: BrowserActionId) => void;
-  summary: string;
+  summary: ReactNode;
 };
 
 export default function BrowserMobileSelectionActions({
@@ -72,12 +73,13 @@ export default function BrowserMobileSelectionActions({
 
       {sheetOpen && (
         <Modal
-          title={summary}
+          title={typeof summary === "string" ? summary : "Selection"}
           titleAs="h2"
           variant="bottom-sheet"
           onClose={() => setSheetOpen(false)}
           closeAriaLabel="Close actions"
         >
+          <div role="status" className="mb-3 ui-caption">{summary}</div>
           <p className="mb-3 ui-caption text-[var(--ui-text-muted)]">
             Available actions for the current selection
           </p>

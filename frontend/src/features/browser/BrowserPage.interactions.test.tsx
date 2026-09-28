@@ -1974,7 +1974,7 @@ describe("BrowserPage interactions", () => {
     await findRowByLabel("a.txt");
 
     expect(
-      screen.queryByRole("separator", { name: "Resize Select all column" }),
+      screen.queryByRole("separator", { name: "Resize Select loaded items column" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("separator", { name: "Resize Actions column" }),

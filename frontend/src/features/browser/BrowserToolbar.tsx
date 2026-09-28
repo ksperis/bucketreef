@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -71,7 +72,7 @@ type ToolbarColumns = Pick<
   ComponentProps<typeof BrowserColumnsMenu>,
   "columns" | "visibleColumnIds" | "onToggleColumn" | "onReset"
 > & {
-  summary: string;
+  summary: ReactNode;
 };
 
 type BrowserToolbarProps = {
@@ -94,7 +95,7 @@ type BrowserToolbarProps = {
   selectionActions: {
     visible: boolean;
     mobileViewport: boolean;
-    summary: string;
+    summary: ReactNode;
     canOpen: boolean;
     canCopy: boolean;
     canDownload: boolean;
@@ -381,7 +382,7 @@ export default function BrowserToolbar({
               <p
                 role="status"
                 aria-live="polite"
-                className="max-w-48 truncate rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 py-1.5 ui-caption font-semibold text-primary-700 dark:text-primary-100"
+                className="max-w-md rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 py-1.5 ui-caption font-semibold text-primary-700 dark:text-primary-100"
               >
                 {selectionActions.summary}
               </p>
