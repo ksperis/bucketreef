@@ -1,3 +1,4 @@
+import BrowserPresetsControl from "./BrowserPresetsControl";
 import BrowserSearchControls from "./BrowserSearchControls";
 import BrowserDestinationDialog, { type BrowserDestinationRequest } from "./BrowserDestinationDialog";
 import { useBrowserWriteConflicts } from "./useBrowserWriteConflicts";
@@ -372,6 +373,7 @@ export default function BrowserPage({
   });
   const {
     activeColumnResize,
+    applyColumns,
     columnWidths,
     resetColumnWidth,
     resetColumns: handleResetVisibleColumns,
@@ -390,6 +392,7 @@ export default function BrowserPage({
   );
   const {
     backendSortBy,
+    setSort,
     sortDirection,
     sortId,
     sortKey,
@@ -2707,6 +2710,19 @@ export default function BrowserPage({
               />
             )}
             <div className="flex min-h-0 h-full min-w-0 flex-1 flex-col gap-3">
+              <div className="shrink-0"><BrowserPresetsControl availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []} accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")} lockedBucket={resolvedLockedBucketName} current={{ name: normalizedPrefix || bucketName, kind: "view", surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix, view: { query: filter, scope: searchScope, recursive: searchRecursive, exact_match: searchExactMatch, case_sensitive: searchCaseSensitive, item_type: typeFilter, storage_class: storageFilter, sort_key: sortKey, sort_direction: sortDirection, columns: effectiveVisibleColumns, file_filters: { min_size: fileFilterQuery.minSize, max_size: fileFilterQuery.maxSize, modified_after: fileFilterQuery.modifiedAfter, modified_before: fileFilterQuery.modifiedBefore, extensions: fileFilters.extensions.split(",").map(value => value.trim()).filter(Boolean) } } }} onApply={preset => requestDetailsDrawerTransition(() => {
+                if (preset.context !== String(accountIdForApi ?? "")) {
+                  const nextParams = new URLSearchParams(searchParams); nextParams.set("ctx", preset.context); nextParams.set("bucket", preset.bucket); nextParams.set("prefix", preset.prefix); navigate({ pathname: location.pathname, search: nextParams.toString() });
+                } else { setBucketName(preset.bucket); setPrefix(preset.prefix); }
+                clearActiveItem();
+                if (preset.view) {
+                  const view = preset.view;
+                  setFilter(view.query); changeSearchScope(view.scope); setSearchRecursive(view.recursive); setSearchExactMatch(view.exact_match); setSearchCaseSensitive(view.case_sensitive); setTypeFilter(view.item_type); setStorageFilter(view.storage_class);
+                  const localDate = (value?: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+                  setFileFilters({ minSize: view.file_filters.min_size == null ? "" : String(view.file_filters.min_size), maxSize: view.file_filters.max_size == null ? "" : String(view.file_filters.max_size), modifiedAfter: localDate(view.file_filters.modified_after), modifiedBefore: localDate(view.file_filters.modified_before), extensions: view.file_filters.extensions?.join(", ") ?? "" });
+                  applyColumns(view.columns); setSort({ key: view.sort_key, direction: view.sort_direction });
+                }
+              })} /></div>
               {bucketName && <BrowserSearchControls portal={isPortalProfile} scope={searchScope} recursive={searchRecursive} onScope={changeSearchScope} onRecursive={setSearchRecursive} filters={fileFilters} onFilters={setFileFilters} loading={objectsLoading || objectsLoadingMore} partial={objectsIsTruncated} active={hasActiveSearchFilters} empty={listItems.length === 0} foldersOnly={typeFilter === "folder"} failed={Boolean(objectsIssue)} />}
               <BrowserObjectExplorer
                 viewportRef={objectsListViewportRef}

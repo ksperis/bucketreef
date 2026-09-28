@@ -179,7 +179,10 @@ export function useBrowserObjectColumns({
     setColumnWidthsState({ scopeKey, value: {} });
   }, [scopeKey]);
 
+  const applyColumns = useCallback((columns: string[]) => setVisibleColumnsState({ scopeKey, value: normalizeVisibleColumns(columns) }), [scopeKey]);
+
   return {
+    applyColumns,
     activeColumnResize,
     columnWidths,
     resetColumnWidth,

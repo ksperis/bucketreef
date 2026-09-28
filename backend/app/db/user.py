@@ -55,6 +55,8 @@ class User(Base):
     quota_alerts_global_watch = Column(Boolean, default=False, nullable=False, server_default="0")
     ui_preferences_json = Column(Text, nullable=False, default="{}", server_default="{}")
 
+    browser_presets = relationship("BrowserPreset", back_populates="user", cascade="all, delete-orphan")
+
     accounts = relationship(
         "S3Account",
         secondary="user_s3_accounts",
