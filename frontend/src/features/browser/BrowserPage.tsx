@@ -80,7 +80,10 @@ import { useBrowserKeyboardShortcuts } from "./useBrowserKeyboardShortcuts";
 import { useBrowserListingRefresh } from "./useBrowserListingRefresh";
 import { useBrowserListingVisibility } from "./useBrowserListingVisibility";
 import { useBrowserMultipartUploads } from "./useBrowserMultipartUploads";
-import { useBrowserNavigationHistory } from "./useBrowserNavigationHistory";
+import {
+  buildBrowserLocationPath,
+  useBrowserNavigationHistory,
+} from "./useBrowserNavigationHistory";
 import { useBrowserNotices } from "./useBrowserNotices";
 import { useBrowserObjectColumns } from "./useBrowserObjectColumns";
 import { useBrowserDetailsDrawerState } from "./useBrowserDetailsDrawerState";
@@ -339,6 +342,7 @@ export default function BrowserPage({
     prefix,
     refreshBucketList,
     scheduleBucketAccessProbe,
+    selectionReady,
     selectBucket,
     setBucketFilter,
     setBucketName,
@@ -1690,13 +1694,15 @@ export default function BrowserPage({
   useBrowserNavigationHistory({
     bucketName,
     prefix,
+    lockedBucketName: resolvedLockedBucketName,
+    ready: selectionReady && !accountSwitchInFlight,
+    scopeKey: `${normalizedPath}:${bucketAccessContextKey ?? "none"}:${resolvedLockedBucketName}`,
     onNavigate: ({ bucketName: nextBucket, prefix: nextPrefix }) => {
-      // Native bucket/prefix history can change without a router URL change.
-      // Keep the modal's targets stable just like the covered page controls.
       if (hasOpenModal()) return false;
       return requestDetailsDrawerTransition(() => {
-        setBucketName(nextBucket);
-        setPrefix(nextPrefix);
+        // Bucket changes are validated by the catalogue from the URL before
+        // they replace the current selection. Prefix-only history is local.
+        if (nextBucket === bucketName) setPrefix(nextPrefix);
         clearActiveItem();
         cancelPathEdit();
       });
@@ -1833,7 +1839,7 @@ export default function BrowserPage({
 
   const presetControl = useMemo(() => (<BrowserPresetsControl contextLabels={Object.fromEntries(browserContext.contexts.map(context => [context.id, context.display_name]))} availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []} accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")} lockedBucket={resolvedLockedBucketName} current={{ name: normalizedPrefix || bucketName, kind: "view", surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix, view: { query: filter, scope: searchScope, recursive: searchRecursive, exact_match: searchExactMatch, case_sensitive: searchCaseSensitive, item_type: typeFilter, storage_class: storageFilter, sort_key: sortKey, sort_direction: sortDirection, columns: effectiveVisibleColumns, file_filters: { min_size: fileFilterQuery.minSize, max_size: fileFilterQuery.maxSize, modified_after: fileFilterQuery.modifiedAfter, modified_before: fileFilterQuery.modifiedBefore, extensions: fileFilters.extensions.split(",").map(value => value.trim()).filter(Boolean) } } }} onApply={preset => requestDetailsDrawerTransition(() => {
                 if (preset.context !== String(accountIdForApi ?? "")) {
-                  const nextParams = new URLSearchParams(searchParams); nextParams.set("ctx", preset.context); nextParams.set("bucket", preset.bucket); nextParams.set("prefix", preset.prefix); navigate({ pathname: location.pathname, search: nextParams.toString() });
+                  const nextParams = new URLSearchParams(searchParams); nextParams.set("ctx", preset.context); navigate(buildBrowserLocationPath(location.pathname, nextParams.toString(), location.hash, { bucketName: preset.bucket, prefix: preset.prefix }));
                 } else { setBucketName(preset.bucket); setPrefix(preset.prefix); }
                 clearActiveItem();
                 if (preset.view) {
@@ -1843,7 +1849,7 @@ export default function BrowserPage({
                   setFileFilters({ minSize: view.file_filters.min_size == null ? "" : String(view.file_filters.min_size), maxSize: view.file_filters.max_size == null ? "" : String(view.file_filters.max_size), modifiedAfter: localDate(view.file_filters.modified_after), modifiedBefore: localDate(view.file_filters.modified_before), extensions: view.file_filters.extensions?.join(", ") ?? "" });
                   applyColumns(view.columns); setSort({ key: view.sort_key, direction: view.sort_direction });
                 }
-              })} />), [isMainBrowserPath, browserContext.contexts, storedUser, resolvedLockedBucketName, normalizedPrefix, bucketName, workspaceSurface, accountIdForApi, filter, searchScope, searchRecursive, searchExactMatch, searchCaseSensitive, typeFilter, storageFilter, sortKey, sortDirection, effectiveVisibleColumns, fileFilterQuery, fileFilters.extensions, requestDetailsDrawerTransition, searchParams, navigate, location.pathname, setBucketName, setPrefix, clearActiveItem, setFilter, changeSearchScope, setSearchRecursive, setSearchExactMatch, setSearchCaseSensitive, setTypeFilter, setStorageFilter, setFileFilters, applyColumns, setSort]);
+              })} />), [isMainBrowserPath, browserContext.contexts, storedUser, resolvedLockedBucketName, normalizedPrefix, bucketName, workspaceSurface, accountIdForApi, filter, searchScope, searchRecursive, searchExactMatch, searchCaseSensitive, typeFilter, storageFilter, sortKey, sortDirection, effectiveVisibleColumns, fileFilterQuery, fileFilters.extensions, requestDetailsDrawerTransition, searchParams, navigate, location.pathname, location.hash, setBucketName, setPrefix, clearActiveItem, setFilter, changeSearchScope, setSearchRecursive, setSearchExactMatch, setSearchCaseSensitive, setTypeFilter, setStorageFilter, setFileFilters, applyColumns, setSort]);
 
   const renderWorkspaceSidebarBody = useCallback<BrowserSidebarBodyRenderer>(
     ({ compact, variant, closeMobile }) => (
@@ -2517,7 +2523,7 @@ export default function BrowserPage({
   const transferControl = (<BrowserTransfersControl owner={localTransferOwner} workspace={workspaceSurface} accountId={String(accountIdForApi ?? "")} currentBucket={bucketName}
                 lockedBucket={resolvedLockedBucketName} hasSseKey={Boolean(sseCustomerKeyBase64)} canWrite={resolvedCapabilityFacts.canWriteObjects}
                 operations={operations} onCancel={cancelOperation} onOpenDestination={target => requestDetailsDrawerTransition(() => {
-                  if (isMainBrowserPath) { const params = new URLSearchParams(location.search); params.set("bucket", target.bucket); params.set("prefix", target.prefix); navigate({ pathname: location.pathname, search: params.toString() }); }
+                  if (isMainBrowserPath) navigate(buildBrowserLocationPath(location.pathname, location.search, location.hash, { bucketName: target.bucket, prefix: target.prefix }));
                   else { setBucketName(target.bucket); setPrefix(target.prefix); }
                 })}
                 onAbort={async record => {
