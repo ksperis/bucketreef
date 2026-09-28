@@ -1824,7 +1824,6 @@ export default function BrowserPage({
     openCreateBucketForm();
   }, [bucketManagementEnabled, openCreateBucketForm, setBucketFilter]);
 
-  const [showFavorites, setShowFavorites] = useState(false);
   const favoriteControl = useMemo(() => (
     <BrowserFavoritesControl
       contextLabels={Object.fromEntries(browserContext.contexts.map(context => [context.id, context.display_name]))}
@@ -2511,7 +2510,6 @@ export default function BrowserPage({
         <div className={browserShellClasses}>
         <div className={browserChromeShellClasses}>
           <BrowserToolbar
-            onOpenFavorites={isEmbeddedBrowserPath ? () => setShowFavorites(true) : undefined}
             compactMode={compactMode}
             bucketSelector={{
               rootRef: bucketMenuRef,
@@ -3152,7 +3150,6 @@ export default function BrowserPage({
           onClose={closeNewFolder}
         />
       )}
-      {showFavorites && cloneElement(favoriteControl, { variant: "dialog", onClose: () => setShowFavorites(false) })}
       {archivePreparation && (
         <ConfirmActionDialog
           title={
