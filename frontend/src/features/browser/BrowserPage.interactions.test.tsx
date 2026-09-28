@@ -939,6 +939,90 @@ describe("BrowserPage interactions", () => {
     });
   });
 
+  it.each([
+    {
+      surface: "Browser",
+      initialEntry:
+        "/browser?ctx=ctx-1&bucket=bucket-1&prefix=docs%2F#objects",
+      expected:
+        "/browser?ctx=ctx-1&bucket=bucket-1&prefix=docs%2F",
+      options: {},
+    },
+    {
+      surface: "Manager Browser",
+      initialEntry:
+        "/manager/browser?ctx=101&bucket=bucket-1&prefix=docs%2F#objects",
+      expected:
+        "/manager/browser?ctx=101&bucket=bucket-1&prefix=docs%2F",
+      options: {
+        accountIdForApi: "101",
+        executionContextKind: "account" as const,
+        workspaceSurface: "manager" as const,
+        functionalProfile: "advanced" as const,
+      },
+    },
+    {
+      surface: "Ceph Admin Browser",
+      initialEntry:
+        "/ceph-admin/browser?ep=9&bucket=bucket-1&prefix=docs%2F#objects",
+      expected:
+        "/ceph-admin/browser?ep=9&bucket=bucket-1&prefix=docs%2F",
+      options: {
+        accountIdForApi: "ceph-admin-9",
+        executionContextKind: "ceph_admin" as const,
+        workspaceSurface: "ceph-admin" as const,
+        functionalProfile: "advanced" as const,
+      },
+    },
+    {
+      surface: "Portal Browser",
+      initialEntry:
+        "/portal/spaces/7?project=101&bucket=other&prefix=docs%2F#files",
+      expected:
+        "/portal/spaces/7?project=101&bucket=bucket-1&prefix=docs%2F",
+      options: {
+        accountIdForApi: "101",
+        executionContextKind: "portal_account" as const,
+        workspaceSurface: "portal" as const,
+        functionalProfile: "portal" as const,
+        lockedBucketName: "bucket-1",
+      },
+    },
+  ])("restores a deep $surface URL", async ({ initialEntry, expected, options }) => {
+    renderPage({ initialEntry, ...options });
+
+    expect(await screen.findByText("readme.txt")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Current location")).toHaveTextContent(
+        expected,
+      ),
+    );
+  });
+
+  it("pushes folder navigation into the URL and omits the root prefix", async () => {
+    const user = userEvent.setup();
+    renderPage({
+      initialEntry: "/browser?ctx=ctx-1&bucket=bucket-1",
+    });
+
+    await user.click(await findRowByLabel("docs"));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Current location")).toHaveTextContent(
+        "/browser?ctx=ctx-1&bucket=bucket-1&prefix=docs%2F",
+      ),
+    );
+    await user.click(
+      within(getContextToolbar()).getByRole("button", {
+        name: "Parent folder",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Current location")).toHaveTextContent(
+        "/browser?ctx=ctx-1&bucket=bucket-1",
+      ),
+    );
+  });
+
   it("exposes a page heading without changing the browser chrome", async () => {
     renderPage();
 

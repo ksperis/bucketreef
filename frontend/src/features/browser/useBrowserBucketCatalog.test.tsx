@@ -1,6 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readBrowserRootContextSelection } from "./browserRootUiState";
+import {
+  readBrowserRootContextSelection,
+  writeBrowserRootContextSelection,
+} from "./browserRootUiState";
 import { useBrowserBucketCatalog } from "./useBrowserBucketCatalog";
 
 const apiMocks = vi.hoisted(() => ({
@@ -64,6 +67,10 @@ describe("useBrowserBucketCatalog", () => {
   });
 
   it("selects the requested bucket and persists its current root path", async () => {
+    writeBrowserRootContextSelection("account-a", {
+      bucketName: "bucket-a",
+      prefix: "remembered/",
+    });
     apiMocks.searchBrowserBuckets.mockResolvedValue(
       bucketPage(["bucket-a", "bucket-b"]),
     );
@@ -80,6 +87,7 @@ describe("useBrowserBucketCatalog", () => {
     await waitFor(() => {
       expect(result.current.bucketName).toBe("bucket-b");
       expect(result.current.prefix).toBe("docs/");
+      expect(result.current.selectionReady).toBe(true);
     });
     expect(apiMocks.searchBrowserBuckets).toHaveBeenCalledOnce();
     expect(onSelectedBucketNameChange).toHaveBeenCalledWith("bucket-b");
@@ -91,6 +99,50 @@ describe("useBrowserBucketCatalog", () => {
         prefix: "reports/",
       });
     });
+  });
+
+  it("falls back to a remembered selection when the URL bucket is invalid", async () => {
+    writeBrowserRootContextSelection("account-a", {
+      bucketName: "bucket-a",
+      prefix: "remembered/",
+    });
+    apiMocks.searchBrowserBuckets.mockImplementation(
+      (_accountId: string, options?: { search?: string; exact?: boolean }) =>
+        options?.exact && options.search === "missing"
+          ? Promise.resolve(bucketPage([]))
+          : Promise.resolve(bucketPage(["bucket-a", "bucket-b"])),
+    );
+    const { result } = renderHook(() =>
+      useBrowserBucketCatalog({
+        ...createOptions(),
+        requestedBucket: "missing",
+        requestedPrefix: "ignored/",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectionReady).toBe(true);
+      expect(result.current.bucketName).toBe("bucket-a");
+      expect(result.current.prefix).toBe("remembered/");
+    });
+  });
+
+  it("forces a locked bucket while retaining the URL prefix", async () => {
+    const { result } = renderHook(() =>
+      useBrowserBucketCatalog({
+        ...createOptions(),
+        lockedBucketName: "locked-bucket",
+        requestedBucket: "other-bucket",
+        requestedPrefix: "docs/",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectionReady).toBe(true);
+      expect(result.current.bucketName).toBe("locked-bucket");
+      expect(result.current.prefix).toBe("docs/");
+    });
+    expect(apiMocks.searchBrowserBuckets).not.toHaveBeenCalled();
   });
 
   it("ignores a catalogue response from the previous account", async () => {

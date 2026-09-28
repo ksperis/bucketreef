@@ -79,6 +79,7 @@ export function useBrowserBucketCatalog({
   const [bucketTotalCount, setBucketTotalCount] = useState(0);
   const [bucketMenuLoadingMore, setBucketMenuLoadingMore] = useState(false);
   const [loadingBuckets, setLoadingBuckets] = useState(false);
+  const [selectionReady, setSelectionReady] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
   const bucketNameRef = useRef(bucketNameState);
   const prefixRef = useRef(prefixState);
@@ -87,6 +88,8 @@ export function useBrowserBucketCatalog({
   const requestIdRef = useRef(0);
   const activeContextKeyRef = useRef<string | null>(accessContextKey);
   const previousAccountIdRef = useRef(accountId);
+  const requestedPrefixRef = useRef(requestedPrefix);
+  requestedPrefixRef.current = requestedPrefix;
   const selectionPersistenceReadyRef = useRef(false);
   const selectionPersistenceContextIdRef = useRef<string | null>(
     browserRootContextId,
@@ -162,6 +165,7 @@ export function useBrowserBucketCatalog({
     requestIdRef.current += 1;
     if (previousAccountIdRef.current === accountId) return;
     previousAccountIdRef.current = accountId;
+    setSelectionReady(false);
     selectionPersistenceReadyRef.current = false;
     selectionPersistenceContextIdRef.current = browserRootContextId;
     setSelection("", "");
@@ -179,6 +183,7 @@ export function useBrowserBucketCatalog({
       if (activeContextKeyRef.current !== requestContextKey) return;
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
+      setSelectionReady(false);
       resetBucketAccessQueue();
       if (isMainBrowserPath) {
         selectionPersistenceReadyRef.current = false;
@@ -193,6 +198,7 @@ export function useBrowserBucketCatalog({
         setLoadingBuckets(false);
         setBucketMenuLoadingMore(false);
         setBucketError(null);
+        setSelectionReady(true);
         return;
       }
       if (lockedBucketName) {
@@ -210,13 +216,14 @@ export function useBrowserBucketCatalog({
         clearBucketAccessEntries();
         setSelection(
           lockedBucketName,
-          requestedPrefix ||
+          requestedPrefixRef.current ||
             (previousBucket === lockedBucketName ? previousPrefix : ""),
         );
         if (isMainBrowserPath) {
           selectionPersistenceContextIdRef.current = browserRootContextId;
           selectionPersistenceReadyRef.current = true;
         }
+        setSelectionReady(true);
         return;
       }
       setLoadingBuckets(true);
@@ -297,7 +304,7 @@ export function useBrowserBucketCatalog({
             bucketSource === "requested" ||
             bucketSource === "ceph-requested"
           ) {
-            nextPrefix = requestedPrefix;
+            nextPrefix = requestedPrefixRef.current;
           } else {
             nextPrefix =
               bucketSource === "preferred" || nextBucket !== previousBucket
@@ -310,6 +317,7 @@ export function useBrowserBucketCatalog({
           selectionPersistenceContextIdRef.current = browserRootContextId;
           selectionPersistenceReadyRef.current = true;
         }
+        setSelectionReady(true);
       } catch (error) {
         if (!requestIsCurrent(requestId, requestContextKey)) return;
         searchValueRef.current = "";
@@ -323,6 +331,7 @@ export function useBrowserBucketCatalog({
           "",
         );
         selectionPersistenceContextIdRef.current = browserRootContextId;
+        setSelectionReady(true);
       } finally {
         if (requestIsCurrent(requestId, requestContextKey)) {
           setLoadingBuckets(false);
@@ -340,7 +349,6 @@ export function useBrowserBucketCatalog({
       lockedBucketName,
       requestIsCurrent,
       requestedBucket,
-      requestedPrefix,
       resetBucketAccessQueue,
       resetMenu,
       setSelection,
@@ -540,6 +548,7 @@ export function useBrowserBucketCatalog({
     prefix: prefixState,
     refreshBucketList,
     scheduleBucketAccessProbe,
+    selectionReady,
     selectBucket,
     setBucketFilter,
     setBucketName,
