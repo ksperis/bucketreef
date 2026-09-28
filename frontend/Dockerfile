@@ -15,7 +15,8 @@ RUN npm run build
 FROM nginx:stable-alpine
 
 ENV CSP_CONNECT_SRC="'self'" \
-    BACKEND_UPSTREAM="backend:8000"
+    BACKEND_UPSTREAM="backend:8000" \
+    BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE="5g"
 RUN apk upgrade --no-cache \
     && apk add --no-cache 'libexpat>=2.8.5-r0'
 COPY nginx.conf.template /etc/nginx/bucketreef.conf.template

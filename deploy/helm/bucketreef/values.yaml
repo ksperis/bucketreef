@@ -82,6 +82,7 @@ frontend:
   replicas: 1
   env:
     CSP_CONNECT_SRC: "'self'"
+    BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE: "5g"
   extraEnv: []
   podSecurityContext:
     runAsNonRoot: true

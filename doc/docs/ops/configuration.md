@@ -312,6 +312,9 @@ Portal IAM policies are not editable settings.
 
 - `VITE_API_URL` for API base URL in frontend build/runtime.
 - In container deployments, route `/api` to backend via reverse proxy/ingress.
+- `BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE` controls the Nginx request limit for
+  Browser uploads relayed through the backend. It accepts Nginx size syntax and
+  defaults to `5g`; any outer ingress or proxy must allow the same request size.
 - Browser identity always comes from `/api/auth/session`; UI tokens must never
   be added to `VITE_*` values or browser storage.
 

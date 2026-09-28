@@ -69,6 +69,7 @@ services:
         condition: service_healthy
     environment:
       CSP_CONNECT_SRC: "${CSP_CONNECT_SRC:-'self'}"
+      BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE: "${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE:-5g}"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/setup/first-admin || exit 1"]
       interval: 5s
