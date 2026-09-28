@@ -67,6 +67,7 @@ describe("useBrowserObjectPreview", () => {
       controller.signal,
       "customer-key",
       { workspaceSurface: "manager" },
+      undefined,
     );
     expect(baseOptions.presignObjectRequest).not.toHaveBeenCalled();
   });
@@ -128,6 +129,18 @@ describe("useBrowserObjectPreview", () => {
       ).resolves.toBe("application/pdf");
     });
     expect(apiMocks.fetchObjectMetadata).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("loads the exact historical version (proxy=%s)", async (useProxyTransfers) => {
+    const blob = new Blob(["historical"], { type: "text/plain" });
+    const presignObjectRequest = vi.fn().mockResolvedValue({ url: "https://objects.test/old", headers: {} });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, blob: async () => blob }));
+    apiMocks.proxyDownload.mockResolvedValue(blob);
+    const { result } = renderHook(() => useBrowserObjectPreview({ ...baseOptions, useProxyTransfers, presignObjectRequest }));
+    const signal = new AbortController().signal;
+    await result.current.loadBlob(signal, " v+%2F ");
+    if (useProxyTransfers) expect(apiMocks.proxyDownload).toHaveBeenCalledWith("acc-1", "bucket-a", "docs/report.txt", signal, undefined, undefined, " v+%2F ");
+    else expect(presignObjectRequest).toHaveBeenCalledWith("bucket-a", expect.objectContaining({ version_id: " v+%2F " }));
   });
 
   it("resolves missing metadata and suppresses only non-abort failures", async () => {

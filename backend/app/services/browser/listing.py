@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import logging
+import base64
+import json
+from fastapi import HTTPException
+from app.models.browser_filters import BrowserFileFilters
 from typing import Callable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -73,6 +77,8 @@ class BrowserListingMixin:
         item_type: Optional[str] = None,
         storage_class: Optional[str] = None,
         recursive: bool = False,
+        include_folder_markers: bool = False,
+        file_filters: BrowserFileFilters | None = None,
     ) -> ListBrowserObjectsResponse:
         normalized_prefix = prefix or ""
         normalized_max_keys = max(1, min(1000, int(max_keys or 1000)))
@@ -94,11 +100,23 @@ class BrowserListingMixin:
             item_type=type_filter,
             storage_class=storage_filter,
             recursive=recursive,
+            include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
         )
         cached = _OBJECT_LIST_CACHE.get(object_cache_key)
         if cached is not None:
             logger.debug("Browser object cache hit: account=%s bucket=%s", account_cache_key, bucket_name)
             return cached.model_copy(deep=True)
+        cursor_signature = _sorted_snapshot_signature(tuple(value for index, value in enumerate(object_cache_key) if index != 3))
+        scan_token = continuation_token
+        if file_filters and file_filters.active and continuation_token:
+            try:
+                cursor = json.loads(base64.urlsafe_b64decode(continuation_token))
+                if cursor["sig"] != cursor_signature:
+                    raise ValueError("different filters")
+                scan_token = cursor["token"]
+            except (ValueError, KeyError, TypeError):
+                raise HTTPException(status_code=422, detail="Listing filters changed; restart pagination")
         result = DefaultObjectListingLoader(
             client=self._client(account),
             options=DefaultObjectScanOptions(
@@ -108,6 +126,8 @@ class BrowserListingMixin:
                 item_type=type_filter,
                 storage_class=storage_filter,
                 recursive=recursive,
+                include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
             ),
             matches_query=self._build_query_matcher(
                 normalized_prefix=normalized_prefix,
@@ -117,14 +137,17 @@ class BrowserListingMixin:
             ),
             clean_etag=self._clean_etag,
         ).load(
-            continuation_token=continuation_token,
+            continuation_token=scan_token,
             filtered=(
                 bool(query_value_raw)
                 or type_filter != "all"
                 or storage_filter is not None
                 or recursive
+                or bool(file_filters and file_filters.active)
             ),
         )
+        if file_filters and file_filters.active and result.next_continuation_token:
+            result.next_continuation_token = base64.urlsafe_b64encode(json.dumps({"sig": cursor_signature, "token": result.next_continuation_token}).encode()).decode()
         _OBJECT_LIST_CACHE.set(object_cache_key, result.model_copy(deep=True))
         logger.debug("Browser object cache miss: account=%s bucket=%s", account_cache_key, bucket_name)
         return result
@@ -141,6 +164,8 @@ class BrowserListingMixin:
         item_type: Optional[str] = None,
         storage_class: Optional[str] = None,
         recursive: bool = False,
+        include_folder_markers: bool = False,
+        file_filters: BrowserFileFilters | None = None,
         sort_by: BrowserObjectSortBy,
         sort_dir: BrowserObjectSortDir,
     ) -> SortedObjectSnapshot:
@@ -161,6 +186,8 @@ class BrowserListingMixin:
             item_type=type_filter,
             storage_class=storage_filter,
             recursive=recursive,
+            include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
             sort_by=sort_by,
             sort_dir=sort_dir,
         )
@@ -176,6 +203,8 @@ class BrowserListingMixin:
                 item_type=type_filter,
                 storage_class=storage_filter,
                 recursive=recursive,
+                include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
                 sort_by=sort_by,
                 sort_dir=sort_dir,
             ),
@@ -204,6 +233,8 @@ class BrowserListingMixin:
         item_type: Optional[str] = None,
         storage_class: Optional[str] = None,
         recursive: bool = False,
+        include_folder_markers: bool = False,
+        file_filters: BrowserFileFilters | None = None,
         sort_by: BrowserObjectSortBy = "name",
         sort_dir: BrowserObjectSortDir = "asc",
         force_refresh: bool = False,
@@ -224,6 +255,8 @@ class BrowserListingMixin:
                 item_type=item_type,
                 storage_class=storage_class,
                 recursive=recursive,
+                include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
             )
 
         snapshot = self._scan_sorted_object_snapshot(
@@ -236,6 +269,8 @@ class BrowserListingMixin:
             item_type=item_type,
             storage_class=storage_class,
             recursive=recursive,
+            include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
             sort_by=sort_by,
             sort_dir=sort_dir,
         )
@@ -255,6 +290,8 @@ class BrowserListingMixin:
                 ),
                 storage_class=(storage_class or "").strip() or None,
                 recursive=recursive,
+                include_folder_markers=include_folder_markers,
+                file_filters=file_filters,
                 sort_by=sort_by,
                 sort_dir=sort_dir,
             )
@@ -262,6 +299,8 @@ class BrowserListingMixin:
         cursor_payload = _decode_sorted_cursor(continuation_token)
         prefixes_offset = 0
         objects_offset = 0
+        if cursor_payload and cursor_payload.get("sig") != snapshot_signature:
+            raise HTTPException(status_code=422, detail="Listing filters changed; restart pagination")
         if cursor_payload and cursor_payload.get("sig") == snapshot_signature:
             prefixes_offset = max(0, int(cursor_payload.get("po") or 0))
             objects_offset = max(0, int(cursor_payload.get("oo") or 0))

@@ -1,3 +1,4 @@
+import type { BrowserPreset } from "../api/browserPresets";
 import type { User } from "../api/users";
 import type { S3Account } from "../api/accounts";
 import type { UiGroup } from "../api/groups";
@@ -35,6 +36,7 @@ export type DemoIam = {
   keys: Record<string, AccessKey[]>; attachments: Record<string, IamPolicy[]>; inline: Record<string, InlinePolicy[]>;
 };
 export type DemoState = {
+  browserPresets?: Record<number, BrowserPreset[]>;
   initializedAt: string; nextId: number; users: User[]; groups: UiGroup[];
   accounts: (S3Account & { rgw?: Partial<CephAdminRgwAccountDetail> })[]; endpoints: StorageEndpoint[]; buckets: DemoBucket[]; spaces: DemoSpace[];
   requests: PortalAdminRequest[]; iam: Record<number, DemoIam>;

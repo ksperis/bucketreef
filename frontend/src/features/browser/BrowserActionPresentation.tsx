@@ -47,11 +47,15 @@ const actionIconById = {
   open: OpenIcon,
   preview: EyeIcon,
   download: DownloadIcon,
+  downloadZip: DownloadIcon,
   createPublicLink: LinkIcon,
   restore: HistoryIcon,
   copyUrl: LinkIcon,
   copy: CopyIcon,
   cut: CutIcon,
+  rename: SlidersIcon,
+  copyTo: CopyIcon,
+  moveTo: CutIcon,
   bulkAttributes: SlidersIcon,
   advanced: SettingsIcon,
   delete: TrashIcon,
@@ -114,15 +118,17 @@ export function BrowserToolbarActionMenuItem({
     <button
       type="button"
       role="menuitem"
+      aria-label={action.label}
       className={`${contextMenuItemClasses} ${
         !action.enabled ? contextMenuItemDisabledClasses : ""
       }`}
-      onClick={onSelect}
-      disabled={!action.enabled}
+      onClick={() => { if (action.enabled) onSelect(); }}
+      aria-disabled={!action.enabled}
       title={action.disabledReason}
     >
       <BrowserActionIcon actionId={action.id} />
       {action.label}
+      {!action.enabled && action.disabledReason && <span className="ml-auto max-w-64 whitespace-normal ui-caption font-normal">{action.disabledReason}</span>}
     </button>
   );
 }

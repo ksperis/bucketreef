@@ -9,6 +9,9 @@ import {
 } from "./browserTransferPresentation";
 
 describe("browser transfer presentation", () => {
+  it("does not present a working proxy as blocked", () => {
+    expect(buildBrowserTransferWarnings({ warningMessage: null, corsFixError: null, stsCredentialsError: null, corsEnabled: false, proxyAllowed: true })).toEqual([]);
+  });
   it("distinguishes verified CORS states from an unknown status", () => {
     expect(
       resolveBrowserCorsAvailability({ enabled: true, rules: [] }),

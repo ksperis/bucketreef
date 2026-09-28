@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.access_context import ManagerActor
 from app.models.browser import (
+    BrowserWriteGuard,
     BrowserStsCredentials,
     CompleteMultipartUploadRequest,
     ListMultipartUploadsResponse,
@@ -76,6 +77,7 @@ def upload_via_proxy(
     file: UploadFile = File(...),
     key: str = Form(...),
     content_type: Optional[str] = Form(default=None),
+    write_guard: Optional[str] = Form(default=None),
     account: S3ExecutionContext = Depends(get_account_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
@@ -86,6 +88,10 @@ def upload_via_proxy(
     if sse_customer:
         require_sse_feature(account)
     try:
+        try:
+            guard = BrowserWriteGuard.model_validate_json(write_guard) if write_guard else None
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Invalid write guard") from exc
         service.upload_via_proxy(
             bucket_name,
             account,
@@ -93,6 +99,7 @@ def upload_via_proxy(
             key=key,
             content_type=content_type,
             sse_customer=sse_customer,
+            write_guard=guard,
         )
         return ObjectUploadResponse(message="Upload completed", key=key)
     except RuntimeError as exc:
@@ -104,6 +111,7 @@ def download_object(
     bucket_name: str,
     key: str,
     version_id: Optional[str] = None,
+    if_match: Optional[str] = None,
     account: S3ExecutionContext = Depends(get_account_context),
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
@@ -119,6 +127,7 @@ def download_object(
             account,
             key,
             version_id=version_id,
+            **({"if_match": if_match} if if_match else {}),
             sse_customer=sse_customer,
         )
         return S3DownloadResponse(download)
@@ -221,12 +230,15 @@ def complete_multipart_upload(
     payload: CompleteMultipartUploadRequest,
     account: S3ExecutionContext = Depends(get_account_context),
     service: BrowserService = Depends(get_browser_service),
+    sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> dict:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
+    if sse_customer:
+        require_sse_feature(account)
     try:
-        service.complete_multipart_upload(bucket_name, account, key, upload_id, payload)
+        service.complete_multipart_upload(bucket_name, account, key, upload_id, payload, sse_customer=sse_customer)
         return {"message": "completed"}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -246,5 +258,42 @@ def abort_multipart_upload(
     try:
         service.abort_multipart_upload(bucket_name, account, key, upload_id)
         return {"message": "aborted"}
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
+
+
+@router.get("/buckets/{bucket_name}/multipart/{upload_id}/parts", response_model=dict)
+def list_multipart_parts(
+    bucket_name: str, upload_id: str, key: str = Query(..., min_length=1),
+    part_number_marker: int = Query(default=0, ge=0, le=10000),
+    max_parts: int = Query(default=1000, ge=1, le=1000),
+    account: S3ExecutionContext = Depends(get_account_context),
+    service: BrowserService = Depends(get_browser_service),
+    sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> dict:
+    if sse_customer:
+        require_sse_feature(account)
+    try:
+        return service.list_multipart_parts(bucket_name, account, key, upload_id,
+                                            marker=part_number_marker, limit=max_parts, sse_customer=sse_customer)
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
+
+
+@router.post("/buckets/{bucket_name}/multipart/{upload_id}/parts", response_model=dict)
+def upload_multipart_part(
+    bucket_name: str, upload_id: str, key: str = Form(..., min_length=1),
+    part_number: int = Form(..., ge=1, le=10000), file: UploadFile = File(...),
+    account: S3ExecutionContext = Depends(get_account_context),
+    service: BrowserService = Depends(get_browser_service),
+    sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> dict:
+    if sse_customer:
+        require_sse_feature(account)
+    try:
+        return service.upload_multipart_part(bucket_name, account, key, upload_id, part_number, file,
+                                             sse_customer=sse_customer)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)

@@ -6,19 +6,32 @@ const clientMock = vi.hoisted(() => ({
   post: vi.fn(),
 }));
 
-vi.mock("./client", () => ({ default: clientMock }));
+vi.mock("./client", () => ({ default: clientMock, LONG_RUNNING_REQUEST_TIMEOUT_MS: 300000 }));
 
 import {
   abortMultipartUpload,
   completeMultipartUpload,
   initiateMultipartUpload,
   listMultipartUploads,
+  listMultipartParts,
+  proxyUploadPart,
   presignPart,
 } from "./browserMultipart";
 
 const SSE_CUSTOMER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 describe("browser multipart api", () => {
+  it("paginates exact upload parts and sends proxy bytes with current context and SSE-C", async () => {
+    clientMock.get.mockResolvedValueOnce({ data: { parts: [{ part_number: 1, etag: "one", size: 8 }], is_truncated: true, next_part_number_marker: 1 } })
+      .mockResolvedValueOnce({ data: { parts: [{ part_number: 2, etag: "two", size: 4 }], is_truncated: false } });
+    const signal = new AbortController().signal;
+    expect(await listMultipartParts("101", "space", " id/+ ", " /é// ", signal, SSE_CUSTOMER_KEY, { workspaceSurface: "portal" })).toHaveLength(2);
+    expect(clientMock.get.mock.calls[1][1].params).toEqual({ account_id: "101", key: " /é// ", part_number_marker: 1, max_parts: 1000 });
+    await proxyUploadPart("101", "space", " id/+ ", " /é// ", 2, new Blob(["part"]), signal, SSE_CUSTOMER_KEY, { workspaceSurface: "portal" });
+    const [, form, config] = clientMock.post.mock.calls[0];
+    expect(form.get("key")).toBe(" /é// "); expect(form.get("part_number")).toBe("2");
+    expect(config.headers["X-S3-Workspace"]).toBe("portal"); expect(config.headers["X-S3-SSE-C-Key"]).toBe(SSE_CUSTOMER_KEY);
+  });
   beforeEach(() => {
     clientMock.delete.mockReset();
     clientMock.get.mockReset();

@@ -61,7 +61,7 @@ export function useBrowserPresignRequests({
       bucketName: string,
       payload: PresignRequest,
     ): Promise<PresignedUrl> => {
-      if (useStsPresigner) {
+      if (useStsPresigner && !payload.write_guard) {
         const stsResponse = await tryStsPresign(
           ensureStsCredentials,
           (credentials) =>

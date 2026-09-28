@@ -362,11 +362,13 @@ export async function deletePortalStorageSpace(
 export async function fetchPortalStorageSpaceObjectDetail(
   accountId: S3AccountSelector,
   spaceId: string,
-  key: string
+  key: string,
+  versionId?: string | null,
+  signal?: AbortSignal,
 ): Promise<PortalStorageObjectDetail> {
   const { data } = await client.get<PortalStorageObjectDetail>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/objects/detail`,
-    { params: withS3AccountParam({ key }, accountId) }
+    { params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId), ...(signal ? { signal } : {}) }
   );
   return data;
 }
@@ -489,12 +491,13 @@ export async function downloadPortalStorageSpaceObject(
   accountId: S3AccountSelector,
   spaceId: string,
   key: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  versionId?: string | null,
 ): Promise<PortalStorageObjectDownload> {
   const response = await client.get<Blob>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/objects/download`,
     {
-      params: withS3AccountParam({ key }, accountId),
+      params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId),
       responseType: "blob",
       ...(signal ? { signal } : {}),
       timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,

@@ -22,6 +22,7 @@ from app.services.audit_service import AuditService
 from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
 from app.services.auth_session_service import AuthSessionService
 from app.services.session_service import SessionIntrospectionError, SessionService
+from app.services.browser_recovery_identity import browser_recovery_identity
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.utils.request_security import require_trusted_origin
 from app.utils.s3_endpoint import validate_custom_login_s3_endpoint
@@ -120,6 +121,7 @@ def login_with_s3_keys(
     set_auth_cookies(response, credentials)
     descriptor = SessionDescriptor(
         session_id=principal.session_id,
+        local_recovery_id=browser_recovery_identity(principal),
         actor_type=principal.actor_type,
         account_id=principal.account_id,
         account_name=principal.account_name,

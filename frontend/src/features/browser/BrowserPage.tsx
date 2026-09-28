@@ -1,3 +1,14 @@
+import { cloneElement } from "react";
+import type { BrowserPreset } from "../../api/browserPresets";
+import BrowserPresetsControl from "./BrowserPresetsControl";
+import BrowserTransfersControl from "./BrowserTransfersControl";
+import { useBrowserTransferHistory } from "./useBrowserTransferHistory";
+import { abortMultipartUpload } from "../../api/browserMultipart";
+import { removeLocalUpload, withLocalUploadLock, type LocalUpload } from "./browserTransferStore";
+import { verifyBrowserResumeFile } from "./browserResumableUpload";
+import BrowserSearchControls from "./BrowserSearchControls";
+import BrowserDestinationDialog, { type BrowserDestinationRequest } from "./BrowserDestinationDialog";
+import { useBrowserWriteConflicts } from "./useBrowserWriteConflicts";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -20,6 +31,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { ListActionButton } from "../../components/list/ListControls";
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import {
@@ -27,12 +39,13 @@ import {
   uiCardMutedClass,
   uiMenuClass,
 } from "../../components/ui/styles";
-import { formatBytes } from "../../utils/format";
+import { useBrowserSelectionVolume } from "./useBrowserSelectionVolume";
 import {
   CLIENT_STORAGE_KEYS,
   writeClientStorage,
 } from "../../utils/clientStorage";
 import { readStoredUser } from "../../utils/workspaces";
+import { formatBytes } from "../../utils/format";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import { useBrowserContext } from "./BrowserContext";
@@ -67,7 +80,10 @@ import { useBrowserKeyboardShortcuts } from "./useBrowserKeyboardShortcuts";
 import { useBrowserListingRefresh } from "./useBrowserListingRefresh";
 import { useBrowserListingVisibility } from "./useBrowserListingVisibility";
 import { useBrowserMultipartUploads } from "./useBrowserMultipartUploads";
-import { useBrowserNavigationHistory } from "./useBrowserNavigationHistory";
+import {
+  buildBrowserLocationPath,
+  useBrowserNavigationHistory,
+} from "./useBrowserNavigationHistory";
 import { useBrowserNotices } from "./useBrowserNotices";
 import { useBrowserObjectColumns } from "./useBrowserObjectColumns";
 import { useBrowserDetailsDrawerState } from "./useBrowserDetailsDrawerState";
@@ -210,6 +226,7 @@ export default function BrowserPage({
   showPanelToggles = true,
   defaultShowFolders = false,
   onSelectedBucketNameChange,
+  onLoadedFilesChange,
   onOpenObjectDetails,
   deletedObjectsOptions,
   refreshToken,
@@ -325,6 +342,7 @@ export default function BrowserPage({
     prefix,
     refreshBucketList,
     scheduleBucketAccessProbe,
+    selectionReady,
     selectBucket,
     setBucketFilter,
     setBucketName,
@@ -369,6 +387,7 @@ export default function BrowserPage({
   });
   const {
     activeColumnResize,
+    applyColumns,
     columnWidths,
     resetColumnWidth,
     resetColumns: handleResetVisibleColumns,
@@ -387,6 +406,7 @@ export default function BrowserPage({
   );
   const {
     backendSortBy,
+    setSort,
     sortDirection,
     sortId,
     sortKey,
@@ -439,6 +459,7 @@ export default function BrowserPage({
   } = useBrowserCopyDialog({ onStatus: setStatusMessage });
   const {
     activeSearchStatusChips,
+    fileFilters, fileFilterQuery, hasFileFilters, setFileFilters,
     changeSearchScope,
     clearSearchFilters,
     filter,
@@ -501,6 +522,7 @@ export default function BrowserPage({
     onWarning: setWarningMessage,
     prefix,
     recursive: searchRecursive,
+    fileFilters: fileFilterQuery,
     requestOptions: browserRequestOptions,
     searchScope,
     showDeletedObjects,
@@ -852,7 +874,7 @@ export default function BrowserPage({
   useDismissibleLayer({
     open: showSearchOptionsMenu,
     insideRefs: [searchControlRef, searchOptionsMenuRef],
-    onDismiss: () => setShowSearchOptionsMenu(false),
+    onDismiss: reason => { setShowSearchOptionsMenu(false); if (reason === "escape") searchOptionsButtonRef.current?.focus(); },
   });
 
   useEffect(() => {
@@ -931,12 +953,11 @@ export default function BrowserPage({
   ]);
 
   const displayPrefixForItems = useMemo(() => {
-    const query = filter.trim();
-    if (!query || searchScope !== "bucket") {
+    if (searchScope !== "bucket") {
       return normalizedPrefix;
     }
     return "";
-  }, [filter, normalizedPrefix, searchScope]);
+  }, [normalizedPrefix, searchScope]);
 
   const items = useMemo(
     () =>
@@ -962,6 +983,16 @@ export default function BrowserPage({
         : items.filter((item) => item.type !== "folder"),
     [items, showFolderItems],
   );
+  const previewFiles = useMemo(() => listItems.filter(item => item.type === "file" && !item.isDeleted), [listItems]);
+  useEffect(() => {
+    onLoadedFilesChange?.(previewFiles.map(item => item.key));
+  }, [previewFiles, onLoadedFilesChange]);
+  const previewIndex = previewFiles.findIndex(item => item.key === objectDetailsTarget?.item.key);
+  const previewNavigation = previewIndex < 0 ? undefined : {
+    previous: previewIndex > 0 ? () => requestDetailsDrawerTransition(() => openObjectDetailsTarget(previewFiles[previewIndex - 1], "preview")) : undefined,
+    next: previewIndex + 1 < previewFiles.length ? () => requestDetailsDrawerTransition(() => openObjectDetailsTarget(previewFiles[previewIndex + 1], "preview")) : undefined,
+    position: (previewIndex + 1) + " / " + previewFiles.length,
+  };
   const {
     activateItem,
     allSelected,
@@ -974,7 +1005,6 @@ export default function BrowserPage({
     removeItemsFromSelection,
     selectAllItems,
     selectableListItems,
-    selectedBytes,
     selectedCount,
     selectedIds,
     selectedItems,
@@ -1351,13 +1381,20 @@ export default function BrowserPage({
     requestOptions: browserRequestOptions,
   });
 
+  const [destinationRequest, setDestinationRequest] = useState<BrowserDestinationRequest | null>(null);
+  const openDestination = (items: BrowserItem[], mode: BrowserDestinationRequest["mode"]) => setDestinationRequest({ items, mode });
+
+  const { prepare: prepareWrites, conflictDialog } = useBrowserWriteConflicts(accountIdForApi, bucketName, browserRequestOptions, sseCustomerKeyBase64, isVersioningEnabled);
+
   const {
     canPaste: canPasteInFunctionalProfile,
     clipboard,
     copy: handleCopyItems,
     cut: handleCutItems,
     paste: handlePasteItems,
+    transferTo,
   } = useBrowserClipboard({
+    prepareWrites,
     accountId: accountIdForApi,
     bucketName,
     cancelCopyDetails,
@@ -1657,13 +1694,15 @@ export default function BrowserPage({
   useBrowserNavigationHistory({
     bucketName,
     prefix,
+    lockedBucketName: resolvedLockedBucketName,
+    ready: selectionReady && !accountSwitchInFlight,
+    scopeKey: `${normalizedPath}:${bucketAccessContextKey ?? "none"}:${resolvedLockedBucketName}`,
     onNavigate: ({ bucketName: nextBucket, prefix: nextPrefix }) => {
-      // Native bucket/prefix history can change without a router URL change.
-      // Keep the modal's targets stable just like the covered page controls.
       if (hasOpenModal()) return false;
       return requestDetailsDrawerTransition(() => {
-        setBucketName(nextBucket);
-        setPrefix(nextPrefix);
+        // Bucket changes are validated by the catalogue from the URL before
+        // they replace the current selection. Prefix-only history is local.
+        if (nextBucket === bucketName) setPrefix(nextPrefix);
         clearActiveItem();
         cancelPathEdit();
       });
@@ -1798,9 +1837,24 @@ export default function BrowserPage({
     openCreateBucketForm();
   }, [bucketManagementEnabled, openCreateBucketForm, setBucketFilter]);
 
+  const presetControl = useMemo(() => (<BrowserPresetsControl contextLabels={Object.fromEntries(browserContext.contexts.map(context => [context.id, context.display_name]))} availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []} accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")} lockedBucket={resolvedLockedBucketName} current={{ name: normalizedPrefix || bucketName, kind: "view", surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix, view: { query: filter, scope: searchScope, recursive: searchRecursive, exact_match: searchExactMatch, case_sensitive: searchCaseSensitive, item_type: typeFilter, storage_class: storageFilter, sort_key: sortKey, sort_direction: sortDirection, columns: effectiveVisibleColumns, file_filters: { min_size: fileFilterQuery.minSize, max_size: fileFilterQuery.maxSize, modified_after: fileFilterQuery.modifiedAfter, modified_before: fileFilterQuery.modifiedBefore, extensions: fileFilters.extensions.split(",").map(value => value.trim()).filter(Boolean) } } }} onApply={preset => requestDetailsDrawerTransition(() => {
+                if (preset.context !== String(accountIdForApi ?? "")) {
+                  const nextParams = new URLSearchParams(searchParams); nextParams.set("ctx", preset.context); navigate(buildBrowserLocationPath(location.pathname, nextParams.toString(), location.hash, { bucketName: preset.bucket, prefix: preset.prefix }));
+                } else { setBucketName(preset.bucket); setPrefix(preset.prefix); }
+                clearActiveItem();
+                if (preset.view) {
+                  const view = preset.view;
+                  setFilter(view.query); changeSearchScope(view.scope); setSearchRecursive(view.recursive); setSearchExactMatch(view.exact_match); setSearchCaseSensitive(view.case_sensitive); setTypeFilter(view.item_type); setStorageFilter(view.storage_class);
+                  const localDate = (value?: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+                  setFileFilters({ minSize: view.file_filters.min_size == null ? "" : String(view.file_filters.min_size), maxSize: view.file_filters.max_size == null ? "" : String(view.file_filters.max_size), modifiedAfter: localDate(view.file_filters.modified_after), modifiedBefore: localDate(view.file_filters.modified_before), extensions: view.file_filters.extensions?.join(", ") ?? "" });
+                  applyColumns(view.columns); setSort({ key: view.sort_key, direction: view.sort_direction });
+                }
+              })} />), [isMainBrowserPath, browserContext.contexts, storedUser, resolvedLockedBucketName, normalizedPrefix, bucketName, workspaceSurface, accountIdForApi, filter, searchScope, searchRecursive, searchExactMatch, searchCaseSensitive, typeFilter, storageFilter, sortKey, sortDirection, effectiveVisibleColumns, fileFilterQuery, fileFilters.extensions, requestDetailsDrawerTransition, searchParams, navigate, location.pathname, location.hash, setBucketName, setPrefix, clearActiveItem, setFilter, changeSearchScope, setSearchRecursive, setSearchExactMatch, setSearchCaseSensitive, setTypeFilter, setStorageFilter, setFileFilters, applyColumns, setSort]);
+
   const renderWorkspaceSidebarBody = useCallback<BrowserSidebarBodyRenderer>(
     ({ compact, variant, closeMobile }) => (
       <BrowserWorkspaceSidebar
+        favorites={cloneElement(presetControl, { variant: "sidebar", compact, onApply: (preset: BrowserPreset) => { presetControl.props.onApply(preset); if (variant === "mobile") closeMobile(); } })}
         compact={compact}
         variant={variant}
         closeMobile={closeMobile}
@@ -1833,6 +1887,7 @@ export default function BrowserPage({
       />
     ),
     [
+      presetControl,
       bucketError,
       bucketFilter,
       bucketManagementEnabled,
@@ -1938,7 +1993,11 @@ export default function BrowserPage({
     openObjectDetails(item, "versions");
   };
 
+  const localTransferOwner = storedUser?.authType === "s3_session" ? (storedUser.localRecoveryId ? `s3:${storedUser.localRecoveryId}` : "") : storedUser?.id != null ? String(storedUser.id) : "";
+  useBrowserTransferHistory(localTransferOwner, workspaceSurface, operations, uploadQueue, setWarningMessage);
   const startQueuedUpload = useBrowserQueuedUpload({
+    owner: localTransferOwner,
+    prepareWrites,
     clearOperationController,
     completeOperation,
     createOperationController,
@@ -1968,6 +2027,7 @@ export default function BrowserPage({
     handleFolderInputChange,
     removeQueuedUpload,
   } = useBrowserUploadQueue({
+    prepareWrites,
     accountId: accountIdForApi,
     bucketName,
     cancelOperationController,
@@ -2139,8 +2199,12 @@ export default function BrowserPage({
   });
 
   const {
+    archivePreparation,
+    cancelArchivePreparation,
     downloadFolder: handleDownloadFolder,
+    downloadArchive,
     downloadItems: handleDownloadItems,
+    savePreparedArchive,
   } = useBrowserDownloads({
     accountId: accountIdForApi,
     bucketName,
@@ -2188,6 +2252,7 @@ export default function BrowserPage({
 
   const keyboardShortcutsBlocked =
     Boolean(objectDetailsTarget) ||
+    Boolean(archivePreparation) ||
     showNewFolderModal ||
     showBulkAttributesModal ||
     showBulkRestoreModal ||
@@ -2281,6 +2346,7 @@ export default function BrowserPage({
 
   const runSelectionAction = (actionId: BrowserActionId) => {
     runBrowserAction(selectionActionStates[actionId], {
+      downloadZip: () => downloadArchive(selectionItems, isSearchingInWholeBucket ? "" : normalizedPrefix),
       details: () => {
         if (selectionPrimary) openItemDetails(selectionPrimary);
       },
@@ -2301,6 +2367,9 @@ export default function BrowserPage({
       },
       copyUrl: () => handleCopyUrl(selectionPrimary),
       copy: () => handleCopyItems(selectionItems),
+      rename: () => openDestination(selectionItems, "rename"),
+      copyTo: () => openDestination(selectionItems, "copy"),
+      moveTo: () => openDestination(selectionItems, "move"),
       cut: () => handleCutItems(selectionItems),
       bulkAttributes: () => openBulkAttributesModal(selectionItems),
       advanced: () => {
@@ -2316,6 +2385,7 @@ export default function BrowserPage({
   const runItemAction = (item: BrowserItem, actionId: BrowserActionId) => {
     const itemActions = resolveItemActionStates(item);
     const result = runBrowserAction(itemActions[actionId], {
+      downloadZip: () => downloadArchive([item], isSearchingInWholeBucket ? "" : normalizedPrefix),
       details: () => openItemDetails(item),
       versions: () => openObjectVersionsModal(item),
       properties: () => openPropertiesForItem(item),
@@ -2326,6 +2396,9 @@ export default function BrowserPage({
       restore: () => restoreDeletedItem(item),
       copyUrl: () => handleCopyUrl(item),
       copy: () => handleCopyItems([item]),
+      rename: () => openDestination([item], "rename"),
+      copyTo: () => openDestination([item], "copy"),
+      moveTo: () => openDestination([item], "move"),
       cut: () => handleCutItems([item]),
       bulkAttributes: () => openBulkAttributesModal([item]),
       restoreToDate: () => openBulkRestoreModal([item]),
@@ -2337,12 +2410,16 @@ export default function BrowserPage({
     }
   };
 
-  const shouldConfirmLeave = hasPendingOperations || hasUnsavedDrawerChanges;
+  const archiveInventoryActive = archivePreparation?.phase === "inventorying";
+  const shouldConfirmLeave =
+    hasPendingOperations || hasUnsavedDrawerChanges || archiveInventoryActive;
   const leaveMessage = hasUnsavedDrawerChanges
     ? hasPendingOperations
       ? "Operations are in progress and the details drawer contains unapplied changes. Leaving now may interrupt operations and discard changes. Continue?"
       : "The details drawer contains unapplied changes. Leaving now will discard them. Continue?"
-    : "Operations are in progress (upload, download, copy, delete). Leaving now may interrupt them. Continue?";
+    : hasPendingOperations
+      ? "Operations are in progress (upload, download, copy, delete). Leaving now may interrupt them. Continue?"
+      : "Archive inventory is in progress. Leaving now will cancel it. Continue?";
   unstable_usePrompt({
     when: shouldConfirmLeave,
     message: leaveMessage,
@@ -2365,12 +2442,7 @@ export default function BrowserPage({
   const browserNoticeShellClasses = "shrink-0 pb-2";
   const browserContentShellClasses =
     "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
-  const toolbarSelectionSummary =
-    selectedCount === 1 && selectionPrimary
-      ? selectionPrimary.name
-      : selectedCount > 1
-        ? `${selectedCount} selected · ${formatBytes(selectedBytes)}`
-        : "No selection";
+  const toolbarSelectionSummary = useBrowserSelectionVolume(selectedItems, JSON.stringify([accountIdForApi, bucketName, normalizedPrefix]), listAllObjectsForPrefix);
   const toolbarCanUploadFiles = pathActionStates.uploadFiles.enabled;
   const toolbarCanUploadFolder = pathActionStates.uploadFolder.enabled;
   const toolbarCanCreateFolder = pathActionStates.newFolder.enabled;
@@ -2414,7 +2486,7 @@ export default function BrowserPage({
       rootRef={searchControlRef}
       optionsButtonRef={searchOptionsButtonRef}
       optionsMenuRef={searchOptionsMenuRef}
-      advancedOptionsEnabled={resolvedFunctionalProfile === "advanced"}
+      advancedOptionsEnabled={true}
       optionsOpen={showSearchOptionsMenu}
       filter={filter}
       objectNounPlural={workspaceObjectNounPlural}
@@ -2427,6 +2499,10 @@ export default function BrowserPage({
       exactMatch={searchExactMatch}
       caseSensitive={searchCaseSensitive}
       typeFilter={typeFilter}
+      hasFileFilters={hasFileFilters}
+      fileFilters={fileFilters}
+      onFileFiltersChange={setFileFilters}
+      portal={isPortalProfile}
       storageFilter={storageFilter}
       storageClasses={searchableStorageClasses}
       canReset={hasActiveSearchFilters}
@@ -2444,6 +2520,39 @@ export default function BrowserPage({
     />
   );
 
+  const transferControl = (<BrowserTransfersControl owner={localTransferOwner} workspace={workspaceSurface} accountId={String(accountIdForApi ?? "")} currentBucket={bucketName}
+                lockedBucket={resolvedLockedBucketName} hasSseKey={Boolean(sseCustomerKeyBase64)} canWrite={resolvedCapabilityFacts.canWriteObjects}
+                operations={operations} onCancel={cancelOperation} onOpenDestination={target => requestDetailsDrawerTransition(() => {
+                  if (isMainBrowserPath) navigate(buildBrowserLocationPath(location.pathname, location.search, location.hash, { bucketName: target.bucket, prefix: target.prefix }));
+                  else { setBucketName(target.bucket); setPrefix(target.prefix); }
+                })}
+                onAbort={async record => {
+                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi ?? "") || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
+                  await withLocalUploadLock(record.id, async () => {
+                    await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
+                    await removeLocalUpload(record.id);
+                  });
+                }}
+                onResume={async (record, file) => {
+                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi ?? "") || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
+                  await verifyBrowserResumeFile(record, file, new AbortController().signal);
+                  const choice = (await prepareWrites([{ id: record.id, key: record.key, size: record.size }], record.bucket))[0];
+                  if (!choice) return;
+                  let resumeRecord: LocalUpload | undefined = record;
+                  if (choice.key !== record.key) {
+                    await withLocalUploadLock(record.id, async () => {
+                      await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
+                      await removeLocalUpload(record.id);
+                    });
+                    resumeRecord = undefined;
+                  }
+                  showOperationsBar();
+                  await startQueuedUpload({ id: crypto.randomUUID(), file, relativePath: record.name, key: choice.key, bucket: record.bucket,
+                    accountId: record.accountId, groupId: crypto.randomUUID(), groupLabel: record.name, groupKind: "files", itemLabel: record.name,
+                    writeGuard: choice.writeGuard, resumeRecord });
+                  refreshUploadedListing(prefix);
+                }} />);
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       {isEmbeddedBrowserPath ? (
@@ -2455,6 +2564,8 @@ export default function BrowserPage({
         <div className={browserShellClasses}>
         <div className={browserChromeShellClasses}>
           <BrowserToolbar
+            utilityActions={<>{!showWorkspaceSidebar && presetControl}{transferControl}</>}
+            helpActions={[...Object.values(pathActionStates).filter((action) => action.section !== "selection"), ...Object.values(selectionActionStates).filter((action) => action.section === "selection")]}
             compactMode={compactMode}
             bucketSelector={{
               rootRef: bucketMenuRef,
@@ -2693,6 +2804,7 @@ export default function BrowserPage({
               />
             )}
             <div className="flex min-h-0 h-full min-w-0 flex-1 flex-col gap-3">
+              {bucketName && <BrowserSearchControls portal={isPortalProfile} scope={searchScope} recursive={searchRecursive} onScope={changeSearchScope} onRecursive={setSearchRecursive} filters={fileFilters} onFilters={setFileFilters} loading={objectsLoading || objectsLoadingMore} partial={objectsIsTruncated} active={hasActiveSearchFilters} empty={listItems.length === 0} foldersOnly={typeFilter === "folder"} failed={Boolean(objectsIssue)} />}
               <BrowserObjectExplorer
                 viewportRef={objectsListViewportRef}
                 dragging={dragging}
@@ -2832,6 +2944,8 @@ export default function BrowserPage({
           summary={toolbarSelectionSummary}
         />
       )}
+      {destinationRequest && <BrowserDestinationDialog request={destinationRequest} accountId={accountIdForApi} sourceBucket={bucketName} initialPrefix={normalizedPrefix} options={browserRequestOptions} onClose={() => setDestinationRequest(null)} onSubmit={destination => { const request = destinationRequest; setDestinationRequest(null); void transferTo(request.items, destination, request.mode === "rename" ? "move" : request.mode).catch(error => setWarningMessage(error instanceof Error ? error.message : "Transfer failed.")); }} />}
+      {conflictDialog}
       <BrowserContextMenu
         contextMenu={contextMenu}
         contextMenuRef={contextMenuRef}
@@ -2867,6 +2981,7 @@ export default function BrowserPage({
           void handleCopyPath(path);
         }}
         onCopyItems={handleCopyItems}
+        onTransferItems={openDestination}
         onCutItems={handleCutItems}
         onOpenBulkAttributes={openBulkAttributesModal}
         onOpenBulkRestore={openBulkRestoreModal}
@@ -2874,6 +2989,7 @@ export default function BrowserPage({
         onDeleteItems={handleDeleteItems}
         onDownloadFolder={handleDownloadFolder}
         onDownloadItems={handleDownloadItems}
+        onDownloadZip={items => void downloadArchive(items, isSearchingInWholeBucket ? "" : normalizedPrefix)}
         onOpenItem={handleOpenItem}
         onToggleShowFolders={toggleFolderItems}
         onToggleShowDeleted={toggleDeletedObjects}
@@ -2897,6 +3013,7 @@ export default function BrowserPage({
       objectDetailsTarget.item.type === "file" &&
       isStorageSpaceContext ? (
         <BrowserStorageSpaceObjectDetailsDrawer
+          navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
           accountId={accountIdForApi}
           bucket={currentBucketPanelItem}
@@ -2920,6 +3037,7 @@ export default function BrowserPage({
         />
       ) : objectDetailsTarget && objectDetailsTarget.item.type === "file" ? (
         <BrowserObjectDetailsDrawer
+          navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
           accountId={accountIdForApi}
           bucketName={bucketName}
@@ -3086,6 +3204,52 @@ export default function BrowserPage({
           onNameChange={setNewFolderName}
           onSubmit={submitNewFolder}
           onClose={closeNewFolder}
+        />
+      )}
+      {archivePreparation && (
+        <ConfirmActionDialog
+          title={
+            archivePreparation.phase === "inventorying"
+              ? "Preparing ZIP archive"
+              : "Save large ZIP archive"
+          }
+          description={
+            archivePreparation.phase === "inventorying"
+              ? archivePreparation.totalFolders > 0
+                ? `Checking folders and archive paths (${archivePreparation.completedFolders}/${archivePreparation.totalFolders}). No object content is downloaded during this step.`
+                : "Checking files and archive paths. No object content is downloaded during this step."
+              : "The inventory is complete. Choose the destination file to start downloading object content."
+          }
+          details={
+            archivePreparation.phase === "ready"
+              ? [
+                  { label: "Files", value: archivePreparation.fileCount },
+                  { label: "Volume", value: formatBytes(archivePreparation.totalBytes) },
+                  {
+                    label: "Excluded",
+                    value: archivePreparation.excludedCount,
+                  },
+                ]
+              : []
+          }
+          confirmLabel="Choose file and download"
+          confirmDisabled={
+            archivePreparation.phase === "inventorying" ||
+            !archivePreparation.canDownload
+          }
+          cancelLabel={
+            archivePreparation.phase === "inventorying"
+              ? "Cancel preparation"
+              : "Close"
+          }
+          tone="primary"
+          error={
+            archivePreparation.phase === "ready"
+              ? archivePreparation.error
+              : undefined
+          }
+          onCancel={cancelArchivePreparation}
+          onConfirm={() => void savePreparedArchive()}
         />
       )}
       {confirmDialog && (

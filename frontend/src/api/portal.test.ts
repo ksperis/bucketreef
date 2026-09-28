@@ -70,6 +70,13 @@ import {
 } from "./portalUsage";
 
 describe("portal storage spaces api", () => {
+  it("pins historical details and downloads to the exact version", async () => {
+    clientMock.get.mockResolvedValue({ data: new Blob(["old"]), headers: {} });
+    const signal = new AbortController().signal;
+    await fetchPortalStorageSpaceObjectDetail("101", "research", " /é//.txt ", " old+%2F ", signal);
+    await downloadPortalStorageSpaceObject("101", "research", " /é//.txt ", signal, " old+%2F ");
+    for (const path of ["detail", "download"]) expect(clientMock.get).toHaveBeenCalledWith(`/portal/storage-spaces/research/objects/${path}`, expect.objectContaining({ params: expect.objectContaining({ key: " /é//.txt ", version_id: " old+%2F " }), signal }));
+  });
   beforeEach(() => {
     clientMock.get.mockReset();
     clientMock.post.mockReset();

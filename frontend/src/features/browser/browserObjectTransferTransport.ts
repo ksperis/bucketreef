@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -25,6 +26,8 @@ import {
 type BrowserTransferMode = "direct" | "proxy";
 
 type BrowserTransferObjectRef = {
+  versionId?: string;
+  etag?: string;
   selector: S3AccountSelector;
   bucket: string;
   key: string;
@@ -39,6 +42,7 @@ type BrowserTransferDownloadParams = BrowserTransferObjectRef & {
 };
 
 type BrowserTransferUploadParams = BrowserTransferObjectRef & {
+  writeGuard?: BrowserWriteGuard;
   mode: BrowserTransferMode;
   blob: Blob;
   contentType?: string | null;
@@ -53,11 +57,15 @@ const presignDownload = async (
     sseCustomerKeyBase64,
     options,
     directPresign,
+    versionId,
+    etag,
   }: BrowserTransferDownloadParams,
 ): Promise<PresignedUrl> => {
   const payload: PresignRequest = {
     key,
     operation: "get_object",
+    ...(versionId ? { version_id: versionId } : {}),
+    ...(etag ? { if_match: etag } : {}),
     expires_in: 900,
   };
   if (directPresign) {
@@ -92,6 +100,8 @@ export const downloadBrowserTransferBlob = async (
       signal,
       sseCustomerKeyBase64,
       options,
+      params.versionId,
+      params.etag,
     );
   }
   const signedDownload = await presignDownload(params);
@@ -115,7 +125,7 @@ export const downloadBrowserTransferStream = async (
     options,
   } = params;
   if (mode === "proxy") {
-    const query = withS3AccountParam({ key }, selector);
+    const query = withS3AccountParam({ key, version_id: params.versionId, if_match: params.etag }, selector);
     const url = buildApiUrl(
       `/browser/buckets/${encodeURIComponent(bucket)}/download`,
       query ?? undefined,
@@ -136,6 +146,7 @@ export const downloadBrowserTransferStream = async (
 };
 
 export const uploadBrowserTransferBlob = async ({
+  writeGuard,
   selector,
   bucket,
   key,
@@ -157,6 +168,7 @@ export const uploadBrowserTransferBlob = async ({
       sseCustomerKeyBase64,
       key.split("/").pop() || "upload.bin",
       options,
+      writeGuard,
     );
     return;
   }
@@ -166,6 +178,7 @@ export const uploadBrowserTransferBlob = async ({
     {
       key,
       operation: "put_object",
+      write_guard: writeGuard,
       content_type: contentType ?? undefined,
       expires_in: 1800,
     },

@@ -198,6 +198,7 @@ export default function BrowserObjectExplorer({
           </div>
         </div>
       )}
+      {mobile && <div className="shrink-0 border-b border-[var(--ui-border)] px-3 py-3">{table.scaffold.nameHeader}</div>}
       <div
         ref={viewportRef}
         className={`relative min-h-0 flex-1 overflow-y-auto bg-white/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:bg-transparent ${

@@ -2,11 +2,13 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { ReactNode } from "react";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import { ListActionButton } from "../../components/list/ListControls";
 import BrowserObjectVersionsList from "./BrowserObjectVersionsList";
 
 type BrowserObjectVersionsTabProps = {
+  inspector?: ReactNode;
   canLoadMore: boolean;
   error: string | null;
   loading: boolean;
@@ -20,6 +22,7 @@ type BrowserObjectVersionsTabProps = {
 };
 
 export default function BrowserObjectVersionsTab({
+  inspector,
   canLoadMore,
   error,
   loading,
@@ -47,6 +50,7 @@ export default function BrowserObjectVersionsTab({
           Refresh
         </ListActionButton>
       </div>
+      {inspector}
       <BrowserObjectVersionsList
         title="Versions"
         versions={versions}

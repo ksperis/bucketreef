@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { ObjectPreviewNavigation } from "./ObjectDetailsDrawer";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -30,6 +31,7 @@ import { formatBytes } from "../../utils/format";
 import ObjectDetailsDrawer from "./ObjectDetailsDrawer";
 import ObjectPreview, { type ObjectPreviewLoadResult } from "./ObjectPreview";
 import PortalObjectHistoryPanel from "../portal/PortalObjectHistoryPanel";
+import ObjectVersionInspector from "./ObjectVersionInspector";
 import PortalPublicLinkCreateDialog from "../portal/PortalPublicLinkCreateDialog";
 import PortalPublicLinkRevokeDialog from "../portal/PortalPublicLinkRevokeDialog";
 import PortalPublicLinksTable from "../portal/PortalPublicLinksTable";
@@ -46,6 +48,7 @@ type PendingAction =
   | { type: "revoke"; link: PortalPublicLink };
 
 type StorageSpaceObjectDetailsDrawerProps = {
+  navigation?: ObjectPreviewNavigation;
   accountId: S3AccountSelector;
   activeView: StorageSpaceObjectDetailsView;
   canCreatePublicLinks: boolean;
@@ -67,6 +70,7 @@ function objectName(key: string) {
 }
 
 export default function StorageSpaceObjectDetailsDrawer({
+  navigation,
   accountId,
   activeView,
   canCreatePublicLinks,
@@ -161,6 +165,9 @@ export default function StorageSpaceObjectDetailsDrawer({
     [accountId, detail?.content_type, objectKey, space.id],
   );
 
+  const loadHistoricalVersion = useCallback(async (versionId: string, signal: AbortSignal) =>
+    (await downloadPortalStorageSpaceObject(accountId, space.id, objectKey, signal, versionId)).blob,
+    [accountId, space.id, objectKey]);
   const handleDownload = async () => {
     if (downloading || isDeleted) return;
     setDownloading(true);
@@ -331,6 +338,7 @@ export default function StorageSpaceObjectDetailsDrawer({
   return (
     <>
       <ObjectDetailsDrawer
+        navigation={navigation}
         name={resolvedName}
         path={resolvedKey}
         copyPathLabel={t({ en: "Copy path", fr: "Copier le chemin", de: "Pfad kopieren", zh: "复制路径" })}
@@ -420,6 +428,7 @@ export default function StorageSpaceObjectDetailsDrawer({
           </PageBanner>
         ) : activeView === "history" ? (
           <PortalObjectHistoryPanel
+            inspector={<ObjectVersionInspector key={space.id + objectKey} name={resolvedName} versions={history?.versions ?? []} loadVersion={loadHistoricalVersion} />}
             history={history}
             loading={historyLoading}
             error={historyError}

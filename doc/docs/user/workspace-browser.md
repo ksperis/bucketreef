@@ -22,7 +22,7 @@ Use **Browser** for direct bucket/object operations.
    - Use the workspace sidebar to search and switch buckets directly from the workspace.
    - The object list starts in Compact view with the Folders panel hidden, so
      it remains usable in a small window and leaves maximum room for objects.
-   - Open **More > Panels > Folders** when a tree is useful. Every `/browser`
+   - Open **More > Display > Folders panel** when a tree is useful. Every `/browser`
      user can enable it, and folder data is loaded only while the panel is open.
 4. Perform object actions from the most appropriate surface:
    - Click anywhere on a row or mobile card, outside its interactive controls,
@@ -83,8 +83,8 @@ Use **Browser** for direct bucket/object operations.
   **Details**. History and sharing data are loaded only when their tabs open,
   and Portal grants continue to control every available action.
 - On `/browser`, every user can choose **Comfortable** or **Compact**
-  from **More > View**, and can independently show **Folders** from
-  **More > Panels**. Compact keeps the path and icon actions on
+  from **More > Display**, and can independently show **Folders panel** in
+  the same submenu. Compact keeps the path and icon actions on
   one row whenever width permits. Comfortable displays labeled action buttons
   on the path row when the window is wide enough, then moves them below the path
   when space becomes tighter. These root-only preferences are
@@ -150,3 +150,11 @@ You can perform day-to-day object operations directly from the UI.
   <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="../../assets/screenshots/user/workspace-browser.light.png" alt="Browser workspace with operations and search controls" loading="lazy">
   <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="../../assets/screenshots/user/workspace-browser.dark.png" alt="Browser workspace with operations and search controls" loading="lazy">
 </div>
+
+## Transfer status and help
+
+The context bar distinguishes direct transfers, transfers via the server and
+unavailable transfers. Expand the status for transport diagnostics; storage
+permissions still apply independently. Help explains unavailable commands for
+the current context and selection and lists keyboard shortcuts. Unavailable
+menu commands remain focusable and show their reason without executing.

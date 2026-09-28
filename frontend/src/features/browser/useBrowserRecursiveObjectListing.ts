@@ -53,6 +53,7 @@ export function useBrowserRecursiveObjectListing({
             maxKeys: RECURSIVE_LIST_PAGE_SIZE,
             type: "file",
             recursive: true,
+            includeFolderMarkers: true,
             signal,
             ...requestOptions,
           },

@@ -3,6 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useEffect, useMemo, useState } from "react";
+import ObjectTextPreview from "./ObjectTextPreview";
+import { truncatePreviewText } from "./objectTextParsers";
 
 export const OBJECT_PREVIEW_MAX_BYTES = 50 * 1024 * 1024;
 export const OBJECT_PREVIEW_TEXT_MAX_BYTES = 64 * 1024;
@@ -181,10 +183,10 @@ export default function ObjectPreview({
       ) {
         setState({
           status: "text",
-          content: initialText.slice(0, OBJECT_PREVIEW_TEXT_MAX_BYTES),
+          content: truncatePreviewText(initialText, OBJECT_PREVIEW_TEXT_MAX_BYTES).content,
           truncated:
             normalizedSize > OBJECT_PREVIEW_TEXT_MAX_BYTES ||
-            initialText.length > OBJECT_PREVIEW_TEXT_MAX_BYTES,
+            new TextEncoder().encode(initialText).length > OBJECT_PREVIEW_TEXT_MAX_BYTES,
         });
         return;
       }
@@ -275,11 +277,8 @@ export default function ObjectPreview({
 
       {state.status === "text" ? (
         <div className="space-y-2">
-          <pre
-            className={`${textHeightClassName} overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-4 ui-caption text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100`}
-          >
-            {state.content}
-          </pre>
+          <ObjectTextPreview key={name} name={name} contentType={contentType} content={state.content}
+            truncated={state.truncated} heightClassName={textHeightClassName} />
           {state.truncated ? (
             <p className="ui-caption font-semibold text-slate-500 dark:text-slate-400">
               {resolvedLabels.truncated}

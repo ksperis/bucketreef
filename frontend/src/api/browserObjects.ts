@@ -45,6 +45,12 @@ export async function listBrowserObjects(
       item_type: options?.type && options.type !== "all" ? options.type : undefined,
       storage_class: options?.storageClass && options.storageClass !== "all" ? options.storageClass : undefined,
       recursive: options?.recursive ? true : undefined,
+      include_folder_markers: options?.includeFolderMarkers ? true : undefined,
+      min_size: options?.minSize,
+      max_size: options?.maxSize,
+      modified_after: options?.modifiedAfter,
+      modified_before: options?.modifiedBefore,
+      extensions: options?.extensions,
       force_refresh: options?.forceRefresh ? true : undefined,
       sort_by:
         options?.sortBy && !(options.sortBy === "name" && (options?.sortDir ?? "asc") === "asc")
@@ -307,18 +313,21 @@ export async function restoreObject(
   );
 }
 
+type BrowserCopyResult = { copied?: boolean; source_deleted?: boolean; reason?: string; source_etag?: string; destination_etag?: string; checkpoint?: import("./browserContracts").CopiedObjectCheckpoint };
+
 export async function copyObject(
   accountId: S3AccountSelector,
   bucketName: string,
   payload: CopyObjectPayload,
   signal?: AbortSignal,
   options?: BrowserRequestOptions,
-): Promise<void> {
-  await client.post(`/browser/buckets/${encodeURIComponent(bucketName)}/copy`, payload, {
+): Promise<BrowserCopyResult> {
+  const { data } = await client.post<BrowserCopyResult>(`/browser/buckets/${encodeURIComponent(bucketName)}/copy`, payload, {
     params: withS3AccountParam(undefined, accountId),
     headers: buildBrowserWorkspaceHeaders(options),
     signal,
   });
+  return data;
 }
 
 export async function deleteObjects(

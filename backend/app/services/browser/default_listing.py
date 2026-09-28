@@ -9,6 +9,7 @@ from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.models.browser_filters import BrowserFileFilters
 from app.models.browser import BrowserObject, ListBrowserObjectsResponse
 from app.services.object_listing_identity import (
     is_current_folder_marker,
@@ -26,6 +27,8 @@ class DefaultObjectScanOptions:
     item_type: str
     storage_class: str | None
     recursive: bool
+    include_folder_markers: bool = False
+    file_filters: BrowserFileFilters | None = None
 
 
 @dataclass
@@ -71,7 +74,7 @@ class _FilteredObjectListing:
             if not key:
                 continue
             size = int(entry.get("Size") or 0)
-            if is_current_folder_marker(
+            if not self.options.include_folder_markers and is_current_folder_marker(
                 key=key,
                 prefix=self.options.prefix,
                 size=size,
@@ -89,8 +92,10 @@ class _FilteredObjectListing:
                 )
 
             if self.options.item_type == "folder" or (
-                self.options.recursive and is_folder_marker
+                self.options.recursive and is_folder_marker and not self.options.include_folder_markers
             ):
+                continue
+            if self.options.file_filters and not self.options.file_filters.matches(entry):
                 continue
             if not self.matches_query(key):
                 continue
@@ -111,6 +116,8 @@ class _FilteredObjectListing:
         return recursive_prefixes
 
     def _add_prefixes(self, candidates: list[str]) -> None:
+        if self.options.file_filters and self.options.file_filters.active:
+            return
         for prefix in candidates:
             if prefix in self.seen_prefixes or not self.matches_query(prefix):
                 continue
@@ -182,7 +189,7 @@ class DefaultObjectListingLoader:
             if not key:
                 continue
             size = int(item.get("Size") or 0)
-            if is_current_folder_marker(
+            if not self.options.include_folder_markers and is_current_folder_marker(
                 key=key,
                 prefix=self.options.prefix,
                 size=size,

@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "./browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -23,12 +24,14 @@ export type UploadProgressEvent = {
 export type PresignOperation = "get_object" | "put_object" | "delete_object";
 
 export type PresignRequest = {
+  write_guard?: BrowserWriteGuard;
   key: string;
   operation: PresignOperation;
   expires_in?: number;
   content_type?: string | null;
   response_content_disposition?: string | null;
   version_id?: string | null;
+  if_match?: string;
 };
 
 export type PresignedUrl = {
@@ -79,8 +82,10 @@ export async function proxyUpload(
   sseCustomerKeyBase64?: string | null,
   fileName?: string,
   options?: BrowserRequestOptions,
+  writeGuard?: BrowserWriteGuard,
 ): Promise<void> {
   const form = new FormData();
+  if (writeGuard) form.append("write_guard", JSON.stringify(writeGuard));
   form.append("key", key);
   form.append("content_type", file.type || "application/octet-stream");
   const inferredName =
@@ -113,11 +118,13 @@ export async function proxyDownload(
   signal?: AbortSignal,
   sseCustomerKeyBase64?: string | null,
   options?: BrowserRequestOptions,
+  versionId?: string | null,
+  ifMatch?: string,
 ): Promise<Blob> {
   const { data } = await client.get(
     `/browser/buckets/${encodeURIComponent(bucketName)}/download`,
     {
-      params: withS3AccountParam({ key }, accountId),
+      params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}), ...(ifMatch ? { if_match: ifMatch } : {}) }, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
