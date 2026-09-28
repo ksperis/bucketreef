@@ -31,6 +31,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { ListActionButton } from "../../components/list/ListControls";
+import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import {
@@ -44,6 +45,7 @@ import {
   writeClientStorage,
 } from "../../utils/clientStorage";
 import { readStoredUser } from "../../utils/workspaces";
+import { formatBytes } from "../../utils/format";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import { useBrowserContext } from "./BrowserContext";
@@ -2191,9 +2193,12 @@ export default function BrowserPage({
   });
 
   const {
+    archivePreparation,
+    cancelArchivePreparation,
     downloadFolder: handleDownloadFolder,
     downloadArchive,
     downloadItems: handleDownloadItems,
+    savePreparedArchive,
   } = useBrowserDownloads({
     accountId: accountIdForApi,
     bucketName,
@@ -2241,6 +2246,7 @@ export default function BrowserPage({
 
   const keyboardShortcutsBlocked =
     Boolean(objectDetailsTarget) ||
+    Boolean(archivePreparation) ||
     showNewFolderModal ||
     showBulkAttributesModal ||
     showBulkRestoreModal ||
@@ -2398,12 +2404,16 @@ export default function BrowserPage({
     }
   };
 
-  const shouldConfirmLeave = hasPendingOperations || hasUnsavedDrawerChanges;
+  const archiveInventoryActive = archivePreparation?.phase === "inventorying";
+  const shouldConfirmLeave =
+    hasPendingOperations || hasUnsavedDrawerChanges || archiveInventoryActive;
   const leaveMessage = hasUnsavedDrawerChanges
     ? hasPendingOperations
       ? "Operations are in progress and the details drawer contains unapplied changes. Leaving now may interrupt operations and discard changes. Continue?"
       : "The details drawer contains unapplied changes. Leaving now will discard them. Continue?"
-    : "Operations are in progress (upload, download, copy, delete). Leaving now may interrupt them. Continue?";
+    : hasPendingOperations
+      ? "Operations are in progress (upload, download, copy, delete). Leaving now may interrupt them. Continue?"
+      : "Archive inventory is in progress. Leaving now will cancel it. Continue?";
   unstable_usePrompt({
     when: shouldConfirmLeave,
     message: leaveMessage,
@@ -3188,6 +3198,52 @@ export default function BrowserPage({
           onNameChange={setNewFolderName}
           onSubmit={submitNewFolder}
           onClose={closeNewFolder}
+        />
+      )}
+      {archivePreparation && (
+        <ConfirmActionDialog
+          title={
+            archivePreparation.phase === "inventorying"
+              ? "Preparing ZIP archive"
+              : "Save large ZIP archive"
+          }
+          description={
+            archivePreparation.phase === "inventorying"
+              ? archivePreparation.totalFolders > 0
+                ? `Checking folders and archive paths (${archivePreparation.completedFolders}/${archivePreparation.totalFolders}). No object content is downloaded during this step.`
+                : "Checking files and archive paths. No object content is downloaded during this step."
+              : "The inventory is complete. Choose the destination file to start downloading object content."
+          }
+          details={
+            archivePreparation.phase === "ready"
+              ? [
+                  { label: "Files", value: archivePreparation.fileCount },
+                  { label: "Volume", value: formatBytes(archivePreparation.totalBytes) },
+                  {
+                    label: "Excluded",
+                    value: archivePreparation.excludedCount,
+                  },
+                ]
+              : []
+          }
+          confirmLabel="Choose file and download"
+          confirmDisabled={
+            archivePreparation.phase === "inventorying" ||
+            !archivePreparation.canDownload
+          }
+          cancelLabel={
+            archivePreparation.phase === "inventorying"
+              ? "Cancel preparation"
+              : "Close"
+          }
+          tone="primary"
+          error={
+            archivePreparation.phase === "ready"
+              ? archivePreparation.error
+              : undefined
+          }
+          onCancel={cancelArchivePreparation}
+          onConfirm={() => void savePreparedArchive()}
         />
       )}
       {confirmDialog && (

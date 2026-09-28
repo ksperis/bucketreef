@@ -12,26 +12,35 @@ import { formatBrowserOperationError } from "./browserOperationErrors";
 import type { DownloadDetailStatus } from "./browserTypes";
 import { isAbortError } from "./browserUtils";
 
-type BrowserFolderDownloadTarget = {
+export type BrowserFolderDownloadTarget = {
   detailId: string;
   key: string;
   relativeKey: string;
   sizeBytes: number;
 };
 
-type BrowserFolderDownloadPlan = {
+export type BrowserFolderDownloadPlan = {
   targets: BrowserFolderDownloadTarget[];
   totalBytes: number;
   excluded: { key: string; reason: string }[];
 };
 
 type WritableFileStream = WritableStream<Uint8Array> & {
-  abort?: () => Promise<void>;
+  abort?: (reason?: unknown) => Promise<void>;
+  close: () => Promise<void>;
 };
 
-type SaveFilePicker = (options?: unknown) => Promise<{
-  createWritable: () => Promise<WritableStream<Uint8Array>>;
-}>;
+export type BrowserArchiveFileHandle = {
+  createWritable: () => Promise<WritableFileStream>;
+};
+
+export type BrowserArchiveSaveFilePicker = (
+  options?: unknown,
+) => Promise<BrowserArchiveFileHandle>;
+
+export type BrowserArchiveOutput =
+  | { kind: "memory" }
+  | { kind: "stream"; fileHandle: BrowserArchiveFileHandle };
 
 type BrowserFolderArchiveOptions = {
   includeRootFolder?: boolean;
@@ -49,9 +58,10 @@ type BrowserFolderArchiveOptions = {
   ) => void;
   onPhaseChange: (label: "Streaming zip" | "Packaging zip") => void;
   onProgress: (percent: number) => void;
+  output: BrowserArchiveOutput;
   parallelism: number;
-  saveFilePicker?: SaveFilePicker;
-  streamingThresholdBytes: number;
+  memoryLimitBytes: number;
+  finalizationTimeoutMs?: number;
   targets: BrowserFolderDownloadTarget[];
   totalBytes: number;
 };
@@ -99,14 +109,87 @@ export const buildBrowserFolderDownloadPlan = (
   return { targets, excluded, totalBytes: targets.reduce((sum, target) => sum + target.sizeBytes, 0) };
 };
 
-export const browserArchiveSaveFilePicker = (): SaveFilePicker | undefined =>
+export const browserArchiveSaveFilePicker = ():
+  | BrowserArchiveSaveFilePicker
+  | undefined =>
   typeof window === "undefined"
     ? undefined
     : (
         window as Window & {
-          showSaveFilePicker?: SaveFilePicker;
+          showSaveFilePicker?: BrowserArchiveSaveFilePicker;
         }
       ).showSaveFilePicker;
+
+export const canStreamBrowserArchive = (
+  picker = browserArchiveSaveFilePicker(),
+): boolean =>
+  Boolean(
+    picker &&
+      typeof ReadableStream !== "undefined" &&
+      typeof WritableStream !== "undefined" &&
+      typeof TransformStream !== "undefined",
+  );
+
+export const chooseBrowserArchiveFile = async (
+  folderLabel: string,
+  picker = browserArchiveSaveFilePicker(),
+): Promise<BrowserArchiveFileHandle | null> => {
+  if (!canStreamBrowserArchive(picker) || !picker) {
+    throw new Error(
+      "This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser.",
+    );
+  }
+  try {
+    return await picker({
+      suggestedName: `${folderLabel}.zip`,
+      types: [
+        {
+          description: "ZIP archive",
+          accept: { "application/zip": [".zip"] },
+        },
+      ],
+    });
+  } catch (error) {
+    if (isAbortError(error)) return null;
+    throw error;
+  }
+};
+
+const abortPartialArchive = (stream: WritableFileStream, reason: unknown) => {
+  if (!stream.abort) return;
+  void stream.abort(reason).catch(() => undefined);
+};
+
+const finalizeStreamingArchive = async (
+  zipWriter: ZipWriter<Uint8Array>,
+  fileStream: WritableFileStream,
+  timeoutMs: number,
+) => {
+  let finalizationActive = true;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const finalization = (async () => {
+    await zipWriter.close(undefined, { preventClose: true });
+    if (finalizationActive) await fileStream.close();
+  })();
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(
+        new Error(
+          `The ZIP archive could not be finalized within ${Math.round(timeoutMs / 1000)} seconds. Delete the partial file and try the download again.`,
+        ),
+      );
+    }, timeoutMs);
+  });
+  try {
+    await Promise.race([finalization, timeout]);
+  } catch (error) {
+    finalizationActive = false;
+    abortPartialArchive(fileStream, error);
+    throw error;
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+};
 
 export const downloadBrowserFolderArchive = async ({
   controller,
@@ -117,9 +200,10 @@ export const downloadBrowserFolderArchive = async ({
   onDetailChange,
   onPhaseChange,
   onProgress,
+  output,
   parallelism,
-  saveFilePicker = browserArchiveSaveFilePicker(),
-  streamingThresholdBytes,
+  memoryLimitBytes,
+  finalizationTimeoutMs = 30_000,
   targets,
   totalBytes,
 }: BrowserFolderArchiveOptions): Promise<BrowserFolderArchiveResult> => {
@@ -135,87 +219,81 @@ export const downloadBrowserFolderArchive = async ({
       totalBytes > 0 ? downloadedBytes / totalBytes : completed / totalCount;
     onProgress(Math.min(80, Math.round(base * 80)));
   };
-  const supportsStreamingZip = Boolean(
-    saveFilePicker &&
-      typeof ReadableStream !== "undefined" &&
-      typeof WritableStream !== "undefined" &&
-      typeof TransformStream !== "undefined",
-  );
-  const shouldStreamZip =
-    supportsStreamingZip && totalBytes >= streamingThresholdBytes;
-
-  if (!supportsStreamingZip && totalBytes >= streamingThresholdBytes && totalBytes > 0) throw new Error("This archive exceeds the configured in-memory limit. Use a browser with streaming file downloads or select fewer files.");
-
-  if (shouldStreamZip && saveFilePicker) {
+  if (output.kind === "stream") {
+    if (!canStreamBrowserArchive(() => Promise.resolve(output.fileHandle))) {
+      throw new Error(
+        "This browser cannot save large ZIP archives as a stream. Select fewer files or use a compatible browser.",
+      );
+    }
     let fileStream: WritableFileStream | null = null;
-    let zipWriter: ZipWriter<Uint8Array> | null = null;
     try {
-      const handle = await saveFilePicker({
-        suggestedName: `${folderLabel}.zip`,
-        types: [
-          {
-            description: "ZIP archive",
-            accept: { "application/zip": [".zip"] },
-          },
-        ],
-      });
-      fileStream = (await handle.createWritable()) as WritableFileStream;
-      zipWriter = new ZipWriter(fileStream);
+      fileStream = await output.fileHandle.createWritable();
     } catch (error) {
-      if (isAbortError(error)) {
-        return { cancelled: true, failedKeys };
-      }
+      if (isAbortError(error)) return { cancelled: true, failedKeys };
       throw error;
     }
+    const zipWriter = new ZipWriter<Uint8Array>(fileStream);
 
-    onPhaseChange("Streaming zip");
-    for (const target of targets) {
-      if (controller.signal.aborted) {
-        aborted = true;
-        break;
-      }
-      onDetailChange(target.detailId, "downloading");
-      try {
-        const stream = await downloadStream(target.key, controller.signal);
-        const counter = new TransformStream<Uint8Array, Uint8Array>({
-          transform(chunk, streamController) {
-            downloadedBytes += chunk.byteLength;
-            updateTransferProgress();
-            streamController.enqueue(chunk);
-          },
-        });
-        await zipWriter.add(
-          entryName(target),
-          stream.pipeThrough(counter),
-        );
-        onDetailChange(target.detailId, "done");
-      } catch (error) {
-        if (isAbortError(error) || controller.signal.aborted) {
-          onDetailChange(target.detailId, "cancelled");
+    try {
+      onPhaseChange("Streaming zip");
+      for (const target of targets) {
+        if (controller.signal.aborted) {
           aborted = true;
-          controller.abort();
           break;
         }
-        console.error(error);
-        onDetailChange(
-          target.detailId,
-          "failed",
-          formatBrowserOperationError(error, "Download failed."),
-        );
-        failedKeys.push(target.key);
-      } finally {
-        completed += 1;
-        if (totalBytes <= 0) updateTransferProgress();
+        onDetailChange(target.detailId, "downloading");
+        try {
+          const stream = await downloadStream(target.key, controller.signal);
+          const counter = new TransformStream<Uint8Array, Uint8Array>({
+            transform(chunk, streamController) {
+              downloadedBytes += chunk.byteLength;
+              updateTransferProgress();
+              streamController.enqueue(chunk);
+            },
+          });
+          await zipWriter.add(entryName(target), stream.pipeThrough(counter));
+          onDetailChange(target.detailId, "done");
+        } catch (error) {
+          if (isAbortError(error) || controller.signal.aborted) {
+            onDetailChange(target.detailId, "cancelled");
+            aborted = true;
+            controller.abort();
+            break;
+          }
+          console.error(error);
+          onDetailChange(
+            target.detailId,
+            "failed",
+            formatBrowserOperationError(error, "Download failed."),
+          );
+          failedKeys.push(target.key);
+        } finally {
+          completed += 1;
+          if (totalBytes <= 0) updateTransferProgress();
+        }
       }
-    }
 
-    if (aborted || controller.signal.aborted) {
-      if (fileStream.abort) await fileStream.abort();
-      return { cancelled: true, failedKeys };
+      if (aborted || controller.signal.aborted) {
+        abortPartialArchive(fileStream, controller.signal.reason);
+        return { cancelled: true, failedKeys };
+      }
+      await finalizeStreamingArchive(
+        zipWriter,
+        fileStream,
+        finalizationTimeoutMs,
+      );
+      onProgress(100);
+      return { cancelled: false, failedKeys };
+    } catch (error) {
+      abortPartialArchive(fileStream, error);
+      throw error;
     }
-    await zipWriter.close();
-    onProgress(100);
-    return { cancelled: false, failedKeys };
+  }
+
+  if (totalBytes >= memoryLimitBytes && totalBytes > 0) {
+    throw new Error(
+      "This archive exceeds the configured in-memory limit. Choose a streaming destination before downloading.",
+    );
   }
 
   const zip = new JSZip();
@@ -231,7 +309,14 @@ export const downloadBrowserFolderArchive = async ({
       onDetailChange(target.detailId, "downloading");
       try {
         const blob = await downloadBlob(target.key, controller.signal);
-        if (retainedBytes + blob.size > streamingThresholdBytes) throw new Error("The files grew beyond the configured archive memory limit. Use streaming downloads.");
+        if (
+          retainedBytes + blob.size >= memoryLimitBytes &&
+          retainedBytes + blob.size > 0
+        ) {
+          throw new Error(
+            "The files grew beyond the configured archive memory limit. Choose a streaming destination and try again.",
+          );
+        }
         retainedBytes += blob.size;
         zip.file(entryName(target), blob);
         onDetailChange(target.detailId, "done");

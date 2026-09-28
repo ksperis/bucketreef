@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   memoryEntries: [] as string[],
   streamEntries: [] as string[],
   triggerBlobDownload: vi.fn(),
+  zipClose: vi.fn(),
 }));
 
 vi.mock("jszip", () => ({
@@ -32,8 +33,8 @@ vi.mock("@zip.js/zip.js", () => ({
       }
     }
 
-    async close() {
-      return undefined;
+    async close(comment?: Uint8Array, options?: { preventClose?: boolean }) {
+      return mocks.zipClose(comment, options);
     }
   },
 }));
@@ -44,6 +45,7 @@ vi.mock("../../utils/download", () => ({
 
 import {
   buildBrowserFolderDownloadPlan,
+  chooseBrowserArchiveFile,
   downloadBrowserFolderArchive,
   resolveBrowserFolderArchiveLabel,
 } from "./browserFolderDownload";
@@ -52,7 +54,20 @@ beforeEach(() => {
   mocks.memoryEntries.length = 0;
   mocks.streamEntries.length = 0;
   mocks.triggerBlobDownload.mockReset();
+  mocks.zipClose.mockReset();
+  mocks.zipClose.mockResolvedValue(undefined);
 });
+
+function createFileStream() {
+  const stream = new WritableStream<Uint8Array>();
+  const close = vi.fn().mockResolvedValue(undefined);
+  const abort = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperties(stream, {
+    close: { value: close },
+    abort: { value: abort },
+  });
+  return { stream, close, abort };
+}
 
 describe("browser folder downloads", () => {
   it("keeps safe relative paths and excludes keys outside the starting location", () => {
@@ -104,8 +119,9 @@ describe("browser folder downloads", () => {
       onDetailChange: (id, status) => details.push(`${id}:${status}`),
       onPhaseChange: (phase) => phases.push(phase),
       onProgress: (percent) => progress.push(percent),
+      output: { kind: "memory" },
       parallelism: 2,
-      streamingThresholdBytes: 100,
+      memoryLimitBytes: 100,
       targets: [
         { detailId: "a", key: "reports/a.txt", relativeKey: "a.txt", sizeBytes: 3 },
         { detailId: "b", key: "reports/b.txt", relativeKey: "b.txt", sizeBytes: 3 },
@@ -133,6 +149,7 @@ describe("browser folder downloads", () => {
   it("streams large archives through the file picker", async () => {
     const phases: string[] = [];
     const progress: number[] = [];
+    const file = createFileStream();
     const result = await downloadBrowserFolderArchive({
       controller: new AbortController(),
       downloadBlob: async () => new Blob(),
@@ -148,10 +165,11 @@ describe("browser folder downloads", () => {
       onPhaseChange: (phase) => phases.push(phase),
       onProgress: (percent) => progress.push(percent),
       parallelism: 2,
-      saveFilePicker: async () => ({
-        createWritable: async () => new WritableStream<Uint8Array>(),
-      }),
-      streamingThresholdBytes: 0,
+      output: {
+        kind: "stream",
+        fileHandle: { createWritable: async () => file.stream as never },
+      },
+      memoryLimitBytes: 0,
       targets: [
         { detailId: "a", key: "reports/a.txt", relativeKey: "a.txt", sizeBytes: 3 },
       ],
@@ -164,32 +182,21 @@ describe("browser folder downloads", () => {
     expect(phases).toEqual(["Streaming zip"]);
     expect(progress).toContain(80);
     expect(progress.at(-1)).toBe(100);
+    expect(mocks.zipClose).toHaveBeenCalledWith(undefined, {
+      preventClose: true,
+    });
+    expect(file.close).toHaveBeenCalledOnce();
+    expect(file.abort).not.toHaveBeenCalled();
   });
 
-  it("reports file picker cancellation without starting downloads", async () => {
-    const downloadStream = vi.fn(async () => new ReadableStream<Uint8Array>());
-
-    const result = await downloadBrowserFolderArchive({
-      controller: new AbortController(),
-      downloadBlob: async () => new Blob(),
-      downloadStream,
-      folderLabel: "reports",
-      onDetailChange: () => undefined,
-      onPhaseChange: () => undefined,
-      onProgress: () => undefined,
-      parallelism: 2,
-      saveFilePicker: async () => {
+  it("reports file picker cancellation without creating an output", async () => {
+    const picker = vi.fn(async () => {
         throw new DOMException("Cancelled", "AbortError");
-      },
-      streamingThresholdBytes: 0,
-      targets: [
-        { detailId: "a", key: "reports/a.txt", relativeKey: "a.txt", sizeBytes: 3 },
-      ],
-      totalBytes: 3,
     });
-
-    expect(result).toEqual({ cancelled: true, failedKeys: [] });
-    expect(downloadStream).not.toHaveBeenCalled();
+    await expect(chooseBrowserArchiveFile("reports", picker)).resolves.toBeNull();
+    expect(picker).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedName: "reports.zip" }),
+    );
   });
 });
 
@@ -203,6 +210,70 @@ it("rejects traversal, normalization collisions and file/directory collisions", 
 
 it("blocks oversized memory archives before any download", async () => {
   const downloadBlob = vi.fn();
-  await expect(downloadBrowserFolderArchive({ controller: new AbortController(), downloadBlob, downloadStream: vi.fn(), folderLabel: "large", onDetailChange: vi.fn(), onPhaseChange: vi.fn(), onProgress: vi.fn(), parallelism: 2, streamingThresholdBytes: 10, targets: [{ detailId: "a", key: "a", relativeKey: "a", sizeBytes: 11 }], totalBytes: 11 })).rejects.toThrow("in-memory limit");
+  await expect(downloadBrowserFolderArchive({ controller: new AbortController(), downloadBlob, downloadStream: vi.fn(), folderLabel: "large", onDetailChange: vi.fn(), onPhaseChange: vi.fn(), onProgress: vi.fn(), output: { kind: "memory" }, parallelism: 2, memoryLimitBytes: 10, targets: [{ detailId: "a", key: "a", relativeKey: "a", sizeBytes: 11 }], totalBytes: 11 })).rejects.toThrow("in-memory limit");
   expect(downloadBlob).not.toHaveBeenCalled();
+});
+
+it("aborts a partial file when streaming finalization times out", async () => {
+  const file = createFileStream();
+  file.close.mockReturnValue(new Promise(() => undefined));
+  await expect(
+    downloadBrowserFolderArchive({
+      controller: new AbortController(),
+      downloadBlob: vi.fn(),
+      downloadStream: async () =>
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array([1]));
+            controller.close();
+          },
+        }),
+      folderLabel: "large",
+      onDetailChange: vi.fn(),
+      onPhaseChange: vi.fn(),
+      onProgress: vi.fn(),
+      output: {
+        kind: "stream",
+        fileHandle: { createWritable: async () => file.stream as never },
+      },
+      parallelism: 1,
+      memoryLimitBytes: 0,
+      finalizationTimeoutMs: 5,
+      targets: [
+        { detailId: "a", key: "a", relativeKey: "a", sizeBytes: 1 },
+      ],
+      totalBytes: 1,
+    }),
+  ).rejects.toThrow("could not be finalized");
+  expect(file.abort).toHaveBeenCalled();
+  expect(file.close).toHaveBeenCalledOnce();
+});
+
+it("aborts the partial stream when the operation is cancelled", async () => {
+  const file = createFileStream();
+  const controller = new AbortController();
+  controller.abort("cancel");
+  await expect(
+    downloadBrowserFolderArchive({
+      controller,
+      downloadBlob: vi.fn(),
+      downloadStream: vi.fn(),
+      folderLabel: "large",
+      onDetailChange: vi.fn(),
+      onPhaseChange: vi.fn(),
+      onProgress: vi.fn(),
+      output: {
+        kind: "stream",
+        fileHandle: { createWritable: async () => file.stream as never },
+      },
+      parallelism: 1,
+      memoryLimitBytes: 0,
+      targets: [
+        { detailId: "a", key: "a", relativeKey: "a", sizeBytes: 1 },
+      ],
+      totalBytes: 1,
+    }),
+  ).resolves.toEqual({ cancelled: true, failedKeys: [] });
+  expect(file.abort).toHaveBeenCalled();
+  expect(file.close).not.toHaveBeenCalled();
 });
