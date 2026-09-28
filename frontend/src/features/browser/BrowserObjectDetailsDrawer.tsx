@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ObjectPreviewNavigation } from "../shared/ObjectDetailsDrawer";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import PageBanner from "../../components/PageBanner";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
@@ -41,7 +41,6 @@ import { useBrowserObjectSignedUrl } from "./useBrowserObjectSignedUrl";
 import { useBrowserObjectArchiveRestore } from "./useBrowserObjectArchiveRestore";
 import { useBrowserObjectAcl } from "./useBrowserObjectAcl";
 import { useBrowserObjectPreview } from "./useBrowserObjectPreview";
-import ObjectVersionInspector from "../shared/ObjectVersionInspector";
 
 type BrowserObjectDetailsStatus = {
   message: string;
@@ -514,11 +513,8 @@ export default function BrowserObjectDetailsDrawer({
     );
   };
 
-  const loadHistoricalVersion = useCallback(async (versionId: string, signal: AbortSignal) =>
-    (await loadObjectPreview(signal, versionId)).blob, [loadObjectPreview]);
   const renderVersionsContent = () => (
     <BrowserObjectVersionsTab
-      inspector={<ObjectVersionInspector key={itemSnapshot.key} name={itemSnapshot.name} versions={versionRows} loadVersion={loadHistoricalVersion} />}
       versions={versionRows}
       loading={versionsLoading}
       savingAction={savingVersionAction}
