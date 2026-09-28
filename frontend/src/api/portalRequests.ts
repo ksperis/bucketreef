@@ -13,6 +13,7 @@ export type PortalAdminRequestType =
   | "account_quota_change"
   | "portal_setting_change";
 export type PortalAdminRequestStatus = "pending" | "processing" | "approved" | "rejected" | "failed";
+export type PortalRequestedRole = "portal_user" | "portal_manager";
 export type PortalQuotaDirection = "increase" | "decrease";
 export type PortalQuotaUnit = "MiB" | "GiB" | "TiB";
 export type PortalSettingChangeMode = "inherit" | "override";
@@ -35,6 +36,7 @@ type PortalUserAccessRequestCreate = {
   request_type: "portal_user_access";
   target_name: string;
   target_email: string;
+  portal_role: PortalRequestedRole;
   reason?: string | null;
 };
 

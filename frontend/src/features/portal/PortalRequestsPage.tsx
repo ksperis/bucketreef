@@ -9,6 +9,7 @@ import {
   createPortalRequest,
   listPortalRequests,
   type PortalAdminRequest,
+  type PortalRequestedRole,
   type PortalQuotaDirection,
   type PortalQuotaUnit,
   type PortalSettingChangeRequestCreate,
@@ -57,6 +58,7 @@ import {
 } from "../shared/portalRequestsPresentation";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import { usePortalAccountContext } from "./PortalAccountContext";
+import { portalAccountRoleLabel } from "./portalI18n";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -106,6 +108,8 @@ export default function PortalRequestsPage() {
     useState<CollaboratorAction>("add");
   const [targetName, setTargetName] = useState("");
   const [targetEmail, setTargetEmail] = useState("");
+  const [targetPortalRole, setTargetPortalRole] =
+    useState<PortalRequestedRole>("portal_user");
   const [targetReason, setTargetReason] = useState("");
   const [quotaDirection, setQuotaDirection] =
     useState<PortalQuotaDirection>("increase");
@@ -368,6 +372,7 @@ export default function PortalRequestsPage() {
               request_type: "portal_user_access",
               target_name: cleanName,
               target_email: cleanEmail,
+              portal_role: targetPortalRole,
               reason: cleanReason || null,
             }
           : {
@@ -379,6 +384,7 @@ export default function PortalRequestsPage() {
       );
       setTargetName("");
       setTargetEmail("");
+      setTargetPortalRole("portal_user");
       setTargetReason("");
       setNotice(
         t({
@@ -447,6 +453,7 @@ export default function PortalRequestsPage() {
     setCollaboratorAction(action);
     setTargetName("");
     setTargetEmail("");
+    setTargetPortalRole("portal_user");
     setTargetReason("");
     setRequestError(null);
     setRequestDialog("collaborator");
@@ -468,6 +475,7 @@ export default function PortalRequestsPage() {
     setCollaboratorAction(action);
     setTargetName("");
     setTargetEmail("");
+    setTargetPortalRole("portal_user");
     setTargetReason("");
   };
 
@@ -946,7 +954,7 @@ export default function PortalRequestsPage() {
       {requestDialog === "collaborator" ? (
         <SettingsFormDialog
           title={t({ en: "Update project membership", fr: "Mettre à jour les membres du projet", de: "Projektmitglieder aktualisieren", zh: "更新项目成员" })}
-          draftKey={JSON.stringify([collaboratorAction, targetName, targetEmail, targetReason])}
+          draftKey={JSON.stringify([collaboratorAction, targetName, targetEmail, targetPortalRole, targetReason])}
           busy={busy === "collaborator"}
           disabled={collaboratorSubmitDisabled}
           error={requestError}
@@ -963,6 +971,17 @@ export default function PortalRequestsPage() {
             <option value="add">{t({ en: "Add", fr: "Ajouter", de: "Hinzufügen", zh: "添加" })}</option>
             <option value="remove">{t({ en: "Remove", fr: "Retirer", de: "Entfernen", zh: "移除" })}</option>
           </UiSelect>
+          {collaboratorAction === "add" ? (
+            <UiSelect
+              label={t({ en: "Project role", fr: "Rôle dans le projet", de: "Projektrolle", zh: "项目角色" })}
+              value={targetPortalRole}
+              onChange={(event) => setTargetPortalRole(event.target.value as PortalRequestedRole)}
+              disabled={requestsDisabled || !canRequestManagedChanges || busy === "collaborator"}
+            >
+              <option value="portal_user">{portalAccountRoleLabel("portal_user", t)}</option>
+              <option value="portal_manager">{portalAccountRoleLabel("portal_manager", t)}</option>
+            </UiSelect>
+          ) : null}
           <PortalMemberRequestFields name={targetName} email={targetEmail} reason={targetReason}
             onNameChange={setTargetName} onEmailChange={setTargetEmail} onReasonChange={setTargetReason}
             disabled={requestsDisabled || !canRequestManagedChanges || busy === "collaborator"}

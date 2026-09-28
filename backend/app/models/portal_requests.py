@@ -69,6 +69,7 @@ class PortalUserAccessRequestCreate(ApiModel):
     request_type: Literal["portal_user_access"]
     target_name: str = Field(min_length=1, max_length=120)
     target_email: EmailStr
+    portal_role: Literal["portal_user", "portal_manager"] = "portal_user"
     reason: Optional[str] = Field(default=None, max_length=2000)
 
     @field_validator("target_name")

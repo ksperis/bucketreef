@@ -372,8 +372,16 @@ class PortalRequestsService:
         payload = self._decode_json(row.payload_json)
         target_name = str(payload.get("target_name") or "").strip()
         target_email = str(payload.get("target_email") or "").strip().lower()
+        requested_portal_role = str(
+            payload.get("portal_role") or PortalAccountRole.PORTAL_USER.value
+        ).strip()
         if not target_name or not target_email:
             raise ValueError("Target user name and email are required")
+        if requested_portal_role not in {
+            PortalAccountRole.PORTAL_USER.value,
+            PortalAccountRole.PORTAL_MANAGER.value,
+        }:
+            raise ValueError("Invalid requested Portal role")
 
         target = self.users_service.get_by_email_case_insensitive(target_email)
         created_user = False
@@ -401,10 +409,11 @@ class PortalRequestsService:
             .filter(UserS3Account.user_id == target.id, UserS3Account.account_id == row.account_id)
             .first()
         )
-        next_portal_role = PortalAccountRole.PORTAL_USER.value
+        next_portal_role = requested_portal_role
         if (
             existing_link
             and existing_link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+            and requested_portal_role == PortalAccountRole.PORTAL_USER.value
         ):
             next_portal_role = existing_link.portal_role
         self.users_service.assign_user_to_account(
@@ -417,6 +426,7 @@ class PortalRequestsService:
             "target_user_id": int(target.id),
             "target_email": target.email,
             "created_user": created_user,
+            "requested_portal_role": requested_portal_role,
             "portal_role": next_portal_role,
         }
 

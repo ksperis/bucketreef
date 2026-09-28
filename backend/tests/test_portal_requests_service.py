@@ -104,7 +104,13 @@ def _portal_access(
     )
 
 
-def _create_user_request(service: PortalRequestsService, account: S3Account, requester: User):
+def _create_user_request(
+    service: PortalRequestsService,
+    account: S3Account,
+    requester: User,
+    *,
+    portal_role: str = PortalAccountRole.PORTAL_USER.value,
+):
     return service.create_request(
         requester,
         _portal_access(account, requester),
@@ -112,6 +118,7 @@ def _create_user_request(service: PortalRequestsService, account: S3Account, req
             request_type="portal_user_access",
             target_name="Jane Viewer",
             target_email="Jane.Viewer@Example.org",
+            portal_role=portal_role,
         ),
     )
 
@@ -131,6 +138,7 @@ def test_portal_request_creation_lists_only_requester_and_notifies_admin(db_sess
     audit = db_session.query(AuditLog).filter(AuditLog.action == "create_portal_request").one()
 
     assert created.status == "pending"
+    assert created.payload["portal_role"] == PortalAccountRole.PORTAL_USER.value
     assert requester_rows[0].id == created.id
     assert other_rows == []
     assert notification.notification_type == "portal_request"
@@ -160,6 +168,50 @@ def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
     assert link.manager_role is None
     assert link.portal_role == PortalAccountRole.PORTAL_USER.value
     assert message.message == "Done"
+
+
+def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = _create_user_request(
+        service,
+        account,
+        requester,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+    )
+
+    approved = service.approve_request(created.id, admin)
+
+    target = db_session.query(User).filter(User.email == "jane.viewer@example.org").one()
+    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    assert approved.result is not None
+    assert approved.result["requested_portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
+    assert approved.result["portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
+    assert link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+
+
+def test_approve_legacy_user_access_request_defaults_to_portal_user(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = _create_user_request(service, account, requester)
+    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    payload = json.loads(row.payload_json)
+    payload.pop("portal_role")
+    row.payload_json = json.dumps(payload)
+    db_session.add(row)
+    db_session.commit()
+
+    approved = service.approve_request(created.id, admin)
+
+    target = db_session.query(User).filter(User.email == "jane.viewer@example.org").one()
+    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    assert approved.result is not None
+    assert approved.result["requested_portal_role"] == PortalAccountRole.PORTAL_USER.value
+    assert link.portal_role == PortalAccountRole.PORTAL_USER.value
 
 
 def test_approve_user_access_preserves_existing_portal_manager_role(db_session):

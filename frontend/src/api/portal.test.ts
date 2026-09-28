@@ -442,6 +442,7 @@ describe("portal storage spaces api", () => {
       request_type: "portal_user_access",
       target_name: "Jane Viewer",
       target_email: "jane@example.org",
+      portal_role: "portal_manager",
     });
     await createPortalRequest("101", {
       request_type: "portal_user_removal",
@@ -469,6 +470,7 @@ describe("portal storage spaces api", () => {
         request_type: "portal_user_access",
         target_name: "Jane Viewer",
         target_email: "jane@example.org",
+        portal_role: "portal_manager",
       },
       { params: { account_id: "101" } }
     );
