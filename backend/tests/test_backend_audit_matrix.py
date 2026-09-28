@@ -107,6 +107,16 @@ def test_backend_audit_matrix_tracks_manager_bucket_config_mutation_delegation()
     assert rows_by_function["delete_bucket_encryption"].signals["delegated_bucket_config_mutation_audit"]
 
 
+def test_backend_audit_matrix_tracks_bucket_migration_maintenance_delegation():
+    backend_root = Path(__file__).resolve().parents[1]
+    rows_by_function = {row.function: row for row in collect_rows(backend_root)}
+
+    for function in ("cleanup_source", "cleanup_target", "restore_access"):
+        assert rows_by_function[function].signals[
+            "delegated_bucket_migration_maintenance_audit"
+        ]
+
+
 def test_backend_audit_matrix_tracks_ceph_admin_bucket_ui_tag_delegation():
     backend_root = Path(__file__).resolve().parents[1]
     row = next(

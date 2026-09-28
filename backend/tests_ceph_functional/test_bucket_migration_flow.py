@@ -1597,7 +1597,7 @@ def test_bucket_migration_precheck_fails_for_unsupported_bucket_settings(
         with pytest.raises(BackendAPIError) as exc_info:
             _start_migration(super_admin_session, int(migration["id"]))
         assert exc_info.value.status_code == 400
-        assert "Precheck must pass before start" in str(exc_info.value.payload)
+        assert "Run and pass active checks" in str(exc_info.value.payload)
         assert configured_kind in {"website", "notifications", "replication"}
     finally:
         _delete_topic(

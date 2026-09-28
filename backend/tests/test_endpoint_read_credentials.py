@@ -142,7 +142,9 @@ def test_readers_do_not_retry_with_admin_after_supervision_denial(
         monkeypatch.setattr(connection_identity_service, "get_rgw_admin_client", client)
         result = ConnectionIdentityService().resolve_rgw_identity(_connection(endpoint))
         assert not result.eligible
-        assert "AccessDenied" in result.reason
+        assert result.reason == (
+            "RGW identity is unavailable: unable to resolve RGW identity for this connection."
+        )
     elif consumer == "healthcheck":
         monkeypatch.setattr(healthcheck_service, "get_s3_client", client)
         target = HealthCheckService._to_check_target(endpoint)

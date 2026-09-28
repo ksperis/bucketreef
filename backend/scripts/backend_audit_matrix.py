@@ -35,6 +35,7 @@ SIGNAL_FIELDS = {
     "delegated_portal_deleted_restore_audit": "stream_portal_deleted_prefix_restore(",
     "delegated_portal_version_cleanup_audit": "stream_portal_storage_space_version_cleanup(",
     "delegated_onboarding_audit": "OnboardingService(",
+    "delegated_bucket_migration_maintenance_audit": "_queue_maintenance(",
 }
 DELEGATED_AUDIT_SIGNALS = frozenset(
     {
@@ -55,6 +56,7 @@ DELEGATED_AUDIT_SIGNALS = frozenset(
         "delegated_portal_deleted_restore_audit",
         "delegated_portal_version_cleanup_audit",
         "delegated_onboarding_audit",
+        "delegated_bucket_migration_maintenance_audit",
     }
 )
 
@@ -90,6 +92,9 @@ ALLOWLISTED_UNAUDITED_ROUTES: dict[tuple[str, str, str, str], str] = {
     ("POST", "app/routers/browser.py", "get_object_columns", "/buckets/{bucket_name}/objects/columns"): "object metadata probe",
     ("POST", "app/routers/browser_transfers.py", "presign", "/buckets/{bucket_name}/presign"): "presigned URL generation",
     ("POST", "app/routers/browser_transfers.py", "presign_part_for_upload", "/buckets/{bucket_name}/multipart/{upload_id}/presign"): "presigned multipart URL generation",
+    ("POST", "app/routers/browser_favorites.py", "create_favorite", ""): "user-private UI metadata excluded from the global audit log",
+    ("PUT", "app/routers/browser_favorites.py", "update_favorite", "/{favorite_id}"): "user-private UI metadata excluded from the global audit log",
+    ("DELETE", "app/routers/browser_favorites.py", "delete_favorite", "/{favorite_id}"): "user-private UI metadata excluded from the global audit log",
     ("POST", "app/routers/ceph_admin/bucket_tools.py", "refresh_bucket_listing_cache", "/cache/refresh"): "cache refresh",
     ("POST", "app/routers/ceph_admin/bucket_tools.py", "compare_bucket_pair", "/compare"): "read-only comparison",
     ("POST", "app/routers/ceph_admin/buckets.py", "query_buckets", "/query"): "read-only query",

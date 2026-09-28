@@ -37,13 +37,24 @@ class _DraftMigrationConfiguration:
 
 
 class BucketMigrationPlanningMixin:
-    def _transition_command(self, migration: BucketMigration, **values) -> None:
+    def _transition_command(
+        self,
+        migration: BucketMigration,
+        *,
+        allowed_statuses: tuple[str, ...] | None = None,
+        **values,
+    ) -> None:
         """Fence competing commands before a worker or another editor can act."""
+        status_filter = (
+            BucketMigration.status.in_(allowed_statuses)
+            if allowed_statuses
+            else BucketMigration.status == migration.status
+        )
         changed = (
             self.db.query(BucketMigration)
             .filter(
                 BucketMigration.id == migration.id,
-                BucketMigration.status == migration.status,
+                status_filter,
                 BucketMigration.configuration_revision
                 == migration.configuration_revision,
                 BucketMigration.preparation_status == migration.preparation_status,
@@ -561,7 +572,10 @@ class BucketMigrationPlanningMixin:
             )
         require_action(migration, "pause")
         self._transition_command(
-            migration, status="pause_requested", pause_requested=True
+            migration,
+            allowed_statuses=("queued", "running", "pause_requested"),
+            status="pause_requested",
+            pause_requested=True,
         )
         migration.updated_at = utcnow()
         self._add_event(migration, level="info", message="Pause requested.")
