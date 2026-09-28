@@ -21,6 +21,11 @@ import {
 const SSE_CUSTOMER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 describe("browser transfer api", () => {
+  it("preserves an opaque version identifier on proxy reads", async () => {
+    clientMock.get.mockResolvedValue({ data: new Blob(["old"]) });
+    await proxyDownload("account-1", "research", " /é//.txt ", undefined, undefined, undefined, " old+%2F ");
+    expect(clientMock.get).toHaveBeenCalledWith("/browser/buckets/research/download", expect.objectContaining({ params: expect.objectContaining({ key: " /é//.txt ", version_id: " old+%2F " }) }));
+  });
   beforeEach(() => {
     clientMock.get.mockReset();
     clientMock.post.mockReset();

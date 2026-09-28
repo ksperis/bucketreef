@@ -391,9 +391,9 @@ class PortalObjectsMixin:
                 f"Unable to restore object '{target_key}' in storage space '{space_id}': {exc}"
             ) from exc
 
-    def _head_storage_space_object(self, client, bucket_name: str, space_id: str, target_key: str) -> dict:
+    def _head_storage_space_object(self, client, bucket_name: str, space_id: str, target_key: str, *, version_id: Optional[str] = None) -> dict:
         try:
-            return client.head_object(Bucket=bucket_name, Key=target_key)
+            return client.head_object(Bucket=bucket_name, Key=target_key, **({"VersionId": version_id} if version_id is not None else {}))
         except ClientError as exc:
             error = exc.response.get("Error") or {}
             code = str(error.get("Code") or "").lower()
@@ -410,6 +410,8 @@ class PortalObjectsMixin:
         access: "AccountAccess",
         space_id: str,
         key: str,
+        *,
+        version_id: Optional[str] = None,
     ) -> S3ObjectDownload:
         if not key:
             raise PortalBadRequestError("Object key is required.")
@@ -419,7 +421,7 @@ class PortalObjectsMixin:
         self._require_storage_space_content_role(user, access, bucket_name)
         client = self._portal_object_client(user, access.account, request_profile="long_running")
         try:
-            resp = client.get_object(Bucket=bucket_name, Key=key)
+            resp = client.get_object(Bucket=bucket_name, Key=key, **({"VersionId": version_id} if version_id is not None else {}))
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to download object '{key}' in storage space '{space_id}': {exc}") from exc
         body = resp.get("Body")
@@ -429,7 +431,7 @@ class PortalObjectsMixin:
         filename = self._object_name(key) or "download"
         return S3ObjectDownload(body=body, content_type=content_type, filename=filename)
 
-    def _safe_content_preview(self, client, bucket_name: str, key: str, content_type: Optional[str]) -> tuple[str, Optional[str], Optional[str]]:
+    def _safe_content_preview(self, client, bucket_name: str, key: str, content_type: Optional[str], *, version_id: Optional[str] = None) -> tuple[str, Optional[str], Optional[str]]:
         normalized_type = (content_type or "").split(";")[0].strip().lower()
         text_types = {
             "application/json",
@@ -447,7 +449,7 @@ class PortalObjectsMixin:
                 return "image", None, "Image preview is not embedded in Portal yet. Download the file to inspect it."
             return "unavailable", None, "Preview is available only for small text files."
         try:
-            resp = client.get_object(Bucket=bucket_name, Key=key, Range=f"bytes=0-{_CONTENT_PREVIEW_MAX_BYTES - 1}")
+            resp = client.get_object(Bucket=bucket_name, Key=key, Range=f"bytes=0-{_CONTENT_PREVIEW_MAX_BYTES - 1}", **({"VersionId": version_id} if version_id is not None else {}))
             body = resp.get("Body")
             if body is None:
                 return "unavailable", None, "Preview response body is missing."
@@ -466,6 +468,8 @@ class PortalObjectsMixin:
         access: "AccountAccess",
         space_id: str,
         key: str,
+        *,
+        version_id: Optional[str] = None,
     ) -> PortalStorageObjectDetail:
         if not key:
             raise PortalBadRequestError("Object key is required.")
@@ -474,9 +478,9 @@ class PortalObjectsMixin:
             raise PortalNotFoundError("Storage space not found or not allowed.")
         self._require_storage_space_content_role(user, access, bucket_name)
         client = self._portal_object_client(user, access.account)
-        resp = self._head_storage_space_object(client, bucket_name, space_id, key)
+        resp = self._head_storage_space_object(client, bucket_name, space_id, key, **({"version_id": version_id} if version_id is not None else {}))
         content_type = resp.get("ContentType")
-        preview_type, preview_text, preview_reason = self._safe_content_preview(client, bucket_name, key, content_type)
+        preview_type, preview_text, preview_reason = self._safe_content_preview(client, bucket_name, key, content_type, version_id=version_id)
         return PortalStorageObjectDetail(
             key=key,
             name=self._object_name(key),
