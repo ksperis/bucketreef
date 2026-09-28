@@ -1,3 +1,4 @@
+import type { BrowserObjectsQuery } from "../../api/browserContracts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -66,6 +67,7 @@ type UseBrowserObjectListingOptions = {
   onWarning: (message: string) => void;
   prefix: string;
   recursive: boolean;
+  fileFilters?: BrowserObjectsQuery;
   requestOptions?: BrowserRequestOptions;
   searchScope: BrowserObjectSearchScope;
   showDeletedObjects: boolean;
@@ -117,6 +119,7 @@ export function useBrowserObjectListing({
   onWarning,
   prefix,
   recursive,
+  fileFilters,
   requestOptions,
   searchScope,
   showDeletedObjects,
@@ -407,10 +410,10 @@ export function useBrowserObjectListing({
         setObjectsLoadingMore(true);
       }
       const query = filter.trim();
-      const searchFromBucket = searchScope === "bucket" && Boolean(query);
+      const searchFromBucket = searchScope === "bucket";
       const requestPrefix = searchFromBucket ? "" : targetPrefix;
       const requestRecursive =
-        Boolean(query) && (searchFromBucket || recursive);
+        (searchFromBucket || recursive);
       try {
         let loadedObjects: BrowserObject[] = [];
         let loadedPrefixes: string[] = [];
@@ -423,6 +426,7 @@ export function useBrowserObjectListing({
             continuationToken: options?.continuationToken ?? undefined,
             maxKeys: OBJECTS_PAGE_SIZE,
             query: query || undefined,
+            ...fileFilters,
             exactMatch,
             caseSensitive,
             type: typeFilter,
@@ -474,7 +478,7 @@ export function useBrowserObjectListing({
         );
 
         const shouldLoadDeleted =
-          showDeletedObjects && isVersioningEnabled && storageFilter === "all";
+          showDeletedObjects && isVersioningEnabled && storageFilter === "all" && !Object.values(fileFilters ?? {}).some(value => value !== undefined);
         let nextDeletedObjects = isAppend ? currentDeletedObjects : [];
         let nextDeletedPrefixes = isAppend ? currentDeletedPrefixes : [];
         let nextDeletedKeyMarker = isAppend ? currentDeletedKeyMarker : null;
@@ -635,6 +639,7 @@ export function useBrowserObjectListing({
       onWarning,
       prefix,
       recursive,
+      fileFilters,
       searchScope,
       showDeletedObjects,
       sortBy,
@@ -693,6 +698,7 @@ export function useBrowserObjectListing({
     loadObjects,
     prefix,
     recursive,
+    fileFilters,
     resetObjectListingState,
     searchScope,
     showDeletedObjects,

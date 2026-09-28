@@ -37,6 +37,7 @@ type BrowserObjectSearchHeaderProps = {
   exactMatch: boolean;
   caseSensitive: boolean;
   typeFilter: BrowserObjectTypeFilter;
+  hasFileFilters?: boolean;
   storageFilter: string;
   storageClasses: readonly string[];
   canReset: boolean;
@@ -65,19 +66,16 @@ export default function BrowserObjectSearchHeader({
   sortDirection,
   advancedOptionsActive,
   hasSearchQuery,
-  searchScope,
-  recursive,
   exactMatch,
   caseSensitive,
   typeFilter,
+  hasFileFilters = false,
   storageFilter,
   storageClasses,
   canReset,
   onSortName,
   onFilterChange,
   onToggleOptions,
-  onScopeChange,
-  onRecursiveChange,
   onExactMatchChange,
   onCaseSensitiveChange,
   onTypeFilterChange,
@@ -145,29 +143,6 @@ export default function BrowserObjectSearchHeader({
           className={`w-72 ${menuClasses}`}
         >
           <div ref={optionsMenuRef} className="space-y-3">
-            <UiSelect
-              label="Scope"
-              size="compact"
-              value={searchScope}
-              onChange={(event) =>
-                onScopeChange(event.target.value as BrowserSearchScope)
-              }
-              className="ui-list-control h-9 w-full"
-              aria-label="Search scope"
-              disabled={!hasSearchQuery}
-            >
-              <option value="prefix">Current path</option>
-              <option value="bucket">Whole bucket</option>
-            </UiSelect>
-            <UiCheckboxField
-              checked={recursive}
-              onChange={(event) => onRecursiveChange(event.target.checked)}
-              disabled={!hasSearchQuery || searchScope === "bucket"}
-              className={optionCardClasses}
-              aria-label="Search recursively in subfolders"
-            >
-              Recursive
-            </UiCheckboxField>
             <UiCheckboxField
               checked={exactMatch}
               onChange={(event) => onExactMatchChange(event.target.checked)}
@@ -200,7 +175,7 @@ export default function BrowserObjectSearchHeader({
             >
               <option value="all">All</option>
               <option value="file">Files</option>
-              <option value="folder">Folders</option>
+              <option value="folder" disabled={hasFileFilters}>Folders</option>
             </UiSelect>
             <UiSelect
               label="Storage class"

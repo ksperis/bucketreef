@@ -45,6 +45,11 @@ export async function listBrowserObjects(
       item_type: options?.type && options.type !== "all" ? options.type : undefined,
       storage_class: options?.storageClass && options.storageClass !== "all" ? options.storageClass : undefined,
       recursive: options?.recursive ? true : undefined,
+      min_size: options?.minSize,
+      max_size: options?.maxSize,
+      modified_after: options?.modifiedAfter,
+      modified_before: options?.modifiedBefore,
+      extensions: options?.extensions,
       force_refresh: options?.forceRefresh ? true : undefined,
       sort_by:
         options?.sortBy && !(options.sortBy === "name" && (options?.sortDir ?? "asc") === "asc")

@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from app.models.browser_filters import BrowserFileFilters
+
 import logging
 import re
 from collections.abc import Iterator
@@ -116,6 +118,7 @@ class BrowserContextMixin:
         item_type: str,
         storage_class: Optional[str],
         recursive: bool,
+        file_filters: BrowserFileFilters | None = None,
     ) -> tuple:
         return (
             account_cache_key,
@@ -129,6 +132,7 @@ class BrowserContextMixin:
             item_type,
             storage_class or "",
             bool(recursive),
+            file_filters.signature if file_filters else (),
         )
 
     def _object_sort_snapshot_cache_key(
@@ -145,6 +149,7 @@ class BrowserContextMixin:
         recursive: bool,
         sort_by: BrowserObjectSortBy,
         sort_dir: BrowserObjectSortDir,
+        file_filters: BrowserFileFilters | None = None,
     ) -> tuple:
         return (
             account_cache_key,
@@ -156,6 +161,7 @@ class BrowserContextMixin:
             item_type,
             storage_class or "",
             bool(recursive),
+            file_filters.signature if file_filters else (),
             sort_by,
             sort_dir,
         )

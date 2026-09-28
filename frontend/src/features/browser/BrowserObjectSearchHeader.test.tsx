@@ -88,7 +88,7 @@ describe("BrowserObjectSearchHeader", () => {
     expect(optionsButtonRef.current).toBe(optionsButton);
     expect(rootRef.current).toContainElement(optionsButton);
     expect(optionsMenuRef.current).toContainElement(
-      screen.getByRole("combobox", { name: "Search scope" }),
+      screen.getByRole("combobox", { name: "Object type filter" }),
     );
     expect(optionsButton).toHaveAttribute("aria-expanded", "true");
 
@@ -97,14 +97,6 @@ describe("BrowserObjectSearchHeader", () => {
       target: { value: "report" },
     });
     fireEvent.click(optionsButton);
-    fireEvent.change(screen.getByRole("combobox", { name: "Search scope" }), {
-      target: { value: "bucket" },
-    });
-    fireEvent.click(
-      screen.getByRole("checkbox", {
-        name: "Search recursively in subfolders",
-      }),
-    );
     fireEvent.click(screen.getByRole("checkbox", { name: "Use exact match" }));
     fireEvent.click(
       screen.getByRole("checkbox", { name: "Case-sensitive search" }),
@@ -123,8 +115,6 @@ describe("BrowserObjectSearchHeader", () => {
     expect(onSortName).toHaveBeenCalledOnce();
     expect(onFilterChange).toHaveBeenCalledWith("report");
     expect(onToggleOptions).toHaveBeenCalledOnce();
-    expect(onScopeChange).toHaveBeenCalledWith("bucket");
-    expect(onRecursiveChange).toHaveBeenCalledWith(true);
     expect(onExactMatchChange).toHaveBeenCalledWith(true);
     expect(onCaseSensitiveChange).toHaveBeenCalledWith(true);
     expect(onTypeFilterChange).toHaveBeenCalledWith("file");
@@ -141,14 +131,6 @@ describe("BrowserObjectSearchHeader", () => {
     );
 
     expect(
-      screen.getByRole("combobox", { name: "Search scope" }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("checkbox", {
-        name: "Search recursively in subfolders",
-      }),
-    ).toBeDisabled();
-    expect(
       screen.getByRole("checkbox", { name: "Use exact match" }),
     ).toBeDisabled();
     expect(
@@ -157,7 +139,7 @@ describe("BrowserObjectSearchHeader", () => {
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
   });
 
-  it("keeps the Standard and Portal profiles on the simple search contract", () => {
+  it("can hide optional advanced controls when requested", () => {
     render(
       <BrowserObjectSearchHeader
         {...buildProps({ advancedOptionsEnabled: false, optionsOpen: true })}
