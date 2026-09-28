@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.2.10 - 2026-09-28
+
+### Added
+
+- Added a persistent static demo with mocked Admin, Manager, Portal, Browser, and Ceph Admin workspaces plus Cloudflare Pages publication support.
+- Added delegated Portal collaborator management with explicit role selection and role-change request handling.
+- Added a guarded Manager bucket-migration workflow with preparation checks, resumable execution, maintenance operations, and dedicated audit/webhook events.
+- Added synchronized personal Browser path favorites and an application-version indicator in the UI.
+
+### Changed
+
+- Simplified Browser navigation and transfer workflows around the stable S3 operations while preserving explicit multipart management, folder/ZIP downloads, object previews, version downloads, deep links, and contextual CORS guidance.
+- Improved workspace routing, contextual error pages, shared/private execution-context labelling, and responsive Storage Ops bucket presentation.
+- Extended the demo and frontend CI coverage for multi-step workspace flows and public demo publication.
+
+### Fixed/Security
+
+- Propagated logout across tabs, clarified authentication failures, added secret-visibility controls, and enforced inherited privileged-workspace access consistently.
+- Revalidated onboarding credentials on retry, avoided sample-account collisions, cleaned Portal IAM state during account deletion, and corrected Ceph Admin RGW user modification semantics.
+- Fixed large proxied uploads, exact-version downloads, archive stream cleanup, empty or invalid bulk actions, lifecycle/access JSON validation, and compatibility with legacy botocore checksum configuration.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path. Migrations `0133_portal_role_change_request` through `0137_browser_path_favorites` add Portal collaborator delegation, Browser favorites, and the revised bucket-migration workflow.
+- Before upgrading, finish or stop any active bucket migration and verify that migration-applied target protections have been restored; migration `0135_bucket_migration_workflow` intentionally refuses to proceed otherwise.
+- This patch release does not create a new schema baseline.
+
+### Tests
+
+- Added cross-surface UI validation and focused Browser/migration retests covering authentication, workspace access, Portal delegation, Manager migrations, object/version downloads, favorites, uploads, and responsive behavior.
+- Release qualification validates the exact prepared SHA across the mandatory application suite, Ceph checks, multi-architecture images and scans, Helm/Compose contracts, Kind onboarding, and public release bundles before finalization.
+
 ## 0.2.9 - 2026-09-26
 
 ### Added
