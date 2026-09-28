@@ -88,6 +88,27 @@ describe("BrowserPathNavigator", () => {
     ).toHaveClass("browser-path-scroll", "overflow-x-auto");
   });
 
+  it("keeps the breadcrumb strip compact", () => {
+    render(
+      <BrowserPathNavigator
+        {...buildProps({
+          breadcrumbs: [{ label: "reports", prefix: "reports/" }],
+          canGoUp: true,
+        })}
+      />,
+    );
+
+    const strip = screen.getByRole("navigation", { name: "Current path" }).parentElement;
+    expect(strip).toHaveClass(
+      "gap-1",
+      "rounded-lg",
+      "px-2.5",
+      "ui-caption",
+      "font-semibold",
+    );
+    expect(strip).not.toHaveClass("gap-2", "rounded-md", "text-sm");
+  });
+
   it("preserves the editable path combobox and suggestion callbacks", () => {
     const onChange = vi.fn();
     const onBlur = vi.fn();

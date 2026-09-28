@@ -7,7 +7,7 @@ import { UpIcon } from "./browserIcons";
 import type { PathSuggestion } from "./browserPathSuggestions";
 
 const pathStripClasses =
-  "flex min-w-0 flex-1 items-center gap-2 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-2 py-1.5";
+  "flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-2.5 py-1.5 shadow-[var(--ui-shadow-soft)]";
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
 
 type BrowserPathBreadcrumb = {
@@ -65,7 +65,7 @@ export default function BrowserPathNavigator({
 
   return (
     <div
-      className={`${pathStripClasses} text-sm font-medium text-[var(--ui-text)]`}
+      className={`${pathStripClasses} ui-caption font-semibold text-slate-500 dark:text-slate-400`}
       onClick={editing ? undefined : onStartEditing}
       onDoubleClick={editing ? undefined : onStartEditing}
     >
@@ -199,7 +199,7 @@ export default function BrowserPathNavigator({
                 key={crumb.prefix}
                 className="flex shrink-0 items-center gap-1"
               >
-                <span className="text-[var(--ui-text-muted)]">/</span>
+                <span className="text-slate-300">/</span>
                 <button
                   type="button"
                   onClick={(event) => {
