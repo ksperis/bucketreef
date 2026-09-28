@@ -312,6 +312,7 @@ class CopyObjectPayload(ApiModel):
 
 
 class DeleteObjectEntry(ApiModel):
+    if_match: Optional[str] = Field(default=None, max_length=1024)
     key: str
     version_id: Optional[str] = None
 

@@ -83,97 +83,30 @@ class BrowserObjectOperationsMixin:
         bucket_name: str,
         account: S3ExecutionTarget,
         payload: CopyObjectPayload,
-    ) -> None:
-        client = self._client(account, request_profile="long_running")
+    ) -> dict:
+        from .object_copy import copy_snapshot
+        from fastapi import HTTPException
         source_bucket = payload.source_bucket or bucket_name
-        copy_source: dict[str, str] = {
-            "Bucket": source_bucket,
-            "Key": payload.source_key,
-        }
-        if payload.source_version_id:
-            copy_source["VersionId"] = payload.source_version_id
-        kwargs = {
-            "Bucket": bucket_name,
-            "Key": payload.destination_key,
-            "CopySource": copy_source,
-        }
-        if payload.replace_metadata:
-            source_head_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
-            if payload.source_version_id:
-                source_head_kwargs["VersionId"] = payload.source_version_id
+        spaces = getattr(account, "portal_storage_spaces", None)
+        if spaces is not None:
+            by_bucket = {(space.internal_bucket_name or space.id): space for space in spaces}
+            source = by_bucket.get(source_bucket)
+            destination = by_bucket.get(bucket_name)
+            if not source or not destination or destination.role == "Viewer" or (payload.move and source.role == "Viewer"):
+                raise HTTPException(status_code=403, detail="Storage Space permissions do not allow this transfer")
+        if payload.move and source_bucket == bucket_name and payload.source_key == payload.destination_key:
+            raise RuntimeError("Cannot move an object onto itself")
+        client = self._client(account, request_profile="long_running")
+        try:
+            source_head = client.head_object(Bucket=source_bucket, Key=payload.source_key, **({"VersionId": payload.source_version_id} if payload.source_version_id else {}))
+        except (ClientError, BotoCoreError) as exc:
+            raise RuntimeError(f"Unable to read source '{payload.source_key}': {exc}") from exc
+        affected = (bucket_name, source_bucket) if payload.move else (bucket_name,)
+        with self._object_mutation(account, *affected):
             try:
-                source_head = client.head_object(**source_head_kwargs)
+                return copy_snapshot(client, account, bucket_name, payload, source_head)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(
-                    f"Unable to fetch metadata for '{payload.source_key}' before copy: {exc}"
-                ) from exc
-            kwargs["MetadataDirective"] = "REPLACE"
-            kwargs["Metadata"] = payload.metadata or {}
-            for source_field, target_field in (
-                ("ContentType", "ContentType"),
-                ("CacheControl", "CacheControl"),
-                ("ContentDisposition", "ContentDisposition"),
-                ("ContentEncoding", "ContentEncoding"),
-                ("ContentLanguage", "ContentLanguage"),
-                ("Expires", "Expires"),
-                ("StorageClass", "StorageClass"),
-            ):
-                value = source_head.get(source_field)
-                if value is not None:
-                    kwargs[target_field] = value
-        if payload.replace_tags:
-            tag_str = urlencode([(tag.key, tag.value) for tag in payload.tags])
-            kwargs["TaggingDirective"] = "REPLACE"
-            if tag_str:
-                kwargs["Tagging"] = tag_str
-        if payload.acl:
-            kwargs["ACL"] = payload.acl
-        affected_buckets = (bucket_name, source_bucket) if payload.move else (bucket_name,)
-        with self._object_mutation(account, *affected_buckets):
-            try:
-                kwargs.update(check_destination(client, account, bucket_name, payload.destination_key, payload.write_guard))
-                resp = client.copy_object(**kwargs)
-                destination_version_id = resp.get("VersionId")
-                if payload.replace_tags:
-                    tagging_kwargs: dict[str, object] = {
-                        "Bucket": bucket_name,
-                        "Key": payload.destination_key,
-                    }
-                    if destination_version_id:
-                        tagging_kwargs["VersionId"] = destination_version_id
-                    tag_set = [
-                        {"Key": tag.key, "Value": tag.value}
-                        for tag in payload.tags
-                    ]
-                    if tag_set:
-                        client.put_object_tagging(**tagging_kwargs, Tagging={"TagSet": tag_set})
-                    else:
-                        client.delete_object_tagging(**tagging_kwargs)
-                if payload.move:
-                    source_head_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
-                    if payload.source_version_id:
-                        source_head_kwargs["VersionId"] = payload.source_version_id
-                    source_head = client.head_object(**source_head_kwargs)
-                    destination_head_kwargs = {"Bucket": bucket_name, "Key": payload.destination_key}
-                    if destination_version_id:
-                        destination_head_kwargs["VersionId"] = destination_version_id
-                    destination_head = client.head_object(**destination_head_kwargs)
-                    source_etag = self._clean_etag(source_head.get("ETag"))
-                    destination_etag = self._clean_etag(destination_head.get("ETag"))
-                    source_size = int(source_head.get("ContentLength") or 0)
-                    destination_size = int(destination_head.get("ContentLength") or 0)
-                    if source_size != destination_size:
-                        raise RuntimeError("Copy verification failed (size mismatch).")
-                    if not source_etag or not destination_etag:
-                        raise RuntimeError("Copy verification failed (missing ETag).")
-                    if source_etag != destination_etag:
-                        raise RuntimeError("Copy verification failed (ETag mismatch).")
-                    delete_kwargs = {"Bucket": source_bucket, "Key": payload.source_key}
-                    if payload.source_version_id:
-                        delete_kwargs["VersionId"] = payload.source_version_id
-                    client.delete_object(**delete_kwargs)
-            except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to copy object '{payload.source_key}' -> '{payload.destination_key}': {exc}") from exc
+                raise RuntimeError(f"Unable to copy object '{payload.source_key}': {exc}") from exc
 
     def delete_objects(
         self,
@@ -196,7 +129,14 @@ class BrowserObjectOperationsMixin:
         client = self._client(account)
         with self._object_mutation(account, bucket_name):
             try:
-                delete_objects(client, bucket_name, items)
+                conditional_keys = {obj.key for obj in payload.objects if obj.if_match}
+                for obj in payload.objects:
+                    if obj.if_match:
+                        # A move must not silently fall back to unconditional deletion.
+                        client.delete_object(Bucket=bucket_name, Key=obj.key, IfMatch=obj.if_match, **({"VersionId": obj.version_id} if obj.version_id else {}))
+                ordinary = [item for item in items if item["Key"] not in conditional_keys]
+                if ordinary:
+                    delete_objects(client, bucket_name, ordinary)
             except (ClientError, BotoCoreError) as exc:
                 raise RuntimeError(f"Unable to delete objects in bucket '{bucket_name}': {exc}") from exc
         return len(items)

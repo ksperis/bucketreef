@@ -205,6 +205,7 @@ export type CopyObjectPayload = {
 };
 
 export type DeleteObjectEntry = {
+  if_match?: string;
   key: string;
   version_id?: string | null;
 };

@@ -82,6 +82,7 @@ type BrowserContextMenuProps = {
   onCopyUrl: (item: BrowserItem | null) => void;
   onCopyPath: (path: string) => void;
   onCopyItems: (items: BrowserItem[]) => void;
+  onTransferItems?: (items: BrowserItem[], mode: "rename" | "copy" | "move") => void;
   onCutItems: (items: BrowserItem[]) => void;
   onOpenBulkAttributes: (items: BrowserItem[]) => void;
   onOpenBulkRestore: (items: BrowserItem[]) => void;
@@ -135,6 +136,7 @@ export default function BrowserContextMenu({
   onCopyUrl,
   onCopyPath,
   onCopyItems,
+  onTransferItems,
   onCutItems,
   onOpenBulkAttributes,
   onOpenBulkRestore,
@@ -234,7 +236,6 @@ export default function BrowserContextMenu({
           ? selectionItems[0] ?? null
           : null;
         if (summary) {
-          onDownloadFolder(summary);
           return onDownloadFolder(summary);
         }
         return onDownloadItems(info.filter((item) => item.type === "file" && !item.isDeleted));
@@ -246,6 +247,9 @@ export default function BrowserContextMenu({
       },
       copyUrl: () => onCopyUrl(selectionItems[0] ?? null),
       copy: () => onCopyItems(selectionItems),
+      rename: () => onTransferItems?.(selectionItems, "rename"),
+      copyTo: () => onTransferItems?.(selectionItems, "copy"),
+      moveTo: () => onTransferItems?.(selectionItems, "move"),
       cut: () => onCutItems(selectionItems),
       bulkAttributes: () => onOpenBulkAttributes(selectionItems),
       restoreToDate: () => onOpenBulkRestore(selectionItems),
@@ -281,6 +285,9 @@ export default function BrowserContextMenu({
     restore: <HistoryIcon className="h-3.5 w-3.5" />,
     copyUrl: <LinkIcon className="h-3.5 w-3.5" />,
     copy: <CopyIcon className="h-3.5 w-3.5" />,
+    rename: <SlidersIcon className="h-3.5 w-3.5" />,
+    copyTo: <CopyIcon className="h-3.5 w-3.5" />,
+    moveTo: <CutIcon className="h-3.5 w-3.5" />,
     cut: <CutIcon className="h-3.5 w-3.5" />,
     bulkAttributes: <SlidersIcon className="h-3.5 w-3.5" />,
     advanced: <SettingsIcon className="h-3.5 w-3.5" />,
