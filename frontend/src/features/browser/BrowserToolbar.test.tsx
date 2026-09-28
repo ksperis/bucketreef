@@ -258,22 +258,20 @@ describe("BrowserToolbar", () => {
     });
     render(<BrowserToolbar {...props} />);
 
-    expect(screen.queryByLabelText("Transfer status")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     const menu = screen.getByRole("menu", { name: "More" });
     expect(within(menu).getByText("STS")).toBeInTheDocument();
-    fireEvent.click(within(menu).getByRole("menuitem", { name: "Display" }));
     expect(
-      within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitemradio", { name: "Compact" }),
+      within(menu).getByRole("menuitemradio", { name: "Compact" }),
     ).toHaveAttribute("aria-checked", "true");
     expect(
-      within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitemradio", {
+      within(menu).getByRole("menuitemradio", {
         name: "Comfortable",
       }),
     ).toHaveAttribute("aria-checked", "false");
     const pathHeading = within(menu).getByText("Current path");
     const technicalHeading = within(menu).getByText("Technical tools");
-    const browserViewHeading = within(menu).getByRole("menuitem", { name: "Help and shortcuts" });
+    const browserViewHeading = within(menu).getByText("Browser view");
     expect(
       pathHeading.compareDocumentPosition(technicalHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -287,10 +285,10 @@ describe("BrowserToolbar", () => {
     ).not.toBeInTheDocument();
     expect(within(menu).queryByText("Selection overflow")).not.toBeInTheDocument();
     expect(
-      within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitemcheckbox", { name: "Folders panel" }),
+      within(menu).getByRole("menuitemcheckbox", { name: "Folders panel" }),
     ).toHaveAttribute("aria-checked", "true");
     fireEvent.click(
-      within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitem", { name: /^Columns/i }),
+      within(menu).getByRole("menuitem", { name: /^Columns/i }),
     );
     expect(screen.getByRole("menu", { name: "Columns" })).toBeInTheDocument();
 
@@ -298,9 +296,8 @@ describe("BrowserToolbar", () => {
       within(menu).getByRole("menuitem", { name: "Operations overview" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "More" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Display" }));
     fireEvent.click(
-      within(screen.getByRole("menu", { name: "Display" })).getByRole(
+      within(screen.getByRole("menu", { name: "More" })).getByRole(
         "menuitemcheckbox",
         { name: "Folders panel" },
       ),
@@ -331,17 +328,6 @@ describe("BrowserToolbar", () => {
     expect(props.onRunPathAction).toHaveBeenCalledWith("paste");
     expect(props.onRunSelectionAction).toHaveBeenCalledWith("copy");
     expect(onOpenSse).toHaveBeenCalledOnce();
-  });
-
-  it("opens completed session operations without offering retired recovery actions", () => {
-    const onOpenOperations = vi.fn();
-    const props = buildProps({ moreMenu: { ...buildProps().moreMenu, status: { visible: true, accessBadge: null, operationsCount: 1, onOpenOperations } } });
-    render(<BrowserToolbar {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "More" }));
-    const menu = within(screen.getByRole("menu", { name: "More" }));
-    expect(menu.queryByRole("menuitem", { name: "Transfers and recovery" })).not.toBeInTheDocument();
-    fireEvent.click(menu.getByRole("menuitem", { name: /Operations/ }));
-    expect(onOpenOperations).toHaveBeenCalledOnce();
   });
 
   it("keeps the selection More menu focused on secondary item actions", () => {
@@ -403,9 +389,8 @@ describe("BrowserToolbar", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "More" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Display" }));
     fireEvent.click(
-      within(screen.getByRole("menu", { name: "Display" })).getByRole(
+      within(screen.getByRole("menu", { name: "More" })).getByRole(
         "menuitemradio",
         { name: "Comfortable" },
       ),

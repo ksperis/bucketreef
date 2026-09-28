@@ -1,6 +1,3 @@
-from datetime import datetime
-from pydantic import ValidationError
-from app.models.browser_filters import BrowserFileFilters
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
@@ -179,11 +176,6 @@ def list_objects(
     storage_class: Optional[str] = None,
     recursive: bool = Query(default=False),
     include_folder_markers: bool = Query(default=False),
-    min_size: Optional[int] = Query(default=None, ge=0),
-    max_size: Optional[int] = Query(default=None, ge=0),
-    modified_after: Optional[datetime] = None,
-    modified_before: Optional[datetime] = None,
-    extensions: Optional[str] = Query(default=None, max_length=2000),
     sort_by: BrowserObjectSortBy = Query(default="name"),
     sort_dir: BrowserObjectSortDir = Query(default="asc"),
     force_refresh: bool = Query(default=False),
@@ -191,12 +183,6 @@ def list_objects(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListBrowserObjectsResponse:
-    try:
-        file_filters = BrowserFileFilters(min_size=min_size, max_size=max_size, modified_after=modified_after, modified_before=modified_before, extensions=tuple((extensions or "").split(",")))
-    except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-    if file_filters.active and item_type == "folder":
-        raise HTTPException(status_code=422, detail="Size, date and extension filters apply to files, not folders")
     try:
         return service.list_objects(
             bucket_name,
@@ -211,7 +197,6 @@ def list_objects(
             storage_class=storage_class,
             recursive=recursive,
             **({"include_folder_markers": True} if include_folder_markers else {}),
-            **({"file_filters": file_filters} if file_filters.active else {}),
             sort_by=sort_by,
             sort_dir=sort_dir,
             force_refresh=force_refresh,

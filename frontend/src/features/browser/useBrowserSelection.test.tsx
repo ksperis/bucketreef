@@ -108,7 +108,6 @@ describe("useBrowserSelection", () => {
       ),
     );
     expect(result.current.selectedIds).toEqual(["a", "b", "c"]);
-    expect(result.current.selectedBytes).toBe(3);
   });
 
   it("keeps checkbox selection additive and supports Shift ranges", () => {

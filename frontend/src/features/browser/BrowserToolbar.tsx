@@ -1,6 +1,3 @@
-import BrowserUtilityIcon from "./BrowserUtilityIcon";
-import { useBrowserText } from "./browserMessages";
-import type { ReactNode } from "react";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -20,9 +17,10 @@ import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import { cx, uiMenuClass } from "../../components/ui/styles";
 import { BrowserToolbarActionMenuItem } from "./BrowserActionPresentation";
+import BrowserUtilityIcon from "./BrowserUtilityIcon";
+import { useBrowserText } from "./browserMessages";
 import BrowserBucketSelector from "./BrowserBucketSelector";
 import BrowserPathNavigator from "./BrowserPathNavigator";
-import BrowserHelpDialog from "./BrowserHelpDialog";
 import {
   BrowserColumnsMenu,
   BrowserUploadQuickMenu,
@@ -75,11 +73,11 @@ type ToolbarColumns = Pick<
   ComponentProps<typeof BrowserColumnsMenu>,
   "columns" | "visibleColumnIds" | "onToggleColumn" | "onReset"
 > & {
-  summary: ReactNode;
+  summary: string;
 };
 
 type BrowserToolbarProps = {
-  helpActions?: BrowserActionState[];
+  onOpenFavorites?: () => void;
   compactMode: boolean;
   bucketSelector: ComponentProps<typeof BrowserBucketSelector>;
   pathNavigator: ComponentProps<typeof BrowserPathNavigator>;
@@ -99,7 +97,7 @@ type BrowserToolbarProps = {
   selectionActions: {
     visible: boolean;
     mobileViewport: boolean;
-    summary: ReactNode;
+    summary: string;
     canOpen: boolean;
     canCopy: boolean;
     canDownload: boolean;
@@ -139,7 +137,7 @@ type BrowserToolbarProps = {
 };
 
 export default function BrowserToolbar({
-  helpActions = [],
+  onOpenFavorites,
   compactMode,
   bucketSelector,
   pathNavigator,
@@ -163,13 +161,8 @@ export default function BrowserToolbar({
   const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
   const columnsMenuRef = useRef<HTMLDivElement | null>(null);
   const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const displayButtonRef = useRef<HTMLButtonElement | null>(null);
-  const displayMenuRef = useRef<HTMLDivElement | null>(null);
-  const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
-  useEffect(() => { if (displayMenuOpen) displayMenuRef.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus(); }, [displayMenuOpen]);
   const toolbarShellClasses = compactMode
     ? "flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
     : "flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between";
@@ -198,13 +191,19 @@ export default function BrowserToolbar({
   const hasPathActions = hasCurrentPathActions || hasTechnicalPathActions;
   const hasSelectionActions = moreMenu.selectionActions.length > 0;
   const sse = moreMenu.sse;
+  const hasSecondaryActionsSection =
+    hasPathActions || hasSelectionActions || Boolean(sse);
   const hasPrioritizedSelectionActions =
     moreMenu.selectionOverflow && hasSelectionActions;
   const hasTrailingActionsSection =
     (hasSelectionActions && !hasPrioritizedSelectionActions) || Boolean(sse);
-  const hasMoreMenu = true; // Help is available even when all storage actions are unavailable.
+  const hasMoreMenu =
+    hasViewSection ||
+    hasStatusSection ||
+    hasLayoutSection ||
+    hasColumnsSection ||
+    hasSecondaryActionsSection || Boolean(onOpenFavorites);
   const closeMoreMenu = () => {
-    setDisplayMenuOpen(false);
     setColumnsMenuOpen(false);
     setMoreMenuOpen(false);
   };
@@ -214,7 +213,6 @@ export default function BrowserToolbar({
   };
   const toggleMoreMenu = () => {
     setUploadMenuOpen(false);
-    setDisplayMenuOpen(false);
     setColumnsMenuOpen(false);
     setMoreMenuOpen((current) => !current);
   };
@@ -230,13 +228,12 @@ export default function BrowserToolbar({
   useDismissibleLayer({
     open: moreMenuOpen,
     insideRefs: [
-      displayButtonRef,
-      displayMenuRef,
-      moreButtonRef,      moreMenuRef,
+      moreButtonRef,
+      moreMenuRef,
       columnsButtonRef,
       columnsMenuRef,
     ],
-    onDismiss: reason => { closeMoreMenu(); if (reason === "escape") moreButtonRef.current?.focus(); },
+    onDismiss: closeMoreMenu,
   });
 
   useDismissibleLayer({
@@ -256,11 +253,10 @@ export default function BrowserToolbar({
   }, [hasMoreMenu, moreMenuOpen]);
 
   useEffect(() => {
-    if (!moreMenuOpen && (columnsMenuOpen || displayMenuOpen)) {
-      setDisplayMenuOpen(false);
-    setColumnsMenuOpen(false);
+    if (!moreMenuOpen && columnsMenuOpen) {
+      setColumnsMenuOpen(false);
     }
-  }, [columnsMenuOpen, displayMenuOpen, moreMenuOpen]);
+  }, [columnsMenuOpen, moreMenuOpen]);
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -364,11 +360,11 @@ export default function BrowserToolbar({
                 type="button"
                 onClick={() => onRunPathAction("refresh")}
                 disabled={!contextActions.canRefresh}
-                aria-label={tr("Refresh")}
-                title={tr("Refresh")}
+                aria-label="Refresh"
+                title="Refresh"
               >
                 <RefreshIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>{tr("Refresh")}</span>}
+                {!compactMode && <span>Refresh</span>}
               </ListActionButton>
               <ListActionButton iconOnly={compactMode} variant="secondary"
                 ref={moreButtonRef}
@@ -390,7 +386,7 @@ export default function BrowserToolbar({
               <p
                 role="status"
                 aria-live="polite"
-                className="max-w-md rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 py-1.5 ui-caption font-semibold text-primary-700 dark:text-primary-100"
+                className="max-w-48 truncate rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-2.5 py-1.5 ui-caption font-semibold text-primary-700 dark:text-primary-100"
               >
                 {selectionActions.summary}
               </p>
@@ -525,18 +521,11 @@ export default function BrowserToolbar({
                 <div className={contextMenuSeparatorClasses} />
               )}
 
-            {(hasViewSection || hasLayoutSection || hasColumnsSection) && <>
-              <button ref={displayButtonRef} type="button" role="menuitem" aria-haspopup="menu" aria-expanded={displayMenuOpen} className={contextMenuItemClasses}
-                onClick={() => setDisplayMenuOpen(value => !value)} onKeyDown={event => { if (event.key === "ArrowRight") { event.preventDefault(); setDisplayMenuOpen(true); } }}>
-                <SlidersIcon className="h-4 w-4" /><span className="flex-1">{tr("Display")}</span><ChevronDownIcon className="h-3.5 w-3.5 -rotate-90" />
-              </button>
-              <AnchoredPortalMenu open={displayMenuOpen} anchorRef={displayButtonRef} placement="left-start" offset={10} minWidth={240} className={`w-64 ${floatingMenuClasses}`}>
-                <div ref={displayMenuRef} role="menu" aria-label={tr("Display")} className="max-h-[70vh] overflow-y-auto" onKeyDown={event => {
-                  if (event.key === "ArrowLeft" || event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDisplayMenuOpen(false); displayButtonRef.current?.focus(); }
-                }}>
-            {moreMenu.view && (
+            {onOpenFavorites && <button type="button" role="menuitem" className={contextMenuItemClasses} onClick={() => runMoreAction(onOpenFavorites)}><BrowserUtilityIcon />{tr("Favorites")}</button>}
+
+            {!hasPrioritizedSelectionActions && moreMenu.view && (
               <>
-                <p className={overflowSectionTitleClasses}>{tr("Density")}</p>
+                <p className={overflowSectionTitleClasses}>Browser view</p>
                 <button
                   type="button"
                   role="menuitemradio"
@@ -549,7 +538,7 @@ export default function BrowserToolbar({
                   }
                 >
                   <ListIcon className="h-3.5 w-3.5" />
-                  {tr("Comfortable")}
+                  Comfortable
                   {!moreMenu.view.compactMode && (
                     <span
                       aria-hidden="true"
@@ -571,7 +560,7 @@ export default function BrowserToolbar({
                   }
                 >
                   <CompactIcon className="h-3.5 w-3.5" />
-                  {tr("Compact")}
+                  Compact
                   {moreMenu.view.compactMode && (
                     <span
                       aria-hidden="true"
@@ -584,73 +573,12 @@ export default function BrowserToolbar({
               </>
             )}
 
-            {hasLayoutSection && (
-              <>
-                {(hasViewSection || hasStatusSection) && (
-                  <div className={contextMenuSeparatorClasses} />
-                )}
-                <p className={overflowSectionTitleClasses}>Panels</p>
-                {moreMenu.layout.folders && (
-                  <BrowserToolbarToggleMenuItem
-                    label={tr("Folders panel")}
-                    icon={<FolderIcon className="h-3.5 w-3.5" />}
-                    {...moreMenu.layout.folders}
-                  />
-                )}
-              </>
-            )}
-
-            {moreMenu.columns && (
-              <>
-                {(hasViewSection || hasStatusSection || hasLayoutSection) && (
-                  <div className={contextMenuSeparatorClasses} />
-                )}
-                <p className={overflowSectionTitleClasses}>{tr("Columns")}</p>
-                <button
-                  ref={columnsButtonRef}
-                  type="button"
-                  role="menuitem"
-                  aria-haspopup="menu"
-                  aria-expanded={columnsMenuOpen}
-                  className={contextMenuItemClasses}
-                  onClick={() => setColumnsMenuOpen((current) => !current)}
-                >
-                  <SlidersIcon className="h-3.5 w-3.5" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block">{tr("Columns")}</span>
-                    <span className="block text-[11px] font-medium leading-tight text-slate-400 dark:text-slate-500">
-                      {moreMenu.columns.summary}
-                    </span>
-                  </span>
-                  <ChevronDownIcon
-                    className={`h-3.5 w-3.5 shrink-0 transition ${
-                      columnsMenuOpen ? "" : "-rotate-90"
-                    }`}
-                  />
-                </button>
-                <BrowserColumnsMenu
-                  open={columnsMenuOpen}
-                  anchorRef={columnsButtonRef}
-                  menuRef={columnsMenuRef}
-                  columns={moreMenu.columns.columns}
-                  visibleColumnIds={moreMenu.columns.visibleColumnIds}
-                  onToggleColumn={moreMenu.columns.onToggleColumn}
-                  onReset={moreMenu.columns.onReset}
-                />
-              </>
-            )}
-
-
-                </div>
-              </AnchoredPortalMenu>
-            </>}
             {!hasPrioritizedSelectionActions && hasStatusSection && (
               <>
                 {hasViewSection && (
                   <div className={contextMenuSeparatorClasses} />
                 )}
                 <p className={overflowSectionTitleClasses}>Status</p>
-
                 {moreMenu.status.accessBadge && (
                   <div
                     className={overflowStatusRowClasses}
@@ -702,6 +630,62 @@ export default function BrowserToolbar({
                     </span>
                   </button>
                 )}
+              </>
+            )}
+
+            {!hasPrioritizedSelectionActions && hasLayoutSection && (
+              <>
+                {(hasViewSection || hasStatusSection) && (
+                  <div className={contextMenuSeparatorClasses} />
+                )}
+                <p className={overflowSectionTitleClasses}>Panels</p>
+                {moreMenu.layout.folders && (
+                  <BrowserToolbarToggleMenuItem
+                    label="Folders panel"
+                    icon={<FolderIcon className="h-3.5 w-3.5" />}
+                    {...moreMenu.layout.folders}
+                  />
+                )}
+              </>
+            )}
+
+            {!hasPrioritizedSelectionActions && moreMenu.columns && (
+              <>
+                {(hasViewSection || hasStatusSection || hasLayoutSection) && (
+                  <div className={contextMenuSeparatorClasses} />
+                )}
+                <p className={overflowSectionTitleClasses}>Columns</p>
+                <button
+                  ref={columnsButtonRef}
+                  type="button"
+                  role="menuitem"
+                  aria-haspopup="menu"
+                  aria-expanded={columnsMenuOpen}
+                  className={contextMenuItemClasses}
+                  onClick={() => setColumnsMenuOpen((current) => !current)}
+                >
+                  <SlidersIcon className="h-3.5 w-3.5" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block">Columns</span>
+                    <span className="block text-[11px] font-medium leading-tight text-slate-400 dark:text-slate-500">
+                      {moreMenu.columns.summary}
+                    </span>
+                  </span>
+                  <ChevronDownIcon
+                    className={`h-3.5 w-3.5 shrink-0 transition ${
+                      columnsMenuOpen ? "" : "-rotate-90"
+                    }`}
+                  />
+                </button>
+                <BrowserColumnsMenu
+                  open={columnsMenuOpen}
+                  anchorRef={columnsButtonRef}
+                  menuRef={columnsMenuRef}
+                  columns={moreMenu.columns.columns}
+                  visibleColumnIds={moreMenu.columns.visibleColumnIds}
+                  onToggleColumn={moreMenu.columns.onToggleColumn}
+                  onReset={moreMenu.columns.onReset}
+                />
               </>
             )}
 
@@ -772,8 +756,6 @@ export default function BrowserToolbar({
                 )}
               </>
             )}
-            <div className={contextMenuSeparatorClasses} />
-            <button type="button" role="menuitem" className={contextMenuItemClasses} onClick={() => runMoreAction(() => setHelpOpen(true))}><BrowserUtilityIcon name="help" />{tr("Help and shortcuts")}</button>
           </div>
         </AnchoredPortalMenu>
       )}
@@ -785,7 +767,6 @@ export default function BrowserToolbar({
         className="hidden"
         onChange={onFileInputChange}
       />
-      {helpOpen && <BrowserHelpDialog actions={helpActions} onClose={() => setHelpOpen(false)} />}
       <input
         ref={folderInputRef}
         type="file"

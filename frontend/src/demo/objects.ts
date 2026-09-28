@@ -18,22 +18,15 @@ export function objectListing(bucket: DemoBucket, url: URL): ListBrowserObjectsR
     const includeMarkers = url.searchParams.get("include_folder_markers") === "true";
     if (!rest && !(includeMarkers && marker)) continue;
     const type = url.searchParams.get("item_type") ?? "all";
-    const extensions = (url.searchParams.get("extensions") ?? "").split(",").map(value => value.trim().replace(/^\./, "").toLowerCase()).filter(Boolean);
-    const min = url.searchParams.get("min_size"), max = url.searchParams.get("max_size");
-    const after = url.searchParams.get("modified_after"), before = url.searchParams.get("modified_before");
-    const fileFilters = min !== null || max !== null || Boolean(after || before || extensions.length);
     const caseSensitive = url.searchParams.get("query_case_sensitive") === "true";
     const matches = (value: string) => { const candidate = caseSensitive ? value : value.toLowerCase(); const needle = caseSensitive ? query : query.toLowerCase(); return !needle || (url.searchParams.get("query_exact") === "true" ? candidate === needle : candidate.includes(needle)); };
     if (rest.includes("/") && !(marker && includeMarkers)) {
       const folder = prefix + rest.split("/")[0] + "/";
-      if (!fileFilters && type !== "file" && matches(folder.slice(prefix.length, -1))) prefixes.add(folder);
+      if (type !== "file" && matches(folder.slice(prefix.length, -1))) prefixes.add(folder);
       if (!recursive) continue;
     }
     if (marker && !includeMarkers) continue;
     if (type === "folder" || !matches(rest)) continue;
-    if (min !== null && current.size < Number(min) || max !== null && current.size > Number(max)) continue;
-    if (extensions.length && !extensions.some(extension => object.key.toLowerCase().endsWith("." + extension))) continue;
-    if (after && new Date(current.last_modified ?? "") < new Date(after) || before && new Date(current.last_modified ?? "") > new Date(before)) continue;
     const storage = url.searchParams.get("storage_class");
     if (storage && current.storage_class !== storage) continue;
     objects.push(objectView(current));

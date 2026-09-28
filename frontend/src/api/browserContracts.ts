@@ -67,11 +67,6 @@ export type BrowserSettings = {
 };
 
 export type BrowserObjectsQuery = {
-  minSize?: number;
-  maxSize?: number;
-  modifiedAfter?: string;
-  modifiedBefore?: string;
-  extensions?: string;
   query?: string;
   exactMatch?: boolean;
   caseSensitive?: boolean;

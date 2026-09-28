@@ -125,20 +125,20 @@ export default function BrowserObjectMobileList({
               className="flex min-h-11 min-w-0 items-center gap-3 text-left"
             >
               <span
-                className={`inline-flex h-9 w-7 shrink-0 items-center justify-center ${
+                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${
                   isDeleted
-                    ? "text-rose-700 dark:text-rose-200"
+                    ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-900/20 dark:text-rose-200"
                     : item.type === "folder"
-                      ? "text-amber-700 dark:text-amber-200"
-                      : "text-sky-700 dark:text-sky-200"
+                      ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200"
+                      : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-900/20 dark:text-sky-200"
                 }`}
               >
                 {item.type === "folder" ? (
-                  <FolderIcon className="h-5 w-5" />
+                  <FolderIcon />
                 ) : isDeleted ? (
                   <TrashIcon />
                 ) : (
-                  <FileIcon className="h-5 w-5" />
+                  <FileIcon />
                 )}
               </span>
               <span className="min-w-0 flex-1">

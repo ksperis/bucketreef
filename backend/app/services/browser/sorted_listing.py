@@ -9,7 +9,6 @@ from typing import Any, Callable
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.models.browser_filters import BrowserFileFilters
 from app.models.browser import BrowserObject, BrowserObjectSortBy, BrowserObjectSortDir
 from app.services.object_listing_identity import (
     is_current_folder_marker,
@@ -28,7 +27,6 @@ class SortedObjectScanOptions:
     sort_by: BrowserObjectSortBy
     sort_dir: BrowserObjectSortDir
     include_folder_markers: bool = False
-    file_filters: BrowserFileFilters | None = None
 
 
 @dataclass
@@ -203,11 +201,9 @@ class SortedObjectSnapshotBuilder:
         ):
             return
         is_folder_marker = key.endswith("/") and size == 0
-        if self.options.recursive and self.options.item_type != "file" and not (self.options.file_filters and self.options.file_filters.active):
+        if self.options.recursive and self.options.item_type != "file":
             self._insert_recursive_prefixes(store, key, is_folder_marker)
         if self.options.item_type == "folder" or (self.options.recursive and is_folder_marker and not self.options.include_folder_markers):
-            return
-        if self.options.file_filters and not self.options.file_filters.matches(item):
             return
         if not self.matches_query(key):
             return
@@ -247,7 +243,7 @@ class SortedObjectSnapshotBuilder:
                 self._insert_prefix(store, prefix)
 
     def _insert_common_prefixes(self, store: TemporarySqliteStore, response: dict) -> None:
-        if self.options.recursive or self.options.item_type == "file" or (self.options.file_filters and self.options.file_filters.active):
+        if self.options.recursive or self.options.item_type == "file":
             return
         for entry in response.get("CommonPrefixes", []) or []:
             prefix = entry.get("Prefix")

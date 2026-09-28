@@ -32,7 +32,7 @@ describe("useBrowserSearch", () => {
     ]);
   });
 
-  it("preserves scope and options for filters without a text query", () => {
+  it("drops query-only options when the query is cleared", () => {
     const { result } = renderHook(() =>
       useBrowserSearch({
         isPortalProfile: false,
@@ -50,15 +50,15 @@ describe("useBrowserSearch", () => {
     });
     act(() => result.current.setFilter(""));
 
-    expect(result.current.searchScope).toBe("bucket");
-    expect(result.current.searchRecursive).toBe(true);
-    expect(result.current.searchExactMatch).toBe(true);
-    expect(result.current.searchCaseSensitive).toBe(true);
+    expect(result.current.searchScope).toBe("prefix");
+    expect(result.current.searchRecursive).toBe(false);
+    expect(result.current.searchExactMatch).toBe(false);
+    expect(result.current.searchCaseSensitive).toBe(false);
     expect(result.current.typeFilter).toBe("folder");
     expect(result.current.hasActiveSearchFilters).toBe(true);
   });
 
-  it("keeps supported filters in Portal and labels the authorized space", () => {
+  it("enforces the Portal search contract and closes its options", () => {
     const { result, rerender } = renderHook(
       ({ isPortalProfile, scopeKey }) =>
         useBrowserSearch({ isPortalProfile, scopeKey }),
@@ -83,13 +83,13 @@ describe("useBrowserSearch", () => {
 
     rerender({ isPortalProfile: true, scopeKey: "bucket-a:root" });
 
-    expect(result.current.searchScope).toBe("bucket");
-    expect(result.current.searchRecursive).toBe(true);
-    expect(result.current.searchExactMatch).toBe(true);
-    expect(result.current.searchCaseSensitive).toBe(true);
-    expect(result.current.typeFilter).toBe("file");
-    expect(result.current.storageFilter).toBe("STANDARD_IA");
-    expect(result.current.activeSearchStatusChips).toContainEqual({ label: "Scope", value: "Whole space" });
+    expect(result.current.searchScope).toBe("prefix");
+    expect(result.current.searchRecursive).toBe(false);
+    expect(result.current.searchExactMatch).toBe(false);
+    expect(result.current.searchCaseSensitive).toBe(false);
+    expect(result.current.typeFilter).toBe("all");
+    expect(result.current.storageFilter).toBe("all");
+    expect(result.current.showSearchOptionsMenu).toBe(false);
   });
 
   it("closes the options menu when the browsing scope changes", () => {

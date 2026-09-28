@@ -17,15 +17,6 @@ const enabledDownloadAction: BrowserActionState = {
 };
 
 describe("BrowserActionPresentation", () => {
-  it("keeps unavailable commands focusable without executing", () => {
-    const onSelect = vi.fn();
-    render(<BrowserToolbarActionMenuItem action={{ ...enabledDownloadAction, enabled: false, disabledReason: "Select a file first" }} onSelect={onSelect} />);
-    const item = screen.getByRole("menuitem");
-    expect(item).toHaveAttribute("aria-disabled", "true");
-    expect(item).toHaveTextContent("Select a file first");
-    item.focus(); expect(item).toHaveFocus();
-    fireEvent.click(item); expect(onSelect).not.toHaveBeenCalled();
-  });
   it("renders icons for actions omitted by the old partial mapping", () => {
     const { container } = render(
       <>

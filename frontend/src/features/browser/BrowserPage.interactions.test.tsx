@@ -570,21 +570,12 @@ async function openActionsMoreMenu(user: ReturnType<typeof userEvent.setup>) {
   return waitForOpenedMoreMenu(previousMenus);
 }
 
-async function openDisplaySubmenu(user: ReturnType<typeof userEvent.setup>, menu: HTMLElement) {
-  if (within(menu).queryAllByRole("menuitemradio").length) return menu;
-  const existing = screen.queryByRole("menu", { name: "Display" });
-  if (existing) return existing;
-  await user.click(within(menu).getByRole("menuitem", { name: "Display" }));
-  return screen.findByRole("menu", { name: "Display" });
-}
-
 async function openColumnsSubmenuFromMore(
   user: ReturnType<typeof userEvent.setup>,
 ) {
   const moreMenu = await openContextMoreMenu(user);
-  await user.click(within(moreMenu).getByRole("menuitem", { name: "Display" }));
   await user.click(
-    within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitem", { name: /^Columns/i }),
+    within(moreMenu).getByRole("menuitem", { name: /^Columns/i }),
   );
   return await screen.findByRole("menu", { name: "Columns" });
 }
@@ -836,14 +827,14 @@ describe("BrowserPage interactions", () => {
       size: 10,
       metadata: {},
       etag: '"stable-etag"',
-    content_type: "text/plain",
+      content_type: "text/plain",
     });
     getObjectTagsMock.mockResolvedValue({
       key: "a.txt",
       tags: [],
       version_id: null,
     });
-    copyObjectMock.mockResolvedValue({ copied: true, deleted: false });
+    copyObjectMock.mockResolvedValue(undefined);
     deleteObjectsMock.mockResolvedValue(1);
     updateObjectMetadataMock.mockResolvedValue(undefined);
     updateObjectTagsMock.mockResolvedValue(undefined);
@@ -915,7 +906,7 @@ describe("BrowserPage interactions", () => {
       size: 10,
       last_modified: "2026-03-10T10:00:00Z",
       etag: '"stable-etag"',
-    content_type: "text/plain",
+      content_type: "text/plain",
       storage_class: "STANDARD",
       encryption: null,
       preview_type: "text",
@@ -1082,6 +1073,8 @@ describe("BrowserPage interactions", () => {
 
     const moreMenu = await openContextMoreMenu(user);
     expect(within(moreMenu).queryByRole("menuitem", { name: "Transfers and recovery" })).not.toBeInTheDocument();
+    await user.click(within(moreMenu).getByRole("menuitem", { name: "Favorites" }));
+    expect(await screen.findByRole("dialog", { name: "Favorites" })).toBeInTheDocument();
 
   });
 
@@ -1153,12 +1146,11 @@ describe("BrowserPage interactions", () => {
   });
 
   it("shows header config menu only on /browser", async () => {
-    const user = userEvent.setup();
     const browserView = renderPage({ initialEntry: "/browser" });
     await findRowByLabel("a.txt");
     const mainMenu = openHeaderConfigMenu();
     expect(
-      within(await openDisplaySubmenu(user, mainMenu)).getByRole("menuitemradio", {
+      within(mainMenu).getByRole("menuitemradio", {
         name: "Compact",
       }),
     ).toHaveAttribute("aria-checked", "true");
@@ -1189,7 +1181,7 @@ describe("BrowserPage interactions", () => {
     const mainMenu = openHeaderConfigMenu();
     expect(within(mainMenu).queryByText("Reset columns")).not.toBeInTheDocument();
     expect(
-      within(await openDisplaySubmenu(user, mainMenu)).getByRole("menuitemradio", {
+      within(mainMenu).getByRole("menuitemradio", {
         name: "Compact",
       }),
     ).toHaveAttribute("aria-checked", "true");
@@ -1199,7 +1191,7 @@ describe("BrowserPage interactions", () => {
       within(moreMenu).queryByRole("menuitem", { name: "Path details" }),
     ).not.toBeInTheDocument();
     await user.click(
-      within(await openDisplaySubmenu(user, moreMenu)).getByRole("menuitemradio", {
+      within(moreMenu).getByRole("menuitemradio", {
         name: "Comfortable",
       }),
     );
@@ -1208,7 +1200,7 @@ describe("BrowserPage interactions", () => {
     expect(
       screen.queryByRole("group", { name: "Details view" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Search options" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Search options" })).not.toBeInTheDocument();
     expect(screen.queryByText("Versions", { exact: true })).not.toBeInTheDocument();
     await user.click(
       within(await findRowByLabel("docs")).getByRole("button", {
@@ -1291,7 +1283,7 @@ describe("BrowserPage interactions", () => {
       { workspaceSurface: "portal" },
     );
 
-    expect(screen.getByRole("button", { name: "Search options" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Search options" })).not.toBeInTheDocument();
     expect(within(rowA).queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
     expect(within(rowA).getByRole("button", { name: "Open file a.txt" })).toBeInTheDocument();
     expect(
@@ -1628,7 +1620,7 @@ describe("BrowserPage interactions", () => {
     ).not.toHaveClass("min-h-11");
     const headerConfigMenu = openHeaderConfigMenu();
     expect(
-      within(await openDisplaySubmenu(user, headerConfigMenu)).getByRole("menuitemradio", {
+      within(headerConfigMenu).getByRole("menuitemradio", {
         name: "Compact",
       }),
     ).toHaveAttribute("aria-checked", "true");
@@ -1636,7 +1628,7 @@ describe("BrowserPage interactions", () => {
     fireEvent.keyDown(document.body, { key: "Escape" });
     const moreMenu = await openContextMoreMenu(user);
     expect(
-      within(await openDisplaySubmenu(user, moreMenu)).getByRole("menuitemradio", {
+      within(moreMenu).getByRole("menuitemradio", {
         name: "Compact",
       }),
     ).toHaveAttribute("aria-checked", "true");
@@ -2188,7 +2180,7 @@ describe("BrowserPage interactions", () => {
                 {
                   key: "a.txt",
                   etag: '"stable-etag"',
-    content_type: "text/plain",
+                  content_type: "text/plain",
                   tags_count: null,
                   metadata_count: 2,
                   cache_control: null,
@@ -2211,7 +2203,7 @@ describe("BrowserPage interactions", () => {
                 {
                   key: "c.txt",
                   etag: '"stable-etag"',
-    content_type: "text/plain",
+                  content_type: "text/plain",
                   tags_count: null,
                   metadata_count: 2,
                   cache_control: null,
@@ -2398,7 +2390,7 @@ describe("BrowserPage interactions", () => {
 
     let menu = openHeaderConfigMenu();
     await user.click(
-      within(await openDisplaySubmenu(user, menu)).getByRole("menuitemradio", {
+      within(menu).getByRole("menuitemradio", {
         name: "Comfortable",
       }),
     );
@@ -2412,7 +2404,7 @@ describe("BrowserPage interactions", () => {
 
     menu = openHeaderConfigMenu();
     await user.click(
-      within(await openDisplaySubmenu(user, menu)).getByRole("menuitemradio", { name: "Compact" }),
+      within(menu).getByRole("menuitemradio", { name: "Compact" }),
     );
     rowA = await findRowByLabel("a.txt");
     expect(rowA).toHaveClass("h-9");
@@ -2497,7 +2489,7 @@ describe("BrowserPage interactions", () => {
       within(menu).queryByRole("menuitem", { name: "Operations overview" }),
     ).not.toBeInTheDocument();
     expect(
-      within(await openDisplaySubmenu(user, menu)).getByRole("menuitemradio", { name: "Compact" }),
+      within(menu).getByRole("menuitemradio", { name: "Compact" }),
     ).toHaveAttribute("aria-checked", "true");
     expect(within(menu).getByText("Transfers")).toBeInTheDocument();
     expect(within(menu).getByText("Current path")).toBeInTheDocument();
@@ -2513,7 +2505,7 @@ describe("BrowserPage interactions", () => {
     ).toBeInTheDocument();
     expect(
       within(menu).getByRole("menuitem", { name: "Paste" }),
-    ).toHaveAttribute("aria-disabled", "true");
+    ).toBeDisabled();
     expect(
       within(menu).getByRole("menuitem", { name: "Copy path" }),
     ).toBeInTheDocument();
@@ -2521,7 +2513,7 @@ describe("BrowserPage interactions", () => {
       within(menu).getByRole("menuitem", { name: "Bucket details" }),
     ).toBeInTheDocument();
     expect(
-      within(await openDisplaySubmenu(user, menu)).getByRole("menuitemcheckbox", { name: "Folders panel" }),
+      within(menu).getByRole("menuitemcheckbox", { name: "Folders panel" }),
     ).toHaveAttribute("aria-checked", "false");
   });
 
@@ -2836,7 +2828,7 @@ describe("BrowserPage interactions", () => {
     const menu = await openContextMoreMenu(user);
     expect(
       within(menu).getByRole("menuitem", { name: "Bucket details" }),
-    ).toHaveAttribute("aria-disabled", "true");
+    ).toBeDisabled();
   });
 
   it("keeps Bucket settings available in embedded Advanced browsers", async () => {
@@ -2866,12 +2858,46 @@ describe("BrowserPage interactions", () => {
     expect(
       await screen.findByRole("combobox", { name: "Search scope" }),
     ).toBeInTheDocument();
-    await user.click(screen.getByText("Matching options"));
-    expect(screen.getByRole("combobox", { name: "Object type filter" })).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole("combobox", { name: "Search scope" }), "recursive");
-    await user.type(screen.getByRole("textbox", { name: "Extensions, separated by commas" }), "csv");
-    await user.click(screen.getByRole("button", { name: "Apply" }));
-    await waitFor(() => expect(listBrowserObjectsMock).toHaveBeenCalledWith("acc-1", "bucket-1", expect.objectContaining({ recursive: true, extensions: "csv" })));
+    expect(
+      screen.getByRole("combobox", { name: "Object type filter" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Storage class filter" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Search recursively in subfolders",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Use exact match" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Case-sensitive search" }),
+    ).toBeInTheDocument();
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Search objects" }),
+      "a",
+    );
+    const recursiveSearch = screen.getByRole("checkbox", {
+      name: "Search recursively in subfolders",
+    });
+    await user.click(recursiveSearch);
+    expect(recursiveSearch).toBeChecked();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Search scope" }),
+      "bucket",
+    );
+    expect(recursiveSearch).not.toBeChecked();
+    expect(recursiveSearch).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("combobox", { name: "Search scope" }),
+      ).not.toBeInTheDocument();
+    });
 
     const optionsButton = screen.getByRole("button", {
       name: "Search options",
@@ -2937,7 +2963,7 @@ describe("BrowserPage interactions", () => {
     const firstRender = renderPage();
     await findRowByLabel("a.txt");
     const menu = await openContextMoreMenu(user);
-    await user.click(within(await openDisplaySubmenu(user, menu)).getByRole("menuitemcheckbox", { name: "Folders panel" }));
+    await user.click(within(menu).getByRole("menuitemcheckbox", { name: "Folders panel" }));
     expect(screen.getByRole("region", { name: "Current bucket" })).toBeInTheDocument();
     firstRender.unmount();
     renderPage();
@@ -3182,7 +3208,7 @@ describe("BrowserPage interactions", () => {
       expect(within(toolbar).getByRole("button", { name: "Download" })).toBeEnabled();
 
       await user.click(moreButton);
-      const sheet = await screen.findByRole("dialog", { name: "Selection" });
+      const sheet = await screen.findByRole("dialog", { name: "1 selected" });
       expect(within(sheet).getByRole("button", { name: "Close actions" })).toHaveFocus();
       expect(within(sheet).getByRole("button", { name: "Delete" })).toBeInTheDocument();
 
@@ -3929,7 +3955,7 @@ describe("BrowserPage interactions", () => {
       "More",
     ].map((name) => within(actionsToolbar).getByRole("button", { name }));
 
-    expect(within(actionsToolbar).getByRole("status")).toHaveTextContent("a.txt");
+    expect(within(actionsToolbar).getByRole("status")).toHaveTextContent("1 selected");
     for (let index = 0; index < orderedButtons.length - 1; index += 1) {
       expect(
         Boolean(
@@ -3989,7 +4015,7 @@ describe("BrowserPage interactions", () => {
 
     const actionsToolbar = getActionsToolbar();
 
-    expect(within(actionsToolbar).getByRole("status")).toHaveTextContent("docs");
+    expect(within(actionsToolbar).getByRole("status")).toHaveTextContent("1 selected");
     expect(
       within(actionsToolbar).getByRole("button", { name: "Download" }),
     ).toBeEnabled();
@@ -4218,7 +4244,7 @@ describe("BrowserPage interactions", () => {
     ).toBeInTheDocument();
     expect(
       within(menu).getByRole("menuitem", { name: "Paste" }),
-    ).toHaveAttribute("aria-disabled", "true");
+    ).toBeDisabled();
     expect(
       within(menu).queryByRole("menuitemcheckbox", { name: /Folders panel/i }),
     ).not.toBeInTheDocument();
@@ -4643,7 +4669,7 @@ describe("BrowserPage interactions", () => {
       size: 10,
       metadata: {},
       etag: '"stable-etag"',
-    content_type: "text/plain",
+      content_type: "text/plain",
       storage_class: "GLACIER",
       version_id: "version-2",
     });
@@ -5496,7 +5522,7 @@ describe("BrowserPage interactions", () => {
           size: 10,
           metadata: {},
           etag: '"stable-etag"',
-    content_type: "text/plain",
+          content_type: "text/plain",
         };
       },
     );
@@ -5554,7 +5580,7 @@ describe("BrowserPage interactions", () => {
         size: selector === "acc-1" ? 10 : 11,
         metadata: {},
         etag: '"stable-etag"',
-    content_type: "text/plain",
+        content_type: "text/plain",
       }),
     );
 
@@ -5576,7 +5602,7 @@ describe("BrowserPage interactions", () => {
     ).toBeEnabled();
   });
 
-  it("copies folder markers and contents from the source context", async () => {
+  it("lists folder contents from the source context and recreates the destination folder", async () => {
     const user = userEvent.setup();
     const view = renderPage({ accountIdForApi: "acc-1" });
 
@@ -5586,7 +5612,7 @@ describe("BrowserPage interactions", () => {
         size: 42,
         metadata: {},
         etag: '"stable-etag"',
-    content_type: "text/plain",
+        content_type: "text/plain",
       }),
     );
 

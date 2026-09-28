@@ -28,9 +28,9 @@ Select the execution context before choosing a bucket. The same bucket name may 
      the right side of the stable context bar so the list does not move. The
      mobile bottom bar exposes the essential actions without horizontal
      scrolling. Use `More` for every secondary action.
-   - With Technical S3 tools, use `More > Display > Columns` to choose which object columns are visible. The default column set stays unchanged until you customize it.
+   - With Technical S3 tools, use `More > Columns` to choose which object columns are visible. The default column set stays unchanged until you customize it.
    - Drag a column separator in the objects table header to resize `Name` and visible object columns. Double-click a separator to restore that column default width.
-   - On `/browser`, use `More > Display > Folders panel` to enable Folders. Object details open
+   - On `/browser`, use `More > Folders panel` to enable Folders. Object details open
      in one contextual drawer that is independent from row selection.
    - With Technical S3 tools, **Details** on a folder and **Path details** for
      the current context open the same drawer shell with the effective bucket
@@ -63,7 +63,7 @@ Select the execution context before choosing a bucket. The same bucket name may 
 - Long-running bulk actions surface in **Operations overview**, where queued, active, completed, and failed work stays visible without leaving Browser.
 - `More` remains available in embedded Manager, Ceph Admin, and Portal Browser
   surfaces, where profile and resolved capability facts decide the visible set.
-- On the main `/browser` page, `More > Display` lets every user choose
+- On the main `/browser` page, `More` lets every user choose
   Comfortable or Compact and controls the Folders panel. Compact keeps
   the path and icon actions on one row;
   Comfortable keeps labeled actions on that row when the window is wide and
@@ -71,7 +71,7 @@ Select the execution context before choosing a bucket. The same bucket name may 
   for the root Browser only. The default is a compact view with Folders hidden,
   suitable
   for small windows and dense object lists.
-- With Technical S3 tools, object columns available from `More > Display > Columns` include base listing columns such as `Size`, `Modified`, `Storage class`, and `ETag`, plus lazy detail columns such as `Content-Type`, `Tags`, `Metadata`, `Cache-Control`, `Expires`, and `Restore status`.
+- With Technical S3 tools, object columns available from `More > Columns` include base listing columns such as `Size`, `Modified`, `Storage class`, and `ETag`, plus lazy detail columns such as `Content-Type`, `Tags`, `Metadata`, `Cache-Control`, `Expires`, and `Restore status`.
 - Custom column widths are stored locally in the current browser and stay separate between the main `/browser` page and embedded browser surfaces.
 - `Reset columns` restores both the default visible columns and the default widths.
 - Only base listing columns are sortable. Lazy detail columns are display-only and load on demand for visible rows.
@@ -145,18 +145,9 @@ Check the selected object state, current surface, Browser feature flags, and IAM
   <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="../../assets/screenshots/user/feature-objects-browser.dark.png" alt="Browser operations overview showing a running delete on selected objects" loading="lazy">
 </div>
 
-## Selection scope and volume
+## Selection scope
 
-Select loaded items selects only the rows already loaded in the current listing.
-The selection summary separates files, folders, known bytes and uncalculated
-volume. Calculate volume enumerates selected folders on demand, removes overlaps
-and can be cancelled. Folder contents are never silently counted as zero.
-
-**More > Help and shortcuts** opens the keyboard reference. The main transfer
-status distinguishes direct transfers, transfers via the server and unavailable
-transfers; expand its secondary information for CORS diagnostics. This technical
-status does not grant storage access. Unavailable actions expose their reason
-in the action menus, including keyboard and touch access.
+The selection count covers loaded items only. Selecting all does not select unloaded results. Folder contents are enumerated only when an operation, such as ZIP, needs them; no selection-volume calculation runs in the background.
 
 ## Uploads and clipboard writes
 
@@ -164,17 +155,15 @@ Uploads and pasted objects use the provider's normal S3 write behavior. An exist
 
 Use **Copy** or **Cut**, navigate to the destination, and choose **Paste**. Cross-context transfers require the Advanced profile. A move removes the source only after the copy passes the existing verification; failed transfers remain visible in Operations. Folder and object names retain their exact S3 spelling.
 
-### Search scopes and file filters
+### Search options
 
-Open **Search options** inside the search field to choose **This folder**, **With subfolders**, or **Whole bucket** (**Whole space** in Portal). The same advanced-search panel contains size, modification dates, extensions and matching options. Changes take effect with **Apply**; **Reset** clears the draft. Its badge counts active options. The whole-space scope stays inside the authorized Storage Space and never searches other projects. Scope and filters work without a text query.
+The Advanced profile exposes the original search-options menu: current path or whole bucket, recursive matching, exact match, case sensitivity, object type and storage class. Whole-bucket and recursive search require a text query; changing scope clears incompatible recursion. Size, date and extension filters are no longer supported.
 
-File filters combine minimum/maximum bytes, inclusive modification dates and comma-separated extensions. Dates entered in the browser use your local time zone and are sent with their UTC offset. File filters exclude folders and deletion markers and cannot be combined with the Folders-only option. Existing exact matching, case sensitivity and storage-class options remain available.
-
-Filtering takes place on the server before pagination, including sorted listings. **Partial results** means more listing pages remain; explicitly load more to continue. An empty result offers a wider scope without choosing it automatically. Ascending-name requests retain their bounded scan budget. Global sorted scans stop at 200 S3 pages or 20 seconds and ask you to narrow the scope or return to ascending-name pagination. No object-content or tag index is created.
+Listing and sorted pagination keep their existing bounds. A sorted scan can reach its scan limit; narrow the search or use ascending-name pagination to continue.
 
 ### Personal path favorites
 
-The standalone sidebar has **Buckets / Favorites** tabs. Each favorite shows its bucket, path and context in a subtitle. Search the list or use an item's menu to rename or remove it. Embedded surfaces use a compact star button.
+The standalone sidebar has **Buckets / Favorites** tabs. Each favorite shows its bucket, path and context in a subtitle. Search the list or use an item's menu to rename or remove it. Embedded surfaces expose **Favorites** in **More**.
 
 Use **Pin location** to save the current context and exact path. Favorites synchronize through your UI account and refresh when the window regains focus. Concurrent edits or removals are rejected; refresh before retrying. Unavailable locations remain identifiable and never silently change execution identity.
 
