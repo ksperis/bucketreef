@@ -20,6 +20,7 @@ import { cx, uiMenuClass } from "../../components/ui/styles";
 import { BrowserToolbarActionMenuItem } from "./BrowserActionPresentation";
 import BrowserBucketSelector from "./BrowserBucketSelector";
 import BrowserPathNavigator from "./BrowserPathNavigator";
+import BrowserHelpDialog from "./BrowserHelpDialog";
 import {
   BrowserColumnsMenu,
   BrowserUploadQuickMenu,
@@ -76,6 +77,7 @@ type ToolbarColumns = Pick<
 };
 
 type BrowserToolbarProps = {
+  helpActions?: BrowserActionState[];
   compactMode: boolean;
   bucketSelector: ComponentProps<typeof BrowserBucketSelector>;
   pathNavigator: ComponentProps<typeof BrowserPathNavigator>;
@@ -135,6 +137,7 @@ type BrowserToolbarProps = {
 };
 
 export default function BrowserToolbar({
+  helpActions = [],
   compactMode,
   bucketSelector,
   pathNavigator,
@@ -157,6 +160,7 @@ export default function BrowserToolbar({
   const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
   const columnsMenuRef = useRef<HTMLDivElement | null>(null);
   const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
   const toolbarShellClasses = compactMode
@@ -267,6 +271,16 @@ export default function BrowserToolbar({
           <BrowserPathNavigator {...pathNavigator} />
         </div>
         <div className={toolbarActionsClasses}>
+          {moreMenu.status.accessBadge && <details className="relative ui-caption">
+            <summary className="cursor-pointer" aria-label="Transfer status">
+              {moreMenu.status.accessBadge.label === "Unavailable" ? "Transfers unavailable" : moreMenu.status.accessBadge.label === "Proxy" ? "Transfers available via server" : "Direct transfers available"}
+            </summary>
+            <div className={`${floatingMenuClasses} absolute right-0 z-30 w-72`}>
+              <p>{moreMenu.status.accessBadge.title}</p>
+              <p>Transport availability does not grant storage permissions.</p>
+            </div>
+          </details>}
+          <ListActionButton onClick={() => setHelpOpen(true)} aria-label="Browser help" title="Unavailable actions and keyboard shortcuts">Help</ListActionButton>
           {deletedObjects.showToggle && (
             <ListActionButton iconOnly={compactMode} variant="secondary"
               type="button"
@@ -761,6 +775,7 @@ export default function BrowserToolbar({
         className="hidden"
         onChange={onFileInputChange}
       />
+      {helpOpen && <BrowserHelpDialog actions={helpActions} onClose={() => setHelpOpen(false)} />}
       <input
         ref={folderInputRef}
         type="file"

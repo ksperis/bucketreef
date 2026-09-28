@@ -150,3 +150,11 @@ You can perform day-to-day object operations directly from the UI.
   <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="../../assets/screenshots/user/workspace-browser.light.png" alt="Browser workspace with operations and search controls" loading="lazy">
   <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="../../assets/screenshots/user/workspace-browser.dark.png" alt="Browser workspace with operations and search controls" loading="lazy">
 </div>
+
+## Transfer status and help
+
+The context bar distinguishes direct transfers, transfers via the server and
+unavailable transfers. Expand the status for transport diagnostics; storage
+permissions still apply independently. Help explains unavailable commands for
+the current context and selection and lists keyboard shortcuts. Unavailable
+menu commands remain focusable and show their reason without executing.

@@ -2449,6 +2449,7 @@ export default function BrowserPage({
         <div className={browserShellClasses}>
         <div className={browserChromeShellClasses}>
           <BrowserToolbar
+            helpActions={[...Object.values(pathActionStates).filter((action) => action.section !== "selection"), ...Object.values(selectionActionStates).filter((action) => action.section === "selection")]}
             compactMode={compactMode}
             bucketSelector={{
               rootRef: bucketMenuRef,
