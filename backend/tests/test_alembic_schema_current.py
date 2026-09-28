@@ -26,7 +26,7 @@ def _alembic_config() -> Config:
 def test_alembic_exposes_single_merge_head():
     script = ScriptDirectory.from_config(_alembic_config())
 
-    assert script.get_heads() == ["0136_merge_browser_migration_heads"]
+    assert script.get_heads() == ["0137_browser_path_favorites"]
 
 
 def test_alembic_head_matches_sqlalchemy_metadata(tmp_path, monkeypatch):
@@ -91,8 +91,10 @@ def test_alembic_merge_head_upgrades_from_each_branch(
         with engine.connect() as connection:
             assert connection.scalars(
                 sa.text("SELECT version_num FROM alembic_version")
-            ).all() == ["0136_merge_browser_migration_heads"]
-            assert "browser_presets" in sa.inspect(connection).get_table_names()
+            ).all() == ["0137_browser_path_favorites"]
+            table_names = set(sa.inspect(connection).get_table_names())
+            assert "browser_favorites" in table_names
+            assert "browser_presets" not in table_names
             assert "workflow_version" in {
                 column["name"]
                 for column in sa.inspect(connection).get_columns("bucket_migrations")

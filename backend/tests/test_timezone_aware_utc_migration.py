@@ -33,6 +33,7 @@ def _load_migration() -> ModuleType:
 MIGRATION = _load_migration()
 
 POST_MIGRATION_UTC_COLUMNS = {
+    "browser_favorites": ("created_at", "updated_at"),
     "bucket_ui_tag_assignments": ("created_at", "updated_at"),
     "oidc_authorization_codes": ("created_at", "expires_at"),
     "auth_challenges": ("created_at", "expires_at", "consumed_at"),
@@ -85,6 +86,13 @@ def test_migration_covers_every_utc_datetime_column_present_at_revision() -> Non
         "idle_expires_at",
         "absolute_expires_at",
         "revoked_at",
+    )
+    bucket_migration_columns = expected_current_columns["bucket_migrations"]
+    preparation_index = bucket_migration_columns.index("precheck_checked_at") + 1
+    expected_current_columns["bucket_migrations"] = (
+        *bucket_migration_columns[:preparation_index],
+        "preparation_requested_at",
+        *bucket_migration_columns[preparation_index:],
     )
 
     assert expected_current_columns == model_columns

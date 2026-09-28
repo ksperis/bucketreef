@@ -13,6 +13,7 @@ from app.models.bucket_migration import (
     BucketMigrationCreateRequest,
     BucketMigrationBucketMapping,
 )
+from app.services.bucket_migration import maintenance as bucket_migration_maintenance
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.bucket_migration.workflow import available_actions, preparation_state
 from app.services.mappers.bucket_migration import bucket_migration_to_detail
@@ -326,6 +327,63 @@ def test_current_only_start_does_not_require_version_content_permissions(prepare
     service.start_migration(migration.id, configuration_revision=1)
     assert migration.status == "queued"
     service._precheck_version_aware_source_access.assert_not_called()
+
+
+def test_pause_tolerates_worker_transition_from_queued_to_running(prepared):
+    service, migration, _ = prepared
+    migration.status = "queued"
+    service._commit()
+    original_transition = service._transition_command
+
+    def transition_after_worker_claim(migration_arg, **values):
+        service.db.query(BucketMigration).filter(
+            BucketMigration.id == migration_arg.id
+        ).update({"status": "running"}, synchronize_session=False)
+        return original_transition(migration_arg, **values)
+
+    service._transition_command = transition_after_worker_claim
+
+    paused = service.request_pause(migration.id)
+
+    assert paused.status == "pause_requested"
+    assert paused.pause_requested is True
+
+
+def test_maintenance_bucket_delete_invalidates_bucket_list_caches(prepared, monkeypatch):
+    service, _, _ = prepared
+    account = SimpleNamespace(id=17)
+    context = SimpleNamespace(account=account)
+    client = Mock()
+    service._context_client = Mock(return_value=client)
+    service._precheck_bucket_exists = Mock(return_value=False)
+    purge_result = SimpleNamespace(failed_count=0, missing_bucket=False)
+    monkeypatch.setattr(
+        bucket_migration_maintenance,
+        "purge_bucket_contents",
+        Mock(return_value=purge_result),
+    )
+    manager_cache_invalidate = Mock()
+    browser_cache_invalidate = Mock()
+    monkeypatch.setattr(
+        bucket_migration_maintenance,
+        "invalidate_bucket_listing_cache_for_account",
+        manager_cache_invalidate,
+    )
+    monkeypatch.setattr(
+        bucket_migration_maintenance,
+        "BrowserService",
+        Mock(
+            return_value=SimpleNamespace(
+                invalidate_bucket_list_cache_for_account=browser_cache_invalidate
+            )
+        ),
+    )
+
+    service._delete_maintenance_bucket(context, "source-bucket", lambda: "run")
+
+    client.delete_bucket.assert_called_once_with(Bucket="source-bucket")
+    manager_cache_invalidate.assert_called_once_with(account)
+    browser_cache_invalidate.assert_called_once_with(account)
 
 
 def test_cleanup_failure_preserves_verified_transfer(prepared):

@@ -217,6 +217,7 @@ AUDIT_EVENT_TYPES = (
     'audit.portal.delete_portal_access_key',
     'audit.portal.delete_storage_space',
     'audit.portal.delete_storage_space_icon',
+    'audit.portal.execute_delegated_portal_request',
     'audit.portal.fail_restore_deleted_prefix',
     'audit.portal.fail_storage_space_history_cleanup',
     'audit.portal.finish_restore_deleted_prefix',
