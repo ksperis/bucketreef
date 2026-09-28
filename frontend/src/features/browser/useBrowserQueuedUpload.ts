@@ -12,6 +12,8 @@ import {
 } from "../../api/browserTransfers";
 import {
   abortMultipartUpload,
+  listMultipartParts,
+  proxyUploadPart,
   completeMultipartUpload,
   initiateMultipartUpload,
   type PresignPartRequest,
@@ -20,10 +22,11 @@ import {
 import {
   MULTIPART_CONCURRENCY,
   MULTIPART_THRESHOLD,
-  PART_SIZE,
 } from "./browserConstants";
 import { uploadBrowserFile } from "./browserFileUpload";
-import { uploadBrowserFileMultipart } from "./browserMultipartUpload";
+import { uploadResumableBrowserFile } from "./browserResumableUpload";
+import { listLocalUploads, removeLocalUpload, withLocalUploadLock, type LocalUpload } from "./browserTransferStore";
+import type { PrepareBrowserWrites } from "./useBrowserWriteConflicts";
 import { formatBrowserOperationError } from "./browserOperationErrors";
 import type { BrowserTransferReporter } from "./browserPageContract";
 import type { UploadQueueItem } from "./browserTypes";
@@ -33,6 +36,8 @@ import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry"
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 
 type UseBrowserQueuedUploadOptions = {
+  owner?: string;
+  prepareWrites?: PrepareBrowserWrites;
   clearOperationController: OperationRegistry["clearOperationController"];
   completeOperation: OperationRegistry["completeOperation"];
   createOperationController: OperationRegistry["createOperationController"];
@@ -57,6 +62,8 @@ type UseBrowserQueuedUploadOptions = {
 };
 
 export function useBrowserQueuedUpload({
+  owner = "",
+  prepareWrites,
   clearOperationController,
   completeOperation,
   createOperationController,
@@ -73,7 +80,7 @@ export function useBrowserQueuedUpload({
   useProxyTransfers,
 }: UseBrowserQueuedUploadOptions) {
   return useCallback(
-    async (item: UploadQueueItem) => {
+    async function runUpload(item: UploadQueueItem): Promise<boolean> {
       if (!item.bucket || !item.accountId) return false;
       const {
         file,
@@ -92,6 +99,7 @@ export function useBrowserQueuedUpload({
         `${bucket}/${key}`,
         {
           kind: "upload",
+          destination: { accountId, bucket, prefix: key.slice(0, key.lastIndexOf("/") + 1) },
           groupId,
           groupLabel,
           groupKind,
@@ -110,15 +118,27 @@ export function useBrowserQueuedUpload({
           sizeBytes: file.size,
         }) ?? null;
 
+      let localUploadId: string | null = item.resumeRecord?.id ?? null;
       try {
-        if (!useProxyTransfers && file.size >= MULTIPART_THRESHOLD) {
+        if (file.size >= MULTIPART_THRESHOLD) {
           updateOperation(operationId, { label: "Multipart upload" });
-          await uploadBrowserFileMultipart({
+          await uploadResumableBrowserFile({
             file,
-            partSize: PART_SIZE,
+            scope: { owner, workspace: requestOptions?.workspaceSurface ?? "browser", accountId, bucket, key,
+              requiresSse: Boolean(sseCustomerKeyBase64), writeGuard: item.writeGuard },
+            existing: item.resumeRecord,
+            listParts: uploadId => listMultipartParts(accountId, bucket, uploadId, key, controller.signal, sseCustomerKeyBase64, requestOptions),
+            onPreparing: percent => updateOperation(operationId, { label: "Checking file fingerprint", progress: percent }),
+            onWarning: message => onWarning(message),
+            onResumable: id => {
+              localUploadId = id;
+              updateOperation(operationId, { label: "Multipart upload", recoveryId: id ?? undefined, pause: id ? () => controller.abort("pause") : undefined });
+            },
             concurrency: MULTIPART_CONCURRENCY,
             controller,
             lifecycle: {
+              uploadPart: useProxyTransfers ? async (uploadId, partNumber, blob, signal) =>
+                (await proxyUploadPart(accountId, bucket, uploadId, key, partNumber, blob, signal, sseCustomerKeyBase64, requestOptions)).etag : undefined,
               initiate: async () => {
                 const result = await initiateMultipartUpload(
                   accountId,
@@ -224,9 +244,10 @@ export function useBrowserQueuedUpload({
         onStatus(`Uploaded ${relativePath}`);
         return true;
       } catch (caughtError) {
-        if (isAbortError(caughtError)) {
-          completeOperation(operationId, "cancelled");
-          const message = `Upload cancelled for ${relativePath}`;
+        if ((isAbortError(caughtError) || controller.signal.aborted) && (caughtError as Error)?.name !== "MultipartCancelError") {
+          const paused = controller.signal.reason !== "cancel" && Boolean(localUploadId);
+          completeOperation(operationId, paused ? "paused" : "cancelled");
+          const message = "Upload " + (paused ? "paused" : "cancelled") + " for " + relativePath;
           if (transferId) transferReporter?.fail(transferId, message);
           onStatus(message);
         } else {
@@ -244,12 +265,34 @@ export function useBrowserQueuedUpload({
             );
           }
         }
+        updateOperation(operationId, { pause: undefined, retry: async () => {
+          let resumeRecord: LocalUpload | undefined;
+          try {
+            if (localUploadId) resumeRecord = (await listLocalUploads(owner, requestOptions?.workspaceSurface ?? "browser")).find(record => record.id === localUploadId);
+            if (resumeRecord?.state === "unavailable") { onStatus("This remote multipart upload no longer exists."); return; }
+            const choices = prepareWrites ? await prepareWrites([{ id: item.id, key, size: file.size }], bucket) : [{ id: item.id, key, writeGuard: item.writeGuard }];
+            const choice = choices[0];
+            if (!choice) return;
+            if (resumeRecord && choice.key !== key) {
+              const record = resumeRecord;
+              await withLocalUploadLock(record.id, async () => {
+                await abortMultipartUpload(accountId, bucket, record.uploadId, key, requestOptions);
+                await removeLocalUpload(record.id);
+              });
+              resumeRecord = undefined;
+            }
+            updateOperation(operationId, { retry: undefined });
+            await runUpload({ ...item, id: crypto.randomUUID(), key: choice.key, writeGuard: choice.writeGuard, resumeRecord });
+          } catch (error) { onStatus(formatBrowserOperationError(error, "Unable to retry upload.")); }
+        } });
         return false;
       } finally {
         clearOperationController(operationId);
       }
     },
     [
+      owner,
+      prepareWrites,
       clearOperationController,
       allowProxyFallback,
       completeOperation,

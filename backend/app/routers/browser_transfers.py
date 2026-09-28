@@ -258,3 +258,40 @@ def abort_multipart_upload(
         return {"message": "aborted"}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
+
+
+@router.get("/buckets/{bucket_name}/multipart/{upload_id}/parts", response_model=dict)
+def list_multipart_parts(
+    bucket_name: str, upload_id: str, key: str = Query(..., min_length=1),
+    part_number_marker: int = Query(default=0, ge=0, le=10000),
+    max_parts: int = Query(default=1000, ge=1, le=1000),
+    account: S3ExecutionContext = Depends(get_account_context),
+    service: BrowserService = Depends(get_browser_service),
+    sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> dict:
+    if sse_customer:
+        require_sse_feature(account)
+    try:
+        return service.list_multipart_parts(bucket_name, account, key, upload_id,
+                                            marker=part_number_marker, limit=max_parts, sse_customer=sse_customer)
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
+
+
+@router.post("/buckets/{bucket_name}/multipart/{upload_id}/parts", response_model=dict)
+def upload_multipart_part(
+    bucket_name: str, upload_id: str, key: str = Form(..., min_length=1),
+    part_number: int = Form(..., ge=1, le=10000), file: UploadFile = File(...),
+    account: S3ExecutionContext = Depends(get_account_context),
+    service: BrowserService = Depends(get_browser_service),
+    sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> dict:
+    if sse_customer:
+        require_sse_feature(account)
+    try:
+        return service.upload_multipart_part(bucket_name, account, key, upload_id, part_number, file,
+                                             sse_customer=sse_customer)
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)

@@ -88,7 +88,9 @@ def _is_portal_browser_basic_route_allowed(request: Request) -> bool:
         return False
     if method == "POST" and len(segments) == 4 and segments[3] == "initiate":
         return True
-    if method == "POST" and len(segments) == 5 and segments[4] in {"presign", "complete"}:
+    if method == "POST" and len(segments) == 5 and segments[4] in {"presign", "complete", "parts"}:
+        return True
+    if method == "GET" and len(segments) == 5 and segments[4] == "parts":
         return True
     if method == "DELETE" and len(segments) == 4:
         return True

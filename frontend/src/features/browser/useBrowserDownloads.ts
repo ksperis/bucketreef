@@ -188,7 +188,7 @@ export function useBrowserDownloads({
         "downloading",
         "Preparing download",
         `${bucketName}/${folderPrefix}`,
-        { kind: "download", cancelable: true },
+        { kind: "download", cancelable: true, destination: { accountId: String(accountId), bucket: bucketName, prefix: basePrefix } },
       );
       const controller = createOperationController(operationId);
       let completionStatus: OperationCompletionStatus = "done";
@@ -243,6 +243,11 @@ export function useBrowserDownloads({
           targets: plan.targets,
           totalBytes: plan.totalBytes,
         });
+        updateOperation(operationId, { resultCounts: {
+          succeeded: archiveResult.cancelled ? 0 : plan.targets.length - archiveResult.failedKeys.length,
+          failed: plan.excluded.length + archiveResult.failedKeys.length,
+          cancelled: archiveResult.cancelled ? plan.targets.length - archiveResult.failedKeys.length : 0,
+        } });
         if (archiveResult.cancelled) {
           completionStatus = "cancelled";
           onStatus(`Download cancelled for ${folderLabel}`);
@@ -295,6 +300,7 @@ export function useBrowserDownloads({
       showOperations,
       startOperation,
       streamingZipThresholdMb,
+      accountId,
       updateDownloadDetail,
       updateOperation,
     ],
@@ -306,18 +312,19 @@ export function useBrowserDownloads({
   }, [downloadArchive]);
 
   const downloadMultipleFiles = useCallback(
-    async (files: BrowserItem[]) => {
+    async function runFileDownloads(files: BrowserItem[]): Promise<void> {
       showOperations();
       const operationId = startOperation(
         "downloading",
         `Downloading ${files.length} files`,
         currentPath || bucketName,
-        { kind: "download", cancelable: true },
+        { kind: "download", cancelable: true, destination: { accountId: String(accountId), bucket: bucketName, prefix: files[0]?.key.slice(0, files[0].key.lastIndexOf("/") + 1) ?? "" } },
       );
       const controller = createOperationController(operationId);
       let completionStatus: OperationCompletionStatus = "done";
       let completionError: string | undefined;
       const targets = files.map((item) => ({ item, detailId: makeId() }));
+      const downloadedKeys = new Set<string>();
       setDownloadDetails((previous) => ({
         ...previous,
         [operationId]: targets.map((target) => ({
@@ -362,6 +369,7 @@ export function useBrowserDownloads({
                 controller.signal,
               );
               triggerBlobDownload(target.item.name || "download", blob);
+              downloadedKeys.add(target.item.key);
               updateDownloadDetail(operationId, target.detailId, "done");
               if (reportedId) {
                 transferReporter?.complete(
@@ -433,6 +441,12 @@ export function useBrowserDownloads({
       } finally {
         clearOperationController(operationId);
         completeOperation(operationId, completionStatus, completionError);
+        const remaining = files.filter(item => !downloadedKeys.has(item.key));
+        updateOperation(operationId, { resultCounts: { succeeded: downloadedKeys.size, failed: failedCount, cancelled: Math.max(0, remaining.length - failedCount) } });
+        if (remaining.length) updateOperation(operationId, { retry: async () => {
+          updateOperation(operationId, { retry: undefined });
+          await runFileDownloads(remaining);
+        } });
       }
     },
     [
@@ -442,6 +456,7 @@ export function useBrowserDownloads({
       completeOperation,
       createOperationController,
       currentPath,
+      accountId,
       downloadBlob,
       onStatus,
       parallelism,
@@ -475,7 +490,7 @@ export function useBrowserDownloads({
           ? "Deleted objects were skipped. Open versions to restore before download."
           : null,
       );
-      if (files.length > 1) {
+      if (files.length > 1 || (files[0].sizeBytes != null && files[0].sizeBytes <= 25 * 1024 * 1024)) {
         await downloadMultipleFiles(files);
         return;
       }

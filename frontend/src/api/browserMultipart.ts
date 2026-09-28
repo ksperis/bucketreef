@@ -11,7 +11,35 @@ import {
 } from "./browserRequestHeaders";
 import { buildSseCustomerBackendHeaders } from "./browserSseCustomer";
 import type { BrowserRequestOptions } from "./browserWorkspace";
-import client from "./client";
+import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
+
+export type MultipartPartReceipt = { part_number: number; etag: string; size: number };
+
+export async function listMultipartParts(accountId: S3AccountSelector, bucketName: string, uploadId: string, key: string, signal?: AbortSignal, sseCustomerKeyBase64?: string | null, options?: BrowserRequestOptions): Promise<MultipartPartReceipt[]> {
+  const parts: MultipartPartReceipt[] = [];
+  let marker = 0;
+  for (let page = 0; page < 11; page++) {
+    const { data } = await client.get<{ parts: MultipartPartReceipt[]; is_truncated: boolean; next_part_number_marker?: number }>(
+      `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}/parts`,
+      { params: withS3AccountParam({ key, part_number_marker: marker, max_parts: 1000 }, accountId), signal,
+        headers: mergeBrowserHeaders(buildBrowserWorkspaceHeaders(options), buildSseCustomerBackendHeaders(sseCustomerKeyBase64)) },
+    );
+    parts.push(...data.parts);
+    if (!data.is_truncated) return parts;
+    if (!data.next_part_number_marker || data.next_part_number_marker <= marker) throw new Error("Multipart pagination did not advance.");
+    marker = data.next_part_number_marker;
+  }
+  throw new Error("Multipart part count exceeds the supported limit.");
+}
+
+export async function proxyUploadPart(accountId: S3AccountSelector, bucketName: string, uploadId: string, key: string, partNumber: number, part: Blob, signal?: AbortSignal, sseCustomerKeyBase64?: string | null, options?: BrowserRequestOptions): Promise<MultipartPartReceipt> {
+  const form = new FormData(); form.append("key", key); form.append("part_number", String(partNumber)); form.append("file", part, "part");
+  const { data } = await client.post<MultipartPartReceipt>(`/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}/parts`, form, {
+    params: withS3AccountParam(undefined, accountId), signal, timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+    headers: mergeBrowserHeaders(buildBrowserWorkspaceHeaders(options), buildSseCustomerBackendHeaders(sseCustomerKeyBase64)),
+  });
+  return data;
+}
 
 type MultipartUploadInitRequest = {
   key: string;

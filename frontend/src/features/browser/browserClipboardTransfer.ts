@@ -7,6 +7,7 @@ import type { S3AccountSelector } from "../../api/accountParams";
 import { MULTIPART_THRESHOLD } from "./browserConstants";
 
 export type ClipboardTransferMode = "direct" | "proxy";
+export type ClipboardCopyCheckpoint = { sourceEtag: string; destinationEtag: string; sizeBytes: number };
 
 type ClipboardTransferObjectRef = {
   writeGuard?: BrowserWriteGuard;
@@ -37,6 +38,8 @@ type ClipboardTransferUploadStreamRef = ClipboardTransferObjectRef & {
 };
 
 type TransferClipboardObjectParams = {
+  checkpoint?: ClipboardCopyCheckpoint;
+  onCopied?: (checkpoint: ClipboardCopyCheckpoint) => void;
   source: ClipboardTransferObjectRef;
   destination: ClipboardTransferObjectRef;
   sizeBytes: number;
@@ -63,6 +66,8 @@ type TransferClipboardObjectParams = {
 };
 
 export async function transferClipboardObjectBetweenContexts({
+  checkpoint,
+  onCopied,
   source,
   destination,
   sizeBytes,
@@ -78,6 +83,7 @@ export async function transferClipboardObjectBetweenContexts({
   verifyObject,
   deleteObject,
 }: TransferClipboardObjectParams): Promise<void> {
+  if (!checkpoint) {
   const sourceMode = await resolveMode(source.selector, source.bucket);
   const destinationMode = await resolveMode(
     destination.selector,
@@ -126,11 +132,21 @@ export async function transferClipboardObjectBetweenContexts({
     );
   }
 
-  if (source.etag) {
+  if (source.etag && verified.etag) {
+    checkpoint = { sourceEtag: source.etag, destinationEtag: verified.etag, sizeBytes };
+    onCopied?.(checkpoint);
+  }
+  } else {
+    const target = await verifyObject(destination);
+    if (target.sizeBytes !== checkpoint.sizeBytes || target.etag !== checkpoint.destinationEtag) throw new Error("Copied, not deleted: the destination changed since copying.");
+  }
+
+  const sourceEtag = checkpoint?.sourceEtag ?? source.etag;
+  if (sourceEtag) {
     const current = await verifyObject(source);
-    if (current.etag !== source.etag || current.sizeBytes !== sizeBytes) throw new Error("Copied, not deleted: the source changed.");
+    if (current.etag !== sourceEtag || current.sizeBytes !== (checkpoint?.sizeBytes ?? sizeBytes)) throw new Error("Copied, not deleted: the source changed.");
   } else {
     throw new Error("Copied, not deleted: the source identity could not be verified.");
   }
-  await deleteObject(source);
+  await deleteObject({ ...source, etag: sourceEtag });
 }
