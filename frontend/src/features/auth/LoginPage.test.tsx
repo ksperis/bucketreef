@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../api/client";
 import { LanguageProvider } from "../../components/language";
 import { ThemeProvider } from "../../components/theme";
+import { PRODUCT_VERSION } from "../../constants/product";
 import LoginPage from "./LoginPage";
 
 const mocks = vi.hoisted(() => ({
@@ -126,6 +127,7 @@ describe("LoginPage", () => {
     const passwordInput = screen.getByLabelText("Password");
 
     expect(screen.getAllByText("BucketReef")).not.toHaveLength(0);
+    expect(screen.getByText(`BucketReef v${PRODUCT_VERSION}`)).toBeInTheDocument();
     expect(container.querySelectorAll('img[src="/brand/bucketreef-mark-256.png"]')).toHaveLength(2);
     expect(container.querySelector('img[src="/brand/bucketreef-mark-256.png"]')).toHaveClass("h-7", "w-7");
     expect(container.querySelector('img[src="/brand/bucketreef-mark-256.png"]')).toHaveAttribute("alt", "");

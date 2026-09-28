@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setSessionUserCache } from "../../utils/workspaces";
+import { PRODUCT_VERSION } from "../../constants/product";
 import Topbar from "../Topbar";
 
 const notificationApiMock = vi.hoisted(() => ({
@@ -169,6 +170,15 @@ describe("Topbar account menu", () => {
       "/admin/profile?tab=connections"
     );
     expect(screen.queryByRole("dialog", { name: /user profile|private s3 connections/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the application version in the account menu", async () => {
+    const user = userEvent.setup();
+    render(<Topbar userEmail="admin@example.com" />);
+
+    await user.click(resolveAccountTrigger());
+
+    expect(await screen.findByText(`BucketReef v${PRODUCT_VERSION}`)).toBeInTheDocument();
   });
 
   it("opens an empty notifications panel", async () => {
