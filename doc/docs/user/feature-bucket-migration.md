@@ -115,3 +115,10 @@ against administrators changing policies or independent storage lifecycle action
 - [Workspace: Manager](workspace-manager.md)
 - [Safe destructive and bulk operations](safe-destructive-operations.md)
 - [Upgrade compatibility](../ops/operations-upgrade-compatibility.md)
+
+## Visual example
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="../../assets/screenshots/user/feature-bucket-migration.light.png" alt="Manager bucket migration page with migration runs and statuses" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="../../assets/screenshots/user/feature-bucket-migration.dark.png" alt="Manager bucket migration page with migration runs and statuses" loading="lazy">
+</div>
