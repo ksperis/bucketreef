@@ -289,6 +289,7 @@ def test_upload_via_proxy_falls_back_to_upload_file_content_type(monkeypatch):
         file_obj,
         content_type,
         sse_customer=None,
+        write_guard=None,
     ):  # noqa: ANN001
         captured.update(
             {

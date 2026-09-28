@@ -151,3 +151,17 @@ Select loaded items selects only the rows already loaded in the current listing.
 The selection summary separates files, folders, known bytes and uncalculated
 volume. Calculate volume enumerates selected folders on demand, removes overlaps
 and can be cancelled. Folder contents are never silently counted as zero.
+
+## Destination conflicts
+
+Uploads and copies inspect destination keys before starting. Existing objects
+require an explicit Replace, Skip or Keep both decision, individually or for
+the batch. Keep both checks a numbered name before the extension. Duplicate
+keys within one batch must be skipped or assigned distinct names. A denied
+inspection never means the object is absent.
+
+Destinations are rechecked when writing. AWS endpoints additionally use signed
+conditional writes; other providers use an explicitly non-atomic preflight.
+Changes detected after a decision stop the affected operation; retry it after
+reviewing the new destination. Conditions are never silently removed after a
+provider rejection. Replacement may overwrite data when versioning is disabled.

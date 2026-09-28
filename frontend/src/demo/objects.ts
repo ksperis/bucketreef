@@ -42,7 +42,7 @@ function checkUpload(c: DemoRequest, blob: Blob) {
   if (used + blob.size > TOTAL_LIMIT) throw new DemoError(413, "Demo storage is limited to 100 MiB of imported files, including retained versions. Reset the demo to release all storage.");
 }
 export async function objects(c: DemoRequest): Promise<Response | undefined> {
-  const match = c.path.match(/^\/browser\/buckets\/([^/]+)\/(objects(?:\/columns)?|versions|object-meta|object-tags|object-legal-hold|object-retention|presign|proxy-upload|download|delete|folders|local-upload)$/);
+  const match = c.path.match(/^\/browser\/buckets\/([^/]+)\/(objects(?:\/columns)?|versions|object-meta|object-tags|object-legal-hold|object-retention|write-preflight|presign|proxy-upload|download|delete|folders|local-upload)$/);
   const portal = c.path.match(/^\/portal\/storage-spaces\/([^/]+)\/objects(?:\/(detail|versions|restore|download))?$/);
   if (!match && !portal) return undefined;
   const space = portal ? required(c.state.spaces.find(s => s.id === decodeURIComponent(portal[1]))) : c.state.spaces.find(s => s.bucketName === decodeURIComponent(match![1]));
@@ -50,11 +50,15 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   const endUser = c.persona === "member" || c.persona === "project-manager";
   const role = space && spaceRole(c, space);
   if (endUser && (!space || !role)) throw new DemoError(403, "This space is not shared with the selected identity");
-  const writes = c.method !== "GET" && !(match?.[2] === "objects/columns" || (match?.[2] === "presign" && c.body.operation === "get_object"));
+  const writes = c.method !== "GET" && !(match?.[2] === "write-preflight" || match?.[2] === "objects/columns" || (match?.[2] === "presign" && c.body.operation === "get_object"));
   if (endUser && writes && (role === "Viewer" || space?.archived_at)) throw new DemoError(403, "This space is read-only for the selected identity");
   const action = portal ? (portal[2] ? `portal-${portal[2]}` : "objects") : match![2];
   const { method, url, body } = c;
   const key = String(body.key ?? url.searchParams.get("key") ?? "");
+  if (action === "write-preflight" && method === "POST") return json({ protection: "preflight", objects: (body.keys as string[]).map(key => {
+    const version = bucket.objects.find(object => object.key === key)?.versions[0];
+    return version && !version.deleted ? { key, exists: true, etag: version.etag, size: version.size, modified: version.last_modified } : { key, exists: false, etag: null };
+  }) });
   if (action === "objects" && method === "GET") return json(objectListing(bucket, url));
   if ((action === "versions" || action === "portal-versions") && method === "GET") {
     const list = bucket.objects.filter(o => action === "portal-versions" ? o.key === key : o.key.startsWith(url.searchParams.get("prefix") ?? key));

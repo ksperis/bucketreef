@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -8,6 +9,7 @@ import { MULTIPART_THRESHOLD } from "./browserConstants";
 export type ClipboardTransferMode = "direct" | "proxy";
 
 type ClipboardTransferObjectRef = {
+  writeGuard?: BrowserWriteGuard;
   selector: S3AccountSelector;
   bucket: string;
   key: string;

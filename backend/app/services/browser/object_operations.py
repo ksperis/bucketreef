@@ -21,11 +21,16 @@ from app.models.browser import (
     PresignedUrl,
     SseCustomerContext,
 )
+from .write_conflicts import check_destination, observe_destination, supports_conditional_writes
 from app.services.s3_deletion import delete_objects
 from app.services.s3_execution_context import S3ExecutionTarget
 
 
 class BrowserObjectOperationsMixin:
+    def inspect_write_destinations(self, bucket_name, account, keys, sse_customer=None):
+        client = self._client(account)
+        return {"objects": [observe_destination(client, bucket_name, key, self._sse_customer_params(sse_customer)) for key in dict.fromkeys(keys)], "protection": "conditional" if supports_conditional_writes(account) else "preflight"}
+
     def presign(
         self,
         bucket_name: str,
@@ -58,6 +63,9 @@ class BrowserObjectOperationsMixin:
                 )
                 return PresignedUrl(url=url, method="DELETE", expires_in=expires, headers=headers)
             if payload.operation == "put_object":
+                conditions = check_destination(client, account, bucket_name, payload.key, payload.write_guard, self._sse_customer_params(sse_customer))
+                params.update(conditions)
+                headers.update({"If-Match" if name == "IfMatch" else "If-None-Match": value for name, value in conditions.items()})
                 if payload.content_type:
                     headers["Content-Type"] = payload.content_type
                 url = client.generate_presigned_url(
@@ -123,6 +131,7 @@ class BrowserObjectOperationsMixin:
         affected_buckets = (bucket_name, source_bucket) if payload.move else (bucket_name,)
         with self._object_mutation(account, *affected_buckets):
             try:
+                kwargs.update(check_destination(client, account, bucket_name, payload.destination_key, payload.write_guard))
                 resp = client.copy_object(**kwargs)
                 destination_version_id = resp.get("VersionId")
                 if payload.replace_tags:
@@ -310,6 +319,7 @@ class BrowserObjectOperationsMixin:
         key: str,
         upload_id: str,
         payload: CompleteMultipartUploadRequest,
+        sse_customer: Optional[SseCustomerContext] = None,
     ) -> None:
         if not payload.parts:
             raise RuntimeError("No parts provided to complete multipart upload")
@@ -323,6 +333,8 @@ class BrowserObjectOperationsMixin:
                     Key=key,
                     UploadId=upload_id,
                     MultipartUpload={"Parts": completed},
+                    **check_destination(client, account, bucket_name, key, payload.write_guard, self._sse_customer_params(sse_customer)),
+                    **self._sse_customer_params(sse_customer),
                 )
             except (ClientError, BotoCoreError) as exc:
                 raise RuntimeError(f"Unable to complete multipart upload for '{key}': {exc}") from exc

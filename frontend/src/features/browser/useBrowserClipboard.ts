@@ -1,3 +1,5 @@
+import type { PrepareBrowserWrites } from "./useBrowserWriteConflicts";
+import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -10,7 +12,6 @@ import {
 } from "../../api/accountParams";
 import {
   copyObject,
-  createFolder,
   deleteObjects,
   fetchObjectMetadata,
 } from "../../api/browserObjects";
@@ -58,6 +59,7 @@ type ClipboardTransferParameters = Parameters<
 >[0];
 
 type UseBrowserClipboardOptions = {
+  prepareWrites?: PrepareBrowserWrites;
   accountId: S3AccountSelector;
   bucketName: string;
   cancelCopyDetails: OperationRegistry["cancelCopyDetails"];
@@ -86,6 +88,7 @@ type UseBrowserClipboardOptions = {
 };
 
 export function useBrowserClipboard({
+  prepareWrites,
   accountId,
   bucketName,
   cancelCopyDetails,
@@ -235,6 +238,7 @@ export function useBrowserClipboard({
       bucket,
       key,
       stream,
+      writeGuard,
       sizeBytes,
       contentType,
       sseCustomerKeyBase64,
@@ -272,8 +276,9 @@ export function useBrowserClipboard({
               bucket,
               uploadId,
               key,
-              { parts },
+              { parts, write_guard: writeGuard },
               requestOptions,
+              sseCustomerKeyBase64,
             ),
           abort: (uploadId) =>
             abortMultipartUpload(
@@ -330,7 +335,9 @@ export function useBrowserClipboard({
     const { items, sourceBucket, sourceSelector, mode } = clipboard;
     const isMove = mode === "move";
     const useServerSideCopy = clipboardMatchesContext;
-    const copyTasks: Array<{
+    let copyTasks: Array<{
+      writeGuard?: BrowserWriteGuard;
+      modified?: string;
       sourceSelector: S3AccountSelector;
       sourceBucket: string;
       sourceKey: string;
@@ -357,6 +364,7 @@ export function useBrowserClipboard({
           sourceSelector,
           sourceBucket,
           sourceKey: item.key,
+          modified: item.modified,
           destinationBucket,
           destinationKey,
           detailId,
@@ -380,11 +388,6 @@ export function useBrowserClipboard({
       ) {
         skipped += 1;
         continue;
-      }
-      try {
-        await createFolder(accountId, destinationBucket, destinationFolderPrefix);
-      } catch {
-        // Object copies below still create the effective S3 prefix.
       }
       const objects = await listAllObjectsForPrefix(
         sourcePrefix,
@@ -410,6 +413,7 @@ export function useBrowserClipboard({
           sourceSelector,
           sourceBucket,
           sourceKey: object.key,
+          modified: object.last_modified || undefined,
           destinationBucket,
           destinationKey,
           detailId,
@@ -422,6 +426,19 @@ export function useBrowserClipboard({
           sizeBytes: object.size ?? undefined,
         });
       });
+    }
+
+    if (prepareWrites) {
+      try {
+        const prepared = await prepareWrites(copyTasks.map((task) => ({ id: task.detailId, key: task.destinationKey, modified: task.modified, size: copyDetailItems.find((item) => item.id === task.detailId)?.sizeBytes })), destinationBucket);
+        const byId = new Map(prepared.map((item) => [item.id, item]));
+        copyTasks = copyTasks.flatMap((task) => { const ready = byId.get(task.detailId); return ready ? [{ ...task, destinationKey: ready.key, writeGuard: ready.writeGuard }] : []; });
+        for (let index = copyDetailItems.length - 1; index >= 0; index--) {
+          const ready = byId.get(copyDetailItems[index].id);
+          if (!ready) copyDetailItems.splice(index, 1);
+          else { copyDetailItems[index].key = ready.key; copyDetailItems[index].label = ready.key; }
+        }
+      } catch (error) { onStatus(error instanceof Error ? error.message : "Destination inspection failed."); return; }
     }
 
     if (copyTasks.length === 0) {
@@ -490,6 +507,7 @@ export function useBrowserClipboard({
                   source_key: task.sourceKey,
                   destination_key: task.destinationKey,
                   move: isMove,
+                  write_guard: task.writeGuard,
                 },
                 controller.signal,
                 requestOptions,
@@ -521,6 +539,7 @@ export function useBrowserClipboard({
                   selector: accountId,
                   bucket: destinationBucket,
                   key: task.destinationKey,
+                  writeGuard: task.writeGuard,
                   sseCustomerKeyBase64: destinationSseCustomerKeyBase64,
                 },
                 sizeBytes: sourceMetadata.size,
@@ -627,6 +646,7 @@ export function useBrowserClipboard({
     bucketName,
     cancelCopyDetails,
     clearOperationController,
+    prepareWrites,
     clipboard,
     clipboardMatchesContext,
     completeOperation,

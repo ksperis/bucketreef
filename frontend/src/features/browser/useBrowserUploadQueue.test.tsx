@@ -145,7 +145,7 @@ describe("useBrowserUploadQueue", () => {
     };
     const { result } = renderHook(() => useBrowserUploadQueue(options));
 
-    act(() => result.current.addFiles([candidate("blocked.txt")]));
+    act(() => { void result.current.addFiles([candidate("blocked.txt")]); });
 
     expect(options.startUpload).not.toHaveBeenCalled();
     expect(options.setUploadQueue).not.toHaveBeenCalled();
