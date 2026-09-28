@@ -29,7 +29,7 @@ export const ensureSuccessfulBrowserTransferResponse = async (
   fallback: string,
 ): Promise<Response> => {
   if (!response.ok) {
-    throw Object.assign(new Error(await formatBrowserFetchTransferError(response, fallback)), { status: response.status });
+    throw new Error(await formatBrowserFetchTransferError(response, fallback));
   }
   return response;
 };

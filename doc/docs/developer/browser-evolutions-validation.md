@@ -1,118 +1,116 @@
-# Browser evolutions: implementation and validation
+# Browser simplification: implementation and validation
 
-Implementation record for 28 September 2026, based on commit
-`6f37a18ccbaf9f1c189e62ec95b9d5d4bac3880d`. Work is isolated on
-`codex/browser-evolutions`; publication and production qualification are separate.
+Implementation record for 28 September 2026. The managed worktree starts from
+`main` at `75f29467` on `codex/browser-simplification`. Earlier Browser behavior at
+`6f37a18c` is a reference, not a sequence of blind reverts. The original checkout
+is preserved; delivery consists of local commits only.
 See the [user guide](../user/feature-objects-browser.md) for behavior and limits.
 
-## Shared contracts
+## Retained behavior and shared contracts
 
-- The shared Browser drives standalone Browser, Manager, Ceph Admin and Portal.
-  Existing workspace headers, context checks and Portal grants remain authoritative.
-  Source and destination are checked separately.
-- Listing filters and folder-marker enumeration are additive and participate in
-  listing/cache signatures. Normal listings still hide empty-folder markers as files.
-- Destination observations are checked again at write time. AWS conditional writes
-  require the pinned boto3 1.43.103; other endpoints report non-atomic preflight.
-  Conditions are never retried as unconditional replacement or deletion.
-- Copy manifests deduplicate selections and include empty folders. Cross-context
-  reads bind to the version/ETag; move retries preserve completed copy receipts.
-- Migration `0135_browser_presets` stores only personal favorites/views, isolated by
-  user and workspace with optimistic revisions. There is no upload tracking table.
-- Multipart receipts and bounded batch history live in IndexedDB, without file
-  content, credentials, presigned URLs or SSE-C keys. S3 sessions receive a
-  domain-separated HMAC recovery reference; it grants no authority. Their empty
-  API selector means the authenticated session, never an invented account.
-- Demo mutations stay in its local store and preserve shared bucket/object state.
+- Mixed file/folder ZIP selections retain recursive enumeration, deduplication,
+  path and collision protection, streaming, bounded Blob fallback, cancellation
+  and immediate operation results. Empty archives and streaming writer closure
+  retain the fixes made after the original implementation.
+- Personal path favorites retain the standalone **Buckets / Favorites** sidebar,
+  bucket/path/context subtitles, create/rename/delete and account synchronization.
+  Embedded Browser surfaces expose favorites through **More**. Inaccessible
+  contexts never silently switch execution identity.
+- Current-object previews retain CSV tables, collapsible JSON, raw-text fallback,
+  text search, loaded-file navigation and unsaved-change protection. Limits remain
+  50 MiB per object and 64 KiB of text; previews execute no active markup.
+- The original toolbar, framed object icons, display controls, transfer indicators,
+  search-options menu and simple selection count are restored. Selection covers
+  loaded items only. Search retains its original query, scope, recursion, exact
+  match, case, item-type and storage-class contracts and bounded pagination.
+- Uploads and Copy/Cut/Paste use the original S3 overwrite/versioning behavior.
+  The original multipart transfer, progress, cancellation and in-session results
+  remain. Manager workspace headers and source/destination Portal access checks
+  remain authoritative, including folder-marker creation during clipboard copy.
+- Version listing, downloading and restoration retain exact version identifiers.
+  Historical preview and comparison are removed. Deep links, exact S3 keys,
+  independent navigation fixes and SDK compatibility are preserved.
 
-## Approved UX
+Conflict preflight and destination workflows, rich listing filters, selection
+volume calculation, saved views, targeted failure replay, persistent transfer
+history, upload recovery, fingerprints, workers and cross-tab locks are removed.
+Their unused components, API contracts, routes, translations and demo consumers
+are removed as well. Ordinary display preferences remain independent of favorites.
 
-Standalone Browser uses sidebar **Buckets / Favorites** tabs, grouped locations
-and saved views, and a bucket/path/context subtitle. Embedded views keep a compact
-favorites entry point. Scope and file filters are edited together inside advanced
-search; its badge summarizes active options. The path bar is lighter, file/folder
-icons have no decorative tile, display options are nested in **More > Display**,
-and **Help and shortcuts** sits at the bottom of that menu.
+## Persistence transition
 
-Keyboard checks cover sidebar tabs, search focus return and opening/closing the
-display submenu. Search remains accessible in the mobile list. Existing theme,
-density, action primitives and administrative identity warnings are retained.
+Migration `0137_browser_path_favorites` follows
+`0136_merge_browser_migration_heads`. It creates `browser_favorites` with only
+`id`, `user_id`, `name`, `surface`, `workspace`, `context`, `bucket`, `prefix`,
+`revision`, `created_at` and `updated_at`; dates use `UTCDateTime`.
 
-## Automated evidence
+Only path favorites are copied from `browser_presets`. Their IDs, owners,
+revisions, dates and exact paths are preserved. Saved views are discarded and the
+old table and JSON payload column are dropped. A downgrade reconstructs the old
+format for surviving favorites; it cannot reconstruct discarded views. Historical
+migrations are unchanged. No production database was migrated during validation.
 
-The authenticated harness uses an isolated backend, fresh application database and
-Moto S3. It does not connect to production storage. Commands run from the appropriate
-`frontend/` or `backend/` directory, with dependencies from this branch.
+The only CRUD route is `/users/me/browser-favorites`, with strict dedicated
+payloads, personal ownership, surface separation, the existing 500-item limit and
+optimistic revisions. The former presets route has no alias. The demo uses the
+same path-only model and an incremented data version.
+
+Session responses no longer contain recovery identifiers. A non-blocking,
+idempotent `deleteDatabase` request retires `bucketreef-browser-transfers-v1`;
+it never opens that database or sends an S3 abort. Authorized users can still
+inspect and abort remote multipart uploads through the existing tools.
+
+## Validation evidence
+
+The authenticated harness uses a fresh application database and Moto S3; it does
+not connect to production storage. Commands run from `frontend/` or `backend/`.
 
 | Area | Evidence |
 | --- | --- |
-| Frontend contracts | 3,079 passing tests in the full Vitest suite, including recursive manifests, conflicts, conditional copy/move, filters, ZIP safety/memory limits, presets, previews, version comparison, multipart recovery and S3 session uploads. |
-| Backend Browser/auth | 324 passing tests across `test_browser*.py`, `test_auth_session_flow.py` and `test_session_models.py`. |
-| Portal/Manager identity | 41 passing tests across `test_portal_exact_object_identity.py`, `test_manager_browser_data_access.py` and `test_browser_recovery_identity.py` (overlaps the preceding group). |
-| Migration | Fresh SQLite upgrade to head, downgrade to `0134_portal_collaborator_delegation`, then re-upgrade succeeded; existing tests cover user isolation and concurrent revision rejection. |
-| Combined authenticated journeys | Six Chromium scenarios in `e2e/browser/browser-evolutions.spec.ts`. |
-| Static demo | 17 Chromium scenarios across all retained workspaces; demo build and normal-build isolation check pass. |
-| Frontend tooling | Typecheck, lint (one existing warning), shared listing checks, production build, chunk-cycle and bundle-budget checks. |
-| Documentation | Strict MkDocs build passed; the Git-date plugin used the current timestamp for this new, not-yet-committed page. |
+| Frontend | Full Vitest suite: 507 files and 3,089 tests passed. Subsequent targeted tests passed for the final clipboard workspace header, demo favorites and transfer-error cleanup. |
+| Backend | 356 tests passed across Browser, Portal exact-object/read access, auth-session flow and session models; two additional API/schema removal-contract tests and seven Manager Browser access tests passed. |
+| Migration | Seven favorites tests include populated multi-user migration, exact fields/paths/dates/revisions, removal of saved views, downgrade/re-upgrade and a complete empty-database Alembic upgrade to head. |
+| Authenticated Browser | Six combined Chromium journeys passed, plus seven existing navigation, upload, download and version-list regressions. |
+| Static demo | All 17 Chromium journeys passed; three additional path-favorite unit tests cover isolation, strict payloads and optimistic updates. |
+| Frontend tooling | Typecheck, lint, listing presentation, production/demo builds, chunk-cycle and bundle-budget checks passed. Normal-build demo isolation passed. |
+| Documentation | Strict MkDocs build passed. |
+| Retired functionality | OpenAPI and model tests assert the removed routes, filters, session fields and generic preset columns are absent; source inspection finds no recovery worker, lock or database-open path. |
 
-The combined journeys cover account-synchronized favorites in a second browser
-context, a saved filtered view, filters without text, keyboard menus, both themes,
-390-pixel mobile layout, explicit conflict resolution, Unicode rename, mixed ZIP
-bytes, exact historical JSON preview/comparison and an unchanged current version.
+The combined Browser journeys cover favorites shared between two browser contexts,
+rename/delete, original search options, normal overwrite, mixed ZIP bytes, CSV/JSON
+search and navigation, 1440-pixel desktop and 390-pixel mobile in both themes,
+a 26 MiB direct multipart upload, a proxy upload and original Copy/Cut/Paste.
+The layout journey records screenshots and asserts no uncaught browser errors.
 
-Multipart scenarios use real workers, IndexedDB, Web Locks and Moto parts. A
-26 MiB upload is paused after its first 8 MiB part and reloaded. Only parts 2–4
-are sent on resume; the completed object's bytes are checked. The direct scenario
-drives the transport module; the proxy scenario reselects a wrong then correct
-file through the recovery dialog. A second tab cannot acquire the same upload
-lock. History retention excludes expired batches and keeps 20 completed batches.
+The ZIP browser journey uses the bounded Blob path because headless tests cannot
+operate an OS save dialog. Focused tests exercise streaming completion, cancellation,
+path collisions, overlapping selections, empty archives and memory limits. Preview
+tests cover malformed/truncated content and pending-edit guards. Listing and access
+tests cover pagination, sorting, exact keys and Portal identity boundaries.
 
-The ZIP scenario exercises the bounded Blob fallback because headless automation
-cannot operate the operating system's save dialog. Streaming and cancellation
-contracts are covered by focused tests.
-
-To reproduce the new combined suite against an already-running authenticated
-harness (ports are examples):
+For an already-running harness (example ports):
 
 ```sh
-E2E_FRONTEND_BASE_URL=http://localhost:14173 E2E_BACKEND_PORT=18081 E2E_S3_ENDPOINT=http://127.0.0.1:15001 npx playwright test -c playwright.e2e.config.ts --project=chromium --no-deps e2e/browser/browser-evolutions.spec.ts
+E2E_FRONTEND_BASE_URL=http://localhost:14289 E2E_BACKEND_PORT=18189 E2E_S3_ENDPOINT=http://127.0.0.1:15189 npx playwright test -c playwright.e2e.config.ts --project=chromium --no-deps e2e/browser/browser-evolutions.spec.ts
 ```
 
 Use the [authenticated harness guide](authenticated-ui-ai-agents.md) to prepare
-the runtime and fixture identities. Do not run first-admin bootstrap twice.
+fixture identities. If the saved session expires, sign in again as the fixture
+user and refresh the private storage-state file; do not repeat first-admin
+bootstrap. An expired fixture session and one outdated test label were corrected
+before recording the passing journeys above.
 
-## Build size and pre-existing checks
+## Existing checks and qualification boundaries
 
-With identical installed frontend dependencies, a separate build of the starting
-HEAD contains 4,020,617 bytes of manifest-listed JavaScript; the implementation is
-about 4,108,100 bytes, an increase of approximately 2.18%. The old 3,900 KiB total
-budget already failed on that starting HEAD. The revised 4,050 KiB budget leaves
-less than 1% margin over the measured implementation. Entry and largest-chunk limits
-are unchanged. No new frontend package is added; the three Feather assets retain
-their license.
+`deadcode:check` reports no Browser issue. It still reports two existing unused
+exports outside this scope: `localizedNativeValidationMessage` in
+`components/ui/nativeValidation.ts` and `PortalRoleChangeRequestCreate` in
+`api/portalRequests.ts`. Lint has one existing `validationNonce` dependency warning
+in `OnboardingPage.tsx`. Neither check is weakened or given new exclusions.
 
-`deadcode:check` still reports two existing unused exports:
-`localizedNativeValidationMessage` in `components/ui/nativeValidation.ts` and
-`PortalRoleChangeRequestCreate` in `api/portalRequests.ts`. Both are present at
-the starting HEAD. Lint also retains the existing unnecessary `validationNonce`
-dependency warning in `OnboardingPage.tsx`. These are outside the Browser changes.
-
-## Qualification boundaries
-
-No Ceph/RGW test endpoint or its test credentials were configured. Conditional
-writes/deletes and large multipart server-side copies therefore still need
-qualification against the deployed RGW version. Moto and mocked-provider tests
-are not evidence of that compatibility.
-
-The authenticated real-backend harness covers standalone Browser. Manager,
-Ceph Admin and Portal use shared-component/API tests and the static demo journeys;
-those do not prove a live Ceph IAM deployment. Backend access tests cover revoked
-or different source/destination rights, while the local harness does not reproduce
-a live permission revocation during an in-flight transfer.
-
-Recovery is explicit and limited to multipart uploads. Web Lock support and
-available local storage are required; clearing storage loses tracking. Native
-save dialogs, physical browser process termination, storage eviction and a live
-SSE-C provider remain manual environment checks. No claim of background transfer
-after browser closure, resumable ZIP generation or resumable server-side copying
-is made.
+No Ceph/RGW test endpoint or credentials were configured. Moto, component tests and
+the static demo are not live Ceph qualification. The authenticated real-backend
+journeys cover standalone Browser; embedded Manager, Ceph Admin and Portal rely
+on their shared components, API/access tests and demo journeys. Native save dialogs
+and physical browser termination remain manual environment checks. No background
+transfer, resumable ZIP or upload recovery after closure is claimed.

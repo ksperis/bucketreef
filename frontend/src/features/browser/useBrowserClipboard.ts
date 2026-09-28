@@ -381,7 +381,7 @@ export function useBrowserClipboard({
         continue;
       }
       try {
-        await createFolder(accountId, destinationBucket, destinationFolderPrefix);
+        await createFolder(accountId, destinationBucket, destinationFolderPrefix, requestOptions);
       } catch {
         // Object copies below still create the effective S3 prefix.
       }

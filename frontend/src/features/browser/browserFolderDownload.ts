@@ -33,7 +33,7 @@ export type BrowserArchiveFileHandle = {
   createWritable: () => Promise<WritableFileStream>;
 };
 
-export type BrowserArchiveSaveFilePicker = (
+type BrowserArchiveSaveFilePicker = (
   options?: unknown,
 ) => Promise<BrowserArchiveFileHandle>;
 
@@ -108,7 +108,7 @@ export const buildBrowserFolderDownloadPlan = (
   return { targets, excluded, totalBytes: targets.reduce((sum, target) => sum + target.sizeBytes, 0) };
 };
 
-export const browserArchiveSaveFilePicker = ():
+const browserArchiveSaveFilePicker = ():
   | BrowserArchiveSaveFilePicker
   | undefined =>
   typeof window === "undefined"

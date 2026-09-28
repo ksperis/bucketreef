@@ -1849,7 +1849,7 @@ export default function BrowserPage({
   const renderWorkspaceSidebarBody = useCallback<BrowserSidebarBodyRenderer>(
     ({ compact, variant, closeMobile }) => (
       <BrowserWorkspaceSidebar
-        favorites={cloneElement(favoriteControl, { variant: "sidebar", compact, onApply: (preset: BrowserFavorite) => { favoriteControl.props.onApply(preset); if (variant === "mobile") closeMobile(); } })}
+        favorites={cloneElement(favoriteControl, { variant: "sidebar", compact, onApply: (favorite: BrowserFavorite) => { favoriteControl.props.onApply(favorite); if (variant === "mobile") closeMobile(); } })}
         compact={compact}
         variant={variant}
         closeMobile={closeMobile}

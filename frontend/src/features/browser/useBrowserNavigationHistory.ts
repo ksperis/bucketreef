@@ -35,7 +35,7 @@ const sameBrowserLocation = (
   right: BrowserNavigationLocation,
 ) => left.bucketName === right.bucketName && left.prefix === right.prefix;
 
-export function readBrowserLocation(search: string): BrowserNavigationLocation {
+function readBrowserLocation(search: string): BrowserNavigationLocation {
   const params = new URLSearchParams(search);
   return {
     bucketName: params.get("bucket")?.trim() ?? "",

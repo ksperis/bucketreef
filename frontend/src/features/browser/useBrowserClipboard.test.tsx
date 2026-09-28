@@ -6,6 +6,7 @@ import { useBrowserClipboard } from "./useBrowserClipboard";
 
 const apiMocks = vi.hoisted(() => ({
   copyObject: vi.fn(),
+  createFolder: vi.fn(),
   fetchObjectMetadata: vi.fn(),
   getBrowserBucketCorsStatus: vi.fn(),
 }));
@@ -30,6 +31,7 @@ vi.mock("../../api/browserObjects", async () => {
   return {
     ...actual,
     copyObject: (...args: unknown[]) => apiMocks.copyObject(...args),
+    createFolder: (...args: unknown[]) => apiMocks.createFolder(...args),
     fetchObjectMetadata: (...args: unknown[]) =>
       apiMocks.fetchObjectMetadata(...args),
   };
@@ -112,6 +114,15 @@ describe("useBrowserClipboard", () => {
     transferMocks.transferClipboardObjectBetweenContexts.mockResolvedValue(
       undefined,
     );
+  });
+
+  it("creates a pasted folder with its exact path and workspace identity", async () => {
+    const options = { ...createOptions(), normalizedPrefix: "target/", requestOptions: { workspaceSurface: "manager" as const } };
+    const { result } = renderHook(() => useBrowserClipboard(options));
+    act(() => result.current.copy([{ ...item(" été//"), type: "folder", name: "été" }]));
+    await act(async () => result.current.paste());
+    expect(apiMocks.createFolder).toHaveBeenCalledWith("acc-1", "source-bucket", "target/été/", options.requestOptions);
+    expect(options.listAllObjectsForPrefix).toHaveBeenCalledWith(" été//", "source-bucket", "acc-1");
   });
 
   it("keeps only live objects when copying", () => {

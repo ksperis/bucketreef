@@ -5624,7 +5624,7 @@ describe("BrowserPage interactions", () => {
     await pasteFromCurrentPath(user);
 
     await waitFor(() => {
-      expect(createFolderMock).toHaveBeenCalledWith("acc-2", "bucket-1", "docs/");
+      expect(createFolderMock).toHaveBeenCalledWith("acc-2", "bucket-1", "docs/", undefined);
       expect(listBrowserObjectsMock).toHaveBeenCalledWith(
         "acc-1",
         "bucket-1",
