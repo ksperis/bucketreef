@@ -18,7 +18,13 @@ import UiProgressBar from "../../../components/ui/UiProgressBar";
 import { useManagerMigrationDetail } from "./hooks";
 import { managerPageBreadcrumbs } from "../managerBreadcrumbs";
 import { useManagerContexts } from "../useManagerContexts";
-import { extractError, formatDateTime, stepLabel } from "./shared";
+import {
+  extractError,
+  formatDateTime,
+  hasMigrationDifferences,
+  migrationDifferenceSample,
+  stepLabel,
+} from "./shared";
 import { MigrationStages, migrationLabel } from "./MigrationWorkflow";
 
 type Action =
@@ -607,14 +613,30 @@ export default function ManagerMigrationDetailPage() {
                     Cleanup: {item.cleanup_error}
                   </UiInlineMessage>
                 )}
-                {item.diff_sample && (
+                {hasMigrationDifferences(item) && (
                   <UiDetails>
                     <summary className="cursor-pointer">
                       Differences found
                     </summary>
-                    <pre className="whitespace-pre-wrap break-all">
-                      {JSON.stringify(item.diff_sample, null, 2)}
-                    </pre>
+                    <dl className="mt-2 grid gap-1 sm:grid-cols-3 ui-caption">
+                      <div>
+                        <dt>Content differences</dt>
+                        <dd>{item.different_count ?? "Not reported"}</dd>
+                      </div>
+                      <div>
+                        <dt>Source only</dt>
+                        <dd>{item.only_source_count ?? "Not reported"}</dd>
+                      </div>
+                      <div>
+                        <dt>Destination only</dt>
+                        <dd>{item.only_target_count ?? "Not reported"}</dd>
+                      </div>
+                    </dl>
+                    {migrationDifferenceSample(item) && (
+                      <pre className="mt-2 whitespace-pre-wrap break-all">
+                        {JSON.stringify(migrationDifferenceSample(item), null, 2)}
+                      </pre>
+                    )}
                   </UiDetails>
                 )}
                 <UiDetails>

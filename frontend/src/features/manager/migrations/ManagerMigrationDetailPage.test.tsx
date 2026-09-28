@@ -427,6 +427,79 @@ describe("ManagerMigrationDetailPage", () => {
     expect(screen.getByText("bucket-completed")).toBeInTheDocument();
   });
 
+  it("hides an empty difference report while awaiting cutover", () => {
+    const item = buildDetail().items[3];
+    show({
+      status: "awaiting_cutover",
+      items: [
+        {
+          ...item,
+          status: "awaiting_cutover",
+          step: "awaiting_cutover",
+          diff_sample: {
+            only_source_sample: [],
+            only_target_sample: [],
+            different_sample: [],
+          },
+        },
+      ],
+    });
+    expect(screen.queryByText("Differences found")).not.toBeInTheDocument();
+  });
+
+  it("shows counters when a completed comparison reports differences", async () => {
+    const user = userEvent.setup();
+    const item = buildDetail().items[3];
+    show({
+      status: "completed",
+      items: [
+        {
+          ...item,
+          different_count: 2,
+          diff_sample: {
+            only_source_sample: [],
+            only_target_sample: [],
+            different_sample: [],
+          },
+        },
+      ],
+    });
+    await user.click(screen.getByText("Differences found"));
+    expect(screen.getByText("Content differences").nextSibling).toHaveTextContent(
+      "2",
+    );
+    expect(screen.getByText("Source only").nextSibling).toHaveTextContent("0");
+    expect(screen.queryByText("different_sample")).not.toBeInTheDocument();
+  });
+
+  it("shows only populated samples even when comparison counters are zero", async () => {
+    const user = userEvent.setup();
+    const item = buildDetail().items[3];
+    show({
+      status: "completed",
+      items: [
+        {
+          ...item,
+          diff_sample: {
+            only_source_sample: ["missing-object.txt"],
+            only_target_sample: [],
+            different_sample: [],
+          },
+        },
+      ],
+    });
+    await user.click(screen.getByText("Differences found"));
+    expect(screen.getByText(/missing-object\.txt/)).toBeInTheDocument();
+    expect(screen.queryByText(/only_target_sample/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/different_sample/)).not.toBeInTheDocument();
+  });
+
+  it("hides the difference report when no comparison was recorded", () => {
+    const item = buildDetail().items[1];
+    show({ status: "completed", items: [item] });
+    expect(screen.queryByText("Differences found")).not.toBeInTheDocument();
+  });
+
   it("keeps confirmation open when the network request fails", async () => {
     const user = userEvent.setup();
     mockStart.mockRejectedValueOnce(new Error("Network unavailable"));
