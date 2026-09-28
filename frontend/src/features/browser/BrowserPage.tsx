@@ -1695,7 +1695,8 @@ export default function BrowserPage({
     bucketName,
     prefix,
     lockedBucketName: resolvedLockedBucketName,
-    ready: selectionReady && !accountSwitchInFlight,
+    ready:
+      hasS3AccountContext && selectionReady && !accountSwitchInFlight,
     scopeKey: `${normalizedPath}:${bucketAccessContextKey ?? "none"}:${resolvedLockedBucketName}`,
     onNavigate: ({ bucketName: nextBucket, prefix: nextPrefix }) => {
       if (hasOpenModal()) return false;

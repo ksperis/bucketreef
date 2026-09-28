@@ -335,6 +335,7 @@ type RenderPageOptions = {
   initialEntry?: string;
   allowFoldersPanel?: boolean;
   accountIdForApi?: string;
+  hasContext?: boolean;
   executionContextKind?: ComponentProps<typeof BrowserPage>["executionContextKind"];
   workspaceSurface?: ComponentProps<typeof BrowserPage>["workspaceSurface"];
   functionalProfile?: ComponentProps<typeof BrowserPage>["functionalProfile"];
@@ -351,6 +352,7 @@ function renderPageElement({
   initialEntry = "/browser",
   allowFoldersPanel = true,
   accountIdForApi,
+  hasContext,
   executionContextKind,
   workspaceSurface,
   functionalProfile,
@@ -366,6 +368,7 @@ function renderPageElement({
       <MemoryRouter initialEntries={[initialEntry]}>
         <BrowserPage
           accountIdForApi={accountIdForApi}
+          hasContext={hasContext}
           executionContextKind={executionContextKind}
           defaultShowFolders={defaultShowFolders}
           allowFoldersPanel={allowFoldersPanel}
@@ -997,6 +1000,18 @@ describe("BrowserPage interactions", () => {
         expected,
       ),
     );
+  });
+
+  it("preserves a deep URL until the Browser context is ready", async () => {
+    const initialEntry =
+      "/browser?ctx=ctx-1&bucket=bucket-1&prefix=docs%2F#objects";
+    renderPage({ initialEntry, hasContext: false });
+
+    await act(async () => Promise.resolve());
+    expect(screen.getByLabelText("Current location")).toHaveTextContent(
+      "/browser?ctx=ctx-1&bucket=bucket-1&prefix=docs%2F",
+    );
+    expect(searchBrowserBucketsMock).not.toHaveBeenCalled();
   });
 
   it("pushes folder navigation into the URL and omits the root prefix", async () => {
