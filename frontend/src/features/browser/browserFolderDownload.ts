@@ -12,7 +12,7 @@ import { formatBrowserOperationError } from "./browserOperationErrors";
 import type { DownloadDetailStatus } from "./browserTypes";
 import { isAbortError } from "./browserUtils";
 
-type BrowserFolderDownloadTarget = {
+export type BrowserFolderDownloadTarget = {
   detailId: string;
   key: string;
   relativeKey: string;
@@ -22,6 +22,7 @@ type BrowserFolderDownloadTarget = {
 type BrowserFolderDownloadPlan = {
   targets: BrowserFolderDownloadTarget[];
   totalBytes: number;
+  excluded: { key: string; reason: string }[];
 };
 
 type WritableFileStream = WritableStream<Uint8Array> & {
@@ -33,6 +34,7 @@ type SaveFilePicker = (options?: unknown) => Promise<{
 }>;
 
 type BrowserFolderArchiveOptions = {
+  includeRootFolder?: boolean;
   controller: AbortController;
   downloadBlob: (key: string, signal: AbortSignal) => Promise<Blob>;
   downloadStream: (
@@ -72,29 +74,32 @@ export const buildBrowserFolderDownloadPlan = (
   folderPrefix: string,
   makeDetailId: () => string,
 ): BrowserFolderDownloadPlan => {
-  const targets = objects.flatMap((object) => {
-    const relativeKey = object.key.startsWith(folderPrefix)
-      ? object.key.slice(folderPrefix.length)
-      : object.key;
-    if (!relativeKey || (relativeKey.endsWith("/") && object.size === 0)) {
-      return [];
-    }
-    return [
-      {
-        detailId: makeDetailId(),
-        key: object.key,
-        relativeKey,
-        sizeBytes: object.size,
-      },
-    ];
-  });
-  return {
-    targets,
-    totalBytes: targets.reduce((sum, target) => sum + target.sizeBytes, 0),
-  };
+  const targets: BrowserFolderDownloadTarget[] = [];
+  const excluded: { key: string; reason: string }[] = [];
+  const seen = new Set<string>();
+  const archiveNames = new Set<string>();
+  const archiveDirectories = new Set<string>();
+  for (const object of objects) {
+    if (seen.has(object.key)) continue;
+    seen.add(object.key);
+    const relativeKey = object.key.startsWith(folderPrefix) ? object.key.slice(folderPrefix.length) : "";
+    if (object.key === folderPrefix || (relativeKey.endsWith("/") && object.size === 0)) continue;
+    const segments = relativeKey.split("/");
+    let reason = !relativeKey || (/[\\:]/.test(relativeKey) || [...relativeKey].some(character => character.charCodeAt(0) < 32)) || segments.some(part => !part || part === "." || part === ".." || /[. ]$/.test(part)) ? "Unsafe or ambiguous archive path" : "";
+    const canonical = relativeKey.normalize("NFC").toLowerCase();
+    const parts = canonical.split("/");
+    const ancestors = parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"));
+    if (!reason && (archiveNames.has(canonical) || archiveDirectories.has(canonical) || ancestors.some(parent => archiveNames.has(parent)))) reason = "Archive path collision";
+    if (!reason && (!Number.isFinite(object.size) || object.size < 0)) reason = "Object size is unavailable";
+    if (reason) { excluded.push({ key: object.key, reason }); continue; }
+    archiveNames.add(canonical);
+    ancestors.forEach(parent => archiveDirectories.add(parent));
+    targets.push({ detailId: makeDetailId(), key: object.key, relativeKey, sizeBytes: object.size });
+  }
+  return { targets, excluded, totalBytes: targets.reduce((sum, target) => sum + target.sizeBytes, 0) };
 };
 
-const defaultSaveFilePicker = (): SaveFilePicker | undefined =>
+export const browserArchiveSaveFilePicker = (): SaveFilePicker | undefined =>
   typeof window === "undefined"
     ? undefined
     : (
@@ -105,6 +110,7 @@ const defaultSaveFilePicker = (): SaveFilePicker | undefined =>
 
 export const downloadBrowserFolderArchive = async ({
   controller,
+  includeRootFolder = true,
   downloadBlob,
   downloadStream,
   folderLabel,
@@ -112,11 +118,12 @@ export const downloadBrowserFolderArchive = async ({
   onPhaseChange,
   onProgress,
   parallelism,
-  saveFilePicker = defaultSaveFilePicker(),
+  saveFilePicker = browserArchiveSaveFilePicker(),
   streamingThresholdBytes,
   targets,
   totalBytes,
 }: BrowserFolderArchiveOptions): Promise<BrowserFolderArchiveResult> => {
+  const entryName = (target: BrowserFolderDownloadTarget) => includeRootFolder ? `${folderLabel}/${target.relativeKey}` : target.relativeKey;
   const totalCount = targets.length;
   let downloadedBytes = 0;
   let completed = 0;
@@ -136,6 +143,8 @@ export const downloadBrowserFolderArchive = async ({
   );
   const shouldStreamZip =
     supportsStreamingZip && totalBytes >= streamingThresholdBytes;
+
+  if (!supportsStreamingZip && totalBytes >= streamingThresholdBytes && totalBytes > 0) throw new Error("This archive exceeds the configured in-memory limit. Use a browser with streaming file downloads or select fewer files.");
 
   if (shouldStreamZip && saveFilePicker) {
     let fileStream: WritableFileStream | null = null;
@@ -176,7 +185,7 @@ export const downloadBrowserFolderArchive = async ({
           },
         });
         await zipWriter.add(
-          `${folderLabel}/${target.relativeKey}`,
+          entryName(target),
           stream.pipeThrough(counter),
         );
         onDetailChange(target.detailId, "done");
@@ -210,6 +219,7 @@ export const downloadBrowserFolderArchive = async ({
   }
 
   const zip = new JSZip();
+  let retainedBytes = 0;
   await runWithConcurrency(
     targets,
     parallelism,
@@ -221,7 +231,9 @@ export const downloadBrowserFolderArchive = async ({
       onDetailChange(target.detailId, "downloading");
       try {
         const blob = await downloadBlob(target.key, controller.signal);
-        zip.file(`${folderLabel}/${target.relativeKey}`, blob);
+        if (retainedBytes + blob.size > streamingThresholdBytes) throw new Error("The files grew beyond the configured archive memory limit. Use streaming downloads.");
+        retainedBytes += blob.size;
+        zip.file(entryName(target), blob);
         onDetailChange(target.detailId, "done");
       } catch (error) {
         if (isAbortError(error) || controller.signal.aborted) {
@@ -251,6 +263,7 @@ export const downloadBrowserFolderArchive = async ({
   }
   onPhaseChange("Packaging zip");
   const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) => {
+    controller.signal.throwIfAborted();
     onProgress(Math.min(99, 80 + Math.round(metadata.percent * 0.2)));
   });
   if (controller.signal.aborted) {

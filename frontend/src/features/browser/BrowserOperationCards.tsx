@@ -274,6 +274,7 @@ export function BrowserTransferOperationGroupCard({
           >
             {expanded ? "Hide files" : "Show files"}
           </ListActionButton>
+          {group.op.completedAt && group.op.retry && <ListActionButton onClick={() => void group.op.retry?.()}>Retry failures</ListActionButton>}
           {group.op.cancelable && !group.op.completedAt && (
             <ListActionButton variant="danger"
               type="button"

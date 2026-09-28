@@ -181,7 +181,7 @@ describe("useBrowserDownloads", () => {
     });
 
     expect(options.listAllObjectsForPrefix).toHaveBeenCalledWith(
-      "docs/archive/",
+      "docs/archive/", undefined, undefined, expect.any(AbortSignal),
     );
     expect(archiveMocks.downloadBrowserFolderArchive).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -194,4 +194,20 @@ describe("useBrowserDownloads", () => {
     expect(options.onStatus).toHaveBeenCalledWith("Downloaded archive");
     expect(options.clearOperationController).toHaveBeenCalledWith("op-1");
   });
+  it("deduplicates a mixed selection and retries only failed objects into a complementary archive", async () => {
+    const options = createOptions();
+    options.listAllObjectsForPrefix.mockResolvedValue([{ key: "docs/archive/a.txt", size: 12 }, { key: "docs/archive/b.txt", size: 12 }]);
+    archiveMocks.downloadBrowserFolderArchive.mockResolvedValueOnce({ cancelled: false, failedKeys: ["docs/archive/b.txt"] }).mockResolvedValueOnce({ cancelled: false, failedKeys: [] });
+    const { result } = renderHook(() => useBrowserDownloads(options));
+    await act(() => result.current.downloadArchive([item("docs/archive/", "folder"), item("docs/archive/a.txt"), item("docs/top.txt")], "docs/"));
+    expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[0][0].targets.map((target: { relativeKey: string }) => target.relativeKey)).toEqual(["top.txt", "archive/a.txt", "archive/b.txt"]);
+    expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[0][0].includeRootFolder).toBe(false);
+    const retry = options.updateOperation.mock.calls.find(call => call[1]?.retry)?.[1].retry;
+    expect(retry).toEqual(expect.any(Function));
+    await act(() => retry());
+    expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[1][0].targets.map((target: { key: string }) => target.key)).toEqual(["docs/archive/b.txt"]);
+    expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[1][0].folderLabel).toBe("selection-retry");
+    expect(options.listAllObjectsForPrefix).toHaveBeenCalledTimes(1);
+  });
+
 });

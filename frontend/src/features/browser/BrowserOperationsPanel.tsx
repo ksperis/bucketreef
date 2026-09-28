@@ -54,7 +54,7 @@ type OperationRowProps = {
   progress: number;
   statusLabel: string;
   statusClasses: string;
-  actionLabel?: "Stop" | "Stop all";
+  actionLabel?: "Stop" | "Stop all" | "Retry failures";
   onAction?: () => void;
 };
 
@@ -223,8 +223,8 @@ export default function BrowserOperationsPanel({
           progress={op.progress}
           statusLabel={status.label}
           statusClasses={status.classes}
-          actionLabel={!isCompleted && op.cancelable ? "Stop" : undefined}
-          onAction={!isCompleted && op.cancelable ? () => cancelOperation(op.id) : undefined}
+          actionLabel={isCompleted && op.retry ? "Retry failures" : !isCompleted && op.cancelable ? "Stop" : undefined}
+          onAction={isCompleted && op.retry ? () => void op.retry?.() : !isCompleted && op.cancelable ? () => cancelOperation(op.id) : undefined}
         />
       );
     }
@@ -255,8 +255,8 @@ export default function BrowserOperationsPanel({
         progress={group.op.progress}
         statusLabel={status.label}
         statusClasses={status.classes}
-        actionLabel={group.op.cancelable && !group.op.completedAt ? (entry.type === "download" ? "Stop" : "Stop all") : undefined}
-        onAction={group.op.cancelable && !group.op.completedAt ? () => cancelOperation(group.op.id) : undefined}
+        actionLabel={group.op.completedAt && group.op.retry ? "Retry failures" : group.op.cancelable && !group.op.completedAt ? (entry.type === "download" ? "Stop" : "Stop all") : undefined}
+        onAction={group.op.completedAt && group.op.retry ? () => void group.op.retry?.() : group.op.cancelable && !group.op.completedAt ? () => cancelOperation(group.op.id) : undefined}
       />
     );
   };

@@ -42,6 +42,7 @@ export type OperationDetailsKind =
   | "other";
 
 export type OperationItem = {
+  retry?: () => Promise<void>;
   id: string;
   label: string;
   path: string;

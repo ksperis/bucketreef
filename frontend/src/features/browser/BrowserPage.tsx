@@ -2154,6 +2154,7 @@ export default function BrowserPage({
 
   const {
     downloadFolder: handleDownloadFolder,
+    downloadArchive,
     downloadItems: handleDownloadItems,
   } = useBrowserDownloads({
     accountId: accountIdForApi,
@@ -2295,6 +2296,7 @@ export default function BrowserPage({
 
   const runSelectionAction = (actionId: BrowserActionId) => {
     runBrowserAction(selectionActionStates[actionId], {
+      downloadZip: () => downloadArchive(selectionItems, isSearchingInWholeBucket ? "" : normalizedPrefix),
       details: () => {
         if (selectionPrimary) openItemDetails(selectionPrimary);
       },
@@ -2333,6 +2335,7 @@ export default function BrowserPage({
   const runItemAction = (item: BrowserItem, actionId: BrowserActionId) => {
     const itemActions = resolveItemActionStates(item);
     const result = runBrowserAction(itemActions[actionId], {
+      downloadZip: () => downloadArchive([item], isSearchingInWholeBucket ? "" : normalizedPrefix),
       details: () => openItemDetails(item),
       versions: () => openObjectVersionsModal(item),
       properties: () => openPropertiesForItem(item),
@@ -2908,6 +2911,7 @@ export default function BrowserPage({
         onDeleteItems={handleDeleteItems}
         onDownloadFolder={handleDownloadFolder}
         onDownloadItems={handleDownloadItems}
+        onDownloadZip={items => void downloadArchive(items, isSearchingInWholeBucket ? "" : normalizedPrefix)}
         onOpenItem={handleOpenItem}
         onToggleShowFolders={toggleFolderItems}
         onToggleShowDeleted={toggleDeletedObjects}
