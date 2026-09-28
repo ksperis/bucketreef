@@ -59,13 +59,12 @@ beforeEach(() => {
 });
 
 function createFileStream() {
-  const stream = new WritableStream<Uint8Array>();
   const close = vi.fn().mockResolvedValue(undefined);
   const abort = vi.fn().mockResolvedValue(undefined);
-  Object.defineProperties(stream, {
-    close: { value: close },
-    abort: { value: abort },
+  const stream = new WritableStream<Uint8Array>({
+    close,
   });
+  Object.defineProperty(stream, "abort", { value: abort });
   return { stream, close, abort };
 }
 

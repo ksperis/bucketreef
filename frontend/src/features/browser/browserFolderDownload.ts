@@ -27,7 +27,6 @@ export type BrowserFolderDownloadPlan = {
 
 type WritableFileStream = WritableStream<Uint8Array> & {
   abort?: (reason?: unknown) => Promise<void>;
-  close: () => Promise<void>;
 };
 
 export type BrowserArchiveFileHandle = {
@@ -169,7 +168,13 @@ const finalizeStreamingArchive = async (
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const finalization = (async () => {
     await zipWriter.close(undefined, { preventClose: true });
-    if (finalizationActive) await fileStream.close();
+    if (!finalizationActive) return;
+    const writer = fileStream.getWriter();
+    try {
+      await writer.close();
+    } finally {
+      writer.releaseLock();
+    }
   })();
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
