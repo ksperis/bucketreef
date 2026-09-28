@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { ObjectPreviewNavigation } from "../shared/ObjectDetailsDrawer";
 import { useEffect, useMemo, useState } from "react";
 
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -16,6 +17,7 @@ import type { PortalWorkspaceSpace } from "../portal/portalWorkspaceModel";
 import type { BrowserItem } from "./browserTypes";
 
 type BrowserStorageSpaceObjectDetailsDrawerProps = {
+  navigation?: ObjectPreviewNavigation;
   accountId: S3AccountSelector;
   bucket?: BrowserBucket | null;
   bucketName: string;
@@ -75,6 +77,7 @@ function fallbackSpace(
 }
 
 export default function BrowserStorageSpaceObjectDetailsDrawer({
+  navigation,
   accountId,
   bucket,
   bucketName,
@@ -169,6 +172,7 @@ export default function BrowserStorageSpaceObjectDetailsDrawer({
 
   return (
     <StorageSpaceObjectDetailsDrawer
+        navigation={navigation}
       accountId={accountId}
       activeView={activeView}
       canCreatePublicLinks={canCreatePublicLinks}

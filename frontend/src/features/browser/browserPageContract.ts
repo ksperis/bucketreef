@@ -63,6 +63,7 @@ export type BrowserPageProps = {
   showPanelToggles?: boolean;
   defaultShowFolders?: boolean;
   onSelectedBucketNameChange?: (bucketName: string) => void;
+  onLoadedFilesChange?: (keys: string[]) => void;
   onOpenObjectDetails?: (target: BrowserObjectDetailsRouteTarget) => void;
   deletedObjectsOptions?: BrowserDeletedObjectsOptions;
   refreshToken?: number;

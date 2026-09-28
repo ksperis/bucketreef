@@ -60,6 +60,15 @@ describe("ObjectDetailsDrawer", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("exposes previous and next only within the loaded list", () => {
+    const next = vi.fn();
+    render(<ObjectDetailsDrawer name="one.txt" path="one.txt" copyPathLabel="Copy" moreLabel="More" onCopyPath={vi.fn()} onClose={vi.fn()} navigation={{ next, position: "1 / 2" }}>Text</ObjectDetailsDrawer>);
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(next).toHaveBeenCalledOnce();
+    expect(screen.getByRole("group", { name: "Loaded files" })).toHaveTextContent("1 / 2");
+  });
+
   it("closes object actions when the drawer switches to another path", () => {
     const commonProps = {
       copyPathLabel: "Copy path",

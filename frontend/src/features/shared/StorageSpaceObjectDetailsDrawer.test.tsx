@@ -121,7 +121,7 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
 
     const drawer = await screen.findByRole("complementary", { name: "report.csv" });
     expect(
-      await within(drawer).findByText("id,value", { exact: false }),
+      await within(drawer).findByRole("columnheader", { name: "value" }),
     ).toBeInTheDocument();
     expect(mocks.fetchVersions).not.toHaveBeenCalled();
     expect(mocks.listLinks).not.toHaveBeenCalled();

@@ -214,6 +214,7 @@ export default function BrowserPage({
   showPanelToggles = true,
   defaultShowFolders = false,
   onSelectedBucketNameChange,
+  onLoadedFilesChange,
   onOpenObjectDetails,
   deletedObjectsOptions,
   refreshToken,
@@ -969,6 +970,16 @@ export default function BrowserPage({
         : items.filter((item) => item.type !== "folder"),
     [items, showFolderItems],
   );
+  const previewFiles = useMemo(() => listItems.filter(item => item.type === "file" && !item.isDeleted), [listItems]);
+  useEffect(() => {
+    onLoadedFilesChange?.(previewFiles.map(item => item.key));
+  }, [previewFiles, onLoadedFilesChange]);
+  const previewIndex = previewFiles.findIndex(item => item.key === objectDetailsTarget?.item.key);
+  const previewNavigation = previewIndex < 0 ? undefined : {
+    previous: previewIndex > 0 ? () => requestDetailsDrawerTransition(() => openObjectDetailsTarget(previewFiles[previewIndex - 1], "preview")) : undefined,
+    next: previewIndex + 1 < previewFiles.length ? () => requestDetailsDrawerTransition(() => openObjectDetailsTarget(previewFiles[previewIndex + 1], "preview")) : undefined,
+    position: (previewIndex + 1) + " / " + previewFiles.length,
+  };
   const {
     activateItem,
     allSelected,
@@ -2935,6 +2946,7 @@ export default function BrowserPage({
       objectDetailsTarget.item.type === "file" &&
       isStorageSpaceContext ? (
         <BrowserStorageSpaceObjectDetailsDrawer
+          navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
           accountId={accountIdForApi}
           bucket={currentBucketPanelItem}
@@ -2958,6 +2970,7 @@ export default function BrowserPage({
         />
       ) : objectDetailsTarget && objectDetailsTarget.item.type === "file" ? (
         <BrowserObjectDetailsDrawer
+          navigation={previewNavigation}
           key={`${bucketName}:${objectDetailsTarget.item.id}`}
           accountId={accountIdForApi}
           bucketName={bucketName}
