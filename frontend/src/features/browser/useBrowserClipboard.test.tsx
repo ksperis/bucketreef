@@ -101,7 +101,6 @@ function createOptions() {
 }
 
 describe("useBrowserClipboard", () => {
-
   beforeEach(() => {
     vi.clearAllMocks();
     apiMocks.copyObject.mockResolvedValue(undefined);
@@ -289,46 +288,5 @@ describe("useBrowserClipboard", () => {
 
     expect(resolvedModes).toEqual(["direct", "direct"]);
     expect(apiMocks.getBrowserBucketCorsStatus).toHaveBeenCalledTimes(2);
-  });
-});
-
-
-describe("explicit transfer destinations", () => {
-  beforeEach(() => { vi.clearAllMocks(); apiMocks.copyObject.mockResolvedValue({ copied: true, source_deleted: true }); });
-  it("renames an exact Unicode key without trimming it", async () => {
-    const options = createOptions();
-    const { result } = renderHook(() => useBrowserClipboard(options));
-    await act(() => result.current.transferTo([item(" docs/été.txt ")], { bucket: "source-bucket", prefix: " docs/", name: "hiver.txt " }, "move"));
-    expect(apiMocks.copyObject).toHaveBeenCalledWith("acc-1", "source-bucket", expect.objectContaining({ source_key: " docs/été.txt ", destination_key: " docs/hiver.txt ", move: true }), expect.any(AbortSignal), undefined);
-  });
-  it("rejects a folder destination inside its descendants before listing or writing", async () => {
-    const options = createOptions();
-    const { result } = renderHook(() => useBrowserClipboard(options));
-    await act(() => result.current.transferTo([{ ...item("docs/"), name: "docs", type: "folder" }], { bucket: "source-bucket", prefix: "docs/nested/" }, "move"));
-    expect(options.onWarning).toHaveBeenCalledWith(expect.stringContaining("descendant"));
-    expect(options.listAllObjectsForPrefix).not.toHaveBeenCalled();
-    expect(apiMocks.copyObject).not.toHaveBeenCalled();
-  });
-  it("deduplicates overlapping folders and files, including folder markers", async () => {
-    const options = createOptions();
-    options.listAllObjectsForPrefix.mockResolvedValue([{ key: "docs/", size: 0 }, { key: "docs/a", size: 12 }]);
-    const { result } = renderHook(() => useBrowserClipboard(options));
-    await act(() => result.current.transferTo([{ ...item("docs/"), name: "docs", type: "folder" }, item("docs/a")], { bucket: "target", prefix: "" }, "copy"));
-    expect(apiMocks.copyObject).toHaveBeenCalledTimes(2);
-    expect(apiMocks.copyObject.mock.calls.map(call => call[2].destination_key)).toEqual(["docs/", "docs/a"]);
-  });
-  it("keeps the visible prefix after copying to another folder", async () => {
-    const options = { ...createOptions(), normalizedPrefix: "reports/" };
-    const { result } = renderHook(() => useBrowserClipboard(options));
-    await act(() => result.current.transferTo([item("reports/a.txt")], { bucket: "source-bucket", prefix: "reports/nested/" }, "copy"));
-    expect(apiMocks.copyObject).toHaveBeenCalledWith("acc-1", "source-bucket", expect.objectContaining({ destination_key: "reports/nested/a.txt" }), expect.any(AbortSignal), undefined);
-    expect(options.onRefreshNow).toHaveBeenCalledWith("reports/");
-  });
-  it("reports a retained source as a partial move", async () => {
-    const options = createOptions();
-    apiMocks.copyObject.mockResolvedValue({ copied: true, source_deleted: false, reason: "Copied, not deleted: the source changed." });
-    const { result } = renderHook(() => useBrowserClipboard(options));
-    await act(() => result.current.transferTo([item("a")], { bucket: "target", prefix: "" }, "move"));
-    expect(options.completeOperation).toHaveBeenCalledWith("op-1", "failed", expect.any(String));
   });
 });

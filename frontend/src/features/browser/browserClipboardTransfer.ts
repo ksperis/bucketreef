@@ -1,4 +1,3 @@
-import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -9,8 +8,6 @@ import { MULTIPART_THRESHOLD } from "./browserConstants";
 export type ClipboardTransferMode = "direct" | "proxy";
 
 type ClipboardTransferObjectRef = {
-  writeGuard?: BrowserWriteGuard;
-  etag?: string;
   selector: S3AccountSelector;
   bucket: string;
   key: string;
@@ -58,7 +55,7 @@ type TransferClipboardObjectParams = {
   ) => Promise<void>;
   verifyObject: (
     params: ClipboardTransferObjectRef,
-  ) => Promise<{ sizeBytes: number; etag?: string }>;
+  ) => Promise<{ sizeBytes: number }>;
   deleteObject: (params: ClipboardTransferObjectRef) => Promise<void>;
 };
 
@@ -126,11 +123,5 @@ export async function transferClipboardObjectBetweenContexts({
     );
   }
 
-  if (source.etag) {
-    const current = await verifyObject(source);
-    if (current.etag !== source.etag || current.sizeBytes !== sizeBytes) throw new Error("Copied, not deleted: the source changed.");
-  } else {
-    throw new Error("Copied, not deleted: the source identity could not be verified.");
-  }
   await deleteObject(source);
 }

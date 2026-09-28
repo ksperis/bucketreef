@@ -88,7 +88,6 @@ describe("browser object transfer transport", () => {
       "secret",
       { workspaceSurface: "manager" },
       undefined,
-      undefined,
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -223,7 +222,6 @@ describe("browser object transfer transport", () => {
       undefined,
       "upload.bin",
       { workspaceSurface: "manager" },
-      undefined,
     );
     expect(apiMocks.presignObject).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();

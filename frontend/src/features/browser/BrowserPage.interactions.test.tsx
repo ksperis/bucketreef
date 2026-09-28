@@ -172,9 +172,6 @@ vi.mock("../../api/browserObjects", async () => {
   };
 });
 
-vi.mock("../../api/browserConflicts", () => ({
-  inspectBrowserDestinations: async (_account: string, _bucket: string, keys: string[]) => ({ protection: "conditional", objects: keys.map(key => ({ key, exists: false, etag: null })) }),
-}));
 
 vi.mock("../../api/browserBuckets", async () => {
   const actual =
@@ -2771,7 +2768,6 @@ describe("BrowserPage interactions", () => {
         {
           key: "portal-direct.txt",
           operation: "put_object",
-          write_guard: { exists: false, etag: null },
           content_type: "text/plain",
           expires_in: 1800,
         },
@@ -4928,7 +4924,6 @@ describe("BrowserPage interactions", () => {
           source_key: "a.txt",
           destination_key: "docs/a.txt",
           move: false,
-          write_guard: { exists: false, etag: null },
         },
         expect.any(AbortSignal),
         undefined,
@@ -5370,7 +5365,6 @@ describe("BrowserPage interactions", () => {
         {
           key: "small-direct.txt",
           operation: "put_object",
-          write_guard: { exists: false, etag: null },
           content_type: "text/plain",
           expires_in: 1800,
         },
@@ -5537,7 +5531,7 @@ describe("BrowserPage interactions", () => {
       expect(deleteObjectsMock).toHaveBeenCalledWith(
         "acc-1",
         "bucket-1",
-        [{ key: "a.txt", if_match: '"stable-etag"' }],
+        [{ key: "a.txt" }],
         undefined,
         undefined,
       );
@@ -5604,8 +5598,7 @@ describe("BrowserPage interactions", () => {
     await pasteFromCurrentPath(user);
 
     await waitFor(() => {
-      expect(createFolderMock).not.toHaveBeenCalled();
-      expect(presignObjectMock).toHaveBeenCalledWith("acc-2", "bucket-1", expect.objectContaining({ key: "docs/", operation: "put_object", write_guard: { exists: false, etag: null } }), null, undefined);
+      expect(createFolderMock).toHaveBeenCalledWith("acc-2", "bucket-1", "docs/");
       expect(listBrowserObjectsMock).toHaveBeenCalledWith(
         "acc-1",
         "bucket-1",
@@ -5651,7 +5644,7 @@ describe("BrowserPage interactions", () => {
 
     await waitFor(() => {
       expect(proxyDownloadMock).toHaveBeenCalledWith(
-        "acc-1", "bucket-1", "a.txt", expect.any(AbortSignal), null, undefined, undefined, '"stable-etag"',
+        "acc-1", "bucket-1", "a.txt", expect.any(AbortSignal), null, undefined, undefined,
       );
       expect(proxyUploadMock).toHaveBeenCalledWith(
         "acc-2",
@@ -5663,7 +5656,6 @@ describe("BrowserPage interactions", () => {
         null,
         "a.txt",
         undefined,
-        { exists: false, etag: null },
       );
     });
     expect(copyObjectMock).not.toHaveBeenCalled();

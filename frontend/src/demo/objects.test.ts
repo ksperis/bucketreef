@@ -14,18 +14,17 @@ function fixture() {
 }
 
 describe("demo Browser evolutions", () => {
-  it("preserves exact keys, current-only moves and conflict guards", async () => {
+  it("preserves exact keys, current-only moves", async () => {
     const { bucket, request } = fixture();
     putObject(bucket, " étude//x.txt ", new Blob(["older"]), false);
     const source = putObject(bucket, " étude//x.txt ", new Blob(["current"]), false);
     const older = source.versions[1].version_id;
-    const payload = { source_bucket: bucket.name, source_key: source.key, destination_key: " étude//y.txt ", move: true, write_guard: { exists: false, etag: null } };
+    const payload = { source_bucket: bucket.name, source_key: source.key, destination_key: " étude//y.txt ", move: true };
     const result = await objects(request(payload));
-    expect(await result!.json()).toMatchObject({ copied: true, deleted: true });
+    expect(await result!.json()).toMatchObject({ message: "ok" });
     expect(source.versions[0].deleted).toBe(true);
     expect(source.versions.some(version => version.version_id === older)).toBe(true);
     expect(bucket.objects.find(object => object.key === payload.destination_key)?.versions[0].size).toBe(7);
-    await expect(objects(request({ ...payload, source_key: payload.destination_key, destination_key: payload.destination_key + "new", write_guard: { exists: true, etag: "stale" } }))).rejects.toThrow(/destination changed/);
   });
   it("pages combined listings and includes empty markers only for operation manifests", () => {
     const { bucket } = fixture();

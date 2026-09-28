@@ -1,5 +1,3 @@
-import type { PrepareBrowserWrites } from "./useBrowserWriteConflicts";
-import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -12,6 +10,7 @@ import {
 } from "../../api/accountParams";
 import {
   copyObject,
+  createFolder,
   deleteObjects,
   fetchObjectMetadata,
 } from "../../api/browserObjects";
@@ -52,14 +51,12 @@ import {
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 
-export type BrowserTransferDestination = { bucket: string; prefix: string; name?: string };
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 type ClipboardTransferParameters = Parameters<
   typeof transferClipboardObjectBetweenContexts
 >[0];
 
 type UseBrowserClipboardOptions = {
-  prepareWrites?: PrepareBrowserWrites;
   accountId: S3AccountSelector;
   bucketName: string;
   cancelCopyDetails: OperationRegistry["cancelCopyDetails"];
@@ -88,7 +85,6 @@ type UseBrowserClipboardOptions = {
 };
 
 export function useBrowserClipboard({
-  prepareWrites,
   accountId,
   bucketName,
   cancelCopyDetails,
@@ -238,7 +234,6 @@ export function useBrowserClipboard({
       bucket,
       key,
       stream,
-      writeGuard,
       sizeBytes,
       contentType,
       sseCustomerKeyBase64,
@@ -276,9 +271,8 @@ export function useBrowserClipboard({
               bucket,
               uploadId,
               key,
-              { parts, write_guard: writeGuard },
+              { parts },
               requestOptions,
-              sseCustomerKeyBase64,
             ),
           abort: (uploadId) =>
             abortMultipartUpload(
@@ -295,8 +289,8 @@ export function useBrowserClipboard({
   );
 
   const deleteObject = useCallback<ClipboardTransferParameters["deleteObject"]>(
-    async ({ selector, bucket, key, etag }) => {
-      await deleteObjects(selector, bucket, [{ key, if_match: etag }], undefined, requestOptions);
+    async ({ selector, bucket, key }) => {
+      await deleteObjects(selector, bucket, [{ key }], undefined, requestOptions);
     },
     [requestOptions],
   );
@@ -321,30 +315,21 @@ export function useBrowserClipboard({
     [setCopyDetails],
   );
 
-  const paste = useCallback(async (destination?: BrowserTransferDestination, explicitClipboard?: ClipboardState) => {
-    const sourceClipboard = explicitClipboard ?? clipboard;
-    if (!sourceClipboard || !bucketName || !enabled) return;
-    const sameContext = normalizeS3AccountSelectorId(sourceClipboard.sourceSelector) === currentAccountId;
-    if (functionalProfile !== "advanced" && !sameContext) {
+  const paste = useCallback(async () => {
+    if (!clipboard || !bucketName || !enabled) return;
+    if (functionalProfile !== "advanced" && !clipboardMatchesContext) {
       onWarning(
         "Cross-context copy and move require the Advanced Browser profile.",
       );
       return;
     }
     onWarning(null);
-    const destinationBucket = destination?.bucket ?? bucketName;
-    const destinationPrefix = destination?.prefix ?? normalizedPrefix;
-    const { items: selectedItems, sourceBucket, sourceSelector, mode } = sourceClipboard;
-    // Eliminate overlapping sources before expanding folders into a per-object manifest.
-    const items = selectedItems.filter((item, index) => !item.isDeleted && selectedItems.findIndex(other => other.key === item.key) === index && !selectedItems.some(other => other !== item && other.type === "folder" && item.key.startsWith(other.key.endsWith("/") ? other.key : `${other.key}/`)));
-    if (sameContext && sourceBucket === destinationBucket && items.some(item => item.type === "folder" && destinationPrefix.startsWith(item.key.endsWith("/") ? item.key : `${item.key}/`))) {
-      onWarning("Cannot copy or move a folder into itself or a descendant."); return;
-    }
+    const destinationBucket = bucketName;
+    const destinationPrefix = normalizedPrefix;
+    const { items, sourceBucket, sourceSelector, mode } = clipboard;
     const isMove = mode === "move";
-    const useServerSideCopy = sameContext;
-    let copyTasks: Array<{
-      writeGuard?: BrowserWriteGuard;
-      modified?: string;
+    const useServerSideCopy = clipboardMatchesContext;
+    const copyTasks: Array<{
       sourceSelector: S3AccountSelector;
       sourceBucket: string;
       sourceKey: string;
@@ -357,7 +342,7 @@ export function useBrowserClipboard({
 
     for (const item of items) {
       if (item.type === "file") {
-        const destinationKey = `${destinationPrefix}${destination?.name ?? item.name}`;
+        const destinationKey = `${destinationPrefix}${item.name}`;
         if (
           useServerSideCopy &&
           sourceBucket === destinationBucket &&
@@ -371,7 +356,6 @@ export function useBrowserClipboard({
           sourceSelector,
           sourceBucket,
           sourceKey: item.key,
-          modified: item.modified,
           destinationBucket,
           destinationKey,
           detailId,
@@ -386,8 +370,8 @@ export function useBrowserClipboard({
         continue;
       }
 
-      const sourcePrefix = item.key.endsWith("/") ? item.key : `${item.key}/`;
-      const destinationFolderPrefix = `${destinationPrefix}${destination?.name ?? item.name}/`;
+      const sourcePrefix = (item.key.endsWith("/") ? item.key : `${item.key}/`);
+      const destinationFolderPrefix = `${destinationPrefix}${item.name}/`;
       if (
         useServerSideCopy &&
         sourceBucket === destinationBucket &&
@@ -395,6 +379,11 @@ export function useBrowserClipboard({
       ) {
         skipped += 1;
         continue;
+      }
+      try {
+        await createFolder(accountId, destinationBucket, destinationFolderPrefix);
+      } catch {
+        // Object copies below still create the effective S3 prefix.
       }
       const objects = await listAllObjectsForPrefix(
         sourcePrefix,
@@ -405,7 +394,7 @@ export function useBrowserClipboard({
         const relativeKey = object.key.startsWith(sourcePrefix)
           ? object.key.slice(sourcePrefix.length)
           : object.key;
-
+        if (!relativeKey) return;
         const destinationKey = `${destinationFolderPrefix}${relativeKey}`;
         if (
           useServerSideCopy &&
@@ -420,7 +409,6 @@ export function useBrowserClipboard({
           sourceSelector,
           sourceBucket,
           sourceKey: object.key,
-          modified: object.last_modified || undefined,
           destinationBucket,
           destinationKey,
           detailId,
@@ -433,19 +421,6 @@ export function useBrowserClipboard({
           sizeBytes: object.size ?? undefined,
         });
       });
-    }
-
-    if (prepareWrites) {
-      try {
-        const prepared = await prepareWrites(copyTasks.map((task) => ({ id: task.detailId, key: task.destinationKey, modified: task.modified, size: copyDetailItems.find((item) => item.id === task.detailId)?.sizeBytes })), destinationBucket);
-        const byId = new Map(prepared.map((item) => [item.id, item]));
-        copyTasks = copyTasks.flatMap((task) => { const ready = byId.get(task.detailId); return ready ? [{ ...task, destinationKey: ready.key, writeGuard: ready.writeGuard }] : []; });
-        for (let index = copyDetailItems.length - 1; index >= 0; index--) {
-          const ready = byId.get(copyDetailItems[index].id);
-          if (!ready) copyDetailItems.splice(index, 1);
-          else { copyDetailItems[index].key = ready.key; copyDetailItems[index].label = ready.key; }
-        }
-      } catch (error) { onStatus(error instanceof Error ? error.message : "Destination inspection failed."); return; }
     }
 
     if (copyTasks.length === 0) {
@@ -506,7 +481,7 @@ export function useBrowserClipboard({
           try {
             updateCopyDetailStatus(operationId, task.detailId, "copying");
             if (useServerSideCopy) {
-              const result = await copyObject(
+              await copyObject(
                 accountId,
                 destinationBucket,
                 {
@@ -514,12 +489,10 @@ export function useBrowserClipboard({
                   source_key: task.sourceKey,
                   destination_key: task.destinationKey,
                   move: isMove,
-                  write_guard: task.writeGuard,
                 },
                 controller.signal,
                 requestOptions,
               );
-              if (isMove && result?.copied && !result.source_deleted) throw new Error(result.reason || "Copied, not deleted.");
             } else {
               const sourceSseCustomerKeyBase64 = getSseCustomerKeyForScope(
                 task.sourceSelector,
@@ -541,14 +514,12 @@ export function useBrowserClipboard({
                   selector: task.sourceSelector,
                   bucket: task.sourceBucket,
                   key: task.sourceKey,
-                  etag: sourceMetadata.etag ?? undefined,
                   sseCustomerKeyBase64: sourceSseCustomerKeyBase64,
                 },
                 destination: {
                   selector: accountId,
                   bucket: destinationBucket,
                   key: task.destinationKey,
-                  writeGuard: task.writeGuard,
                   sseCustomerKeyBase64: destinationSseCustomerKeyBase64,
                 },
                 sizeBytes: sourceMetadata.size,
@@ -575,7 +546,7 @@ export function useBrowserClipboard({
                     controller.signal,
                     requestOptions,
                   );
-                  return { sizeBytes: metadata.size, etag: metadata.etag ?? undefined };
+                  return { sizeBytes: metadata.size };
                 },
                 deleteObject,
               });
@@ -655,9 +626,8 @@ export function useBrowserClipboard({
     bucketName,
     cancelCopyDetails,
     clearOperationController,
-    prepareWrites,
     clipboard,
-    currentAccountId,
+    clipboardMatchesContext,
     completeOperation,
     createOperationController,
     deleteObject,
@@ -683,8 +653,6 @@ export function useBrowserClipboard({
     uploadMultipartStream,
   ]);
 
-  const transferTo = useCallback((items: BrowserItem[], destination: BrowserTransferDestination, mode: "copy" | "move") => paste(destination, { items, sourceBucket: bucketName, sourceSelector: accountId, mode }), [accountId, bucketName, paste]);
-
   return useMemo(
     () => ({
       canPaste: canPasteInFunctionalProfile,
@@ -692,8 +660,7 @@ export function useBrowserClipboard({
       copy,
       cut,
       paste,
-      transferTo,
     }),
-    [canPasteInFunctionalProfile, clipboard, copy, cut, paste, transferTo],
+    [canPasteInFunctionalProfile, clipboard, copy, cut, paste],
   );
 }

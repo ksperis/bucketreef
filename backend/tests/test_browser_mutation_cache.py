@@ -121,7 +121,7 @@ def _assert_invalidated(entries, affected):
 def _mutation_client(service, monkeypatch):
     client = Mock()
     client.delete_objects.return_value = {}
-    client.copy_object.return_value = {"VersionId": "new-version", "CopyObjectResult": {"ETag": '"same-etag"'}}
+    client.copy_object.return_value = {"VersionId": "new-version"}
     client.head_object.return_value = {"ContentLength": 10, "ETag": '"same-etag"', "Metadata": {}}
     client.get_object_tagging.return_value = {"TagSet": [{"Key": "old", "Value": "value"}]}
     monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: client)
@@ -195,22 +195,19 @@ def test_copy_and_move_expire_only_potentially_mutated_buckets(monkeypatch, move
         source_bucket="source", source_key=" source ", destination_key=" destination ", move=move,
         replace_tags=True, tags=[ObjectTag(key="new", value="value")],
     )
-    should_fail = failure_stage in {"copy", "tags"}
+    should_fail = failure_stage in {"copy", "tags"} or (move and failure_stage is not None)
 
     if should_fail:
         with pytest.raises(RuntimeError):
             service.copy_object("target", account, payload)
     else:
-        result = service.copy_object("target", account, payload)
-        if move and failure_stage in {"verification", "source_delete"}:
-            assert result["copied"] and not result["source_deleted"]
-            assert result["reason"].startswith("Copied, not deleted")
+        service.copy_object("target", account, payload)
 
     _assert_invalidated(entries, {"target", "source"} if move else {"target"})
     if not move or failure_stage in {"copy", "tags", "verification"}:
         client.delete_object.assert_not_called()
     else:
-        client.delete_object.assert_called_once_with(Bucket="source", Key=" source ", IfMatch='"same-etag"')
+        client.delete_object.assert_called_once_with(Bucket="source", Key=" source ")
 
 
 def test_same_bucket_move_invalidates_each_cache_once(monkeypatch):

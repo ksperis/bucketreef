@@ -132,7 +132,7 @@ describe("useBrowserQueuedUpload", () => {
     const options = { ...createOptions(), useProxyTransfers: true };
     const { result } = renderHook(() => useBrowserQueuedUpload(options));
     await act(async () => expect(result.current({ ...makeItem(), accountId: "" })).resolves.toBe(true));
-    expect(apiMocks.proxyUpload).toHaveBeenCalledWith("", "bucket-a", "prefix/docs/report.txt", expect.any(File), expect.any(Function), expect.any(AbortSignal), "customer-key", undefined, options.requestOptions, undefined);
+    expect(apiMocks.proxyUpload).toHaveBeenCalledWith("", "bucket-a", "prefix/docs/report.txt", expect.any(File), expect.any(Function), expect.any(AbortSignal), "customer-key", undefined, options.requestOptions);
   });
 
   it("delegates large direct files to the multipart lifecycle", async () => {
@@ -190,7 +190,6 @@ describe("useBrowserQueuedUpload", () => {
       "prefix/docs/report.txt",
       { parts: [{ part_number: 1, etag: "etag-1" }] },
       options.requestOptions,
-      options.sseCustomerKeyBase64,
     );
     expect(options.updateOperation).toHaveBeenCalledWith("op-1", {
       progress: 60,
