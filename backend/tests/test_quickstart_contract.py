@@ -377,6 +377,9 @@ def test_compose_defaults_are_safe_and_services_have_healthchecks():
         assert services["frontend"]["environment"]["CSP_CONNECT_SRC"] == (
             "${CSP_CONNECT_SRC:-'self'}"
         )
+        assert services["frontend"]["environment"][
+            "BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE"
+        ] == "${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE:-5g}"
         assert services["backend"]["healthcheck"]
         assert services["frontend"]["healthcheck"]
 

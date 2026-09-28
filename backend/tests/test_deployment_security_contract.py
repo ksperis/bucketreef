@@ -32,6 +32,27 @@ def test_runtime_images_are_fixed_non_root_and_read_only_compatible():
     assert "exec supercronic" in scheduler_entrypoint
 
 
+def test_frontend_proxy_streams_browser_uploads_with_explicit_limit():
+    nginx = _read("frontend/nginx.conf.template")
+    entrypoint = _read("frontend/docker-entrypoint.sh")
+    dockerfile = _read("frontend/Dockerfile")
+
+    assert "location ~ ^/api/browser/buckets/[^/]+/proxy-upload$" in nginx
+    assert "client_max_body_size ${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE};" in nginx
+    assert "proxy_request_buffering off;" in nginx
+    assert "${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE}" in entrypoint
+    assert 'BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE="5g"' in dockerfile
+
+    for filename in ("docker-compose.yml", "deploy/compose/docker-compose.yml"):
+        compose = yaml.safe_load(_read(filename))
+        assert compose["services"]["frontend"]["environment"][
+            "BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE"
+        ] == "${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE:-5g}"
+
+    values = yaml.safe_load(_read("deploy/helm/bucketreef/values.yaml"))
+    assert values["frontend"]["env"]["BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE"] == "5g"
+
+
 def test_compose_services_drop_privileges_and_keep_public_port():
     for filename in ("docker-compose.yml", "deploy/compose/docker-compose.yml"):
         compose = yaml.safe_load(_read(filename))
