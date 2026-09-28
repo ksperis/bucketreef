@@ -192,20 +192,10 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Abbrechen",
     "取消"
   ],
-  "Favorites and views": [
-    "Favoris et vues",
-    "Favoriten und Ansichten",
-    "收藏和视图"
-  ],
   "Transfers and recovery": [
     "Transferts et reprise",
     "Transfers und Wiederaufnahme",
     "传输和恢复"
-  ],
-  "Synchronization requires a UI account. Temporary S3 sessions cannot save favorites or views to an account.": [
-    "La synchronisation nécessite un compte UI. Les sessions S3 temporaires ne peuvent pas enregistrer de favoris ou de vues dans un compte.",
-    "Die Synchronisierung erfordert ein UI-Konto. Temporäre S3-Sitzungen können keine Favoriten oder Ansichten im Konto speichern.",
-    "同步需要 UI 账户。临时 S3 会话无法将收藏和视图保存到账户。"
   ],
   "Personal to your account, synchronized across browsers.": [
     "Personnels à votre compte et synchronisés entre navigateurs.",
@@ -242,20 +232,10 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Ort anheften",
     "收藏位置"
   ],
-  "Save view": [
-    "Enregistrer la vue",
-    "Ansicht speichern",
-    "保存视图"
-  ],
   "Refresh": [
     "Actualiser",
     "Aktualisieren",
     "刷新"
-  ],
-  "Update from current view": [
-    "Actualiser depuis la vue courante",
-    "Mit aktueller Ansicht aktualisieren",
-    "使用当前视图更新"
   ],
   "Remove": [
     "Supprimer",
@@ -472,6 +452,7 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Verschieben nach…",
     "移动到…"
   ],
+  "Synchronization requires a UI account. Temporary S3 sessions cannot save favorites to an account.": ["La synchronisation nécessite un compte UI. Les sessions S3 temporaires ne peuvent pas enregistrer de favoris dans un compte.", "Die Synchronisierung benötigt ein UI-Konto. Temporäre S3-Sitzungen können keine Favoriten im Konto speichern.", "同步需要 UI 账户。临时 S3 会话不能将收藏保存到账户。"],
   "Favorites": [
     "Favoris",
     "Favoriten",
@@ -481,11 +462,6 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Emplacements",
     "Orte",
     "位置"
-  ],
-  "Saved views": [
-    "Vues enregistrées",
-    "Gespeicherte Ansichten",
-    "已保存视图"
   ],
   "Search favorites": [
     "Rechercher un favori",

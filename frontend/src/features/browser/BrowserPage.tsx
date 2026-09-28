@@ -1,6 +1,6 @@
 import { cloneElement } from "react";
-import type { BrowserPreset } from "../../api/browserPresets";
-import BrowserPresetsControl from "./BrowserPresetsControl";
+import type { BrowserFavorite } from "../../api/browserFavorites";
+import BrowserFavoritesControl from "./BrowserFavoritesControl";
 import BrowserTransfersControl from "./BrowserTransfersControl";
 import { useBrowserTransferHistory } from "./useBrowserTransferHistory";
 import { abortMultipartUpload } from "../../api/browserMultipart";
@@ -388,7 +388,6 @@ export default function BrowserPage({
   });
   const {
     activeColumnResize,
-    applyColumns,
     columnWidths,
     resetColumnWidth,
     resetColumns: handleResetVisibleColumns,
@@ -407,7 +406,6 @@ export default function BrowserPage({
   );
   const {
     backendSortBy,
-    setSort,
     sortDirection,
     sortId,
     sortKey,
@@ -1841,24 +1839,31 @@ export default function BrowserPage({
     openCreateBucketForm();
   }, [bucketManagementEnabled, openCreateBucketForm, setBucketFilter]);
 
-  const presetControl = useMemo(() => (<BrowserPresetsControl contextLabels={Object.fromEntries(browserContext.contexts.map(context => [context.id, context.display_name]))} availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []} accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")} lockedBucket={resolvedLockedBucketName} current={{ name: normalizedPrefix || bucketName, kind: "view", surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix, view: { query: filter, scope: searchScope, recursive: searchRecursive, exact_match: searchExactMatch, case_sensitive: searchCaseSensitive, item_type: typeFilter, storage_class: storageFilter, sort_key: sortKey, sort_direction: sortDirection, columns: effectiveVisibleColumns, file_filters: { min_size: fileFilterQuery.minSize, max_size: fileFilterQuery.maxSize, modified_after: fileFilterQuery.modifiedAfter, modified_before: fileFilterQuery.modifiedBefore, extensions: fileFilters.extensions.split(",").map(value => value.trim()).filter(Boolean) } } }} onApply={preset => requestDetailsDrawerTransition(() => {
-                if (preset.context !== String(accountIdForApi ?? "")) {
-                  const nextParams = new URLSearchParams(searchParams); nextParams.set("ctx", preset.context); navigate(buildBrowserLocationPath(location.pathname, nextParams.toString(), location.hash, { bucketName: preset.bucket, prefix: preset.prefix }));
-                } else { setBucketName(preset.bucket); setPrefix(preset.prefix); }
-                clearActiveItem();
-                if (preset.view) {
-                  const view = preset.view;
-                  setFilter(view.query); changeSearchScope(view.scope); setSearchRecursive(view.recursive); setSearchExactMatch(view.exact_match); setSearchCaseSensitive(view.case_sensitive); setTypeFilter(view.item_type); setStorageFilter(view.storage_class);
-                  const localDate = (value?: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
-                  setFileFilters({ minSize: view.file_filters.min_size == null ? "" : String(view.file_filters.min_size), maxSize: view.file_filters.max_size == null ? "" : String(view.file_filters.max_size), modifiedAfter: localDate(view.file_filters.modified_after), modifiedBefore: localDate(view.file_filters.modified_before), extensions: view.file_filters.extensions?.join(", ") ?? "" });
-                  applyColumns(view.columns); setSort({ key: view.sort_key, direction: view.sort_direction });
-                }
-              })} />), [isMainBrowserPath, browserContext.contexts, storedUser, resolvedLockedBucketName, normalizedPrefix, bucketName, workspaceSurface, accountIdForApi, filter, searchScope, searchRecursive, searchExactMatch, searchCaseSensitive, typeFilter, storageFilter, sortKey, sortDirection, effectiveVisibleColumns, fileFilterQuery, fileFilters.extensions, requestDetailsDrawerTransition, searchParams, navigate, location.pathname, location.hash, setBucketName, setPrefix, clearActiveItem, setFilter, changeSearchScope, setSearchRecursive, setSearchExactMatch, setSearchCaseSensitive, setTypeFilter, setStorageFilter, setFileFilters, applyColumns, setSort]);
+  const favoriteControl = useMemo(() => (
+    <BrowserFavoritesControl
+      contextLabels={Object.fromEntries(browserContext.contexts.map(context => [context.id, context.display_name]))}
+      availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []}
+      accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")}
+      lockedBucket={resolvedLockedBucketName}
+      current={{ name: normalizedPrefix || bucketName, surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix }}
+      onApply={favorite => requestDetailsDrawerTransition(() => {
+        if (favorite.context !== String(accountIdForApi ?? "")) {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.set("ctx", favorite.context);
+          navigate(buildBrowserLocationPath(location.pathname, nextParams.toString(), location.hash, { bucketName: favorite.bucket, prefix: favorite.prefix }));
+        } else {
+          setBucketName(favorite.bucket);
+          setPrefix(favorite.prefix);
+        }
+        clearActiveItem();
+      })}
+    />
+  ), [isMainBrowserPath, browserContext.contexts, storedUser, resolvedLockedBucketName, normalizedPrefix, bucketName, workspaceSurface, accountIdForApi, requestDetailsDrawerTransition, searchParams, navigate, location.pathname, location.hash, setBucketName, setPrefix, clearActiveItem]);
 
   const renderWorkspaceSidebarBody = useCallback<BrowserSidebarBodyRenderer>(
     ({ compact, variant, closeMobile }) => (
       <BrowserWorkspaceSidebar
-        favorites={cloneElement(presetControl, { variant: "sidebar", compact, onApply: (preset: BrowserPreset) => { presetControl.props.onApply(preset); if (variant === "mobile") closeMobile(); } })}
+        favorites={cloneElement(favoriteControl, { variant: "sidebar", compact, onApply: (preset: BrowserFavorite) => { favoriteControl.props.onApply(preset); if (variant === "mobile") closeMobile(); } })}
         compact={compact}
         variant={variant}
         closeMobile={closeMobile}
@@ -1891,7 +1896,7 @@ export default function BrowserPage({
       />
     ),
     [
-      presetControl,
+      favoriteControl,
       bucketError,
       bucketFilter,
       bucketManagementEnabled,

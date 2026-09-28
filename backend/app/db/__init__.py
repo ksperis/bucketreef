@@ -13,7 +13,7 @@ from .enums import (
 from .storage_endpoint import StorageEndpoint
 from .s3_account import AccountIAMUser, S3Account, UserS3Account
 from .user import User
-from .browser_preset import BrowserPreset
+from .browser_favorite import BrowserFavorite
 from .audit import AuditLog
 from .session import S3Session
 from .auth_security import (
@@ -72,7 +72,7 @@ __all__ = [
     "S3Account",
     "UserS3Account",
     "User",
-    "BrowserPreset",
+    "BrowserFavorite",
     "AuditLog",
     "S3Session",
     "RefreshToken",

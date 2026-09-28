@@ -1,4 +1,4 @@
-import { presets } from "./presets";
+import { favorites } from "./favorites";
 import { currentUser, DemoError, done, json, type DemoRequest } from "./http";
 import { loadState, resetState, saveState } from "./persistence";
 import { personaIds, settings, type Persona } from "./state";
@@ -53,7 +53,7 @@ async function dispatch(c: DemoRequest): Promise<Response> {
     for (const field of ["full_name", "ui_language", "ui_preferences", "quota_alerts_enabled"]) if (field in c.body) Object.assign(c.user, { [field]: c.body[field] });
     return json(c.user);
   }
-  const result = presets(c) ?? governance(c) ?? await objects(c) ?? buckets(c) ?? portal(c) ?? iam(c) ?? ceph(c);
+  const result = favorites(c) ?? governance(c) ?? await objects(c) ?? buckets(c) ?? portal(c) ?? iam(c) ?? ceph(c);
   if (result) return result;
   throw new DemoError(501, `Not covered by the demo: ${c.method} ${c.path}`);
 }

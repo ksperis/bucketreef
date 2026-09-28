@@ -34,18 +34,18 @@ test.beforeAll(async () => {
   }
 });
 
-test("combines sidebar favorites, saved views, advanced search and accessible display menus", async ({ page, browser }, info) => {
+test("combines sidebar favorites, advanced search and accessible display menus", async ({ page, browser }, info) => {
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   await open(page);
   await page.evaluate(async () => {
-    const api = await import(/* @vite-ignore */ ["/src/api", "browserPresets.ts"].join("/"));
-    for (const preset of await api.listBrowserPresets("browser")) {
-      if (preset.prefix.startsWith("evolutions-")) await api.deleteBrowserPreset(preset);
+    const api = await import(/* @vite-ignore */ ["/src/api", "browserFavorites.ts"].join("/"));
+    for (const preset of await api.listBrowserFavorites("browser")) {
+      if (preset.prefix.startsWith("evolutions-")) await api.deleteBrowserFavorite(preset);
     }
   });
   await page.getByRole("tab", { name: "Favorites", exact: true }).click();
   await page.getByRole("button", { name: "Manage favorites", exact: true }).click();
-  const favorites = page.getByRole("dialog", { name: "Favorites and views" });
+  const favorites = page.getByRole("dialog", { name: "Favorites" });
   const label = "Documents du projet";
   await favorites.getByLabel("Name", { exact: true }).fill(label);
   await favorites.getByRole("button", { name: "Pin location", exact: true }).click();
@@ -69,11 +69,7 @@ test("combines sidebar favorites, saved views, advanced search and accessible di
   await expect(page.getByRole("button", { name: "Search options", exact: true })).toBeFocused();
   await expect(page.getByRole("button", { name: "Open file version.json" })).toHaveCount(0);
   await page.getByRole("button", { name: "Manage favorites", exact: true }).click();
-  await favorites.getByLabel("Name", { exact: true }).fill("CSV récents");
-  await favorites.getByRole("button", { name: "Save view", exact: true }).click();
-  await expect(favorites.getByRole("button", { name: "CSV récents", exact: true })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(sidebar.getByText("CSV récents", { exact: true })).toBeVisible();
+
   const menu = await more(page);
   const display = menu.getByRole("menuitem", { name: "Display", exact: true });
   await display.focus(); await page.keyboard.press("ArrowRight");
