@@ -184,12 +184,12 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
     expect(await within(dialog).findByText("/api/portal/public-links/token/download")).toBeInTheDocument();
   });
 
-  it("keeps the full path accessible and copies it without horizontal scrolling", async () => {
+  it("keeps the full path accessible without a redundant copy action", async () => {
     render(<StorageSpaceObjectDetailsDrawer {...baseProps} />);
     const drawer = await screen.findByRole("complementary", { name: "report.csv" });
     expect(within(drawer).getByTitle("reports/2026/report.csv")).toBeInTheDocument();
     expect(within(drawer).getByRole("tabpanel", { name: "Preview" })).toHaveClass("overflow-x-hidden");
-    fireEvent.click(within(drawer).getByRole("button", { name: "Copy path" }));
+    expect(within(drawer).queryByRole("button", { name: "Copy path" })).not.toBeInTheDocument();
   });
 
   it("ignores stale detail responses after switching objects", async () => {

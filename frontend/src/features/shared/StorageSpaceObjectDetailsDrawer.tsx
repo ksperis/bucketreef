@@ -25,7 +25,6 @@ import {
 } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
-import { copyTextToClipboard } from "../../utils/clipboard";
 import { triggerBlobDownload } from "../../utils/download";
 import { formatBytes } from "../../utils/format";
 import ObjectDetailsDrawer from "./ObjectDetailsDrawer";
@@ -201,29 +200,6 @@ export default function StorageSpaceObjectDetailsDrawer({
     }
   };
 
-  const handleCopyPath = async () => {
-    try {
-      await copyTextToClipboard(resolvedKey);
-      onMessage(
-        t({
-          en: "File location copied.",
-          fr: "Emplacement du fichier copié.",
-          de: "Dateispeicherort kopiert.",
-          zh: "文件位置已复制。",
-        }),
-      );
-    } catch {
-      onMessage(
-        t({
-          en: "Clipboard is unavailable in this browser.",
-          fr: "Le presse-papiers est indisponible dans ce navigateur.",
-          de: "Die Zwischenablage ist in diesem Browser nicht verfügbar.",
-          zh: "此浏览器无法使用剪贴板。",
-        }),
-      );
-    }
-  };
-
   const confirmDelete = async () => {
     if (!canModify || isDeleted || deleteBusy) return;
     setDeleteBusy(true);
@@ -341,9 +317,7 @@ export default function StorageSpaceObjectDetailsDrawer({
         navigation={navigation}
         name={resolvedName}
         path={resolvedKey}
-        copyPathLabel={t({ en: "Copy path", fr: "Copier le chemin", de: "Pfad kopieren", zh: "复制路径" })}
         moreLabel={t({ en: "More", fr: "Plus", de: "Mehr", zh: "更多" })}
-        onCopyPath={() => void handleCopyPath()}
         primaryAction={
           !isDeleted
             ? {

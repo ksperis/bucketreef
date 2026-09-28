@@ -68,7 +68,6 @@ type BrowserObjectDetailsDrawerProps = {
   onClose: () => void;
   onDownload: (item: BrowserItem) => void;
   onCopyUrl: (item: BrowserItem | null) => Promise<void> | void;
-  onCopyPath: (path: string) => Promise<void> | void;
   onDelete: (item: BrowserItem) => Promise<void> | void;
   onDirtyChange?: (dirty: boolean) => void;
   onRefreshBrowserObjects: (targetKey: string) => Promise<void>;
@@ -95,7 +94,6 @@ export default function BrowserObjectDetailsDrawer({
   onClose,
   onDownload,
   onCopyUrl,
-  onCopyPath,
   onDelete,
   onDirtyChange,
   onRefreshBrowserObjects,
@@ -679,9 +677,7 @@ export default function BrowserObjectDetailsDrawer({
         navigation={navigation}
         name={itemSnapshot.name}
         path={path}
-        copyPathLabel="Copy path"
         moreLabel="More"
-        onCopyPath={() => void onCopyPath(path)}
         primaryAction={
           !isDeletedCurrent
             ? { label: "Download", onSelect: () => onDownload(itemSnapshot) }

@@ -24,12 +24,12 @@ type ObjectDetailsDrawerProps = {
   navigation?: ObjectPreviewNavigation;
   activeTab?: string;
   children: ReactNode;
-  copyPathLabel: string;
+  copyPathLabel?: string;
   moreLabel: string;
   name: string;
   notice?: ReactNode;
   onClose: () => void;
-  onCopyPath: () => void;
+  onCopyPath?: () => void;
   onTabChange?: (tabId: string) => void;
   path: string;
   primaryAction?: {
@@ -69,13 +69,15 @@ export default function ObjectDetailsDrawer({
           <span className="min-w-0 flex-1 truncate" title={path}>
             {path}
           </span>
-          <button
-            type="button"
-            className="shrink-0 font-semibold text-primary hover:underline"
-            onClick={onCopyPath}
-          >
-            {copyPathLabel}
-          </button>
+          {copyPathLabel && onCopyPath ? (
+            <button
+              type="button"
+              className="shrink-0 font-semibold text-primary hover:underline"
+              onClick={onCopyPath}
+            >
+              {copyPathLabel}
+            </button>
+          ) : null}
         </div>
       }
       actions={

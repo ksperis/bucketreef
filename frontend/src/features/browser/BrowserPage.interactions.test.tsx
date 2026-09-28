@@ -4576,6 +4576,12 @@ describe("BrowserPage interactions", () => {
     expect(
       await screen.findByRole("complementary", { name: "b.txt" }),
     ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("complementary", { name: "b.txt" })).queryByRole(
+        "button",
+        { name: "Copy path" },
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps preview and Advanced protection loading lazy in the object drawer", async () => {
