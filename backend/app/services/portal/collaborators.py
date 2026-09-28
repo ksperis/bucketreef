@@ -332,12 +332,27 @@ class PortalCollaboratorsMixin:
             )
 
         space_accesses.sort(key=lambda item: (item.storage_space_name.lower(), item.storage_space_id.lower()))
+        direct_membership = self.db.query(UserS3Account).filter(
+            UserS3Account.user_id == target_user_id,
+            UserS3Account.account_id == access.account.id,
+        ).first()
+        direct_only = self._portal_access_source(sources) == "direct"
         return PortalCollaboratorAccessReview(
             collaborator=collaborator,
             can_request_project_removal=(
                 access.capabilities.can_manage_portal_users
                 and portal_role == PortalAccountRole.PORTAL_USER.value
-                and self._portal_access_source(sources) == "direct"
+                and direct_only
+            ),
+            can_request_role_change=(
+                access.capabilities.can_manage_portal_users
+                and target_user_id != user.id
+                and direct_only
+                and direct_membership is not None
+                and direct_membership.portal_role in {
+                    PortalAccountRole.PORTAL_USER.value,
+                    PortalAccountRole.PORTAL_MANAGER.value,
+                }
             ),
             space_accesses=space_accesses,
         )

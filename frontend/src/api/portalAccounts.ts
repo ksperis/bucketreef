@@ -26,6 +26,8 @@ export type PortalState = {
   can_create_team_storage_spaces?: boolean;
   can_create_external_sharing?: boolean;
   can_manage_portal_users?: boolean;
+  portal_collaborator_role_management_delegated?: boolean;
+  portal_collaborator_addition_delegated?: boolean;
   allow_named_bucket_create?: boolean;
   server_access_logging_enabled?: boolean;
   storage_space_version_cleanup_enabled?: boolean;
@@ -35,12 +37,16 @@ export type PortalAccountSettings = {
   effective: PortalSettings;
   admin_override: PortalSettingsOverride;
   delegated_to_portal_managers: boolean;
+  portal_collaborator_role_management_delegated: boolean;
+  portal_collaborator_addition_delegated: boolean;
 };
 
 export type PortalProjectSettings = {
   effective: PortalSettings;
   project_override: PortalSettingsOverride;
   delegated_to_portal_managers: boolean;
+  portal_collaborator_role_management_delegated: boolean;
+  portal_collaborator_addition_delegated: boolean;
   can_update: boolean;
 };
 

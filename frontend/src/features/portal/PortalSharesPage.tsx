@@ -304,6 +304,7 @@ export default function PortalSharesPage() {
     collaborators,
     collaboratorsLoading,
     collaboratorsError,
+    refreshWorkspaceData,
   } = usePortalWorkspaceData({ includeCollaborators: true });
   const canRequestMemberChanges = Boolean(
     selectedAccount?.portal_role === "portal_manager" ||
@@ -411,7 +412,7 @@ export default function PortalSharesPage() {
     setSharesError(null);
     setSharesMessage(null);
     try {
-      await createPortalRequest(accountIdForApi, {
+      const request = await createPortalRequest(accountIdForApi, {
         request_type: "portal_user_access",
         target_name: targetName,
         target_email: targetEmail,
@@ -423,14 +424,22 @@ export default function PortalSharesPage() {
       setMemberRequestEmail("");
       setMemberRequestRole("portal_user");
       setMemberRequestReason("");
-      setSharesMessage(
-        t({
-          en: "Member request sent. Track it in Help requests.",
-          fr: "Demande d'ajout envoyée. Suivez-la dans la page Demandes.",
-          de: "Mitgliedsanfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen.",
-          zh: "成员请求已发送。可在“帮助请求”中查看进度。",
-        }),
-      );
+      if (request.status === "approved") {
+        refreshWorkspaceData();
+      }
+      setSharesMessage(request.status === "approved"
+        ? t({
+            en: "Member added to the project immediately.",
+            fr: "Le membre a été ajouté immédiatement au projet.",
+            de: "Das Mitglied wurde sofort zum Projekt hinzugefügt.",
+            zh: "成员已立即添加到项目。",
+          })
+        : t({
+            en: "Member request sent. Track it in Help requests.",
+            fr: "Demande d'ajout envoyée. Suivez-la dans la page Demandes.",
+            de: "Mitgliedsanfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen.",
+            zh: "成员请求已发送。可在“帮助请求”中查看进度。",
+          }));
     } catch (err) {
       console.error(err);
       setMemberRequestError(

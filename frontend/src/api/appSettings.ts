@@ -46,6 +46,8 @@ export type PortalSettingsOverride = {
 
 export type PortalSettingsAdminUpdate = PortalSettingsOverride & {
   delegated_to_portal_managers?: boolean | null;
+  portal_collaborator_role_management_delegated?: boolean | null;
+  portal_collaborator_addition_delegated?: boolean | null;
 };
 
 export type GeneralSettings = {

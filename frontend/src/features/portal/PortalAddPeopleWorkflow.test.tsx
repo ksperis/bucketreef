@@ -26,7 +26,7 @@ beforeEach(() => {
   setSessionUserCache({ role: "ui_user", authType: "password" });
   mocks.list.mockResolvedValue(candidates);
   mocks.grant.mockResolvedValue({});
-  mocks.request.mockResolvedValue({});
+  mocks.request.mockResolvedValue({ id: 73, status: "pending" });
 });
 afterEach(() => {
   cleanup();
@@ -146,6 +146,23 @@ it("guards a nested request once, retains failed values and never submits the in
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
   expect(await screen.findByText("Space view")).toBeVisible();
+});
+
+it("refreshes candidates after an immediately delegated collaborator addition", async () => {
+  const user = userEvent.setup();
+  mocks.request.mockResolvedValueOnce({ id: 74, status: "approved" });
+  renderWorkflow();
+  await screen.findByRole("checkbox", { name: /Bob/ });
+  const dialog = await openRequest(user);
+  await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Missing person");
+  await user.clear(within(dialog).getByRole("textbox", { name: "Email" }));
+  await user.type(within(dialog).getByRole("textbox", { name: "Email" }), "partner@example.test");
+  await user.click(within(dialog).getByRole("button", { name: "Send request" }));
+
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "This person was added to the project. Select them to finish adding them to Research.",
+  );
+  expect(mocks.list).toHaveBeenCalledTimes(2);
 });
 
 it("protects a membership-request draft even with no selected people and discards both on navigation", async () => {

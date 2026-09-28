@@ -67,6 +67,14 @@ export function PortalRequestStatusBadge({ status }: { status: PortalAdminReques
 export function portalRequestPayloadSummary(request: PortalAdminRequest): string {
   const payload = request.payload ?? {};
   if (request.request_type === "portal_user_access") {
+    if (payload.intent === "role_change") {
+      const name = typeof payload.target_name === "string" ? payload.target_name : "Portal collaborator";
+      const email = typeof payload.target_email === "string" ? payload.target_email : "";
+      const currentRole = payload.current_portal_role === "portal_manager" ? "Portal manager" : "Portal user";
+      const requestedRole = payload.portal_role === "portal_manager" ? "Portal manager" : "Portal user";
+      const identity = email ? `${name} <${email}>` : name;
+      return `${identity} · ${currentRole} → ${requestedRole}`;
+    }
     const name = typeof payload.target_name === "string" ? payload.target_name : "New user";
     const email = typeof payload.target_email === "string" ? payload.target_email : "";
     const role = payload.portal_role === "portal_manager" ? "Portal manager" : "Portal user";

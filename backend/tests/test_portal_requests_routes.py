@@ -124,6 +124,39 @@ def test_portal_request_routes_require_manager_for_creation(client: TestClient, 
     assert response.status_code == 403
 
 
+def test_portal_manager_can_create_role_change_request(client: TestClient, db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="manager@example.org")
+    target = _seed_user(db_session, email="member@example.org")
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    db_session.commit()
+    _install_portal_access_override(account, requester)
+
+    response = client.post(
+        "/api/portal/requests",
+        json={
+            "request_type": "portal_user_access",
+            "intent": "role_change",
+            "target_user_id": target.id,
+            "portal_role": "portal_manager",
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()["payload"]
+    assert payload["intent"] == "role_change"
+    assert payload["target_user_id"] == target.id
+    assert payload["current_portal_role"] == "portal_user"
+    assert payload["portal_role"] == "portal_manager"
+
+
 def test_portal_request_routes_use_effective_manager_role_for_creation(client: TestClient, db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="manager@example.org")

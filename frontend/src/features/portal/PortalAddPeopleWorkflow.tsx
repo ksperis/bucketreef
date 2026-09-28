@@ -88,20 +88,35 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
           return next;
         })}
         onRequestPerson={async ({ targetName, targetEmail, portalRole }) => {
-          await createPortalRequest(accountId, { request_type: "portal_user_access", target_name: targetName, target_email: targetEmail, portal_role: portalRole });
-          setRequestMessage(portalRole === "portal_manager"
-            ? t({
-                en: "Request sent. Track it in Help requests. Once approved, this person can access and manage every project space.",
-                fr: "Demande envoyée. Suivez-la dans la page Demandes. Une fois approuvée, cette personne pourra accéder à tous les espaces du projet et les gérer.",
-                de: "Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen. Nach der Genehmigung kann diese Person auf alle Projektbereiche zugreifen und sie verwalten.",
-                zh: "请求已发送。请在帮助请求中跟踪进度。获批后，此人可以访问并管理项目中的所有空间。",
-              })
-            : t({
-                en: `Request sent. Track it in Help requests, then return to ${spaceName} to finish the invitation.`,
-                fr: `Demande envoyée. Suivez-la dans la page Demandes, puis revenez dans ${spaceName} pour terminer l'invitation.`,
-                de: `Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen und kehren Sie danach zu ${spaceName} zurück, um die Einladung abzuschließen.`,
-                zh: `请求已发送。请在帮助请求中跟踪进度，然后返回 ${spaceName} 完成邀请。`,
-              }));
+          const request = await createPortalRequest(accountId, { request_type: "portal_user_access", target_name: targetName, target_email: targetEmail, portal_role: portalRole });
+          if (request.status === "approved") setRevision(value => value + 1);
+          setRequestMessage(request.status === "approved"
+            ? portalRole === "portal_manager"
+              ? t({
+                  en: "This person was added as a Portal manager and can now access and manage every project space.",
+                  fr: "Cette personne a été ajoutée comme gestionnaire Portal et peut maintenant accéder à tous les espaces du projet et les gérer.",
+                  de: "Diese Person wurde als Portal-Manager hinzugefügt und kann jetzt auf alle Projektbereiche zugreifen und sie verwalten.",
+                  zh: "此人员已作为 Portal 管理员添加，现在可以访问并管理项目中的所有空间。",
+                })
+              : t({
+                  en: `This person was added to the project. Select them to finish adding them to ${spaceName}.`,
+                  fr: `Cette personne a été ajoutée au projet. Sélectionnez-la pour terminer son ajout à ${spaceName}.`,
+                  de: `Diese Person wurde zum Projekt hinzugefügt. Wählen Sie sie aus, um sie zu ${spaceName} hinzuzufügen.`,
+                  zh: `此人员已添加到项目。请选择该人员以完成添加到 ${spaceName}。`,
+                })
+            : portalRole === "portal_manager"
+              ? t({
+                  en: "Request sent. Track it in Help requests. Once approved, this person can access and manage every project space.",
+                  fr: "Demande envoyée. Suivez-la dans la page Demandes. Une fois approuvée, cette personne pourra accéder à tous les espaces du projet et les gérer.",
+                  de: "Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen. Nach der Genehmigung kann diese Person auf alle Projektbereiche zugreifen und sie verwalten.",
+                  zh: "请求已发送。请在帮助请求中跟踪进度。获批后，此人可以访问并管理项目中的所有空间。",
+                })
+              : t({
+                  en: `Request sent. Track it in Help requests, then return to ${spaceName} to finish the invitation.`,
+                  fr: `Demande envoyée. Suivez-la dans la page Demandes, puis revenez dans ${spaceName} pour terminer l'invitation.`,
+                  de: `Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen und kehren Sie danach zu ${spaceName} zurück, um die Einladung abzuschließen.`,
+                  zh: `请求已发送。请在帮助请求中跟踪进度，然后返回 ${spaceName} 完成邀请。`,
+                }));
         }} />
     </SettingsSection>
   </SettingsWorkflowForm>;

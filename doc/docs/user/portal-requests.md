@@ -3,6 +3,10 @@
 Use this page when you need help from a storage admin before you can finish a
 Portal task, add or remove someone from the project, or change the project
 storage limit or a project setting that has not been delegated to Portal Managers.
+Collaborator additions and direct project-role changes also appear here when
+they require Admin approval. If the corresponding collaborator action is
+delegated, it is applied immediately and retained in the request history as an
+approved entry for traceability.
 
 ## Before you start
 
@@ -15,6 +19,9 @@ storage limit or a project setting that has not been delegated to Portal Manager
 - Project-setting requests are available only while project settings remain
   managed by the platform administrator. If settings are delegated, edit them
   directly from **Portal > Settings**.
+- Collaborator delegation is configured independently by an Admin for each
+  project. Addition delegation and project-role-management delegation are two
+  separate permissions and are disabled by default.
 
 ## Main tasks
 
@@ -27,6 +34,17 @@ storage limit or a project setting that has not been delegated to Portal Manager
    (`portal_manager`). For removal, choose an existing direct collaborator from
    the project list; the name and email are filled from that selection. The
    reason field is optional.
+   When collaborator addition is delegated, a Workspace member is added
+   immediately. Adding a Workspace manager immediately requires both
+   collaborator addition and role management to be delegated; otherwise the
+   request remains pending for Admin approval. Project removal is never applied
+   through these delegations and always remains an Admin-approved request.
+   To change the role of an existing direct collaborator, open that person's
+   access review from **Portal > Collaborators**, then select **Change role**.
+   The action switches between **Workspace member** and **Workspace manager**.
+   It is applied immediately when role management is delegated; otherwise it
+   remains pending for Admin approval. Portal does not offer this action for
+   your own membership or for access inherited from a group.
 4. Select **Change storage limit** to choose a higher or lower limit, enter the
    new target, and choose the unit. The preview shows the current limit, the
    requested limit, and the space already used. The reason field is optional.
@@ -45,17 +63,23 @@ storage limit or a project setting that has not been delegated to Portal Manager
 |---|---|
 | Pending | The request is waiting for an admin decision. |
 | Processing | An admin approved it and the platform is applying the change. |
-| Approved | The requested action completed successfully. |
+| Approved | The requested action completed successfully, either immediately through delegation or after Admin approval. |
 | Rejected | An admin declined the request. |
 | Failed | The platform could not apply an approved request. |
 
 ## Expected result
 
-The request stays visible from Portal with admin messages and final status.
-Approving a request is an Admin action: project membership and storage limits
-are not changed until an admin validates the request.
-For collaborator additions, approval applies the requested Portal role. A
-legacy request without an explicit role continues to create a Workspace member.
+The request stays visible from Portal with its final status and any Admin
+messages. Non-delegated collaborator actions, removals, and storage-limit
+changes remain unchanged until an Admin validates them. Delegated collaborator
+actions are recorded directly as **Approved**, do not notify an Admin for a
+decision, and include an audit entry identifying delegated execution.
+For collaborator additions, execution applies the requested Portal role. A
+legacy request without an explicit role or intent continues to add a Workspace
+member. For role changes, execution first verifies that the collaborator still
+has the same direct Portal role recorded when the request was created. If their
+membership or role changed in the meantime, the action fails instead of
+overwriting the newer state.
 Portal blocks storage-limit requests that would set the new limit below the
 space already used.
 For a project-setting request, approval changes only the requested setting and

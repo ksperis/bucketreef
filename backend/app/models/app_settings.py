@@ -44,6 +44,8 @@ class PortalSettingsOverride(ApiModel):
 
 class PortalSettingsAdminUpdate(PortalSettingsOverride):
     delegated_to_portal_managers: Optional[bool] = None
+    portal_collaborator_role_management_delegated: Optional[bool] = None
+    portal_collaborator_addition_delegated: Optional[bool] = None
 
 
 class PortalBucketDefaults(ApiModel):

@@ -52,6 +52,8 @@ const makePortalAccountSettings = (overrides?: Record<string, unknown>) => ({
   },
   admin_override: {},
   delegated_to_portal_managers: false,
+  portal_collaborator_role_management_delegated: false,
+  portal_collaborator_addition_delegated: false,
   ...overrides,
 });
 
@@ -764,6 +766,8 @@ describe("AccountsPage modal tabs", () => {
       target: { value: "enabled" },
     });
     fireEvent.click(screen.getByLabelText("Delegate Portal overrides to Portal managers"));
+    fireEvent.click(screen.getByLabelText("Delegate collaborator addition to Portal managers"));
+    fireEvent.click(screen.getByLabelText("Delegate collaborator role management to Portal managers"));
     fireEvent.change(screen.getByLabelText("Private Storage Space creation"), { target: { value: "disabled" } });
     fireEvent.change(screen.getByLabelText("Named bucket creation"), { target: { value: "enabled" } });
     fireEvent.change(screen.getByLabelText("Storage Space history cleanup"), { target: { value: "disabled" } });
@@ -776,6 +780,8 @@ describe("AccountsPage modal tabs", () => {
     await waitFor(() => {
       expect(updateAccountPortalSettingsMock).toHaveBeenCalledWith(1, {
         delegated_to_portal_managers: true,
+        portal_collaborator_role_management_delegated: true,
+        portal_collaborator_addition_delegated: true,
         browser_access_enabled: true,
         allow_private_storage_space_create: false,
         allow_portal_named_bucket_create: true,
@@ -1033,7 +1039,12 @@ describe("AccountsPage modal tabs", () => {
     expect(updateAccountPortalSettingsMock).not.toHaveBeenCalled();
     expect(screen.getByRole("switch", { name: "Delegate Portal overrides to Portal managers" })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(updateAccountPortalSettingsMock).toHaveBeenCalledWith(1, { delegated_to_portal_managers: true, bucket_defaults: null }));
+    await waitFor(() => expect(updateAccountPortalSettingsMock).toHaveBeenCalledWith(1, {
+      delegated_to_portal_managers: true,
+      portal_collaborator_role_management_delegated: false,
+      portal_collaborator_addition_delegated: false,
+      bucket_defaults: null,
+    }));
     expect(updateS3AccountMock).not.toHaveBeenCalled();
   });
 
@@ -1050,7 +1061,11 @@ describe("AccountsPage modal tabs", () => {
     fetchAccountPortalSettingsMock.mockResolvedValue(makePortalAccountSettings({ admin_override: { allow_private_storage_space_create: false }, delegated_to_portal_managers: true }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(updateAccountPortalSettingsMock).toHaveBeenCalledWith(1, {
-      browser_access_enabled: true, allow_private_storage_space_create: false, delegated_to_portal_managers: true,
+      browser_access_enabled: true,
+      allow_private_storage_space_create: false,
+      delegated_to_portal_managers: true,
+      portal_collaborator_role_management_delegated: false,
+      portal_collaborator_addition_delegated: false,
     }));
     expect(updateS3AccountMock).not.toHaveBeenCalled();
   });

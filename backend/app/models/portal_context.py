@@ -27,6 +27,8 @@ class PortalState(ApiModel):
     can_create_team_storage_spaces: bool = False
     can_create_external_sharing: bool = False
     can_manage_portal_users: bool = False
+    portal_collaborator_role_management_delegated: bool = False
+    portal_collaborator_addition_delegated: bool = False
     allow_named_bucket_create: bool = False
     server_access_logging_enabled: bool = True
     storage_space_version_cleanup_enabled: bool = True

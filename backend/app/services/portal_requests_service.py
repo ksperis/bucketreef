@@ -14,10 +14,12 @@ from app.db import (
     PortalAdminRequest,
     PortalAdminRequestMessage,
     S3Account,
+    UiGroupS3Account,
     User,
     UserNotification,
     UserRole,
     UserS3Account,
+    UserUiGroup,
 )
 from app.models.portal_requests import (
     PortalAccountQuotaChangeRequestCreate,
@@ -93,7 +95,10 @@ class PortalRequestsService:
         access: AccountAccess,
         payload: PortalAdminRequestCreate,
     ) -> PortalAdminRequestOut:
-        request_type, payload_data = self._normalize_create_payload(payload)
+        if isinstance(payload, PortalUserAccessRequestCreate):
+            request_type, payload_data = self._normalize_user_access_request(actor, access, payload)
+        else:
+            request_type, payload_data = self._normalize_create_payload(payload)
         if isinstance(payload, PortalAccountQuotaChangeRequestCreate):
             self._validate_quota_request_against_current_usage(actor, access, payload)
         if isinstance(payload, PortalSettingChangeRequestCreate):
@@ -114,8 +119,11 @@ class PortalRequestsService:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
-        self._notify_admins(row)
-        self.db.commit()
+        delegated_execution = self._is_delegated_collaborator_execution(
+            access,
+            request_type=request_type,
+            payload_data=payload_data,
+        )
         AuditService(self.db).record_action(
             user=actor,
             scope="portal",
@@ -123,9 +131,81 @@ class PortalRequestsService:
             entity_type="portal_request",
             entity_id=str(row.id),
             account=row.account,
-            metadata={"request_type": request_type},
+            metadata={
+                "request_type": request_type,
+                "intent": payload_data.get("intent"),
+                "execution": "delegated" if delegated_execution else "admin_approval",
+            },
         )
+        if delegated_execution:
+            return self._execute_delegated_request(row, actor)
+        self._notify_admins(row)
+        self.db.commit()
         return self.to_out(row)
+
+    def _execute_delegated_request(
+        self,
+        row: PortalAdminRequest,
+        actor: User,
+    ) -> PortalAdminRequestOut:
+        try:
+            result = self._execute_request(row)
+        except Exception as exc:
+            detail = sanitize_error_detail(str(exc))
+            self.db.rollback()
+            failed = self._load_request(int(row.id))
+            now = utcnow()
+            failed.status = "failed"
+            failed.error_message = detail
+            failed.decided_by_user_id = int(actor.id)
+            failed.decided_by_email = actor.email
+            failed.decided_at = now
+            failed.updated_at = now
+            self.db.add(failed)
+            self.db.commit()
+            AuditService(self.db).record_action(
+                user=actor,
+                scope="portal",
+                action="execute_delegated_portal_request",
+                entity_type="portal_request",
+                entity_id=str(failed.id),
+                account=failed.account,
+                metadata={
+                    "request_type": failed.request_type,
+                    "execution": "delegated",
+                    "error": detail,
+                },
+                status="failure",
+                message=detail,
+            )
+            raise PortalRequestExecutionError(detail) from exc
+
+        approved = self._load_request(int(row.id))
+        now = utcnow()
+        approved.status = "approved"
+        approved.result_json = self._encode_json(result)
+        approved.error_message = None
+        approved.decided_by_user_id = int(actor.id)
+        approved.decided_by_email = actor.email
+        approved.decided_at = now
+        approved.updated_at = now
+        self.db.add(approved)
+        self.db.commit()
+        self.db.refresh(approved)
+        AuditService(self.db).record_action(
+            user=actor,
+            scope="portal",
+            action="execute_delegated_portal_request",
+            entity_type="portal_request",
+            entity_id=str(approved.id),
+            account=approved.account,
+            metadata={
+                "request_type": approved.request_type,
+                "execution": "delegated",
+                "result": result,
+            },
+        )
+        return self.to_out(approved)
 
     def list_for_portal_user(
         self,
@@ -278,7 +358,7 @@ class PortalRequestsService:
             self._notify_requester(
                 failed,
                 title="Portal request failed",
-                message="A storage admin tried to approve your Portal request, but it could not be completed.",
+                message="Your Portal request could not be completed after approval.",
                 event_suffix="failed",
             )
             self.db.commit()
@@ -312,7 +392,7 @@ class PortalRequestsService:
         self._notify_requester(
             approved,
             title="Portal request approved",
-            message="Your Portal request was approved and applied by a storage admin.",
+            message="Your Portal request was approved and applied.",
             event_suffix="approved",
         )
         self.db.commit()
@@ -370,6 +450,11 @@ class PortalRequestsService:
 
     def _execute_user_access(self, row: PortalAdminRequest) -> dict[str, Any]:
         payload = self._decode_json(row.payload_json)
+        intent = str(payload.get("intent") or "add").strip()
+        if intent == "role_change":
+            return self._execute_user_role_change(row, payload)
+        if intent != "add":
+            raise ValueError("Invalid Portal collaborator request intent")
         target_name = str(payload.get("target_name") or "").strip()
         target_email = str(payload.get("target_email") or "").strip().lower()
         requested_portal_role = str(
@@ -428,6 +513,60 @@ class PortalRequestsService:
             "created_user": created_user,
             "requested_portal_role": requested_portal_role,
             "portal_role": next_portal_role,
+        }
+
+    def _execute_user_role_change(
+        self,
+        row: PortalAdminRequest,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        target_user_id = int(payload.get("target_user_id") or 0)
+        expected_role = str(payload.get("current_portal_role") or "").strip()
+        requested_role = str(payload.get("portal_role") or "").strip()
+        if target_user_id <= 0:
+            raise ValueError("Target user is required")
+        if expected_role not in {
+            PortalAccountRole.PORTAL_USER.value,
+            PortalAccountRole.PORTAL_MANAGER.value,
+        }:
+            raise ValueError("Invalid current Portal role")
+        if requested_role not in {
+            PortalAccountRole.PORTAL_USER.value,
+            PortalAccountRole.PORTAL_MANAGER.value,
+        }:
+            raise ValueError("Invalid requested Portal role")
+        if requested_role == expected_role:
+            raise ValueError("Requested Portal role is unchanged")
+
+        target = self.db.query(User).filter(User.id == target_user_id).first()
+        if not target or not target.is_active:
+            raise ValueError("Target user was not found or is inactive")
+        link = (
+            self.db.query(UserS3Account)
+            .filter(
+                UserS3Account.user_id == target_user_id,
+                UserS3Account.account_id == row.account_id,
+            )
+            .first()
+        )
+        if not link or link.portal_role is None:
+            raise ValueError("Target user has no direct Portal membership in this project")
+        if self._has_group_portal_membership(target_user_id, int(row.account_id)):
+            raise ValueError("Role changes require direct-only Portal membership")
+        if link.portal_role != expected_role:
+            raise ValueError("Target user's Portal role changed after this request was created")
+
+        self.users_service.assign_user_to_account(
+            target_user_id,
+            int(row.account_id),
+            manager_role=link.manager_role,
+            portal_role=requested_role,
+        )
+        return {
+            "target_user_id": target_user_id,
+            "target_email": target.email,
+            "previous_portal_role": expected_role,
+            "portal_role": requested_role,
         }
 
     def _execute_user_removal(self, row: PortalAdminRequest) -> dict[str, Any]:
@@ -663,8 +802,6 @@ class PortalRequestsService:
         )
 
     def _normalize_create_payload(self, payload: PortalAdminRequestCreate) -> tuple[str, dict[str, Any]]:
-        if isinstance(payload, PortalUserAccessRequestCreate):
-            return payload.request_type, payload.model_dump(mode="json", exclude={"request_type"}, exclude_none=True)
         if isinstance(payload, PortalUserRemovalRequestCreate):
             return payload.request_type, payload.model_dump(mode="json", exclude={"request_type"}, exclude_none=True)
         if isinstance(payload, PortalAccountQuotaChangeRequestCreate):
@@ -672,6 +809,87 @@ class PortalRequestsService:
         if isinstance(payload, PortalSettingChangeRequestCreate):
             return payload.request_type, payload.model_dump(mode="json", exclude={"request_type"}, exclude_none=True)
         raise ValueError("Unsupported Portal request payload")
+
+    def _normalize_user_access_request(
+        self,
+        actor: User,
+        access: AccountAccess,
+        payload: PortalUserAccessRequestCreate,
+    ) -> tuple[str, dict[str, Any]]:
+        if payload.intent == "add":
+            return payload.request_type, payload.model_dump(
+                mode="json",
+                exclude={"request_type"},
+                exclude_none=True,
+            )
+
+        if payload.target_user_id is None:
+            raise ValueError("Target user is required")
+        if int(actor.id) == int(payload.target_user_id):
+            raise ValueError("Portal managers cannot change their own project role")
+        target = self.db.query(User).filter(User.id == int(payload.target_user_id)).first()
+        if not target or not target.is_active:
+            raise ValueError("Target user was not found or is inactive")
+        link = (
+            self.db.query(UserS3Account)
+            .filter(
+                UserS3Account.user_id == target.id,
+                UserS3Account.account_id == access.account.id,
+            )
+            .first()
+        )
+        if not link or link.portal_role not in {
+            PortalAccountRole.PORTAL_USER.value,
+            PortalAccountRole.PORTAL_MANAGER.value,
+        }:
+            raise ValueError("Target user has no direct Portal membership in this project")
+        if self._has_group_portal_membership(int(target.id), int(access.account.id)):
+            raise ValueError("Role changes require direct-only Portal membership")
+        if link.portal_role == payload.portal_role:
+            raise ValueError("Requested Portal role is unchanged")
+        return payload.request_type, {
+            "intent": "role_change",
+            "target_user_id": int(target.id),
+            "target_name": target.full_name or target.email,
+            "target_email": target.email,
+            "current_portal_role": link.portal_role,
+            "portal_role": payload.portal_role,
+            **({"reason": payload.reason} if payload.reason is not None else {}),
+        }
+
+    def _is_delegated_collaborator_execution(
+        self,
+        access: AccountAccess,
+        *,
+        request_type: str,
+        payload_data: dict[str, Any],
+    ) -> bool:
+        if request_type != "portal_user_access":
+            return False
+        intent = str(payload_data.get("intent") or "add")
+        if intent == "role_change":
+            return bool(access.account.portal_collaborator_role_management_delegated)
+        if intent != "add" or not access.account.portal_collaborator_addition_delegated:
+            return False
+        requested_role = str(
+            payload_data.get("portal_role") or PortalAccountRole.PORTAL_USER.value
+        )
+        if requested_role == PortalAccountRole.PORTAL_MANAGER.value:
+            return bool(access.account.portal_collaborator_role_management_delegated)
+        return requested_role == PortalAccountRole.PORTAL_USER.value
+
+    def _has_group_portal_membership(self, user_id: int, account_id: int) -> bool:
+        return (
+            self.db.query(UserUiGroup.id)
+            .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
+            .filter(
+                UserUiGroup.user_id == user_id,
+                UiGroupS3Account.account_id == account_id,
+                UiGroupS3Account.portal_role.is_not(None),
+            )
+            .first()
+            is not None
+        )
 
     @staticmethod
     def _encode_json(payload: dict[str, Any]) -> str:

@@ -12,10 +12,13 @@ from app.db import (
     AuditLog,
     PortalAdminRequest,
     S3Account,
+    UiGroup,
+    UiGroupS3Account,
     User,
     UserNotification,
     UserRole,
     UserS3Account,
+    UserUiGroup,
 )
 from app.models.portal_requests import (
     PortalAdminRequestDecision,
@@ -26,6 +29,7 @@ from app.models.portal_requests import (
 )
 from app.models.access_context import AccountAccess
 from app.models.account_capabilities import AccountCapabilities
+from app.services.portal_service import PortalService
 from app.services.portal_requests_service import PortalRequestConflict, PortalRequestExecutionError, PortalRequestsService
 from tests.s3_account_factory import make_s3_account
 
@@ -201,6 +205,7 @@ def test_approve_legacy_user_access_request_defaults_to_portal_user(db_session):
     row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
     payload = json.loads(row.payload_json)
     payload.pop("portal_role")
+    payload.pop("intent", None)
     row.payload_json = json.dumps(payload)
     db_session.add(row)
     db_session.commit()
@@ -306,6 +311,332 @@ def test_approve_user_removal_refuses_portal_manager_link(db_session):
     assert row.status == "failed"
     assert "Only Portal user links" in (row.error_message or "")
     assert db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+
+
+def test_role_change_request_promotes_direct_portal_user(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    target = _seed_user(db_session, email="member@example.org", full_name="Project Member")
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    db_session.commit()
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+
+    created = service.create_request(
+        requester,
+        _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
+        PortalUserAccessRequestCreate(
+            request_type="portal_user_access",
+            intent="role_change",
+            target_user_id=target.id,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+            reason="Needs project administration",
+        ),
+    )
+
+    assert created.payload == {
+        "intent": "role_change",
+        "target_user_id": target.id,
+        "target_name": "Project Member",
+        "target_email": "member@example.org",
+        "current_portal_role": PortalAccountRole.PORTAL_USER.value,
+        "portal_role": PortalAccountRole.PORTAL_MANAGER.value,
+        "reason": "Needs project administration",
+    }
+
+    approved = service.approve_request(created.id, admin)
+
+    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    assert approved.status == "approved"
+    assert approved.result == {
+        "target_user_id": target.id,
+        "target_email": "member@example.org",
+        "previous_portal_role": PortalAccountRole.PORTAL_USER.value,
+        "portal_role": PortalAccountRole.PORTAL_MANAGER.value,
+    }
+    assert link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+
+
+def test_role_change_request_rejects_unchanged_role(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    target = _seed_user(db_session, email="member@example.org")
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    db_session.commit()
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+
+    with pytest.raises(ValueError, match="unchanged"):
+        service.create_request(
+            requester,
+            _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
+            PortalUserAccessRequestCreate(
+                request_type="portal_user_access",
+                intent="role_change",
+                target_user_id=target.id,
+                portal_role=PortalAccountRole.PORTAL_USER.value,
+            ),
+        )
+
+
+def test_role_change_request_fails_if_role_changed_before_approval(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    target = _seed_user(db_session, email="member@example.org")
+    link = UserS3Account(
+        user_id=target.id,
+        account_id=account.id,
+        manager_role=None,
+        portal_role=PortalAccountRole.PORTAL_USER.value,
+    )
+    db_session.add(link)
+    db_session.commit()
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = service.create_request(
+        requester,
+        _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
+        PortalUserAccessRequestCreate(
+            request_type="portal_user_access",
+            intent="role_change",
+            target_user_id=target.id,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        ),
+    )
+    link.portal_role = PortalAccountRole.PORTAL_MANAGER.value
+    db_session.add(link)
+    db_session.commit()
+
+    with pytest.raises(PortalRequestExecutionError, match="changed after this request"):
+        service.approve_request(created.id, admin)
+
+    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    assert row.status == "failed"
+
+
+@pytest.mark.parametrize(
+    ("addition_delegated", "role_delegated", "requested_role", "expected_status"),
+    [
+        (False, False, PortalAccountRole.PORTAL_USER.value, "pending"),
+        (True, False, PortalAccountRole.PORTAL_USER.value, "approved"),
+        (False, True, PortalAccountRole.PORTAL_USER.value, "pending"),
+        (False, False, PortalAccountRole.PORTAL_MANAGER.value, "pending"),
+        (True, False, PortalAccountRole.PORTAL_MANAGER.value, "pending"),
+        (False, True, PortalAccountRole.PORTAL_MANAGER.value, "pending"),
+        (True, True, PortalAccountRole.PORTAL_MANAGER.value, "approved"),
+    ],
+)
+def test_collaborator_addition_delegation_combinations(
+    db_session,
+    addition_delegated,
+    role_delegated,
+    requested_role,
+    expected_status,
+):
+    account = _seed_account(db_session)
+    account.portal_collaborator_addition_delegated = addition_delegated
+    account.portal_collaborator_role_management_delegated = role_delegated
+    db_session.add(account)
+    db_session.commit()
+    requester = _seed_user(db_session, email="manager@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+
+    created = _create_user_request(
+        service,
+        account,
+        requester,
+        portal_role=requested_role,
+    )
+
+    assert created.status == expected_status
+    admin_notifications = (
+        db_session.query(UserNotification)
+        .filter(UserNotification.user_id == admin.id)
+        .all()
+    )
+    assert len(admin_notifications) == (0 if expected_status == "approved" else 1)
+    if expected_status == "approved":
+        target = db_session.query(User).filter(User.email == "jane.viewer@example.org").one()
+        link = db_session.query(UserS3Account).filter_by(
+            user_id=target.id,
+            account_id=account.id,
+        ).one()
+        assert link.portal_role == requested_role
+        delegated_audit = (
+            db_session.query(AuditLog)
+            .filter(AuditLog.action == "execute_delegated_portal_request")
+            .one()
+        )
+        assert json.loads(delegated_audit.metadata_json)["execution"] == "delegated"
+
+
+@pytest.mark.parametrize(
+    ("current_role", "requested_role"),
+    [
+        (PortalAccountRole.PORTAL_USER.value, PortalAccountRole.PORTAL_MANAGER.value),
+        (PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value),
+    ],
+)
+def test_delegated_role_change_is_applied_immediately(
+    db_session,
+    monkeypatch,
+    current_role,
+    requested_role,
+):
+    account = _seed_account(db_session)
+    account.portal_collaborator_role_management_delegated = True
+    db_session.add(account)
+    db_session.commit()
+    requester = _seed_user(db_session, email="manager@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    target = _seed_user(db_session, email="member@example.org", full_name="Project Member")
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=current_role,
+        )
+    )
+    db_session.commit()
+    iam_projection_calls: list[tuple[int, int, str | None]] = []
+    monkeypatch.setattr(
+        PortalService,
+        "sync_existing_portal_user_access",
+        lambda _service, user, target_account, role: iam_projection_calls.append(
+            (int(user.id), int(target_account.id), role)
+        ),
+    )
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+
+    created = service.create_request(
+        requester,
+        _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
+        PortalUserAccessRequestCreate(
+            request_type="portal_user_access",
+            intent="role_change",
+            target_user_id=target.id,
+            portal_role=requested_role,
+        ),
+    )
+
+    assert created.status == "approved"
+    assert created.result is not None
+    assert created.result["previous_portal_role"] == current_role
+    assert created.result["portal_role"] == requested_role
+    assert (
+        db_session.query(UserS3Account)
+        .filter_by(user_id=target.id, account_id=account.id)
+        .one()
+        .portal_role
+        == requested_role
+    )
+    assert db_session.query(UserNotification).filter(UserNotification.user_id == admin.id).count() == 0
+    assert iam_projection_calls == [(target.id, account.id, requested_role)]
+
+
+def test_nondelegated_role_change_stays_pending_and_notifies_admin(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="manager@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    target = _seed_user(db_session, email="member@example.org")
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    db_session.commit()
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+
+    created = service.create_request(
+        requester,
+        _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
+        PortalUserAccessRequestCreate(
+            request_type="portal_user_access",
+            intent="role_change",
+            target_user_id=target.id,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        ),
+    )
+
+    assert created.status == "pending"
+    assert db_session.query(UserNotification).filter(UserNotification.user_id == admin.id).count() == 1
+
+
+def test_role_change_rejects_self_and_group_backed_membership(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="manager@example.org")
+    target = _seed_user(db_session, email="member@example.org")
+    group = UiGroup(name="Portal collaborators")
+    db_session.add(group)
+    db_session.commit()
+    db_session.add_all(
+        [
+            UserS3Account(
+                user_id=requester.id,
+                account_id=account.id,
+                manager_role=None,
+                portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+            ),
+            UserS3Account(
+                user_id=target.id,
+                account_id=account.id,
+                manager_role=None,
+                portal_role=PortalAccountRole.PORTAL_USER.value,
+            ),
+            UserUiGroup(user_id=target.id, group_id=group.id),
+            UiGroupS3Account(
+                group_id=group.id,
+                account_id=account.id,
+                manager_role=None,
+                portal_role=PortalAccountRole.PORTAL_USER.value,
+            ),
+        ]
+    )
+    db_session.commit()
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    access = _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value)
+
+    with pytest.raises(ValueError, match="own project role"):
+        service.create_request(
+            requester,
+            access,
+            PortalUserAccessRequestCreate(
+                request_type="portal_user_access",
+                intent="role_change",
+                target_user_id=requester.id,
+                portal_role=PortalAccountRole.PORTAL_USER.value,
+            ),
+        )
+
+    with pytest.raises(ValueError, match="direct-only"):
+        service.create_request(
+            requester,
+            access,
+            PortalUserAccessRequestCreate(
+                request_type="portal_user_access",
+                intent="role_change",
+                target_user_id=target.id,
+                portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+            ),
+        )
 
 
 def test_approve_user_access_marks_failed_for_inactive_existing_user(db_session):

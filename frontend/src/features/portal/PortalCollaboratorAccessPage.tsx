@@ -12,7 +12,7 @@ import {
   type PortalCollaboratorAccessReview,
   type PortalCollaboratorStorageSpaceAccess,
 } from "../../api/portalCollaborators";
-import { createPortalRequest } from "../../api/portalRequests";
+import { createPortalRequest, type PortalRequestedRole } from "../../api/portalRequests";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import DataTableShell, {
   dataTableDefaultActionProps,
@@ -41,7 +41,8 @@ import { portalRoleTone, resolvePortalWorkspacePageState } from "./portalUi";
 
 type PendingAction =
   | { type: "revoke-access"; access: PortalCollaboratorStorageSpaceAccess }
-  | { type: "request-project-removal" };
+  | { type: "request-project-removal" }
+  | { type: "request-role-change"; portalRole: PortalRequestedRole };
 
 export default function PortalCollaboratorAccessPage() {
   const { userId } = useParams<{ userId: string }>();
@@ -62,6 +63,7 @@ export default function PortalCollaboratorAccessPage() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [projectRemovalRequested, setProjectRemovalRequested] = useState(false);
+  const [roleChangeRequested, setRoleChangeRequested] = useState(false);
 
   const loadReview = useCallback(async () => {
     if (!accountIdForApi || !validUserId) return;
@@ -298,6 +300,61 @@ export default function PortalCollaboratorAccessPage() {
     }
   };
 
+  const confirmRoleChange = async (portalRole: PortalRequestedRole) => {
+    if (!accountIdForApi || !collaborator) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const request = await createPortalRequest(accountIdForApi, {
+        request_type: "portal_user_access",
+        intent: "role_change",
+        target_user_id: collaborator.user_id,
+        portal_role: portalRole,
+        reason: null,
+      });
+      if (request.status === "approved") {
+        setRoleChangeRequested(false);
+        await loadReview();
+        setMessage(
+          t({
+            en: "Project role changed immediately.",
+            fr: "Le rôle projet a été modifié immédiatement.",
+            de: "Die Projektrolle wurde sofort geändert.",
+            zh: "项目角色已立即更改。",
+          }),
+        );
+      } else {
+        setRoleChangeRequested(true);
+        setMessage(
+          t({
+            en: "Role change request sent. Track it in Help requests.",
+            fr: "Demande de changement de rôle envoyée. Suivez-la dans la page Demandes.",
+            de: "Anfrage zur Rollenänderung gesendet. Verfolgen Sie sie unter Hilfeanfragen.",
+            zh: "角色变更请求已发送。可在“帮助请求”中查看进度。",
+          }),
+        );
+      }
+      setPendingAction(null);
+    } catch (err) {
+      console.error(err);
+      setError(
+        extractApiError(
+          err,
+          t({
+            en: "Unable to send the role change request.",
+            fr: "Impossible d'envoyer la demande de changement de rôle.",
+            de: "Die Anfrage zur Rollenänderung kann nicht gesendet werden.",
+            zh: "无法发送角色变更请求。",
+          }),
+        ),
+      );
+      setPendingAction(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const accountState = resolvePortalWorkspacePageState({
     accountLoading,
     loading: false,
@@ -355,6 +412,24 @@ export default function PortalCollaboratorAccessPage() {
           to: "/portal/shares",
           variant: "secondary",
         },
+        ...(review?.can_request_role_change && collaborator && !roleChangeRequested
+          ? [
+              {
+                label: t({
+                  en: "Change role",
+                  fr: "Changer le rôle",
+                  de: "Rolle ändern",
+                  zh: "更改角色",
+                }),
+                onClick: () => setPendingAction({
+                  type: "request-role-change",
+                  portalRole: collaborator.portal_role === "portal_manager" ? "portal_user" : "portal_manager",
+                }),
+                variant: "secondary" as const,
+                disabled: busy,
+              },
+            ]
+          : []),
         ...(review?.can_request_project_removal && !projectRemovalRequested
           ? [
               {
@@ -520,6 +595,48 @@ export default function PortalCollaboratorAccessPage() {
           ]}
           onCancel={() => setPendingAction(null)}
           onConfirm={confirmProjectRemoval}
+        />
+      ) : null}
+
+      {pendingAction?.type === "request-role-change" && collaborator ? (
+        <ConfirmActionDialog
+          title={t({ en: "Change role", fr: "Changer le rôle", de: "Rolle ändern", zh: "更改角色" })}
+          description={t({
+            en: "Change this collaborator's project role. If role management is delegated, the change is applied immediately; otherwise it is sent for admin approval.",
+            fr: "Modifiez le rôle projet de ce collaborateur. Si la gestion des rôles est déléguée, le changement est appliqué immédiatement ; sinon il est envoyé pour validation Admin.",
+            de: "Ändern Sie die Projektrolle dieses Mitarbeiters. Bei delegierter Rollenverwaltung wird die Änderung sofort angewendet, andernfalls zur Admin-Freigabe gesendet.",
+            zh: "更改此协作者的项目角色。若已委派角色管理，则立即生效；否则提交管理员审批。",
+          })}
+          confirmLabel={t({ en: "Confirm role change", fr: "Confirmer le changement", de: "Rollenänderung bestätigen", zh: "确认角色变更" })}
+          loading={busy}
+          details={[
+            { label: t({ en: "Person", fr: "Personne", de: "Person", zh: "人员" }), value: title },
+            { label: t({ en: "Current role", fr: "Rôle actuel", de: "Aktuelle Rolle", zh: "当前角色" }), value: portalAccountRoleLabel(collaborator.portal_role, t) },
+            { label: t({ en: "Requested role", fr: "Rôle demandé", de: "Angeforderte Rolle", zh: "申请角色" }), value: portalAccountRoleLabel(pendingAction.portalRole, t) },
+          ]}
+          impacts={[
+            t({
+              en: "If this action is not delegated, the current role remains unchanged until an admin approves the request.",
+              fr: "Si cette action n'est pas déléguée, le rôle actuel reste inchangé jusqu'à la validation par un Admin.",
+              de: "Wenn diese Aktion nicht delegiert ist, bleibt die aktuelle Rolle bis zur Admin-Freigabe unverändert.",
+              zh: "若未委派此操作，则当前角色在管理员批准前保持不变。",
+            }),
+            pendingAction.portalRole === "portal_manager"
+              ? t({
+                  en: "Approval grants manager access to every project Storage Space.",
+                  fr: "L'approbation donne un accès gestionnaire à tous les Storage Spaces du projet.",
+                  de: "Die Genehmigung gewährt Managerzugriff auf alle Storage Spaces des Projekts.",
+                  zh: "批准后，将获得项目中所有存储空间的管理员访问权限。",
+                })
+              : t({
+                  en: "Approval removes project-manager access; remaining access follows the member's Storage Space grants.",
+                  fr: "L'approbation retire l'accès gestionnaire du projet ; les accès restants suivent les droits du membre sur les Storage Spaces.",
+                  de: "Die Genehmigung entfernt den Projektmanagerzugriff; der verbleibende Zugriff folgt den Storage-Space-Berechtigungen des Mitglieds.",
+                  zh: "批准后将移除项目管理员访问权限；剩余访问取决于成员的存储空间授权。",
+                }),
+          ]}
+          onCancel={() => setPendingAction(null)}
+          onConfirm={() => confirmRoleChange(pendingAction.portalRole)}
         />
       ) : null}
     </PageShell>
