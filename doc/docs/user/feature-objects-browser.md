@@ -144,3 +144,10 @@ Check the selected object state, current surface, Browser feature flags, and IAM
   <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="../../assets/screenshots/user/feature-objects-browser.light.png" alt="Browser operations overview showing a running delete on selected objects" loading="lazy">
   <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="../../assets/screenshots/user/feature-objects-browser.dark.png" alt="Browser operations overview showing a running delete on selected objects" loading="lazy">
 </div>
+
+## Selection scope and volume
+
+Select loaded items selects only the rows already loaded in the current listing.
+The selection summary separates files, folders, known bytes and uncalculated
+volume. Calculate volume enumerates selected folders on demand, removes overlaps
+and can be cancelled. Folder contents are never silently counted as zero.
