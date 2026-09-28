@@ -197,6 +197,11 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Favoriten und Ansichten",
     "收藏和视图"
   ],
+  "Transfers and recovery": [
+    "Transferts et reprise",
+    "Transfers und Wiederaufnahme",
+    "传输和恢复"
+  ],
   "Synchronization requires a UI account. Temporary S3 sessions cannot save favorites or views to an account.": [
     "La synchronisation nécessite un compte UI. Les sessions S3 temporaires ne peuvent pas enregistrer de favoris ou de vues dans un compte.",
     "Die Synchronisierung erfordert ein UI-Konto. Temporäre S3-Sitzungen können keine Favoriten oder Ansichten im Konto speichern.",

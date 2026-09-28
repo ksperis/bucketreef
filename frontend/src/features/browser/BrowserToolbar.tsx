@@ -79,7 +79,6 @@ type ToolbarColumns = Pick<
 };
 
 type BrowserToolbarProps = {
-  utilityActions?: ReactNode;
   helpActions?: BrowserActionState[];
   compactMode: boolean;
   bucketSelector: ComponentProps<typeof BrowserBucketSelector>;
@@ -116,6 +115,7 @@ type BrowserToolbarProps = {
       visible: boolean;
       accessBadge: BrowserTransferAccessBadge | null;
       operationsCount?: number;
+      onOpenTransfers: () => void;
       onOpenOperations: () => void;
     };
     layout: {
@@ -140,7 +140,6 @@ type BrowserToolbarProps = {
 };
 
 export default function BrowserToolbar({
-  utilityActions,
   helpActions = [],
   compactMode,
   bucketSelector,
@@ -277,7 +276,6 @@ export default function BrowserToolbar({
           <BrowserPathNavigator {...pathNavigator} />
         </div>
         <div className={toolbarActionsClasses}>
-          {utilityActions}
           {deletedObjects.showToggle && (
             <ListActionButton iconOnly={compactMode} variant="secondary"
               type="button"
@@ -653,6 +651,17 @@ export default function BrowserToolbar({
                   <div className={contextMenuSeparatorClasses} />
                 )}
                 <p className={overflowSectionTitleClasses}>Status</p>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={contextMenuItemClasses}
+                  onClick={() =>
+                    runMoreAction(moreMenu.status.onOpenTransfers)
+                  }
+                >
+                  <DownloadIcon className="h-3.5 w-3.5" />
+                  <span>{tr("Transfers and recovery")}</span>
+                </button>
                 {moreMenu.status.accessBadge && (
                   <div
                     className={overflowStatusRowClasses}
