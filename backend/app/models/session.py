@@ -38,7 +38,6 @@ class SessionCapabilities(ApiModel):
 
 class SessionDescriptor(ApiModel):
     session_id: str
-    local_recovery_id: Optional[str] = None
     actor_type: str
     account_id: Optional[str] = None
     account_name: Optional[str] = None

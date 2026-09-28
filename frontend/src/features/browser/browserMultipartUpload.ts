@@ -20,7 +20,6 @@ export type BrowserMultipartUploadLifecycle = {
   ) => Promise<PresignedPart>;
   complete: (uploadId: string, parts: CompletedPart[]) => Promise<void>;
   abort: (uploadId: string) => Promise<void>;
-  uploadPart?: (uploadId: string, partNumber: number, blob: Blob, signal: AbortSignal) => Promise<string>;
 };
 
 type UploadFileMultipartParams = {
@@ -30,13 +29,6 @@ type UploadFileMultipartParams = {
   controller: AbortController;
   lifecycle: BrowserMultipartUploadLifecycle;
   onProgress: (percent: number) => void;
-  resume?: {
-    uploadId?: string;
-    parts?: CompletedPart[];
-    onInitiated: (uploadId: string) => Promise<void>;
-    onPart: (part: CompletedPart & { size: number }) => Promise<void>;
-    keepOnError: boolean;
-  };
 };
 
 type UploadStreamMultipartParams = {
@@ -67,7 +59,6 @@ export const uploadBrowserFileMultipart = async ({
   controller,
   lifecycle,
   onProgress,
-  resume,
 }: UploadFileMultipartParams): Promise<void> => {
   let uploadId: string | null = null;
   const partProgress = new Map<number, number>();
@@ -79,8 +70,7 @@ export const uploadBrowserFileMultipart = async ({
     const end = Math.min(start + partSize, file.size);
     return { partNumber, start, end, size: end - start };
   });
-  const completedParts: CompletedPart[] = (resume?.parts ?? []).map(({ part_number, etag }) => ({ part_number, etag }));
-  const alreadyCompleted = new Set(completedParts.map(part => part.part_number));
+  const completedParts: CompletedPart[] = [];
   const transferController = new AbortController();
   const forwardAbort = () => transferController.abort(controller.signal.reason);
   controller.signal.addEventListener("abort", forwardAbort, { once: true });
@@ -106,33 +96,25 @@ export const uploadBrowserFileMultipart = async ({
 
   try {
     controller.signal.throwIfAborted();
-    const startedUploadId = resume?.uploadId ?? await lifecycle.initiate();
+    const startedUploadId = await lifecycle.initiate();
     uploadId = startedUploadId;
-    await resume?.onInitiated(startedUploadId);
-    for (const part of parts) if (alreadyCompleted.has(part.partNumber)) recordProgress(part.partNumber, part.size, part.size);
-    const remaining = parts.filter(part => !alreadyCompleted.has(part.partNumber));
     let cursor = 0;
     let failure: unknown;
-    await Promise.all(Array.from({ length: Math.min(concurrency, remaining.length) }, async () => {
-      while (!transferController.signal.aborted && cursor < remaining.length) {
-        const part = remaining[cursor++];
+    await Promise.all(Array.from({ length: Math.min(concurrency, parts.length) }, async () => {
+      while (!transferController.signal.aborted && cursor < parts.length) {
+        const part = parts[cursor++];
         try {
           recordProgress(part.partNumber, 0, part.size);
           const blob = file.slice(part.start, part.end);
-          const etag = lifecycle.uploadPart
-            ? normalizeEtag(await lifecycle.uploadPart(startedUploadId, part.partNumber, blob, transferController.signal))
-            : await (async () => {
-              const presignedPart = await lifecycle.presignPart(startedUploadId, part.partNumber);
-              transferController.signal.throwIfAborted();
-              const response = await fetch(presignedPart.url, { method: "PUT", headers: presignedPart.headers || {}, body: blob, credentials: "omit", signal: transferController.signal });
-              await ensureSuccessfulBrowserTransferResponse(response, "Multipart upload failed");
-              return normalizeEtag(response.headers.get("etag") ?? undefined);
-            })();
+          const presignedPart = await lifecycle.presignPart(startedUploadId, part.partNumber);
+          transferController.signal.throwIfAborted();
+          const response = await fetch(presignedPart.url, { method: "PUT", headers: presignedPart.headers || {}, body: blob, credentials: "omit", signal: transferController.signal });
+          await ensureSuccessfulBrowserTransferResponse(response, "Multipart upload failed");
+          const etag = normalizeEtag(response.headers.get("etag") ?? undefined);
           if (!etag) {
             throw new Error("Missing ETag from multipart upload.");
           }
           completedParts.push({ part_number: part.partNumber, etag });
-          await resume?.onPart({ part_number: part.partNumber, etag, size: part.size });
           recordProgress(part.partNumber, part.size, part.size);
         } catch (error) {
           failure ??= error;
@@ -147,14 +129,7 @@ export const uploadBrowserFileMultipart = async ({
     await lifecycle.complete(startedUploadId, completedParts);
     onProgress(100);
   } catch (error) {
-    if (resume?.keepOnError && controller.signal.reason === "cancel" && uploadId) {
-      try { await lifecycle.abort(uploadId); }
-      catch {
-        const failure = new Error("Remote cancellation failed. Recovery information was retained; retry cancellation after signing in.");
-        failure.name = "MultipartCancelError";
-        throw failure;
-      }
-    } else if (!resume?.keepOnError) await abortStartedUpload(uploadId, lifecycle);
+    await abortStartedUpload(uploadId, lifecycle);
     throw error;
   } finally {
     controller.signal.removeEventListener("abort", forwardAbort);
@@ -184,14 +159,6 @@ export const uploadBrowserStreamMultipart = async ({
     const currentPartNumber = partNumber;
     if (signal?.aborted) throw new DOMException("Transfer cancelled", "AbortError");
     if (currentPartNumber > 10000) throw new Error("Multipart part limit exceeded.");
-    const body = new Blob([new Uint8Array(partBytes).buffer], { type: contentType || "application/octet-stream" });
-    if (lifecycle.uploadPart) {
-      const etag = await lifecycle.uploadPart(uploadId, currentPartNumber, body, signal ?? new AbortController().signal);
-      if (!etag) throw new Error("Missing ETag from multipart upload.");
-      completedParts.push({ part_number: currentPartNumber, etag });
-      partNumber += 1;
-      return;
-    }
     const presignedPart = await lifecycle.presignPart(
       uploadId,
       currentPartNumber,

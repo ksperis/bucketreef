@@ -22,7 +22,16 @@ from app.models.browser import (
     SseCustomerContext,
 )
 from .write_conflicts import check_destination, observe_destination, supports_conditional_writes
-from .multipart_resume import require_multipart_write_access, list_parts, upload_part
+from fastapi import HTTPException
+
+
+def require_multipart_write_access(account, bucket_name):
+    spaces = getattr(account, "portal_storage_spaces", None)
+    if spaces is not None:
+        space = next((space for space in spaces if (space.internal_bucket_name or space.id) == bucket_name), None)
+        if space is None or space.role == "Viewer":
+            raise HTTPException(status_code=403, detail="Storage Space permissions do not allow this upload")
+
 from app.services.s3_deletion import delete_objects
 from app.services.s3_execution_context import S3ExecutionTarget
 
@@ -88,7 +97,7 @@ class BrowserObjectOperationsMixin:
         account: S3ExecutionTarget,
         payload: CopyObjectPayload,
     ) -> dict:
-        from .object_copy import copy_snapshot, delete_verified_copy_source
+        from .object_copy import copy_snapshot
         from fastapi import HTTPException
         source_bucket = payload.source_bucket or bucket_name
         spaces = getattr(account, "portal_storage_spaces", None)
@@ -101,9 +110,7 @@ class BrowserObjectOperationsMixin:
         if payload.move and source_bucket == bucket_name and payload.source_key == payload.destination_key:
             raise RuntimeError("Cannot move an object onto itself")
         client = self._client(account, request_profile="long_running")
-        if payload.copied_checkpoint:
-            with self._object_mutation(account, source_bucket):
-                return delete_verified_copy_source(client, bucket_name, payload, payload.copied_checkpoint)
+
         try:
             source_head = client.head_object(Bucket=source_bucket, Key=payload.source_key, **({"VersionId": payload.source_version_id} if payload.source_version_id else {}))
         except (ClientError, BotoCoreError) as exc:
@@ -303,13 +310,3 @@ class BrowserObjectOperationsMixin:
                 client.abort_multipart_upload(Bucket=bucket_name, Key=key, UploadId=upload_id)
             except (ClientError, BotoCoreError) as exc:
                 raise RuntimeError(f"Unable to abort multipart upload for '{key}': {exc}") from exc
-
-    def list_multipart_parts(self, bucket_name, account, key, upload_id, *, marker=0, limit=1000, sse_customer=None):
-        require_multipart_write_access(account, bucket_name)
-        return list_parts(self._client(account), bucket_name, key, upload_id, marker=marker, limit=limit,
-                          sse=self._sse_customer_params(sse_customer))
-
-    def upload_multipart_part(self, bucket_name, account, key, upload_id, part_number, file, *, sse_customer=None):
-        require_multipart_write_access(account, bucket_name)
-        return upload_part(self._client(account, request_profile="long_running"), bucket_name, key, upload_id,
-                           part_number, file, sse=self._sse_customer_params(sse_customer))

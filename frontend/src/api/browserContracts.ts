@@ -196,10 +196,7 @@ export type ObjectRestoreRequest = {
   version_id?: string | null;
 };
 
-export type CopiedObjectCheckpoint = { source_etag: string; source_size: number; source_modified?: string | null; source_version_id?: string | null; destination_etag: string; destination_version_id?: string | null };
-
 export type CopyObjectPayload = {
-  copied_checkpoint?: CopiedObjectCheckpoint;
   write_guard?: BrowserWriteGuard;
   source_bucket?: string;
   source_key: string;

@@ -122,7 +122,6 @@ function buildProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
       status: {
         visible: false,
         accessBadge: null,
-        onOpenTransfers: vi.fn(),
         onOpenOperations: vi.fn(),
       },
       layout: {},
@@ -218,7 +217,6 @@ describe("BrowserToolbar", () => {
   });
 
   it("presents status, layout, columns, secondary actions, and SSE-C", () => {
-    const onOpenTransfers = vi.fn();
     const onOpenOperations = vi.fn();
     const onToggleFolders = vi.fn();
     const onOpenSse = vi.fn();
@@ -237,7 +235,6 @@ describe("BrowserToolbar", () => {
             indicatorClassName: "indicator",
           },
           operationsCount: 2,
-          onOpenTransfers,
           onOpenOperations,
         },
         layout: {
@@ -336,34 +333,15 @@ describe("BrowserToolbar", () => {
     expect(onOpenSse).toHaveBeenCalledOnce();
   });
 
-  it("opens transfer recovery from More instead of the primary action bar", () => {
-    const onOpenTransfers = vi.fn();
-    const props = buildProps({
-      moreMenu: {
-        ...buildProps().moreMenu,
-        status: {
-          visible: true,
-          accessBadge: null,
-          onOpenTransfers,
-          onOpenOperations: vi.fn(),
-        },
-      },
-    });
+  it("opens completed session operations without offering retired recovery actions", () => {
+    const onOpenOperations = vi.fn();
+    const props = buildProps({ moreMenu: { ...buildProps().moreMenu, status: { visible: true, accessBadge: null, operationsCount: 1, onOpenOperations } } });
     render(<BrowserToolbar {...props} />);
-
-    expect(
-      screen.queryByRole("button", { name: "Transfers and recovery" }),
-    ).not.toBeInTheDocument();
-
     fireEvent.click(screen.getByRole("button", { name: "More" }));
-    fireEvent.click(
-      within(screen.getByRole("menu", { name: "More" })).getByRole(
-        "menuitem",
-        { name: "Transfers and recovery" },
-      ),
-    );
-
-    expect(onOpenTransfers).toHaveBeenCalledOnce();
+    const menu = within(screen.getByRole("menu", { name: "More" }));
+    expect(menu.queryByRole("menuitem", { name: "Transfers and recovery" })).not.toBeInTheDocument();
+    fireEvent.click(menu.getByRole("menuitem", { name: /Operations/ }));
+    expect(onOpenOperations).toHaveBeenCalledOnce();
   });
 
   it("keeps the selection More menu focused on secondary item actions", () => {
@@ -389,7 +367,6 @@ describe("BrowserToolbar", () => {
         status: {
           visible: true,
           accessBadge: null,
-          onOpenTransfers: vi.fn(),
           onOpenOperations: vi.fn(),
         },
         layout: {},

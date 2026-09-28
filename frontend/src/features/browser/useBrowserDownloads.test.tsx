@@ -129,16 +129,16 @@ describe("useBrowserDownloads", () => {
     expect(options.transferReporter.start).not.toHaveBeenCalled();
   });
 
-  it("retries a failed small download from the beginning", async () => {
+  it("reports a failed download without retaining a retry callback", async () => {
     const options = createOptions();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     downloadMocks.downloadBrowserTransferBlob.mockRejectedValueOnce(new Error("Network unavailable"));
     const { result } = renderHook(() => useBrowserDownloads(options));
     await act(() => result.current.downloadItems([item("docs/report.txt")]));
-    const retry = options.updateOperation.mock.calls.find(call => call[1]?.retry)?.[1].retry;
-    expect(retry).toEqual(expect.any(Function));
-    await act(() => retry());
-    expect(downloadMocks.downloadBrowserTransferBlob).toHaveBeenCalledTimes(2);
-    expect(downloadMocks.triggerBlobDownload).toHaveBeenCalledTimes(1);
+    expect(options.completeOperation).toHaveBeenCalledWith("op-1", "failed", "Downloaded 0 of 1 files.");
+    expect(options.updateOperation.mock.calls.some(call => "retry" in call[1])).toBe(false);
+    expect(downloadMocks.downloadBrowserTransferBlob).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
   });
 
   it("downloads controlled objects as blobs and reports completion", async () => {
@@ -215,7 +215,7 @@ describe("useBrowserDownloads", () => {
     expect(options.onStatus).toHaveBeenCalledWith("Downloaded archive");
     expect(options.clearOperationController).toHaveBeenCalledWith("op-1");
   });
-  it("deduplicates a mixed selection and retries only failed objects into a complementary archive", async () => {
+  it("deduplicates a mixed selection and reports failures in the operation", async () => {
     const options = createOptions();
     options.listAllObjectsForPrefix.mockResolvedValue([{ key: "docs/archive/a.txt", size: 12 }, { key: "docs/archive/b.txt", size: 12 }]);
     archiveMocks.downloadBrowserFolderArchive.mockResolvedValueOnce({ cancelled: false, failedKeys: ["docs/archive/b.txt"] }).mockResolvedValueOnce({ cancelled: false, failedKeys: [] });
@@ -223,11 +223,8 @@ describe("useBrowserDownloads", () => {
     await act(() => result.current.downloadArchive([item("docs/archive/", "folder"), item("docs/archive/a.txt"), item("docs/top.txt")], "docs/"));
     expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[0][0].targets.map((target: { relativeKey: string }) => target.relativeKey)).toEqual(["top.txt", "archive/a.txt", "archive/b.txt"]);
     expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[0][0].includeRootFolder).toBe(false);
-    const retry = options.updateOperation.mock.calls.find(call => call[1]?.retry)?.[1].retry;
-    expect(retry).toEqual(expect.any(Function));
-    await act(() => retry());
-    expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[1][0].targets.map((target: { key: string }) => target.key)).toEqual(["docs/archive/b.txt"]);
-    expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[1][0].folderLabel).toBe("selection-retry");
+    expect(options.completeOperation).toHaveBeenCalledWith("op-1", "failed", expect.stringContaining("1 failed file(s)"));
+    expect(archiveMocks.downloadBrowserFolderArchive).toHaveBeenCalledTimes(1);
     expect(options.listAllObjectsForPrefix).toHaveBeenCalledTimes(1);
   });
 
@@ -317,7 +314,7 @@ describe("useBrowserDownloads", () => {
     expect(downloadMocks.downloadBrowserTransferStream).not.toHaveBeenCalled();
   });
 
-  it("always terminates a failed archive operation and offers an explicit retry", async () => {
+  it("always terminates a failed archive operation without retaining a retry callback", async () => {
     const options = createOptions();
     options.listAllObjectsForPrefix.mockResolvedValue([
       { key: "docs/archive/a.txt", size: 12 },
@@ -341,7 +338,7 @@ describe("useBrowserDownloads", () => {
       options.updateOperation.mock.calls.some(
         (call) => typeof call[1]?.retry === "function",
       ),
-    ).toBe(true);
+    ).toBe(false);
     consoleError.mockRestore();
   });
 

@@ -115,7 +115,6 @@ type BrowserToolbarProps = {
       visible: boolean;
       accessBadge: BrowserTransferAccessBadge | null;
       operationsCount?: number;
-      onOpenTransfers: () => void;
       onOpenOperations: () => void;
     };
     layout: {
@@ -651,17 +650,7 @@ export default function BrowserToolbar({
                   <div className={contextMenuSeparatorClasses} />
                 )}
                 <p className={overflowSectionTitleClasses}>Status</p>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={contextMenuItemClasses}
-                  onClick={() =>
-                    runMoreAction(moreMenu.status.onOpenTransfers)
-                  }
-                >
-                  <DownloadIcon className="h-3.5 w-3.5" />
-                  <span>{tr("Transfers and recovery")}</span>
-                </button>
+
                 {moreMenu.status.accessBadge && (
                   <div
                     className={overflowStatusRowClasses}

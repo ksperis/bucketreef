@@ -26,7 +26,6 @@ type RunningOperationKind = Exclude<
 >;
 
 type StartOperationOptions = {
-  destination?: OperationItem["destination"];
   kind?: RunningOperationKind;
   groupId?: string;
   groupLabel?: string;
@@ -59,7 +58,7 @@ export function useBrowserOperationRegistry() {
   useEffect(
     () => () => {
       operationControllersRef.current.forEach((controller) => {
-        controller.abort("pause");
+        controller.abort();
       });
       operationControllersRef.current.clear();
     },
@@ -78,7 +77,6 @@ export function useBrowserOperationRegistry() {
       setOperations((previous) => [
         {
           id: operationId,
-          destination: options?.destination,
           status,
           label,
           path,
@@ -165,7 +163,7 @@ export function useBrowserOperationRegistry() {
   }, []);
 
   const cancelOperationController = useCallback((operationId: string) => {
-    operationControllersRef.current.get(operationId)?.abort("cancel");
+    operationControllersRef.current.get(operationId)?.abort();
   }, []);
 
   const cancelDownloadDetails = useCallback((operationId: string) => {

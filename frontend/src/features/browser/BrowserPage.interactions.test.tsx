@@ -1077,22 +1077,15 @@ describe("BrowserPage interactions", () => {
     const contextToolbar = getContextToolbar();
     expect(screen.queryByTestId("browser-workspace-sidebar")).not.toBeInTheDocument();
     expect(
-      within(contextToolbar).queryByRole("button", { name: "Favorites and views" }),
+      within(contextToolbar).queryByRole("button", { name: "Favorites" }),
     ).not.toBeInTheDocument();
     expect(
       within(contextToolbar).queryByRole("button", { name: "Transfers and recovery" }),
     ).not.toBeInTheDocument();
 
     const moreMenu = await openContextMoreMenu(user);
-    const transfersItem = within(moreMenu).getByRole("menuitem", {
-      name: "Transfers and recovery",
-    });
-    expect(transfersItem).toBeInTheDocument();
+    expect(within(moreMenu).queryByRole("menuitem", { name: "Transfers and recovery" })).not.toBeInTheDocument();
 
-    await user.click(transfersItem);
-    expect(
-      await screen.findByRole("dialog", { name: "Transfers and local recovery" }),
-    ).toBeInTheDocument();
   });
 
   it("uses the explicit connection kind for transfer guidance", async () => {

@@ -298,17 +298,7 @@ class CompleteMultipartUploadRequest(ApiModel):
     parts: list[CompletedPart]
 
 
-class CopiedObjectCheckpoint(ApiModel):
-    source_etag: str = Field(min_length=1, max_length=1024)
-    source_size: int = Field(ge=0)
-    source_modified: Optional[datetime] = None
-    source_version_id: Optional[str] = None
-    destination_etag: str = Field(min_length=1, max_length=1024)
-    destination_version_id: Optional[str] = None
-
-
 class CopyObjectPayload(ApiModel):
-    copied_checkpoint: Optional[CopiedObjectCheckpoint] = None
     write_guard: Optional[BrowserWriteGuard] = None
     source_bucket: Optional[str] = None
     source_key: str

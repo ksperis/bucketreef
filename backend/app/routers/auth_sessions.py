@@ -23,7 +23,6 @@ from app.models.auth import (
     WebAuthnCredentialRequest,
 )
 from app.models.session import ManagerSessionPrincipal, SessionDescriptor
-from app.services.browser_recovery_identity import browser_recovery_identity
 from app.routers.auth_cookies import clear_auth_cookies, set_auth_cookies
 from app.routers.auth_session_guards import (
     current_auth_session,
@@ -106,7 +105,6 @@ def current_session(
     if isinstance(actor, ManagerSessionPrincipal):
         descriptor = SessionDescriptor(
             session_id=actor.session_id,
-            local_recovery_id=browser_recovery_identity(actor),
             actor_type=actor.actor_type,
             account_id=actor.account_id,
             account_name=actor.account_name,

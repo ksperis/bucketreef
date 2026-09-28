@@ -28,7 +28,6 @@ export function operationInProgressStatusClasses(status: OperationItem["status"]
 }
 
 export function operationCompletionLabel(status?: OperationItem["completionStatus"]) {
-  if (status === "paused") return "Paused";
   if (status === "failed") return "Failed";
   if (status === "cancelled") return "Cancelled";
   return "Completed";
@@ -36,7 +35,7 @@ export function operationCompletionLabel(status?: OperationItem["completionStatu
 
 function operationCompletionStatusClasses(status?: OperationItem["completionStatus"]) {
   if (status === "failed") return "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200";
-  if (status === "cancelled" || status === "paused") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200";
+  if (status === "cancelled") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200";
   return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200";
 }
 

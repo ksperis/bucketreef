@@ -41,7 +41,6 @@ export type WorkspaceContextAvailability = {
 };
 
 export type SessionUser = {
-  localRecoveryId?: string | null;
   id?: number | null;
   email?: string | null;
   full_name?: string | null;

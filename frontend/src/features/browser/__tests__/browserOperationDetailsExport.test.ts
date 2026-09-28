@@ -158,7 +158,6 @@ describe("browserOperationDetailsExport", () => {
       done: 0,
       failed: 0,
       cancelled: 1,
-      paused: 0,
     });
     expect(result?.payload.items).toEqual([
       expect.objectContaining({ id: "active", state: "uploading" }),

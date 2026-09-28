@@ -38,7 +38,7 @@ type UploadExportState =
   | "uploading"
   | "done"
   | "failed"
-  | "cancelled" | "paused";
+  | "cancelled";
 
 function normalizeOperation(operation: OperationItem) {
   return {
@@ -117,7 +117,7 @@ function buildUploadPayload(
       result[item.state] += 1;
       return result;
     },
-    { total: 0, queued: 0, uploading: 0, done: 0, failed: 0, cancelled: 0, paused: 0 },
+    { total: 0, queued: 0, uploading: 0, done: 0, failed: 0, cancelled: 0 },
   );
   return {
     exportedAt,
