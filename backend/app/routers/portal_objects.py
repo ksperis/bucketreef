@@ -73,6 +73,7 @@ def portal_storage_space_version_cleanup_stream(
 def portal_storage_space_object_detail(
     space_id: str,
     key: str = Query(..., min_length=1),
+    version_id: Optional[str] = None,
     access: AccountAccess = Depends(get_portal_account_access),
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageObjectDetail:
@@ -80,7 +81,7 @@ def portal_storage_space_object_detail(
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
-        return service.get_storage_space_object_detail(actor, access, space_id, key)
+        return service.get_storage_space_object_detail(actor, access, space_id, key, **({"version_id": version_id} if version_id is not None else {}))
     except RuntimeError as exc:
         raise_portal_error(exc)
 
@@ -225,6 +226,7 @@ def portal_delete_storage_space_object(
 def portal_download_storage_space_object(
     space_id: str,
     key: str = Query(..., min_length=1),
+    version_id: Optional[str] = None,
     access: AccountAccess = Depends(get_portal_account_access),
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> StreamingResponse:
@@ -232,7 +234,7 @@ def portal_download_storage_space_object(
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
-        download = service.download_storage_space_object(actor, access, space_id, key)
+        download = service.download_storage_space_object(actor, access, space_id, key, **({"version_id": version_id} if version_id is not None else {}))
         return S3DownloadResponse(download)
     except RuntimeError as exc:
         raise_portal_error(exc)

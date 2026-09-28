@@ -117,11 +117,12 @@ export async function proxyDownload(
   signal?: AbortSignal,
   sseCustomerKeyBase64?: string | null,
   options?: BrowserRequestOptions,
+  versionId?: string | null,
 ): Promise<Blob> {
   const { data } = await client.get(
     `/browser/buckets/${encodeURIComponent(bucketName)}/download`,
     {
-      params: withS3AccountParam({ key }, accountId),
+      params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId),
       headers: mergeBrowserHeaders(
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
         buildBrowserWorkspaceHeaders(options),
