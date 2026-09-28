@@ -146,6 +146,37 @@ describe("browser folder downloads", () => {
     expect(progress.at(-1)).toBe(100);
   });
 
+  it("does not download an empty in-memory archive when every object fails", async () => {
+    const phases: string[] = [];
+    const result = await downloadBrowserFolderArchive({
+      controller: new AbortController(),
+      downloadBlob: async () => {
+        throw new Error("Network unavailable");
+      },
+      downloadStream: async () => new ReadableStream<Uint8Array>(),
+      folderLabel: "selection",
+      onDetailChange: vi.fn(),
+      onPhaseChange: (phase) => phases.push(phase),
+      onProgress: vi.fn(),
+      output: { kind: "memory" },
+      parallelism: 2,
+      memoryLimitBytes: 100,
+      targets: [
+        { detailId: "a", key: "a.txt", relativeKey: "a.txt", sizeBytes: 3 },
+        { detailId: "b", key: "b.txt", relativeKey: "b.txt", sizeBytes: 3 },
+      ],
+      totalBytes: 6,
+    });
+
+    expect(result).toEqual({
+      cancelled: false,
+      failedKeys: ["a.txt", "b.txt"],
+    });
+    expect(phases).toEqual([]);
+    expect(mocks.memoryEntries).toEqual([]);
+    expect(mocks.triggerBlobDownload).not.toHaveBeenCalled();
+  });
+
   it("streams large archives through the file picker", async () => {
     const phases: string[] = [];
     const progress: number[] = [];
@@ -187,6 +218,36 @@ describe("browser folder downloads", () => {
     });
     expect(file.close).toHaveBeenCalledOnce();
     expect(file.abort).not.toHaveBeenCalled();
+  });
+
+  it("aborts an empty streaming archive when every object fails", async () => {
+    const file = createFileStream();
+    const result = await downloadBrowserFolderArchive({
+      controller: new AbortController(),
+      downloadBlob: async () => new Blob(),
+      downloadStream: async () => {
+        throw new Error("Network unavailable");
+      },
+      folderLabel: "selection",
+      onDetailChange: vi.fn(),
+      onPhaseChange: vi.fn(),
+      onProgress: vi.fn(),
+      parallelism: 1,
+      output: {
+        kind: "stream",
+        fileHandle: { createWritable: async () => file.stream as never },
+      },
+      memoryLimitBytes: 0,
+      targets: [
+        { detailId: "a", key: "a.txt", relativeKey: "a.txt", sizeBytes: 3 },
+      ],
+      totalBytes: 3,
+    });
+
+    expect(result).toEqual({ cancelled: false, failedKeys: ["a.txt"] });
+    expect(mocks.zipClose).not.toHaveBeenCalled();
+    expect(file.close).not.toHaveBeenCalled();
+    expect(file.abort).toHaveBeenCalledOnce();
   });
 
   it("reports file picker cancellation without creating an output", async () => {

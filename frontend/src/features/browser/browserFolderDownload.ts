@@ -211,6 +211,7 @@ export const downloadBrowserFolderArchive = async ({
   const totalCount = targets.length;
   let downloadedBytes = 0;
   let completed = 0;
+  let succeeded = 0;
   let aborted = false;
   const failedKeys: string[] = [];
 
@@ -252,6 +253,7 @@ export const downloadBrowserFolderArchive = async ({
             },
           });
           await zipWriter.add(entryName(target), stream.pipeThrough(counter));
+          succeeded += 1;
           onDetailChange(target.detailId, "done");
         } catch (error) {
           if (isAbortError(error) || controller.signal.aborted) {
@@ -276,6 +278,13 @@ export const downloadBrowserFolderArchive = async ({
       if (aborted || controller.signal.aborted) {
         abortPartialArchive(fileStream, controller.signal.reason);
         return { cancelled: true, failedKeys };
+      }
+      if (succeeded === 0) {
+        abortPartialArchive(
+          fileStream,
+          new Error("No files could be added to the archive."),
+        );
+        return { cancelled: false, failedKeys };
       }
       await finalizeStreamingArchive(
         zipWriter,
@@ -319,6 +328,7 @@ export const downloadBrowserFolderArchive = async ({
         }
         retainedBytes += blob.size;
         zip.file(entryName(target), blob);
+        succeeded += 1;
         onDetailChange(target.detailId, "done");
       } catch (error) {
         if (isAbortError(error) || controller.signal.aborted) {
@@ -345,6 +355,9 @@ export const downloadBrowserFolderArchive = async ({
 
   if (aborted || controller.signal.aborted) {
     return { cancelled: true, failedKeys };
+  }
+  if (succeeded === 0) {
+    return { cancelled: false, failedKeys };
   }
   onPhaseChange("Packaging zip");
   const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) => {
