@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { BrowserObjectVersion } from "../../api/browserContracts";
 import type { BrowserItem } from "./browserTypes";
 import { useBrowserDownloads } from "./useBrowserDownloads";
 
@@ -164,6 +165,40 @@ describe("useBrowserDownloads", () => {
     expect(options.transferReporter.complete).toHaveBeenCalledWith(
       "transfer-1",
       "report.txt",
+    );
+  });
+
+  it("downloads the exact requested object version", async () => {
+    const options = { ...createOptions(), useProxyTransfers: true };
+    const requestedVersion: BrowserObjectVersion = {
+      key: "docs/report.txt",
+      version_id: "version-old",
+      is_latest: false,
+      is_delete_marker: false,
+      last_modified: "2026-09-28T10:00:00Z",
+      size: 7,
+      etag: "etag-old",
+      storage_class: "STANDARD",
+    };
+    const { result } = renderHook(() => useBrowserDownloads(options));
+
+    await act(() => result.current.downloadVersion(requestedVersion));
+
+    expect(downloadMocks.downloadBrowserTransferBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selector: "acc-1",
+        bucket: "bucket-a",
+        key: "docs/report.txt",
+        versionId: "version-old",
+        mode: "proxy",
+      }),
+    );
+    expect(downloadMocks.triggerBlobDownload).toHaveBeenCalledWith(
+      "report.txt",
+      expect.any(Blob),
+    );
+    expect(options.onStatus).toHaveBeenCalledWith(
+      "Downloaded version of report.txt",
     );
   });
 

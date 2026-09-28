@@ -25,6 +25,7 @@ type BrowserPrefixVersionsModalProps = {
   onClose: () => void;
   onRefresh: () => void;
   onLoadMore: () => void;
+  onDownloadVersion: (version: BrowserObjectVersion) => void;
   onRestoreVersion: (version: BrowserObjectVersion) => void;
   onDeleteVersion: (version: BrowserObjectVersion) => void;
 };
@@ -39,6 +40,7 @@ export default function BrowserPrefixVersionsModal({
   onClose,
   onRefresh,
   onLoadMore,
+  onDownloadVersion,
   onRestoreVersion,
   onDeleteVersion,
 }: BrowserPrefixVersionsModalProps) {
@@ -128,6 +130,9 @@ export default function BrowserPrefixVersionsModal({
     {
       id: "actions", label: "Actions", align: "right", mobileRole: "actions",
       render: (version) => <ListActions>
+        {!version.is_delete_marker && (
+          <ListActionButton onClick={() => onDownloadVersion(version)}>Download</ListActionButton>
+        )}
         {!version.is_delete_marker && !version.is_latest && (
           <ListActionButton onClick={() => onRestoreVersion(version)}>Restore</ListActionButton>
         )}

@@ -11,6 +11,7 @@ type BrowserObjectVersionsTabProps = {
   error: string | null;
   loading: boolean;
   onDeleteVersion: (version: BrowserObjectVersion) => void;
+  onDownloadVersion: (version: BrowserObjectVersion) => void;
   onLoadMore: () => void;
   onRefresh: () => void;
   onRestoreVersion: (version: BrowserObjectVersion) => void;
@@ -24,6 +25,7 @@ export default function BrowserObjectVersionsTab({
   error,
   loading,
   onDeleteVersion,
+  onDownloadVersion,
   onLoadMore,
   onRefresh,
   onRestoreVersion,
@@ -36,8 +38,8 @@ export default function BrowserObjectVersionsTab({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="ui-caption text-slate-500 dark:text-slate-400">
-          Inspect previous object states, delete markers, and restore the latest
-          state when needed.
+          Inspect and download previous object states, delete markers, and
+          restore the latest state when needed.
         </p>
         <ListActionButton
           type="button"
@@ -54,6 +56,7 @@ export default function BrowserObjectVersionsTab({
         error={error}
         canLoadMore={canLoadMore}
         onLoadMore={onLoadMore}
+        onDownloadVersion={onDownloadVersion}
         onRestoreVersion={onRestoreVersion}
         onDeleteVersion={onDeleteVersion}
         readOnly={readOnly}

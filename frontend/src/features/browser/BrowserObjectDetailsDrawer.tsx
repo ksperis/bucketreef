@@ -70,6 +70,7 @@ type BrowserObjectDetailsDrawerProps = {
   onDelete: (item: BrowserItem) => Promise<void> | void;
   onDirtyChange?: (dirty: boolean) => void;
   onRefreshBrowserObjects: (targetKey: string) => Promise<void>;
+  onDownloadVersion: (version: BrowserObjectVersion) => Promise<void> | void;
   onRestoreVersion: (version: BrowserObjectVersion) => Promise<void> | void;
   onDeleteVersion: (version: BrowserObjectVersion) => Promise<void> | void;
   profile: "standard" | "advanced";
@@ -96,6 +97,7 @@ export default function BrowserObjectDetailsDrawer({
   onDelete,
   onDirtyChange,
   onRefreshBrowserObjects,
+  onDownloadVersion,
   onRestoreVersion,
   onDeleteVersion,
   profile,
@@ -522,6 +524,7 @@ export default function BrowserObjectDetailsDrawer({
       canLoadMore={canLoadMoreVersions}
       onRefresh={() => void loadVersions({ force: true })}
       onLoadMore={() => void loadVersions({ append: true })}
+      onDownloadVersion={(version) => void onDownloadVersion(version)}
       onRestoreVersion={(version) =>
         void handleVersionAction("restore", version)
       }

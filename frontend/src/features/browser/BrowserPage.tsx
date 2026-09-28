@@ -2193,6 +2193,7 @@ export default function BrowserPage({
     downloadFolder: handleDownloadFolder,
     downloadArchive,
     downloadItems: handleDownloadItems,
+    downloadVersion: handleDownloadVersion,
     savePreparedArchive,
   } = useBrowserDownloads({
     accountId: accountIdForApi,
@@ -3001,6 +3002,7 @@ export default function BrowserPage({
           onCopyUrl={(item) => handleCopyUrl(item)}
           onDelete={(item) => handleDeleteItems([item])}
           onRefreshBrowserObjects={refreshObjectListing}
+          onDownloadVersion={handleDownloadVersion}
           onRestoreVersion={handleRestoreVersion}
           onDeleteVersion={handleDeleteVersion}
           profile={
@@ -3093,6 +3095,7 @@ export default function BrowserPage({
           onClose={closePrefixVersions}
           onRefresh={refreshPrefixVersions}
           onLoadMore={loadMorePrefixVersions}
+          onDownloadVersion={handleDownloadVersion}
           onRestoreVersion={handleRestoreVersion}
           onDeleteVersion={handleDeleteVersion}
         />
