@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from math import ceil
 from urllib.parse import urlencode
+from botocore.exceptions import ClientError
 
 from .write_conflicts import check_destination
 
@@ -13,6 +14,37 @@ SINGLE_COPY_LIMIT = 5 * 1024**3
 
 def source_identity(head):
     return (head.get("VersionId"), head.get("ETag"), head.get("ContentLength"), head.get("LastModified"))
+
+
+def delete_verified_copy_source(client, bucket, payload, checkpoint):
+    """Retry only deletion; never issue another copy for a completed copy step."""
+    state = checkpoint.model_dump() if hasattr(checkpoint, "model_dump") else checkpoint
+    result = {"copied": True, "source_deleted": False, "checkpoint": state}
+    if not payload.move:
+        raise RuntimeError("A copied checkpoint is only valid for a move")
+    source_bucket = payload.source_bucket or bucket
+    try:
+        target = client.head_object(Bucket=bucket, Key=payload.destination_key,
+                                   **({"VersionId": state["destination_version_id"]} if state.get("destination_version_id") else {}))
+        if target.get("ContentLength") != state["source_size"] or target.get("ETag") != state["destination_etag"]:
+            result["reason"] = "Copied, not deleted: destination verification failed."
+            return result
+        try:
+            current = client.head_object(Bucket=source_bucket, Key=payload.source_key)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
+                result["source_deleted"] = True
+                return result
+            raise
+        expected = (state.get("source_version_id"), state["source_etag"], state["source_size"], state.get("source_modified"))
+        if source_identity(current) != expected:
+            result["reason"] = "Copied, not deleted: the source changed."
+            return result
+        client.delete_object(Bucket=source_bucket, Key=payload.source_key, IfMatch=state["source_etag"])
+        result["source_deleted"] = True
+    except Exception as exc:
+        result["reason"] = f"Copied, not deleted: verification or conditional deletion failed ({type(exc).__name__})."
+    return result
 
 
 def copy_snapshot(client, account, bucket, payload, source_head=None):
@@ -77,6 +109,10 @@ def copy_snapshot(client, account, bucket, payload, source_head=None):
     result = {"copied": True, "source_deleted": False, "source_etag": head["ETag"], "destination_etag": written_etag}
     if not payload.move:
         return result
+    if written_etag:
+        result["checkpoint"] = {"source_etag": head["ETag"], "source_size": head["ContentLength"],
+                                "source_modified": head.get("LastModified"), "source_version_id": head.get("VersionId"),
+                                "destination_etag": written_etag, "destination_version_id": response.get("VersionId")}
     # The old versions stay at the original key. Delete the current key only.
     try:
         current = client.head_object(Bucket=source_bucket, Key=payload.source_key)

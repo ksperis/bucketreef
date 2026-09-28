@@ -1,4 +1,9 @@
 import BrowserPresetsControl from "./BrowserPresetsControl";
+import BrowserTransfersControl from "./BrowserTransfersControl";
+import { useBrowserTransferHistory } from "./useBrowserTransferHistory";
+import { abortMultipartUpload } from "../../api/browserMultipart";
+import { removeLocalUpload, withLocalUploadLock, type LocalUpload } from "./browserTransferStore";
+import { verifyBrowserResumeFile } from "./browserResumableUpload";
 import BrowserSearchControls from "./BrowserSearchControls";
 import BrowserDestinationDialog, { type BrowserDestinationRequest } from "./BrowserDestinationDialog";
 import { useBrowserWriteConflicts } from "./useBrowserWriteConflicts";
@@ -1962,7 +1967,11 @@ export default function BrowserPage({
     openObjectDetails(item, "versions");
   };
 
+  const localTransferOwner = storedUser && storedUser.authType !== "s3_session" ? String(storedUser.id) : "";
+  useBrowserTransferHistory(localTransferOwner, workspaceSurface, operations, uploadQueue, setWarningMessage);
   const startQueuedUpload = useBrowserQueuedUpload({
+    owner: localTransferOwner,
+    prepareWrites,
     clearOperationController,
     completeOperation,
     createOperationController,
@@ -2724,6 +2733,38 @@ export default function BrowserPage({
               />
             )}
             <div className="flex min-h-0 h-full min-w-0 flex-1 flex-col gap-3">
+              <BrowserTransfersControl owner={localTransferOwner} workspace={workspaceSurface} accountId={String(accountIdForApi ?? "")} currentBucket={bucketName}
+                lockedBucket={resolvedLockedBucketName} hasSseKey={Boolean(sseCustomerKeyBase64)} canWrite={resolvedCapabilityFacts.canWriteObjects}
+                operations={operations} onCancel={cancelOperation} onOpenDestination={target => requestDetailsDrawerTransition(() => {
+                  if (isMainBrowserPath) { const params = new URLSearchParams(location.search); params.set("bucket", target.bucket); params.set("prefix", target.prefix); navigate({ pathname: location.pathname, search: params.toString() }); }
+                  else { setBucketName(target.bucket); setPrefix(target.prefix); }
+                })}
+                onAbort={async record => {
+                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi) || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
+                  await withLocalUploadLock(record.id, async () => {
+                    await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
+                    await removeLocalUpload(record.id);
+                  });
+                }}
+                onResume={async (record, file) => {
+                  if (record.owner !== localTransferOwner || record.accountId !== String(accountIdForApi) || record.bucket !== bucketName) throw new Error("Select the original upload context first.");
+                  await verifyBrowserResumeFile(record, file, new AbortController().signal);
+                  const choice = (await prepareWrites([{ id: record.id, key: record.key, size: record.size }], record.bucket))[0];
+                  if (!choice) return;
+                  let resumeRecord: LocalUpload | undefined = record;
+                  if (choice.key !== record.key) {
+                    await withLocalUploadLock(record.id, async () => {
+                      await abortMultipartUpload(accountIdForApi, record.bucket, record.uploadId, record.key, browserRequestOptions);
+                      await removeLocalUpload(record.id);
+                    });
+                    resumeRecord = undefined;
+                  }
+                  showOperationsBar();
+                  await startQueuedUpload({ id: crypto.randomUUID(), file, relativePath: record.name, key: choice.key, bucket: record.bucket,
+                    accountId: record.accountId, groupId: crypto.randomUUID(), groupLabel: record.name, groupKind: "files", itemLabel: record.name,
+                    writeGuard: choice.writeGuard, resumeRecord });
+                  refreshUploadedListing(prefix);
+                }} />
               <div className="shrink-0"><BrowserPresetsControl availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []} accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")} lockedBucket={resolvedLockedBucketName} current={{ name: normalizedPrefix || bucketName, kind: "view", surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix, view: { query: filter, scope: searchScope, recursive: searchRecursive, exact_match: searchExactMatch, case_sensitive: searchCaseSensitive, item_type: typeFilter, storage_class: storageFilter, sort_key: sortKey, sort_direction: sortDirection, columns: effectiveVisibleColumns, file_filters: { min_size: fileFilterQuery.minSize, max_size: fileFilterQuery.maxSize, modified_after: fileFilterQuery.modifiedAfter, modified_before: fileFilterQuery.modifiedBefore, extensions: fileFilters.extensions.split(",").map(value => value.trim()).filter(Boolean) } } }} onApply={preset => requestDetailsDrawerTransition(() => {
                 if (preset.context !== String(accountIdForApi ?? "")) {
                   const nextParams = new URLSearchParams(searchParams); nextParams.set("ctx", preset.context); nextParams.set("bucket", preset.bucket); nextParams.set("prefix", preset.prefix); navigate({ pathname: location.pathname, search: nextParams.toString() });

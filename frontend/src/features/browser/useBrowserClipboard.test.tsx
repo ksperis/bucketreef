@@ -101,6 +101,20 @@ function createOptions() {
 }
 
 describe("useBrowserClipboard", () => {
+  it("retries only failed objects and preserves a completed copy before retrying deletion", async () => {
+    const checkpoint = { source_etag: "source", source_size: 12, destination_etag: "dest" };
+    apiMocks.copyObject.mockResolvedValueOnce({ copied: true, source_deleted: false, checkpoint, reason: "Copied, not deleted." })
+      .mockResolvedValueOnce({ copied: true, source_deleted: true })
+      .mockResolvedValueOnce({ copied: true, source_deleted: true });
+    const options = createOptions();
+    const { result } = renderHook(() => useBrowserClipboard(options));
+    await act(async () => { await result.current.transferTo([item("a.txt"), item("b.txt")], { bucket: "dest", prefix: "" }, "move"); });
+    const retry = options.updateOperation.mock.calls.find(([, patch]) => patch.retry)?.[1].retry;
+    expect(retry).toBeTypeOf("function");
+    await act(async () => { await retry(); });
+    expect(apiMocks.copyObject).toHaveBeenCalledTimes(3);
+    expect(apiMocks.copyObject.mock.calls[2][2]).toEqual(expect.objectContaining({ source_key: "a.txt", copied_checkpoint: checkpoint }));
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     apiMocks.copyObject.mockResolvedValue(undefined);

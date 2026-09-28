@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
 from app.models.browser import CopyObjectPayload
-from app.services.browser.object_copy import copy_snapshot
+from app.services.browser.object_copy import copy_snapshot, delete_verified_copy_source
 from app.services.browser_service import BrowserService
 
 
@@ -27,6 +27,24 @@ def test_move_pins_source_and_preserves_older_versions():
     assert result["source_deleted"]
     assert client.copy_object.call_args.kwargs["CopySource"]["VersionId"] == "v1"
     client.delete_object.assert_called_once_with(Bucket="bucket", Key="é/source", IfMatch='"old"')
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_retry_after_copy_only_verifies_and_deletes_without_copying_again(changed):
+    client, account = fixture()
+    payload = CopyObjectPayload(source_key="source", destination_key="target", move=True)
+    client.delete_object.side_effect = RuntimeError("temporary failure")
+    first = copy_snapshot(client, account, "bucket", payload)
+    assert first["copied"] and not first["source_deleted"]
+    client.reset_mock(); client.delete_object.side_effect = None
+    target = client.head_object.return_value
+    source = {**target, **({"ETag": "changed"} if changed else {})}
+    client.head_object.side_effect = [target, source]
+    retry = delete_verified_copy_source(client, "bucket", payload, first["checkpoint"])
+    assert retry["source_deleted"] is (not changed)
+    client.copy_object.assert_not_called(); client.upload_part_copy.assert_not_called()
+    if changed: client.delete_object.assert_not_called()
+    else: client.delete_object.assert_called_once_with(Bucket="bucket", Key="source", IfMatch='"old"')
 
 
 @pytest.mark.parametrize("failure", ["changed", "size", "etag", "delete"])

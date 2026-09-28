@@ -312,7 +312,7 @@ export async function restoreObject(
   );
 }
 
-export type BrowserCopyResult = { copied?: boolean; source_deleted?: boolean; reason?: string; source_etag?: string; destination_etag?: string };
+export type BrowserCopyResult = { copied?: boolean; source_deleted?: boolean; reason?: string; source_etag?: string; destination_etag?: string; checkpoint?: import("./browserContracts").CopiedObjectCheckpoint };
 
 export async function copyObject(
   accountId: S3AccountSelector,

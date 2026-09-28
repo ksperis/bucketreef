@@ -1,5 +1,7 @@
 import type { PrepareBrowserWrites } from "./useBrowserWriteConflicts";
 import type { BrowserWriteGuard } from "../../api/browserConflicts";
+import type { CopiedObjectCheckpoint } from "../../api/browserContracts";
+import type { ClipboardCopyCheckpoint } from "./browserClipboardTransfer";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -53,6 +55,11 @@ import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry"
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 
 export type BrowserTransferDestination = { bucket: string; prefix: string; name?: string };
+type BrowserCopyTask = {
+  writeGuard?: BrowserWriteGuard; modified?: string; sourceSelector: S3AccountSelector;
+  sourceBucket: string; sourceKey: string; destinationBucket: string; destinationKey: string; detailId: string;
+  sizeBytes?: number; checkpoint?: CopiedObjectCheckpoint; crossCheckpoint?: ClipboardCopyCheckpoint; done?: boolean;
+};
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
 type ClipboardTransferParameters = Parameters<
   typeof transferClipboardObjectBetweenContexts
@@ -321,7 +328,7 @@ export function useBrowserClipboard({
     [setCopyDetails],
   );
 
-  const paste = useCallback(async (destination?: BrowserTransferDestination, explicitClipboard?: ClipboardState) => {
+  const paste = useCallback(async function runPaste(destination?: BrowserTransferDestination, explicitClipboard?: ClipboardState, retryTasks?: BrowserCopyTask[]): Promise<void> {
     const sourceClipboard = explicitClipboard ?? clipboard;
     if (!sourceClipboard || !bucketName || !enabled) return;
     const sameContext = normalizeS3AccountSelectorId(sourceClipboard.sourceSelector) === currentAccountId;
@@ -342,20 +349,11 @@ export function useBrowserClipboard({
     }
     const isMove = mode === "move";
     const useServerSideCopy = sameContext;
-    let copyTasks: Array<{
-      writeGuard?: BrowserWriteGuard;
-      modified?: string;
-      sourceSelector: S3AccountSelector;
-      sourceBucket: string;
-      sourceKey: string;
-      destinationBucket: string;
-      destinationKey: string;
-      detailId: string;
-    }> = [];
+    let copyTasks: BrowserCopyTask[] = retryTasks ?? [];
     const copyDetailItems: CopyDetailItem[] = [];
     let skipped = 0;
 
-    for (const item of items) {
+    for (const item of retryTasks ? [] : items) {
       if (item.type === "file") {
         const destinationKey = `${destinationPrefix}${destination?.name ?? item.name}`;
         if (
@@ -435,15 +433,17 @@ export function useBrowserClipboard({
       });
     }
 
+    if (retryTasks) for (const task of retryTasks) copyDetailItems.push({ id: task.detailId, key: task.destinationKey, label: task.destinationKey, status: "queued", sizeBytes: task.sizeBytes });
+    for (const task of copyTasks) task.sizeBytes = copyDetailItems.find(detail => detail.id === task.detailId)?.sizeBytes;
     if (prepareWrites) {
       try {
-        const prepared = await prepareWrites(copyTasks.map((task) => ({ id: task.detailId, key: task.destinationKey, modified: task.modified, size: copyDetailItems.find((item) => item.id === task.detailId)?.sizeBytes })), destinationBucket);
+        const prepared = await prepareWrites(copyTasks.filter(task => !task.checkpoint && !task.crossCheckpoint).map((task) => ({ id: task.detailId, key: task.destinationKey, modified: task.modified, size: copyDetailItems.find((item) => item.id === task.detailId)?.sizeBytes })), destinationBucket);
         const byId = new Map(prepared.map((item) => [item.id, item]));
-        copyTasks = copyTasks.flatMap((task) => { const ready = byId.get(task.detailId); return ready ? [{ ...task, destinationKey: ready.key, writeGuard: ready.writeGuard }] : []; });
+        copyTasks = copyTasks.flatMap((task) => { if (task.checkpoint || task.crossCheckpoint) return [task]; const ready = byId.get(task.detailId); return ready ? [{ ...task, destinationKey: ready.key, writeGuard: ready.writeGuard }] : []; });
         for (let index = copyDetailItems.length - 1; index >= 0; index--) {
           const ready = byId.get(copyDetailItems[index].id);
-          if (!ready) copyDetailItems.splice(index, 1);
-          else { copyDetailItems[index].key = ready.key; copyDetailItems[index].label = ready.key; }
+          if (!ready && !copyTasks.some(task => task.detailId === copyDetailItems[index].id)) copyDetailItems.splice(index, 1);
+          else if (ready) { copyDetailItems[index].key = ready.key; copyDetailItems[index].label = ready.key; }
         }
       } catch (error) { onStatus(error instanceof Error ? error.message : "Destination inspection failed."); return; }
     }
@@ -460,7 +460,7 @@ export function useBrowserClipboard({
       destinationPrefix
         ? `${destinationBucket}/${destinationPrefix}`
         : destinationBucket,
-      { kind: "copy", cancelable: true },
+      { kind: "copy", cancelable: true, destination: { accountId: String(accountId), bucket: destinationBucket, prefix: destinationPrefix } },
       0,
     );
     const controller = createOperationController(operationId);
@@ -514,11 +514,13 @@ export function useBrowserClipboard({
                   source_key: task.sourceKey,
                   destination_key: task.destinationKey,
                   move: isMove,
+                  copied_checkpoint: task.checkpoint,
                   write_guard: task.writeGuard,
                 },
                 controller.signal,
                 requestOptions,
               );
+              if (result?.checkpoint) task.checkpoint = result.checkpoint;
               if (isMove && result?.copied && !result.source_deleted) throw new Error(result.reason || "Copied, not deleted.");
             } else {
               const sourceSseCustomerKeyBase64 = getSseCustomerKeyForScope(
@@ -537,6 +539,8 @@ export function useBrowserClipboard({
                 requestOptions,
               );
               await transferClipboardObjectBetweenContexts({
+                checkpoint: task.crossCheckpoint,
+                onCopied: checkpoint => { task.crossCheckpoint = checkpoint; },
                 source: {
                   selector: task.sourceSelector,
                   bucket: task.sourceBucket,
@@ -580,6 +584,7 @@ export function useBrowserClipboard({
                 deleteObject,
               });
             }
+            task.done = true;
             updateCopyDetailStatus(operationId, task.detailId, "done");
             succeeded += 1;
           } catch (caughtError) {
@@ -649,6 +654,12 @@ export function useBrowserClipboard({
       onStatus(completionError);
     } finally {
       clearOperationController(operationId);
+      updateOperation(operationId, { resultCounts: { succeeded, failed: failures, cancelled: Math.max(0, total - succeeded - failures) } });
+      const pending = copyTasks.filter(task => !task.done);
+      if (pending.length) updateOperation(operationId, { retry: async () => {
+        updateOperation(operationId, { retry: undefined });
+        await runPaste({ ...destination, bucket: destinationBucket, prefix: destinationPrefix }, sourceClipboard, pending);
+      } });
     }
   }, [
     accountId,

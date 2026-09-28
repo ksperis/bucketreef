@@ -98,12 +98,12 @@ describe("useBrowserDownloads", () => {
     });
   });
 
-  it("downloads an ordinary direct object through an attachment URL", async () => {
+  it("hands large ordinary direct objects to the browser download manager", async () => {
     const options = createOptions();
     const { result } = renderHook(() => useBrowserDownloads(options));
 
     await act(async () => {
-      await result.current.downloadItems([item("docs/report.txt")]);
+      await result.current.downloadItems([{ ...item("docs/report.txt"), sizeBytes: 30 * 1024 * 1024 }]);
     });
 
     expect(options.presignDownload).toHaveBeenCalledWith("bucket-a", {
@@ -119,6 +119,18 @@ describe("useBrowserDownloads", () => {
       "https://download.example/report.txt",
     );
     expect(options.transferReporter.start).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed small download from the beginning", async () => {
+    const options = createOptions();
+    downloadMocks.downloadBrowserTransferBlob.mockRejectedValueOnce(new Error("Network unavailable"));
+    const { result } = renderHook(() => useBrowserDownloads(options));
+    await act(() => result.current.downloadItems([item("docs/report.txt")]));
+    const retry = options.updateOperation.mock.calls.find(call => call[1]?.retry)?.[1].retry;
+    expect(retry).toEqual(expect.any(Function));
+    await act(() => retry());
+    expect(downloadMocks.downloadBrowserTransferBlob).toHaveBeenCalledTimes(2);
+    expect(downloadMocks.triggerBlobDownload).toHaveBeenCalledTimes(1);
   });
 
   it("downloads controlled objects as blobs and reports completion", async () => {
