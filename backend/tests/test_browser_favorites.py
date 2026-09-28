@@ -123,3 +123,24 @@ def test_path_favorite_migration_accepts_an_empty_database(monkeypatch):
         assert connection.execute(text("SELECT COUNT(*) FROM browser_favorites")).scalar() == 0
         migration.downgrade()
         migration.upgrade()
+
+
+def test_full_alembic_chain_upgrades_empty_database_and_round_trips(tmp_path):
+    from alembic import command
+    from alembic.config import Config
+
+    backend = Path(__file__).parents[1]
+    config = Config(str(backend / "alembic.ini"))
+    config.set_main_option("script_location", str(backend / "alembic"))
+    config.attributes["configure_logger"] = False
+    engine = create_engine(f"sqlite:///{tmp_path / 'migration.db'}")
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
+        assert "browser_favorites" in inspect(connection).get_table_names()
+        assert "browser_presets" not in inspect(connection).get_table_names()
+        command.downgrade(config, "0136_merge_browser_migration_heads")
+        assert "browser_presets" in inspect(connection).get_table_names()
+        command.upgrade(config, "head")
+        assert "browser_presets" not in inspect(connection).get_table_names()
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0137_browser_path_favorites"

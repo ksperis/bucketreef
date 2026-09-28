@@ -8,8 +8,8 @@ export async function listBrowserFavorites(surface: BrowserWorkspaceSurface) { r
 export async function saveBrowserFavorite(payload: BrowserFavoriteInput, existing?: BrowserFavorite) {
   return existing ? (await client.put<BrowserFavorite>(`${path}/${existing.id}`, payload, { params: { revision: existing.revision } })).data : (await client.post<BrowserFavorite>(path, payload)).data;
 }
-export async function deleteBrowserFavorite(preset: BrowserFavorite) { await client.delete(`${path}/${preset.id}`, { params: { revision: preset.revision } }); }
-export function browserFavoriteInput(preset: BrowserFavorite): BrowserFavoriteInput {
-  const { name, surface, workspace, context, bucket, prefix } = preset;
+export async function deleteBrowserFavorite(favorite: BrowserFavorite) { await client.delete(`${path}/${favorite.id}`, { params: { revision: favorite.revision } }); }
+export function browserFavoriteInput(favorite: BrowserFavorite): BrowserFavoriteInput {
+  const { name, surface, workspace, context, bucket, prefix } = favorite;
   return { name, surface, workspace, context, bucket, prefix };
 }
