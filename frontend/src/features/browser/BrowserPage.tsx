@@ -305,6 +305,7 @@ export default function BrowserPage({
   const isS3UserContext = executionContextKind === "s3_user";
   const isConnectionContext = executionContextKind === "connection";
   const [showBucketMenu, setShowBucketMenu] = useState(false);
+  const [showTransfersModal, setShowTransfersModal] = useState(false);
   const {
     settings: browserSettings,
     usageError: usageSummaryError,
@@ -2472,8 +2473,6 @@ export default function BrowserPage({
   const hasToolbarSelectionActions =
     canSelectionActions && toolbarSelectionActions.length > 0;
   const hasToolbarOperationsAction = hasOperationsPanelContent;
-  const hasToolbarStatusSection =
-    Boolean(accessBadge) || hasToolbarOperationsAction;
   const hasToolbarColumnsSection =
     resolvedFunctionalProfile === "advanced";
   const toolbarColumnsSummary = `${effectiveVisibleColumns.length}/${COLUMN_DEFINITIONS.length} visible`;
@@ -2523,7 +2522,7 @@ export default function BrowserPage({
     />
   );
 
-  const transferControl = (<BrowserTransfersControl owner={localTransferOwner} workspace={workspaceSurface} accountId={String(accountIdForApi ?? "")} currentBucket={bucketName}
+  const transferControl = (<BrowserTransfersControl open={showTransfersModal} onOpenChange={setShowTransfersModal} owner={localTransferOwner} workspace={workspaceSurface} accountId={String(accountIdForApi ?? "")} currentBucket={bucketName}
                 lockedBucket={resolvedLockedBucketName} hasSseKey={Boolean(sseCustomerKeyBase64)} canWrite={resolvedCapabilityFacts.canWriteObjects}
                 operations={operations} onCancel={cancelOperation} onOpenDestination={target => requestDetailsDrawerTransition(() => {
                   if (isMainBrowserPath) navigate(buildBrowserLocationPath(location.pathname, location.search, location.hash, { bucketName: target.bucket, prefix: target.prefix }));
@@ -2567,7 +2566,6 @@ export default function BrowserPage({
         <div className={browserShellClasses}>
         <div className={browserChromeShellClasses}>
           <BrowserToolbar
-            utilityActions={<>{!showWorkspaceSidebar && presetControl}{transferControl}</>}
             helpActions={[...Object.values(pathActionStates).filter((action) => action.section !== "selection"), ...Object.values(selectionActionStates).filter((action) => action.section === "selection")]}
             compactMode={compactMode}
             bucketSelector={{
@@ -2667,11 +2665,12 @@ export default function BrowserPage({
                   }
                 : undefined,
               status: {
-                visible: hasToolbarStatusSection,
+                visible: true,
                 accessBadge,
                 operationsCount: hasToolbarOperationsAction
                   ? operationsPanelTotalCount
                   : undefined,
+                onOpenTransfers: () => setShowTransfersModal(true),
                 onOpenOperations: openOperationsDetailsModal,
               },
               layout: {
@@ -2712,6 +2711,7 @@ export default function BrowserPage({
             onRunPathAction={runPathAction}
             onRunSelectionAction={runSelectionAction}
           />
+          {transferControl}
         </div>
 
         {(bucketError || statusMessage || corsInformation || warnings.length > 0) && (

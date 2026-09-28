@@ -1059,6 +1059,42 @@ describe("BrowserPage interactions", () => {
     expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
   });
 
+  it("keeps favorites in the root sidebar and Browser utilities out of embedded primary actions", async () => {
+    const user = userEvent.setup();
+    const rootView = renderPage({ initialEntry: "/browser" });
+
+    await findRowByLabel("a.txt");
+    expect(
+      within(screen.getByTestId("browser-workspace-sidebar")).getByRole("tab", {
+        name: "Favorites",
+      }),
+    ).toBeInTheDocument();
+    rootView.unmount();
+
+    renderEmbeddedPage({ initialEntry: "/manager/browser" });
+    await findRowByLabel("a.txt");
+
+    const contextToolbar = getContextToolbar();
+    expect(screen.queryByTestId("browser-workspace-sidebar")).not.toBeInTheDocument();
+    expect(
+      within(contextToolbar).queryByRole("button", { name: "Favorites and views" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(contextToolbar).queryByRole("button", { name: "Transfers and recovery" }),
+    ).not.toBeInTheDocument();
+
+    const moreMenu = await openContextMoreMenu(user);
+    const transfersItem = within(moreMenu).getByRole("menuitem", {
+      name: "Transfers and recovery",
+    });
+    expect(transfersItem).toBeInTheDocument();
+
+    await user.click(transfersItem);
+    expect(
+      await screen.findByRole("dialog", { name: "Transfers and local recovery" }),
+    ).toBeInTheDocument();
+  });
+
   it("uses the explicit connection kind for transfer guidance", async () => {
     const user = userEvent.setup();
     renderPage({

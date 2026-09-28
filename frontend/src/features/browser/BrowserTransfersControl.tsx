@@ -1,4 +1,3 @@
-import { DownloadIcon } from "./browserIcons";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -14,6 +13,8 @@ import type { OperationItem } from "./browserTypes";
 import { operationCompletionLabel } from "./browserOperationStatus";
 
 type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   owner: string; workspace: BrowserWorkspaceSurface; accountId: string; currentBucket: string; canWrite: boolean; lockedBucket?: string;
   hasSseKey: boolean; operations: OperationItem[];
   onResume: (upload: LocalUpload, file: File) => Promise<void>;
@@ -22,9 +23,8 @@ type Props = {
   onOpenDestination: (target: NonNullable<OperationItem["destination"]>) => void;
 };
 
-export default function BrowserTransfersControl({ owner, workspace, accountId, currentBucket, canWrite, lockedBucket, hasSseKey, operations, onResume, onAbort, onCancel, onOpenDestination }: Props) {
+export default function BrowserTransfersControl({ open, onOpenChange, owner, workspace, accountId, currentBucket, canWrite, lockedBucket, hasSseKey, operations, onResume, onAbort, onCancel, onOpenDestination }: Props) {
   const { t, locale } = useI18n();
-  const [open, setOpen] = useState(false);
   const [uploads, setUploads] = useState<LocalUpload[]>([]);
   const [history, setHistory] = useState<LocalTransferBatch[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -50,10 +50,9 @@ export default function BrowserTransfersControl({ owner, workspace, accountId, c
     try { await action(); } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { setBusy(null); await refresh(); }
   };
-  const destinationButton = (target: NonNullable<OperationItem["destination"]>) => <UiButton size="sm" variant="secondary" disabled={!available(target)} onClick={() => { onOpenDestination(target); setOpen(false); }}>{t({ en: "Open destination", fr: "Ouvrir la destination", de: "Ziel öffnen", zh: "打开目标位置" })}</UiButton>;
+  const destinationButton = (target: NonNullable<OperationItem["destination"]>) => <UiButton size="sm" variant="secondary" disabled={!available(target)} onClick={() => { onOpenDestination(target); onOpenChange(false); }}>{t({ en: "Open destination", fr: "Ouvrir la destination", de: "Ziel öffnen", zh: "打开目标位置" })}</UiButton>;
   return <>
-    <UiButton size="sm" variant="secondary" aria-label={t({ en: "Transfers and recovery", fr: "Transferts et reprise", de: "Transfers und Wiederaufnahme", zh: "传输和恢复" })} title={t({ en: "Transfers and recovery", fr: "Transferts et reprise", de: "Transfers und Wiederaufnahme", zh: "传输和恢复" })} onClick={() => setOpen(true)}><DownloadIcon className="h-4 w-4" /></UiButton>
-    {open ? <Modal title={t({ en: "Transfers and local recovery", fr: "Transferts et reprise locale", de: "Transfers und lokale Wiederaufnahme", zh: "传输和本地恢复" })} maxWidthClass="max-w-4xl" onClose={() => setOpen(false)}>
+    {open ? <Modal title={t({ en: "Transfers and local recovery", fr: "Transferts et reprise locale", de: "Transfers und lokale Wiederaufnahme", zh: "传输和本地恢复" })} maxWidthClass="max-w-4xl" onClose={() => onOpenChange(false)}>
       <div className="space-y-4">
         <p className="ui-body">{t({ en: "Closing the browser stops transfers. Resume explicitly after signing in and selecting the original file. Files, credentials and encryption keys are never stored here. Clearing browser storage loses recovery information.", fr: "Fermer le navigateur interrompt les transferts. Pour reprendre, reconnectez-vous et sélectionnez le fichier original. Aucun fichier, identifiant S3 ou clé de chiffrement n’est stocké ici. Effacer le stockage du navigateur supprime le suivi.", de: "Das Schließen des Browsers stoppt Transfers. Melden Sie sich an und wählen Sie die Originaldatei zur Wiederaufnahme. Dateien, Zugangsdaten und Schlüssel werden hier nicht gespeichert. Beim Löschen des Browserspeichers gehen Wiederaufnahmedaten verloren.", zh: "关闭浏览器会停止传输。登录后选择原始文件以手动恢复。此处不保存文件、凭据或加密密钥。清除浏览器存储会丢失恢复信息。" })}</p>
         {!owner ? <p>{t({ en: "The current session cannot identify saved transfers. Sign in again to enable local recovery.", fr: "La session actuelle ne permet pas d’identifier les transferts enregistrés. Reconnectez-vous pour activer la reprise locale.", de: "Die aktuelle Sitzung kann gespeicherte Transfers nicht zuordnen. Melden Sie sich für die lokale Wiederaufnahme erneut an.", zh: "当前会话无法识别已保存的传输。请重新登录以启用本地恢复。" })}</p> : null}
