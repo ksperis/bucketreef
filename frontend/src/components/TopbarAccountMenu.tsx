@@ -8,6 +8,7 @@ import { ChevronDownIcon, LinkIcon, LogoutIcon, UserIcon } from "./topbarIcons";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
 import UserAvatar from "./UserAvatar";
+import AppVersion from "./AppVersion";
 
 type TopbarAccountMenuProps = {
   avatar?: UserAvatarDescriptor | null;
@@ -211,6 +212,9 @@ export default function TopbarAccountMenu({
               <LogoutIcon className="h-4 w-4" />
               <span>Sign out</span>
             </button>
+            <div className="shell-muted-text mt-1 border-t border-[color:var(--shell-border-soft)] px-2.5 pt-1.5 text-center">
+              <AppVersion />
+            </div>
           </div>
         </AnchoredPortalMenu>
       )}

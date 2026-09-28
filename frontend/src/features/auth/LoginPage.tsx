@@ -24,6 +24,7 @@ import { fetchGeneralSettings, fetchLoginSettings, type GeneralSettings, type Lo
 import { getWorkspaceAccess } from "../../api/executionContexts";
 import { DEFAULT_GENERAL_SETTINGS, useGeneralSettings } from "../../components/GeneralSettingsContext";
 import BrandMark from "../../components/BrandMark";
+import AppVersion from "../../components/AppVersion";
 import { useLanguage } from "../../components/language";
 import { useTheme } from "../../components/theme";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -493,7 +494,8 @@ export default function LoginPage() {
             )}
           </section>
 
-          <AuthCard className="p-6 sm:p-8">
+          <div className="flex min-w-0 flex-col">
+            <AuthCard className="flex-1 p-6 sm:p-8">
             <div className="mb-6">
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1 ui-caption font-semibold uppercase tracking-wide text-slate-500 lg:hidden">
                 <BrandMark className="h-7 w-7" />
@@ -630,7 +632,9 @@ export default function LoginPage() {
                 )}
               </div>
             )}
-          </AuthCard>
+            </AuthCard>
+            <AppVersion className="mt-3 block text-center text-slate-500" />
+          </div>
         </div>
       </div>
     </div>
