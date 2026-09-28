@@ -206,7 +206,7 @@ describe("PortalLayout", () => {
       "External tools",
       "History",
       "Storage health",
-      "Help requests",
+      "Requests",
       "Settings",
     ]);
   });
