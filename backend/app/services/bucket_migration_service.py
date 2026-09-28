@@ -13,6 +13,8 @@ from .bucket_migration.persistence import BucketMigrationPersistenceMixin
 from .bucket_migration.planning import BucketMigrationPlanningMixin
 from .bucket_migration.precheck import BucketMigrationPrecheckPlanner
 from .bucket_migration.precheck_inspection import BucketMigrationInspector
+from .bucket_migration.maintenance import BucketMigrationMaintenanceMixin
+from .bucket_migration.preparation import BucketMigrationPreparationMixin
 from .bucket_migration.progress import BucketMigrationProgressMixin
 from .bucket_migration.rollback import BucketMigrationRollbackMixin
 
@@ -20,6 +22,8 @@ from .bucket_migration.rollback import BucketMigrationRollbackMixin
 class BucketMigrationService(
     BucketMigrationPersistenceMixin,
     BucketMigrationPlanningMixin,
+    BucketMigrationPreparationMixin,
+    BucketMigrationMaintenanceMixin,
     BucketMigrationExecutionMixin,
     BucketMigrationRollbackMixin,
     BucketMigrationProgressMixin,

@@ -67,6 +67,9 @@ function buildDraftDetail() {
     auto_grant_source_read_for_copy: false,
     mapping_prefix: "",
     status: "draft",
+    configuration_revision: 1,
+    preparation_status: "unverified",
+    available_actions: { edit: { enabled: true }, precheck: { enabled: true } },
     pause_requested: false,
     cancel_requested: false,
     precheck_status: "passed",
@@ -152,8 +155,8 @@ describe("Manager migration routing", () => {
     await screen.findByText("Migration #11");
     await user.click(screen.getByRole("button", { name: /Migration #11/i }));
 
-    await screen.findByRole("button", { name: "Edit draft" });
-    await user.click(screen.getByRole("button", { name: "Edit draft" }));
+    await user.click(await screen.findByRole("button", { name: "Migration actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Correct configuration" }));
 
     await waitFor(() => {
       expect(screen.getByText("Edit draft #11")).toBeInTheDocument();

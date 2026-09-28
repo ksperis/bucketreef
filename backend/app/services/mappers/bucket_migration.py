@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from app.services.bucket_migration.workflow import available_actions, preparation_state
+
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
 from app.models.bucket_migration import (
     BucketMigrationDetail,
@@ -34,6 +36,11 @@ def bucket_migration_item_to_view(item: BucketMigrationItem) -> BucketMigrationI
         read_only_applied=bool(item.read_only_applied),
         target_lock_applied=bool(item.target_lock_applied),
         target_bucket_exists=bool(item.target_bucket_exists),
+        target_created_by_migration=bool(item.target_created_by_migration),
+        recovery_required=bool(item.preparation_effects_json),
+        source_deleted=bool(item.source_deleted),
+        cleanup_status=item.cleanup_status or "idle",
+        cleanup_error=item.cleanup_error,
         objects_copied=int(item.objects_copied or 0),
         objects_deleted=int(item.objects_deleted or 0),
         source_count=item.source_count,
@@ -82,6 +89,16 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         precheck_status=(migration.precheck_status or "pending"),
         precheck_report=load_migration_json(migration.precheck_report_json),
         precheck_checked_at=migration.precheck_checked_at,
+        workflow_version=migration.workflow_version or 1,
+        configuration_revision=migration.configuration_revision or 1,
+        checked_revision=migration.checked_revision,
+        preparation_status=preparation_state(migration),
+        preparation_active_checks=bool(migration.preparation_active_checks),
+        preparation_completed_items=migration.preparation_completed_items or 0,
+        maintenance_operation=migration.maintenance_operation,
+        maintenance_status=migration.maintenance_status or "idle",
+        maintenance_error=migration.maintenance_error,
+        available_actions=available_actions(migration),
         parallelism_max=int(migration.parallelism_max or 1),
         total_items=int(migration.total_items or 0),
         completed_items=int(migration.completed_items or 0),

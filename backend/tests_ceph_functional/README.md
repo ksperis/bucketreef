@@ -134,3 +134,18 @@ Ceph-admin entity creation tests are executed only when RGW admin cleanup creden
 - **Ceph-admin accounts**: validates listing/search/detail/update/metrics against dedicated RGW test accounts.
 - **Ceph-admin users**: validates listing/search/detail/config/caps/quota/key lifecycle/metrics on dedicated RGW test users.
 - **Ceph-admin bucket administration**: validates bucket listing, compare and configuration routes (versioning, lifecycle, CORS, policy, tags, ACL, PAB, object-lock, quota, notifications, replication, logging, website, encryption) on dedicated test buckets.
+
+## Migration workflow v2
+
+`test_bucket_migration_flow.py` waits for asynchronous preparation, confirms copy
+and cutover separately, and asserts source retention before optional cleanup. It
+also covers storage-side copy, exact versioned history, source tag-read revocation,
+correction/recheck, and pause/resume. Resource cleanup restores recorded protections
+before deleting test migration records.
+
+Set `CEPH_TEST_MIGRATION_TARGET_ENDPOINT_ID` to a **second isolated Ceph test endpoint**
+to enable the distinct-endpoint streaming scenario. Without it that scenario is
+explicitly skipped. It must differ from the suite's primary endpoint. Worker process
+loss, stale lease fencing and interrupted active-test restoration are also covered
+by deterministic backend tests; the pause/resume live scenario does not simulate a
+machine crash. These tests create and delete only their generated test resources.

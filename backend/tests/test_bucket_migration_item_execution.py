@@ -46,6 +46,8 @@ def _item(*, step: str):
         target_bucket="bucket-b",
         status="running",
         step=step,
+        target_created_by_migration=False,
+        target_lock_applied=False,
         read_only_applied=False,
         pre_sync_done=False,
         error_message=None,

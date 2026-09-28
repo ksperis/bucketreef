@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Body, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -12,8 +12,9 @@ from app.models.access_context import BucketMigrationAccessScope
 from app.models.bucket_migration import (
     BucketMigrationCreateRequest,
     BucketMigrationDetail,
+    BucketMigrationPrecheckRequest,
 )
-from app.routers.manager.migrations_common import _build_service
+from app.routers.manager.migrations_common import _build_service, _worker_wake_up
 from app.routers.dependencies import (
     get_audit_service,
     get_current_bucket_migration_scope,
@@ -22,12 +23,17 @@ from app.services.audit_service import AuditService
 from app.services.mappers.bucket_migration import (
     bucket_migration_to_detail as _migration_to_detail,
 )
-from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter(prefix="/manager/migrations", tags=["manager-migrations"])
 
 
-@router.delete("/{migration_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+@router.delete(
+    "/{migration_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+)
 def delete_migration(
     migration_id: int,
     db: Session = Depends(get_db),
@@ -51,7 +57,9 @@ def delete_migration(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("", response_model=BucketMigrationDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=BucketMigrationDetail, status_code=status.HTTP_201_CREATED
+)
 def create_migration(
     payload: BucketMigrationCreateRequest,
     db: Session = Depends(get_db),
@@ -80,7 +88,9 @@ def create_migration(
             "lock_target_writes": bool(payload.lock_target_writes),
             "strong_integrity_check": bool(payload.strong_integrity_check),
             "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),
-            "auto_grant_source_read_for_copy": bool(migration.auto_grant_source_read_for_copy),
+            "auto_grant_source_read_for_copy": bool(
+                migration.auto_grant_source_read_for_copy
+            ),
             "items": len(payload.buckets),
         },
     )
@@ -119,7 +129,9 @@ def update_migration(
             "lock_target_writes": bool(payload.lock_target_writes),
             "strong_integrity_check": bool(payload.strong_integrity_check),
             "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),
-            "auto_grant_source_read_for_copy": bool(migration.auto_grant_source_read_for_copy),
+            "auto_grant_source_read_for_copy": bool(
+                migration.auto_grant_source_read_for_copy
+            ),
             "items": len(payload.buckets),
         },
     )
@@ -128,9 +140,16 @@ def update_migration(
     return _migration_to_detail(migration, items=items, recent_events=recent_events)
 
 
-@router.post("/{migration_id}/precheck", response_model=BucketMigrationDetail)
+@router.post(
+    "/{migration_id}/precheck",
+    response_model=BucketMigrationDetail,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 def run_migration_precheck(
     migration_id: int,
+    payload: BucketMigrationPrecheckRequest = Body(
+        default_factory=BucketMigrationPrecheckRequest
+    ),
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
@@ -138,7 +157,10 @@ def run_migration_precheck(
     current_user = scope.user
     service = _build_service(db, scope)
     try:
-        migration = service.run_precheck(migration_id)
+        migration = service.request_precheck(
+            migration_id, active_checks=payload.active_checks
+        )
+        _worker_wake_up()
     except PermissionError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
@@ -150,6 +172,10 @@ def run_migration_precheck(
         action="precheck_bucket_migration",
         entity_type="bucket_migration",
         entity_id=str(migration.id),
+        metadata={
+            "active_checks": payload.active_checks,
+            "configuration_revision": migration.configuration_revision,
+        },
     )
     items = service.list_migration_items(migration.id)
     recent_events = service.list_recent_migration_events(migration.id, limit=200)

@@ -221,3 +221,28 @@ in Ops pages when scheduler behavior changes. Their health, billing, and usage
 collection runs are operational telemetry rather than application audit rows.
 
 See [Audit boundary](audit-boundary.md) before adding any audit producer.
+
+### Bucket migration preparation and recovery
+
+The migration workflow separates draft preparation from transfer execution.
+`preparation.py` queues read-only/active checks and persists progress under a worker
+lease. `configuration_revision` and `checked_revision` bind a successful report to
+its exact draft; `workflow.py` exposes the same action decisions enforced by commands.
+Editing, stale reports, old workers and competing commands cannot authorize a start.
+Source and target execution identities remain governed by effective context access.
+
+Temporary policy changes and probe buckets have durable restoration records before
+mutation. Recovery is repeatable and policy/removal verification is mandatory before
+clearing the journal. Target provenance permits resuming owned destinations without
+adopting an unrelated existing bucket. The create/record boundary intentionally fails
+closed if ownership cannot be established after interruption.
+
+`maintenance.py` runs access restoration and source/target cleanup independently of
+transfer status. Source deletion hashes full contents, exact tags and ordered version
+history with both sides protected, then stores a receipt before deleting. A resumed
+cleanup checks the protected destination against that receipt and refuses a changed
+source policy. The requesting recovery operator is persisted and reauthorized; S3
+operations still use the migration's original execution contexts.
+
+See [the user workflow](../user/feature-bucket-migration.md) and
+[upgrade requirements](../ops/operations-upgrade-compatibility.md#bucket-migration-workflow-v2).

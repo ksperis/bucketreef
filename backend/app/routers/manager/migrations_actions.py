@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.access_context import BucketMigrationAccessScope
-from app.models.bucket_migration import BucketMigrationActionResponse
+from app.models.bucket_migration import (
+    BucketMigrationActionResponse,
+    BucketMigrationStartRequest,
+    BucketMigrationConfirmationRequest,
+)
 from app.routers.dependencies import (
     get_audit_service,
     get_current_bucket_migration_scope,
@@ -19,7 +23,10 @@ from app.routers.manager.migrations_common import (
     _worker_wake_up,
 )
 from app.services.audit_service import AuditService
-from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter(prefix="/manager/migrations", tags=["manager-migrations"])
 
@@ -27,6 +34,7 @@ router = APIRouter(prefix="/manager/migrations", tags=["manager-migrations"])
 @router.post("/{migration_id}/start", response_model=BucketMigrationActionResponse)
 def start_migration(
     migration_id: int,
+    payload: BucketMigrationStartRequest,
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
@@ -34,7 +42,11 @@ def start_migration(
     current_user = scope.user
     service = _build_service(db, scope)
     try:
-        migration = service.start_migration(migration_id)
+        migration = service.start_migration(
+            migration_id,
+            configuration_revision=payload.configuration_revision,
+            confirm_write_interruption=payload.confirm_write_interruption,
+        )
     except PermissionError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
@@ -48,7 +60,9 @@ def start_migration(
         entity_type="bucket_migration",
         entity_id=str(migration.id),
     )
-    return BucketMigrationActionResponse(id=migration.id, status=migration.status, message="Migration queued")
+    return BucketMigrationActionResponse(
+        id=migration.id, status=migration.status, message="Migration queued"
+    )
 
 
 @router.post("/{migration_id}/pause", response_model=BucketMigrationActionResponse)
@@ -62,6 +76,8 @@ def pause_migration(
     service = _build_service(db, scope)
     try:
         migration = service.request_pause(migration_id)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -73,7 +89,9 @@ def pause_migration(
         entity_type="bucket_migration",
         entity_id=str(migration.id),
     )
-    return BucketMigrationActionResponse(id=migration.id, status=migration.status, message="Pause requested")
+    return BucketMigrationActionResponse(
+        id=migration.id, status=migration.status, message="Pause requested"
+    )
 
 
 @router.post("/{migration_id}/resume", response_model=BucketMigrationActionResponse)
@@ -87,6 +105,8 @@ def resume_migration(
     service = _build_service(db, scope)
     try:
         migration = service.resume_migration(migration_id)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -98,7 +118,9 @@ def resume_migration(
         entity_type="bucket_migration",
         entity_id=str(migration.id),
     )
-    return BucketMigrationActionResponse(id=migration.id, status=migration.status, message="Migration resumed")
+    return BucketMigrationActionResponse(
+        id=migration.id, status=migration.status, message="Migration resumed"
+    )
 
 
 @router.post("/{migration_id}/stop", response_model=BucketMigrationActionResponse)
@@ -112,6 +134,8 @@ def stop_migration(
     service = _build_service(db, scope)
     try:
         migration = service.stop_migration(migration_id)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -123,12 +147,15 @@ def stop_migration(
         entity_type="bucket_migration",
         entity_id=str(migration.id),
     )
-    return BucketMigrationActionResponse(id=migration.id, status=migration.status, message="Stop requested")
+    return BucketMigrationActionResponse(
+        id=migration.id, status=migration.status, message="Stop requested"
+    )
 
 
 @router.post("/{migration_id}/continue", response_model=BucketMigrationActionResponse)
 def continue_after_presync(
     migration_id: int,
+    payload: BucketMigrationConfirmationRequest,
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
@@ -136,7 +163,11 @@ def continue_after_presync(
     current_user = scope.user
     service = _build_service(db, scope)
     try:
-        migration = service.continue_after_presync(migration_id)
+        migration = service.continue_after_presync(
+            migration_id, confirmed=payload.confirmed
+        )
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -148,7 +179,9 @@ def continue_after_presync(
         entity_type="bucket_migration",
         entity_id=str(migration.id),
     )
-    return BucketMigrationActionResponse(id=migration.id, status=migration.status, message="Cutover queued")
+    return BucketMigrationActionResponse(
+        id=migration.id, status=migration.status, message="Cutover queued"
+    )
 
 
 @router.post("/{migration_id}/rollback", response_model=BucketMigrationActionResponse)
@@ -162,6 +195,8 @@ def rollback_migration(
     service = _build_service(db, scope)
     try:
         migration = service.rollback_failed_migration(migration_id)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -172,10 +207,14 @@ def rollback_migration(
         entity_type="bucket_migration",
         entity_id=str(migration.id),
     )
-    return BucketMigrationActionResponse(id=migration.id, status=migration.status, message="Rollback completed")
+    return BucketMigrationActionResponse(
+        id=migration.id, status=migration.status, message="Rollback completed"
+    )
 
 
-@router.post("/{migration_id}/items/retry-failed", response_model=BucketMigrationActionResponse)
+@router.post(
+    "/{migration_id}/items/retry-failed", response_model=BucketMigrationActionResponse
+)
 def retry_failed_items(
     migration_id: int,
     db: Session = Depends(get_db),
@@ -186,6 +225,8 @@ def retry_failed_items(
     service = _build_service(db, scope)
     try:
         migration, retried_count = service.retry_failed_items(migration_id)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -205,7 +246,10 @@ def retry_failed_items(
     )
 
 
-@router.post("/{migration_id}/items/rollback-failed", response_model=BucketMigrationActionResponse)
+@router.post(
+    "/{migration_id}/items/rollback-failed",
+    response_model=BucketMigrationActionResponse,
+)
 def rollback_failed_items(
     migration_id: int,
     db: Session = Depends(get_db),
@@ -216,6 +260,8 @@ def rollback_failed_items(
     service = _build_service(db, scope)
     try:
         migration, rolled_back_count = service.rollback_failed_items(migration_id)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -234,7 +280,10 @@ def rollback_failed_items(
     )
 
 
-@router.post("/{migration_id}/items/{item_id}/retry", response_model=BucketMigrationActionResponse)
+@router.post(
+    "/{migration_id}/items/{item_id}/retry",
+    response_model=BucketMigrationActionResponse,
+)
 def retry_item(
     migration_id: int,
     item_id: int,
@@ -246,6 +295,8 @@ def retry_item(
     service = _build_service(db, scope)
     try:
         migration = service.retry_item(migration_id, item_id)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -264,7 +315,10 @@ def retry_item(
     )
 
 
-@router.post("/{migration_id}/items/{item_id}/rollback", response_model=BucketMigrationActionResponse)
+@router.post(
+    "/{migration_id}/items/{item_id}/rollback",
+    response_model=BucketMigrationActionResponse,
+)
 def rollback_item(
     migration_id: int,
     item_id: int,
@@ -276,6 +330,8 @@ def rollback_item(
     service = _build_service(db, scope)
     try:
         migration = service.rollback_item(migration_id, item_id)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -290,4 +346,75 @@ def rollback_item(
         id=migration.id,
         status=migration.status,
         message="Rollback executed for bucket item",
+    )
+
+
+@router.post(
+    "/{migration_id}/cleanup-source",
+    response_model=BucketMigrationActionResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def cleanup_source(
+    migration_id: int,
+    payload: BucketMigrationConfirmationRequest,
+    db: Session = Depends(get_db),
+    scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
+    audit: AuditService = Depends(get_audit_service),
+):
+    return _queue_maintenance(migration_id, "cleanup_source", payload, db, scope, audit)
+
+
+@router.post(
+    "/{migration_id}/restore-access",
+    response_model=BucketMigrationActionResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def restore_access(
+    migration_id: int,
+    payload: BucketMigrationConfirmationRequest,
+    db: Session = Depends(get_db),
+    scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
+    audit: AuditService = Depends(get_audit_service),
+):
+    return _queue_maintenance(migration_id, "restore_access", payload, db, scope, audit)
+
+
+@router.post(
+    "/{migration_id}/cleanup-target",
+    response_model=BucketMigrationActionResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def cleanup_target(
+    migration_id: int,
+    payload: BucketMigrationConfirmationRequest,
+    db: Session = Depends(get_db),
+    scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
+    audit: AuditService = Depends(get_audit_service),
+):
+    return _queue_maintenance(migration_id, "cleanup_target", payload, db, scope, audit)
+
+
+def _queue_maintenance(migration_id, operation, payload, db, scope, audit):
+    service = _build_service(db, scope)
+    try:
+        migration = service.request_maintenance(
+            migration_id,
+            operation=operation,
+            confirmed=payload.confirmed,
+            requested_by_user_id=scope.user.id,
+        )
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
+    audit.record_action(
+        user=scope.user,
+        scope="manager",
+        action=f"{operation}_bucket_migration",
+        entity_type="bucket_migration",
+        entity_id=str(migration.id),
+    )
+    _worker_wake_up()
+    return BucketMigrationActionResponse(
+        id=migration.id, status=migration.status, message="Operation queued"
     )

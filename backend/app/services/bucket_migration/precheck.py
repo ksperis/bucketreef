@@ -5,13 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from app.core.sensitive_data import sanitized_error_log_detail
+from app.core.sensitive_data import sanitized_error_log_detail, sanitize_error_detail
+from app.models.bucket_migration import BucketMigrationDiagnostic
 
 from .precheck_inspection import BucketMigrationInspector
 from .precheck_rules import BucketMigrationPrecheckRules, PrecheckItemSafety
 
 
-_PRECHECK_REPORT_VERSION = 2
+_PRECHECK_REPORT_VERSION = 3
 _SUPPORTED_BUCKET_SETTINGS = (
     "versioning",
     "object_lock",
@@ -86,22 +87,40 @@ def _check_entry(
     scope: str,
     message: str,
     details: Optional[dict[str, Any]] = None,
+    permission: str | None = None,
 ) -> dict[str, Any]:
-    return {
-        "code": code,
-        "severity": severity,
-        "level": severity,
-        "blocking": bool(blocking),
-        "scope": scope,
-        "message": message,
-        "details": details or None,
-    }
+    return BucketMigrationDiagnostic(
+        **{
+            "code": code,
+            "severity": severity,
+            "level": severity,
+            "blocking": bool(blocking),
+            "scope": scope,
+            "message": sanitized_error_log_detail(message),
+            "remediation": (
+                (
+                    "Choose a new destination name."
+                    if code == "target_exists"
+                    else "Review the indicated context permissions or configuration, then run checks again."
+                )
+                if blocking
+                else None
+            ),
+            "impact": (
+                "Copy cannot start until this check is resolved." if blocking else None
+            ),
+            "permission": permission,
+            "details": sanitize_error_detail(details) if details else None,
+        }
+    ).model_dump(exclude_none=True)
 
 
 def _count_entries(entries: list[dict[str, Any]]) -> dict[str, int]:
     summary = {"errors": 0, "warnings": 0, "infos": 0, "blocking_errors": 0}
     for entry in entries:
-        severity = str(entry.get("severity") or entry.get("level") or "").strip().lower()
+        severity = (
+            str(entry.get("severity") or entry.get("level") or "").strip().lower()
+        )
         if severity == "error":
             summary["errors"] += 1
             if bool(entry.get("blocking")):
@@ -123,7 +142,9 @@ class BucketMigrationPrecheckPlanner:
         self._inspector = inspector
         self._rules = BucketMigrationPrecheckRules(service)
 
-    def _global_capabilities(self, *, same_endpoint: bool, same_endpoint_copy_requested: bool) -> dict[str, Any]:
+    def _global_capabilities(
+        self, *, same_endpoint: bool, same_endpoint_copy_requested: bool
+    ) -> dict[str, Any]:
         return {
             "supported_strategies": ["current_only", "version_aware"],
             "version_aware_available": True,
@@ -186,10 +207,10 @@ class BucketMigrationPrecheckPlanner:
             elif state == "unavailable":
                 add_check(
                     code=f"{scope_prefix}_feature_probe_unavailable",
-                    severity="warning",
-                    blocking=False,
+                    severity="error",
+                    blocking=True,
                     scope=f"{scope_prefix}_bucket",
-                    message=f"{feature_label} inspection is unavailable on this endpoint.",
+                    message=f"{feature_label} could not be verified. This required inspection is unavailable on the endpoint.",
                     details=details,
                 )
 
@@ -202,7 +223,9 @@ class BucketMigrationPrecheckPlanner:
         add_check: Callable[..., None],
     ) -> _SourceInspection:
         try:
-            self._service._precheck_can_list_bucket(context, item.source_bucket)
+            sampled_object = self._service._precheck_can_list_bucket(
+                context, item.source_bucket
+            )
         except Exception as exc:  # noqa: BLE001
             add_check(
                 code="source_access_failed",
@@ -210,6 +233,8 @@ class BucketMigrationPrecheckPlanner:
                 blocking=True,
                 scope="source_bucket",
                 message=f"Source bucket read/list check failed: {exc}",
+                permission=getattr(exc, "permission", None),
+                details=getattr(exc, "details", None),
             )
             return _SourceInspection(access_ok=False, object_count=None, profile=None)
 
@@ -218,12 +243,26 @@ class BucketMigrationPrecheckPlanner:
             severity="info",
             blocking=False,
             scope="source_bucket",
-            message="Source bucket is reachable for list/read operations.",
+            message=(
+                "Source listing is readable. No current object is available to test content and tag reads."
+                if sampled_object is False
+                else "Source listing, sample content and sample tags are readable."
+            ),
         )
+        if sampled_object is False:
+            add_check(
+                code="source_object_reads_not_tested",
+                severity="warning",
+                blocking=False,
+                scope="source_bucket",
+                message="Content and tag permissions are unverified for this empty bucket. They will be checked again before copying if objects appear.",
+            )
 
         object_count: int | None = None
         try:
-            object_count = int(self._service._count_bucket_objects(context, item.source_bucket))
+            object_count = int(
+                self._service._count_bucket_objects(context, item.source_bucket)
+            )
             add_check(
                 code="source_count_ok",
                 severity="info",
@@ -261,7 +300,9 @@ class BucketMigrationPrecheckPlanner:
                 scope="source_bucket",
                 message=f"Unable to inspect source bucket features: {exc}",
             )
-        return _SourceInspection(access_ok=True, object_count=object_count, profile=profile)
+        return _SourceInspection(
+            access_ok=True, object_count=object_count, profile=profile
+        )
 
     def _inspect_target_bucket(
         self,
@@ -273,14 +314,16 @@ class BucketMigrationPrecheckPlanner:
     ) -> _TargetInspection:
         target_exists: bool | None = None
         try:
-            target_exists = self._service._precheck_bucket_exists(context, item.target_bucket)
+            target_exists = self._service._precheck_bucket_exists(
+                context, item.target_bucket
+            )
             if target_exists is True:
                 add_check(
                     code="target_exists",
-                    severity="warning",
-                    blocking=False,
+                    severity="error",
+                    blocking=True,
                     scope="target_bucket",
-                    message="Target bucket already exists; this item will be skipped.",
+                    message="Destination already exists. Choose a new name, even if this bucket is empty.",
                 )
             elif target_exists is False:
                 add_check(
@@ -316,7 +359,9 @@ class BucketMigrationPrecheckPlanner:
 
         object_count: int | None = None
         try:
-            object_count = int(self._service._count_bucket_objects(context, item.target_bucket))
+            object_count = int(
+                self._service._count_bucket_objects(context, item.target_bucket)
+            )
             add_check(
                 code="target_count_ok",
                 severity="info",
@@ -354,7 +399,9 @@ class BucketMigrationPrecheckPlanner:
                 scope="target_bucket",
                 message=f"Unable to inspect existing target bucket features: {exc}",
             )
-        return _TargetInspection(exists=True, object_count=object_count, profile=profile)
+        return _TargetInspection(
+            exists=True, object_count=object_count, profile=profile
+        )
 
     def _plan_source_bucket(
         self,
@@ -457,12 +504,8 @@ class BucketMigrationPrecheckPlanner:
     ) -> tuple[Any | None, Any | None, list[dict[str, Any]]]:
         entries: list[dict[str, Any]] = []
         try:
-            source_ctx = self._service._resolve_context(
-                migration.source_context_id
-            )
-            target_ctx = self._service._resolve_context(
-                migration.target_context_id
-            )
+            source_ctx = self._service._resolve_context(migration.source_context_id)
+            target_ctx = self._service._resolve_context(migration.target_context_id)
             same_endpoint = self._service._is_same_endpoint(
                 source_ctx,
                 target_ctx,
@@ -482,9 +525,7 @@ class BucketMigrationPrecheckPlanner:
             report["same_endpoint"] = bool(same_endpoint)
             report["capabilities"] = self._global_capabilities(
                 same_endpoint=same_endpoint,
-                same_endpoint_copy_requested=bool(
-                    migration.use_same_endpoint_copy
-                ),
+                same_endpoint_copy_requested=bool(migration.use_same_endpoint_copy),
             )
         except Exception as exc:  # noqa: BLE001
             entries.append(
@@ -502,9 +543,7 @@ class BucketMigrationPrecheckPlanner:
             report["contexts_error"] = sanitized_error_log_detail(exc)
             report["capabilities"] = self._global_capabilities(
                 same_endpoint=False,
-                same_endpoint_copy_requested=bool(
-                    migration.use_same_endpoint_copy
-                ),
+                same_endpoint_copy_requested=bool(migration.use_same_endpoint_copy),
             )
             return None, None, entries
 
@@ -571,6 +610,7 @@ class BucketMigrationPrecheckPlanner:
             scope: str,
             message: str,
             details: Optional[dict[str, Any]] = None,
+            permission: str | None = None,
         ) -> None:
             checks.append(
                 _check_entry(
@@ -580,8 +620,20 @@ class BucketMigrationPrecheckPlanner:
                     scope=scope,
                     message=message,
                     details=details,
+                    permission=permission,
                 )
             )
+            target_scope = scope.startswith("target")
+            checks[-1]["context_id"] = (
+                target_ctx.context_id if target_scope else source_ctx.context_id
+            )
+            checks[-1]["bucket"] = (
+                item.target_bucket if target_scope else item.source_bucket
+            )
+            if permission:
+                checks[-1][
+                    "remediation"
+                ] = f"Allow {permission} for this execution identity, then run checks again."
 
         source = self._inspect_source_bucket(
             source_ctx,
@@ -603,11 +655,10 @@ class BucketMigrationPrecheckPlanner:
             migration,
             profile=source.profile,
             object_count=source.object_count,
-            initial_strategy=(
-                "skip_existing" if target.exists is True else "current_only"
-            ),
+            initial_strategy=("current_only"),
             add_check=add_check,
         )
+        item.source_snapshot_json = self._service._json_dumps_safe(source.profile)
         safety = self._rules.evaluate_item_safety(
             source_ctx,
             target_ctx,
@@ -621,7 +672,7 @@ class BucketMigrationPrecheckPlanner:
             add_check=add_check,
         )
         counts = _count_entries(checks)
-        blocking = counts["blocking_errors"] > 0
+        blocking = any(entry["blocking"] for entry in checks)
         self._store_item_plan(
             item,
             checked_at=checked_at,
@@ -632,12 +683,33 @@ class BucketMigrationPrecheckPlanner:
             blocking=blocking,
             checks=checks,
         )
+        configured = (source.profile or {}).get("supported_settings", {})
+        availability = (source.profile or {}).get("feature_availability", {})
+        settings_copied = [
+            name
+            for name in _SUPPORTED_BUCKET_SETTINGS
+            if migration.copy_bucket_settings
+            and configured.get(name)
+            and availability.get(name, {}).get("state", "available") == "available"
+        ]
+        if (
+            source_plan.strategy == "version_aware"
+            and "versioning" not in settings_copied
+        ):
+            settings_copied.insert(0, "versioning")
+        settings_omitted = [
+            name
+            for name in (*_SUPPORTED_BUCKET_SETTINGS, *_UNSUPPORTED_BUCKET_SETTINGS)
+            if name not in settings_copied
+        ]
         return _PlannedItem(
             report={
                 "item_id": item.id,
                 "source_bucket": item.source_bucket,
                 "target_bucket": item.target_bucket,
                 "strategy": source_plan.strategy,
+                "settings_copied": settings_copied,
+                "settings_omitted": settings_omitted,
                 "blocking": blocking,
                 "delete_source_safe": safety.delete_source_safe,
                 "rollback_safe": safety.rollback_safe,
@@ -672,12 +744,8 @@ class BucketMigrationPrecheckPlanner:
         blocking: bool,
         checks: list[dict[str, Any]],
     ) -> None:
-        item.source_snapshot_json = self._service._json_dumps_safe(
-            source_profile
-        )
-        item.target_snapshot_json = self._service._json_dumps_safe(
-            target_profile
-        )
+        item.source_snapshot_json = self._service._json_dumps_safe(source_profile)
+        item.target_snapshot_json = self._service._json_dumps_safe(target_profile)
         execution_plan = {
             "report_version": _PRECHECK_REPORT_VERSION,
             "strategy": strategy,
@@ -687,15 +755,10 @@ class BucketMigrationPrecheckPlanner:
             "rollback_safe": safety.rollback_safe,
             "same_endpoint_copy_safe": safety.same_endpoint_copy_safe,
             "blocking_codes": [
-                entry["code"]
-                for entry in checks
-                if str(entry.get("severity") or "").lower() == "error"
-                and bool(entry.get("blocking"))
+                entry["code"] for entry in checks if bool(entry.get("blocking"))
             ],
         }
-        item.execution_plan_json = self._service._json_dumps_safe(
-            execution_plan
-        )
+        item.execution_plan_json = self._service._json_dumps_safe(execution_plan)
         item.updated_at = checked_at
 
     def _finalize_report(
@@ -725,8 +788,7 @@ class BucketMigrationPrecheckPlanner:
             "blocking_errors": blocking_errors,
             "strategies": {
                 strategy: sum(
-                    item.get("strategy") == strategy
-                    for item in report["items"]
+                    item.get("strategy") == strategy for item in report["items"]
                 )
                 for strategy in (
                     "current_only",
@@ -737,7 +799,9 @@ class BucketMigrationPrecheckPlanner:
         }
         return report
 
-    def run(self, migration: Any, *, checked_at: Any) -> dict[str, Any]:
+    def run(
+        self, migration: Any, *, checked_at: Any, on_progress=None
+    ) -> dict[str, Any]:
         report = self._new_report(checked_at=checked_at)
         source_ctx, target_ctx, context_entries = self._resolve_contexts(
             migration,
@@ -754,7 +818,7 @@ class BucketMigrationPrecheckPlanner:
         same_endpoint_copy_enabled = bool(
             same_endpoint and migration.use_same_endpoint_copy
         )
-        global_same_endpoint_copy_safe = not same_endpoint_copy_enabled
+        global_same_endpoint_copy_safe = True
         global_delete_source_safe = True
         global_rollback_safe = True
         global_unsupported_features: set[str] = set()
@@ -766,6 +830,9 @@ class BucketMigrationPrecheckPlanner:
         )
 
         for item in sorted(migration.items, key=lambda entry: entry.id):
+            if on_progress:
+                on_progress(report)
+            self._service._preparation_item = item
             planned = self._plan_item(
                 source_ctx,
                 target_ctx,
@@ -775,21 +842,36 @@ class BucketMigrationPrecheckPlanner:
                 probe_policy=probe_policy,
                 same_endpoint_copy_enabled=same_endpoint_copy_enabled,
             )
+            only_active_pending = all(
+                not entry["blocking"] or entry["code"] == "active_checks_required"
+                for entry in planned.report["checks"]
+            )
+            planned.report["state"] = (
+                "unverified"
+                if only_active_pending
+                and not getattr(self._service, "_preparation_active_checks", False)
+                else (
+                    "blocked"
+                    if planned.blocking_errors
+                    else "warning" if planned.warnings else "ready"
+                )
+            )
+            planned.report["source_identity"] = migration.source_context_id
+            planned.report["target_identity"] = migration.target_context_id
             report["items"].append(planned.report)
+            if on_progress:
+                on_progress(report)
             infos += planned.infos
             warnings += planned.warnings
             blocking_errors += planned.blocking_errors
             global_unsupported_features.update(planned.unsupported_features)
             global_same_endpoint_copy_safe = (
-                global_same_endpoint_copy_safe
-                and planned.same_endpoint_copy_safe
+                global_same_endpoint_copy_safe and planned.same_endpoint_copy_safe
             )
             global_delete_source_safe = (
                 global_delete_source_safe and planned.delete_source_safe
             )
-            global_rollback_safe = (
-                global_rollback_safe and planned.rollback_safe
-            )
+            global_rollback_safe = global_rollback_safe and planned.rollback_safe
 
         return self._finalize_report(
             report,

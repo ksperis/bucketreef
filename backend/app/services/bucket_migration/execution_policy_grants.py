@@ -136,6 +136,7 @@ class BucketMigrationPolicyGrantsMixin:
         source_account: S3ExecutionTarget,
         backup_policy: Optional[dict[str, Any]],
     ) -> None:
+        self._assert_workflow_lease()
         restored = self._without_managed_source_copy_grant_statement(backup_policy)
         if isinstance(restored, dict):
             self._configuration.put_policy(source_bucket, source_account, restored)
@@ -143,7 +144,21 @@ class BucketMigrationPolicyGrantsMixin:
         self._configuration.delete_policy(source_bucket, source_account)
 
     @contextmanager
-    def _temporary_source_copy_grant(
+    def _temporary_source_copy_grant(self, source_ctx, target_ctx, *, source_bucket, sample_key=None, sample_version_id=None):
+        item = getattr(self, "_preparation_item", None) or getattr(self, "_execution_item", None)
+        if item is None:
+            raise RuntimeError("Temporary grants require a persisted recovery record")
+        backup = self._configuration.get_policy(source_bucket, source_ctx.account)
+        self._journal_preparation_effect(item, "source_copy_grant", {"context_id": source_ctx.context_id, "bucket": source_bucket, "policy": backup})
+        try:
+            with self._temporary_source_copy_grant_unjournaled(source_ctx, target_ctx, source_bucket=source_bucket, sample_key=sample_key, sample_version_id=sample_version_id) as principal:
+                yield principal
+        finally:
+            self._restore_checked_policy(source_ctx.account, source_bucket, backup)
+            self._clear_preparation_effect(item, "source_copy_grant")
+
+    @contextmanager
+    def _temporary_source_copy_grant_unjournaled(
         self,
         source_ctx: _ResolvedContext,
         target_ctx: _ResolvedContext,
@@ -179,6 +194,7 @@ class BucketMigrationPolicyGrantsMixin:
                 principal=candidate,
             )
             try:
+                self._assert_workflow_lease()
                 self._configuration.put_policy(source_bucket, source_account, policy_doc)
             except RuntimeError as exc:
                 if self._is_access_denied_error(exc):
@@ -392,6 +408,7 @@ class BucketMigrationPolicyGrantsMixin:
         )
 
     def _set_managed_block_policy(self, source_bucket: str, source_account: S3ExecutionTarget, *, deny_delete: bool) -> None:
+        self._assert_workflow_lease()
         try:
             existing_policy = self._configuration.get_policy(source_bucket, source_account)
             policy_doc = self._build_read_only_policy(
@@ -425,32 +442,30 @@ class BucketMigrationPolicyGrantsMixin:
             existing_policy if isinstance(existing_policy, dict) else None,
         )
 
+        item = getattr(self, "_preparation_item", None)
+        if item is None:
+            raise RuntimeError("Active policy checks require a persisted preparation item")
+        migration = item.migration
+        self._journal_preparation_effect(item, "source_policy", {
+            "context_id": migration.source_context_id, "bucket": source_bucket, "policy": existing_policy,
+        })
         try:
             self._configuration.put_policy(source_bucket, source_account, policy_doc)
-        except RuntimeError as exc:
-            if self._is_access_denied_error(exc):
-                raise RuntimeError(
-                    "Unable to apply read-only policy during precheck. "
-                    f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
-                ) from exc
-            raise
-
-        try:
-            restored = self._without_managed_read_only_statement(existing_policy)
-            if isinstance(restored, dict):
-                self._configuration.put_policy(source_bucket, source_account, restored)
-            else:
-                self._configuration.delete_policy(source_bucket, source_account)
-        except RuntimeError as exc:
-            raise RuntimeError(
-                f"Unable to restore source bucket policy after precheck on '{source_bucket}': {exc}"
-            ) from exc
+        finally:
+            self._restore_checked_policy(source_account, source_bucket, existing_policy)
+            self._clear_preparation_effect(item, "source_policy")
 
     def _apply_read_only_policy(self, source_account: S3ExecutionTarget, source_bucket: str, item: BucketMigrationItem) -> None:
+        self._assert_workflow_lease()
+        if item.read_only_applied:
+            self._set_managed_block_policy(source_bucket, source_account, deny_delete=True)
+            return
         existing_policy = self._configuration.get_policy(source_bucket, source_account)
         item.source_policy_backup_json = (
             _json_dumps(existing_policy) if isinstance(existing_policy, dict) else None
         )
+        item.read_only_applied = True
+        self._commit()
         policy_doc = self._build_read_only_policy(
             source_bucket,
             existing_policy if isinstance(existing_policy, dict) else None,
@@ -478,10 +493,15 @@ class BucketMigrationPolicyGrantsMixin:
             ) from exc
 
     def _apply_target_write_lock_policy(self, target_ctx: _ResolvedContext, target_bucket: str, item: BucketMigrationItem) -> None:
+        self._assert_workflow_lease()
+        if item.target_lock_applied:
+            return
         existing_policy = self._configuration.get_policy(target_bucket, target_ctx.account)
         item.target_policy_backup_json = (
             _json_dumps(existing_policy) if isinstance(existing_policy, dict) else None
         )
+        item.target_lock_applied = True
+        self._commit()
         lock_policy_doc = self._build_target_write_lock_policy(
             target_bucket,
             existing_policy if isinstance(existing_policy, dict) else None,
@@ -495,9 +515,9 @@ class BucketMigrationPolicyGrantsMixin:
                     f"Required permissions on '{target_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
                 ) from exc
             raise
-        self._validate_target_lock_worker_access(target_ctx, target_bucket)
 
     def _restore_target_write_lock_policy(self, target_account: S3ExecutionTarget, target_bucket: str, item: BucketMigrationItem) -> None:
+        self._assert_workflow_lease()
         backup = _json_loads(item.target_policy_backup_json)
         if isinstance(backup, dict):
             self._configuration.put_policy(target_bucket, target_account, backup)
@@ -505,6 +525,7 @@ class BucketMigrationPolicyGrantsMixin:
         self._configuration.delete_policy(target_bucket, target_account)
 
     def _restore_source_policy(self, source_bucket: str, source_account: S3ExecutionTarget, item: BucketMigrationItem) -> None:
+        self._assert_workflow_lease()
         backup = _json_loads(item.source_policy_backup_json)
         if isinstance(backup, dict):
             self._configuration.put_policy(source_bucket, source_account, backup)

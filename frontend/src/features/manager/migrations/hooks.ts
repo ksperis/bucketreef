@@ -14,7 +14,7 @@ import {
   type BucketMigrationDetail,
   type BucketMigrationView,
 } from "../../../api/managerMigrations";
-import { extractError, isFinalMigrationStatus, normalizeEndpointUrl } from "./shared";
+import { extractError, normalizeEndpointUrl } from "./shared";
 
 export function useManagerSourceBuckets(sourceContextId: string) {
   const [sourceBuckets, setSourceBuckets] = useState<Bucket[]>([]);
@@ -133,9 +133,8 @@ export function useManagerMigrationDetail(migrationId: number | null) {
     const applyDetail = (detail: BucketMigrationDetail) => {
       if (canceled) return;
       setMigrationDetail(detail);
-      if (isFinalMigrationStatus(detail.status)) {
-        stopFallbackPolling();
-      }
+      setDetailError(null);
+      setLoadFailure(null);
     };
 
     const runFallbackPolling = () => {
@@ -144,13 +143,13 @@ export function useManagerMigrationDetail(migrationId: number | null) {
         .then((detail) => {
           if (!canceled) applyDetail(detail);
         })
-        .catch(() => {});
+        .catch((error) => { if (!canceled) setDetailError(`Live updates unavailable: ${extractError(error)}`); });
       fallbackInterval = window.setInterval(() => {
         getManagerMigration(migrationId)
           .then((detail) => {
             if (!canceled) applyDetail(detail);
           })
-          .catch(() => {});
+          .catch((error) => { if (!canceled) setDetailError(`Live updates unavailable: ${extractError(error)}`); });
       }, 3000);
     };
 
@@ -182,6 +181,8 @@ export function useManagerMigrationDetail(migrationId: number | null) {
         setDetailLoading(false);
         applyDetail(detail);
       },
+    }).then(() => {
+      if (!canceled) runFallbackPolling();
     }).catch(() => {
       if (canceled || streamAbortController.signal.aborted) return;
       runFallbackPolling();

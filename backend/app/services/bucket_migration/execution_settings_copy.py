@@ -30,6 +30,7 @@ class _BucketSettingsCopyRunner:
         target_bucket: str,
         migration: BucketMigration,
         item: BucketMigrationItem,
+        strategy: str | None = None,
     ) -> None:
         self.service = service
         self.source_account = source_account
@@ -38,11 +39,12 @@ class _BucketSettingsCopyRunner:
         self.target_bucket = target_bucket
         self.migration = migration
         self.item = item
-        self.strategy = service._item_execution_strategy(item)
+        self.strategy = strategy or service._item_execution_strategy(item)
 
     def run(self) -> None:
         failures: list[str] = []
         for operation in self._operations():
+            self.service._assert_workflow_lease()
             try:
                 operation.action()
             except Exception as exc:  # noqa: BLE001

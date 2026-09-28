@@ -78,8 +78,12 @@ def _wait_for_value(
     except Exception as exc:  # noqa: BLE001
         last_error = exc
     if last_error is not None:
-        raise AssertionError(f"{description} did not reach the expected state: last error was {last_error}") from last_error
-    raise AssertionError(f"{description} did not reach the expected state: last value was {last_value!r}")
+        raise AssertionError(
+            f"{description} did not reach the expected state: last error was {last_error}"
+        ) from last_error
+    raise AssertionError(
+        f"{description} did not reach the expected state: last value was {last_value!r}"
+    )
 
 
 def _wait_for_equal(
@@ -104,10 +108,14 @@ def _sleep_for_version_gap() -> None:
     time.sleep(_VERSION_OPERATION_GAP_SECONDS)
 
 
-def _skip_if_cluster_unavailable(action: str, exc: BackendAPIError, *, extra_markers: tuple[str, ...] = ()) -> None:
+def _skip_if_cluster_unavailable(
+    action: str, exc: BackendAPIError, *, extra_markers: tuple[str, ...] = ()
+) -> None:
     detail = backend_error_detail(exc).strip()
     normalized_detail = detail.lower()
-    if looks_unsupported(exc) or any(marker.lower() in normalized_detail for marker in extra_markers):
+    if looks_unsupported(exc) or any(
+        marker.lower() in normalized_detail for marker in extra_markers
+    ):
         reason = detail or f"status={exc.status_code}"
         pytest.skip(f"{action} unavailable on this cluster: {reason}")
 
@@ -147,7 +155,9 @@ def _delete_bucket(
     resource_tracker.discard_bucket(account_id, bucket_name)
 
 
-def _delete_topic(manager_session: BackendSession, account_id: int, topic_arn: str) -> None:
+def _delete_topic(
+    manager_session: BackendSession, account_id: int, topic_arn: str
+) -> None:
     if not topic_arn:
         return
     try:
@@ -175,7 +185,13 @@ def _upload_bytes(
         f"/browser/buckets/{bucket_name}/proxy-upload",
         params=_account_params(account_id),
         data={"key": key, "content_type": content_type},
-        files={"file": (filename or key.rsplit("/", 1)[-1] or "upload.bin", io.BytesIO(payload), content_type)},
+        files={
+            "file": (
+                filename or key.rsplit("/", 1)[-1] or "upload.bin",
+                io.BytesIO(payload),
+                content_type,
+            )
+        },
     )
     response.close()
 
@@ -195,7 +211,10 @@ def _set_object_tags(
         json={
             "key": key,
             "version_id": version_id,
-            "tags": [{"key": tag_key, "value": tag_value} for tag_key, tag_value in sorted(tags.items())],
+            "tags": [
+                {"key": tag_key, "value": tag_value}
+                for tag_key, tag_value in sorted(tags.items())
+            ],
         },
     )
 
@@ -251,7 +270,10 @@ def _copy_object(
             "source_version_id": source_version_id,
             "metadata": metadata or {},
             "replace_metadata": replace_metadata,
-            "tags": [{"key": key, "value": value} for key, value in sorted((tags or {}).items())],
+            "tags": [
+                {"key": key, "value": value}
+                for key, value in sorted((tags or {}).items())
+            ],
             "replace_tags": replace_tags,
         },
     )
@@ -295,7 +317,9 @@ def _download_bytes(
         response.close()
 
 
-def _list_current_objects(manager_session: BackendSession, account_id: int, bucket_name: str) -> list[dict[str, Any]]:
+def _list_current_objects(
+    manager_session: BackendSession, account_id: int, bucket_name: str
+) -> list[dict[str, Any]]:
     objects: list[dict[str, Any]] = []
     continuation_token: str | None = None
     while True:
@@ -314,7 +338,9 @@ def _list_current_objects(manager_session: BackendSession, account_id: int, buck
 
 
 def _list_bucket_names(manager_session: BackendSession, account_id: int) -> list[str]:
-    payload = manager_session.get("/browser/buckets/search", params=_account_params(account_id))
+    payload = manager_session.get(
+        "/browser/buckets/search", params=_account_params(account_id)
+    )
     return sorted(
         str(entry.get("name") or "")
         for entry in payload.get("items") or []
@@ -322,7 +348,9 @@ def _list_bucket_names(manager_session: BackendSession, account_id: int) -> list
     )
 
 
-def _bucket_exists(manager_session: BackendSession, account_id: int, bucket_name: str) -> bool:
+def _bucket_exists(
+    manager_session: BackendSession, account_id: int, bucket_name: str
+) -> bool:
     return bucket_name in _list_bucket_names(manager_session, account_id)
 
 
@@ -398,7 +426,9 @@ def _list_all_versions(
     return {"versions": versions, "delete_markers": delete_markers}
 
 
-def _latest_version_id(manager_session: BackendSession, account_id: int, bucket_name: str, key: str) -> str:
+def _latest_version_id(
+    manager_session: BackendSession, account_id: int, bucket_name: str, key: str
+) -> str:
     payload = _list_all_versions(manager_session, account_id, bucket_name, key=key)
     latest_candidates = [
         entry
@@ -409,7 +439,9 @@ def _latest_version_id(manager_session: BackendSession, account_id: int, bucket_
         raise AssertionError(f"No latest version found for {bucket_name}/{key}")
     version_id = latest_candidates[0].get("version_id")
     if not version_id:
-        raise AssertionError(f"Latest version for {bucket_name}/{key} has no version_id")
+        raise AssertionError(
+            f"Latest version for {bucket_name}/{key} has no version_id"
+        )
     return str(version_id)
 
 
@@ -429,7 +461,9 @@ def _snapshot_versioned_bucket(
 
     snapshot: dict[str, list[dict[str, Any]]] = {}
     for key, entries in sorted(grouped.items()):
-        normalized_entries_with_sort: list[tuple[tuple[str, int, str], dict[str, Any]]] = []
+        normalized_entries_with_sort: list[
+            tuple[tuple[str, int, str], dict[str, Any]]
+        ] = []
         for item in entries:
             version_id = item.get("version_id")
             if item.get("kind") == "delete_marker":
@@ -489,7 +523,9 @@ def _snapshot_versioned_bucket(
             )
         snapshot[key] = [
             normalized_entry
-            for _sort_key, normalized_entry in sorted(normalized_entries_with_sort, key=lambda item: item[0])
+            for _sort_key, normalized_entry in sorted(
+                normalized_entries_with_sort, key=lambda item: item[0]
+            )
         ]
     return snapshot
 
@@ -542,8 +578,7 @@ def _format_migration_failure(detail: dict[str, Any]) -> str:
         for item in items
     ]
     event_lines = [
-        f"{entry.get('level')}: {entry.get('message')}"
-        for entry in events[-8:]
+        f"{entry.get('level')}: {entry.get('message')}" for entry in events[-8:]
     ]
     message_parts = [
         f"migration status={status}",
@@ -597,8 +632,21 @@ def _create_migration(
     return detail
 
 
-def _run_precheck(super_admin_session: BackendSession, migration_id: int) -> dict[str, Any]:
-    return super_admin_session.post(f"/manager/migrations/{migration_id}/precheck")
+def _run_precheck(
+    super_admin_session: BackendSession, migration_id: int
+) -> dict[str, Any]:
+    queued = super_admin_session.post(
+        f"/manager/migrations/{migration_id}/precheck",
+        json={"active_checks": True},
+        expected_status=202,
+    )
+    assert queued["status"] == "draft"
+    return _wait_for_value(
+        "migration preparation",
+        lambda: super_admin_session.get(f"/manager/migrations/{migration_id}"),
+        lambda detail: detail["preparation_status"] != "checking",
+        timeout=180,
+    )
 
 
 def _start_migration(
@@ -609,20 +657,37 @@ def _start_migration(
 ) -> dict[str, Any]:
     return super_admin_session.post(
         f"/manager/migrations/{migration_id}/start",
+        json={
+            "configuration_revision": super_admin_session.get(
+                f"/manager/migrations/{migration_id}"
+            )["configuration_revision"],
+            "confirm_write_interruption": True,
+        },
         expected_status=expected_status,
     )
 
 
-def _continue_migration(super_admin_session: BackendSession, migration_id: int) -> dict[str, Any]:
-    return super_admin_session.post(f"/manager/migrations/{migration_id}/continue")
+def _continue_migration(
+    super_admin_session: BackendSession, migration_id: int
+) -> dict[str, Any]:
+    return super_admin_session.post(
+        f"/manager/migrations/{migration_id}/continue", json={"confirmed": True}
+    )
 
 
-def _find_precheck_item(detail: dict[str, Any], source_bucket: str, target_bucket: str) -> dict[str, Any]:
+def _find_precheck_item(
+    detail: dict[str, Any], source_bucket: str, target_bucket: str
+) -> dict[str, Any]:
     report = detail.get("precheck_report") or {}
     for item in report.get("items") or []:
-        if item.get("source_bucket") == source_bucket and item.get("target_bucket") == target_bucket:
+        if (
+            item.get("source_bucket") == source_bucket
+            and item.get("target_bucket") == target_bucket
+        ):
             return item
-    raise AssertionError(f"Unable to locate precheck report item for {source_bucket} -> {target_bucket}")
+    raise AssertionError(
+        f"Unable to locate precheck report item for {source_bucket} -> {target_bucket}"
+    )
 
 
 def _precheck_codes(precheck_item: dict[str, Any]) -> set[str]:
@@ -795,7 +860,9 @@ def _configure_unsupported_bucket_setting(
                 f"/manager/buckets/{bucket_name}/notifications",
                 params=_account_params(account_id),
             ),
-            lambda current: bool((current.get("configuration") or {}).get("TopicConfigurations")),
+            lambda current: bool(
+                (current.get("configuration") or {}).get("TopicConfigurations")
+            ),
             timeout=20.0,
         )
         return "notifications"
@@ -850,7 +917,9 @@ def _configure_unsupported_bucket_setting(
                             "Priority": 1,
                             "Filter": {"Prefix": ""},
                             "DeleteMarkerReplication": {"Status": "Disabled"},
-                            "Destination": {"Bucket": f"arn:aws:s3:::{replication_target}"},
+                            "Destination": {
+                                "Bucket": f"arn:aws:s3:::{replication_target}"
+                            },
                         }
                     ],
                 }
@@ -868,7 +937,9 @@ def _configure_unsupported_bucket_setting(
         return "replication"
     except BackendAPIError as exc:
         if looks_unsupported(exc):
-            pytest.skip(f"No unsupported bucket setting configurable on this cluster: {exc}")
+            pytest.skip(
+                f"No unsupported bucket setting configurable on this cluster: {exc}"
+            )
         raise
 
 
@@ -895,7 +966,9 @@ def _prepare_versioned_history(
         destination_key="docs/alpha.txt",
     )
     _sleep_for_version_gap()
-    first_alpha_version = _latest_version_id(manager_session, account_id, source_bucket, "docs/alpha.txt")
+    first_alpha_version = _latest_version_id(
+        manager_session, account_id, source_bucket, "docs/alpha.txt"
+    )
     _set_object_metadata(
         manager_session,
         account_id,
@@ -914,7 +987,9 @@ def _prepare_versioned_history(
         source_bucket,
         "docs/alpha.txt",
         {"series": "alpha", "revision": "1"},
-        version_id=_latest_version_id(manager_session, account_id, source_bucket, "docs/alpha.txt"),
+        version_id=_latest_version_id(
+            manager_session, account_id, source_bucket, "docs/alpha.txt"
+        ),
     )
     _sleep_for_version_gap()
 
@@ -935,7 +1010,9 @@ def _prepare_versioned_history(
         destination_key="docs/alpha.txt",
     )
     _sleep_for_version_gap()
-    second_alpha_version = _latest_version_id(manager_session, account_id, source_bucket, "docs/alpha.txt")
+    second_alpha_version = _latest_version_id(
+        manager_session, account_id, source_bucket, "docs/alpha.txt"
+    )
     _set_object_metadata(
         manager_session,
         account_id,
@@ -954,7 +1031,9 @@ def _prepare_versioned_history(
         source_bucket,
         "docs/alpha.txt",
         {"series": "alpha", "revision": "2"},
-        version_id=_latest_version_id(manager_session, account_id, source_bucket, "docs/alpha.txt"),
+        version_id=_latest_version_id(
+            manager_session, account_id, source_bucket, "docs/alpha.txt"
+        ),
     )
     _sleep_for_version_gap()
     _delete_browser_objects(
@@ -982,7 +1061,9 @@ def _prepare_versioned_history(
         destination_key="docs/beta.txt",
     )
     _sleep_for_version_gap()
-    latest_beta = _latest_version_id(manager_session, account_id, source_bucket, "docs/beta.txt")
+    latest_beta = _latest_version_id(
+        manager_session, account_id, source_bucket, "docs/beta.txt"
+    )
     _set_object_metadata(
         manager_session,
         account_id,
@@ -999,8 +1080,11 @@ def _prepare_versioned_history(
         source_bucket,
         "docs/beta.txt",
         {"series": "beta", "revision": "1"},
-        version_id=_latest_version_id(manager_session, account_id, source_bucket, "docs/beta.txt"),
+        version_id=_latest_version_id(
+            manager_session, account_id, source_bucket, "docs/beta.txt"
+        ),
     )
+
 
 def test_bucket_migration_one_shot_current_only_same_endpoint(
     ceph_test_settings: CephTestSettings,
@@ -1016,7 +1100,14 @@ def test_bucket_migration_one_shot_current_only_same_endpoint(
     _create_bucket(source.manager_session, source.account_id, source_bucket)
     resource_tracker.track_bucket(source.account_id, source_bucket)
 
-    _upload_bytes(source.manager_session, source.account_id, source_bucket, "root.txt", b"root-current", content_type="text/plain")
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "root.txt",
+        b"root-current",
+        content_type="text/plain",
+    )
     _upload_bytes(
         source.manager_session,
         source.account_id,
@@ -1025,7 +1116,14 @@ def test_bucket_migration_one_shot_current_only_same_endpoint(
         b'{"ok":true,"scope":"current-only"}',
         content_type="application/json",
     )
-    _upload_bytes(source.manager_session, source.account_id, source_bucket, "metadata.bin", b"meta-current", content_type="application/octet-stream")
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "metadata.bin",
+        b"meta-current",
+        content_type="application/octet-stream",
+    )
     _set_object_metadata(
         source.manager_session,
         source.account_id,
@@ -1043,7 +1141,9 @@ def test_bucket_migration_one_shot_current_only_same_endpoint(
         {"suite": "migration-live", "case": "current-only"},
     )
 
-    expected_snapshot = _snapshot_current_bucket(source.manager_session, source.account_id, source_bucket)
+    expected_snapshot = _snapshot_current_bucket(
+        source.manager_session, source.account_id, source_bucket
+    )
 
     migration = _create_migration(
         super_admin_session,
@@ -1070,8 +1170,15 @@ def test_bucket_migration_one_shot_current_only_same_endpoint(
         {"completed"},
     )
     assert final_detail["status"] == "completed"
-    assert _snapshot_current_bucket(target.manager_session, target.account_id, target_bucket) == expected_snapshot
-    assert _bucket_exists(source.manager_session, source.account_id, source_bucket) is True
+    assert (
+        _snapshot_current_bucket(
+            target.manager_session, target.account_id, target_bucket
+        )
+        == expected_snapshot
+    )
+    assert (
+        _bucket_exists(source.manager_session, source.account_id, source_bucket) is True
+    )
 
 
 def test_bucket_migration_one_shot_current_only_copy_bucket_settings(
@@ -1094,10 +1201,21 @@ def test_bucket_migration_one_shot_current_only_copy_bucket_settings(
         source_bucket,
     )
     if not configured_settings:
-        pytest.skip("No supported bucket setting could be configured on this cluster for copy_bucket_settings=true")
+        pytest.skip(
+            "No supported bucket setting could be configured on this cluster for copy_bucket_settings=true"
+        )
 
-    _upload_bytes(source.manager_session, source.account_id, source_bucket, "copy-settings.txt", b"copy-settings", content_type="text/plain")
-    expected_snapshot = _snapshot_current_bucket(source.manager_session, source.account_id, source_bucket)
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "copy-settings.txt",
+        b"copy-settings",
+        content_type="text/plain",
+    )
+    expected_snapshot = _snapshot_current_bucket(
+        source.manager_session, source.account_id, source_bucket
+    )
 
     migration = _create_migration(
         super_admin_session,
@@ -1112,9 +1230,16 @@ def test_bucket_migration_one_shot_current_only_copy_bucket_settings(
     detail = _run_precheck(super_admin_session, int(migration["id"]))
     assert detail["precheck_status"] == "passed"
     _start_migration(super_admin_session, int(migration["id"]))
-    final_detail = _wait_for_migration_state(super_admin_session, int(migration["id"]), {"completed"})
+    final_detail = _wait_for_migration_state(
+        super_admin_session, int(migration["id"]), {"completed"}
+    )
     assert final_detail["status"] == "completed"
-    assert _snapshot_current_bucket(target.manager_session, target.account_id, target_bucket) == expected_snapshot
+    assert (
+        _snapshot_current_bucket(
+            target.manager_session, target.account_id, target_bucket
+        )
+        == expected_snapshot
+    )
 
     fetch_map = {
         "tags": lambda: target.manager_session.get(
@@ -1135,7 +1260,9 @@ def test_bucket_migration_one_shot_current_only_copy_bucket_settings(
         ),
     }
     for setting_name, expected_value in configured_settings.items():
-        assert _normalize_value(fetch_map[setting_name]()) == _normalize_value(expected_value)
+        assert _normalize_value(fetch_map[setting_name]()) == _normalize_value(
+            expected_value
+        )
 
 
 def test_bucket_migration_pre_sync_current_only_replays_delta(
@@ -1152,9 +1279,30 @@ def test_bucket_migration_pre_sync_current_only_replays_delta(
     _create_bucket(source.manager_session, source.account_id, source_bucket)
     resource_tracker.track_bucket(source.account_id, source_bucket)
 
-    _upload_bytes(source.manager_session, source.account_id, source_bucket, "docs/keep.txt", b"keep-v1", content_type="text/plain")
-    _upload_bytes(source.manager_session, source.account_id, source_bucket, "docs/overwrite.txt", b"overwrite-v1", content_type="text/plain")
-    _upload_bytes(source.manager_session, source.account_id, source_bucket, "docs/delete.txt", b"delete-v1", content_type="text/plain")
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "docs/keep.txt",
+        b"keep-v1",
+        content_type="text/plain",
+    )
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "docs/overwrite.txt",
+        b"overwrite-v1",
+        content_type="text/plain",
+    )
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "docs/delete.txt",
+        b"delete-v1",
+        content_type="text/plain",
+    )
 
     migration = _create_migration(
         super_admin_session,
@@ -1170,25 +1318,50 @@ def test_bucket_migration_pre_sync_current_only_replays_delta(
     detail = _run_precheck(super_admin_session, int(migration["id"]))
     assert detail["precheck_status"] == "passed"
     _start_migration(super_admin_session, int(migration["id"]))
-    _wait_for_migration_state(super_admin_session, int(migration["id"]), {"awaiting_cutover"})
+    _wait_for_migration_state(
+        super_admin_session, int(migration["id"]), {"awaiting_cutover"}
+    )
 
-    _upload_bytes(source.manager_session, source.account_id, source_bucket, "docs/new.txt", b"new-v1", content_type="text/plain")
-    _upload_bytes(source.manager_session, source.account_id, source_bucket, "docs/overwrite.txt", b"overwrite-v2", content_type="text/plain")
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "docs/new.txt",
+        b"new-v1",
+        content_type="text/plain",
+    )
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "docs/overwrite.txt",
+        b"overwrite-v2",
+        content_type="text/plain",
+    )
     _delete_browser_objects(
         source.manager_session,
         source.account_id,
         source_bucket,
         [{"key": "docs/delete.txt"}],
     )
-    expected_snapshot = _snapshot_current_bucket(source.manager_session, source.account_id, source_bucket)
+    expected_snapshot = _snapshot_current_bucket(
+        source.manager_session, source.account_id, source_bucket
+    )
 
     _continue_migration(super_admin_session, int(migration["id"]))
-    final_detail = _wait_for_migration_state(super_admin_session, int(migration["id"]), {"completed"})
+    final_detail = _wait_for_migration_state(
+        super_admin_session, int(migration["id"]), {"completed"}
+    )
     assert final_detail["status"] == "completed"
-    assert _snapshot_current_bucket(target.manager_session, target.account_id, target_bucket) == expected_snapshot
+    assert (
+        _snapshot_current_bucket(
+            target.manager_session, target.account_id, target_bucket
+        )
+        == expected_snapshot
+    )
 
 
-def test_bucket_migration_one_shot_version_aware_deletes_source(
+def test_bucket_migration_version_aware_retains_source_until_separate_cleanup(
     ceph_test_settings: CephTestSettings,
     account_factory,
     resource_tracker: ResourceTracker,
@@ -1200,13 +1373,19 @@ def test_bucket_migration_one_shot_version_aware_deletes_source(
     staging_bucket = _bucket_name(ceph_test_settings.test_prefix, "mig-ver-stage")
     target_bucket = _bucket_name(ceph_test_settings.test_prefix, "mig-ver-dst")
 
-    _create_bucket(source.manager_session, source.account_id, source_bucket, versioning=True)
+    _create_bucket(
+        source.manager_session, source.account_id, source_bucket, versioning=True
+    )
     _create_bucket(source.manager_session, source.account_id, staging_bucket)
     resource_tracker.track_bucket(source.account_id, source_bucket)
     resource_tracker.track_bucket(source.account_id, staging_bucket)
 
-    _prepare_versioned_history(source.manager_session, source.account_id, source_bucket, staging_bucket)
-    expected_snapshot = _snapshot_versioned_bucket(source.manager_session, source.account_id, source_bucket)
+    _prepare_versioned_history(
+        source.manager_session, source.account_id, source_bucket, staging_bucket
+    )
+    expected_snapshot = _snapshot_versioned_bucket(
+        source.manager_session, source.account_id, source_bucket
+    )
 
     migration = _create_migration(
         super_admin_session,
@@ -1215,7 +1394,7 @@ def test_bucket_migration_one_shot_version_aware_deletes_source(
         target_context_id=str(target.account_id),
         source_bucket=source_bucket,
         target_bucket=target_bucket,
-        delete_source=True,
+        delete_source=False,
         use_same_endpoint_copy=True,
         auto_grant_source_read_for_copy=True,
     )
@@ -1225,13 +1404,37 @@ def test_bucket_migration_one_shot_version_aware_deletes_source(
     assert precheck_item["strategy"] == "version_aware"
 
     _start_migration(super_admin_session, int(migration["id"]))
-    final_detail = _wait_for_migration_state(super_admin_session, int(migration["id"]), {"completed"})
+    final_detail = _wait_for_migration_state(
+        super_admin_session, int(migration["id"]), {"completed"}
+    )
     assert final_detail["status"] == "completed"
     _assert_versioned_snapshot_matches(
-        _snapshot_versioned_bucket(target.manager_session, target.account_id, target_bucket),
+        _snapshot_versioned_bucket(
+            target.manager_session, target.account_id, target_bucket
+        ),
         expected_snapshot,
     )
-    assert _bucket_exists(source.manager_session, source.account_id, source_bucket) is False
+    assert (
+        _bucket_exists(source.manager_session, source.account_id, source_bucket) is True
+    )
+    super_admin_session.post(
+        f"/manager/migrations/{migration['id']}/cleanup-source",
+        json={"confirmed": True},
+        expected_status=202,
+    )
+    cleaned = _wait_for_value(
+        "source cleanup",
+        lambda: super_admin_session.get(f"/manager/migrations/{migration['id']}"),
+        lambda result: result["maintenance_status"] in {"completed", "failed"},
+        timeout=180,
+    )
+    assert cleaned["maintenance_status"] == "completed", cleaned.get(
+        "maintenance_error"
+    )
+    assert (
+        _bucket_exists(source.manager_session, source.account_id, source_bucket)
+        is False
+    )
     resource_tracker.discard_bucket(source.account_id, source_bucket)
 
 
@@ -1247,12 +1450,16 @@ def test_bucket_migration_pre_sync_version_aware_replays_delta(
     staging_bucket = _bucket_name(ceph_test_settings.test_prefix, "mig-vpre-stage")
     target_bucket = _bucket_name(ceph_test_settings.test_prefix, "mig-vpre-dst")
 
-    _create_bucket(source.manager_session, source.account_id, source_bucket, versioning=True)
+    _create_bucket(
+        source.manager_session, source.account_id, source_bucket, versioning=True
+    )
     _create_bucket(source.manager_session, source.account_id, staging_bucket)
     resource_tracker.track_bucket(source.account_id, source_bucket)
     resource_tracker.track_bucket(source.account_id, staging_bucket)
 
-    _prepare_versioned_history(source.manager_session, source.account_id, source_bucket, staging_bucket)
+    _prepare_versioned_history(
+        source.manager_session, source.account_id, source_bucket, staging_bucket
+    )
 
     migration = _create_migration(
         super_admin_session,
@@ -1272,7 +1479,9 @@ def test_bucket_migration_pre_sync_version_aware_replays_delta(
     assert precheck_item["strategy"] == "version_aware"
 
     _start_migration(super_admin_session, int(migration["id"]))
-    _wait_for_migration_state(super_admin_session, int(migration["id"]), {"awaiting_cutover"})
+    _wait_for_migration_state(
+        super_admin_session, int(migration["id"]), {"awaiting_cutover"}
+    )
 
     _upload_bytes(
         source.manager_session,
@@ -1291,7 +1500,9 @@ def test_bucket_migration_pre_sync_version_aware_replays_delta(
         destination_key="docs/beta.txt",
     )
     _sleep_for_version_gap()
-    latest_beta = _latest_version_id(source.manager_session, source.account_id, source_bucket, "docs/beta.txt")
+    latest_beta = _latest_version_id(
+        source.manager_session, source.account_id, source_bucket, "docs/beta.txt"
+    )
     _set_object_metadata(
         source.manager_session,
         source.account_id,
@@ -1308,7 +1519,9 @@ def test_bucket_migration_pre_sync_version_aware_replays_delta(
         source_bucket,
         "docs/beta.txt",
         {"series": "beta", "revision": "2"},
-        version_id=_latest_version_id(source.manager_session, source.account_id, source_bucket, "docs/beta.txt"),
+        version_id=_latest_version_id(
+            source.manager_session, source.account_id, source_bucket, "docs/beta.txt"
+        ),
     )
     _sleep_for_version_gap()
     _delete_browser_objects(
@@ -1317,13 +1530,19 @@ def test_bucket_migration_pre_sync_version_aware_replays_delta(
         source_bucket,
         [{"key": "docs/beta.txt"}],
     )
-    expected_snapshot = _snapshot_versioned_bucket(source.manager_session, source.account_id, source_bucket)
+    expected_snapshot = _snapshot_versioned_bucket(
+        source.manager_session, source.account_id, source_bucket
+    )
 
     _continue_migration(super_admin_session, int(migration["id"]))
-    final_detail = _wait_for_migration_state(super_admin_session, int(migration["id"]), {"completed"})
+    final_detail = _wait_for_migration_state(
+        super_admin_session, int(migration["id"]), {"completed"}
+    )
     assert final_detail["status"] == "completed"
     _assert_versioned_snapshot_matches(
-        _snapshot_versioned_bucket(target.manager_session, target.account_id, target_bucket),
+        _snapshot_versioned_bucket(
+            target.manager_session, target.account_id, target_bucket
+        ),
         expected_snapshot,
     )
 
@@ -1352,7 +1571,13 @@ def test_bucket_migration_precheck_fails_for_unsupported_bucket_settings(
             resource_tracker=resource_tracker,
             test_prefix=ceph_test_settings.test_prefix,
         )
-        _upload_bytes(source.manager_session, source.account_id, source_bucket, "seed.txt", b"unsupported-setting")
+        _upload_bytes(
+            source.manager_session,
+            source.account_id,
+            source_bucket,
+            "seed.txt",
+            b"unsupported-setting",
+        )
 
         migration = _create_migration(
             super_admin_session,
@@ -1366,14 +1591,18 @@ def test_bucket_migration_precheck_fails_for_unsupported_bucket_settings(
         detail = _run_precheck(super_admin_session, int(migration["id"]))
         assert detail["precheck_status"] == "failed"
         precheck_item = _find_precheck_item(detail, source_bucket, target_bucket)
-        assert "unsupported_bucket_settings_configured" in _precheck_codes(precheck_item)
+        assert "unsupported_bucket_settings_configured" in _precheck_codes(
+            precheck_item
+        )
         with pytest.raises(BackendAPIError) as exc_info:
             _start_migration(super_admin_session, int(migration["id"]))
         assert exc_info.value.status_code == 400
         assert "Precheck must pass before start" in str(exc_info.value.payload)
         assert configured_kind in {"website", "notifications", "replication"}
     finally:
-        _delete_topic(source.manager_session, source.account_id, topic_arn_holder.get("arn", ""))
+        _delete_topic(
+            source.manager_session, source.account_id, topic_arn_holder.get("arn", "")
+        )
 
 
 def test_bucket_migration_precheck_fails_for_object_lock_governance_when_supported(
@@ -1387,7 +1616,9 @@ def test_bucket_migration_precheck_fails_for_object_lock_governance_when_support
     source_bucket = _bucket_name(ceph_test_settings.test_prefix, "mig-lock-src")
     target_bucket = _bucket_name(ceph_test_settings.test_prefix, "mig-lock-dst")
 
-    _create_bucket(source.manager_session, source.account_id, source_bucket, versioning=True)
+    _create_bucket(
+        source.manager_session, source.account_id, source_bucket, versioning=True
+    )
     resource_tracker.track_bucket(source.account_id, source_bucket)
 
     try:
@@ -1398,7 +1629,9 @@ def test_bucket_migration_precheck_fails_for_object_lock_governance_when_support
         )
     except BackendAPIError as exc:
         _skip_if_cluster_unavailable("manager bucket object-lock", exc)
-        pytest.skip(f"Object-lock governance cannot be configured on this cluster: {exc}")
+        pytest.skip(
+            f"Object-lock governance cannot be configured on this cluster: {exc}"
+        )
 
     migration = _create_migration(
         super_admin_session,
@@ -1412,3 +1645,181 @@ def test_bucket_migration_precheck_fails_for_object_lock_governance_when_support
     assert detail["precheck_status"] == "failed"
     precheck_item = _find_precheck_item(detail, source_bucket, target_bucket)
     assert "object_lock_governance_not_supported" in _precheck_codes(precheck_item)
+
+
+def test_bucket_migration_across_explicit_test_endpoints(
+    ceph_test_settings,
+    account_factory,
+    resource_tracker,
+    super_admin_session,
+    storage_endpoint_id,
+):
+    import os
+
+    target_endpoint = os.getenv("CEPH_TEST_MIGRATION_TARGET_ENDPOINT_ID")
+    if not target_endpoint:
+        pytest.skip(
+            "Set CEPH_TEST_MIGRATION_TARGET_ENDPOINT_ID to an isolated second Ceph endpoint"
+        )
+    assert (
+        int(target_endpoint) != storage_endpoint_id
+    ), "The second endpoint must be distinct"
+    source = account_factory()
+    target = account_factory(
+        account_payload={"storage_endpoint_id": int(target_endpoint)}
+    )
+    source_bucket = _bucket_name(ceph_test_settings.test_prefix, "cross-src")
+    target_bucket = _bucket_name(ceph_test_settings.test_prefix, "cross-dst")
+    _create_bucket(source.manager_session, source.account_id, source_bucket)
+    resource_tracker.track_bucket(source.account_id, source_bucket)
+    resource_tracker.track_bucket(target.account_id, target_bucket)
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        " exact key ",
+        b"cross endpoint content",
+    )
+    expected = _snapshot_current_bucket(
+        source.manager_session, source.account_id, source_bucket
+    )
+    migration = _create_migration(
+        super_admin_session,
+        resource_tracker,
+        source_context_id=str(source.account_id),
+        target_context_id=str(target.account_id),
+        source_bucket=source_bucket,
+        target_bucket=target_bucket,
+        mode="pre_sync",
+    )
+    checked = _run_precheck(super_admin_session, migration["id"])
+    assert checked["preparation_status"] == "ready", checked.get("precheck_report")
+    assert checked["status"] == "draft"
+    _start_migration(super_admin_session, migration["id"])
+    _wait_for_migration_state(
+        super_admin_session, migration["id"], {"awaiting_cutover"}
+    )
+    _continue_migration(super_admin_session, migration["id"])
+    _wait_for_migration_state(super_admin_session, migration["id"], {"completed"})
+    assert (
+        _snapshot_current_bucket(
+            target.manager_session, target.account_id, target_bucket
+        )
+        == expected
+    )
+    assert _bucket_exists(source.manager_session, source.account_id, source_bucket)
+
+
+def test_bucket_migration_revoked_read_access_can_be_corrected_and_rechecked(
+    ceph_test_settings, account_factory, resource_tracker, super_admin_session
+):
+    source, target = account_factory(), account_factory()
+    source_bucket = _bucket_name(ceph_test_settings.test_prefix, "revoke-src")
+    target_bucket = _bucket_name(ceph_test_settings.test_prefix, "revoke-dst")
+    _create_bucket(source.manager_session, source.account_id, source_bucket)
+    resource_tracker.track_bucket(source.account_id, source_bucket)
+    _upload_bytes(
+        source.manager_session,
+        source.account_id,
+        source_bucket,
+        "tagged-object",
+        b"retained",
+    )
+    migration = _create_migration(
+        super_admin_session,
+        resource_tracker,
+        source_context_id=str(source.account_id),
+        target_context_id=str(target.account_id),
+        source_bucket=source_bucket,
+        target_bucket=target_bucket,
+        mode="pre_sync",
+    )
+    ready = _run_precheck(super_admin_session, migration["id"])
+    assert ready["preparation_status"] == "ready", ready.get("precheck_report")
+    policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": ["s3:GetObjectTagging"],
+                "Resource": [f"arn:aws:s3:::{source_bucket}/*"],
+            }
+        ],
+    }
+    try:
+        source.manager_session.put(
+            f"/manager/buckets/{source_bucket}/policy",
+            params=_account_params(source.account_id),
+            json={"policy": policy},
+        )
+        _start_migration(super_admin_session, migration["id"], expected_status=400)
+        blocked = super_admin_session.get(f"/manager/migrations/{migration['id']}")
+        assert blocked["status"] == "draft"
+        assert not _bucket_exists(
+            target.manager_session, target.account_id, target_bucket
+        )
+        checked = _run_precheck(super_admin_session, migration["id"])
+        assert checked["preparation_status"] == "blocked"
+        assert "source_access_failed" in _precheck_codes(
+            _find_precheck_item(checked, source_bucket, target_bucket)
+        )
+    finally:
+        source.manager_session.delete(
+            f"/manager/buckets/{source_bucket}/policy",
+            params=_account_params(source.account_id),
+            expected_status=(200, 204),
+        )
+    assert (
+        _run_precheck(super_admin_session, migration["id"])["preparation_status"]
+        == "ready"
+    )
+
+
+def test_bucket_migration_pause_resume_preserves_source_and_requires_cutover(
+    ceph_test_settings, account_factory, resource_tracker, super_admin_session
+):
+    source, target = account_factory(), account_factory()
+    source_bucket = _bucket_name(ceph_test_settings.test_prefix, "pause-src")
+    target_bucket = _bucket_name(ceph_test_settings.test_prefix, "pause-dst")
+    _create_bucket(source.manager_session, source.account_id, source_bucket)
+    resource_tracker.track_bucket(source.account_id, source_bucket)
+    resource_tracker.track_bucket(target.account_id, target_bucket)
+    for index in range(32):
+        _upload_bytes(
+            source.manager_session,
+            source.account_id,
+            source_bucket,
+            f"object-{index:03d}",
+            bytes([index]) * 65536,
+        )
+    migration = _create_migration(
+        super_admin_session,
+        resource_tracker,
+        source_context_id=str(source.account_id),
+        target_context_id=str(target.account_id),
+        source_bucket=source_bucket,
+        target_bucket=target_bucket,
+        mode="pre_sync",
+        parallelism_max=1,
+    )
+    assert (
+        _run_precheck(super_admin_session, migration["id"])["preparation_status"]
+        == "ready"
+    )
+    _start_migration(super_admin_session, migration["id"])
+    super_admin_session.post(f"/manager/migrations/{migration['id']}/pause")
+    paused = _wait_for_migration_state(super_admin_session, migration["id"], {"paused"})
+    assert paused["items"][0]["source_deleted"] is False
+    super_admin_session.post(f"/manager/migrations/{migration['id']}/resume")
+    _wait_for_migration_state(
+        super_admin_session, migration["id"], {"awaiting_cutover"}
+    )
+    assert _bucket_exists(source.manager_session, source.account_id, source_bucket)
+    _continue_migration(super_admin_session, migration["id"])
+    _wait_for_migration_state(super_admin_session, migration["id"], {"completed"})
+    assert _snapshot_current_bucket(
+        target.manager_session, target.account_id, target_bucket
+    ) == _snapshot_current_bucket(
+        source.manager_session, source.account_id, source_bucket
+    )

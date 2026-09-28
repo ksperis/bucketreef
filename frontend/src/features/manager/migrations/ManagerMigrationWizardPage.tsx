@@ -1,751 +1,489 @@
-/*
- * Copyright (c) 2026 Laurent Barbe
- * Licensed under the Apache License, Version 2.0
- */
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-
-import PageShell from "../../../components/PageShell";
-import { resolveListTableStatus } from "../../../components/list/listTableStatus";
-import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
-import UiButton from "../../../components/ui/UiButton";
-import UiCheckboxField from "../../../components/ui/UiCheckboxField";
-import UiInput from "../../../components/ui/UiInput";
-import UiSelect from "../../../components/ui/UiSelect";
-import { cx, uiPanelClass, uiPanelMutedClass } from "../../../components/ui/styles";
+/* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   createManagerMigration,
   getManagerMigration,
   runManagerMigrationPrecheck,
-  startManagerMigration,
   updateManagerMigration,
+  type BucketMigrationCreateRequest,
 } from "../../../api/managerMigrations";
-import ManagerBucketSelectionPanel from "../ManagerBucketSelectionPanel";
+import DataTableShell from "../../../components/list/DataTableShell";
+import { resolveListTableStatus } from "../../../components/list/listTableStatus";
+import SettingsWorkflowForm from "../../../components/settings/SettingsWorkflowForm";
+import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
+import { WorkflowSection } from "../../../components/WorkflowPage";
+import UiButton from "../../../components/ui/UiButton";
+import UiCheckboxField from "../../../components/ui/UiCheckboxField";
+import UiDetails from "../../../components/ui/UiDetails";
+import UiInput from "../../../components/ui/UiInput";
+import UiSelect from "../../../components/ui/UiSelect";
+import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { useS3AccountContext } from "../S3AccountContext";
 import { managerPageBreadcrumbs } from "../managerBreadcrumbs";
 import { useManagerContexts } from "../useManagerContexts";
 import { useCrossEndpointSelection, useManagerSourceBuckets } from "./hooks";
-import { buildPlannedSteps, extractError, isMigrationPrecheckPassed } from "./shared";
-
-type WizardStep = 0 | 1 | 2 | 3;
+import { extractError } from "./shared";
+import { MigrationStages, targetNameError } from "./MigrationWorkflow";
 
 export default function ManagerMigrationWizardPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const fromQuery = searchParams.get("from");
-  const editMigrationId = fromQuery && /^\d+$/.test(fromQuery) ? Number(fromQuery) : null;
-
+  const [params] = useSearchParams();
+  const editId = /^\d+$/.test(params.get("from") ?? "")
+    ? Number(params.get("from"))
+    : null;
   const { selectedS3AccountId } = useS3AccountContext();
-  const sourceContextId = selectedS3AccountId ?? "";
-
+  const [sourceId, setSourceId] = useState(selectedS3AccountId ?? "");
   const { contexts, contextsLoading, contextsError } = useManagerContexts();
-  const { sourceBuckets, bucketsLoading, bucketsError } = useManagerSourceBuckets(sourceContextId);
-
-  const sourceContext = useMemo(() => contexts.find((entry) => entry.id === sourceContextId) ?? null, [contexts, sourceContextId]);
-
-  const [targetContextId, setTargetContextId] = useState<string>("");
-  const [selectedBuckets, setSelectedBuckets] = useState<string[]>([]);
-  const [bucketFilter, setBucketFilter] = useState<string>("");
-  const [mappingPrefix, setMappingPrefix] = useState<string>("");
-  const [mappingSuffix, setMappingSuffix] = useState<string>("");
-  const [targetOverrides, setTargetOverrides] = useState<Record<string, string>>({});
-
-  const [mode, setMode] = useState<"one_shot" | "pre_sync">("one_shot");
-  const [copyBucketSettings, setCopyBucketSettings] = useState<boolean>(false);
-  const [deleteSource, setDeleteSource] = useState<boolean>(true);
-  const [strongIntegrityCheck, setStrongIntegrityCheck] = useState<boolean>(false);
-  const [lockTargetWrites, setLockTargetWrites] = useState<boolean>(true);
-  const [useSameEndpointCopy, setUseSameEndpointCopy] = useState<boolean>(false);
-  const [autoGrantSourceReadForCopy, setAutoGrantSourceReadForCopy] = useState<boolean>(false);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState<boolean>(false);
-
-  const [step, setStep] = useState<WizardStep>(0);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [createLoading, setCreateLoading] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [editLoaded, setEditLoaded] = useState(false);
-
-  const targetContext = useMemo(() => contexts.find((entry) => entry.id === targetContextId) ?? null, [contexts, targetContextId]);
-  const targetContextOptions = useMemo(
-    () =>
-      contexts.filter((context) => {
-        if (context.id === sourceContextId) return false;
-        if (context.kind !== "account") return true;
-        if (context.id === targetContextId) return true;
-        return context.manager_role === "account_administrator";
-      }),
-    [contexts, sourceContextId, targetContextId]
+  const { sourceBuckets, bucketsLoading, bucketsError } =
+    useManagerSourceBuckets(sourceId);
+  const [targetId, setTargetId] = useState("");
+  const { sourceBuckets: targetBuckets, bucketsError: targetInventoryError } =
+    useManagerSourceBuckets(targetId);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [filter, setFilter] = useState("");
+  const [prefix, setPrefix] = useState("");
+  const [suffix, setSuffix] = useState("");
+  const [mode, setMode] = useState<"pre_sync" | "one_shot">("pre_sync");
+  const [copySettings, setCopySettings] = useState(false);
+  const [lockTarget, setLockTarget] = useState(true);
+  const [storageCopy, setStorageCopy] = useState(false);
+  const [temporaryGrant, setTemporaryGrant] = useState(false);
+  const [revision, setRevision] = useState<number>();
+  const [savedId, setSavedId] = useState<number | null>(editId);
+  const [loading, setLoading] = useState(Boolean(editId));
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const source = contexts.find((entry) => entry.id === sourceId) ?? null;
+  const target = contexts.find((entry) => entry.id === targetId) ?? null;
+  const crossEndpoint = useCrossEndpointSelection(source, target);
+  const contextChanged = Boolean(sourceId && selectedS3AccountId !== sourceId);
+  const mappings = selected.map((name) => ({
+    source_bucket: name,
+    target_bucket: overrides[name] ?? `${prefix}${name}${suffix}`,
+  }));
+  const errors = new Map(
+    mappings.map(({ source_bucket, target_bucket }) => [
+      source_bucket,
+      targetNameError(target_bucket) ||
+        (mappings.filter((entry) => entry.target_bucket === target_bucket)
+          .length > 1
+          ? "Each destination name must be unique."
+          : null) ||
+        (targetBuckets.some((bucket) => bucket.name === target_bucket)
+          ? "Destination already exists. Choose a new name."
+          : null) ||
+        (!crossEndpoint && target && target_bucket === source_bucket
+          ? "Source and destination names must differ on the same storage."
+          : null),
+    ]),
   );
-  const isCrossEndpointSelection = useCrossEndpointSelection(sourceContext, targetContext);
-  const canUseSameEndpointCopy = Boolean(sourceContext && targetContext && !isCrossEndpointSelection);
-
-  const selectedBucketSet = useMemo(() => new Set(selectedBuckets), [selectedBuckets]);
-  const filteredBuckets = useMemo(() => {
-    const needle = bucketFilter.trim().toLowerCase();
-    if (!needle) return sourceBuckets;
-    return sourceBuckets.filter((bucket) => bucket.name.toLowerCase().includes(needle));
-  }, [bucketFilter, sourceBuckets]);
-  const bucketTableStatus = resolveListTableStatus({
-    loading: bucketsLoading,
-    error: bucketsError,
-    rowCount: filteredBuckets.length,
-  });
-  const summaryBucketMappings = useMemo(
+  const rows = useMemo(
     () =>
-      selectedBuckets.map((sourceBucket) => ({
-        sourceBucket,
-        targetBucket: (targetOverrides[sourceBucket] || "").trim() || `${mappingPrefix}${sourceBucket}${mappingSuffix}`,
-      })),
-    [mappingPrefix, mappingSuffix, selectedBuckets, targetOverrides]
+      [
+        ...new Set([
+          ...sourceBuckets.map((bucket) => bucket.name),
+          ...selected,
+        ]),
+      ].filter((name) => name.toLowerCase().includes(filter.toLowerCase())),
+    [sourceBuckets, selected, filter],
   );
-  const summaryOperationSteps = useMemo(() => {
-    if (summaryBucketMappings.length === 0) return [];
-    const probe = summaryBucketMappings[0];
-    return buildPlannedSteps(
-      {
-        itemId: 1,
-        sourceBucket: probe.sourceBucket,
-        targetBucket: probe.targetBucket,
-        strategy: "current_only",
-        blocking: false,
-        deleteSourceSafe: true,
-        rollbackSafe: true,
-        sameEndpointCopySafe: true,
-        targetExists: false,
-        targetExistsUnknown: false,
-        messages: [],
-        errors: 0,
-        warnings: 0,
-      },
-      {
-        mode,
-        copyBucketSettings,
-        deleteSource,
-        strongIntegrityCheck,
-        lockTargetWrites,
-        useSameEndpointCopy,
-        autoGrantSourceReadForCopy: useSameEndpointCopy && autoGrantSourceReadForCopy,
-      }
-    );
-  }, [
-    autoGrantSourceReadForCopy,
-    copyBucketSettings,
-    deleteSource,
-    strongIntegrityCheck,
-    lockTargetWrites,
-    mode,
-    summaryBucketMappings,
-    useSameEndpointCopy,
-  ]);
 
   useEffect(() => {
-    setSelectedBuckets((current) => current.filter((name) => sourceBuckets.some((bucket) => bucket.name === name)));
-    setTargetOverrides((current) => {
-      const next: Record<string, string> = {};
-      Object.entries(current).forEach(([key, value]) => {
-        if (sourceBuckets.some((bucket) => bucket.name === key)) next[key] = value;
-      });
-      return next;
-    });
-  }, [sourceBuckets]);
-
+    if (!sourceId && !dirty) setSourceId(selectedS3AccountId ?? "");
+  }, [selectedS3AccountId, sourceId, dirty]);
   useEffect(() => {
-    if (!editMigrationId || editLoaded) return;
-    setEditLoading(true);
-    setFormError(null);
-    getManagerMigration(editMigrationId)
+    if (error) errorRef.current?.focus();
+  }, [error]);
+  useEffect(() => {
+    if (!editId) return;
+    let canceled = false;
+    getManagerMigration(editId)
       .then((detail) => {
-        if (!sourceContextId || detail.source_context_id !== sourceContextId) {
-          setFormError("Cannot edit this draft from the current source context.");
-          return;
-        }
-
-        const configuredBuckets = detail.items.map((item) => item.source_bucket);
-        const declaredMappingPrefix = detail.mapping_prefix ?? "";
-        const firstItem = detail.items[0] ?? null;
-        let inferredMappingPrefix = declaredMappingPrefix;
-        let inferredMappingSuffix = "";
-        if (firstItem) {
-          const idx = firstItem.target_bucket.indexOf(firstItem.source_bucket);
-          if (idx >= 0) {
-            const candidatePrefix = firstItem.target_bucket.slice(0, idx);
-            const candidateSuffix = firstItem.target_bucket.slice(idx + firstItem.source_bucket.length);
-            const consistent = detail.items.every(
-              (item) => item.target_bucket === `${candidatePrefix}${item.source_bucket}${candidateSuffix}`
-            );
-            if (consistent) {
-              inferredMappingPrefix = candidatePrefix;
-              inferredMappingSuffix = candidateSuffix;
-            }
-          }
-        }
-
-        const configuredOverrides: Record<string, string> = {};
-        detail.items.forEach((item) => {
-          const defaultTarget = `${inferredMappingPrefix}${item.source_bucket}${inferredMappingSuffix}`;
-          if (item.target_bucket !== defaultTarget) {
-            configuredOverrides[item.source_bucket] = item.target_bucket;
-          }
-        });
-
-        setTargetContextId(detail.target_context_id);
-        setSelectedBuckets(configuredBuckets);
-        setTargetOverrides(configuredOverrides);
-        setMappingPrefix(inferredMappingPrefix);
-        setMappingSuffix(inferredMappingSuffix);
-        setMode(detail.mode);
-        setCopyBucketSettings(detail.copy_bucket_settings);
-        setDeleteSource(detail.delete_source);
-        setStrongIntegrityCheck(Boolean(detail.strong_integrity_check));
-        setLockTargetWrites(detail.lock_target_writes);
-        setUseSameEndpointCopy(Boolean(detail.use_same_endpoint_copy));
-        setAutoGrantSourceReadForCopy(
-          detail.use_same_endpoint_copy ? Boolean(detail.auto_grant_source_read_for_copy) : false
+        if (canceled) return;
+        if (!detail.available_actions?.edit?.enabled)
+          throw new Error(
+            detail.available_actions?.edit?.reason ??
+              "This migration cannot be edited.",
+          );
+        setSourceId(detail.source_context_id);
+        setTargetId(detail.target_context_id);
+        setSelected(detail.items.map((item) => item.source_bucket));
+        setOverrides(
+          Object.fromEntries(
+            detail.items.map((item) => [
+              item.source_bucket,
+              item.target_bucket,
+            ]),
+          ),
         );
-        setShowAdvancedOptions(true);
+        setMode(detail.mode);
+        setCopySettings(detail.copy_bucket_settings);
+        setLockTarget(detail.lock_target_writes);
+        setStorageCopy(detail.use_same_endpoint_copy);
+        setTemporaryGrant(detail.auto_grant_source_read_for_copy);
+        setRevision(detail.configuration_revision);
       })
-      .catch((error) => {
-        setFormError(extractError(error));
+      .catch((failure) => {
+        if (!canceled) setError(extractError(failure));
       })
       .finally(() => {
-        setEditLoaded(true);
-        setEditLoading(false);
+        if (!canceled) setLoading(false);
       });
-  }, [editLoaded, editMigrationId, sourceContextId]);
+    return () => {
+      canceled = true;
+    };
+  }, [editId]);
 
-  useEffect(() => {
-    if (!sourceContext || !targetContext) return;
-    if (canUseSameEndpointCopy) return;
-    setUseSameEndpointCopy(false);
-    setAutoGrantSourceReadForCopy(false);
-  }, [canUseSameEndpointCopy, sourceContext, targetContext]);
-
-  useEffect(() => {
-    if (useSameEndpointCopy) return;
-    setAutoGrantSourceReadForCopy(false);
-  }, [useSameEndpointCopy]);
-
-  useEffect(() => {
-    if (deleteSource) return;
-    setStrongIntegrityCheck(false);
-  }, [deleteSource]);
-
-  const toggleBucket = (bucketName: string) => {
-    setSelectedBuckets((current) => {
-      if (current.includes(bucketName)) return current.filter((entry) => entry !== bucketName);
-      return [...current, bucketName];
-    });
-  };
-
-  const selectFilteredBuckets = () => {
-    setSelectedBuckets((current) => {
-      const next = new Set(current);
-      filteredBuckets.forEach((bucket) => next.add(bucket.name));
-      return [...next];
-    });
-  };
-
-  const clearSelectedBuckets = () => {
-    setSelectedBuckets([]);
-  };
-
-  const validateStep = (currentStep: WizardStep): boolean => {
-    if (currentStep === 0) {
-      if (!sourceContextId) {
-        setFormError("Select a source in the top selector before creating a migration.");
-        return false;
-      }
-      if (!targetContextId) {
-        setFormError("Target is required.");
-        return false;
-      }
-      if (
-        sourceContext?.kind === "account" &&
-        targetContext?.kind === "account" &&
-        sourceContext.id !== targetContext.id &&
-        (sourceContext.manager_role !== "account_administrator" ||
-          targetContext.manager_role !== "account_administrator")
-      ) {
-        setFormError("Cross-account migrations require admin access on both source and target account contexts.");
-        return false;
-      }
-      if (sourceContextId === targetContextId) {
-        setFormError("Source and target must differ.");
-        return false;
-      }
-      if (selectedBuckets.length === 0) {
-        setFormError("Select at least one source bucket.");
-        return false;
-      }
+  async function submit() {
+    setError(null);
+    const problem = !sourceId
+      ? "Select a source context."
+      : !targetId
+        ? "Select a destination context."
+        : !selected.length
+          ? "Select at least one bucket."
+          : [...errors.values()].find(Boolean);
+    if (problem) {
+      setError(problem);
+      return;
     }
-    if (currentStep === 1) {
-      for (const bucketName of selectedBuckets) {
-        const override = (targetOverrides[bucketName] || "").trim();
-        if (override.length === 0) continue;
-        if (override.includes(" ")) {
-          setFormError(`Target override for '${bucketName}' cannot include spaces.`);
-          return false;
-        }
-      }
+    if (
+      source?.kind === "account" &&
+      target?.kind === "account" &&
+      (source.manager_role !== "account_administrator" ||
+        target.manager_role !== "account_administrator")
+    ) {
+      setError(
+        "Cross-account migrations require admin access on both source and target account contexts.",
+      );
+      return;
     }
-    setFormError(null);
-    return true;
-  };
-
-  const goNext = () => {
-    if (!validateStep(step)) return;
-    setStep((current) => (current >= 3 ? 3 : ((current + 1) as WizardStep)));
-  };
-
-  const goBack = () => {
-    setFormError(null);
-    setStep((current) => (current <= 0 ? 0 : ((current - 1) as WizardStep)));
-  };
-
-  const handleSubmit = async () => {
-    if (!validateStep(3)) return;
-
-    setCreateLoading(true);
-    setFormError(null);
+    setBusy(true);
     try {
-      const buckets = selectedBuckets.map((source_bucket) => ({
-        source_bucket,
-        target_bucket:
-          (targetOverrides[source_bucket] || "").trim() ||
-          (mappingSuffix ? `${mappingPrefix}${source_bucket}${mappingSuffix}` : undefined),
-      }));
-      const payload = {
-        source_context_id: sourceContextId,
-        target_context_id: targetContextId,
-        buckets,
-        mapping_prefix: mappingPrefix,
+      const payload: BucketMigrationCreateRequest = {
+        source_context_id: sourceId,
+        target_context_id: targetId,
+        buckets: mappings,
+        configuration_revision: revision,
         mode,
-        copy_bucket_settings: copyBucketSettings,
-        delete_source: deleteSource,
-        strong_integrity_check: strongIntegrityCheck,
-        lock_target_writes: lockTargetWrites,
-        use_same_endpoint_copy: useSameEndpointCopy,
-        auto_grant_source_read_for_copy: useSameEndpointCopy ? autoGrantSourceReadForCopy : false,
+        copy_bucket_settings: copySettings,
+        lock_target_writes: lockTarget,
+        use_same_endpoint_copy: storageCopy && !crossEndpoint,
+        auto_grant_source_read_for_copy:
+          storageCopy && !crossEndpoint && temporaryGrant,
+        delete_source: false,
+        strong_integrity_check: true,
       };
-
-      const detail =
-        editMigrationId == null
-          ? await createManagerMigration(payload)
-          : await updateManagerMigration(editMigrationId, payload);
-      const precheckDetail = await runManagerMigrationPrecheck(detail.id).catch(() => null);
-      if (precheckDetail && isMigrationPrecheckPassed(precheckDetail)) {
-        await startManagerMigration(detail.id).catch(() => {});
-      }
+      const detail = savedId
+        ? await updateManagerMigration(savedId, payload)
+        : await createManagerMigration(payload);
+      setSavedId(detail.id);
+      setRevision(detail.configuration_revision);
+      setDirty(false);
+      await runManagerMigrationPrecheck(detail.id, false);
+      flushSync(() => setCompleted(true));
       navigate(`/manager/migrations/${detail.id}`);
-    } catch (error) {
-      setFormError(extractError(error));
+    } catch (failure) {
+      setError(extractError(failure));
     } finally {
-      setCreateLoading(false);
+      setBusy(false);
     }
-  };
-
-  const stepLabel = (index: WizardStep, label: string) => {
-    const active = step === index;
-    const completed = step > index;
-    const classes = active
-      ? "border-primary bg-primary/10 text-primary"
-      : completed
-        ? "border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200"
-        : "border-slate-300 text-slate-500 dark:border-slate-600 dark:text-slate-300";
-    return (
-      <div className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${classes}`}>
-        {label}
-      </div>
-    );
-  };
+  }
 
   return (
-    <PageShell
-      title={editMigrationId == null ? "New migration" : `Edit draft #${editMigrationId}`}
-      description="Guided setup to create or update a migration draft."
-      breadcrumbs={managerPageBreadcrumbs("migration", { label: "Create" })}
-      actions={[{ label: "Back to list", onClick: () => navigate("/manager/migrations") }]}
+    <SettingsWorkflowForm
+      title={editId ? `Edit draft #${editId}` : "New migration"}
+      description="Prepare new destination buckets, check the plan, then choose when to copy and cut over."
+      breadcrumbs={managerPageBreadcrumbs("migration", { label: "Prepare" })}
+      backLabel="Back to migrations"
+      width="wide"
+      dirty={dirty}
+      busy={busy}
+      loading={loading || contextsLoading}
+      completed={completed}
+      disabled={contextChanged || Boolean(editId && !revision)}
+      submitLabel="Check migration"
+      busyLabel="Saving and queuing checks…"
+      onSubmit={submit}
+      onClose={(reason) => {
+        if (reason !== "navigation") navigate("/manager/migrations");
+      }}
     >
-
-      {(contextsLoading || editLoading) && <p className="ui-caption text-slate-500 dark:text-slate-400">Loading...</p>}
-      {contextsError && <p className="ui-caption text-rose-600 dark:text-rose-300">{contextsError}</p>}
-      {bucketsError && <p className="ui-caption text-rose-600 dark:text-rose-300">{bucketsError}</p>}
-      {formError && <p className="ui-caption text-rose-600 dark:text-rose-300">{formError}</p>}
-
-      <section className={cx(uiPanelClass, "space-y-4 p-4")}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
-            {stepLabel(0, "1. Context & buckets")}
-            {stepLabel(1, "2. Mapping")}
-            {stepLabel(2, "3. Strategy")}
-            {stepLabel(3, "4. Summary")}
+      <MigrationStages current={0} />
+      <div ref={errorRef} tabIndex={-1} className="outline-none">
+        {error && (
+          <UiInlineMessage tone="error" role="alert">
+            {error}
+            {savedId && (
+              <>
+                {" "}
+                Draft #{savedId} is saved.{" "}
+                <Link
+                  className="underline"
+                  to={`/manager/migrations/${savedId}`}
+                >
+                  Open checks
+                </Link>
+                .
+              </>
+            )}
+          </UiInlineMessage>
+        )}
+      </div>
+      {contextsError && (
+        <UiInlineMessage tone="error">{contextsError}</UiInlineMessage>
+      )}
+      {contextChanged && (
+        <UiInlineMessage tone="warning">
+          Your draft still uses {source?.display_name ?? sourceId}. Switch back
+          to that source context to continue; your entries are preserved.
+        </UiInlineMessage>
+      )}
+      <fieldset
+        disabled={busy || loading || contextChanged}
+        className="min-w-0 space-y-6"
+        onChange={() => setDirty(true)}
+      >
+        <WorkflowSection title="Source and destination">
+          <div className="grid gap-4 md:grid-cols-2">
+            <UiInput
+              label="Source context"
+              value={source?.display_name ?? sourceId}
+              readOnly
+            />
+            <UiSelect
+              label="Destination context"
+              value={targetId}
+              onChange={(event) => setTargetId(event.target.value)}
+            >
+              <option value="">Select a destination</option>
+              {contexts
+                .filter(
+                  (entry) =>
+                    entry.id !== sourceId &&
+                    (entry.kind !== "account" ||
+                      entry.manager_role === "account_administrator"),
+                )
+                .map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.display_name} ({entry.id})
+                  </option>
+                ))}
+            </UiSelect>
           </div>
-          <div className="flex gap-2">
+          {targetInventoryError && (
+            <UiInlineMessage tone="warning">
+              Destination inventory is unavailable. Existing names will be
+              checked by the server.
+            </UiInlineMessage>
+          )}
+        </WorkflowSection>
+        <WorkflowSection
+          title="Buckets and destination names"
+          description="Only new destinations are supported. Edit each name here; removing a selection keeps the other mappings."
+        >
+          <div className="flex flex-wrap items-end gap-3">
+            <UiInput
+              label="Filter source buckets"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              size="compact"
+            />
             <UiButton
-              type="button"
-              onClick={goBack}
-              disabled={step === 0 || createLoading}
               variant="secondary"
               size="sm"
+              onClick={() => {
+                setSelected([...new Set([...selected, ...rows])]);
+                setDirty(true);
+              }}
             >
-              Back
+              Select filtered
             </UiButton>
-
-            {step < 3 && (
-              <UiButton
-                type="button"
-                onClick={goNext}
-                disabled={createLoading}
-                size="sm"
-              >
-                Next
-              </UiButton>
-            )}
-            {step === 3 && (
-              <UiButton
-                type="button"
-                onClick={handleSubmit}
-                disabled={createLoading}
-                size="sm"
-              >
-                {createLoading
-                  ? editMigrationId == null
-                    ? "Creating and running precheck..."
-                    : "Updating and running precheck..."
-                  : editMigrationId == null
-                    ? "Create migration"
-                    : "Update migration"}
-              </UiButton>
-            )}
+            <UiButton
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setSelected([]);
+                setDirty(true);
+              }}
+            >
+              Clear selection
+            </UiButton>
+            <span className="ui-caption">
+              {selected.length} selected / {sourceBuckets.length}
+            </span>
           </div>
-        </div>
-
-        {step === 0 && (
-          <div className="space-y-4">
-            <div className={cx(uiPanelMutedClass, "p-3")}>
-              <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Endpoints</p>
-              <div className="mt-2 grid gap-3 md:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/70">
-                  <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Source</p>
-                  <div className="mt-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                    {sourceContext ? `${sourceContext.display_name} (${sourceContext.id})` : "No source selected"}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/70">
-                  <UiSelect
-                    label="Target"
-                    value={targetContextId}
-                    onChange={(event) => setTargetContextId(event.target.value)}
-                    disabled={!sourceContextId}
-                    required
+          <UiDetails>
+            <summary className="cursor-pointer ui-caption">
+              Optional name prefix and suffix
+            </summary>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <UiInput
+                label="Prefix"
+                value={prefix}
+                onChange={(event) => setPrefix(event.target.value)}
+              />
+              <UiInput
+                label="Suffix"
+                value={suffix}
+                onChange={(event) => setSuffix(event.target.value)}
+              />
+            </div>
+            <p className="ui-caption mt-2">
+              Applies to names that have not been individually edited.
+            </p>
+          </UiDetails>
+          <DataTableShell
+            rows={rows}
+            rowKey={(name) => name}
+            responsiveCards
+            tableLayout="fixed"
+            status={resolveListTableStatus({
+              loading: bucketsLoading,
+              error: bucketsError,
+              rowCount: rows.length,
+            })}
+            loadingMessage="Loading buckets…"
+            errorMessage={bucketsError ?? "Unable to load buckets."}
+            emptyMessage="No matching buckets."
+            columns={[
+              {
+                id: "source",
+                label: "Source bucket",
+                primary: true,
+                render: (name) => (
+                  <UiCheckboxField
+                    checked={selected.includes(name)}
+                    onChange={(event) =>
+                      setSelected((current) =>
+                        event.target.checked
+                          ? [...current, name]
+                          : current.filter((entry) => entry !== name),
+                      )
+                    }
+                    aria-label={`Select ${name}`}
                   >
-                    <option value="">Select a target</option>
-                    {targetContextOptions.map((context) => (
-                      <option key={`wizard-dst-${context.id}`} value={context.id}>
-                        {context.display_name} ({context.id})
-                      </option>
-                    ))}
-                  </UiSelect>
-                </div>
-              </div>
-              <p className="mt-2 ui-caption text-slate-500 dark:text-slate-400">
-                For cross-account migrations, account targets are limited to admin contexts.
-              </p>
-              {isCrossEndpointSelection && (
-                <p className="mt-2 ui-caption text-amber-700 dark:text-amber-300">
-                  Cross-endpoint migration can take longer depending on the data volume to transfer.
-                </p>
-              )}
-            </div>
-
-            <ManagerBucketSelectionPanel
-              className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
-              description="Select the source buckets to migrate."
-              countLabel={`${selectedBuckets.length} selected / ${sourceBuckets.length}`}
-              filter={bucketFilter}
-              filterPlaceholder="Filter source buckets"
-              onFilterChange={setBucketFilter}
-              buckets={filteredBuckets}
-              selectedBuckets={selectedBucketSet}
-              onToggleBucket={toggleBucket}
-              onSelectFiltered={selectFilteredBuckets}
-              onClearSelection={clearSelectedBuckets}
-              tableStatus={bucketTableStatus}
-              loadingMessage="Loading buckets..."
-              errorMessage="Unable to load buckets."
-              emptyMessage={sourceBuckets.length === 0 ? "No bucket found for selected source." : "No buckets match current filter."}
-            />
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className="space-y-3">
-            <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
-              <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Target prefix/suffix mapping</p>
-              <div className="grid gap-2 md:grid-cols-2">
-                <UiInput
-                  label="Prefix"
-                  type="text"
-                  value={mappingPrefix}
-                  onChange={(event) => setMappingPrefix(event.target.value)}
-                  placeholder="Optional prefix"
-                />
-                <UiInput
-                  label="Suffix"
-                  type="text"
-                  value={mappingSuffix}
-                  onChange={(event) => setMappingSuffix(event.target.value)}
-                  placeholder="Optional suffix"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-              {selectedBuckets.map((bucketName) => (
-                <div key={`wizard-map-${bucketName}`} className="rounded-md border border-slate-200 p-2 dark:border-slate-700">
-                  <div className="grid gap-2 md:grid-cols-[minmax(220px,280px)_1fr] md:items-center">
-                    <p className="ui-caption truncate font-semibold text-slate-800 dark:text-slate-100">{bucketName}</p>
-                    <UiInput
-                      type="text"
-                      value={targetOverrides[bucketName] ?? ""}
-                      placeholder={`Target bucket (default: ${mappingPrefix}${bucketName}${mappingSuffix})`}
-                      onChange={(event) =>
-                        setTargetOverrides((current) => ({
-                          ...current,
-                          [bucketName]: event.target.value,
-                        }))
-                      }
-                      size="compact"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-3">
-            <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+                    {name}
+                  </UiCheckboxField>
+                ),
+              },
+              {
+                id: "target",
+                label: "New destination",
+                render: (name) => (
+                  <UiInput
+                    aria-label={`Destination name for ${name}`}
+                    value={overrides[name] ?? `${prefix}${name}${suffix}`}
+                    disabled={!selected.includes(name)}
+                    error={errors.get(name)}
+                    size="compact"
+                    onChange={(event) =>
+                      setOverrides((current) => ({
+                        ...current,
+                        [name]: event.target.value,
+                      }))
+                    }
+                  />
+                ),
+              },
+            ]}
+          />
+        </WorkflowSection>
+        <WorkflowSection
+          title="Transfer plan"
+          description="Pre-copy runs while the source stays writable. You trigger cutover later, after reviewing the interruption. The source is kept read-only after verification."
+        >
+          <UiInlineMessage tone="info">
+            Read-only checks run first. Tests that temporarily change source
+            protections require a separate confirmation. No copy starts from
+            this screen.
+          </UiInlineMessage>
+          <UiDetails>
+            <summary className="cursor-pointer ui-caption">
+              Advanced options
+            </summary>
+            <div className="mt-3 space-y-4">
               <fieldset>
-                <legend className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Strategy</legend>
-                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
-                  <SettingsChoiceRow
-                    type="radio"
-                    name="migration-strategy"
-                    value="one_shot"
-                    title="One-shot migration"
-                    ariaLabel="One-shot migration"
-                    description="Copy the selected buckets once, then continue to verification and cutover."
-                    checked={mode === "one_shot"}
-                    onChange={() => setMode("one_shot")}
-                  />
-                  <SettingsChoiceRow
-                    type="radio"
-                    name="migration-strategy"
-                    value="pre_sync"
-                    title="Pre-sync + cutover"
-                    ariaLabel="Pre-sync + cutover"
-                    description="Pre-copy data before cutover to reduce the final transfer window."
-                    checked={mode === "pre_sync"}
-                    onChange={() => setMode("pre_sync")}
-                  />
-                </div>
+                <legend className="ui-caption font-semibold">
+                  When to block source writes
+                </legend>
+                <SettingsChoiceRow
+                  type="radio"
+                  name="mode"
+                  value="pre_sync"
+                  title="Pre-copy, then manual cutover"
+                  checked={mode === "pre_sync"}
+                  onChange={() => setMode("pre_sync")}
+                />
+                <SettingsChoiceRow
+                  type="radio"
+                  name="mode"
+                  value="one_shot"
+                  title="Immediate migration"
+                  description="Blocks source writes from the start. You must confirm the interruption before copying."
+                  checked={mode === "one_shot"}
+                  onChange={() => setMode("one_shot")}
+                />
               </fieldset>
-
+              <fieldset>
+                <legend className="ui-caption font-semibold">
+                  Copy method
+                </legend>
+                <SettingsChoiceRow
+                  type="radio"
+                  name="copy"
+                  value="stream"
+                  title="Copy via BucketReef"
+                  checked={!storageCopy || crossEndpoint}
+                  onChange={() => setStorageCopy(false)}
+                />
+                <SettingsChoiceRow
+                  type="radio"
+                  name="copy"
+                  value="storage"
+                  title="Copy within storage"
+                  description="Requires the same endpoint and destination identity access to the source."
+                  disabled={!target || crossEndpoint}
+                  checked={storageCopy && !crossEndpoint}
+                  onChange={() => setStorageCopy(true)}
+                />
+              </fieldset>
               <UiCheckboxField
-                checked={deleteSource}
-                onChange={(event) => setDeleteSource(event.target.checked)}
-                className="mt-2 flex w-fit max-w-full items-start gap-3 rounded-lg border border-amber-300 bg-amber-50/70 px-3 py-2 ui-caption text-slate-800 dark:border-amber-700 dark:bg-amber-950/20 dark:text-slate-100"
-                checkboxClassName="mt-0.5 shrink-0"
+                checked={copySettings}
+                onChange={(event) => setCopySettings(event.target.checked)}
               >
-                <span className="space-y-0.5">
-                  <span className="block font-semibold">Delete source if diff is clean</span>
-                </span>
+                Copy bucket settings
+              </UiCheckboxField>
+              <p className="ui-caption text-[var(--ui-text-muted)]">
+                Optional settings: encryption, lifecycle, CORS, policy, bucket
+                tags, public access block and access logging. ACL, website,
+                notifications and replication are not copied. Checks list
+                unsupported configurations. Object history is preserved even
+                when settings copy is off.
+              </p>
+              <UiCheckboxField
+                checked={lockTarget}
+                onChange={(event) => setLockTarget(event.target.checked)}
+              >
+                Protect destination writes during copy
+              </UiCheckboxField>
+              <UiCheckboxField
+                checked={temporaryGrant}
+                disabled={!storageCopy || crossEndpoint}
+                onChange={(event) => setTemporaryGrant(event.target.checked)}
+              >
+                Allow temporary source read grants for the destination identity
               </UiCheckboxField>
             </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Advanced options</p>
-                  <p className="ui-caption text-slate-500 dark:text-slate-400">Safety and integration settings.</p>
-                </div>
-                <UiButton
-                  type="button"
-                  onClick={() => setShowAdvancedOptions((current) => !current)}
-                  variant="secondary"
-                  size="xs"
-                >
-                  {showAdvancedOptions ? "Hide" : "Show"}
-                </UiButton>
-              </div>
-
-              {showAdvancedOptions && (
-                <div className="mt-3 space-y-3">
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <UiCheckboxField
-                      checked={strongIntegrityCheck}
-                      onChange={(event) => setStrongIntegrityCheck(event.target.checked)}
-                      className={`flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 ${
-                        !deleteSource ? "opacity-70" : ""
-                      }`}
-                      checkboxClassName="mt-0.5 shrink-0"
-                      disabled={!deleteSource}
-                    >
-                      <span className="space-y-0.5">
-                        <span className="block font-semibold">Strong integrity check before source deletion</span>
-                        <span aria-hidden="true" className="block text-[11px] text-slate-500 dark:text-slate-400">
-                          {deleteSource
-                            ? "Optional deep verification (can be expensive on very large datasets). Disabled by default."
-                            : "Enable source deletion first to configure this option."}
-                        </span>
-                      </span>
-                    </UiCheckboxField>
-
-                    <UiCheckboxField
-                      checked={copyBucketSettings}
-                      onChange={(event) => setCopyBucketSettings(event.target.checked)}
-                      className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
-                      checkboxClassName="mt-0.5 shrink-0"
-                    >
-                      <span className="space-y-0.5">
-                        <span className="block font-semibold">Copy bucket settings</span>
-                        <span aria-hidden="true" className="block text-[11px] text-slate-500 dark:text-slate-400">
-                          Replicate bucket policies and settings.
-                        </span>
-                      </span>
-                    </UiCheckboxField>
-
-                    <UiCheckboxField
-                      checked={lockTargetWrites}
-                      onChange={(event) => setLockTargetWrites(event.target.checked)}
-                      className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
-                      checkboxClassName="mt-0.5 shrink-0"
-                    >
-                      <span className="space-y-0.5">
-                        <span className="block font-semibold">Lock target writes during migration</span>
-                        <span aria-hidden="true" className="block text-[11px] text-slate-500 dark:text-slate-400">
-                          Apply temporary write lock on destination buckets.
-                        </span>
-                      </span>
-                    </UiCheckboxField>
-
-                    <UiCheckboxField
-                      checked={useSameEndpointCopy}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setUseSameEndpointCopy(checked);
-                        if (checked) {
-                          setAutoGrantSourceReadForCopy(true);
-                        }
-                      }}
-                      className={`flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 ${
-                        !canUseSameEndpointCopy ? "opacity-70" : ""
-                      }`}
-                      checkboxClassName="mt-0.5 shrink-0"
-                      disabled={!canUseSameEndpointCopy}
-                    >
-                      <span className="space-y-0.5">
-                        <span className="block font-semibold">Use x-amz-copy-source (same endpoint only)</span>
-                        <span aria-hidden="true" className="block text-[11px] text-slate-500 dark:text-slate-400">
-                          {canUseSameEndpointCopy
-                            ? "Use server-side copy when source and destination share the same endpoint."
-                            : "Available only when source and target use the same endpoint."}
-                        </span>
-                      </span>
-                    </UiCheckboxField>
-
-                    <UiCheckboxField
-                      checked={autoGrantSourceReadForCopy}
-                      onChange={(event) => setAutoGrantSourceReadForCopy(event.target.checked)}
-                      className={`flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 ui-caption text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 ${
-                        !useSameEndpointCopy ? "opacity-70" : ""
-                      }`}
-                      checkboxClassName="mt-0.5 shrink-0"
-                      disabled={!useSameEndpointCopy}
-                    >
-                      <span className="space-y-0.5">
-                        <span className="block font-semibold">Auto-grant temporary source read for same-endpoint copy</span>
-                        <span aria-hidden="true" className="block text-[11px] text-slate-500 dark:text-slate-400">
-                          {useSameEndpointCopy
-                            ? "Temporarily grant source read access during server-side copy."
-                            : "Enable x-amz-copy-source first to modify this option."}
-                        </span>
-                      </span>
-                    </UiCheckboxField>
-                  </div>
-
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-4">
-            <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Summary</p>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/50">
-              <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-                {[
-                  { label: "Source", value: sourceContext ? sourceContext.display_name : sourceContextId || "-" },
-                  { label: "Target", value: targetContext ? targetContext.display_name : targetContextId || "-" },
-                  { label: "Buckets", value: String(selectedBuckets.length) },
-                  { label: "Mode", value: mode },
-                  { label: "Copy settings", value: copyBucketSettings ? "yes" : "no" },
-                  { label: "Lock target", value: lockTargetWrites ? "yes" : "no" },
-                  { label: "Use x-amz-copy-source", value: useSameEndpointCopy ? "yes" : "no" },
-                  { label: "Auto-grant source read", value: autoGrantSourceReadForCopy ? "yes" : "no" },
-                  { label: "Delete source", value: deleteSource ? "yes" : "no" },
-                  { label: "Strong integrity check", value: strongIntegrityCheck ? "yes" : "no" },
-                ].map((entry) => (
-                  <div key={`wizard-summary-${entry.label}`} className="grid grid-cols-[140px_1fr] items-start gap-2">
-                    <p className="ui-caption text-slate-500 dark:text-slate-400">{entry.label}</p>
-                    <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{entry.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/70">
-              <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Operations plan</p>
-              <p className="ui-caption text-slate-500 dark:text-slate-400">Selected buckets and shared execution flow.</p>
-              <div className="mt-3 space-y-3">
-                <div>
-                  <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Buckets</p>
-                  {summaryBucketMappings.length > 0 ? (
-                    <ul className="mt-1 space-y-0.5">
-                      {summaryBucketMappings.map((item) => (
-                        <li key={`wizard-summary-operation-bucket-${item.sourceBucket}`} className="ui-caption text-slate-600 dark:text-slate-300">
-                          {item.sourceBucket} {"->"} {item.targetBucket}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="ui-caption text-slate-500 dark:text-slate-400">No bucket selected.</p>
-                  )}
-                </div>
-                <div>
-                  <p className="ui-caption font-semibold text-slate-700 dark:text-slate-200">Execution flow</p>
-                  <p className="mt-1 ui-caption text-slate-500 dark:text-slate-400">
-                    Precheck selects <code>version_aware</code> automatically for versioned buckets and replays versions plus delete markers.
-                  </p>
-                  <ol className="mt-1 list-decimal space-y-0.5 pl-4">
-                    {summaryOperationSteps.map((stepText, stepIndex) => (
-                      <li key={`wizard-summary-operation-flow-${stepIndex}`} className="ui-caption text-slate-600 dark:text-slate-300">
-                        {stepText}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-      </section>
-    </PageShell>
+          </UiDetails>
+        </WorkflowSection>
+      </fieldset>
+    </SettingsWorkflowForm>
   );
 }

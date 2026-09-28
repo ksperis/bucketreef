@@ -1,5 +1,52 @@
 # Operations: Upgrade and Compatibility Notes
 
+## Bucket migration workflow v2
+
+Migration `0135_bucket_migration_workflow` adds persisted preparation, revision-bound
+reports, recovery journals, destination provenance and independent cleanup state.
+Deploy backend, worker, frontend and API clients together.
+
+Before upgrading, stop admitting new migration commands. Finish or explicitly stop
+all queued, running, paused and awaiting-cutover operations using the old version.
+Verify restoration of destination protections and of source protections for failed
+or canceled operations. Back up the database and configuration, then stop the old
+application/workers before applying Alembic. The schema upgrade refuses to proceed
+while active operations or unresolved protections are recorded. This check does
+not contact S3: operators must also verify the actual storage policies.
+
+Historical final operations remain visible as workflow v1 and cannot be replayed.
+Their records are not queued again. Old draft reports and item plans are invalidated;
+source deletion is disabled on these drafts and checks must be repeated. Successfully
+retained read-only sources can be restored explicitly after upgrading.
+
+API compatibility changes:
+
+- `POST /manager/migrations/{id}/precheck` queues preparation and returns **202**.
+  `{ "active_checks": false }` (the default) is read-only; `true` explicitly
+  acknowledges active tests after the UI has displayed their effects.
+- `GET /manager/migrations/{id}` and its existing SSE stream publish progress,
+  preparation state, typed diagnostics and backend-authorized actions.
+- `PATCH` draft updates require `configuration_revision`. They increment it and
+  invalidate the report. `POST /start` requires the checked revision and, for
+  immediate mode, `confirm_write_interruption: true`. Reports expire after 15 minutes.
+- `POST /continue` requires `{ "confirmed": true }` for cutover.
+- `POST /restore-access`, `/cleanup-target` and `/cleanup-source` require explicit
+  confirmation and return **202**. Their status is independent of the transfer result.
+- Creation/update rejects `delete_source: true`. The combined rollback endpoints
+  reject execution and direct clients to the separate recovery operations.
+
+Preparation has its own worker loop, separate from long copies. Both loops renew
+leases during blocking storage requests. Mutation intents and original policies
+are saved before active probes; expired leases allow recovery by another worker.
+Incomplete restoration blocks preparation. Diagnostics/events exclude secrets and
+policy backups; only operator commands are added to the audit log.
+
+Do not downgrade while any operation or protection is active: downgrade refuses
+that state. For rollback, use the verified database backup and matching previous
+application only after stopping writers and verifying storage protection restoration.
+Never allow old and new workers to process the same migration database concurrently.
+
+
 ## 2026-09 canonical onboarding journeys
 
 Migration `0131_canonical_onboarding_journeys` removes pre-v2 onboarding

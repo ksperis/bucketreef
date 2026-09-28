@@ -29,10 +29,20 @@ export type BucketMigrationPrecheckEntry = {
   scope?: string;
   message: string;
   details?: Record<string, unknown> | null;
+  remediation?: string | null;
+  impact?: string | null;
+  permission?: string | null;
+  context_id?: string | null;
+  bucket?: string | null;
 };
 
-export type BucketMigrationPrecheckItemReport = {
+type BucketMigrationPrecheckItemReport = {
   item_id: number;
+  state?: "ready" | "blocked" | "unverified" | "warning";
+  settings_copied?: string[];
+  settings_omitted?: string[];
+  source_identity?: string;
+  target_identity?: string;
   source_bucket?: string;
   target_bucket?: string;
   strategy?: string;
@@ -66,7 +76,7 @@ export type BucketMigrationPrecheckReport = {
   same_endpoint_copy_safe?: boolean;
 };
 
-export type BucketMigrationItemStatus =
+type BucketMigrationItemStatus =
   | "pending"
   | "running"
   | "awaiting_cutover"
@@ -82,7 +92,8 @@ type BucketMigrationBucketMapping = {
   target_bucket?: string | null;
 };
 
-type BucketMigrationCreateRequest = {
+export type BucketMigrationCreateRequest = {
+  configuration_revision?: number;
   source_context_id: string;
   target_context_id: string;
   buckets: BucketMigrationBucketMapping[];
@@ -107,6 +118,11 @@ export type BucketMigrationItemView = {
   read_only_applied: boolean;
   target_lock_applied: boolean;
   target_bucket_exists: boolean;
+  target_created_by_migration?: boolean;
+  recovery_required?: boolean;
+  source_deleted?: boolean;
+  cleanup_status?: string;
+  cleanup_error?: string | null;
   objects_copied: number;
   objects_deleted: number;
   source_count?: number | null;
@@ -151,6 +167,16 @@ export type BucketMigrationView = {
   precheck_status: BucketMigrationPrecheckStatus;
   precheck_report?: BucketMigrationPrecheckReport | null;
   precheck_checked_at?: string | null;
+  workflow_version?: number;
+  configuration_revision?: number;
+  checked_revision?: number | null;
+  preparation_status?: "unverified" | "checking" | "blocked" | "ready" | "stale";
+  preparation_active_checks?: boolean;
+  preparation_completed_items?: number;
+  maintenance_operation?: "restore_access" | "cleanup_source" | "cleanup_target" | null;
+  maintenance_status?: string;
+  maintenance_error?: string | null;
+  available_actions?: Record<string, { enabled: boolean; reason: string | null }>;
   parallelism_max: number;
   total_items: number;
   completed_items: number;
@@ -305,13 +331,13 @@ export async function updateManagerMigration(
   return data;
 }
 
-export async function runManagerMigrationPrecheck(migrationId: number): Promise<BucketMigrationDetail> {
-  const { data } = await client.post<BucketMigrationDetail>(`/manager/migrations/${migrationId}/precheck`);
+export async function runManagerMigrationPrecheck(migrationId: number, activeChecks = false): Promise<BucketMigrationDetail> {
+  const { data } = await client.post<BucketMigrationDetail>(`/manager/migrations/${migrationId}/precheck`, { active_checks: activeChecks });
   return data;
 }
 
-export async function startManagerMigration(migrationId: number): Promise<BucketMigrationActionResponse> {
-  const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/start`);
+export async function startManagerMigration(migrationId: number, configurationRevision: number, confirmWriteInterruption = false): Promise<BucketMigrationActionResponse> {
+  const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/start`, { configuration_revision: configurationRevision, confirm_write_interruption: confirmWriteInterruption });
   return data;
 }
 
@@ -330,31 +356,8 @@ export async function stopManagerMigration(migrationId: number): Promise<BucketM
   return data;
 }
 
-export async function continueManagerMigration(migrationId: number): Promise<BucketMigrationActionResponse> {
-  const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/continue`);
-  return data;
-}
-
-export async function rollbackManagerMigration(migrationId: number): Promise<BucketMigrationActionResponse> {
-  const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/rollback`);
-  return data;
-}
-
-export async function retryManagerMigrationItem(
-  migrationId: number,
-  itemId: number
-): Promise<BucketMigrationActionResponse> {
-  const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/items/${itemId}/retry`);
-  return data;
-}
-
-export async function rollbackManagerMigrationItem(
-  migrationId: number,
-  itemId: number
-): Promise<BucketMigrationActionResponse> {
-  const { data } = await client.post<BucketMigrationActionResponse>(
-    `/manager/migrations/${migrationId}/items/${itemId}/rollback`
-  );
+export async function continueManagerMigration(migrationId: number, confirmed: boolean): Promise<BucketMigrationActionResponse> {
+  const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/continue`, { confirmed });
   return data;
 }
 
@@ -363,7 +366,8 @@ export async function retryFailedManagerMigrationItems(migrationId: number): Pro
   return data;
 }
 
-export async function rollbackFailedManagerMigrationItems(migrationId: number): Promise<BucketMigrationActionResponse> {
-  const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/items/rollback-failed`);
+export async function runManagerMigrationMaintenance(migrationId: number, operation: "restore_access" | "cleanup_source" | "cleanup_target"): Promise<BucketMigrationActionResponse> {
+  const path = operation.replaceAll("_", "-");
+  const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/${path}`, { confirmed: true });
   return data;
 }

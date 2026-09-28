@@ -202,12 +202,13 @@ class BucketMigrationPrecheckRules:
             enabled=same_endpoint_copy_enabled,
             add_check=add_check,
         )
-        if target_exists is not True:
+        if target_exists is False and source_access_ok and source_profile is not None:
             self._check_cutover_policies(
                 source_context,
                 target_context,
                 item,
                 migration,
+                strategy=strategy,
                 add_check=add_check,
             )
         delete_source_safe, rollback_safe = self._check_destructive_safety(
@@ -245,7 +246,8 @@ class BucketMigrationPrecheckRules:
                 source_context,
                 target_context,
                 item.source_bucket,
-                auto_grant=bool(migration.auto_grant_source_read_for_copy),
+                auto_grant=bool(migration.auto_grant_source_read_for_copy)
+                and bool(getattr(self._service, "_preparation_active_checks", False)),
                 strategy=strategy,
                 source_profile=source_profile,
             )
@@ -255,10 +257,7 @@ class BucketMigrationPrecheckRules:
                 severity="error",
                 blocking=True,
                 scope="same_endpoint_copy",
-                message=(
-                    "Same-endpoint x-amz-copy-source precheck failed: "
-                    f"{exc}"
-                ),
+                message=("Same-endpoint x-amz-copy-source precheck failed: " f"{exc}"),
             )
             return False
         if probe == "source_empty":
@@ -296,58 +295,60 @@ class BucketMigrationPrecheckRules:
 
     def _check_cutover_policies(
         self,
-        source_context: Any,
-        target_context: Any,
-        item: Any,
-        migration: Any,
+        source_context,
+        target_context,
+        item,
+        migration,
         *,
-        add_check: Callable[..., None],
+        strategy,
+        add_check,
     ) -> None:
+        if not getattr(self._service, "_preparation_active_checks", False):
+            add_check(
+                code="active_checks_required",
+                severity="info",
+                blocking=True,
+                scope="migration",
+                message="Active checks have not run. They temporarily block source writes and create a temporary destination bucket. Review the effects before authorizing them.",
+            )
+            return
         try:
             self._service._precheck_policy_roundtrip(
-                source_context.account,
-                item.source_bucket,
+                source_context.account, item.source_bucket
             )
             add_check(
                 code="source_read_only_policy_validated",
                 severity="info",
                 blocking=False,
                 scope="source_policy",
-                message="Read-only cutover policy can be applied on source bucket.",
+                message="Source protection applied and restoration verified.",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             add_check(
                 code="source_read_only_policy_failed",
                 severity="error",
                 blocking=True,
                 scope="source_policy",
-                message=f"Read-only policy precheck failed: {exc}",
+                message=f"Source protection test or restoration failed: {exc}",
             )
-
-        if not migration.lock_target_writes:
-            return
         try:
-            self._service._precheck_target_lock_with_probe_bucket(
-                target_context,
-                migration_id=migration.id,
+            self._service._precheck_destination(
+                migration, item, source_context, target_context, strategy=strategy
             )
             add_check(
-                code="target_write_lock_validated",
+                code="target_write_validated",
                 severity="info",
                 blocking=False,
-                scope="target_policy",
-                message=(
-                    "Target write-lock policy roundtrip is validated for migration "
-                    "worker access."
-                ),
+                scope="target_bucket",
+                message="Destination creation, content, tags, requested settings and protection tests passed; temporary bucket removed.",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             add_check(
-                code="target_write_lock_failed",
+                code="target_write_failed",
                 severity="error",
                 blocking=True,
-                scope="target_policy",
-                message=f"Target write-lock precheck failed: {exc}",
+                scope="target_bucket",
+                message=f"Destination write test or temporary bucket cleanup failed: {exc}",
             )
 
     def _check_destructive_safety(

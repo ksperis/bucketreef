@@ -18,7 +18,7 @@ def test_manager_migrations_router_aggregates_each_workflow_family() -> None:
     included_routers = tuple(route.original_router for route in migrations.router.routes)
 
     assert included_routers == feature_routers
-    assert sum(len(router.routes) for router in feature_routers) == 17
+    assert sum(len(router.routes) for router in feature_routers) == 20
 
 
 def test_manager_migrations_router_preserves_the_public_route_contract() -> None:
@@ -42,6 +42,9 @@ def test_manager_migrations_router_preserves_the_public_route_contract() -> None
         ("PATCH", "/manager/migrations/{migration_id}"),
         ("POST", "/manager/migrations"),
         ("POST", "/manager/migrations/{migration_id}/continue"),
+        ("POST", "/manager/migrations/{migration_id}/cleanup-source"),
+        ("POST", "/manager/migrations/{migration_id}/cleanup-target"),
+        ("POST", "/manager/migrations/{migration_id}/restore-access"),
         ("POST", "/manager/migrations/{migration_id}/items/retry-failed"),
         ("POST", "/manager/migrations/{migration_id}/items/rollback-failed"),
         ("POST", "/manager/migrations/{migration_id}/items/{item_id}/retry"),
