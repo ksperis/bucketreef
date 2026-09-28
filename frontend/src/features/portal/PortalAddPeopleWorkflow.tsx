@@ -87,14 +87,21 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
           if (role) next[userId] = role; else delete next[userId];
           return next;
         })}
-        onRequestPerson={async ({ targetName, targetEmail }) => {
-          await createPortalRequest(accountId, { request_type: "portal_user_access", target_name: targetName, target_email: targetEmail });
-          setRequestMessage(t({
-            en: `Request sent. Track it in Help requests, then return to ${spaceName} to finish the invitation.`,
-            fr: `Demande envoyée. Suivez-la dans la page Demandes, puis revenez dans ${spaceName} pour terminer l'invitation.`,
-            de: `Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen und kehren Sie danach zu ${spaceName} zurück, um die Einladung abzuschließen.`,
-            zh: `请求已发送。请在帮助请求中跟踪进度，然后返回 ${spaceName} 完成邀请。`,
-          }));
+        onRequestPerson={async ({ targetName, targetEmail, portalRole }) => {
+          await createPortalRequest(accountId, { request_type: "portal_user_access", target_name: targetName, target_email: targetEmail, portal_role: portalRole });
+          setRequestMessage(portalRole === "portal_manager"
+            ? t({
+                en: "Request sent. Track it in Help requests. Once approved, this person can access and manage every project space.",
+                fr: "Demande envoyée. Suivez-la dans la page Demandes. Une fois approuvée, cette personne pourra accéder à tous les espaces du projet et les gérer.",
+                de: "Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen. Nach der Genehmigung kann diese Person auf alle Projektbereiche zugreifen und sie verwalten.",
+                zh: "请求已发送。请在帮助请求中跟踪进度。获批后，此人可以访问并管理项目中的所有空间。",
+              })
+            : t({
+                en: `Request sent. Track it in Help requests, then return to ${spaceName} to finish the invitation.`,
+                fr: `Demande envoyée. Suivez-la dans la page Demandes, puis revenez dans ${spaceName} pour terminer l'invitation.`,
+                de: `Anfrage gesendet. Verfolgen Sie sie unter Hilfeanfragen und kehren Sie danach zu ${spaceName} zurück, um die Einladung abzuschließen.`,
+                zh: `请求已发送。请在帮助请求中跟踪进度，然后返回 ${spaceName} 完成邀请。`,
+              }));
         }} />
     </SettingsSection>
   </SettingsWorkflowForm>;

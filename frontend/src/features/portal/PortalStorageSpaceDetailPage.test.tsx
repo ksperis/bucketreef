@@ -1274,6 +1274,9 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.change(within(requestDialog).getByLabelText("Name"), {
       target: { value: "Missing Person" },
     });
+    fireEvent.change(within(requestDialog).getByLabelText("Project role"), {
+      target: { value: "portal_manager" },
+    });
     fireEvent.click(
       within(requestDialog).getByRole("button", { name: "Send request" }),
     );
@@ -1283,11 +1286,12 @@ describe("PortalStorageSpaceDetailPage", () => {
         request_type: "portal_user_access",
         target_name: "Missing Person",
         target_email: "missing@example.org",
+        portal_role: "portal_manager",
       });
     });
     expect(
       await within(workflow).findByText(
-        "Request sent. Track it in Help requests, then return to Research Data to finish the invitation.",
+        "Request sent. Track it in Help requests. Once approved, this person can access and manage every project space.",
       ),
     ).toBeInTheDocument();
     expect(within(workflow).getByRole("link", { name: "Open Help requests" })).toHaveAttribute(

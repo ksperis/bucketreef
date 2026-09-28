@@ -22,9 +22,11 @@ storage limit or a project setting that has not been delegated to Portal Manager
 2. Review **My help requests** first to see pending, approved, rejected, or
    failed requests.
 3. Select **Manage membership** to add or remove a collaborator from the same
-   form. For removal, choose an existing direct collaborator from the project
-   list; the name and email are filled from that selection. The reason field is
-   optional.
+   form. When adding someone, choose whether the requested project role is
+   **Workspace member** (`portal_user`) or **Workspace manager**
+   (`portal_manager`). For removal, choose an existing direct collaborator from
+   the project list; the name and email are filled from that selection. The
+   reason field is optional.
 4. Select **Change storage limit** to choose a higher or lower limit, enter the
    new target, and choose the unit. The preview shows the current limit, the
    requested limit, and the space already used. The reason field is optional.
@@ -52,6 +54,8 @@ storage limit or a project setting that has not been delegated to Portal Manager
 The request stays visible from Portal with admin messages and final status.
 Approving a request is an Admin action: project membership and storage limits
 are not changed until an admin validates the request.
+For collaborator additions, approval applies the requested Portal role. A
+legacy request without an explicit role continues to create a Workspace member.
 Portal blocks storage-limit requests that would set the new limit below the
 space already used.
 For a project-setting request, approval changes only the requested setting and

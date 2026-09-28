@@ -161,6 +161,7 @@ describe("PortalRequestsPage", () => {
     });
     await user.type(within(dialog).getByLabelText("Email"), "jane@example.org");
     await user.type(within(dialog).getByLabelText("Name"), "Jane Viewer");
+    await user.selectOptions(within(dialog).getByLabelText("Project role"), "portal_manager");
     await user.click(
       within(dialog).getByRole("button", { name: "Send request" }),
     );
@@ -170,6 +171,7 @@ describe("PortalRequestsPage", () => {
         request_type: "portal_user_access",
         target_name: "Jane Viewer",
         target_email: "jane@example.org",
+        portal_role: "portal_manager",
         reason: null,
       });
     });

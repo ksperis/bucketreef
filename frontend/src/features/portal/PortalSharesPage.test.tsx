@@ -190,6 +190,7 @@ describe("PortalSharesPage", () => {
     const addDialog = screen.getByRole("dialog", { name: "Request a project member" });
     await user.type(within(addDialog).getByLabelText("Name"), "New Member");
     await user.type(within(addDialog).getByLabelText("Email"), "new.member@example.org");
+    await user.selectOptions(within(addDialog).getByLabelText("Project role"), "portal_manager");
     await user.type(within(addDialog).getByLabelText("Reason (optional)"), "Project onboarding");
     await user.click(within(addDialog).getByRole("button", { name: "Send request" }));
 
@@ -198,6 +199,7 @@ describe("PortalSharesPage", () => {
         request_type: "portal_user_access",
         target_name: "New Member",
         target_email: "new.member@example.org",
+        portal_role: "portal_manager",
         reason: "Project onboarding",
       }),
     );

@@ -39,6 +39,7 @@ const pendingRequest: PortalAdminRequest = {
   payload: {
     target_name: "Jane Viewer",
     target_email: "jane@example.org",
+    portal_role: "portal_manager",
   },
   requester_user_id: 1,
   requester_email: "requester@example.org",
@@ -104,7 +105,7 @@ describe("AdminPortalRequestsPage", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Portal requests" })).toBeInTheDocument();
-    expect(await screen.findByText("Jane Viewer <jane@example.org>")).toBeInTheDocument();
+    expect(await screen.findByText("Jane Viewer <jane@example.org> · Portal manager")).toBeInTheDocument();
     const requesterBadge = await screen.findByRole("link", { name: "Edit UI user Request Owner" });
     expect(requesterBadge).toHaveAttribute(
       "href",
@@ -135,7 +136,7 @@ describe("AdminPortalRequestsPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await screen.findByText("Jane Viewer <jane@example.org>");
+    await screen.findByText("Jane Viewer <jane@example.org> · Portal manager");
     await user.click(screen.getByRole("button", { name: "Details" }));
     await user.type(screen.getByLabelText("Message"), "Need more context");
     await user.click(screen.getByRole("button", { name: "Send message" }));
@@ -149,7 +150,7 @@ describe("AdminPortalRequestsPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await screen.findByText("Jane Viewer <jane@example.org>");
+    await screen.findByText("Jane Viewer <jane@example.org> · Portal manager");
     await user.selectOptions(screen.getByLabelText("Filter by type"), "portal_setting_change");
 
     await waitFor(() => {

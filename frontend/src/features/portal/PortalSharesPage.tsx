@@ -16,7 +16,7 @@ import {
   listPortalStorageSpacePublicLinks,
   type PortalPublicLink,
 } from "../../api/portalSharing";
-import { createPortalRequest } from "../../api/portalRequests";
+import { createPortalRequest, type PortalRequestedRole } from "../../api/portalRequests";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
@@ -286,6 +286,8 @@ export default function PortalSharesPage() {
   const [memberRequestOpen, setMemberRequestOpen] = useState(false);
   const [memberRequestName, setMemberRequestName] = useState("");
   const [memberRequestEmail, setMemberRequestEmail] = useState("");
+  const [memberRequestRole, setMemberRequestRole] =
+    useState<PortalRequestedRole>("portal_user");
   const [memberRequestReason, setMemberRequestReason] = useState("");
   const [memberRequestError, setMemberRequestError] = useState<string | null>(null);
   const [memberRequestBusy, setMemberRequestBusy] = useState(false);
@@ -394,6 +396,7 @@ export default function PortalSharesPage() {
     setMemberRequestOpen(false);
     setMemberRequestName("");
     setMemberRequestEmail("");
+    setMemberRequestRole("portal_user");
     setMemberRequestReason("");
     setMemberRequestError(null);
   };
@@ -412,11 +415,13 @@ export default function PortalSharesPage() {
         request_type: "portal_user_access",
         target_name: targetName,
         target_email: targetEmail,
+        portal_role: memberRequestRole,
         reason: memberRequestReason.trim() || null,
       });
       setMemberRequestOpen(false);
       setMemberRequestName("");
       setMemberRequestEmail("");
+      setMemberRequestRole("portal_user");
       setMemberRequestReason("");
       setSharesMessage(
         t({
@@ -693,7 +698,7 @@ export default function PortalSharesPage() {
       {memberRequestOpen ? (
         <SettingsFormDialog
           title={t({ en: "Request a project member", fr: "Demander l'ajout d'un membre", de: "Projektmitglied anfragen", zh: "申请添加项目成员" })}
-          draftKey={JSON.stringify([memberRequestName, memberRequestEmail, memberRequestReason])}
+          draftKey={JSON.stringify([memberRequestName, memberRequestEmail, memberRequestRole, memberRequestReason])}
           busy={memberRequestBusy}
           disabled={!canRequestMemberChanges || !memberRequestName.trim() || !memberRequestEmail.trim()}
           error={memberRequestError}
@@ -701,6 +706,15 @@ export default function PortalSharesPage() {
           onSubmit={handleMemberRequest}
           onClose={closeMemberRequest}
         >
+          <UiSelect
+            label={t({ en: "Project role", fr: "Rôle dans le projet", de: "Projektrolle", zh: "项目角色" })}
+            value={memberRequestRole}
+            onChange={(event) => setMemberRequestRole(event.target.value as PortalRequestedRole)}
+            disabled={memberRequestBusy}
+          >
+            <option value="portal_user">{portalAccountRoleLabel("portal_user", t)}</option>
+            <option value="portal_manager">{portalAccountRoleLabel("portal_manager", t)}</option>
+          </UiSelect>
           <PortalMemberRequestFields name={memberRequestName} email={memberRequestEmail} reason={memberRequestReason}
             onNameChange={setMemberRequestName} onEmailChange={setMemberRequestEmail} onReasonChange={setMemberRequestReason}
             disabled={memberRequestBusy} />

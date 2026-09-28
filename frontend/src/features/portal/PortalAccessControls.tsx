@@ -11,6 +11,7 @@ import {
   type PortalStorageSpaceVisibility,
 } from "../../api/portal";
 import type { PortalStorageSpaceShareCandidate } from "../../api/portalSharing";
+import type { PortalRequestedRole } from "../../api/portalRequests";
 import ListToolbar from "../../components/ListToolbar";
 import PortalCollaboratorRequestDialog from "./PortalCollaboratorRequestDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
@@ -177,7 +178,7 @@ export function PortalShareCandidatePicker({
   includeAlreadyShared?: boolean;
   onQueryChange: (value: string) => void;
   onRoleChange: (userId: number, role: PortalStorageSpaceGrantRole | null) => void;
-  onRequestPerson?: (payload: { targetName: string; targetEmail: string }) => Promise<void>;
+  onRequestPerson?: (payload: { targetName: string; targetEmail: string; portalRole: PortalRequestedRole }) => Promise<void>;
   onRequestDraftStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
   onRetry?: () => void;
 }) {

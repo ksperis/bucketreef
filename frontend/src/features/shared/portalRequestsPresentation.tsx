@@ -69,7 +69,8 @@ export function portalRequestPayloadSummary(request: PortalAdminRequest): string
   if (request.request_type === "portal_user_access") {
     const name = typeof payload.target_name === "string" ? payload.target_name : "New user";
     const email = typeof payload.target_email === "string" ? payload.target_email : "";
-    return email ? `${name} <${email}>` : name;
+    const role = payload.portal_role === "portal_manager" ? "Portal manager" : "Portal user";
+    return email ? `${name} <${email}> · ${role}` : `${name} · ${role}`;
   }
   if (request.request_type === "portal_user_removal") {
     const name = typeof payload.target_name === "string" ? payload.target_name : "Portal user";

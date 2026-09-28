@@ -65,9 +65,12 @@ Portal managers can browse and manage every project space.
    Leaving with unsaved selections asks for confirmation. While an invitation or
    membership request is being sent, wait for it to finish before leaving.
 10. If no person matches, choose **Request collaborator access**, add their name
-   and email, then send the request. An admin must add them to the project
-   before you can invite them to a space. Follow the status in **Portal > Help
-   requests**, then return to the same space to finish the invitation.
+   and email, choose whether they should join as a **Workspace member** or
+   **Workspace manager**, then send the request. An admin must add them to the
+   project. Follow the status in **Portal > Help requests**. For a Workspace
+   member, return to the same space after approval to finish the invitation. A
+   Workspace manager can access and manage every project space after approval,
+   so no individual space invitation is required.
 11. Change a direct collaborator's role from the space's **Collaborators** tab.
    Review the person, current role, new role, and space in the confirmation
    dialog before applying the change.
