@@ -189,3 +189,11 @@ Open **Favorites and views** to pin the current location or save a named view co
 Standalone Browser, Manager, Ceph Admin and Portal have separate collections. Opening an entry rechecks the saved identity and location. Standalone Browser can switch to an available saved context. Integrations keep their workspace context: select the saved project/context or open its Storage Space first. An unavailable entry retains its original identity and can still be renamed or removed.
 
 Temporary S3 sessions cannot synchronize preferences. The static demo simulates this collection locally for each demo identity. This table contains only personal favorites/views, never upload tracking or transfer history.
+
+### ZIP for a mixed selection
+
+**Download as ZIP** accepts files and folders together. Browser recursively enumerates the selected folders, deduplicates overlapping objects and preserves paths relative to the starting location. Preparation, transfer and packaging appear in Operations and can be cancelled.
+
+Unsafe archive paths (including traversal, absolute/ambiguous paths and case/Unicode or file/folder collisions) are excluded with an explanation in operation details. Objects are never silently overwritten inside the archive. Large selections use streaming to a file when supported. Without streaming, a selection at or above the configured ZIP threshold is blocked before downloading its contents; select fewer files or use a browser with streaming file support. The threshold concerns the total input bytes; archive packaging also needs working memory.
+
+**Retry failures** produces a complementary archive containing only files that failed to download. Successful files are not downloaded again. ZIP generation does not resume after closing the browser.

@@ -55,7 +55,7 @@ beforeEach(() => {
 });
 
 describe("browser folder downloads", () => {
-  it("normalizes labels and filters empty folder markers from the plan", () => {
+  it("keeps safe relative paths and excludes keys outside the starting location", () => {
     let id = 0;
     const plan = buildBrowserFolderDownloadPlan(
       [
@@ -78,14 +78,9 @@ describe("browser folder downloads", () => {
           relativeKey: "a.txt",
           sizeBytes: 3,
         },
-        {
-          detailId: "detail-2",
-          key: "outside.txt",
-          relativeKey: "outside.txt",
-          sizeBytes: 4,
-        },
       ],
-      totalBytes: 7,
+      totalBytes: 3,
+      excluded: [{ key: "outside.txt", reason: "Unsafe or ambiguous archive path" }],
     });
   });
 
@@ -196,4 +191,18 @@ describe("browser folder downloads", () => {
     expect(result).toEqual({ cancelled: true, failedKeys: [] });
     expect(downloadStream).not.toHaveBeenCalled();
   });
+});
+
+
+it("rejects traversal, normalization collisions and file/directory collisions", () => {
+  const keys = ["a.txt", "a.txt", "A.txt", "../secret", "/absolute", "C:stream", "x\\y", "dir//file", "é.txt", "e\u0301.txt", "folder", "folder/file"];
+  const plan = buildBrowserFolderDownloadPlan(keys.map(key => ({ key, size: 1 })), "", () => "id");
+  expect(plan.targets.map(target => target.key)).toEqual(["a.txt", "é.txt", "folder"]);
+  expect(plan.excluded).toHaveLength(8);
+});
+
+it("blocks oversized memory archives before any download", async () => {
+  const downloadBlob = vi.fn();
+  await expect(downloadBrowserFolderArchive({ controller: new AbortController(), downloadBlob, downloadStream: vi.fn(), folderLabel: "large", onDetailChange: vi.fn(), onPhaseChange: vi.fn(), onProgress: vi.fn(), parallelism: 2, streamingThresholdBytes: 10, targets: [{ detailId: "a", key: "a", relativeKey: "a", sizeBytes: 11 }], totalBytes: 11 })).rejects.toThrow("in-memory limit");
+  expect(downloadBlob).not.toHaveBeenCalled();
 });

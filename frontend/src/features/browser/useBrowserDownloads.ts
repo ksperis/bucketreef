@@ -1,3 +1,5 @@
+import type { BrowserObject } from "../../api/browserContracts";
+import { buildBrowserSelectionManifest } from "./browserSelectionManifest";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -16,6 +18,7 @@ import {
 } from "../../utils/download";
 import {
   buildBrowserFolderDownloadPlan,
+  browserArchiveSaveFilePicker,
   downloadBrowserFolderArchive,
   resolveBrowserFolderArchiveLabel,
 } from "./browserFolderDownload";
@@ -32,7 +35,7 @@ import type {
   DownloadDetailStatus,
   OperationCompletionStatus,
 } from "./browserTypes";
-import { isAbortError, makeId, normalizePrefix } from "./browserUtils";
+import { isAbortError, makeId } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 
@@ -174,16 +177,13 @@ export function useBrowserDownloads({
     [setDownloadDetails],
   );
 
-  const downloadFolder = useCallback(
-    async (folder: BrowserItem) => {
-      if (!bucketName || !enabled || folder.type !== "folder") return;
+  const downloadArchive = useCallback(
+    async function runArchive(items: BrowserItem[], basePrefix = "", retryObjects?: BrowserObject[]) {
+      if (!bucketName || !enabled || !items.length) return;
       showOperations();
       onWarning(null);
-      const folderPrefix = normalizePrefix(folder.key);
-      const folderLabel = resolveBrowserFolderArchiveLabel(
-        folder.name,
-        folderPrefix,
-      );
+      const folderPrefix = basePrefix;
+      const folderLabel = resolveBrowserFolderArchiveLabel((items.length === 1 ? items[0].name : "selection") + (retryObjects ? "-retry" : ""), folderPrefix);
       const operationId = startOperation(
         "downloading",
         "Preparing download",
@@ -194,7 +194,11 @@ export function useBrowserDownloads({
       let completionStatus: OperationCompletionStatus = "done";
       let completionError: string | undefined;
       try {
-        const objects = await listAllObjectsForPrefix(folderPrefix);
+        // Request the save handle while the initiating click still has user activation.
+        const picker = browserArchiveSaveFilePicker();
+        const mayNeedStreaming = items.some(item => item.type === "folder") || items.reduce((sum, item) => sum + (item.sizeBytes ?? 0), 0) >= streamingZipThresholdMb * 1024 * 1024;
+        const saveHandle = picker && mayNeedStreaming ? await picker({ suggestedName: `${folderLabel}.zip`, types: [{ description: "ZIP archive", accept: { "application/zip": [".zip"] } }] }) : null;
+        const objects = retryObjects ?? await buildBrowserSelectionManifest(items, listAllObjectsForPrefix, controller.signal, (completed, total) => updateOperation(operationId, { label: `Enumerating selection (${completed}/${total} folders)` }));
         if (controller.signal.aborted) {
           completionStatus = "cancelled";
           onStatus(`Download cancelled for ${folderLabel}`);
@@ -205,21 +209,21 @@ export function useBrowserDownloads({
           folderPrefix,
           makeId,
         );
-        if (plan.targets.length === 0) {
-          onStatus("Folder is empty.");
-          return;
-        }
         setDownloadDetails((previous) => ({
           ...previous,
-          [operationId]: plan.targets.map((target) => ({
+          [operationId]: [...plan.excluded.map(entry => ({ id: makeId(), key: entry.key, label: entry.key, status: "failed" as const, errorMessage: `Excluded: ${entry.reason}` })), ...plan.targets.map((target) => ({
             id: target.detailId,
             key: target.key,
             label: target.relativeKey,
-            status: "queued",
+            status: "queued" as const,
             sizeBytes: target.sizeBytes,
-          })),
+          }))],
         }));
+        if (plan.excluded.length) onWarning(`${plan.excluded.length} object(s) excluded due to unsafe paths or archive collisions. See operation details.`);
+        if (plan.targets.length === 0) { onStatus("No safe files to archive."); completionStatus = plan.excluded.length ? "failed" : "done"; return; }
         const archiveResult = await downloadBrowserFolderArchive({
+          includeRootFolder: false,
+          saveFilePicker: saveHandle ? async () => saveHandle : undefined,
           controller,
           downloadBlob,
           downloadStream,
@@ -235,7 +239,7 @@ export function useBrowserDownloads({
           onProgress: (progress) => updateOperation(operationId, { progress }),
           parallelism,
           streamingThresholdBytes:
-            Math.max(0, streamingZipThresholdMb) * 1024 * 1024,
+            saveHandle ? 0 : Math.max(0, streamingZipThresholdMb) * 1024 * 1024,
           targets: plan.targets,
           totalBytes: plan.totalBytes,
         });
@@ -246,11 +250,14 @@ export function useBrowserDownloads({
           return;
         }
         if (archiveResult.failedKeys.length > 0) {
+          const failed = new Set(archiveResult.failedKeys);
+          updateOperation(operationId, { retry: async () => { updateOperation(operationId, { retry: undefined }); await runArchive(items, basePrefix, objects.filter(object => failed.has(object.key))); } });
           completionStatus = "failed";
           completionError = `Downloaded ${folderLabel} with ${archiveResult.failedKeys.length} failed file(s).`;
           onStatus(completionError);
         } else {
-          onStatus(`Downloaded ${folderLabel}`);
+          if (plan.excluded.length) completionStatus = "failed";
+          onStatus(`Downloaded ${folderLabel}${plan.excluded.length ? ` (${plan.excluded.length} excluded)` : ""}`);
         }
       } catch (caughtError) {
         if (isAbortError(caughtError) || controller.signal.aborted) {
@@ -292,6 +299,11 @@ export function useBrowserDownloads({
       updateOperation,
     ],
   );
+
+  const downloadFolder = useCallback((folder: BrowserItem) => {
+    const key = folder.key.endsWith("/") ? folder.key.slice(0, -1) : folder.key;
+    return downloadArchive([folder], key.slice(0, key.lastIndexOf("/") + 1));
+  }, [downloadArchive]);
 
   const downloadMultipleFiles = useCallback(
     async (files: BrowserItem[]) => {
@@ -522,5 +534,5 @@ export function useBrowserDownloads({
     ],
   );
 
-  return { downloadFolder, downloadItems };
+  return { downloadArchive, downloadFolder, downloadItems };
 }

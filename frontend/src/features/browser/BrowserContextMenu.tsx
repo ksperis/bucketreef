@@ -90,6 +90,7 @@ type BrowserContextMenuProps = {
   onDeleteItems: (items: BrowserItem[]) => void;
   onDownloadFolder: (item: BrowserItem) => void;
   onDownloadItems: (items: BrowserItem[]) => void;
+  onDownloadZip?: (items: BrowserItem[]) => void;
   onOpenItem: (item: BrowserItem) => void;
   onToggleShowFolders: () => void;
   onToggleShowDeleted: () => void;
@@ -144,6 +145,7 @@ export default function BrowserContextMenu({
   onDeleteItems,
   onDownloadFolder,
   onDownloadItems,
+  onDownloadZip,
   onOpenItem,
   onToggleShowFolders,
   onToggleShowDeleted,
@@ -230,6 +232,7 @@ export default function BrowserContextMenu({
     if (!selectionActionStates) return;
     onClose();
     runBrowserAction(selectionActionStates[actionId], {
+      downloadZip: () => onDownloadZip?.(selectionItems),
       download: () => {
         const info = selectionItems;
         const summary = selectionActionStates.download.label === "Download folder"
@@ -280,6 +283,7 @@ export default function BrowserContextMenu({
     properties: <SettingsIcon className="h-3.5 w-3.5" />,
     open: <OpenIcon className="h-3.5 w-3.5" />,
     preview: <EyeIcon className="h-3.5 w-3.5" />,
+    downloadZip: <DownloadIcon className="h-3.5 w-3.5" />,
     download: <DownloadIcon className="h-3.5 w-3.5" />,
     createPublicLink: <LinkIcon className="h-3.5 w-3.5" />,
     restore: <HistoryIcon className="h-3.5 w-3.5" />,

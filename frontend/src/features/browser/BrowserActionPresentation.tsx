@@ -47,6 +47,7 @@ const actionIconById = {
   open: OpenIcon,
   preview: EyeIcon,
   download: DownloadIcon,
+  downloadZip: DownloadIcon,
   createPublicLink: LinkIcon,
   restore: HistoryIcon,
   copyUrl: LinkIcon,

@@ -29,6 +29,7 @@ export type BrowserActionId =
   | "properties"
   | "open"
   | "preview"
+  | "downloadZip"
   | "download"
   | "createPublicLink"
   | "restore"
@@ -134,6 +135,7 @@ export const CONTEXT_MENU_ITEM_ACTION_IDS: BrowserActionId[] = [
   "properties",
   "open",
   "download",
+  "downloadZip",
   "createPublicLink",
   "restore",
   "copyUrl",
@@ -149,6 +151,7 @@ export const CONTEXT_MENU_ITEM_ACTION_IDS: BrowserActionId[] = [
 
 export const CONTEXT_MENU_SELECTION_ACTION_IDS: BrowserActionId[] = [
   "download",
+  "downloadZip",
   "open",
   "copyUrl",
   "copy",
@@ -178,6 +181,7 @@ export const TOOLBAR_MORE_PATH_ACTION_IDS: BrowserActionId[] = [
 
 export const TOOLBAR_MORE_SELECTION_FULL_ACTION_IDS: BrowserActionId[] = [
   "download",
+  "downloadZip",
   "open",
   "copyUrl",
   "copy",
@@ -221,6 +225,7 @@ const ALL_ACTION_IDS: BrowserActionId[] = [
   "open",
   "preview",
   "download",
+  "downloadZip",
   "createPublicLink",
   "restore",
   "copyUrl",
@@ -253,6 +258,7 @@ const defaultSectionByActionId: Record<BrowserActionId, BrowserActionSection> = 
   open: "selection",
   preview: "selection",
   download: "selection",
+  downloadZip: "selection",
   createPublicLink: "selection",
   restore: "selection",
   copyUrl: "selection",
@@ -314,6 +320,7 @@ const STANDARD_SELECTION_ACTION_IDS = new Set<BrowserActionId>([
   "open",
   "preview",
   "download",
+  "downloadZip",
   "copy",
   "cut",
   "rename",
@@ -338,6 +345,7 @@ const PORTAL_SELECTION_ACTION_IDS = new Set<BrowserActionId>([
   "open",
   "preview",
   "download",
+  "downloadZip",
   "createPublicLink",
   "restore",
   "delete",
@@ -588,6 +596,7 @@ export const resolveBrowserActions = ({
     return finalize();
   }
 
+  setState("downloadZip", { label: "Download as ZIP", visible: true, enabled: canUseContextActions && items.some(item => !item.isDeleted), disabledReason: "Select current files or folders to archive." });
   for (const [id, label] of [["rename", "Rename"], ["copyTo", "Copy to…"], ["moveTo", "Move to…"]] as const) {
     setState(id, { label, visible: true, enabled: canUseContextActions && items.length > 0 && !items.some(item => item.isDeleted) && (id !== "rename" || isSingle), disabledReason: id === "rename" && !isSingle ? "Select one file or folder." : "Select current items in an available storage context." });
   }
