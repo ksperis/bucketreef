@@ -301,14 +301,13 @@ export default function BrowserContextMenu({
       className={`${options?.danger ? contextMenuItemDangerClasses : contextMenuItemClasses} ${
         !action.enabled ? contextMenuItemDisabledClasses : ""
       }`}
-      onClick={() => { if (action.enabled) onClick(); }}
+      onClick={onClick}
       aria-label={action.label}
-      aria-disabled={!action.enabled}
+      disabled={!action.enabled}
       title={action.disabledReason}
     >
       {iconByActionId[action.id]}
       {action.label}
-      {!action.enabled && action.disabledReason && <span className="ml-auto max-w-64 whitespace-normal ui-caption font-normal">{action.disabledReason}</span>}
     </button>
   );
 

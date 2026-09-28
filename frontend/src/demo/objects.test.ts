@@ -36,6 +36,5 @@ describe("demo Browser evolutions", () => {
     const first = list("max_keys=1");
     expect(first.prefixes).toEqual(["docs/empty/"]); expect(first.objects).toEqual([]);
     expect(list(`max_keys=1&continuation_token=${first.next_continuation_token}`).objects[0].key).toBe("docs/a.csv");
-    expect(list("recursive=true&extensions=csv&min_size=3").objects.map(object => object.key)).toEqual(["docs/a.csv"]);
   });
 });

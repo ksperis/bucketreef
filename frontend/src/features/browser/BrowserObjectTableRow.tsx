@@ -122,22 +122,22 @@ export default function BrowserObjectTableRow({
           title={item.name}
         >
           <span
-            className={`inline-flex ${iconBoxClasses} items-center justify-center  ${
+            className={`inline-flex ${iconBoxClasses} items-center justify-center rounded-md border shadow-sm ${
               isHistorical
-                ? "text-amber-700 dark:text-amber-200"
+                ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200"
                 : isDeleted
-                  ? "text-rose-700 dark:text-rose-200"
+                  ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-900/20 dark:text-rose-200"
                   : item.type === "folder"
-                    ? "text-amber-700 dark:text-amber-200"
-                    : "text-slate-600 dark:text-slate-300"
+                    ? "border-amber-200 bg-amber-50/90 text-amber-700 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200"
+                    : "border-sky-200 bg-sky-50/90 text-sky-700 dark:border-sky-500/40 dark:bg-sky-900/20 dark:text-sky-200"
             }`}
           >
             {item.type === "folder" ? (
-              <FolderIcon className="h-5 w-5" />
+              <FolderIcon />
             ) : isDeleted ? (
               <TrashIcon />
             ) : (
-              <FileIcon className="h-5 w-5" />
+              <FileIcon />
             )}
           </span>
           <div className="min-w-0 flex-1">

@@ -10,17 +10,17 @@ import { listBrowserObjects } from "../../api/browserObjects";
 import BrowserUtilityIcon from "./BrowserUtilityIcon";
 import { MoreIcon } from "./browserIcons";
 
-export default function BrowserFavoritesControl({ current, accountUser, onApply, lockedBucket, availableContexts = [], variant = "button", contextLabels = {}, compact = false }: {
+export default function BrowserFavoritesControl({ current, accountUser, onApply, lockedBucket, availableContexts = [], variant = "button", contextLabels = {}, compact = false, onClose }: {
   current: BrowserFavoriteInput; accountUser: boolean; onApply: (favorite: BrowserFavorite) => void; lockedBucket?: string; availableContexts?: string[];
-  variant?: "button" | "sidebar"; contextLabels?: Record<string, string>; compact?: boolean;
+  variant?: "button" | "sidebar" | "dialog"; onClose?: () => void; contextLabels?: Record<string, string>; compact?: boolean;
 }) {
   const tr = useBrowserText();
   const active = useRef(true);
   const scope = useRef(current.context);
   scope.current = current.context;
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const [open, setOpen] = useState(false);
-  const [favorites, setPresets] = useState<BrowserFavorite[]>([]);
+  const [open, setOpen] = useState(variant === "dialog");
+  const [favorites, setFavorites] = useState<BrowserFavorite[]>([]);
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<BrowserFavorite | null>(null);
@@ -29,7 +29,7 @@ export default function BrowserFavoritesControl({ current, accountUser, onApply,
   const [unavailable, setUnavailable] = useState<Record<string, string>>({});
   const reload = useCallback(async () => {
     if (!accountUser) return;
-    try { setPresets(await listBrowserFavorites(current.surface)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to sync favorites."); }
+    try { setFavorites(await listBrowserFavorites(current.surface)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to sync favorites."); }
   }, [accountUser, current.surface]);
   useEffect(() => {
     if (!open && variant !== "sidebar") return;
@@ -52,12 +52,12 @@ export default function BrowserFavoritesControl({ current, accountUser, onApply,
       if (!result.items.some(item => item.name === favorite.bucket)) throw new Error("Saved location is unavailable. Its identity has been kept.");
       await listBrowserObjects(favorite.context, favorite.bucket, { workspaceSurface: favorite.workspace, prefix: favorite.prefix, maxKeys: 1 });
       if (!active.current || scope.current !== current.context) return;
-      onApply(favorite); setOpen(false);
+      onApply(favorite); setOpen(false); onClose?.();
     } catch (reason) { setUnavailable(previous => ({ ...previous, [favorite.id]: reason instanceof Error ? reason.message : "Saved location is unavailable." })); }
     finally { setBusy(false); }
   };
   return <>
-    {variant === "button" ? <UiButton size="sm" variant="secondary" aria-label={tr("Favorites")} title={tr("Favorites")} onClick={() => { setOpen(true); setName(current.prefix || current.bucket); }}><BrowserUtilityIcon name="star" /></UiButton> : <div className="flex min-h-0 flex-1 flex-col gap-3 px-2 py-3">
+    {variant === "button" ? <UiButton size="sm" variant="secondary" aria-label={tr("Favorites")} title={tr("Favorites")} onClick={() => { setOpen(true); setName(current.prefix || current.bucket); }}><BrowserUtilityIcon /></UiButton> : variant === "sidebar" ? <div className="flex min-h-0 flex-1 flex-col gap-3 px-2 py-3">
       {!compact && <UiInput label={tr("Search favorites")} labelClassName="sr-only" placeholder={tr("Search favorites")} value={search} onChange={event => setSearch(event.target.value)} size="compact" />}
       {!accountUser ? <p className="ui-caption px-2">{tr("Synchronization requires a UI account. Temporary S3 sessions cannot save favorites to an account.")}</p> : <>
         <div className="min-h-0 flex-1 overflow-y-auto space-y-4">
@@ -69,7 +69,7 @@ export default function BrowserFavoritesControl({ current, accountUser, onApply,
               return <div key={favorite.id} className={`group rounded-md ${selected ? "shell-sidebar-item-active" : "shell-sidebar-item"}`}>
                 <div className="flex items-center">
                   <button type="button" disabled={busy} title={`${favorite.name} · ${subtitle}`} onClick={() => void apply(favorite)} className="flex min-w-0 flex-1 items-start gap-2 rounded-md px-2 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-                    <BrowserUtilityIcon name="star" className="mt-0.5 h-4 w-4" />
+                    <BrowserUtilityIcon className="mt-0.5 h-4 w-4" />
                     <span className={compact ? "sr-only" : "min-w-0"}><span className="block truncate text-sm font-medium">{favorite.name}</span><span className="mt-0.5 block truncate text-[11px] text-[var(--shell-muted-text)]" title={subtitle}>{subtitle}</span></span>
                   </button>
                   {!compact && <UiButton size="sm" variant="ghost" aria-label={`${tr("Manage favorites")}: ${favorite.name}`} onClick={() => { setEditing(favorite); setName(favorite.name); setOpen(true); }}><MoreIcon className="h-3.5 w-3.5" /></UiButton>}
@@ -83,8 +83,8 @@ export default function BrowserFavoritesControl({ current, accountUser, onApply,
         {error && <p role="alert" className="ui-caption">{error}</p>}
         <UiButton variant="ghost" size="sm" className="justify-start" aria-label={tr("Manage favorites")} onClick={() => { setEditing(null); setName(current.prefix || current.bucket); setOpen(true); }}>{compact ? <MoreIcon className="h-4 w-4" /> : tr("Pin location")}</UiButton>
       </>}
-    </div>}
-    {open && <Modal title={tr("Favorites")} onClose={() => { if (!busy) setOpen(false); }}>
+    </div> : null}
+    {open && <Modal title={tr("Favorites")} onClose={() => { if (!busy) { setOpen(false); onClose?.(); } }}>
       {!accountUser ? <p>{tr("Synchronization requires a UI account. Temporary S3 sessions cannot save favorites to an account.")}</p> : <div className="space-y-3">
         <p className="ui-caption">{import.meta.env.MODE === "demo" ? tr("Demo: saved locally for this identity.") : tr("Personal to your account, synchronized across browsers.")} Saved in the {current.surface} workspace.</p>
         <UiInput label={editing ? tr("Rename saved item") : tr("Name")} value={name} maxLength={120} onChange={event => setName(event.target.value)} />

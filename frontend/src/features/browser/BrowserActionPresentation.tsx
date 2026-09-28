@@ -119,13 +119,12 @@ export function BrowserToolbarActionMenuItem({
       className={`${contextMenuItemClasses} ${
         !action.enabled ? contextMenuItemDisabledClasses : ""
       }`}
-      onClick={() => { if (action.enabled) onSelect(); }}
-      aria-disabled={!action.enabled}
+      onClick={onSelect}
+      disabled={!action.enabled}
       title={action.disabledReason}
     >
       <BrowserActionIcon actionId={action.id} />
       {action.label}
-      {!action.enabled && action.disabledReason && <span className="ml-auto max-w-64 whitespace-normal ui-caption font-normal">{action.disabledReason}</span>}
     </button>
   );
 }

@@ -2,7 +2,6 @@ import { retireBrowserTransferStorage } from "./browserRetiredTransferStorage";
 import { cloneElement } from "react";
 import type { BrowserFavorite } from "../../api/browserFavorites";
 import BrowserFavoritesControl from "./BrowserFavoritesControl";
-import BrowserSearchControls from "./BrowserSearchControls";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -33,7 +32,6 @@ import {
   uiCardMutedClass,
   uiMenuClass,
 } from "../../components/ui/styles";
-import { useBrowserSelectionVolume } from "./useBrowserSelectionVolume";
 import {
   CLIENT_STORAGE_KEYS,
   writeClientStorage,
@@ -452,7 +450,6 @@ export default function BrowserPage({
   } = useBrowserCopyDialog({ onStatus: setStatusMessage });
   const {
     activeSearchStatusChips,
-    fileFilters, fileFilterQuery, hasFileFilters, setFileFilters,
     changeSearchScope,
     clearSearchFilters,
     filter,
@@ -515,7 +512,6 @@ export default function BrowserPage({
     onWarning: setWarningMessage,
     prefix,
     recursive: searchRecursive,
-    fileFilters: fileFilterQuery,
     requestOptions: browserRequestOptions,
     searchScope,
     showDeletedObjects,
@@ -1828,6 +1824,7 @@ export default function BrowserPage({
     openCreateBucketForm();
   }, [bucketManagementEnabled, openCreateBucketForm, setBucketFilter]);
 
+  const [showFavorites, setShowFavorites] = useState(false);
   const favoriteControl = useMemo(() => (
     <BrowserFavoritesControl
       contextLabels={Object.fromEntries(browserContext.contexts.map(context => [context.id, context.display_name]))}
@@ -2429,7 +2426,7 @@ export default function BrowserPage({
   const browserNoticeShellClasses = "shrink-0 pb-2";
   const browserContentShellClasses =
     "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
-  const toolbarSelectionSummary = useBrowserSelectionVolume(selectedItems, JSON.stringify([accountIdForApi, bucketName, normalizedPrefix]), listAllObjectsForPrefix);
+  const toolbarSelectionSummary = `${selectedCount} selected`;
   const toolbarCanUploadFiles = pathActionStates.uploadFiles.enabled;
   const toolbarCanUploadFolder = pathActionStates.uploadFolder.enabled;
   const toolbarCanCreateFolder = pathActionStates.newFolder.enabled;
@@ -2456,6 +2453,7 @@ export default function BrowserPage({
   const hasToolbarSelectionActions =
     canSelectionActions && toolbarSelectionActions.length > 0;
   const hasToolbarOperationsAction = hasOperationsPanelContent;
+  const hasToolbarStatusSection = Boolean(accessBadge) || hasToolbarOperationsAction;
   const hasToolbarColumnsSection =
     resolvedFunctionalProfile === "advanced";
   const toolbarColumnsSummary = `${effectiveVisibleColumns.length}/${COLUMN_DEFINITIONS.length} visible`;
@@ -2471,7 +2469,7 @@ export default function BrowserPage({
       rootRef={searchControlRef}
       optionsButtonRef={searchOptionsButtonRef}
       optionsMenuRef={searchOptionsMenuRef}
-      advancedOptionsEnabled={true}
+      advancedOptionsEnabled={resolvedFunctionalProfile === "advanced"}
       optionsOpen={showSearchOptionsMenu}
       filter={filter}
       objectNounPlural={workspaceObjectNounPlural}
@@ -2484,10 +2482,6 @@ export default function BrowserPage({
       exactMatch={searchExactMatch}
       caseSensitive={searchCaseSensitive}
       typeFilter={typeFilter}
-      hasFileFilters={hasFileFilters}
-      fileFilters={fileFilters}
-      onFileFiltersChange={setFileFilters}
-      portal={isPortalProfile}
       storageFilter={storageFilter}
       storageClasses={searchableStorageClasses}
       canReset={hasActiveSearchFilters}
@@ -2517,7 +2511,7 @@ export default function BrowserPage({
         <div className={browserShellClasses}>
         <div className={browserChromeShellClasses}>
           <BrowserToolbar
-            helpActions={[...Object.values(pathActionStates).filter((action) => action.section !== "selection"), ...Object.values(selectionActionStates).filter((action) => action.section === "selection")]}
+            onOpenFavorites={isEmbeddedBrowserPath ? () => setShowFavorites(true) : undefined}
             compactMode={compactMode}
             bucketSelector={{
               rootRef: bucketMenuRef,
@@ -2616,7 +2610,7 @@ export default function BrowserPage({
                   }
                 : undefined,
               status: {
-                visible: true,
+                visible: hasToolbarStatusSection,
                 accessBadge,
                 operationsCount: hasToolbarOperationsAction
                   ? operationsPanelTotalCount
@@ -2761,7 +2755,6 @@ export default function BrowserPage({
               />
             )}
             <div className="flex min-h-0 h-full min-w-0 flex-1 flex-col gap-3">
-              {bucketName && <BrowserSearchControls portal={isPortalProfile} scope={searchScope} recursive={searchRecursive} onScope={changeSearchScope} onRecursive={setSearchRecursive} filters={fileFilters} onFilters={setFileFilters} loading={objectsLoading || objectsLoadingMore} partial={objectsIsTruncated} active={hasActiveSearchFilters} empty={listItems.length === 0} foldersOnly={typeFilter === "folder"} failed={Boolean(objectsIssue)} />}
               <BrowserObjectExplorer
                 viewportRef={objectsListViewportRef}
                 dragging={dragging}
@@ -3159,6 +3152,7 @@ export default function BrowserPage({
           onClose={closeNewFolder}
         />
       )}
+      {showFavorites && cloneElement(favoriteControl, { variant: "dialog", onClose: () => setShowFavorites(false) })}
       {archivePreparation && (
         <ConfirmActionDialog
           title={

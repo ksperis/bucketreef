@@ -1,9 +1,8 @@
-import { EMPTY_BROWSER_FILE_FILTERS, browserFileFilterQuery, type BrowserFileFilterDraft } from "./browserFileFilters";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type BrowserSearchScope = "prefix" | "bucket";
 type BrowserSearchTypeFilter = "all" | "file" | "folder";
@@ -28,14 +27,12 @@ export function useBrowserSearch({
     useState<BrowserSearchTypeFilter>("all");
   const [storageFilter, setStorageFilter] = useState("all");
 
-  const [fileFilters, setFileFilters] = useState<BrowserFileFilterDraft>(EMPTY_BROWSER_FILE_FILTERS);
-  const fileFilterQuery = useMemo(() => browserFileFilterQuery(fileFilters), [fileFilters]);
-  const hasFileFilters = Object.values(fileFilters).some(Boolean);
   const hasSearchQuery = filter.trim().length > 0;
   const isSearchingInWholeBucket =
-    searchScope === "bucket";
+    hasSearchQuery && searchScope === "bucket";
   const hasAdvancedSearchOptionsActive =
-    (hasFileFilters || searchScope !== "prefix" ||
+    !isPortalProfile &&
+    (searchScope !== "prefix" ||
       searchRecursive ||
       searchExactMatch ||
       searchCaseSensitive ||
@@ -45,7 +42,7 @@ export function useBrowserSearch({
     hasSearchQuery || hasAdvancedSearchOptionsActive;
   const searchResultScopeLabel = hasSearchQuery
     ? isSearchingInWholeBucket
-      ? isPortalProfile ? "Whole space" : "Whole bucket"
+      ? "Whole bucket"
       : searchRecursive
         ? "Current path + subfolders"
         : "Current path"
@@ -83,7 +80,6 @@ export function useBrowserSearch({
     setSearchCaseSensitive(false);
     setTypeFilter("all");
     setStorageFilter("all");
-    setFileFilters(EMPTY_BROWSER_FILE_FILTERS);
   }, []);
 
   const toggleSearchOptionsMenu = useCallback(() => {
@@ -94,12 +90,34 @@ export function useBrowserSearch({
     setShowSearchOptionsMenu(false);
   }, [scopeKey]);
 
+  useEffect(() => {
+    if (isPortalProfile) {
+      setShowSearchOptionsMenu(false);
+      if (searchScope !== "prefix") setSearchScope("prefix");
+      if (searchRecursive) setSearchRecursive(false);
+      if (searchExactMatch) setSearchExactMatch(false);
+      if (searchCaseSensitive) setSearchCaseSensitive(false);
+      if (typeFilter !== "all") setTypeFilter("all");
+      if (storageFilter !== "all") setStorageFilter("all");
+      return;
+    }
+    if (hasSearchQuery) return;
+    if (searchScope !== "prefix") setSearchScope("prefix");
+    if (searchRecursive) setSearchRecursive(false);
+    if (searchExactMatch) setSearchExactMatch(false);
+    if (searchCaseSensitive) setSearchCaseSensitive(false);
+  }, [
+    hasSearchQuery,
+    isPortalProfile,
+    searchCaseSensitive,
+    searchExactMatch,
+    searchRecursive,
+    searchScope,
+    storageFilter,
+    typeFilter,
+  ]);
 
   return {
-    fileFilters,
-    fileFilterQuery,
-    hasFileFilters,
-    setFileFilters,
     activeSearchStatusChips,
     changeSearchScope,
     clearSearchFilters,

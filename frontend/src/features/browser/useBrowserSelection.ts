@@ -49,11 +49,6 @@ export function useBrowserSelection({
     () => items.filter((item) => selectedSet.has(item.id)),
     [items, selectedSet],
   );
-  const selectedBytes = useMemo(
-    () =>
-      selectedItems.reduce((sum, item) => sum + (item.sizeBytes ?? 0), 0),
-    [selectedItems],
-  );
   const applyRowSelection = useCallback(
     (
       nextIds: string[],
@@ -403,7 +398,6 @@ export function useBrowserSelection({
     removeItemsFromSelection,
     selectAllItems,
     selectableListItems,
-    selectedBytes,
     selectedCount: selectedItems.length,
     selectedIds,
     selectedItems,
