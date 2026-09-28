@@ -3062,7 +3062,6 @@ export default function BrowserPage({
           onClose={closeObjectDetailsDrawer}
           onDownload={handleDownloadTarget}
           onCopyUrl={(item) => handleCopyUrl(item)}
-          onCopyPath={handleCopyPath}
           onDelete={(item) => handleDeleteItems([item])}
           onRefreshBrowserObjects={refreshObjectListing}
           onRestoreVersion={handleRestoreVersion}
