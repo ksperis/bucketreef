@@ -200,7 +200,8 @@ export function RequirePortalAccess() {
 export function RequireCephAdminFeature() {
   const { generalSettings, loading } = useGeneralSettings();
   const { user } = useSession();
-  if (!user || !isAdminLikeRole(user.role) || !user.can_access_ceph_admin) {
+  const canAccessCephAdmin = user?.effective_access?.can_access_ceph_admin ?? user?.can_access_ceph_admin;
+  if (!user || !isAdminLikeRole(user.role) || !canAccessCephAdmin) {
     return unauthorizedRoute();
   }
   return renderWorkspaceFeature(loading, generalSettings.ceph_admin_enabled, "Ceph Admin");
@@ -210,7 +211,8 @@ export function RequireStorageOpsFeature() {
   const { generalSettings, loading } = useGeneralSettings();
   const { user } = useSession();
   const canUseStorageOpsRole = Boolean(user && (isAdminLikeRole(user.role) || user.role === USER_ROLE));
-  if (!user || !canUseStorageOpsRole || !user.can_access_storage_ops) {
+  const canAccessStorageOps = user?.effective_access?.can_access_storage_ops ?? user?.can_access_storage_ops;
+  if (!user || !canUseStorageOpsRole || !canAccessStorageOps) {
     return unauthorizedRoute();
   }
   return renderWorkspaceFeature(loading, generalSettings.storage_ops_enabled, "Storage Ops");
