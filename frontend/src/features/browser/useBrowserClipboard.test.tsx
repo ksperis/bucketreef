@@ -330,6 +330,13 @@ describe("explicit transfer destinations", () => {
     expect(apiMocks.copyObject).toHaveBeenCalledTimes(2);
     expect(apiMocks.copyObject.mock.calls.map(call => call[2].destination_key)).toEqual(["docs/", "docs/a"]);
   });
+  it("keeps the visible prefix after copying to another folder", async () => {
+    const options = { ...createOptions(), normalizedPrefix: "reports/" };
+    const { result } = renderHook(() => useBrowserClipboard(options));
+    await act(() => result.current.transferTo([item("reports/a.txt")], { bucket: "source-bucket", prefix: "reports/nested/" }, "copy"));
+    expect(apiMocks.copyObject).toHaveBeenCalledWith("acc-1", "source-bucket", expect.objectContaining({ destination_key: "reports/nested/a.txt" }), expect.any(AbortSignal), undefined);
+    expect(options.onRefreshNow).toHaveBeenCalledWith("reports/");
+  });
   it("reports a retained source as a partial move", async () => {
     const options = createOptions();
     apiMocks.copyObject.mockResolvedValue({ copied: true, source_deleted: false, reason: "Copied, not deleted: the source changed." });

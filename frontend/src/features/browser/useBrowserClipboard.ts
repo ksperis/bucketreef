@@ -623,7 +623,7 @@ export function useBrowserClipboard({
         onStatus(
           `${isMove ? "Move" : "Copy"} cancelled after ${succeeded} of ${total} item(s).`,
         );
-        await onRefreshNow(destinationPrefix);
+        await onRefreshNow(normalizedPrefix);
         return;
       }
 
@@ -637,7 +637,7 @@ export function useBrowserClipboard({
       onStatus(
         `${isMove ? "Moved" : "Copied"} ${total - failures} of ${total} item(s).`,
       );
-      await onRefreshNow(destinationPrefix);
+      await onRefreshNow(normalizedPrefix);
       if (isMove && failures === 0) setClipboard(null);
     } catch (caughtError) {
       if (isAbortError(caughtError) || controller.signal.aborted) {
@@ -646,7 +646,7 @@ export function useBrowserClipboard({
         onStatus(
           `${isMove ? "Move" : "Copy"} cancelled after ${succeeded} of ${total} item(s).`,
         );
-        await onRefreshNow(destinationPrefix);
+        await onRefreshNow(normalizedPrefix);
         return;
       }
       const completionError = formatBrowserOperationError(
