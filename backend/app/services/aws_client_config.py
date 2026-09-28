@@ -24,6 +24,8 @@ def build_aws_config(
     settings = get_settings()
     kwargs: dict[str, Any] = {
         "signature_version": signature_version,
+        "request_checksum_calculation": "when_required",
+        "response_checksum_validation": "when_required",
         "connect_timeout": float(settings.storage_interactive_connect_timeout_seconds),
         "read_timeout": float(
             settings.storage_long_running_read_timeout_seconds

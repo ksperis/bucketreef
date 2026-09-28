@@ -80,7 +80,7 @@ def _is_portal_browser_basic_route_allowed(request: Request) -> bool:
             "versions",
         }:
             return True
-        if method == "POST" and operation in {"presign", "delete", "folders", "proxy-upload"}:
+        if method == "POST" and operation in {"presign", "delete", "folders", "proxy-upload", "write-preflight"}:
             return True
         return False
 

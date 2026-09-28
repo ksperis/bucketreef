@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -39,6 +40,7 @@ type BrowserTransferDownloadParams = BrowserTransferObjectRef & {
 };
 
 type BrowserTransferUploadParams = BrowserTransferObjectRef & {
+  writeGuard?: BrowserWriteGuard;
   mode: BrowserTransferMode;
   blob: Blob;
   contentType?: string | null;
@@ -136,6 +138,7 @@ export const downloadBrowserTransferStream = async (
 };
 
 export const uploadBrowserTransferBlob = async ({
+  writeGuard,
   selector,
   bucket,
   key,
@@ -157,6 +160,7 @@ export const uploadBrowserTransferBlob = async ({
       sseCustomerKeyBase64,
       key.split("/").pop() || "upload.bin",
       options,
+      writeGuard,
     );
     return;
   }
@@ -166,6 +170,7 @@ export const uploadBrowserTransferBlob = async ({
     {
       key,
       operation: "put_object",
+      write_guard: writeGuard,
       content_type: contentType ?? undefined,
       expires_in: 1800,
     },

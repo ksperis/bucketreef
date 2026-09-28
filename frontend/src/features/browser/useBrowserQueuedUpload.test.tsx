@@ -182,6 +182,7 @@ describe("useBrowserQueuedUpload", () => {
       "prefix/docs/report.txt",
       { parts: [{ part_number: 1, etag: "etag-1" }] },
       options.requestOptions,
+      options.sseCustomerKeyBase64,
     );
     expect(options.updateOperation).toHaveBeenCalledWith("op-1", {
       progress: 60,

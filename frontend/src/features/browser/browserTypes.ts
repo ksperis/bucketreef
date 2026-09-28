@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -64,6 +65,7 @@ export type UploadCandidate = {
 };
 
 export type UploadQueueItem = {
+  writeGuard?: BrowserWriteGuard;
   id: string;
   file: File;
   relativePath: string;

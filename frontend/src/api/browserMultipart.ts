@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "./browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -54,6 +55,7 @@ export type PresignPartResponse = {
 };
 
 type CompleteMultipartUploadRequest = {
+  write_guard?: BrowserWriteGuard;
   parts: Array<{ part_number: number; etag: string }>;
 };
 
@@ -133,13 +135,14 @@ export async function completeMultipartUpload(
   key: string,
   payload: CompleteMultipartUploadRequest,
   options?: BrowserRequestOptions,
+  sseCustomerKeyBase64?: string | null,
 ): Promise<void> {
   await client.post(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}/complete`,
     payload,
     {
       params: withS3AccountParam({ key }, accountId),
-      headers: buildBrowserWorkspaceHeaders(options),
+      headers: mergeBrowserHeaders(buildBrowserWorkspaceHeaders(options), buildSseCustomerBackendHeaders(sseCustomerKeyBase64)),
     },
   );
 }

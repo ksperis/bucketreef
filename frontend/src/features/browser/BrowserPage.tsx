@@ -1,3 +1,4 @@
+import { useBrowserWriteConflicts } from "./useBrowserWriteConflicts";
 /*
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -1350,6 +1351,8 @@ export default function BrowserPage({
     requestOptions: browserRequestOptions,
   });
 
+  const { prepare: prepareWrites, conflictDialog } = useBrowserWriteConflicts(accountIdForApi, bucketName, browserRequestOptions, sseCustomerKeyBase64, isVersioningEnabled);
+
   const {
     canPaste: canPasteInFunctionalProfile,
     clipboard,
@@ -1357,6 +1360,7 @@ export default function BrowserPage({
     cut: handleCutItems,
     paste: handlePasteItems,
   } = useBrowserClipboard({
+    prepareWrites,
     accountId: accountIdForApi,
     bucketName,
     cancelCopyDetails,
@@ -1967,6 +1971,7 @@ export default function BrowserPage({
     handleFolderInputChange,
     removeQueuedUpload,
   } = useBrowserUploadQueue({
+    prepareWrites,
     accountId: accountIdForApi,
     bucketName,
     cancelOperationController,
@@ -2827,6 +2832,7 @@ export default function BrowserPage({
           summary={toolbarSelectionSummary}
         />
       )}
+      {conflictDialog}
       <BrowserContextMenu
         contextMenu={contextMenu}
         contextMenuRef={contextMenuRef}

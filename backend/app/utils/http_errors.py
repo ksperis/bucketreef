@@ -38,6 +38,8 @@ def _structured_upstream_status_code(exc: Exception) -> int | None:
             error = response.get("Error") or {}
             code = str(error.get("Code") or "").lower()
             upstream_status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if upstream_status in {409, 412} or code in {"preconditionfailed", "conditionalrequestconflict"}:
+                return status.HTTP_409_CONFLICT
             if upstream_status in {401, 403} or code in {
                 "accessdenied",
                 "invalidaccesskeyid",
@@ -45,6 +47,8 @@ def _structured_upstream_status_code(exc: Exception) -> int | None:
             }:
                 return status.HTTP_403_FORBIDDEN
         upstream_status = getattr(current, "status_code", None)
+        if upstream_status in {409, 412}:
+            return status.HTTP_409_CONFLICT
         if upstream_status in {401, 403}:
             return status.HTTP_403_FORBIDDEN
         if upstream_status in {408, 504}:

@@ -221,6 +221,7 @@ describe("browser object transfer transport", () => {
       undefined,
       "upload.bin",
       { workspaceSurface: "manager" },
+      undefined,
     );
     expect(apiMocks.presignObject).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();

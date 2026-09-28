@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "./browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -23,6 +24,7 @@ export type UploadProgressEvent = {
 export type PresignOperation = "get_object" | "put_object" | "delete_object";
 
 export type PresignRequest = {
+  write_guard?: BrowserWriteGuard;
   key: string;
   operation: PresignOperation;
   expires_in?: number;
@@ -79,8 +81,10 @@ export async function proxyUpload(
   sseCustomerKeyBase64?: string | null,
   fileName?: string,
   options?: BrowserRequestOptions,
+  writeGuard?: BrowserWriteGuard,
 ): Promise<void> {
   const form = new FormData();
+  if (writeGuard) form.append("write_guard", JSON.stringify(writeGuard));
   form.append("key", key);
   form.append("content_type", file.type || "application/octet-stream");
   const inferredName =
