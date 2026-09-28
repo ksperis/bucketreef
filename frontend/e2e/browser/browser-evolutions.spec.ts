@@ -1,13 +1,12 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import { expect, test, type Page } from "@playwright/test";
-import { S3Client, PutObjectCommand, PutBucketCorsCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, PutBucketCorsCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
 import { readFile } from "node:fs/promises";
 import { E2E_BUCKET_NAME, E2E_S3_ENDPOINT, E2E_S3_ACCESS_KEY, E2E_S3_SECRET_KEY, E2E_S3_REGION, E2E_USER_EMAIL, E2E_USER_PASSWORD } from "../helpers/config";
 
 const s3 = new S3Client({ endpoint: E2E_S3_ENDPOINT, region: E2E_S3_REGION, forcePathStyle: true, requestChecksumCalculation: "WHEN_REQUIRED", credentials: { accessKeyId: E2E_S3_ACCESS_KEY, secretAccessKey: E2E_S3_SECRET_KEY } });
 const prefix = `evolutions-${Date.now()}/`;
-const jsonVersions: string[] = [];
 test.use({ video: "off", trace: "off", screenshot: "off" });
 test.beforeEach(({ page }) => { page.setDefaultTimeout(15_000); });
 async function open(page: Page) {
@@ -29,8 +28,7 @@ async function more(page: Page) {
 test.beforeAll(async () => {
   await s3.send(new PutBucketCorsCommand({ Bucket: E2E_BUCKET_NAME, CORSConfiguration: { CORSRules: [{ AllowedOrigins: ["*"], AllowedMethods: ["GET", "PUT", "HEAD"], AllowedHeaders: ["*"], ExposeHeaders: ["ETag"] }] } }));
   for (const [key, body] of [["data.csv", "name,value\nAlice,42\n"], ["version.json", '{"revision":1}\n'], ["version.json", '{"revision":2}\n'], ["nested/readme.txt", "nested content"], ["empty/", ""]]) {
-    const uploaded = await s3.send(new PutObjectCommand({ Bucket: E2E_BUCKET_NAME, Key: prefix + key, Body: Buffer.from(body), ContentType: key.endsWith("json") ? "application/json" : key.endsWith("csv") ? "text/csv" : "text/plain" }));
-    if (key === "version.json") jsonVersions.push(uploaded.VersionId!);
+    await s3.send(new PutObjectCommand({ Bucket: E2E_BUCKET_NAME, Key: prefix + key, Body: Buffer.from(body), ContentType: key.endsWith("json") ? "application/json" : key.endsWith("csv") ? "text/csv" : "text/plain" }));
   }
 });
 
@@ -118,26 +116,4 @@ test("resolves an upload conflict, renames and downloads a mixed ZIP", async ({ 
   const archive = await JSZip.loadAsync(await readFile((await download.path())!));
   expect(Object.keys(archive.files).filter(key => !archive.files[key].dir).sort()).toEqual(["data.csv", "nested/readme.txt"]);
   expect(await archive.file("nested/readme.txt")!.async("string")).toBe("nested content");
-});
-
-test("previews and compares exact historical JSON versions without changing the current object", async ({ page }) => {
-  await open(page);
-  await page.getByRole("button", { name: "More actions for version.json", exact: true }).click();
-  await page.getByRole("menu").getByRole("button", { name: "Versions", exact: true }).click();
-  const drawer = page.getByRole("complementary", { name: "version.json", exact: true });
-  await drawer.getByRole("combobox", { name: "First version", exact: true }).selectOption(jsonVersions[0]);
-  await drawer.getByRole("combobox", { name: "Second version", exact: true }).selectOption(jsonVersions[1]);
-  await drawer.getByRole("button", { name: "Preview version", exact: true }).click();
-  const inspection = page.getByRole("dialog", { name: "Read-only version inspection" });
-  await expect(inspection).toContainText("revision: 1");
-  await expect(inspection.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
-  await inspection.getByRole("button", { name: "Raw text", exact: true }).click();
-  await expect(inspection.locator("pre")).toHaveText('{"revision":1}\n');
-  await page.keyboard.press("Escape");
-  await drawer.getByRole("button", { name: "Compare versions", exact: true }).click();
-  await expect(inspection.locator("pre")).toContainText('− {"revision":1}');
-  await expect(inspection.locator("pre")).toContainText('+ {"revision":2}');
-  const current = await s3.send(new GetObjectCommand({ Bucket: E2E_BUCKET_NAME, Key: prefix + "version.json" }));
-  expect(current.VersionId).toBe(jsonVersions[1]);
-  expect(await current.Body!.transformToString()).toBe('{"revision":2}\n');
 });

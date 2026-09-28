@@ -2,7 +2,6 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { ReactNode } from "react";
 import type {
   PortalStorageObjectVersion,
   PortalStorageObjectVersionsResponse,
@@ -17,7 +16,6 @@ import { formatBytes } from "../../utils/format";
 import { portalDateTimeLabel } from "./portalI18n";
 
 type PortalObjectHistoryPanelProps = {
-  inspector?: ReactNode;
   history: PortalStorageObjectVersionsResponse | null;
   loading: boolean;
   error: string | null;
@@ -28,7 +26,6 @@ type PortalObjectHistoryPanelProps = {
 };
 
 export default function PortalObjectHistoryPanel({
-  inspector,
   history,
   loading,
   error,
@@ -50,7 +47,6 @@ export default function PortalObjectHistoryPanel({
         })}
       </PageBanner>
 
-      {inspector}
       <UiCard
         actions={
           <UiButton size="xs" variant="secondary" onClick={onRetry} disabled={loading}>

@@ -43,10 +43,9 @@ export function useBrowserObjectPreview({
   useProxyTransfers,
 }: UseBrowserObjectPreviewOptions) {
   const loadBlob = useCallback(
-    async (signal: AbortSignal, versionId?: string): Promise<ObjectPreviewLoadResult> => {
+    async (signal: AbortSignal): Promise<ObjectPreviewLoadResult> => {
       const previewRequest: PresignRequest = {
         key: objectKey,
-        ...(versionId != null ? { version_id: versionId } : {}),
         operation: "get_object",
         expires_in: 900,
         response_content_disposition: buildInlinePreviewDisposition(objectName),
@@ -59,7 +58,6 @@ export function useBrowserObjectPreview({
             signal,
             sseCustomerKeyBase64,
             requestOptions,
-            versionId,
           )
         : await (async () => {
             const presign = await presignObjectRequest(
