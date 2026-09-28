@@ -20,7 +20,7 @@ describe("local multipart recovery", () => {
     const input = options(); await uploadResumableBrowserFile(input);
     expect(input.lifecycle.initiate).not.toHaveBeenCalled();
     expect(input.lifecycle.uploadPart).toHaveBeenCalledWith("s3-id", 2, expect.any(Blob), expect.any(AbortSignal));
-    expect(input.lifecycle.complete).toHaveBeenCalledWith("s3-id", [{ part_number: 1, etag: "one", size: 4 }, { part_number: 2, etag: "two" }]);
+    expect(input.lifecycle.complete).toHaveBeenCalledWith("s3-id", [{ part_number: 1, etag: "one" }, { part_number: 2, etag: "two" }]);
     expect(mocks.remove).toHaveBeenCalledWith("saved");
   });
   it("rejects wrong contents before reading or changing any remote parts", async () => {

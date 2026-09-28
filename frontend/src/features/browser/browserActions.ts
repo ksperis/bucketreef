@@ -196,6 +196,7 @@ export const TOOLBAR_MORE_SELECTION_FULL_ACTION_IDS: BrowserActionId[] = [
 ];
 
 export const TOOLBAR_MORE_SELECTION_OVERFLOW_ACTION_IDS: BrowserActionId[] = [
+  "downloadZip",
   "copyUrl",
   "cut",
   "rename",

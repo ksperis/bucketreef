@@ -223,6 +223,7 @@ class BrowserWritePreflightRequest(ApiModel):
 
 
 class PresignRequest(ApiModel):
+    if_match: Optional[str] = None
     write_guard: Optional[BrowserWriteGuard] = None
     key: str
     operation: Literal["get_object", "put_object", "delete_object"]

@@ -87,6 +87,8 @@ describe("browser object transfer transport", () => {
       signal,
       "secret",
       { workspaceSurface: "manager" },
+      undefined,
+      undefined,
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });

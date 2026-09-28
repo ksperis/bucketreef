@@ -1,3 +1,4 @@
+import { DownloadIcon } from "./browserIcons";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -51,11 +52,11 @@ export default function BrowserTransfersControl({ owner, workspace, accountId, c
   };
   const destinationButton = (target: NonNullable<OperationItem["destination"]>) => <UiButton size="sm" variant="secondary" disabled={!available(target)} onClick={() => { onOpenDestination(target); setOpen(false); }}>{t({ en: "Open destination", fr: "Ouvrir la destination", de: "Ziel öffnen", zh: "打开目标位置" })}</UiButton>;
   return <>
-    <UiButton size="sm" variant="secondary" onClick={() => setOpen(true)}>{t({ en: "Transfers and recovery", fr: "Transferts et reprise", de: "Transfers und Wiederaufnahme", zh: "传输和恢复" })}</UiButton>
+    <UiButton size="sm" variant="secondary" aria-label={t({ en: "Transfers and recovery", fr: "Transferts et reprise", de: "Transfers und Wiederaufnahme", zh: "传输和恢复" })} title={t({ en: "Transfers and recovery", fr: "Transferts et reprise", de: "Transfers und Wiederaufnahme", zh: "传输和恢复" })} onClick={() => setOpen(true)}><DownloadIcon className="h-4 w-4" /></UiButton>
     {open ? <Modal title={t({ en: "Transfers and local recovery", fr: "Transferts et reprise locale", de: "Transfers und lokale Wiederaufnahme", zh: "传输和本地恢复" })} maxWidthClass="max-w-4xl" onClose={() => setOpen(false)}>
       <div className="space-y-4">
         <p className="ui-body">{t({ en: "Closing the browser stops transfers. Resume explicitly after signing in and selecting the original file. Files, credentials and encryption keys are never stored here. Clearing browser storage loses recovery information.", fr: "Fermer le navigateur interrompt les transferts. Pour reprendre, reconnectez-vous et sélectionnez le fichier original. Aucun fichier, identifiant S3 ou clé de chiffrement n’est stocké ici. Effacer le stockage du navigateur supprime le suivi.", de: "Das Schließen des Browsers stoppt Transfers. Melden Sie sich an und wählen Sie die Originaldatei zur Wiederaufnahme. Dateien, Zugangsdaten und Schlüssel werden hier nicht gespeichert. Beim Löschen des Browserspeichers gehen Wiederaufnahmedaten verloren.", zh: "关闭浏览器会停止传输。登录后选择原始文件以手动恢复。此处不保存文件、凭据或加密密钥。清除浏览器存储会丢失恢复信息。" })}</p>
-        {!owner ? <p>{t({ en: "A UI account is required for local recovery tied to an identity.", fr: "Un compte UI est nécessaire pour associer les reprises locales à une identité.", de: "Für identitätsgebundene Wiederaufnahme ist ein UI-Konto erforderlich.", zh: "需要 UI 账户才能按身份保存本地恢复信息。" })}</p> : null}
+        {!owner ? <p>{t({ en: "The current session cannot identify saved transfers. Sign in again to enable local recovery.", fr: "La session actuelle ne permet pas d’identifier les transferts enregistrés. Reconnectez-vous pour activer la reprise locale.", de: "Die aktuelle Sitzung kann gespeicherte Transfers nicht zuordnen. Melden Sie sich für die lokale Wiederaufnahme erneut an.", zh: "当前会话无法识别已保存的传输。请重新登录以启用本地恢复。" })}</p> : null}
         {error ? <p role="alert" className="text-rose-700 dark:text-rose-300">{error}</p> : null}
         {operations.length ? <section className="space-y-2"><h4 className="ui-subtitle">{t({ en: "This session", fr: "Cette session", de: "Diese Sitzung", zh: "本次会话" })}</h4>{operations.filter(op => op.kind !== "activity").map(op => <div key={op.id} className="rounded border border-[var(--ui-border)] p-2">
           <p className="break-all ui-caption">{op.label} · {op.path} · {op.completedAt ? operationCompletionLabel(op.completionStatus) : `${op.progress}%`}</p>

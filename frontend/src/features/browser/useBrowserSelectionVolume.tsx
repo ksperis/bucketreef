@@ -1,3 +1,4 @@
+import { useBrowserText } from "./browserMessages";
 import { useEffect, useRef, useState } from "react";
 import { ListActionButton } from "../../components/list/ListControls";
 import { formatBytes } from "../../utils/format";
@@ -6,6 +7,7 @@ import type { BrowserItem } from "./browserTypes";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 
 export function useBrowserSelectionVolume(items: BrowserItem[], scope: string, list: ListAllBrowserObjectsForPrefix) {
+  const tr = useBrowserText();
   const key = JSON.stringify([scope, items.map((item) => [item.id, item.sizeBytes, item.etag])]);
   const controller = useRef<AbortController | null>(null);
   const [state, setState] = useState<{ key: string; bytes?: number; progress?: string; error?: string } | null>(null);
@@ -19,7 +21,7 @@ export function useBrowserSelectionVolume(items: BrowserItem[], scope: string, l
     controller.current?.abort();
     const active = new AbortController();
     controller.current = active;
-    setState({ key, progress: "Calculating…" });
+    setState({ key, progress: tr("Calculating…") });
     try {
       const objects = await buildBrowserSelectionManifest(items, list, active.signal,
         (done, total) => setState({ key, progress: `${done}/${total} folders` }));
@@ -29,9 +31,10 @@ export function useBrowserSelectionVolume(items: BrowserItem[], scope: string, l
     }
   };
   return <span className="inline-flex flex-wrap items-center gap-1.5">
-    <span>{files} file{files === 1 ? "" : "s"} · {folders} folder{folders === 1 ? "" : "s"} · {formatBytes(current?.bytes ?? known)}{current?.bytes == null && unknown > 0 ? " known; remaining volume not calculated" : ""}</span>
-    {unknown > 0 && current?.bytes == null && !current?.progress && <ListActionButton onClick={() => void calculate()}>Calculate volume</ListActionButton>}
-    {current?.progress && <><span>{current.progress}</span><ListActionButton onClick={() => { controller.current?.abort(); setState(null); }}>Cancel calculation</ListActionButton></>}
+    {items.length === 1 && <span className="max-w-48 truncate" title={items[0].key}>{items[0].name} · </span>}
+    <span>{files} file{files === 1 ? "" : "s"} · {folders} folder{folders === 1 ? "" : "s"} · {formatBytes(current?.bytes ?? known)}{current?.bytes == null && unknown > 0 ? tr(" known; remaining volume not calculated") : ""}</span>
+    {unknown > 0 && current?.bytes == null && !current?.progress && <ListActionButton onClick={() => void calculate()}>{tr("Calculate volume")}</ListActionButton>}
+    {current?.progress && <><span>{current.progress}</span><ListActionButton onClick={() => { controller.current?.abort(); setState(null); }}>{tr("Cancel calculation")}</ListActionButton></>}
     {current?.error && <span role="alert">{current.error}</span>}
   </span>;
 }

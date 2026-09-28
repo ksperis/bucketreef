@@ -261,17 +261,18 @@ describe("BrowserToolbar", () => {
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     const menu = screen.getByRole("menu", { name: "More" });
     expect(within(menu).getByText("STS")).toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Display" }));
     expect(
-      within(menu).getByRole("menuitemradio", { name: "Compact" }),
+      within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitemradio", { name: "Compact" }),
     ).toHaveAttribute("aria-checked", "true");
     expect(
-      within(menu).getByRole("menuitemradio", {
+      within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitemradio", {
         name: "Comfortable",
       }),
     ).toHaveAttribute("aria-checked", "false");
     const pathHeading = within(menu).getByText("Current path");
     const technicalHeading = within(menu).getByText("Technical tools");
-    const browserViewHeading = within(menu).getByText("Browser view");
+    const browserViewHeading = within(menu).getByRole("menuitem", { name: "Help and shortcuts" });
     expect(
       pathHeading.compareDocumentPosition(technicalHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -285,10 +286,10 @@ describe("BrowserToolbar", () => {
     ).not.toBeInTheDocument();
     expect(within(menu).queryByText("Selection overflow")).not.toBeInTheDocument();
     expect(
-      within(menu).getByRole("menuitemcheckbox", { name: "Folders panel" }),
+      within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitemcheckbox", { name: "Folders panel" }),
     ).toHaveAttribute("aria-checked", "true");
     fireEvent.click(
-      within(menu).getByRole("menuitem", { name: /^Columns/i }),
+      within(screen.getByRole("menu", { name: "Display" })).getByRole("menuitem", { name: /^Columns/i }),
     );
     expect(screen.getByRole("menu", { name: "Columns" })).toBeInTheDocument();
 
@@ -296,8 +297,9 @@ describe("BrowserToolbar", () => {
       within(menu).getByRole("menuitem", { name: "Operations overview" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Display" }));
     fireEvent.click(
-      within(screen.getByRole("menu", { name: "More" })).getByRole(
+      within(screen.getByRole("menu", { name: "Display" })).getByRole(
         "menuitemcheckbox",
         { name: "Folders panel" },
       ),
@@ -389,8 +391,9 @@ describe("BrowserToolbar", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Display" }));
     fireEvent.click(
-      within(screen.getByRole("menu", { name: "More" })).getByRole(
+      within(screen.getByRole("menu", { name: "Display" })).getByRole(
         "menuitemradio",
         { name: "Comfortable" },
       ),

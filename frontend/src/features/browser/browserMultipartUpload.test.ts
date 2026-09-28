@@ -20,6 +20,16 @@ const createLifecycle = (): BrowserMultipartUploadLifecycle => ({
 });
 
 describe("browser multipart uploads", () => {
+  it("streams proxy parts and aborts instead of completing a truncated source", async () => {
+    const lifecycle = createLifecycle();
+    lifecycle.uploadPart = vi.fn().mockResolvedValue("etag");
+    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new Uint8Array(9)); controller.close(); } });
+    await expect(uploadBrowserStreamMultipart({ stream, sizeBytes: 10, partSize: 5, lifecycle })).rejects.toThrow("size mismatch");
+    expect(lifecycle.uploadPart).toHaveBeenCalledOnce();
+    expect(lifecycle.presignPart).not.toHaveBeenCalled();
+    expect(lifecycle.complete).not.toHaveBeenCalled();
+    expect(lifecycle.abort).toHaveBeenCalledWith("upload-1");
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", fetchMock);

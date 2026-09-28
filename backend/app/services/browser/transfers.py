@@ -120,12 +120,15 @@ class BrowserTransfersMixin:
         key: str,
         *,
         version_id: Optional[str] = None,
+        if_match: Optional[str] = None,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> S3ObjectDownload:
         client = self._client(account, request_profile="long_running")
         kwargs = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
+        if if_match:
+            kwargs["IfMatch"] = '"' + if_match.strip('"') + '"'
         kwargs.update(self._sse_customer_params(sse_customer))
         try:
             resp = client.get_object(**kwargs)

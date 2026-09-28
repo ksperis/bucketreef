@@ -79,6 +79,7 @@ export type BrowserObjectsQuery = {
   type?: "all" | "file" | "folder";
   storageClass?: string;
   recursive?: boolean;
+  includeFolderMarkers?: boolean;
   sortBy?: "name" | "size" | "modified" | "storage_class" | "etag";
   sortDir?: "asc" | "desc";
 };

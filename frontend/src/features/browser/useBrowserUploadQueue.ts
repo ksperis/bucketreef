@@ -187,7 +187,7 @@ export function useBrowserUploadQueue({
 
   const addFiles = useCallback(
     async (items: UploadCandidate[]) => {
-      if (!bucketName || !enabled || !accountId || items.length === 0) return;
+      if (!bucketName || !enabled || items.length === 0) return;
       if (items.length > 1) onShowOperations();
       onWarning(null);
       const batchId = makeId();
@@ -207,7 +207,8 @@ export function useBrowserUploadQueue({
           relativePath,
           key: `${normalizedPrefix}${relativePath}`,
           bucket: bucketName,
-          accountId: String(accountId),
+          // Empty selector means the authenticated S3 session's bound identity.
+          accountId: String(accountId ?? ""),
           groupId: grouping.groupId,
           groupLabel: grouping.groupLabel,
           groupKind: grouping.groupKind,

@@ -79,7 +79,7 @@ export const uploadBrowserFileMultipart = async ({
     const end = Math.min(start + partSize, file.size);
     return { partNumber, start, end, size: end - start };
   });
-  const completedParts: CompletedPart[] = [...(resume?.parts ?? [])];
+  const completedParts: CompletedPart[] = (resume?.parts ?? []).map(({ part_number, etag }) => ({ part_number, etag }));
   const alreadyCompleted = new Set(completedParts.map(part => part.part_number));
   const transferController = new AbortController();
   const forwardAbort = () => transferController.abort(controller.signal.reason);
@@ -169,17 +169,29 @@ export const uploadBrowserStreamMultipart = async ({
   signal,
   lifecycle,
 }: UploadStreamMultipartParams): Promise<void> => {
+  if (partSize <= 0 || partSize > 5 * 1024 ** 3 || Math.ceil(sizeBytes / partSize) > 10000) throw new Error("File exceeds multipart upload limits.");
   let uploadId: string | null = null;
   const completedParts: CompletedPart[] = [];
   const reader = stream.getReader();
   let pending = new Uint8Array(0);
   let partNumber = 1;
+  let receivedBytes = 0;
 
   const flushPart = async (partBytes: Uint8Array) => {
     if (!uploadId) {
       throw new Error("Missing multipart upload ID.");
     }
     const currentPartNumber = partNumber;
+    if (signal?.aborted) throw new DOMException("Transfer cancelled", "AbortError");
+    if (currentPartNumber > 10000) throw new Error("Multipart part limit exceeded.");
+    const body = new Blob([new Uint8Array(partBytes).buffer], { type: contentType || "application/octet-stream" });
+    if (lifecycle.uploadPart) {
+      const etag = await lifecycle.uploadPart(uploadId, currentPartNumber, body, signal ?? new AbortController().signal);
+      if (!etag) throw new Error("Missing ETag from multipart upload.");
+      completedParts.push({ part_number: currentPartNumber, etag });
+      partNumber += 1;
+      return;
+    }
     const presignedPart = await lifecycle.presignPart(
       uploadId,
       currentPartNumber,
@@ -213,6 +225,8 @@ export const uploadBrowserStreamMultipart = async ({
       const { done, value } = await reader.read();
       if (done) break;
       if (!value || value.byteLength === 0) continue;
+      receivedBytes += value.byteLength;
+      if (receivedBytes > sizeBytes) throw new Error("Source changed during transfer (size mismatch).");
       const combined = new Uint8Array(pending.byteLength + value.byteLength);
       combined.set(pending, 0);
       combined.set(value, pending.byteLength);
@@ -224,12 +238,14 @@ export const uploadBrowserStreamMultipart = async ({
       }
     }
 
+    if (receivedBytes !== sizeBytes) throw new Error("Source changed during transfer (size mismatch).");
     if (pending.byteLength > 0 || sizeBytes === 0) {
       await flushPart(pending);
     }
     completedParts.sort((left, right) => left.part_number - right.part_number);
     await lifecycle.complete(startedUploadId, completedParts);
   } catch (error) {
+    await reader.cancel().catch(() => undefined);
     await abortStartedUpload(uploadId, lifecycle);
     throw error;
   } finally {

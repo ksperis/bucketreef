@@ -81,7 +81,7 @@ export function useBrowserQueuedUpload({
 }: UseBrowserQueuedUploadOptions) {
   return useCallback(
     async function runUpload(item: UploadQueueItem): Promise<boolean> {
-      if (!item.bucket || !item.accountId) return false;
+      if (!item.bucket) return false;
       const {
         file,
         relativePath,

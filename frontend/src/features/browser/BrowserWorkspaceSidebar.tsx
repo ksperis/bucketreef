@@ -2,7 +2,9 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { Ref } from "react";
+import { useState, type Ref, type ReactNode } from "react";
+import BrowserUtilityIcon from "./BrowserUtilityIcon";
+import { useBrowserText } from "./browserMessages";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
 import UiMeterBar from "../../components/ui/UiMeterBar";
@@ -25,6 +27,7 @@ type BrowserWorkspaceSidebarBucketRow = {
 };
 
 type BrowserWorkspaceSidebarProps = {
+  favorites?: ReactNode;
   compact: boolean;
   variant: "desktop" | "mobile";
   isPortalContext: boolean;
@@ -91,6 +94,7 @@ function formatUsagePercent(summary: BrowserUsageSummary): number | null {
 }
 
 export default function BrowserWorkspaceSidebar({
+  favorites,
   compact,
   variant,
   isPortalContext,
@@ -117,6 +121,8 @@ export default function BrowserWorkspaceSidebar({
   onLoadMore,
   workspaceAccountAction,
 }: BrowserWorkspaceSidebarProps) {
+  const tr = useBrowserText();
+  const [tab, setTab] = useState<"buckets" | "favorites">("buckets");
   const title = isPortalContext ? "Storage Spaces" : "Buckets";
   const searchPlaceholder = isPortalContext ? "Search storage spaces" : "Search buckets";
   const hasUsageGauge =
@@ -147,6 +153,12 @@ export default function BrowserWorkspaceSidebar({
       aria-label={title}
       data-testid="browser-workspace-sidebar"
     >
+      {favorites && <div role="tablist" aria-label={tr("Favorites and views")} className="flex shrink-0 border-b border-[color:var(--shell-border-soft)]">
+        {(["buckets", "favorites"] as const).map(value => <button key={value} type="button" role="tab" id={`browser-${variant}-${value}-tab`} aria-controls={`browser-${variant}-${value}-panel`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} aria-label={value === "buckets" ? title : tr("Favorites")} className={`flex min-w-0 flex-1 items-center justify-center gap-2 border-b-2 px-2 py-3 text-xs font-medium ${tab === value ? "border-primary text-primary" : "border-transparent text-[var(--shell-muted-text)]"}`} onClick={() => setTab(value)} onKeyDown={event => {
+          if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); const next = event.key === "Home" ? "buckets" : event.key === "End" ? "favorites" : value === "buckets" ? "favorites" : "buckets"; setTab(next); document.getElementById(`browser-${variant}-${next}-tab`)?.focus(); }
+        }}>{value === "buckets" ? <BucketIcon className="h-4 w-4" /> : <BrowserUtilityIcon name="star" />}{!compact && (value === "buckets" ? title : tr("Favorites"))}</button>)}
+      </div>}
+      {favorites && tab === "favorites" ? <div role="tabpanel" id={`browser-${variant}-favorites-panel`} aria-labelledby={`browser-${variant}-favorites-tab`} className="flex min-h-0 flex-1 flex-col">{favorites}</div> : <div role={favorites ? "tabpanel" : undefined} id={`browser-${variant}-buckets-panel`} aria-labelledby={favorites ? `browser-${variant}-buckets-tab` : undefined} className="flex min-h-0 flex-1 flex-col">
       {!compact && (
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[color:var(--shell-border-soft)] px-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -297,6 +309,7 @@ export default function BrowserWorkspaceSidebar({
         </div>
       </div>
 
+      </div>}
       <div className={`sticky bottom-0 shrink-0 border-t border-[color:var(--shell-border-soft)] bg-[var(--shell-bg)] ${compact ? "px-2 py-2" : "space-y-2 px-3 py-3"}`}>
         {workspaceAccountAction && (
           <button

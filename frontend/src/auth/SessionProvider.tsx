@@ -41,6 +41,7 @@ function sessionUserFromResponse(response: CurrentSessionResponse): SessionUser 
     actorType: response.session.actor_type,
     accountId: response.session.account_id ?? null,
     accountName: response.session.account_name ?? null,
+    localRecoveryId: response.session.local_recovery_id ?? null,
     capabilities: response.session.capabilities,
   };
 }
@@ -90,6 +91,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         actorType: response.session.actor_type,
         accountId: response.session.account_id ?? null,
         accountName: response.session.account_name ?? null,
+    localRecoveryId: response.session.local_recovery_id ?? null,
         capabilities: response.session.capabilities,
       };
     }

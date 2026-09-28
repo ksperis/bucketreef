@@ -118,6 +118,7 @@ export function BrowserToolbarActionMenuItem({
     <button
       type="button"
       role="menuitem"
+      aria-label={action.label}
       className={`${contextMenuItemClasses} ${
         !action.enabled ? contextMenuItemDisabledClasses : ""
       }`}

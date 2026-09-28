@@ -27,6 +27,7 @@ class SortedObjectScanOptions:
     recursive: bool
     sort_by: BrowserObjectSortBy
     sort_dir: BrowserObjectSortDir
+    include_folder_markers: bool = False
     file_filters: BrowserFileFilters | None = None
 
 
@@ -195,7 +196,7 @@ class SortedObjectSnapshotBuilder:
         if not isinstance(key, str) or not key:
             return
         size = int(item.get("Size") or 0)
-        if is_current_folder_marker(
+        if not self.options.include_folder_markers and is_current_folder_marker(
             key=key,
             prefix=self.options.prefix,
             size=size,
@@ -204,7 +205,7 @@ class SortedObjectSnapshotBuilder:
         is_folder_marker = key.endswith("/") and size == 0
         if self.options.recursive and self.options.item_type != "file" and not (self.options.file_filters and self.options.file_filters.active):
             self._insert_recursive_prefixes(store, key, is_folder_marker)
-        if self.options.item_type == "folder" or (self.options.recursive and is_folder_marker):
+        if self.options.item_type == "folder" or (self.options.recursive and is_folder_marker and not self.options.include_folder_markers):
             return
         if self.options.file_filters and not self.options.file_filters.matches(item):
             return

@@ -50,6 +50,9 @@ class BrowserObjectOperationsMixin:
             params["ResponseContentDisposition"] = payload.response_content_disposition
         try:
             if payload.operation == "get_object":
+                if payload.if_match:
+                    params["IfMatch"] = '"' + payload.if_match.strip('"') + '"'
+                    headers["If-Match"] = params["IfMatch"]
                 url = client.generate_presigned_url(
                     "get_object",
                     Params=params,
@@ -137,7 +140,7 @@ class BrowserObjectOperationsMixin:
                 for obj in payload.objects:
                     if obj.if_match:
                         # A move must not silently fall back to unconditional deletion.
-                        client.delete_object(Bucket=bucket_name, Key=obj.key, IfMatch=obj.if_match, **({"VersionId": obj.version_id} if obj.version_id else {}))
+                        client.delete_object(Bucket=bucket_name, Key=obj.key, IfMatch='"' + obj.if_match.strip('"') + '"', **({"VersionId": obj.version_id} if obj.version_id else {}))
                 ordinary = [item for item in items if item["Key"] not in conditional_keys]
                 if ordinary:
                     delete_objects(client, bucket_name, ordinary)

@@ -165,7 +165,7 @@
   .ui-list-actions > .ui-list-action { flex-shrink: 0; white-space: nowrap; }
 }
 
-.ui-list-control.ui-list-control-with-icon { padding-left: 36px; }
+.ui-control.ui-list-control.ui-list-control-with-icon { padding-left: 36px; }
 .ui-list-action.ui-list-action-active, .ui-list-action[aria-pressed="true"] { background: var(--ui-selected-bg); border-color: rgb(var(--ui-primary-300-rgb)); color: rgb(var(--ui-primary-700-rgb)); }
 :root.dark .ui-list-action.ui-list-action-active, :root.dark .ui-list-action[aria-pressed="true"] { color: rgb(var(--ui-primary-200-rgb)); }
 

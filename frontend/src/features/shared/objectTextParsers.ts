@@ -4,9 +4,18 @@
  */
 // Parse quoted fields without interpreting markup or spreadsheet formulas.
 export function parsePreviewCsv(text: string): string[][] {
-  const firstLine = text.split(/\r?\n/, 1)[0];
-  const delimiter = [",", ";", "\t"].sort((a, b) =>
-    firstLine.split(b).length - firstLine.split(a).length)[0];
+  const counts: Record<string, number> = { ",": 0, ";": 0, "\t": 0 };
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '"') {
+      if (inQuotes && text[i + 1] === '"') { i++; continue; }
+      inQuotes = !inQuotes;
+    } else if (!inQuotes) {
+      if (text[i] === "\n" || text[i] === "\r") break;
+      if (text[i] in counts) counts[text[i]]++;
+    }
+  }
+  const delimiter = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
   const rows: string[][] = [];
   let row: string[] = [], field = "", quoted = false, closed = false;
   const pushField = () => { row.push(field); field = ""; closed = false; };

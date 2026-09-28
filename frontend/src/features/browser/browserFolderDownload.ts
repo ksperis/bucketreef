@@ -12,7 +12,7 @@ import { formatBrowserOperationError } from "./browserOperationErrors";
 import type { DownloadDetailStatus } from "./browserTypes";
 import { isAbortError } from "./browserUtils";
 
-export type BrowserFolderDownloadTarget = {
+type BrowserFolderDownloadTarget = {
   detailId: string;
   key: string;
   relativeKey: string;

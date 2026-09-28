@@ -41,102 +41,37 @@ const buildProps = (
 });
 
 describe("BrowserObjectSearchHeader", () => {
-  it("forwards search, sort, and advanced-option interactions", () => {
-    const rootRef = createRef<HTMLDivElement>();
-    const optionsButtonRef = createRef<HTMLButtonElement>();
-    const optionsMenuRef = createRef<HTMLDivElement>();
-    const onSortName = vi.fn();
-    const onFilterChange = vi.fn();
-    const onToggleOptions = vi.fn();
-    const onScopeChange = vi.fn();
-    const onRecursiveChange = vi.fn();
-    const onExactMatchChange = vi.fn();
-    const onCaseSensitiveChange = vi.fn();
-    const onTypeFilterChange = vi.fn();
-    const onStorageFilterChange = vi.fn();
-    const onClear = vi.fn();
-    const onClose = vi.fn();
-    render(
-      <BrowserObjectSearchHeader
-        {...buildProps({
-          rootRef,
-          optionsButtonRef,
-          optionsMenuRef,
-          optionsOpen: true,
-          filter: "invoice",
-          advancedOptionsActive: true,
-          hasSearchQuery: true,
-          canReset: true,
-          onSortName,
-          onFilterChange,
-          onToggleOptions,
-          onScopeChange,
-          onRecursiveChange,
-          onExactMatchChange,
-          onCaseSensitiveChange,
-          onTypeFilterChange,
-          onStorageFilterChange,
-          onClear,
-          onClose,
-        })}
-      />,
-    );
-
-    const optionsButton = screen.getByRole("button", {
-      name: "Search options",
-    });
-    expect(optionsButtonRef.current).toBe(optionsButton);
-    expect(rootRef.current).toContainElement(optionsButton);
-    expect(optionsMenuRef.current).toContainElement(
-      screen.getByRole("combobox", { name: "Object type filter" }),
-    );
-    expect(optionsButton).toHaveAttribute("aria-expanded", "true");
-
-    fireEvent.click(screen.getByRole("button", { name: "Name" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Search objects" }), {
-      target: { value: "report" },
-    });
-    fireEvent.click(optionsButton);
+  it("applies a draft atomically and returns focus to the options trigger", () => {
+    const props = buildProps({ optionsOpen: true, filter: "invoice", onFileFiltersChange: vi.fn() });
+    render(<BrowserObjectSearchHeader {...props} />);
+    fireEvent.click(screen.getByText("Matching options"));
+    fireEvent.change(screen.getByRole("combobox", { name: "Search scope" }), { target: { value: "recursive" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "Use exact match" }));
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: "Case-sensitive search" }),
-    );
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "Object type filter" }),
-      { target: { value: "file" } },
-    );
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "Storage class filter" }),
-      { target: { value: "GLACIER" } },
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-
-    expect(onSortName).toHaveBeenCalledOnce();
-    expect(onFilterChange).toHaveBeenCalledWith("report");
-    expect(onToggleOptions).toHaveBeenCalledOnce();
-    expect(onExactMatchChange).toHaveBeenCalledWith(true);
-    expect(onCaseSensitiveChange).toHaveBeenCalledWith(true);
-    expect(onTypeFilterChange).toHaveBeenCalledWith("file");
-    expect(onStorageFilterChange).toHaveBeenCalledWith("GLACIER");
-    expect(onClear).toHaveBeenCalledOnce();
-    expect(onClose).toHaveBeenCalledOnce();
+    fireEvent.change(screen.getByRole("combobox", { name: "Storage class filter" }), { target: { value: "GLACIER" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Minimum bytes" }), { target: { value: "42" } });
+    expect(props.onScopeChange).not.toHaveBeenCalled();
+    expect(props.onFileFiltersChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(props.onScopeChange).toHaveBeenCalledWith("prefix");
+    expect(props.onRecursiveChange).toHaveBeenCalledWith(true);
+    expect(props.onExactMatchChange).toHaveBeenCalledWith(true);
+    expect(props.onStorageFilterChange).toHaveBeenCalledWith("GLACIER");
+    expect(props.onFileFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ minSize: "42" }));
+    expect(props.onClose).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Search options" })).toHaveFocus();
   });
 
-  it("keeps query-dependent controls disabled until a query exists", () => {
-    render(
-      <BrowserObjectSearchHeader
-        {...buildProps({ optionsOpen: true, searchScope: "bucket" })}
-      />,
-    );
-
-    expect(
-      screen.getByRole("checkbox", { name: "Use exact match" }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("checkbox", { name: "Case-sensitive search" }),
-    ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
+  it("allows filters without a query and resets only the draft before Apply", () => {
+    const props = buildProps({ optionsOpen: true, searchScope: "bucket", onFileFiltersChange: vi.fn() });
+    render(<BrowserObjectSearchHeader {...props} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Extensions, separated by commas" }), { target: { value: "csv" } });
+    fireEvent.click(screen.getByText("Matching options"));
+    expect(screen.getByRole("option", { name: "Folders" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(screen.getByRole("combobox", { name: "Search scope" })).toHaveValue("prefix");
+    expect(props.onFileFiltersChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(props.onFileFiltersChange).not.toHaveBeenCalled();
   });
 
   it("can hide optional advanced controls when requested", () => {
