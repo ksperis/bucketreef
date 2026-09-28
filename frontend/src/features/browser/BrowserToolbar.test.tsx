@@ -258,6 +258,7 @@ describe("BrowserToolbar", () => {
     });
     render(<BrowserToolbar {...props} />);
 
+    expect(screen.queryByLabelText("Transfer status")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     const menu = screen.getByRole("menu", { name: "More" });
     expect(within(menu).getByText("STS")).toBeInTheDocument();

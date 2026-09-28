@@ -109,10 +109,7 @@ export function buildBrowserTransferWarnings({
     (item): item is string => Boolean(item),
   );
   if (corsEnabled === false && !proxyAllowed) {
-    items.push(CORS_DIRECT_TRANSFER_WARNING);
-    if (!proxyAllowed) {
-      items.push("Proxy transfers are disabled in settings.");
-    }
+    items.push("Proxy transfers are disabled in settings.");
   }
   return items;
 }

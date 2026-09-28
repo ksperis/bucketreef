@@ -2672,6 +2672,13 @@ describe("BrowserPage interactions", () => {
     renderPage();
     await findRowByLabel("a.txt");
 
+    expect(screen.queryByLabelText("Transfer status")).not.toBeInTheDocument();
+    const corsInformation = await screen.findByText(
+      "Direct download/upload is not allowed on this bucket.",
+    );
+    expect(corsInformation.closest("p")).toHaveClass("text-sky-700");
+    expect(corsInformation.closest("p")).not.toHaveClass("text-amber-600");
+
     const menu = await openContextMoreMenu(user);
     expect(within(menu).getByText("Transfers")).toBeInTheDocument();
     const badge = await within(menu).findByText("Proxy");
@@ -6054,17 +6061,18 @@ describe("BrowserPage interactions", () => {
     });
   });
 
-  it("renders CORS warning with inline info action and moves CORS button into popover", async () => {
+  it("renders CORS information with an inline action and moves the repair button into a popover", async () => {
     const user = userEvent.setup();
     getBrowserBucketCorsStatusMock.mockResolvedValue({ enabled: false, rules: [] });
     renderPage();
 
-    const warningText = "Direct download/upload is not allowed on this bucket.";
-    expect(await screen.findByText(warningText)).toBeInTheDocument();
+    const informationText = "Direct download/upload is not allowed on this bucket.";
+    expect(await screen.findByText(informationText)).toBeInTheDocument();
 
-    const warningLine = screen.getByText(warningText).closest("p");
-    expect(warningLine).not.toBeNull();
-    const infoButton = within(warningLine as HTMLElement).getByRole("button", {
+    const informationLine = screen.getByText(informationText).closest("p");
+    expect(informationLine).toHaveClass("text-sky-700");
+    expect(informationLine).not.toHaveClass("text-amber-600");
+    const infoButton = within(informationLine as HTMLElement).getByRole("button", {
       name: "CORS actions",
     });
     expect(infoButton).toBeInTheDocument();

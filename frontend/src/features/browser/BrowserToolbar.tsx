@@ -277,15 +277,6 @@ export default function BrowserToolbar({
           <BrowserPathNavigator {...pathNavigator} />
         </div>
         <div className={toolbarActionsClasses}>
-          {moreMenu.status.accessBadge && <details className="relative ui-caption">
-            <summary className="cursor-pointer" aria-label="Transfer status">
-              {moreMenu.status.accessBadge.label === "Unavailable" ? tr("Transfers unavailable") : moreMenu.status.accessBadge.label === "Proxy" ? tr("Transfers available via server") : tr("Direct transfers available")}
-            </summary>
-            <div className={`${floatingMenuClasses} absolute right-0 z-30 w-72`}>
-              <p>{moreMenu.status.accessBadge.title}</p>
-              <p>Transport availability does not grant storage permissions.</p>
-            </div>
-          </details>}
           {utilityActions}
           {deletedObjects.showToggle && (
             <ListActionButton iconOnly={compactMode} variant="secondary"
