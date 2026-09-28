@@ -16,6 +16,7 @@ import {
   RequireManagerBucketCompareFeature,
   RequireManagerBucketIntegrityFeature,
   RequireManagerBucketPurgeFeature,
+  RequireManagerAccess,
   RequireManagerFeature,
   RequireManagerFeatureRulesTool,
   RequireManagerIamFeature,
@@ -425,49 +426,51 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
         <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE, USER_ROLE]} />}>
           {runtimeSurfaces.manager ? (
             <Route element={<RequireManagerFeature />}>
-              <Route path="/manager" element={<ManagerLayout />}>
-                <Route element={<Outlet />} errorElement={<RouteErrorPage />}>
-                  <Route index element={<ManagerDashboard />} />
-                  <Route path="profile" element={<AccountProfilePage />} />
-                  <Route path="buckets" element={<BucketsPage />} />
-                  <Route path="buckets/:bucketName" element={<BucketDetailPage />} />
-                  {runtimeSurfaces.browser ? (
-                    <Route element={<RequireBrowserSurface surface="manager" />}>
-                      <Route path="browser" element={<ManagerBrowserPage />} />
+              <Route element={<RequireManagerAccess />}>
+                <Route path="/manager" element={<ManagerLayout />}>
+                  <Route element={<Outlet />} errorElement={<RouteErrorPage />}>
+                    <Route index element={<ManagerDashboard />} />
+                    <Route path="profile" element={<AccountProfilePage />} />
+                    <Route path="buckets" element={<BucketsPage />} />
+                    <Route path="buckets/:bucketName" element={<BucketDetailPage />} />
+                    {runtimeSurfaces.browser ? (
+                      <Route element={<RequireBrowserSurface surface="manager" />}>
+                        <Route path="browser" element={<ManagerBrowserPage />} />
+                      </Route>
+                    ) : null}
+                    <Route path="metrics" element={<ManagerMetricsPage />} />
+                    <Route element={<RequireManagerIamFeature />}>
+                      <Route path="users" element={<ManagerUsersPage />} />
+                      <Route path="users/:userName/keys" element={<ManagerUserKeysPage />} />
+                      <Route path="users/:userName/policies" element={<ManagerUserPoliciesPage />} />
+                      <Route path="groups" element={<ManagerGroupsPage />} />
+                      <Route path="groups/:groupName/policies" element={<ManagerGroupPoliciesPage />} />
+                      <Route path="groups/:groupName/users" element={<ManagerGroupUsersPage />} />
+                      <Route path="roles" element={<ManagerRolesPage />} />
+                      <Route path="roles/:roleName/policies" element={<ManagerRolePoliciesPage />} />
+                      <Route path="iam/policies" element={<PoliciesPage />} />
                     </Route>
-                  ) : null}
-                  <Route path="metrics" element={<ManagerMetricsPage />} />
-                  <Route element={<RequireManagerIamFeature />}>
-                    <Route path="users" element={<ManagerUsersPage />} />
-                    <Route path="users/:userName/keys" element={<ManagerUserKeysPage />} />
-                    <Route path="users/:userName/policies" element={<ManagerUserPoliciesPage />} />
-                    <Route path="groups" element={<ManagerGroupsPage />} />
-                    <Route path="groups/:groupName/policies" element={<ManagerGroupPoliciesPage />} />
-                    <Route path="groups/:groupName/users" element={<ManagerGroupUsersPage />} />
-                    <Route path="roles" element={<ManagerRolesPage />} />
-                    <Route path="roles/:roleName/policies" element={<ManagerRolePoliciesPage />} />
-                    <Route path="iam/policies" element={<PoliciesPage />} />
+                    <Route path="topics" element={<TopicsPage />} />
+                    <Route path="ceph/keys" element={<ManagerCephKeysPage />} />
+                    <Route element={<RequireManagerBucketCompareFeature />}>
+                      <Route path="bucket-compare" element={<ManagerBucketComparePage />} />
+                    </Route>
+                    <Route element={<RequireManagerBucketIntegrityFeature />}>
+                      <Route path="bucket-integrity" element={<ManagerBucketIntegrityPage />} />
+                    </Route>
+                    <Route element={<RequireManagerBucketPurgeFeature />}>
+                      <Route path="bucket-purge" element={<ManagerBucketPurgePage />} />
+                    </Route>
+                    <Route element={<RequireManagerFeatureRulesTool />}>
+                      <Route path="feature-rules" element={<ManagerFeatureRulesPage />} />
+                    </Route>
+                    <Route element={<RequireManagerMigrationFeature />}>
+                      <Route path="migrations" element={<ManagerMigrationsPage />} />
+                      <Route path="migrations/new" element={<ManagerMigrationWizardPage />} />
+                      <Route path="migrations/:migrationId" element={<ManagerMigrationDetailPage />} />
+                    </Route>
+                    <Route path="*" element={<NotFoundPage />} />
                   </Route>
-                  <Route path="topics" element={<TopicsPage />} />
-                  <Route path="ceph/keys" element={<ManagerCephKeysPage />} />
-                  <Route element={<RequireManagerBucketCompareFeature />}>
-                    <Route path="bucket-compare" element={<ManagerBucketComparePage />} />
-                  </Route>
-                  <Route element={<RequireManagerBucketIntegrityFeature />}>
-                    <Route path="bucket-integrity" element={<ManagerBucketIntegrityPage />} />
-                  </Route>
-                  <Route element={<RequireManagerBucketPurgeFeature />}>
-                    <Route path="bucket-purge" element={<ManagerBucketPurgePage />} />
-                  </Route>
-                  <Route element={<RequireManagerFeatureRulesTool />}>
-                    <Route path="feature-rules" element={<ManagerFeatureRulesPage />} />
-                  </Route>
-                  <Route element={<RequireManagerMigrationFeature />}>
-                    <Route path="migrations" element={<ManagerMigrationsPage />} />
-                    <Route path="migrations/new" element={<ManagerMigrationWizardPage />} />
-                    <Route path="migrations/:migrationId" element={<ManagerMigrationDetailPage />} />
-                  </Route>
-                  <Route path="*" element={<NotFoundPage />} />
                 </Route>
               </Route>
             </Route>
