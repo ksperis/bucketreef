@@ -340,7 +340,7 @@ def test_update_user_uses_snake_case_max_buckets_only(monkeypatch):
     client.update_user("alice", max_buckets=7)
 
     params = captured["params"]
-    assert captured["method"] == "PUT"
+    assert captured["method"] == "POST"
     assert captured["path"] == "/admin/user"
     assert isinstance(params, dict)
     assert params["uid"] == "alice"

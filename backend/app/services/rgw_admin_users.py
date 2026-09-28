@@ -296,7 +296,7 @@ class RGWAdminUserOperations:
             params["account-root"] = self._to_rgw_bool(bool(account_root))
         self._merge_extra_params(params, extra_params)
         result = self._request(
-            "PUT",
+            "POST",
             "/admin/user",
             params=params,
             data=None,
