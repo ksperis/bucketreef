@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ErrorState from "../../components/errors/ErrorState";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
@@ -9,7 +10,6 @@ import { STORAGE_OPS_SCOPE_ID, listStorageOpsBuckets, type StorageOpsBucket } fr
 import { listExecutionContexts } from "../../api/executionContexts";
 import PageEmptyState from "../../components/PageEmptyState";
 import WorkflowPage from "../../components/WorkflowPage";
-import { extractApiError } from "../../utils/apiError";
 import BucketDetailPage from "../manager/BucketDetailPage";
 import { useBucketListBackNavigation } from "../shared/bucketListReturnContext";
 import { storageOpsPageBreadcrumbs } from "./storageOpsBreadcrumbs";
@@ -21,7 +21,7 @@ export default function StorageOpsBucketDetailPage() {
   const [bucket, setBucket] = useState<StorageOpsBucket | null>(null);
   const [contextAvailable, setContextAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(Boolean(bucketName && contextId));
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const { listUrl, onBack } = useBucketListBackNavigation("storage-ops", "/storage-ops/buckets");
 
   const exactFilter = useMemo(
@@ -77,7 +77,7 @@ export default function StorageOpsBucketDetailPage() {
         if (controller.signal.aborted) return;
         setBucket(null);
         setContextAvailable(null);
-        setError(extractApiError(requestError, "Unable to load this Storage Ops bucket."));
+        setError(requestError);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -92,6 +92,12 @@ export default function StorageOpsBucketDetailPage() {
     breadcrumb.to === "/storage-ops/buckets" ? { ...breadcrumb, to: listUrl } : breadcrumb,
   );
 
+  const backAction = { label: "Back to buckets", onClick: onBack };
+  if (!contextId || !bucketName) return <ErrorState kind="invalid_link" primaryAction={backAction} />;
+  if (!loading && error) return <ErrorState error={error} secondaryAction={backAction} />;
+  if (!loading && contextAvailable === false) return <ErrorState kind="forbidden" primaryAction={backAction} />;
+  if (!loading && !bucket) return <ErrorState kind="not_found" primaryAction={backAction} />;
+
   return (
     <WorkflowPage
       title={bucketName ? `Configure bucket · ${bucketName}` : "Bucket configuration"}
@@ -101,47 +107,8 @@ export default function StorageOpsBucketDetailPage() {
       onBack={onBack}
       contentVariant="plain"
     >
-      {!contextId ? (
-        <PageEmptyState
-          title="Execution context required"
-          description="This Storage Ops bucket URL must include an explicit ctx query parameter. Return to the bucket list and open the bucket again."
-          tone="warning"
-          primaryAction={{ label: "Back to buckets", onClick: onBack }}
-        />
-      ) : !bucketName ? (
-        <PageEmptyState
-          title="Bucket name required"
-          description="This Storage Ops bucket URL does not identify a bucket."
-          tone="warning"
-          primaryAction={{ label: "Back to buckets", onClick: onBack }}
-        />
-      ) : loading ? (
-        <PageEmptyState
-          eyebrow="Loading"
-          title="Loading bucket configuration"
-          description={`Validating ${bucketName} in execution context ${contextId}.`}
-        />
-      ) : error ? (
-        <PageEmptyState
-          title="Bucket configuration unavailable"
-          description={error}
-          tone="danger"
-          primaryAction={{ label: "Back to buckets", onClick: onBack }}
-        />
-      ) : contextAvailable === false ? (
-        <PageEmptyState
-          title="Execution context unavailable"
-          description={`Execution context ${contextId} does not exist or is no longer available to Storage Ops.`}
-          tone="warning"
-          primaryAction={{ label: "Back to buckets", onClick: onBack }}
-        />
-      ) : !bucket ? (
-        <PageEmptyState
-          title="Bucket not found"
-          description={`No bucket named ${bucketName} is available in execution context ${contextId}.`}
-          tone="warning"
-          primaryAction={{ label: "Back to buckets", onClick: onBack }}
-        />
+      {loading ? (
+        <PageEmptyState eyebrow="Loading" title="Loading bucket configuration" description="Checking access to this bucket." />
       ) : (
         <BucketDetailPage
           mode="manager"

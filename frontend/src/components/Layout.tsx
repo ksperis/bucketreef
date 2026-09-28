@@ -4,6 +4,7 @@
  */
 import { ReactNode, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { WorkspaceErrorContext } from "./errors/WorkspaceErrorContext";
 import { logout as logoutRequest } from "../api/auth";
 import { broadcastSessionEnded } from "../auth/sessionEvents";
 import Header from "./Header";
@@ -206,7 +207,9 @@ export default function Layout({
               />
             )}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col space-y-4">
-              {children ?? <Outlet />}
+              <WorkspaceErrorContext.Provider value={`/${location.pathname.split("/")[1]}`}>
+                {children ?? <Outlet />}
+              </WorkspaceErrorContext.Provider>
             </div>
           </main>
         </div>

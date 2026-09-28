@@ -1,5 +1,8 @@
 # Product Design Guidelines
 
+Page-level failures use the shared illustrated [error-page contract](error-pages.md),
+including workspace retention, recovery actions and collapsed diagnostics.
+
 ## Purpose
 
 This document captures the product design contract for future interface work in

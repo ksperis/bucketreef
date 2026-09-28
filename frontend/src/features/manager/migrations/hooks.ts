@@ -96,7 +96,8 @@ export function useManagerMigrationsList(sourceContextId: string) {
 
 export function useManagerMigrationDetail(migrationId: number | null) {
   const [migrationDetail, setMigrationDetail] = useState<BucketMigrationDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(Boolean(migrationId));
+  const [loadFailure, setLoadFailure] = useState<unknown>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const detailStreamAbortRef = useRef<AbortController | null>(null);
 
@@ -106,6 +107,7 @@ export function useManagerMigrationDetail(migrationId: number | null) {
       return;
     }
     setDetailError(null);
+    setLoadFailure(null);
     const detail = await getManagerMigration(migrationId);
     setMigrationDetail(detail);
   }, [migrationId]);
@@ -156,6 +158,8 @@ export function useManagerMigrationDetail(migrationId: number | null) {
     const streamAbortController = new AbortController();
     detailStreamAbortRef.current = streamAbortController;
 
+    setMigrationDetail(null);
+    setLoadFailure(null);
     setDetailLoading(true);
     setDetailError(null);
     getManagerMigration(migrationId)
@@ -164,6 +168,7 @@ export function useManagerMigrationDetail(migrationId: number | null) {
       })
       .catch((error) => {
         if (canceled) return;
+        setLoadFailure(error);
         setDetailError(extractError(error));
       })
       .finally(() => {
@@ -197,6 +202,7 @@ export function useManagerMigrationDetail(migrationId: number | null) {
     setMigrationDetail,
     detailLoading,
     detailError,
+    loadFailure,
     setDetailError,
     refresh,
   };

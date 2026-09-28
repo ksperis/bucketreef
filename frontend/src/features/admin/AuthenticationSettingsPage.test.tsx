@@ -35,13 +35,19 @@ const beginRecentWebAuthnVerificationMock = vi.fn();
 const finishRecentWebAuthnVerificationMock = vi.fn();
 const authenticatePasskeyMock = vi.fn();
 
-vi.mock("../../components/GeneralSettingsContext", () => ({
+vi.mock("../../components/GeneralSettingsContext", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../components/GeneralSettingsContext")>();
+  return {
+  ...actual,
   useGeneralSettings: () => ({
     setGeneralSettings: setGeneralSettingsMock,
+    generalSettings: actual.DEFAULT_GENERAL_SETTINGS,
   }),
-}));
+};
+});
 
-vi.mock("../../api/appSettings", () => ({
+vi.mock("../../api/appSettings", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../api/appSettings")>(),
   fetchAppSettings: () => fetchAppSettingsMock(),
   fetchDefaultAppSettings: () => fetchDefaultAppSettingsMock(),
   updateAppSettings: (payload: AppSettings) => updateAppSettingsMock(payload),
@@ -797,7 +803,8 @@ describe("AuthenticationSettingsPage", () => {
     fetchLdapAdminProvidersMock.mockRejectedValueOnce(new Error("Directory configuration unavailable"))
       .mockResolvedValueOnce([buildLdapProvider()]);
     renderPage(["/admin/authentication-settings/ldap/providers/corp"]);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Directory configuration unavailable");
+    expect(await screen.findByRole("heading", { name: "A little turbulence in the reef." })).toBeInTheDocument();
+    expect(screen.queryByText("Directory configuration unavailable")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("LDAP Provider ID")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save LDAP provider" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));

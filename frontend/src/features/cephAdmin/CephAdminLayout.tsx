@@ -2,6 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import ErrorState from "../../components/errors/ErrorState";
 import { Outlet, useLocation } from "react-router-dom";
 import Layout from "../../components/Layout";
 import CephStorageIcon from "../../components/CephStorageIcon";
@@ -259,11 +260,10 @@ function CephAdminShell() {
       <>
         {error && <PageBanner tone="warning" className="mb-4">{error}</PageBanner>}
         {endpointDependentRoute && selectedEndpointAccessError ? (
-          <PageEmptyState
-            eyebrow="Unavailable"
-            tone="warning"
+          <ErrorState
+            kind="unavailable"
             title="Endpoint availability could not be checked"
-            description="The Ceph Admin shell remains available, but endpoint operations stay closed until the check succeeds."
+            description="The selected endpoint cannot be checked right now. Use the menu to continue elsewhere, or try again."
             primaryAction={{ label: "Retry", onClick: retrySelectedEndpointAccess }}
             secondaryAction={{ label: "Back to dashboard", to: "/ceph-admin" }}
           />
@@ -274,11 +274,10 @@ function CephAdminShell() {
             description="Ceph Admin operations will open as soon as the selected endpoint responds."
           />
         ) : endpointDependentRoute && endpointUnavailable ? (
-          <PageEmptyState
-            eyebrow="Unavailable"
-            tone="warning"
+          <ErrorState
+            kind="unavailable"
             title="Storage endpoint unavailable"
-            description="The Ceph Admin shell remains available. Endpoint operations are temporarily closed and can be retried safely."
+            description="The selected storage endpoint is not responding. Use the menu to continue elsewhere, or try again."
             primaryAction={{ label: "Retry", onClick: retrySelectedEndpointAccess }}
             secondaryAction={{ label: "Back to dashboard", to: "/ceph-admin" }}
           />

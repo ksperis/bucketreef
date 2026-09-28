@@ -47,10 +47,10 @@ describe("RouteErrorPage", () => {
     const { container } = renderRouteError(new ApiError("Network Error"));
 
     expect(document.documentElement).not.toHaveClass("dark");
-    expect(container.querySelector("main")).toHaveClass("bg-slate-50", "dark:bg-slate-950");
-    expect(await screen.findByRole("heading", { name: "Backend temporarily unavailable" })).toBeInTheDocument();
+    expect(container.querySelector(".error-state--full")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "A small setback under the sea." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/admin");
+    expect(screen.getByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/admin");
   });
 
   it("shows generic copy in dark mode without exposing the raw error detail", async () => {
@@ -59,9 +59,9 @@ describe("RouteErrorPage", () => {
     const { container } = renderRouteError(new Error("super secret backend stack"));
 
     expect(document.documentElement).toHaveClass("dark");
-    expect(container.querySelector("main")).toHaveClass("bg-slate-50", "dark:bg-slate-950");
-    expect(container.querySelector("section")).toHaveClass("ui-surface-card");
-    expect(await screen.findByRole("heading", { name: "Unexpected application error" })).toBeInTheDocument();
+    expect(container.querySelector(".error-state--full")).toBeInTheDocument();
+    expect(container.querySelector("section")).toHaveClass("error-state-content");
+    expect(await screen.findByRole("heading", { name: "A little turbulence in the reef." })).toBeInTheDocument();
     expect(screen.queryByText("super secret backend stack")).not.toBeInTheDocument();
   });
 });

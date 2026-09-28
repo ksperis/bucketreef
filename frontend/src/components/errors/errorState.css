@@ -1,0 +1,93 @@
+.error-state {
+  color: var(--ui-text);
+  min-width: 0;
+}
+.error-state--full {
+  background: var(--ui-bg);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.error-state-header {
+  background: var(--shell-topbar-bg);
+  border-bottom: 1px solid var(--ui-border);
+  padding: 20px clamp(24px, 5vw, 72px);
+}
+.error-state-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ui-text);
+  font-size: 24px;
+  font-weight: 650;
+}
+.error-state-brand span { color: var(--ui-text); }
+.error-state--full .error-state-description { font-size: 20px; }
+:root.dark .error-state-art { filter: brightness(.85); }
+.error-state--full main { display: flex; flex: 1; }
+.error-state-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 64px);
+  width: 100%;
+  max-width: 1320px;
+  margin: auto;
+  padding: 64px 40px;
+}
+.error-state-copy { min-width: 0; }
+.error-state-label {
+  color: var(--ui-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .035em;
+  margin: 0 0 20px;
+}
+.error-state-label--warning { color: #92400e; }
+.error-state-label--danger { color: #be123c; }
+:root.dark .error-state-label--warning { color: var(--ui-warning); }
+:root.dark .error-state-label--danger { color: var(--ui-danger); }
+.error-state h1 {
+  color: var(--ui-text);
+  font-size: clamp(30px, 3.4vw, 48px);
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  margin: 0 0 24px;
+  overflow-wrap: anywhere;
+}
+.error-state h1:focus { outline: none; }
+.error-state-description {
+  color: var(--ui-text-muted);
+  font-size: 18px;
+  line-height: 1.65;
+  max-width: 54ch;
+  overflow-wrap: anywhere;
+}
+.error-state-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 32px; }
+.error-state .error-state-action { min-height: 44px; padding: 12px 22px; font-size: 16px; line-height: 1.4; }
+.error-state .ui-button-primary { background: var(--ui-primary-strong); }
+.error-state .ui-button-primary:hover { background: rgb(var(--ui-primary-700-rgb)); }
+.error-state-art { display: block; width: 100%; height: auto; object-fit: contain; }
+.error-state-details { margin-top: 32px; border-top: 1px solid var(--ui-border); color: var(--ui-text-muted); font-size: 14px; }
+.error-state-details summary { padding: 20px 4px; cursor: pointer; width: fit-content; }
+.error-state-details summary::marker { color: var(--ui-text-muted); }
+.error-state-diagnostic { padding: 20px; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-surface); }
+.error-state-diagnostic dl { margin-bottom: 16px; }
+.error-state-diagnostic dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 6px 0; }
+.error-state-diagnostic dd { color: var(--ui-text); font-family: ui-monospace, monospace; overflow-wrap: anywhere; min-width: 0; }
+.error-state-diagnostic [role="status"]:not(:empty) { margin-top: 12px; }
+.error-state-wait { margin-top: 12px; color: var(--ui-text-muted); font-size: 14px; }
+.error-state footer { padding: 24px; color: var(--ui-text-muted); text-align: center; font-size: 14px; }
+.error-state--embedded { flex: 1; display: flex; }
+.error-state--embedded .error-state-content { max-width: 1140px; padding: 48px 16px; }
+.error-state--embedded h1 { font-size: clamp(28px, 3vw, 40px); }
+@media (max-width: 900px) {
+  .error-state-content, .error-state--embedded .error-state-content { grid-template-columns: minmax(0, 1fr); padding: 40px 24px; gap: 24px; max-width: 660px; }
+  .error-state-art { width: min(100%, 320px); margin: 0 auto; }
+  .error-state-description, .error-state--full .error-state-description { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .error-state * { transition: none !important; }
+}

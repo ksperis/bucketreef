@@ -31,11 +31,11 @@ describe("NotFoundPage", () => {
     window.localStorage.clear();
   });
 
-  it("keeps the missing URL visible and offers sign in to visitors", () => {
+  it("keeps the missing URL in the address bar and offers sign in to visitors", () => {
     renderPage("/missing/page?source=bookmark");
 
-    expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Requested path")).toHaveTextContent("/missing/page?source=bookmark");
+    expect(screen.getByRole("heading", { name: "This page has drifted away." })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Requested path")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Current location")).toHaveTextContent("/missing/page?source=bookmark");
     expect(screen.getByRole("link", { name: "Go to sign in" })).toHaveAttribute("href", "/login");
   });

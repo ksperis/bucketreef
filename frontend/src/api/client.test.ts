@@ -13,7 +13,7 @@ import client, {
   timeoutForRequestProfile,
 } from "./client";
 import { CLIENT_STORAGE_KEYS } from "../utils/clientStorage";
-import { setSessionUserCache } from "../utils/workspaces";
+import { readStoredUser, setSessionUserCache } from "../utils/workspaces";
 
 beforeEach(() => {
   localStorage.clear();
@@ -73,5 +73,38 @@ describe("API request profiles", () => {
     expect(url.pathname).toBe("/api/browser/buckets/data/download");
     expect(url.searchParams.get("key")).toBe("a/b");
     expect(url.searchParams.has("empty")).toBe(false);
+  });
+});
+
+
+describe("session refresh failures", () => {
+  it("preserves the session and original request when refresh is temporarily unavailable", async () => {
+    setSessionUserCache({ id: 42, email: "reader@example.test", authType: "password" });
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("", { status: 401 }))
+      .mockResolvedValueOnce(new Response("", { status: 503 }));
+    await expect(client.get("/users/me")).rejects.toMatchObject({ response: { status: 503 } });
+    expect(readStoredUser()?.id).toBe(42);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it("clears authentication after refresh explicitly denies the session", async () => {
+    window.history.replaceState({}, "", "/login");
+    setSessionUserCache({ id: 42, authType: "password" });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("", { status: 401 }))
+      .mockResolvedValueOnce(new Response("", { status: 401 }));
+    await expect(client.get("/users/me")).rejects.toMatchObject({ response: { status: 401 } });
+    expect(readStoredUser()).toBeNull();
+  });
+  it("does not retain an invalid session when the retried request is still unauthorized", async () => {
+    window.history.replaceState({}, "", "/login");
+    setSessionUserCache({ id: 42, authType: "password" });
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("", { status: 401 }))
+      .mockResolvedValueOnce(new Response("", { status: 200 }))
+      .mockResolvedValueOnce(new Response("", { status: 401 }));
+    await expect(client.get("/users/me")).rejects.toMatchObject({ response: { status: 401 } });
+    expect(readStoredUser()).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

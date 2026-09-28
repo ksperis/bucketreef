@@ -118,7 +118,7 @@ describe("StorageOpsBucketDetailPage", () => {
   it("requires ctx without falling back to another execution context", async () => {
     renderRoute("/storage-ops/buckets/bucket-a");
 
-    expect(screen.getByRole("heading", { name: "Execution context required" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "This link is off course." })).toBeInTheDocument();
     expect(mocks.listStorageOpsBuckets).not.toHaveBeenCalled();
     expect(mocks.listExecutionContexts).not.toHaveBeenCalled();
     fireEvent.click(screen.getAllByRole("button", { name: "Back to buckets" })[0]);
@@ -137,7 +137,7 @@ describe("StorageOpsBucketDetailPage", () => {
 
     renderRoute("/storage-ops/buckets/bucket-a?ctx=missing-context");
 
-    expect(await screen.findByRole("heading", { name: "Execution context unavailable" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "This passage is reserved." })).toBeInTheDocument();
   });
 
   it("shows an explicit not-found state for a missing bucket", async () => {
@@ -151,7 +151,7 @@ describe("StorageOpsBucketDetailPage", () => {
 
     renderRoute("/storage-ops/buckets/missing?ctx=account-1");
 
-    expect(await screen.findByRole("heading", { name: "Bucket not found" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "This page has drifted away." })).toBeInTheDocument();
   });
 
   it("shows an explicit unavailable state when validation is denied", async () => {
@@ -161,8 +161,8 @@ describe("StorageOpsBucketDetailPage", () => {
 
     renderRoute("/storage-ops/buckets/bucket-a?ctx=account-1");
 
-    expect(await screen.findByRole("heading", { name: "Bucket configuration unavailable" })).toBeInTheDocument();
-    expect(screen.getByText("Storage Ops access denied")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "This passage is reserved." })).toBeInTheDocument();
+    expect(screen.queryByText("Storage Ops access denied")).not.toBeInTheDocument();
   });
 
   it("uses the list history origin for breadcrumbs and the return action", async () => {

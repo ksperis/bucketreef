@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import ErrorState from "../../../components/errors/ErrorState";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
@@ -130,6 +131,7 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
   const [loading, setLoading] = useState(Boolean(providerId));
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
+  const [loadFailure, setLoadFailure] = useState<unknown>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [completed, setCompleted] = useState(false);
   const active = useRef(true);
@@ -146,6 +148,8 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
     let active = true;
     setLoading(true);
     setError(null);
+    setLoadFailure(null);
+    setProvider(null);
     adapter
       .load()
       .then((providers) => {
@@ -161,7 +165,7 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
         accept(adapter.toForm(selected));
       })
       .catch((err) => {
-        if (active) setError(extractApiError(err, "Unable to load provider."));
+        if (active) setLoadFailure(err);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -199,6 +203,11 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
     }
   };
   if (completed) return null;
+  if (!loading && providerId && !provider) {
+    return <ErrorState kind={loadFailure ? undefined : "not_found"} error={loadFailure}
+      onRetry={() => setLoadAttempt((attempt) => attempt + 1)}
+      secondaryAction={{ label: "Back to authentication", to: backPath }} />;
+  }
   return (
     <>
       <SettingsWorkflowForm

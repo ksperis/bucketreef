@@ -14,6 +14,7 @@
     "test:portal": "vitest run src/features/portal src/api/portal.test.ts src/router.portal.test.tsx",
     "test:watch": "vitest",
     "test:a11y": "vitest run --testNamePattern=a11y",
+    "test:errors": "playwright test -c playwright.errors.config.ts",
     "test:e2e": "playwright test -c playwright.e2e.config.ts",
     "test:e2e:ci": "CI=1 playwright test -c playwright.e2e.config.ts",
     "ui:agent": "node ./scripts/agent-ui.mjs serve",

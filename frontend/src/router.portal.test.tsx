@@ -77,7 +77,7 @@ describe("portal routes", () => {
 
   it("keeps only canonical storage workspace routes under portal", () => {
     const portalRoute = findRouteByPath(createAppRoutes() as Array<{ path?: string; children?: unknown[] }>, "/portal");
-    const childPaths = ((portalRoute?.children ?? []) as Array<{ path?: string }>).map((route) => route.path).filter(Boolean);
+    const childPaths = (((portalRoute?.children?.[0] as { children?: unknown[] })?.children ?? []) as Array<{ path?: string }>).map((route) => route.path).filter(Boolean);
 
     expect(childPaths).toEqual([
       "profile",
@@ -90,6 +90,7 @@ describe("portal routes", () => {
       "history",
       "usage",
       "settings",
+      "*",
     ]);
     expect(childPaths).not.toContain("browser");
     expect(childPaths).not.toContain("buckets");
@@ -99,7 +100,7 @@ describe("portal routes", () => {
 
   it("does not expose Browser Manager Admin or mock administration pages inside portal", () => {
     const portalRoute = findRouteByPath(createAppRoutes() as Array<{ path?: string; children?: unknown[] }>, "/portal");
-    const childPaths = new Set(((portalRoute?.children ?? []) as Array<{ path?: string }>).map((route) => route.path).filter(Boolean));
+    const childPaths = new Set((((portalRoute?.children?.[0] as { children?: unknown[] })?.children ?? []) as Array<{ path?: string }>).map((route) => route.path).filter(Boolean));
 
     [
       "admin",
@@ -131,7 +132,7 @@ describe("portal routes", () => {
     expect(removed?.at(-1)?.route.path).toBe("*");
   });
 
-  it("redirects /portal to unauthorized when no explicit portal account role exists", async () => {
+  it("shows restricted access when no explicit portal account role exists", async () => {
     setSessionUserCache({
       id: 1,
       email: "admin@example.com",
@@ -146,12 +147,13 @@ describe("portal routes", () => {
           <Route element={<RequirePortalAccess />}>
             <Route path="/portal" element={<h1>Portal workspace</h1>} />
           </Route>
-          <Route path="/unauthorized" element={<h1>Unauthorized access</h1>} />
+          <Route path="/unauthorized" element={<h1>This passage is reserved.</h1>} />
         </Routes>
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Unauthorized access" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "This passage is reserved." })).toBeInTheDocument();
+    expect(mocks.fetchCurrentUser).toHaveBeenCalledTimes(1);
   });
 
   it("allows /portal when a refreshed superadmin session has portal_manager", async () => {
@@ -176,7 +178,7 @@ describe("portal routes", () => {
           <Route element={<RequirePortalAccess />}>
             <Route path="/portal" element={<h1>Portal workspace</h1>} />
           </Route>
-          <Route path="/unauthorized" element={<h1>Unauthorized access</h1>} />
+          <Route path="/unauthorized" element={<h1>This passage is reserved.</h1>} />
         </Routes>
       </MemoryRouter>
     );

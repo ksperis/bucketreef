@@ -12,7 +12,7 @@ function renderRoute(path: string) {
         <Route element={<RequireManagerFeatureRulesTool />}>
           <Route path="/manager/feature-rules" element={<h1>Feature rules page</h1>} />
         </Route>
-        <Route path="/unauthorized" element={<h1>Unauthorized access</h1>} />
+        <Route path="/unauthorized" element={<h1>This passage is reserved.</h1>} />
       </Routes>
     </MemoryRouter>
   );
@@ -49,12 +49,12 @@ describe("manager tool routes", () => {
     setSessionUserCache(null);
   });
 
-  it("redirects Feature rules to unauthorized without manager tool access", async () => {
+  it("shows restricted access in place without manager tool access", async () => {
     setStoredUser(false);
 
     renderRoute("/manager/feature-rules");
 
-    expect(await screen.findByRole("heading", { name: "Unauthorized access" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "This passage is reserved." })).toBeInTheDocument();
   });
 
   it("allows Feature rules when manager tool access is enabled", async () => {
