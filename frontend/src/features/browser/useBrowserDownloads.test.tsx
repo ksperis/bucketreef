@@ -4,6 +4,8 @@ import type { BrowserItem } from "./browserTypes";
 import { useBrowserDownloads } from "./useBrowserDownloads";
 
 const archiveMocks = vi.hoisted(() => ({
+  canStreamBrowserArchive: vi.fn(),
+  chooseBrowserArchiveFile: vi.fn(),
   downloadBrowserFolderArchive: vi.fn(),
 }));
 const downloadMocks = vi.hoisted(() => ({
@@ -17,6 +19,8 @@ vi.mock("./browserFolderDownload", async () => ({
   ...(await vi.importActual<typeof import("./browserFolderDownload")>(
     "./browserFolderDownload",
   )),
+  canStreamBrowserArchive: archiveMocks.canStreamBrowserArchive,
+  chooseBrowserArchiveFile: archiveMocks.chooseBrowserArchiveFile,
   downloadBrowserFolderArchive: archiveMocks.downloadBrowserFolderArchive,
 }));
 
@@ -95,6 +99,10 @@ describe("useBrowserDownloads", () => {
     archiveMocks.downloadBrowserFolderArchive.mockResolvedValue({
       cancelled: false,
       failedKeys: [],
+    });
+    archiveMocks.canStreamBrowserArchive.mockReturnValue(true);
+    archiveMocks.chooseBrowserArchiveFile.mockResolvedValue({
+      createWritable: vi.fn(),
     });
   });
 
@@ -198,8 +206,9 @@ describe("useBrowserDownloads", () => {
     expect(archiveMocks.downloadBrowserFolderArchive).toHaveBeenCalledWith(
       expect.objectContaining({
         folderLabel: "archive",
+        memoryLimitBytes: 200 * 1024 * 1024,
+        output: { kind: "memory" },
         parallelism: 2,
-        streamingThresholdBytes: 200 * 1024 * 1024,
         totalBytes: 12,
       }),
     );
@@ -220,6 +229,120 @@ describe("useBrowserDownloads", () => {
     expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[1][0].targets.map((target: { key: string }) => target.key)).toEqual(["docs/archive/b.txt"]);
     expect(archiveMocks.downloadBrowserFolderArchive.mock.calls[1][0].folderLabel).toBe("selection-retry");
     expect(options.listAllObjectsForPrefix).toHaveBeenCalledTimes(1);
+  });
+
+  it("inventories a large archive before asking for a destination", async () => {
+    const options = { ...createOptions(), streamingZipThresholdMb: 0 };
+    options.listAllObjectsForPrefix.mockResolvedValue([
+      { key: "docs/archive/a.txt", size: 12 },
+    ]);
+    const { result } = renderHook(() => useBrowserDownloads(options));
+
+    await act(() =>
+      result.current.downloadFolder(item("docs/archive/", "folder")),
+    );
+
+    expect(options.listAllObjectsForPrefix).toHaveBeenCalledOnce();
+    expect(archiveMocks.chooseBrowserArchiveFile).not.toHaveBeenCalled();
+    expect(archiveMocks.downloadBrowserFolderArchive).not.toHaveBeenCalled();
+    expect(options.startOperation).not.toHaveBeenCalled();
+    expect(result.current.archivePreparation).toMatchObject({
+      phase: "ready",
+      fileCount: 1,
+      totalBytes: 12,
+      excludedCount: 0,
+      canDownload: true,
+    });
+
+    await act(() => result.current.savePreparedArchive());
+
+    expect(archiveMocks.chooseBrowserArchiveFile).toHaveBeenCalledWith(
+      "archive",
+    );
+    expect(archiveMocks.downloadBrowserFolderArchive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        output: {
+          kind: "stream",
+          fileHandle: expect.any(Object),
+        },
+      }),
+    );
+    expect(options.completeOperation).toHaveBeenCalledWith(
+      "op-1",
+      "done",
+      undefined,
+    );
+    expect(result.current.archivePreparation).toBeNull();
+  });
+
+  it("keeps a prepared archive available when the picker is cancelled", async () => {
+    const options = { ...createOptions(), streamingZipThresholdMb: 0 };
+    options.listAllObjectsForPrefix.mockResolvedValue([
+      { key: "docs/archive/a.txt", size: 12 },
+    ]);
+    archiveMocks.chooseBrowserArchiveFile.mockResolvedValueOnce(null);
+    const { result } = renderHook(() => useBrowserDownloads(options));
+    await act(() =>
+      result.current.downloadFolder(item("docs/archive/", "folder")),
+    );
+
+    await act(() => result.current.savePreparedArchive());
+
+    expect(result.current.archivePreparation).toMatchObject({
+      phase: "ready",
+      error: expect.stringContaining("cancelled"),
+    });
+    expect(archiveMocks.downloadBrowserFolderArchive).not.toHaveBeenCalled();
+    expect(options.startOperation).not.toHaveBeenCalled();
+  });
+
+  it("refuses a large archive before downloading when streaming is unavailable", async () => {
+    const options = { ...createOptions(), streamingZipThresholdMb: 0 };
+    options.listAllObjectsForPrefix.mockResolvedValue([
+      { key: "docs/archive/a.txt", size: 12 },
+    ]);
+    archiveMocks.canStreamBrowserArchive.mockReturnValue(false);
+    const { result } = renderHook(() => useBrowserDownloads(options));
+
+    await act(() =>
+      result.current.downloadFolder(item("docs/archive/", "folder")),
+    );
+
+    expect(result.current.archivePreparation).toMatchObject({
+      phase: "ready",
+      canDownload: false,
+      error: expect.stringContaining("cannot save large ZIP archives"),
+    });
+    expect(archiveMocks.downloadBrowserFolderArchive).not.toHaveBeenCalled();
+    expect(downloadMocks.downloadBrowserTransferStream).not.toHaveBeenCalled();
+  });
+
+  it("always terminates a failed archive operation and offers an explicit retry", async () => {
+    const options = createOptions();
+    options.listAllObjectsForPrefix.mockResolvedValue([
+      { key: "docs/archive/a.txt", size: 12 },
+    ]);
+    archiveMocks.downloadBrowserFolderArchive.mockRejectedValueOnce(
+      new Error("Archive finalization timed out"),
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { result } = renderHook(() => useBrowserDownloads(options));
+
+    await act(() =>
+      result.current.downloadFolder(item("docs/archive/", "folder")),
+    );
+
+    expect(options.completeOperation).toHaveBeenCalledWith(
+      "op-1",
+      "failed",
+      "Unable to download folder: Archive finalization timed out",
+    );
+    expect(
+      options.updateOperation.mock.calls.some(
+        (call) => typeof call[1]?.retry === "function",
+      ),
+    ).toBe(true);
+    consoleError.mockRestore();
   });
 
 });
