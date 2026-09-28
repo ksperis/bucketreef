@@ -7,15 +7,16 @@ import BrowserUtilityIcon from "./BrowserUtilityIcon";
 import { useBrowserText } from "./browserMessages";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { toolbarCompactButtonClasses } from "../../components/toolbarControlClasses";
+import UiIconButton from "../../components/ui/UiIconButton";
 import UiMeterBar from "../../components/ui/UiMeterBar";
 import StorageSpaceIcon from "../../components/StorageSpaceIcon";
 import { cx } from "../../components/ui/styles";
 import type { BrowserBucket, BrowserUsageSummary } from "../../api/browserContracts";
 import { formatBytes } from "../../utils/format";
 import {
-  BucketCollectionIcon,
   BucketIcon,
   OpenIcon,
+  PlusIcon,
   RefreshIcon,
   SearchIcon,
 } from "./browserIcons";
@@ -161,23 +162,25 @@ export default function BrowserWorkspaceSidebar({
       {favorites && tab === "favorites" ? <div role="tabpanel" id={`browser-${variant}-favorites-panel`} aria-labelledby={`browser-${variant}-favorites-tab`} className="flex min-h-0 flex-1 flex-col">{favorites}</div> : <div role={favorites ? "tabpanel" : undefined} id={`browser-${variant}-buckets-panel`} aria-labelledby={favorites ? `browser-${variant}-buckets-tab` : undefined} className="flex min-h-0 flex-1 flex-col">
       {!compact && (
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[color:var(--shell-border-soft)] px-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <BucketCollectionIcon className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-[var(--shell-text)]">{title}</p>
-            <p className="truncate text-[11px] font-medium text-[var(--shell-muted-text)]">{filteredLabel}</p>
+          <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-[var(--shell-muted-text)]">
+            {filteredLabel}
+          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            {bucketManagementEnabled && (
+              <UiIconButton
+                onClick={onCreateBucket}
+                label="Create bucket"
+                icon={<PlusIcon className="h-3.5 w-3.5" />}
+              />
+            )}
+            <UiIconButton
+              onClick={onRetryBuckets}
+              disabled={loadingBuckets}
+              label={`Refresh ${title.toLowerCase()}`}
+              title={loadingBuckets ? "Refreshing" : "Refresh"}
+              icon={<RefreshIcon className={cx("h-3.5 w-3.5", loadingBuckets ? "animate-spin" : "")} />}
+            />
           </div>
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--shell-muted-text)] transition hover:bg-[var(--shell-hover)] hover:text-[var(--shell-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={onRetryBuckets}
-            disabled={loadingBuckets}
-            aria-label={`Refresh ${title.toLowerCase()}`}
-            title={loadingBuckets ? "Refreshing" : "Refresh"}
-          >
-            <RefreshIcon className={cx("h-3.5 w-3.5", loadingBuckets ? "animate-spin" : "")} />
-          </button>
         </div>
       )}
 
@@ -194,13 +197,6 @@ export default function BrowserWorkspaceSidebar({
             leadingControl={<SearchIcon className="h-3.5 w-3.5 text-slate-400" />}
             spellCheck={false}
           />
-          {bucketManagementEnabled && (
-            <div className="flex items-center gap-1.5">
-              <button type="button" className={toolbarCompactButtonClasses} onClick={onCreateBucket}>
-                + Bucket
-              </button>
-            </div>
-          )}
         </div>
       )}
 

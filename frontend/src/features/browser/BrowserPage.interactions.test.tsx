@@ -1636,7 +1636,7 @@ describe("BrowserPage interactions", () => {
 
     await user.click(selector);
     expect(screen.getByPlaceholderText("Filter storage spaces")).toBeInTheDocument();
-    expect(screen.getAllByText("Storage Spaces", { exact: true })).toHaveLength(3); // Includes the sidebar tab.
+    expect(screen.getAllByText("Storage Spaces", { exact: true })).toHaveLength(2); // Includes the sidebar tab.
     expect(screen.getByText("1 of 1 storage space")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Filter buckets")).not.toBeInTheDocument();
     expect(screen.queryByText("Buckets", { exact: true })).not.toBeInTheDocument();
@@ -2576,9 +2576,7 @@ describe("BrowserPage interactions", () => {
     await user.click(
       within(getContextToolbar()).getByRole("button", { name: "Select bucket" }),
     );
-    await user.click(
-      await screen.findByRole("button", { name: "Create bucket" }),
-    );
+    await user.click(await screen.findByText("+ Bucket"));
 
     const dialog = await screen.findByRole("dialog", { name: "Create bucket" });
     expect(
@@ -2606,9 +2604,7 @@ describe("BrowserPage interactions", () => {
     await user.click(
       within(getContextToolbar()).getByRole("button", { name: "Select bucket" }),
     );
-    await user.click(
-      await screen.findByRole("button", { name: "Create bucket" }),
-    );
+    await user.click(await screen.findByText("+ Bucket"));
 
     const dialog = await screen.findByRole("dialog", { name: "Create bucket" });
     await user.type(within(dialog).getByLabelText("Bucket name"), "created-bucket");
