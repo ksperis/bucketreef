@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { ObjectPreviewNavigation } from "./ObjectDetailsDrawer";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { S3AccountSelector } from "../../api/accountParams";
@@ -46,6 +47,7 @@ type PendingAction =
   | { type: "revoke"; link: PortalPublicLink };
 
 type StorageSpaceObjectDetailsDrawerProps = {
+  navigation?: ObjectPreviewNavigation;
   accountId: S3AccountSelector;
   activeView: StorageSpaceObjectDetailsView;
   canCreatePublicLinks: boolean;
@@ -67,6 +69,7 @@ function objectName(key: string) {
 }
 
 export default function StorageSpaceObjectDetailsDrawer({
+  navigation,
   accountId,
   activeView,
   canCreatePublicLinks,
@@ -331,6 +334,7 @@ export default function StorageSpaceObjectDetailsDrawer({
   return (
     <>
       <ObjectDetailsDrawer
+        navigation={navigation}
         name={resolvedName}
         path={resolvedKey}
         copyPathLabel={t({ en: "Copy path", fr: "Copier le chemin", de: "Pfad kopieren", zh: "复制路径" })}

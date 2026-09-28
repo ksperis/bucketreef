@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { ObjectPreviewNavigation } from "../shared/ObjectDetailsDrawer";
 import { useEffect, useMemo, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import PageBanner from "../../components/PageBanner";
@@ -47,6 +48,7 @@ type BrowserObjectDetailsStatus = {
 };
 
 type BrowserObjectDetailsDrawerProps = {
+  navigation?: ObjectPreviewNavigation;
   accountId: S3AccountSelector;
   bucketName: string;
   item: BrowserItem;
@@ -76,6 +78,7 @@ type BrowserObjectDetailsDrawerProps = {
 };
 
 export default function BrowserObjectDetailsDrawer({
+  navigation,
   accountId,
   bucketName,
   item,
@@ -669,6 +672,7 @@ export default function BrowserObjectDetailsDrawer({
   return (
     <>
       <ObjectDetailsDrawer
+        navigation={navigation}
         name={itemSnapshot.name}
         path={path}
         copyPathLabel="Copy path"

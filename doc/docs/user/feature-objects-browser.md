@@ -197,3 +197,9 @@ Temporary S3 sessions cannot synchronize preferences. The static demo simulates 
 Unsafe archive paths (including traversal, absolute/ambiguous paths and case/Unicode or file/folder collisions) are excluded with an explanation in operation details. Objects are never silently overwritten inside the archive. Large selections use streaming to a file when supported. Without streaming, a selection at or above the configured ZIP threshold is blocked before downloading its contents; select fewer files or use a browser with streaming file support. The threshold concerns the total input bytes; archive packaging also needs working memory.
 
 **Retry failures** produces a complementary archive containing only files that failed to download. Successful files are not downloaded again. ZIP generation does not resume after closing the browser.
+
+### Structured previews and navigation
+
+CSV files display an inert table, including quoted and multiline cells. JSON files display a collapsible tree. **Raw text** is always available; invalid, truncated or excessively complex structures automatically fall back to source text. **Find in displayed text** searches only the loaded text and highlights its first 200 matches. Markup and spreadsheet formulas are displayed as text, never executed.
+
+**Previous** and **Next** navigate among the current listing's loaded, non-deleted files without changing the selection or loading additional pages. Pending changes in an editable details drawer still require the existing discard confirmation. Preview limits remain 50 MiB per object and 64 KiB of text (UTF-8 bytes, including Portal-supplied text). There is no new Office renderer or active HTML preview.

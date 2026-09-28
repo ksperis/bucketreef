@@ -156,6 +156,7 @@ function StorageSpaceDetail() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [takeOwnershipDialogOpen, setTakeOwnershipDialogOpen] = useState(false);
   const [takeOwnershipBusy, setTakeOwnershipBusy] = useState(false);
+  const [loadedObjectKeys, setLoadedObjectKeys] = useState<string[]>([]);
   const [objectCreateLinkRequestToken, setObjectCreateLinkRequestToken] =
     useState(0);
   const [externalLinks, setExternalLinks] = useState<PortalPublicLink[]>([]);
@@ -659,6 +660,21 @@ function StorageSpaceDetail() {
     setHistoryCleanupDialogOpen(true);
   };
 
+  const previewIndex = loadedObjectKeys.indexOf(objectDrawerState.objectKey ?? "");
+  const navigatePreview = (index: number) => {
+    const key = loadedObjectKeys[index];
+    if (key === undefined) return;
+    const params = new URLSearchParams(location.search);
+    params.set("object", key);
+    params.set("object_view", "preview");
+    params.delete("object_deleted");
+    navigate({ pathname: location.pathname, search: "?" + params.toString() }, { replace: true, state: location.state });
+  };
+  const previewNavigation = previewIndex < 0 ? undefined : {
+    previous: previewIndex > 0 ? () => navigatePreview(previewIndex - 1) : undefined,
+    next: previewIndex + 1 < loadedObjectKeys.length ? () => navigatePreview(previewIndex + 1) : undefined,
+    position: (previewIndex + 1) + " / " + loadedObjectKeys.length,
+  };
   const filesSection = (
     <section id="space-files" className="space-y-3">
       {isArchived ? (
@@ -672,6 +688,7 @@ function StorageSpaceDetail() {
       ) : browserAvailable ? (
         <div className="min-h-[520px] h-[min(72vh,760px)]">
           <BrowserEmbed
+            onLoadedFilesChange={setLoadedObjectKeys}
             accountIdForApi={accountIdForApi}
             executionContextKind="portal_account"
             hasContext={hasAccountContext}
@@ -1250,6 +1267,7 @@ function StorageSpaceDetail() {
 
       {activeTab === "files" && objectDrawerState.objectKey ? (
         <StorageSpaceObjectDetailsDrawer
+          navigation={previewNavigation}
           accountId={accountIdForApi}
           activeView={objectDrawerState.activeView}
           canCreatePublicLinks={canCreatePublicLinks}
