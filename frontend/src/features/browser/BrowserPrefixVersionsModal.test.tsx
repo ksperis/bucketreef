@@ -16,13 +16,16 @@ const marker = { ...oldVersion, version_id: "marker-v", is_delete_marker: true, 
 function props(): ComponentProps<typeof BrowserPrefixVersionsModal> {
   return { bucketName: "bucket", normalizedPrefix: "/ spaced//", prefixVersionsLoading: false, prefixVersionsError: null,
     prefixVersionRows: [oldVersion, latestVersion, marker], canLoadMore: true, onClose: vi.fn(), onRefresh: vi.fn(),
-    onLoadMore: vi.fn(), onRestoreVersion: vi.fn(), onDeleteVersion: vi.fn() };
+    onLoadMore: vi.fn(), onDownloadVersion: vi.fn(), onRestoreVersion: vi.fn(), onDeleteVersion: vi.fn() };
 }
 describe("Browser prefix versions dialog", () => {
   it("routes eligible row actions with exact version identities and keeps literal export values", async () => {
     const user = userEvent.setup(); const value = props(); render(<BrowserPrefixVersionsModal {...value} />);
     expect(screen.getByText("3 loaded")).toBeVisible();
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
+    expect(screen.getAllByRole("button", { name: "Download", exact: true })).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: "Download", exact: true })[0]);
+    expect(value.onDownloadVersion).toHaveBeenCalledWith(oldVersion);
     expect(screen.getAllByRole("button", { name: "Restore", exact: true })).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Restore", exact: true }));
     expect(value.onRestoreVersion).toHaveBeenCalledWith(oldVersion);

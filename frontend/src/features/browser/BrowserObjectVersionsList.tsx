@@ -22,6 +22,7 @@ type BrowserObjectVersionsListProps = {
   bodyClassName?: string;
   canLoadMore?: boolean;
   onLoadMore?: () => void;
+  onDownloadVersion: (version: BrowserObjectVersion) => void;
   onRestoreVersion: (version: BrowserObjectVersion) => void;
   onDeleteVersion: (version: BrowserObjectVersion) => void;
   readOnly?: boolean;
@@ -38,6 +39,7 @@ export default function BrowserObjectVersionsList({
   bodyClassName = "space-y-2",
   canLoadMore = false,
   onLoadMore,
+  onDownloadVersion,
   onRestoreVersion,
   onDeleteVersion,
   readOnly = false,
@@ -68,6 +70,11 @@ export default function BrowserObjectVersionsList({
                 )}
               </div>}
               {!isDemo && <div className="flex flex-wrap items-center gap-2">
+                {!ver.is_delete_marker && (
+                  <ListActionButton type="button" onClick={() => onDownloadVersion(ver)}>
+                    Download
+                  </ListActionButton>
+                )}
                 {!ver.is_delete_marker && !ver.is_latest && (
                   <ListActionButton type="button" onClick={() => onRestoreVersion(ver)}>
                     Restore

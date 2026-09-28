@@ -6,6 +6,7 @@ import { buildBrowserSelectionManifest } from "./browserSelectionManifest";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { S3AccountSelector } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
+import type { BrowserObjectVersion } from "../../api/browserContracts";
 import type {
   PresignRequest,
   PresignedUrl,
@@ -137,12 +138,13 @@ export function useBrowserDownloads({
   );
 
   const downloadBlob = useCallback(
-    async (key: string, signal?: AbortSignal) => {
+    async (key: string, signal?: AbortSignal, versionId?: string) => {
       if (!bucketName || !enabled) throw new Error("Missing bucket context.");
       return downloadBrowserTransferBlob({
         selector: accountId,
         bucket: bucketName,
         key,
+        versionId,
         mode: useProxyTransfers ? "proxy" : "direct",
         signal,
         sseCustomerKeyBase64,
@@ -723,12 +725,70 @@ export function useBrowserDownloads({
     ],
   );
 
+  const downloadVersion = useCallback(
+    async (version: BrowserObjectVersion) => {
+      if (
+        !bucketName ||
+        !enabled ||
+        version.is_delete_marker ||
+        !version.version_id
+      ) {
+        onWarning("This version cannot be downloaded.");
+        return;
+      }
+      const filename = version.key.split("/").filter(Boolean).at(-1) || "download";
+      const reportItem: BrowserItem = {
+        id: `version:${version.key}:${version.version_id}`,
+        key: version.key,
+        name: filename,
+        type: "file",
+        size: "",
+        sizeBytes: version.size,
+        modified: version.last_modified ?? "",
+        modifiedAt: version.last_modified
+          ? Date.parse(version.last_modified)
+          : null,
+        owner: "",
+        storageClass: version.storage_class ?? undefined,
+        etag: version.etag,
+      };
+      const reportedId = startReportedTransfer(reportItem);
+      try {
+        const blob = await downloadBlob(
+          version.key,
+          undefined,
+          version.version_id,
+        );
+        triggerBlobDownload(filename, blob);
+        if (reportedId) transferReporter?.complete(reportedId, filename);
+        onStatus(`Downloaded version of ${filename}`);
+      } catch (caughtError) {
+        const message = formatBrowserOperationError(
+          caughtError,
+          "Unable to download object version.",
+        );
+        if (reportedId) transferReporter?.fail(reportedId, message);
+        onStatus(message);
+      }
+    },
+    [
+      bucketName,
+      downloadBlob,
+      enabled,
+      onStatus,
+      onWarning,
+      startReportedTransfer,
+      transferReporter,
+    ],
+  );
+
   return {
     archivePreparation,
     cancelArchivePreparation,
     downloadArchive,
     downloadFolder,
     downloadItems,
+    downloadVersion,
     savePreparedArchive,
   };
 }

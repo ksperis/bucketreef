@@ -18,6 +18,7 @@ const baseProps = {
   versions: [] as BrowserObjectVersion[],
   loading: false,
   error: null as string | null,
+  onDownloadVersion: vi.fn(),
   onRestoreVersion: vi.fn(),
   onDeleteVersion: vi.fn(),
 };
@@ -25,6 +26,7 @@ const baseProps = {
 function renderList(overrides: Partial<typeof baseProps> = {}) {
   const props = {
     ...baseProps,
+    onDownloadVersion: vi.fn(),
     onRestoreVersion: vi.fn(),
     onDeleteVersion: vi.fn(),
     ...overrides,
@@ -50,8 +52,10 @@ describe("BrowserObjectVersionsList", () => {
     expect(
       screen.queryByRole("button", { name: "Restore" }),
     ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Download" }));
     await user.click(screen.getByRole("button", { name: "Delete version" }));
 
+    expect(props.onDownloadVersion).toHaveBeenCalledWith(version);
     expect(props.onDeleteVersion).toHaveBeenCalledWith(version);
   });
 

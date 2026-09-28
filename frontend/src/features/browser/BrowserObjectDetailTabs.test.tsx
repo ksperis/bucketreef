@@ -30,6 +30,7 @@ describe("Browser object detail tabs", () => {
     const user = userEvent.setup();
     const onRefresh = vi.fn();
     const onLoadMore = vi.fn();
+    const onDownloadVersion = vi.fn();
     const onRestoreVersion = vi.fn();
     const onDeleteVersion = vi.fn();
     render(
@@ -41,6 +42,7 @@ describe("Browser object detail tabs", () => {
         canLoadMore
         onRefresh={onRefresh}
         onLoadMore={onLoadMore}
+        onDownloadVersion={onDownloadVersion}
         onRestoreVersion={onRestoreVersion}
         onDeleteVersion={onDeleteVersion}
         readOnly={false}
@@ -52,6 +54,7 @@ describe("Browser object detail tabs", () => {
     await user.click(
       screen.getByRole("button", { name: "Load more versions" }),
     );
+    await user.click(screen.getByRole("button", { name: "Download" }));
     await user.click(screen.getByRole("button", { name: "Restore" }));
     await user.click(
       screen.getByRole("button", { name: "Delete version" }),
@@ -59,6 +62,7 @@ describe("Browser object detail tabs", () => {
 
     expect(onRefresh).toHaveBeenCalledOnce();
     expect(onLoadMore).toHaveBeenCalledOnce();
+    expect(onDownloadVersion).toHaveBeenCalledWith(version);
     expect(onRestoreVersion).toHaveBeenCalledWith(version);
     expect(onDeleteVersion).toHaveBeenCalledWith(version);
   });
