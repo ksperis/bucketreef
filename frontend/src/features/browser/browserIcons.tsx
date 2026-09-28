@@ -30,6 +30,13 @@ export const FolderPlusIcon = ({ className = "h-4 w-4", ...props }: IconProps) =
   </svg>
 );
 
+export const PlusIcon = ({ className = "h-4 w-4", ...props }: IconProps) => (
+  <svg viewBox="0 0 20 20" className={className} fill="none" aria-hidden="true" {...props}>
+    <path d="M10 4v12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <path d="M4 10h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
 export const FileIcon = ({ className = "h-4 w-4", ...props }: IconProps) => (
   <svg viewBox="0 0 20 20" className={className} fill="none" aria-hidden="true" {...props}>
     <path

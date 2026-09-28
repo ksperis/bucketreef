@@ -83,4 +83,47 @@ describe("BrowserWorkspaceSidebar", () => {
     fireEvent.change(filter, { target: { value: "logs" } });
     expect(onBucketFilterChange).toHaveBeenCalledWith("logs");
   });
+
+  it("keeps the bucket summary row limited to the count and icon actions", () => {
+    const onCreateBucket = vi.fn();
+    const onRetryBuckets = vi.fn();
+    render(
+      <BrowserWorkspaceSidebar
+        compact={false}
+        variant="desktop"
+        isPortalContext={false}
+        rows={[]}
+        activeBucketName=""
+        bucketFilter=""
+        loadingBuckets={false}
+        bucketError={null}
+        bucketManagementEnabled
+        canLoadMore={false}
+        bucketMenuLoadingMore={false}
+        bucketMenuTotal={45}
+        bucketTotalCount={45}
+        usageSummary={null}
+        usageLoading={false}
+        usageError={null}
+        closeMobile={vi.fn()}
+        onBucketFilterChange={vi.fn()}
+        onRetryBuckets={onRetryBuckets}
+        onCreateBucket={onCreateBucket}
+        onSelectBucket={vi.fn()}
+        onLoadMore={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("45 items")).toBeInTheDocument();
+    expect(screen.queryByText("Buckets")).not.toBeInTheDocument();
+    expect(screen.queryByText("+ Bucket")).not.toBeInTheDocument();
+    const createButton = screen.getByRole("button", { name: "Create bucket" });
+    const refreshButton = screen.getByRole("button", { name: "Refresh buckets" });
+    expect(createButton.textContent).toBe("");
+    expect(refreshButton.textContent).toBe("");
+    fireEvent.click(createButton);
+    fireEvent.click(refreshButton);
+    expect(onCreateBucket).toHaveBeenCalledOnce();
+    expect(onRetryBuckets).toHaveBeenCalledOnce();
+  });
 });
