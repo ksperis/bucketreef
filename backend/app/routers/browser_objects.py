@@ -287,8 +287,8 @@ def copy_object(
             detail="Missing source or destination key",
         )
     try:
-        service.copy_object(bucket_name, account, payload)
-        return {"message": "ok"}
+        result = service.copy_object(bucket_name, account, payload)
+        return {"message": "ok", **(result or {})}
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

@@ -165,3 +165,11 @@ conditional writes; other providers use an explicitly non-atomic preflight.
 Changes detected after a decision stop the affected operation; retry it after
 reviewing the new destination. Conditions are never silently removed after a
 provider rejection. Replacement may overwrite data when versioning is disabled.
+
+### Rename, copy and move
+
+The selection menu and item menu provide **Rename**, **Copy to…** and **Move to…** for current files and folders. Choose a destination in the current storage context and review the source → destination summary. In Portal, destinations are the project's accessible Storage Spaces; read-only destinations cannot receive objects. Cross-context clipboard transfers still require the Advanced profile.
+
+Overlapping selections are expanded once. A folder cannot be copied or moved inside itself. Conflicts use the same explicit decisions as uploads. Renaming moves the current keys; historical versions remain at the original keys. Objects above the single S3 copy limit use multipart server-side copy.
+
+Before deleting a source, Browser checks its identity and verifies the copied result. Changed sources, failed verification and unsupported conditional deletion produce **Copied, not deleted**, retaining the source. A multipart ETag is checked against the copy result, not compared with the source's ETag. Provider support for conditional deletion must be qualified against the deployed RGW version; no unconditional delete fallback is used.
