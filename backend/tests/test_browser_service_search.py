@@ -761,3 +761,49 @@ def test_get_object_columns_reuses_backend_cache_and_invalidates_after_mutation(
     assert third.items[0].content_type == "text/plain"
     assert head_calls == ["a.txt", "a.txt"]
     assert tag_calls == ["a.txt", "a.txt"]
+
+
+@pytest.mark.parametrize("sort_by", ["name", "size", "modified"])
+def test_file_filters_combine_before_pagination_and_bind_cursors(monkeypatch, sort_by):
+    from app.models.browser_filters import BrowserFileFilters
+    from fastapi import HTTPException
+    class Client:
+        def list_objects_v2(self, **kwargs):
+            entries = [
+                {"Key": "docs/a.txt", "Size": 100, "LastModified": datetime(2026, 9, 28, 10, tzinfo=timezone.utc)},
+                {"Key": "docs/b.CSV", "Size": 20, "LastModified": datetime(2026, 9, 28, 10, tzinfo=timezone.utc)},
+                {"Key": "docs/c.csv", "Size": 30, "LastModified": datetime(2026, 9, 28, 11, tzinfo=timezone.utc)},
+                {"Key": "docs/d.csv", "Size": 40, "LastModified": datetime(2026, 9, 29, 10, tzinfo=timezone.utc)},
+            ]
+            start = int(kwargs.get("ContinuationToken", 0)); end = start + kwargs["MaxKeys"]
+            return {"Contents": entries[start:end], "IsTruncated": end < len(entries), "NextContinuationToken": str(end)}
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: Client())
+    filters = BrowserFileFilters(min_size=20, max_size=30, extensions=(".csv",), modified_after="2026-09-28T12:00:00+02:00", modified_before="2026-09-28T11:00:00Z")
+    first = service.list_objects("bucket-a", _account(), prefix="docs/", max_keys=1, file_filters=filters, sort_by=sort_by)
+    assert [item.key for item in first.objects] == ["docs/b.CSV"]
+    assert first.is_truncated
+    second = service.list_objects("bucket-a", _account(), prefix="docs/", max_keys=1, file_filters=filters, sort_by=sort_by, continuation_token=first.next_continuation_token)
+    assert [item.key for item in second.objects] == ["docs/c.csv"]
+    with pytest.raises(HTTPException) as caught:
+        service.list_objects("bucket-a", _account(), prefix="docs/", max_keys=1, file_filters=BrowserFileFilters(min_size=10), sort_by=sort_by, continuation_token=first.next_continuation_token)
+    assert caught.value.status_code == 422
+
+
+def test_file_filters_validate_ranges_and_require_timezone():
+    from app.models.browser_filters import BrowserFileFilters
+    from pydantic import ValidationError
+    for values in ({"min_size": -1}, {"min_size": 20, "max_size": 10}, {"modified_after": "2026-09-28T12:00:00"}, {"modified_after": "2026-09-29T00:00:00Z", "modified_before": "2026-09-28T00:00:00Z"}):
+        with pytest.raises(ValidationError):
+            BrowserFileFilters(**values)
+
+
+def test_filtered_listing_reports_partial_scan_instead_of_empty_completion(monkeypatch):
+    from app.models.browser_filters import BrowserFileFilters
+    from app.services.browser import default_listing
+    monkeypatch.setattr(default_listing, "OBJECT_LIST_SCAN_PAGE_BUDGET", 1)
+    service = BrowserService()
+    client = SimpleNamespace(list_objects_v2=lambda **kwargs: {"Contents": [{"Key": "small", "Size": 1}], "IsTruncated": True, "NextContinuationToken": "next"})
+    monkeypatch.setattr(service, "_client", lambda _account: client)
+    result = service.list_objects("bucket-a", _account(), file_filters=BrowserFileFilters(min_size=100))
+    assert result.objects == [] and result.is_truncated and result.next_continuation_token

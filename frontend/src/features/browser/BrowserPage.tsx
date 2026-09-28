@@ -1,3 +1,4 @@
+import BrowserSearchControls from "./BrowserSearchControls";
 import BrowserDestinationDialog, { type BrowserDestinationRequest } from "./BrowserDestinationDialog";
 import { useBrowserWriteConflicts } from "./useBrowserWriteConflicts";
 /*
@@ -441,6 +442,7 @@ export default function BrowserPage({
   } = useBrowserCopyDialog({ onStatus: setStatusMessage });
   const {
     activeSearchStatusChips,
+    fileFilters, fileFilterQuery, hasFileFilters, setFileFilters,
     changeSearchScope,
     clearSearchFilters,
     filter,
@@ -503,6 +505,7 @@ export default function BrowserPage({
     onWarning: setWarningMessage,
     prefix,
     recursive: searchRecursive,
+    fileFilters: fileFilterQuery,
     requestOptions: browserRequestOptions,
     searchScope,
     showDeletedObjects,
@@ -933,12 +936,11 @@ export default function BrowserPage({
   ]);
 
   const displayPrefixForItems = useMemo(() => {
-    const query = filter.trim();
-    if (!query || searchScope !== "bucket") {
+    if (searchScope !== "bucket") {
       return normalizedPrefix;
     }
     return "";
-  }, [filter, normalizedPrefix, searchScope]);
+  }, [normalizedPrefix, searchScope]);
 
   const items = useMemo(
     () =>
@@ -2424,7 +2426,7 @@ export default function BrowserPage({
       rootRef={searchControlRef}
       optionsButtonRef={searchOptionsButtonRef}
       optionsMenuRef={searchOptionsMenuRef}
-      advancedOptionsEnabled={resolvedFunctionalProfile === "advanced"}
+      advancedOptionsEnabled={true}
       optionsOpen={showSearchOptionsMenu}
       filter={filter}
       objectNounPlural={workspaceObjectNounPlural}
@@ -2437,6 +2439,7 @@ export default function BrowserPage({
       exactMatch={searchExactMatch}
       caseSensitive={searchCaseSensitive}
       typeFilter={typeFilter}
+      hasFileFilters={hasFileFilters}
       storageFilter={storageFilter}
       storageClasses={searchableStorageClasses}
       canReset={hasActiveSearchFilters}
@@ -2704,6 +2707,7 @@ export default function BrowserPage({
               />
             )}
             <div className="flex min-h-0 h-full min-w-0 flex-1 flex-col gap-3">
+              {bucketName && <BrowserSearchControls portal={isPortalProfile} scope={searchScope} recursive={searchRecursive} onScope={changeSearchScope} onRecursive={setSearchRecursive} filters={fileFilters} onFilters={setFileFilters} loading={objectsLoading || objectsLoadingMore} partial={objectsIsTruncated} active={hasActiveSearchFilters} empty={listItems.length === 0} foldersOnly={typeFilter === "folder"} failed={Boolean(objectsIssue)} />}
               <BrowserObjectExplorer
                 viewportRef={objectsListViewportRef}
                 dragging={dragging}

@@ -13,10 +13,26 @@ export function objectListing(bucket: DemoBucket, url: URL): ListBrowserObjectsR
   const objects: BrowserObject[] = [];
   for (const object of bucket.objects) {
     const current = object.versions[0]; if (!current || current.deleted || !object.key.startsWith(prefix)) continue;
-    if (query && !(url.searchParams.get("case_sensitive") === "true" ? object.key.includes(query) : object.key.toLowerCase().includes(query.toLowerCase()))) continue;
     const rest = object.key.slice(prefix.length); if (!rest) continue;
-    if (rest.includes("/") && !recursive && !query) prefixes.add(prefix + rest.split("/")[0] + "/");
-    else objects.push(objectView(current));
+    const type = url.searchParams.get("item_type") ?? "all";
+    const extensions = (url.searchParams.get("extensions") ?? "").split(",").map(value => value.trim().replace(/^\./, "").toLowerCase()).filter(Boolean);
+    const min = url.searchParams.get("min_size"), max = url.searchParams.get("max_size");
+    const after = url.searchParams.get("modified_after"), before = url.searchParams.get("modified_before");
+    const fileFilters = min !== null || max !== null || Boolean(after || before || extensions.length);
+    const caseSensitive = url.searchParams.get("query_case_sensitive") === "true";
+    const matches = (value: string) => { const candidate = caseSensitive ? value : value.toLowerCase(); const needle = caseSensitive ? query : query.toLowerCase(); return !needle || (url.searchParams.get("query_exact") === "true" ? candidate === needle : candidate.includes(needle)); };
+    if (rest.includes("/")) {
+      const folder = prefix + rest.split("/")[0] + "/";
+      if (!fileFilters && type !== "file" && matches(folder.slice(prefix.length, -1))) prefixes.add(folder);
+      if (!recursive) continue;
+    }
+    if (type === "folder" || !matches(rest)) continue;
+    if (min !== null && current.size < Number(min) || max !== null && current.size > Number(max)) continue;
+    if (extensions.length && !extensions.some(extension => object.key.toLowerCase().endsWith("." + extension))) continue;
+    if (after && new Date(current.last_modified ?? "") < new Date(after) || before && new Date(current.last_modified ?? "") > new Date(before)) continue;
+    const storage = url.searchParams.get("storage_class");
+    if (storage && current.storage_class !== storage) continue;
+    objects.push(objectView(current));
   }
   const sort = url.searchParams.get("sort_by") ?? "name";
   objects.sort((a, b) => (sort === "size" ? a.size - b.size : sort === "modified" ? String(a.last_modified).localeCompare(String(b.last_modified)) : a.key.localeCompare(b.key)) * (url.searchParams.get("sort_dir") === "desc" ? -1 : 1));

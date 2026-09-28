@@ -173,3 +173,11 @@ The selection menu and item menu provide **Rename**, **Copy to…** and **Move t
 Overlapping selections are expanded once. A folder cannot be copied or moved inside itself. Conflicts use the same explicit decisions as uploads. Renaming moves the current keys; historical versions remain at the original keys. Objects above the single S3 copy limit use multipart server-side copy.
 
 Before deleting a source, Browser checks its identity and verifies the copied result. Changed sources, failed verification and unsupported conditional deletion produce **Copied, not deleted**, retaining the source. A multipart ETag is checked against the copy result, not compared with the source's ETag. Provider support for conditional deletion must be qualified against the deployed RGW version; no unconditional delete fallback is used.
+
+### Search scopes and file filters
+
+Choose **This folder**, **With subfolders**, or **Whole bucket** directly above the list (**Whole space** in Portal). The whole-space scope stays inside the authorized Storage Space and never searches other projects. Scope and filters work without a text query.
+
+File filters combine minimum/maximum bytes, inclusive modification dates and comma-separated extensions. Dates entered in the browser use your local time zone and are sent with their UTC offset. File filters exclude folders and deletion markers and cannot be combined with the Folders-only option. Existing exact matching, case sensitivity and storage-class options remain available.
+
+Filtering takes place on the server before pagination, including sorted listings. **Partial results** means more listing pages remain; explicitly load more to continue. An empty result offers a wider scope without choosing it automatically. Ascending-name requests retain their bounded scan budget. Global sorted scans stop at 200 S3 pages or 20 seconds and ask you to narrow the scope or return to ascending-name pagination. No object-content or tag index is created.
