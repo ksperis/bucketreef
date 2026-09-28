@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import type { GeneralSettings } from "./api/appSettings";
+import { getWorkspaceAccess } from "./api/executionContexts";
 import { fetchCurrentUser } from "./api/users";
 import { useGeneralSettings } from "./components/GeneralSettingsContext";
 import { cx, uiCardClass } from "./components/ui/styles";
@@ -95,6 +96,43 @@ export function RoleRedirect() {
 export function RequireManagerFeature() {
   const { generalSettings, loading } = useGeneralSettings();
   return renderWorkspaceFeature(loading, generalSettings.manager_enabled, "Manager");
+}
+
+export function RequireManagerAccess() {
+  const { authenticated, user } = useSession();
+  const sessionIdentity = user?.id ?? user?.email;
+  const [resolvedAccess, setResolvedAccess] = useState<{
+    identity: typeof sessionIdentity;
+    available: boolean;
+  } | null>(null);
+  const [accessError, setAccessError] = useState<unknown>(null);
+  const [refreshAttempt, setRefreshAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!authenticated || sessionIdentity == null) return;
+    let cancelled = false;
+    setAccessError(null);
+    getWorkspaceAccess()
+      .then((access) => {
+        if (!cancelled) {
+          setResolvedAccess({ identity: sessionIdentity, available: access.manager.available });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setAccessError(error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, refreshAttempt, sessionIdentity]);
+
+  if (!authenticated || sessionIdentity == null) return unauthorizedRoute();
+  if (accessError) {
+    return <ErrorState error={accessError} onRetry={() => setRefreshAttempt((attempt) => attempt + 1)} />;
+  }
+  if (resolvedAccess?.identity !== sessionIdentity) return <RouteFallback />;
+  if (!resolvedAccess.available) return unauthorizedRoute();
+  return <Outlet />;
 }
 
 export function RequirePortalAccess() {
