@@ -49,6 +49,7 @@ type SessionCapabilities = {
 };
 
 export type AuthSessionDescriptor = {
+  local_recovery_id?: string | null;
     session_id: string;
     actor_type: string;
     account_id?: string | null;

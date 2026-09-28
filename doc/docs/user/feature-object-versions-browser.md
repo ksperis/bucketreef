@@ -22,7 +22,9 @@ Open the exact bucket and object key from the intended context. Version history 
 3. Review the entries shown in the `Versions` tab of the file details drawer.
    - Latest versions and delete markers are clearly identified.
    - Each row keeps restore and delete actions next to the corresponding version metadata.
-4. Restore or remove the required version directly from the tab.
+4. Choose a version in **First version**, then **Preview version** to inspect its exact historical content in a read-only window. In Portal, use the same controls in **History**.
+5. Choose a different **Second version**, then **Compare versions** to see removed and added lines. The summary includes each version's identifier, date and size. The first version is the source of removed lines; the second is the source of added lines.
+6. Restore or remove the required version directly from the history tab, as a separate action with its existing confirmation.
    - If the current object state is deleted, Browser opens the details drawer directly on `Versions`.
 
 ## Expected result
@@ -41,6 +43,8 @@ Check bucket versioning, endpoint capability, the selected object state, and whe
 
 !!! note
     Browser availability depends on workspace browser flags and endpoint capabilities. The `Versions` tab is only useful when the target bucket has S3 versioning enabled.
+
+Historical previews reuse the 50 MiB object and 64 KiB text limits. Comparison requires two distinct, non-deleted text/JSON versions, each at most 64 KiB; it never compares truncated text as if it were complete. Unknown sizes and deletion markers are excluded. Large changed sections use a bounded block diff. Reading a version still requires current access rights, including permission to read historical versions; no fallback reads the current object if access to the selected version fails. Direct, proxy and Portal downloads preserve the exact version identifier. Viewing or comparing does not restore, delete or modify either version.
 
 ## Related pages
 

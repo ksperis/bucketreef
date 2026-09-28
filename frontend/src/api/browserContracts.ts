@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "./browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -67,12 +68,18 @@ export type BrowserSettings = {
 };
 
 export type BrowserObjectsQuery = {
+  minSize?: number;
+  maxSize?: number;
+  modifiedAfter?: string;
+  modifiedBefore?: string;
+  extensions?: string;
   query?: string;
   exactMatch?: boolean;
   caseSensitive?: boolean;
   type?: "all" | "file" | "folder";
   storageClass?: string;
   recursive?: boolean;
+  includeFolderMarkers?: boolean;
   sortBy?: "name" | "size" | "modified" | "storage_class" | "etag";
   sortDir?: "asc" | "desc";
 };
@@ -189,7 +196,11 @@ export type ObjectRestoreRequest = {
   version_id?: string | null;
 };
 
+export type CopiedObjectCheckpoint = { source_etag: string; source_size: number; source_modified?: string | null; source_version_id?: string | null; destination_etag: string; destination_version_id?: string | null };
+
 export type CopyObjectPayload = {
+  copied_checkpoint?: CopiedObjectCheckpoint;
+  write_guard?: BrowserWriteGuard;
   source_bucket?: string;
   source_key: string;
   destination_key: string;
@@ -203,6 +214,7 @@ export type CopyObjectPayload = {
 };
 
 export type DeleteObjectEntry = {
+  if_match?: string;
   key: string;
   version_id?: string | null;
 };
@@ -249,4 +261,3 @@ export type StsCredentials = {
   endpoint: string;
   region: string;
 };
-

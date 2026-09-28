@@ -1,3 +1,4 @@
+import type { BrowserWriteGuard } from "../../api/browserConflicts";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -6,8 +7,12 @@ import type { S3AccountSelector } from "../../api/accountParams";
 import { MULTIPART_THRESHOLD } from "./browserConstants";
 
 export type ClipboardTransferMode = "direct" | "proxy";
+export type ClipboardCopyCheckpoint = { sourceEtag: string; destinationEtag: string; sizeBytes: number };
 
 type ClipboardTransferObjectRef = {
+  writeGuard?: BrowserWriteGuard;
+  etag?: string;
+  versionId?: string;
   selector: S3AccountSelector;
   bucket: string;
   key: string;
@@ -27,6 +32,7 @@ type ClipboardTransferUploadBlobRef = ClipboardTransferObjectRef & {
 };
 
 type ClipboardTransferUploadStreamRef = ClipboardTransferObjectRef & {
+  mode: ClipboardTransferMode;
   stream: ReadableStream<Uint8Array>;
   sizeBytes: number;
   contentType?: string | null;
@@ -34,6 +40,8 @@ type ClipboardTransferUploadStreamRef = ClipboardTransferObjectRef & {
 };
 
 type TransferClipboardObjectParams = {
+  checkpoint?: ClipboardCopyCheckpoint;
+  onCopied?: (checkpoint: ClipboardCopyCheckpoint) => void;
   source: ClipboardTransferObjectRef;
   destination: ClipboardTransferObjectRef;
   sizeBytes: number;
@@ -55,11 +63,13 @@ type TransferClipboardObjectParams = {
   ) => Promise<void>;
   verifyObject: (
     params: ClipboardTransferObjectRef,
-  ) => Promise<{ sizeBytes: number }>;
+  ) => Promise<{ sizeBytes: number; etag?: string }>;
   deleteObject: (params: ClipboardTransferObjectRef) => Promise<void>;
 };
 
 export async function transferClipboardObjectBetweenContexts({
+  checkpoint,
+  onCopied,
   source,
   destination,
   sizeBytes,
@@ -75,6 +85,7 @@ export async function transferClipboardObjectBetweenContexts({
   verifyObject,
   deleteObject,
 }: TransferClipboardObjectParams): Promise<void> {
+  if (!checkpoint) {
   const sourceMode = await resolveMode(source.selector, source.bucket);
   const destinationMode = await resolveMode(
     destination.selector,
@@ -82,7 +93,7 @@ export async function transferClipboardObjectBetweenContexts({
   );
 
   const shouldUseMultipart =
-    destinationMode === "direct" && sizeBytes >= multipartThresholdBytes;
+    sizeBytes >= multipartThresholdBytes;
 
   if (shouldUseMultipart) {
     const stream = await downloadStream({
@@ -92,6 +103,7 @@ export async function transferClipboardObjectBetweenContexts({
     });
     await uploadMultipartStream({
       ...destination,
+      mode: destinationMode,
       stream,
       sizeBytes,
       contentType,
@@ -117,11 +129,27 @@ export async function transferClipboardObjectBetweenContexts({
   }
 
   const verified = await verifyObject(destination);
-  if (verified.sizeBytes !== sizeBytes) {
+  if (verified.sizeBytes !== sizeBytes || !verified.etag) {
     throw new Error(
       `Copy verification failed for '${destination.key}' (size mismatch).`,
     );
   }
 
-  await deleteObject(source);
+  if (source.etag && verified.etag) {
+    checkpoint = { sourceEtag: source.etag, destinationEtag: verified.etag, sizeBytes };
+    onCopied?.(checkpoint);
+  }
+  } else {
+    const target = await verifyObject(destination);
+    if (target.sizeBytes !== checkpoint.sizeBytes || target.etag !== checkpoint.destinationEtag) throw new Error("Copied, not deleted: the destination changed since copying.");
+  }
+
+  const sourceEtag = checkpoint?.sourceEtag ?? source.etag;
+  if (sourceEtag) {
+    const current = await verifyObject(source);
+    if (current.etag !== sourceEtag || current.sizeBytes !== (checkpoint?.sizeBytes ?? sizeBytes)) throw new Error("Copied, not deleted: the source changed.");
+  } else {
+    throw new Error("Copied, not deleted: the source identity could not be verified.");
+  }
+  await deleteObject({ ...source, etag: sourceEtag });
 }

@@ -108,7 +108,7 @@ export function buildBrowserTransferWarnings({
   const items = [warningMessage, corsFixError, stsCredentialsError].filter(
     (item): item is string => Boolean(item),
   );
-  if (corsEnabled === false) {
+  if (corsEnabled === false && !proxyAllowed) {
     items.push(CORS_DIRECT_TRANSFER_WARNING);
     if (!proxyAllowed) {
       items.push("Proxy transfers are disabled in settings.");
@@ -165,7 +165,7 @@ export function resolveBrowserTransferAccessBadge({
     return {
       label: "Proxy",
       title: "Download/Upload mode: Backend proxy transfers are active.",
-      tone: "warning",
+      tone: "info",
       indicatorClassName:
         "border-amber-200/70 bg-amber-200/60 dark:border-amber-400/40 dark:bg-amber-400/25",
     };

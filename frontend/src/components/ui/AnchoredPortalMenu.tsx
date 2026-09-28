@@ -5,7 +5,7 @@
 import { CSSProperties, ReactNode, RefObject, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export type AnchoredMenuPlacement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
+export type AnchoredMenuPlacement = "bottom-start" | "bottom-end" | "top-start" | "top-end" | "left-start";
 
 type UseAnchoredMenuPositionParams = {
   open: boolean;
@@ -32,7 +32,8 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function resolveX(rect: DOMRect, width: number, placement: AnchoredMenuPlacement): number {
+function resolveX(rect: DOMRect, width: number, placement: AnchoredMenuPlacement, offset: number): number {
+  if (placement === "left-start") return rect.left - width - offset >= VIEWPORT_MARGIN ? rect.left - width - offset : rect.right + offset;
   if (placement.endsWith("end")) {
     return rect.right - width;
   }
@@ -46,6 +47,7 @@ function resolveY(
   placement: AnchoredMenuPlacement,
   offset: number
 ): number {
+  if (placement === "left-start") return clamp(rect.top, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewportHeight - height - VIEWPORT_MARGIN));
   const preferTop = placement.startsWith("top");
   const below = rect.bottom + offset;
   const above = rect.top - height - offset;
@@ -95,7 +97,7 @@ function useAnchoredMenuPosition({
       const targetMinWidth = Math.max(0, Math.min(minWidth === "anchor" ? anchorRect.width : minWidth, maxWidth));
       const menuWidth = Math.min(Math.max(menuRect.width, targetMinWidth), maxWidth);
       const x = clamp(
-        resolveX(anchorRect, menuWidth, placement),
+        resolveX(anchorRect, menuWidth, placement, offset),
         VIEWPORT_MARGIN,
         Math.max(VIEWPORT_MARGIN, viewportWidth - menuWidth - VIEWPORT_MARGIN)
       );

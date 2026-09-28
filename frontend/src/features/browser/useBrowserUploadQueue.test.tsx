@@ -137,6 +137,14 @@ describe("useBrowserUploadQueue", () => {
     });
   });
 
+  it("queues uploads for an authenticated S3 session without inventing a context id", async () => {
+    const options = { ...createOptions(), accountId: null };
+    options.startUpload.mockResolvedValue(true);
+    const { result } = renderHook(() => useBrowserUploadQueue(options));
+    await act(async () => result.current.addFiles([candidate("session.txt")]));
+    expect(options.startUpload).toHaveBeenCalledWith(expect.objectContaining({ accountId: "", key: "docs/session.txt" }));
+  });
+
   it("does not enqueue files without an active Browser context", () => {
     const options = {
       ...createOptions(),
@@ -145,7 +153,7 @@ describe("useBrowserUploadQueue", () => {
     };
     const { result } = renderHook(() => useBrowserUploadQueue(options));
 
-    act(() => result.current.addFiles([candidate("blocked.txt")]));
+    act(() => { void result.current.addFiles([candidate("blocked.txt")]); });
 
     expect(options.startUpload).not.toHaveBeenCalled();
     expect(options.setUploadQueue).not.toHaveBeenCalled();

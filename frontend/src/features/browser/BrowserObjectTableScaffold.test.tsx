@@ -64,12 +64,12 @@ describe("BrowserObjectTableScaffold", () => {
     expect(tableColumns[1]).not.toHaveAttribute("style");
     expect(tableColumns[4]).toHaveStyle({ width: "108px" });
     expect(screen.getByText("Name controls")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Select all" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select loaded items" })).toBeChecked();
     expect(
       screen.getByRole("columnheader", { name: "Actions" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select loaded items" }));
     fireEvent.click(screen.getByRole("button", { name: "Size" }));
     fireEvent.pointerDown(
       screen.getByRole("separator", { name: "Resize Name column" }),

@@ -29,11 +29,15 @@ export type BrowserActionId =
   | "properties"
   | "open"
   | "preview"
+  | "downloadZip"
   | "download"
   | "createPublicLink"
   | "restore"
   | "copyUrl"
   | "copy"
+  | "rename"
+  | "copyTo"
+  | "moveTo"
   | "cut"
   | "bulkAttributes"
   | "advanced"
@@ -131,11 +135,15 @@ export const CONTEXT_MENU_ITEM_ACTION_IDS: BrowserActionId[] = [
   "properties",
   "open",
   "download",
+  "downloadZip",
   "createPublicLink",
   "restore",
   "copyUrl",
   "copy",
   "cut",
+  "rename",
+  "copyTo",
+  "moveTo",
   "bulkAttributes",
   "restoreToDate",
   "delete",
@@ -143,10 +151,14 @@ export const CONTEXT_MENU_ITEM_ACTION_IDS: BrowserActionId[] = [
 
 export const CONTEXT_MENU_SELECTION_ACTION_IDS: BrowserActionId[] = [
   "download",
+  "downloadZip",
   "open",
   "copyUrl",
   "copy",
   "cut",
+  "rename",
+  "copyTo",
+  "moveTo",
   "bulkAttributes",
   "restoreToDate",
   "advanced",
@@ -169,10 +181,14 @@ export const TOOLBAR_MORE_PATH_ACTION_IDS: BrowserActionId[] = [
 
 export const TOOLBAR_MORE_SELECTION_FULL_ACTION_IDS: BrowserActionId[] = [
   "download",
+  "downloadZip",
   "open",
   "copyUrl",
   "copy",
   "cut",
+  "rename",
+  "copyTo",
+  "moveTo",
   "bulkAttributes",
   "advanced",
   "restoreToDate",
@@ -180,8 +196,12 @@ export const TOOLBAR_MORE_SELECTION_FULL_ACTION_IDS: BrowserActionId[] = [
 ];
 
 export const TOOLBAR_MORE_SELECTION_OVERFLOW_ACTION_IDS: BrowserActionId[] = [
+  "downloadZip",
   "copyUrl",
   "cut",
+  "rename",
+  "copyTo",
+  "moveTo",
   "bulkAttributes",
   "advanced",
   "restoreToDate",
@@ -206,11 +226,15 @@ const ALL_ACTION_IDS: BrowserActionId[] = [
   "open",
   "preview",
   "download",
+  "downloadZip",
   "createPublicLink",
   "restore",
   "copyUrl",
   "copy",
   "cut",
+  "rename",
+  "copyTo",
+  "moveTo",
   "bulkAttributes",
   "advanced",
   "delete",
@@ -235,11 +259,15 @@ const defaultSectionByActionId: Record<BrowserActionId, BrowserActionSection> = 
   open: "selection",
   preview: "selection",
   download: "selection",
+  downloadZip: "selection",
   createPublicLink: "selection",
   restore: "selection",
   copyUrl: "selection",
   copy: "selection",
   cut: "selection",
+  rename: "selection",
+  copyTo: "selection",
+  moveTo: "selection",
   bulkAttributes: "selection",
   advanced: "selection",
   delete: "selection",
@@ -293,8 +321,12 @@ const STANDARD_SELECTION_ACTION_IDS = new Set<BrowserActionId>([
   "open",
   "preview",
   "download",
+  "downloadZip",
   "copy",
   "cut",
+  "rename",
+  "copyTo",
+  "moveTo",
   "delete",
 ]);
 
@@ -309,10 +341,12 @@ const PORTAL_PATH_ACTION_IDS = new Set<BrowserActionId>([
 ]);
 
 const PORTAL_SELECTION_ACTION_IDS = new Set<BrowserActionId>([
+  "rename", "copyTo", "moveTo",
   "details",
   "open",
   "preview",
   "download",
+  "downloadZip",
   "createPublicLink",
   "restore",
   "delete",
@@ -325,6 +359,9 @@ const WRITE_ACTION_IDS = new Set<BrowserActionId>([
   "paste",
   "copy",
   "cut",
+  "rename",
+  "copyTo",
+  "moveTo",
   "bulkAttributes",
 ]);
 
@@ -338,7 +375,7 @@ function applyBrowserFunctionalPolicy(
   return Object.fromEntries(
     Object.entries(actions).map(([id, action]) => {
       const actionId = id as BrowserActionId;
-      if (isDemo && ["paste", "copy", "cut", "restore", "restoreToDate", "cleanOldVersions", "multipartUploads", "createPublicLink", "copyUrl", "advanced"].includes(actionId)) {
+      if (isDemo && ["paste", "copy", "cut", "rename", "copyTo", "moveTo", "restore", "restoreToDate", "cleanOldVersions", "multipartUploads", "createPublicLink", "copyUrl", "advanced"].includes(actionId)) {
         return [actionId, { ...action, visible: false, enabled: false }];
       }
       const profileAllows =
@@ -352,7 +389,7 @@ function applyBrowserFunctionalPolicy(
             (actionId === "open" && canOpenSingleFolder)));
       const capabilityAllows =
         (!WRITE_ACTION_IDS.has(actionId) || capabilityFacts.canWriteObjects) &&
-        (actionId !== "delete" || capabilityFacts.canDeleteObjects) &&
+        (!["delete", "rename", "moveTo", "cut"].includes(actionId) || capabilityFacts.canDeleteObjects) &&
         ((actionId !== "restoreToDate" && actionId !== "restore") ||
           capabilityFacts.canRestoreObjects) &&
         (actionId !== "createPublicLink" || capabilityFacts.canCreatePublicLinks);
@@ -560,6 +597,10 @@ export const resolveBrowserActions = ({
     return finalize();
   }
 
+  setState("downloadZip", { label: "Download as ZIP", visible: true, enabled: canUseContextActions && items.some(item => !item.isDeleted), disabledReason: "Select current files or folders to archive." });
+  for (const [id, label] of [["rename", "Rename"], ["copyTo", "Copy to…"], ["moveTo", "Move to…"]] as const) {
+    setState(id, { label, visible: true, enabled: canUseContextActions && items.length > 0 && !items.some(item => item.isDeleted) && (id !== "rename" || isSingle), disabledReason: id === "rename" && !isSingle ? "Select one file or folder." : "Select current items in an available storage context." });
+  }
   if (scope === "item") {
     setState("details", {
       label: "Details",

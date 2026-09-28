@@ -3,6 +3,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
+import { useI18n } from "../../i18n";
+
+export type ObjectPreviewNavigation = { previous?: () => void; next?: () => void; position?: string };
 
 import UiActionMenu from "../../components/ui/UiActionMenu";
 import UiButton, { uiButtonClassName } from "../../components/ui/UiButton";
@@ -18,6 +21,7 @@ type ObjectDetailsDrawerAction = {
 };
 
 type ObjectDetailsDrawerProps = {
+  navigation?: ObjectPreviewNavigation;
   activeTab?: string;
   children: ReactNode;
   copyPathLabel: string;
@@ -40,6 +44,7 @@ type ObjectDetailsDrawerProps = {
 };
 
 export default function ObjectDetailsDrawer({
+  navigation,
   activeTab,
   children,
   copyPathLabel,
@@ -55,6 +60,7 @@ export default function ObjectDetailsDrawer({
   tabs = [],
   tabsAriaLabel,
 }: ObjectDetailsDrawerProps) {
+  const { t } = useI18n();
   return (
     <DetailsDrawerShell
       title={name}
@@ -73,8 +79,13 @@ export default function ObjectDetailsDrawer({
         </div>
       }
       actions={
-        primaryAction || secondaryActions.length > 0 ? (
+        navigation || primaryAction || secondaryActions.length > 0 ? (
           <>
+            {navigation ? <div className="flex items-center gap-1" role="group" aria-label={t({ en: "Loaded files", fr: "Fichiers chargés", de: "Geladene Dateien", zh: "已加载的文件" })}>
+              <UiButton size="sm" variant="secondary" disabled={!navigation.previous} onClick={navigation.previous}>{t({ en: "Previous", fr: "Précédent", de: "Zurück", zh: "上一个" })}</UiButton>
+              {navigation.position ? <span className="ui-caption whitespace-nowrap">{navigation.position}</span> : null}
+              <UiButton size="sm" variant="secondary" disabled={!navigation.next} onClick={navigation.next}>{t({ en: "Next", fr: "Suivant", de: "Weiter", zh: "下一个" })}</UiButton>
+            </div> : null}
             {primaryAction ? (
               <UiButton
                 size="sm"

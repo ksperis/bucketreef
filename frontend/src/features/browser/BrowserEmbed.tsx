@@ -29,6 +29,7 @@ type BrowserEmbedProps = {
   lockedBucketLabel?: string;
   storageEndpointCapabilities?: Record<string, boolean> | null;
   onSelectedBucketNameChange?: (bucketName: string) => void;
+  onLoadedFilesChange?: (keys: string[]) => void;
   onOpenObjectDetails?: (target: BrowserObjectDetailsRouteTarget) => void;
   deletedObjectsOptions?: BrowserDeletedObjectsOptions;
   refreshToken?: number;
@@ -47,6 +48,7 @@ export default function BrowserEmbed({
   lockedBucketLabel,
   storageEndpointCapabilities,
   onSelectedBucketNameChange,
+  onLoadedFilesChange,
   onOpenObjectDetails,
   deletedObjectsOptions,
   refreshToken,
@@ -67,6 +69,7 @@ export default function BrowserEmbed({
       allowFoldersPanel={false}
       showPanelToggles={false}
       onSelectedBucketNameChange={onSelectedBucketNameChange}
+      onLoadedFilesChange={onLoadedFilesChange}
       onOpenObjectDetails={onOpenObjectDetails}
       deletedObjectsOptions={deletedObjectsOptions}
       refreshToken={refreshToken}

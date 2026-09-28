@@ -238,3 +238,25 @@ def test_empty_prefix_is_not_a_request_to_restore_the_whole_bucket(storage):
     with pytest.raises(ValueError, match="folder prefix is required"):
         storage.service.prepare_deleted_prefix_restore(storage.user, storage.access, "research", prefix="")
     assert storage.sdk.mock_calls == []
+
+
+def test_historical_reads_pin_head_preview_and_download_without_mutation(storage):
+    key, version_id = " /report//é.txt ", " version+%2F "
+    response = storage.http.get(f"{BASE}/detail", params={"key": key, "version_id": version_id})
+    assert response.status_code == 200, response.text
+    storage.sdk.head_object.assert_called_once_with(Bucket="research", Key=key, VersionId=version_id)
+    storage.sdk.get_object.assert_called_once_with(Bucket="research", Key=key, VersionId=version_id, Range="bytes=0-65535")
+    storage.sdk.get_object.reset_mock()
+    response = storage.http.get(f"{BASE}/download", params={"key": key, "version_id": version_id})
+    assert response.status_code == 200, response.text
+    storage.sdk.get_object.assert_called_once_with(Bucket="research", Key=key, VersionId=version_id)
+    storage.sdk.copy_object.assert_not_called()
+    storage.sdk.delete_object.assert_not_called()
+
+
+@pytest.mark.parametrize("path", ["detail", "download"])
+def test_historical_reads_require_current_content_grant(storage, path):
+    storage.access.portal_role = "portal_user"
+    response = storage.http.get(f"{BASE}/{path}", params={"key": "report.txt", "version_id": "old"})
+    assert response.status_code == 403
+    assert storage.sdk.mock_calls == []

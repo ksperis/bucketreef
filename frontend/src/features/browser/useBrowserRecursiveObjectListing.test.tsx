@@ -82,6 +82,7 @@ describe("useBrowserRecursiveObjectListing", () => {
         maxKeys: 1000,
         type: "file",
         recursive: true,
+      includeFolderMarkers: true,
         signal: undefined,
         workspaceSurface: "manager",
       },

@@ -82,6 +82,7 @@ type BrowserContextMenuProps = {
   onCopyUrl: (item: BrowserItem | null) => void;
   onCopyPath: (path: string) => void;
   onCopyItems: (items: BrowserItem[]) => void;
+  onTransferItems?: (items: BrowserItem[], mode: "rename" | "copy" | "move") => void;
   onCutItems: (items: BrowserItem[]) => void;
   onOpenBulkAttributes: (items: BrowserItem[]) => void;
   onOpenBulkRestore: (items: BrowserItem[]) => void;
@@ -89,6 +90,7 @@ type BrowserContextMenuProps = {
   onDeleteItems: (items: BrowserItem[]) => void;
   onDownloadFolder: (item: BrowserItem) => void;
   onDownloadItems: (items: BrowserItem[]) => void;
+  onDownloadZip?: (items: BrowserItem[]) => void;
   onOpenItem: (item: BrowserItem) => void;
   onToggleShowFolders: () => void;
   onToggleShowDeleted: () => void;
@@ -135,6 +137,7 @@ export default function BrowserContextMenu({
   onCopyUrl,
   onCopyPath,
   onCopyItems,
+  onTransferItems,
   onCutItems,
   onOpenBulkAttributes,
   onOpenBulkRestore,
@@ -142,6 +145,7 @@ export default function BrowserContextMenu({
   onDeleteItems,
   onDownloadFolder,
   onDownloadItems,
+  onDownloadZip,
   onOpenItem,
   onToggleShowFolders,
   onToggleShowDeleted,
@@ -228,13 +232,13 @@ export default function BrowserContextMenu({
     if (!selectionActionStates) return;
     onClose();
     runBrowserAction(selectionActionStates[actionId], {
+      downloadZip: () => onDownloadZip?.(selectionItems),
       download: () => {
         const info = selectionItems;
         const summary = selectionActionStates.download.label === "Download folder"
           ? selectionItems[0] ?? null
           : null;
         if (summary) {
-          onDownloadFolder(summary);
           return onDownloadFolder(summary);
         }
         return onDownloadItems(info.filter((item) => item.type === "file" && !item.isDeleted));
@@ -246,6 +250,9 @@ export default function BrowserContextMenu({
       },
       copyUrl: () => onCopyUrl(selectionItems[0] ?? null),
       copy: () => onCopyItems(selectionItems),
+      rename: () => onTransferItems?.(selectionItems, "rename"),
+      copyTo: () => onTransferItems?.(selectionItems, "copy"),
+      moveTo: () => onTransferItems?.(selectionItems, "move"),
       cut: () => onCutItems(selectionItems),
       bulkAttributes: () => onOpenBulkAttributes(selectionItems),
       restoreToDate: () => onOpenBulkRestore(selectionItems),
@@ -276,11 +283,15 @@ export default function BrowserContextMenu({
     properties: <SettingsIcon className="h-3.5 w-3.5" />,
     open: <OpenIcon className="h-3.5 w-3.5" />,
     preview: <EyeIcon className="h-3.5 w-3.5" />,
+    downloadZip: <DownloadIcon className="h-3.5 w-3.5" />,
     download: <DownloadIcon className="h-3.5 w-3.5" />,
     createPublicLink: <LinkIcon className="h-3.5 w-3.5" />,
     restore: <HistoryIcon className="h-3.5 w-3.5" />,
     copyUrl: <LinkIcon className="h-3.5 w-3.5" />,
     copy: <CopyIcon className="h-3.5 w-3.5" />,
+    rename: <SlidersIcon className="h-3.5 w-3.5" />,
+    copyTo: <CopyIcon className="h-3.5 w-3.5" />,
+    moveTo: <CutIcon className="h-3.5 w-3.5" />,
     cut: <CutIcon className="h-3.5 w-3.5" />,
     bulkAttributes: <SlidersIcon className="h-3.5 w-3.5" />,
     advanced: <SettingsIcon className="h-3.5 w-3.5" />,
@@ -298,12 +309,14 @@ export default function BrowserContextMenu({
       className={`${options?.danger ? contextMenuItemDangerClasses : contextMenuItemClasses} ${
         !action.enabled ? contextMenuItemDisabledClasses : ""
       }`}
-      onClick={onClick}
-      disabled={!action.enabled}
+      onClick={() => { if (action.enabled) onClick(); }}
+      aria-label={action.label}
+      aria-disabled={!action.enabled}
       title={action.disabledReason}
     >
       {iconByActionId[action.id]}
       {action.label}
+      {!action.enabled && action.disabledReason && <span className="ml-auto max-w-64 whitespace-normal ui-caption font-normal">{action.disabledReason}</span>}
     </button>
   );
 

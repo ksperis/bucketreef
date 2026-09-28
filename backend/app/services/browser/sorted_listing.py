@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import monotonic
 from datetime import datetime
 from typing import Any, Callable
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.models.browser_filters import BrowserFileFilters
 from app.models.browser import BrowserObject, BrowserObjectSortBy, BrowserObjectSortDir
 from app.services.object_listing_identity import (
     is_current_folder_marker,
@@ -25,6 +27,8 @@ class SortedObjectScanOptions:
     recursive: bool
     sort_by: BrowserObjectSortBy
     sort_dir: BrowserObjectSortDir
+    include_folder_markers: bool = False
+    file_filters: BrowserFileFilters | None = None
 
 
 @dataclass
@@ -156,7 +160,12 @@ class SortedObjectSnapshotBuilder:
 
     def _scan_pages(self, store: TemporarySqliteStore) -> None:
         scan_token: str | None = None
+        started = monotonic()
+        pages = 0
         while True:
+            if pages >= 200 or monotonic() - started > 20:
+                raise RuntimeError("Sorted scan limit reached. Narrow the search or use name ascending to browse partial results.")
+            pages += 1
             kwargs = {
                 "Bucket": self.options.bucket_name,
                 "Prefix": self.options.prefix,
@@ -187,16 +196,18 @@ class SortedObjectSnapshotBuilder:
         if not isinstance(key, str) or not key:
             return
         size = int(item.get("Size") or 0)
-        if is_current_folder_marker(
+        if not self.options.include_folder_markers and is_current_folder_marker(
             key=key,
             prefix=self.options.prefix,
             size=size,
         ):
             return
         is_folder_marker = key.endswith("/") and size == 0
-        if self.options.recursive and self.options.item_type != "file":
+        if self.options.recursive and self.options.item_type != "file" and not (self.options.file_filters and self.options.file_filters.active):
             self._insert_recursive_prefixes(store, key, is_folder_marker)
-        if self.options.item_type == "folder" or (self.options.recursive and is_folder_marker):
+        if self.options.item_type == "folder" or (self.options.recursive and is_folder_marker and not self.options.include_folder_markers):
+            return
+        if self.options.file_filters and not self.options.file_filters.matches(item):
             return
         if not self.matches_query(key):
             return
@@ -236,7 +247,7 @@ class SortedObjectSnapshotBuilder:
                 self._insert_prefix(store, prefix)
 
     def _insert_common_prefixes(self, store: TemporarySqliteStore, response: dict) -> None:
-        if self.options.recursive or self.options.item_type == "file":
+        if self.options.recursive or self.options.item_type == "file" or (self.options.file_filters and self.options.file_filters.active):
             return
         for entry in response.get("CommonPrefixes", []) or []:
             prefix = entry.get("Prefix")

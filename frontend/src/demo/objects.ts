@@ -13,16 +13,46 @@ export function objectListing(bucket: DemoBucket, url: URL): ListBrowserObjectsR
   const objects: BrowserObject[] = [];
   for (const object of bucket.objects) {
     const current = object.versions[0]; if (!current || current.deleted || !object.key.startsWith(prefix)) continue;
-    if (query && !(url.searchParams.get("case_sensitive") === "true" ? object.key.includes(query) : object.key.toLowerCase().includes(query.toLowerCase()))) continue;
-    const rest = object.key.slice(prefix.length); if (!rest) continue;
-    if (rest.includes("/") && !recursive && !query) prefixes.add(prefix + rest.split("/")[0] + "/");
-    else objects.push(objectView(current));
+    const rest = object.key.slice(prefix.length);
+    const marker = current.size === 0 && object.key.endsWith("/");
+    const includeMarkers = url.searchParams.get("include_folder_markers") === "true";
+    if (!rest && !(includeMarkers && marker)) continue;
+    const type = url.searchParams.get("item_type") ?? "all";
+    const extensions = (url.searchParams.get("extensions") ?? "").split(",").map(value => value.trim().replace(/^\./, "").toLowerCase()).filter(Boolean);
+    const min = url.searchParams.get("min_size"), max = url.searchParams.get("max_size");
+    const after = url.searchParams.get("modified_after"), before = url.searchParams.get("modified_before");
+    const fileFilters = min !== null || max !== null || Boolean(after || before || extensions.length);
+    const caseSensitive = url.searchParams.get("query_case_sensitive") === "true";
+    const matches = (value: string) => { const candidate = caseSensitive ? value : value.toLowerCase(); const needle = caseSensitive ? query : query.toLowerCase(); return !needle || (url.searchParams.get("query_exact") === "true" ? candidate === needle : candidate.includes(needle)); };
+    if (rest.includes("/") && !(marker && includeMarkers)) {
+      const folder = prefix + rest.split("/")[0] + "/";
+      if (!fileFilters && type !== "file" && matches(folder.slice(prefix.length, -1))) prefixes.add(folder);
+      if (!recursive) continue;
+    }
+    if (marker && !includeMarkers) continue;
+    if (type === "folder" || !matches(rest)) continue;
+    if (min !== null && current.size < Number(min) || max !== null && current.size > Number(max)) continue;
+    if (extensions.length && !extensions.some(extension => object.key.toLowerCase().endsWith("." + extension))) continue;
+    if (after && new Date(current.last_modified ?? "") < new Date(after) || before && new Date(current.last_modified ?? "") > new Date(before)) continue;
+    const storage = url.searchParams.get("storage_class");
+    if (storage && current.storage_class !== storage) continue;
+    objects.push(objectView(current));
   }
   const sort = url.searchParams.get("sort_by") ?? "name";
   objects.sort((a, b) => (sort === "size" ? a.size - b.size : sort === "modified" ? String(a.last_modified).localeCompare(String(b.last_modified)) : a.key.localeCompare(b.key)) * (url.searchParams.get("sort_dir") === "desc" ? -1 : 1));
   const start = Math.max(0, Number(url.searchParams.get("continuation_token")) || 0);
   const limit = Math.max(1, Math.min(1000, Number(url.searchParams.get("max_keys")) || 1000));
-  return { prefix, objects: objects.slice(start, start + limit), prefixes: [...prefixes].sort(), is_truncated: start + limit < objects.length, next_continuation_token: start + limit < objects.length ? String(start + limit) : null };
+  const entries = [...[...prefixes].sort().map(prefix => ({ prefix })), ...objects.map(object => ({ object }))];
+  const page = entries.slice(start, start + limit);
+  return { prefix, objects: page.flatMap(entry => "object" in entry ? [entry.object] : []), prefixes: page.flatMap(entry => "prefix" in entry ? [entry.prefix] : []), is_truncated: start + limit < entries.length, next_continuation_token: start + limit < entries.length ? String(start + limit) : null };
+}
+function checkWriteGuard(bucket: DemoBucket, key: string, value: unknown) {
+  if (value == null) return;
+  const guard = value as { exists?: boolean; etag?: string | null };
+  if (typeof guard.exists !== "boolean") throw new DemoError(422, "Invalid write guard");
+  const current = bucket.objects.find(object => object.key === key)?.versions[0];
+  const exists = Boolean(current && !current.deleted);
+  if (exists !== guard.exists || (exists && guard.etag !== current?.etag)) throw new DemoError(409, "The destination changed. Resolve the conflict again.");
 }
 function selectedVersion(object: DemoObject, versionId?: string | null) {
   const version = required(versionId ? object.versions.find(v => v.version_id === versionId) : object.versions[0], "Object version not found");
@@ -42,7 +72,7 @@ function checkUpload(c: DemoRequest, blob: Blob) {
   if (used + blob.size > TOTAL_LIMIT) throw new DemoError(413, "Demo storage is limited to 100 MiB of imported files, including retained versions. Reset the demo to release all storage.");
 }
 export async function objects(c: DemoRequest): Promise<Response | undefined> {
-  const match = c.path.match(/^\/browser\/buckets\/([^/]+)\/(objects(?:\/columns)?|versions|object-meta|object-tags|object-legal-hold|object-retention|presign|proxy-upload|download|delete|folders|local-upload)$/);
+  const match = c.path.match(/^\/browser\/buckets\/([^/]+)\/(objects(?:\/columns)?|versions|object-meta|object-tags|object-legal-hold|object-retention|write-preflight|copy|presign|proxy-upload|download|delete|folders|local-upload)$/);
   const portal = c.path.match(/^\/portal\/storage-spaces\/([^/]+)\/objects(?:\/(detail|versions|restore|download))?$/);
   if (!match && !portal) return undefined;
   const space = portal ? required(c.state.spaces.find(s => s.id === decodeURIComponent(portal[1]))) : c.state.spaces.find(s => s.bucketName === decodeURIComponent(match![1]));
@@ -50,12 +80,33 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   const endUser = c.persona === "member" || c.persona === "project-manager";
   const role = space && spaceRole(c, space);
   if (endUser && (!space || !role)) throw new DemoError(403, "This space is not shared with the selected identity");
-  const writes = c.method !== "GET" && !(match?.[2] === "objects/columns" || (match?.[2] === "presign" && c.body.operation === "get_object"));
+  const writes = c.method !== "GET" && !(match?.[2] === "write-preflight" || match?.[2] === "objects/columns" || (match?.[2] === "presign" && c.body.operation === "get_object"));
   if (endUser && writes && (role === "Viewer" || space?.archived_at)) throw new DemoError(403, "This space is read-only for the selected identity");
   const action = portal ? (portal[2] ? `portal-${portal[2]}` : "objects") : match![2];
   const { method, url, body } = c;
   const key = String(body.key ?? url.searchParams.get("key") ?? "");
+  if (action === "write-preflight" && method === "POST") return json({ protection: "preflight", objects: (body.keys as string[]).map(key => {
+    const version = bucket.objects.find(object => object.key === key)?.versions[0];
+    return version && !version.deleted ? { key, exists: true, etag: version.etag, size: version.size, modified: version.last_modified } : { key, exists: false, etag: null };
+  }) });
   if (action === "objects" && method === "GET") return json(objectListing(bucket, url));
+  if (action === "copy" && method === "POST") {
+    const source = scopedBucket(c, String(body.source_bucket));
+    const sourceSpace = c.state.spaces.find(item => item.bucketName === source.name);
+    const sourceRole = sourceSpace && spaceRole(c, sourceSpace);
+    if (endUser && (!sourceRole || (body.move && (sourceRole === "Viewer" || sourceSpace?.archived_at)))) throw new DemoError(403, "This source is not available for the requested operation");
+    const sourceKey = String(body.source_key), destinationKey = String(body.destination_key);
+    if (source === bucket && sourceKey === destinationKey) throw new DemoError(422, "Choose a different destination");
+    const original = required(source.objects.find(object => object.key === sourceKey));
+    const version = selectedVersion(original);
+    checkWriteGuard(bucket, destinationKey, body.write_guard);
+    checkUpload(c, version.imported ? version.body : new Blob());
+    const copied = putObject(bucket, destinationKey, version.body, version.imported);
+    Object.assign(copied.versions[0], { size: version.size, content_type: version.content_type, metadata: { ...version.metadata }, storage_class: version.storage_class });
+    copied.tags = original.tags.map(tag => ({ ...tag }));
+    if (body.move) removeObject(source, sourceKey);
+    return json({ copied: true, deleted: Boolean(body.move), source_etag: version.etag, destination_etag: copied.versions[0].etag, size: version.size });
+  }
   if ((action === "versions" || action === "portal-versions") && method === "GET") {
     const list = bucket.objects.filter(o => action === "portal-versions" ? o.key === key : o.key.startsWith(url.searchParams.get("prefix") ?? key));
     const versions = list.flatMap(o => o.versions.map((v, i) => ({ ...objectView(v), is_latest: i === 0, is_delete_marker: Boolean(v.deleted) })));
@@ -68,20 +119,27 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   }) });
   if (action === "folders" && method === "POST") { const prefix = textField(body, "prefix"); putObject(bucket, prefix.endsWith("/") ? prefix : prefix + "/", new Blob(), false); return done(); }
   if ((action === "delete" && method === "POST") || (action === "objects" && method === "DELETE")) {
-    const targets = portal ? [{ key }] : body.objects as { key: string; version_id?: string }[];
+    const targets = portal ? [{ key }] : body.objects as { key: string; version_id?: string; if_match?: string }[];
     if (!Array.isArray(targets) || !targets.length) throw new DemoError(422, "Select objects to delete");
-    for (const target of targets) removeObject(bucket, target.key, target.version_id);
+    for (const target of targets) {
+      if (target.if_match) checkWriteGuard(bucket, target.key, { exists: true, etag: target.if_match });
+      removeObject(bucket, target.key, target.version_id);
+    }
     return portal ? done() : json({ deleted: targets.length });
   }
   if ((action === "proxy-upload" && method === "POST") || (action === "local-upload" && method === "PUT")) {
     const form = action === "proxy-upload" ? await c.request.formData() : null;
     const blob = form ? form.get("file") : await c.request.blob();
     if (!(blob instanceof Blob)) throw new DemoError(422, "A file is required");
-    checkUpload(c, blob); putObject(bucket, form ? String(form.get("key")) : key, blob, true); return done();
+    const destinationKey = form ? String(form.get("key")) : key;
+    const guard = form?.get("write_guard") ?? url.searchParams.get("write_guard");
+    checkWriteGuard(bucket, destinationKey, typeof guard === "string" ? JSON.parse(guard) : null);
+    checkUpload(c, blob); putObject(bucket, destinationKey, blob, true); return done();
   }
   if (action === "presign" && method === "POST" && body.operation === "put_object") {
     const destination = new URL(`/api/browser/buckets/${encodeURIComponent(bucket.name)}/local-upload`, location.origin);
     destination.searchParams.set("key", key); destination.searchParams.set("account_id", String(bucket.accountId));
+    if (body.write_guard) destination.searchParams.set("write_guard", JSON.stringify(body.write_guard));
     return json({ url: destination.href, method: "PUT", expires_in: 900, headers: { "Content-Type": String(body.content_type || "application/octet-stream") } });
   }
   const object = required(bucket.objects.find(o => o.key === key), "Object not found");
@@ -95,6 +153,8 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
     return json({ key, restored_from_version_id: version.version_id, message: "Version restored in this browser" });
   }
   const version = selectedVersion(object, String(body.version_id ?? url.searchParams.get("version_id") ?? "") || undefined);
+  const ifMatch = body.if_match ?? url.searchParams.get("if_match");
+  if (ifMatch && String(ifMatch).replaceAll('"', "") !== version.etag?.replaceAll('"', "")) throw new DemoError(412, "The source changed");
   if (action === "object-meta") {
     if (method === "PUT") { const allowed = ["content_type", "cache_control", "content_disposition", "content_encoding", "content_language", "metadata", "storage_class", "expires"];
       for (const field of allowed) if (field in body) Object.assign(version, { [field]: body[field] });
@@ -110,7 +170,7 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   if (action === "object-retention" && method === "GET") return json({ key, mode: null, retain_until: null });
   if (action === "portal-detail" && method === "GET") return json({ ...objectView(version), name: key.split("/").at(-1), content_type: version.content_type,
     preview_type: version.body.type.startsWith("text/") || version.body.type === "application/json" ? "text" : version.body.type.startsWith("image/") ? "image" : "unavailable",
-    preview_text: version.body.size < FILE_LIMIT ? await version.body.text() : null });
+    preview_text: version.body.size < FILE_LIMIT ? await version.body.slice(0, 64 * 1024).text() : null });
   if ((action === "download" || action === "portal-download") && method === "GET") return new Response(version.body, { headers: { "Content-Type": version.body.type, "Content-Length": String(version.body.size), "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(key.split("/").at(-1)!)}` } });
   if (action === "presign" && method === "POST") {
     if (body.operation === "delete_object") { removeObject(bucket, key); return json({ url: URL.createObjectURL(new Blob()), method: "GET", expires_in: 900 }); }
