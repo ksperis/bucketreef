@@ -777,6 +777,8 @@ export default function BrowserPage({
   const corsAvailability = resolveBrowserCorsAvailability(corsStatus);
   const corsEnabled =
     corsAvailability === "unknown" ? null : corsAvailability === "enabled";
+  const corsInformation =
+    corsEnabled === false ? CORS_DIRECT_TRANSFER_WARNING : null;
   const useProxyTransfers = Boolean(
     bucketName &&
       hasS3AccountContext &&
@@ -2712,7 +2714,7 @@ export default function BrowserPage({
           />
         </div>
 
-        {(bucketError || statusMessage || warnings.length > 0) && (
+        {(bucketError || statusMessage || corsInformation || warnings.length > 0) && (
           <div className={browserNoticeShellClasses}>
             <div
               className={`${browserSubtleSurfaceClasses} px-3 py-2.5 ui-caption text-slate-600 dark:text-slate-300`}
@@ -2727,18 +2729,15 @@ export default function BrowserPage({
                   {statusMessage}
                 </p>
               )}
-              {warnings.map((warning, index) => (
-                <p
-                  key={`${warning}-${index}`}
-                  className="font-semibold text-amber-600 dark:text-amber-200"
-                >
-                  {warning === CORS_DIRECT_TRANSFER_WARNING && hasCorsAction ? (
+              {corsInformation && (
+                <p className="font-medium text-sky-700 dark:text-sky-200">
+                  {hasCorsAction ? (
                     <span className="inline-flex items-center gap-1">
-                      <span>{warning}</span>
+                      <span>{corsInformation}</span>
                       <button
                         ref={corsActionTriggerRef}
                         type="button"
-                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-amber-700 transition hover:text-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 dark:text-amber-200 dark:hover:text-amber-100 dark:focus-visible:outline-amber-200"
+                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-sky-700 transition hover:text-sky-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 dark:text-sky-200 dark:hover:text-sky-100 dark:focus-visible:outline-sky-200"
                         onClick={toggleCorsActionPopover}
                         aria-label="CORS actions"
                         title="CORS actions"
@@ -2776,8 +2775,16 @@ export default function BrowserPage({
                       </AnchoredPortalMenu>
                     </span>
                   ) : (
-                    warning
+                    corsInformation
                   )}
+                </p>
+              )}
+              {warnings.map((warning, index) => (
+                <p
+                  key={`${warning}-${index}`}
+                  className="font-semibold text-amber-600 dark:text-amber-200"
+                >
+                  {warning}
                 </p>
               ))}
             </div>

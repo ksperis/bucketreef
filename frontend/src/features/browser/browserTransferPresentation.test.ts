@@ -9,7 +9,7 @@ import {
 } from "./browserTransferPresentation";
 
 describe("browser transfer presentation", () => {
-  it("does not present a working proxy as blocked", () => {
+  it("does not present a working proxy as a warning", () => {
     expect(buildBrowserTransferWarnings({ warningMessage: null, corsFixError: null, stsCredentialsError: null, corsEnabled: false, proxyAllowed: true })).toEqual([]);
   });
   it("distinguishes verified CORS states from an unknown status", () => {
@@ -83,7 +83,6 @@ describe("browser transfer presentation", () => {
       "Request warning",
       "CORS repair failed",
       "STS failed",
-      "Direct download/upload is not allowed on this bucket.",
       "Proxy transfers are disabled in settings.",
     ]);
   });
