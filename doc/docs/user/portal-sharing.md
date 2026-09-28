@@ -28,6 +28,23 @@ Private spaces have one owner. Team spaces have no owner: Portal uses their
 access mode and collaborator list to decide which Portal users can browse files.
 Portal managers can browse and manage every project space.
 
+## Delegated collaborator management
+
+An Admin can grant two independent project permissions from **Admin > Accounts
+> Portal settings > Delegation**. Both are disabled by default:
+
+- **Collaborator addition** lets Portal managers add a Workspace member
+  directly. Adding a Workspace manager directly also requires **Collaborator
+  role management**.
+- **Collaborator role management** lets Portal managers promote or demote a
+  direct project member between Workspace member and Workspace manager.
+
+Without the relevant delegation, Portal keeps the same action but creates a
+pending Help request for Admin approval. Role changes are available only for
+direct-only project memberships; group and combined direct-and-group access
+remain Admin-managed. A Portal manager cannot change their own project role.
+Project-member removal is never delegated.
+
 ## Access modes
 
 | Mode | How sharing works |
@@ -41,7 +58,9 @@ Portal managers can browse and manage every project space.
 1. Open **Portal > Collaborators**.
 2. **Project members** opens by default. Use it to search every active member
    of the selected project.
-3. Use **Request member** to ask a storage admin to add someone to the project.
+3. Use **Request member** to add someone to the project. Portal applies the
+   addition immediately when the relevant delegation covers the selected role;
+   otherwise it sends a Help request for Admin approval.
 4. Choose **Review access** for a member. Portal managers can review every
    member; other members can open only their own review.
 5. The review lists every active Storage Space the person can access, their
@@ -66,14 +85,20 @@ Portal managers can browse and manage every project space.
    membership request is being sent, wait for it to finish before leaving.
 10. If no person matches, choose **Request collaborator access**, add their name
    and email, choose whether they should join as a **Workspace member** or
-   **Workspace manager**, then send the request. An admin must add them to the
-   project. Follow the status in **Portal > Help requests**. For a Workspace
-   member, return to the same space after approval to finish the invitation. A
+   **Workspace manager**, then submit the action. If it returns as **Approved**,
+   the person has been added immediately; otherwise follow the pending request
+   in **Portal > Help requests**. For a Workspace member, select them after the
+   addition is approved to finish the invitation to the current space. A
    Workspace manager can access and manage every project space after approval,
    so no individual space invitation is required.
 11. Change a direct collaborator's role from the space's **Collaborators** tab.
    Review the person, current role, new role, and space in the confirmation
    dialog before applying the change.
+   To change the collaborator's project role between **Workspace member** and
+   **Workspace manager**, open their project access review and choose **Change
+   role**. Portal applies the change immediately when role management is
+   delegated; otherwise it creates a pending Help request. This action is not
+   available for your own role or for memberships backed by a Portal group.
 12. To review links for the current Storage Space, open its **External links**
    tab. Owners and managers can copy any listed link or revoke an active one.
    Use **External links** in the global Collaborators page for a multi-space

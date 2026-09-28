@@ -53,6 +53,8 @@ const project: PortalProjectSettings = {
   },
   project_override: {},
   delegated_to_portal_managers: true,
+  portal_collaborator_role_management_delegated: false,
+  portal_collaborator_addition_delegated: false,
   can_update: true,
 };
 describe("Portal project settings", () => {

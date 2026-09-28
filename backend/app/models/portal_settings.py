@@ -11,10 +11,14 @@ class PortalAccountSettings(ApiModel):
     effective: PortalSettings
     admin_override: PortalSettingsOverride
     delegated_to_portal_managers: bool = False
+    portal_collaborator_role_management_delegated: bool = False
+    portal_collaborator_addition_delegated: bool = False
 
 
 class PortalProjectSettings(ApiModel):
     effective: PortalSettings
     project_override: PortalSettingsOverride
     delegated_to_portal_managers: bool = False
+    portal_collaborator_role_management_delegated: bool = False
+    portal_collaborator_addition_delegated: bool = False
     can_update: bool = False

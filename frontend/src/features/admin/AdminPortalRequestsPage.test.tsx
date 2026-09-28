@@ -151,6 +151,7 @@ describe("AdminPortalRequestsPage", () => {
     renderPage();
 
     await screen.findByText("Jane Viewer <jane@example.org> · Portal manager");
+    expect(screen.queryByRole("option", { name: "Change Portal role" })).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Filter by type"), "portal_setting_change");
 
     await waitFor(() => {

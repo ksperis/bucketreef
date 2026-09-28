@@ -5,6 +5,8 @@ type TriState = "inherit" | "enabled" | "disabled";
 
 export type ProjectSettingsForm = {
   delegatedToPortalManagers: boolean;
+  collaboratorRoleManagementDelegated: boolean;
+  collaboratorAdditionDelegated: boolean;
   browserAccess: TriState;
   bucketCreate: TriState;
   namedBucketCreate: TriState;
@@ -23,6 +25,8 @@ export type ProjectSettingsForm = {
 
 export const emptyForm: ProjectSettingsForm = {
   delegatedToPortalManagers: false,
+  collaboratorRoleManagementDelegated: false,
+  collaboratorAdditionDelegated: false,
   browserAccess: "inherit",
   bucketCreate: "inherit",
   namedBucketCreate: "inherit",
@@ -60,6 +64,10 @@ export function formFromSettings(
   const originsOverride = defaults?.cors_allowed_origins != null;
   return {
     delegatedToPortalManagers: settings.delegated_to_portal_managers,
+    collaboratorRoleManagementDelegated:
+      settings.portal_collaborator_role_management_delegated,
+    collaboratorAdditionDelegated:
+      settings.portal_collaborator_addition_delegated,
     browserAccess: resolveTriState(override.browser_access_enabled),
     bucketCreate: resolveTriState(override.allow_private_storage_space_create),
     namedBucketCreate: resolveTriState(

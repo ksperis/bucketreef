@@ -67,20 +67,36 @@ def _normalize_optional_request_text(value: Optional[str]) -> Optional[str]:
 
 class PortalUserAccessRequestCreate(ApiModel):
     request_type: Literal["portal_user_access"]
-    target_name: str = Field(min_length=1, max_length=120)
-    target_email: EmailStr
+    intent: Literal["add", "role_change"] = "add"
+    target_name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    target_email: Optional[EmailStr] = None
+    target_user_id: Optional[int] = Field(default=None, gt=0)
     portal_role: Literal["portal_user", "portal_manager"] = "portal_user"
     reason: Optional[str] = Field(default=None, max_length=2000)
 
     @field_validator("target_name")
     @classmethod
-    def _normalize_target_name(cls, value: str) -> str:
+    def _normalize_target_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
         cleaned = " ".join(value.split())
         if not cleaned:
             raise ValueError("Name is required")
         return cleaned
 
     _normalize_reason = field_validator("reason")(_normalize_optional_request_text)
+
+    @model_validator(mode="after")
+    def _validate_intent_fields(self) -> "PortalUserAccessRequestCreate":
+        if self.intent == "add":
+            if self.target_name is None or self.target_email is None:
+                raise ValueError("Target user name and email are required for collaborator addition")
+            if self.target_user_id is not None:
+                raise ValueError("target_user_id is only valid for role changes")
+            return self
+        if self.target_user_id is None:
+            raise ValueError("target_user_id is required for role changes")
+        return self
 
 
 class PortalUserRemovalRequestCreate(ApiModel):

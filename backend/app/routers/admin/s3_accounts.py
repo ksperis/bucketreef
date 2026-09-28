@@ -150,13 +150,18 @@ def update_account_portal_settings(
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Account not found")
     service = get_portal_service(db)
-    override_fields = payload.model_fields_set - {"delegated_to_portal_managers"}
-    if not override_fields and "delegated_to_portal_managers" in payload.model_fields_set:
+    delegation_fields = {
+        "delegated_to_portal_managers",
+        "portal_collaborator_role_management_delegated",
+        "portal_collaborator_addition_delegated",
+    }
+    override_fields = payload.model_fields_set - delegation_fields
+    if not override_fields and payload.model_fields_set.intersection(delegation_fields):
         override = service.get_portal_account_settings(account).admin_override
     else:
         override = PortalSettingsOverride.model_validate(
             payload.model_dump(
-                exclude={"delegated_to_portal_managers"},
+                exclude=delegation_fields,
                 exclude_unset=True,
                 exclude_none=False,
             )
@@ -166,6 +171,10 @@ def update_account_portal_settings(
             account,
             override,
             delegated_to_portal_managers=payload.delegated_to_portal_managers,
+            portal_collaborator_role_management_delegated=(
+                payload.portal_collaborator_role_management_delegated
+            ),
+            portal_collaborator_addition_delegated=payload.portal_collaborator_addition_delegated,
         )
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
@@ -180,6 +189,12 @@ def update_account_portal_settings(
         metadata={
             "admin_override": override.model_dump(exclude_unset=True, exclude_none=False),
             "delegated_to_portal_managers": updated.delegated_to_portal_managers,
+            "portal_collaborator_role_management_delegated": (
+                updated.portal_collaborator_role_management_delegated
+            ),
+            "portal_collaborator_addition_delegated": (
+                updated.portal_collaborator_addition_delegated
+            ),
         },
     )
     return updated

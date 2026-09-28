@@ -37,6 +37,7 @@ export type PortalCollaboratorStorageSpaceAccess = {
 export type PortalCollaboratorAccessReview = {
   collaborator: PortalCollaborator;
   can_request_project_removal: boolean;
+  can_request_role_change: boolean;
   space_accesses: PortalCollaboratorStorageSpaceAccess[];
 };
 

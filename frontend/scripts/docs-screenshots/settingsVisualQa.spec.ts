@@ -110,6 +110,8 @@ for (const locale of ["en", "fr", "de"] as const) {
                   ...(rule.body as PortalProjectSettings),
                   can_update: true,
                   delegated_to_portal_managers: true,
+                  portal_collaborator_role_management_delegated: false,
+                  portal_collaborator_addition_delegated: false,
                 },
               }
             : rule.id === "branding" && locale === "de"

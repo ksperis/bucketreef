@@ -93,6 +93,7 @@ class PortalCollaboratorStorageSpaceAccess(ApiModel):
 class PortalCollaboratorAccessReview(ApiModel):
     collaborator: PortalCollaborator
     can_request_project_removal: bool = False
+    can_request_role_change: bool = False
     space_accesses: list[PortalCollaboratorStorageSpaceAccess] = Field(default_factory=list)
 
 

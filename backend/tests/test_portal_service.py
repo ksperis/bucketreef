@@ -660,9 +660,11 @@ def test_get_state_without_bootstrap_is_read_only(monkeypatch, db_session):
         "can_manage_buckets",
         "can_create_private_storage_spaces",
         "can_create_team_storage_spaces",
-        "can_create_external_sharing",
-        "can_manage_portal_users",
-        "allow_named_bucket_create",
+            "can_create_external_sharing",
+            "can_manage_portal_users",
+            "portal_collaborator_role_management_delegated",
+            "portal_collaborator_addition_delegated",
+            "allow_named_bucket_create",
         "server_access_logging_enabled",
         "storage_space_version_cleanup_enabled",
     }
@@ -4645,6 +4647,7 @@ def test_portal_collaborator_access_review_reports_effective_sources_and_revoke_
     assert result.collaborator.email == "member-review@example.com"
     assert result.collaborator.can_review_access is True
     assert result.can_request_project_removal is True
+    assert result.can_request_role_change is True
     assert [
         (item.storage_space_name, item.role, item.source, item.can_revoke)
         for item in result.space_accesses
@@ -4655,6 +4658,7 @@ def test_portal_collaborator_access_review_reports_effective_sources_and_revoke_
     ]
 
     manager_result = service.get_portal_collaborator_access_review(manager, manager_access, manager.id)
+    assert manager_result.can_request_role_change is False
     manager_sources = {item.storage_space_id: (item.role, item.source, item.can_revoke) for item in manager_result.space_accesses}
     assert manager_sources["direct-space"] == ("Manager", "project_manager", False)
     assert manager_sources["hidden-space"] == ("Owner", "owner", False)
@@ -4696,6 +4700,7 @@ def test_portal_collaborator_access_review_authorizes_manager_or_self_and_isolat
     self_result = service.get_portal_collaborator_access_review(member, member_access, member.id)
     assert self_result.space_accesses[0].can_revoke is False
     assert self_result.can_request_project_removal is False
+    assert self_result.can_request_role_change is False
 
     with pytest.raises(RuntimeError, match="not allowed"):
         service.get_portal_collaborator_access_review(member, member_access, peer.id)

@@ -365,7 +365,7 @@ export default function PortalRequestsPage() {
     setNotice(null);
     setRequestError(null);
     try {
-      await createPortalRequest(
+      const request = await createPortalRequest(
         accountIdForApi,
         collaboratorAction === "add"
           ? {
@@ -387,16 +387,26 @@ export default function PortalRequestsPage() {
       setTargetPortalRole("portal_user");
       setTargetReason("");
       setNotice(
-        t({
-          en: "Request sent. You can follow its status below.",
-          fr: "Demande envoyée. Vous pouvez suivre son statut ci-dessous.",
-          de: "Anfrage gesendet. Sie können den Status unten verfolgen.",
-          zh: "请求已发送。你可以在下方查看状态。",
-        }),
+        request.status === "approved"
+          ? t({
+              en: "Collaborator added immediately.",
+              fr: "Le collaborateur a été ajouté immédiatement.",
+              de: "Der Mitarbeiter wurde sofort hinzugefügt.",
+              zh: "协作者已立即添加。",
+            })
+          : t({
+              en: "Request sent. You can follow its status below.",
+              fr: "Demande envoyée. Vous pouvez suivre son statut ci-dessous.",
+              de: "Anfrage gesendet. Sie können den Status unten verfolgen.",
+              zh: "请求已发送。你可以在下方查看状态。",
+            }),
       );
       setRequestDialog(null);
       setActiveTab("history");
-      await loadRequests();
+      await Promise.all([
+        loadRequests(),
+        ...(request.status === "approved" ? [loadCollaborators()] : []),
+      ]);
     } catch (err) {
       console.error(err);
       setRequestError(

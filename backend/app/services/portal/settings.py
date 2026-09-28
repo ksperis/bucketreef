@@ -41,6 +41,8 @@ class PortalSettingsMixin:
         override: PortalSettingsOverride,
         *,
         delegated_to_portal_managers: Optional[bool] = None,
+        portal_collaborator_role_management_delegated: Optional[bool] = None,
+        portal_collaborator_addition_delegated: Optional[bool] = None,
     ) -> None:
         payload = self._override_payload(override)
         account.portal_settings_override = (
@@ -50,6 +52,14 @@ class PortalSettingsMixin:
         )
         if delegated_to_portal_managers is not None:
             account.portal_settings_delegated = bool(delegated_to_portal_managers)
+        if portal_collaborator_role_management_delegated is not None:
+            account.portal_collaborator_role_management_delegated = bool(
+                portal_collaborator_role_management_delegated
+            )
+        if portal_collaborator_addition_delegated is not None:
+            account.portal_collaborator_addition_delegated = bool(
+                portal_collaborator_addition_delegated
+            )
         self.db.add(account)
         self.db.commit()
         self.db.refresh(account)
@@ -121,6 +131,12 @@ class PortalSettingsMixin:
             effective=effective,
             admin_override=admin_override,
             delegated_to_portal_managers=bool(account.portal_settings_delegated),
+            portal_collaborator_role_management_delegated=bool(
+                account.portal_collaborator_role_management_delegated
+            ),
+            portal_collaborator_addition_delegated=bool(
+                account.portal_collaborator_addition_delegated
+            ),
         )
 
     def get_portal_project_settings(
@@ -134,6 +150,12 @@ class PortalSettingsMixin:
             effective=account_settings.effective,
             project_override=account_settings.admin_override,
             delegated_to_portal_managers=account_settings.delegated_to_portal_managers,
+            portal_collaborator_role_management_delegated=(
+                account_settings.portal_collaborator_role_management_delegated
+            ),
+            portal_collaborator_addition_delegated=(
+                account_settings.portal_collaborator_addition_delegated
+            ),
             can_update=can_update,
         )
 
@@ -143,6 +165,8 @@ class PortalSettingsMixin:
         override: PortalSettingsOverride,
         *,
         delegated_to_portal_managers: Optional[bool] = None,
+        portal_collaborator_role_management_delegated: Optional[bool] = None,
+        portal_collaborator_addition_delegated: Optional[bool] = None,
     ) -> PortalAccountSettings:
         effective = self._portal_settings().model_copy(deep=True)
         self._apply_override(effective, override)
@@ -151,5 +175,9 @@ class PortalSettingsMixin:
             account,
             override,
             delegated_to_portal_managers=delegated_to_portal_managers,
+            portal_collaborator_role_management_delegated=(
+                portal_collaborator_role_management_delegated
+            ),
+            portal_collaborator_addition_delegated=portal_collaborator_addition_delegated,
         )
         return self.get_portal_account_settings(account)

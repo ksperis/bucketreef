@@ -206,6 +206,21 @@ describe("PortalSharesPage", () => {
     expect(await screen.findByText("Member request sent. Track it in Help requests.")).toBeInTheDocument();
   });
 
+  it("refreshes project members when delegated addition is applied immediately", async () => {
+    const user = userEvent.setup();
+    mocks.createPortalRequestMock.mockResolvedValueOnce({ id: 74, status: "approved" });
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Request member" }));
+    const addDialog = screen.getByRole("dialog", { name: "Request a project member" });
+    await user.type(within(addDialog).getByLabelText("Name"), "New Member");
+    await user.type(within(addDialog).getByLabelText("Email"), "new.member@example.org");
+    await user.click(within(addDialog).getByRole("button", { name: "Send request" }));
+
+    expect(await screen.findByText("Member added to the project immediately.")).toBeInTheDocument();
+    expect(mocks.hookResult.refreshWorkspaceData).toHaveBeenCalledOnce();
+  });
+
   it("does not expose a review link when the API denies that row", async () => {
     mocks.hookResult.collaborators.collaborators[1].can_review_access = false;
     renderPage();

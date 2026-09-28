@@ -176,8 +176,22 @@ export default function ProjectSettingsEditor({
           baseline.delegatedToPortalManagers, draft.delegatedToPortalManagers,
           latest.delegated_to_portal_managers,
         );
+        payload.portal_collaborator_role_management_delegated = mergeDelegation(
+          baseline.collaboratorRoleManagementDelegated,
+          draft.collaboratorRoleManagementDelegated,
+          latest.portal_collaborator_role_management_delegated,
+        );
+        payload.portal_collaborator_addition_delegated = mergeDelegation(
+          baseline.collaboratorAdditionDelegated,
+          draft.collaboratorAdditionDelegated,
+          latest.portal_collaborator_addition_delegated,
+        );
         // A delegation-only request preserves the override in the existing API.
-        if (Object.keys(payload).length === 1) payload.bucket_defaults = null;
+        if (Object.keys(payload).every((key) => [
+          "delegated_to_portal_managers",
+          "portal_collaborator_role_management_delegated",
+          "portal_collaborator_addition_delegated",
+        ].includes(key))) payload.bucket_defaults = null;
       }
       const next = await adapter.save(accountId, payload);
       if (!active.current) return;
@@ -270,6 +284,8 @@ export default function ProjectSettingsEditor({
     cors_allowed_origins: t({ en: "CORS origins", fr: "Origines CORS", de: "CORS-Ursprünge", zh: "CORS 来源" }),
     noncurrent_version_expiration_days: t({ en: "Version history retention", fr: "Conservation de l’historique", de: "Aufbewahrung des Versionsverlaufs", zh: "版本历史保留期限" }),
     delegated_to_portal_managers: "Delegation",
+    portal_collaborator_role_management_delegated: "Collaborator role management",
+    portal_collaborator_addition_delegated: "Collaborator addition",
   };
   const customize = t({ en: "Customize", fr: "Personnaliser", de: "Anpassen", zh: "自定义" });
   const originsTitle = t({
@@ -414,6 +430,16 @@ export default function ProjectSettingsEditor({
                 action={<SettingsSwitch ariaLabel="Delegate Portal overrides to Portal managers"
                   checked={draft.delegatedToPortalManagers}
                   onChange={(value) => update("delegatedToPortalManagers", value)} />} />
+              <SettingsItem compact title="Collaborator addition"
+                description="Allow Portal managers to add Portal users directly. Adding a Portal manager also requires role management delegation."
+                action={<SettingsSwitch ariaLabel="Delegate collaborator addition to Portal managers"
+                  checked={draft.collaboratorAdditionDelegated}
+                  onChange={(value) => update("collaboratorAdditionDelegated", value)} />} />
+              <SettingsItem compact title="Collaborator role management"
+                description="Allow Portal managers to promote or demote direct project members between Portal user and Portal manager."
+                action={<SettingsSwitch ariaLabel="Delegate collaborator role management to Portal managers"
+                  checked={draft.collaboratorRoleManagementDelegated}
+                  onChange={(value) => update("collaboratorRoleManagementDelegated", value)} />} />
             </SettingsSection>}
             <SettingsSection
               presentation="compact"

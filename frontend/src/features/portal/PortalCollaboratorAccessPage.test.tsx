@@ -51,6 +51,7 @@ const review = {
     },
   },
   can_request_project_removal: true,
+  can_request_role_change: true,
   space_accesses: [
     {
       storage_space_id: "direct-space",
@@ -113,6 +114,7 @@ describe("PortalCollaboratorAccessPage", () => {
     expect(screen.getByText("Ownership")).toBeInTheDocument();
     expect(screen.getByText("Manager role")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Remove access" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Change role" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open" })).toHaveLength(4);
     expect(screen.queryByRole("link", { name: "Direct Space" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to members" })).toHaveAttribute("href", "/portal/shares");
@@ -163,6 +165,56 @@ describe("PortalCollaboratorAccessPage", () => {
     );
     expect(await screen.findByText("Project removal request sent. Track it in Help requests.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Request project removal" })).not.toBeInTheDocument();
+  });
+
+  it("requests the opposite direct project role from the access review", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Change role" }));
+    const dialog = screen.getByRole("dialog", { name: "Change role" });
+    expect(within(dialog).getByText("Workspace member")).toBeInTheDocument();
+    expect(within(dialog).getByText("Workspace manager")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Confirm role change" }));
+
+    await waitFor(() =>
+      expect(mocks.createRequest).toHaveBeenCalledWith("101", {
+        request_type: "portal_user_access",
+        intent: "role_change",
+        target_user_id: 13,
+        portal_role: "portal_manager",
+        reason: null,
+      }),
+    );
+    expect(await screen.findByText("Role change request sent. Track it in Help requests.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change role" })).not.toBeInTheDocument();
+  });
+
+  it("refreshes the collaborator after an immediately delegated role change", async () => {
+    const user = userEvent.setup();
+    mocks.createRequest.mockResolvedValueOnce({ id: 74, status: "approved" });
+    mocks.fetchReview
+      .mockResolvedValueOnce(structuredClone(review))
+      .mockResolvedValueOnce({
+        ...structuredClone(review),
+        collaborator: {
+          ...structuredClone(review).collaborator,
+          portal_role: "portal_manager",
+        },
+      });
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Change role" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "Change role" })).getByRole("button", {
+        name: "Confirm role change",
+      }),
+    );
+
+    expect(await screen.findByText("Project role changed immediately.")).toBeInTheDocument();
+    expect(mocks.fetchReview).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Workspace manager")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change role" })).toBeInTheDocument();
   });
 
   it("renders the empty state", async () => {

@@ -47,6 +47,8 @@ def test_admin_get_account_portal_settings_returns_account_overrides(client, db_
     assert "portal_manager_override" not in body
     assert "override_policy" not in body
     assert body["delegated_to_portal_managers"] is False
+    assert body["portal_collaborator_role_management_delegated"] is False
+    assert body["portal_collaborator_addition_delegated"] is False
 
 
 def test_admin_put_account_portal_settings_replaces_override_and_audits(client, db_session):
@@ -157,6 +159,37 @@ def test_admin_can_delegate_shared_portal_overrides(client, db_session):
     assert body["delegated_to_portal_managers"] is True
     db_session.refresh(account)
     assert account.portal_settings_delegated is True
+
+
+def test_admin_can_update_collaborator_delegations_independently(client, db_session):
+    account = _seed_account(db_session)
+
+    addition = client.put(
+        f"/api/admin/accounts/{account.id}/portal-settings",
+        json={"portal_collaborator_addition_delegated": True},
+    )
+
+    assert addition.status_code == 200, addition.text
+    assert addition.json()["portal_collaborator_addition_delegated"] is True
+    assert addition.json()["portal_collaborator_role_management_delegated"] is False
+    db_session.refresh(account)
+    assert account.portal_collaborator_addition_delegated is True
+    assert account.portal_collaborator_role_management_delegated is False
+
+    role_management = client.put(
+        f"/api/admin/accounts/{account.id}/portal-settings",
+        json={
+            "portal_collaborator_addition_delegated": False,
+            "portal_collaborator_role_management_delegated": True,
+        },
+    )
+
+    assert role_management.status_code == 200, role_management.text
+    assert role_management.json()["portal_collaborator_addition_delegated"] is False
+    assert role_management.json()["portal_collaborator_role_management_delegated"] is True
+    db_session.refresh(account)
+    assert account.portal_collaborator_addition_delegated is False
+    assert account.portal_collaborator_role_management_delegated is True
 
 
 def test_admin_account_portal_settings_returns_404_for_unknown_account(client):

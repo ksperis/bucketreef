@@ -24,7 +24,7 @@ export function portal(c: DemoRequest): Response | undefined {
     }
     if (method === "POST" && !admin && !requestMatch[2]) {
       const type = textField(body, "request_type") as PortalAdminRequest["request_type"];
-      if (!["portal_user_access", "portal_user_removal", "account_quota_change"].includes(type)) throw new DemoError(403, "Global and project settings stay locked in this demo. Try a user-access or quota request.");
+      if (!["portal_user_access", "portal_user_removal", "account_quota_change"].includes(type)) throw new DemoError(403, "Global and project settings stay locked in this demo. Try a membership or quota request.");
       const now = new Date().toISOString(); const { request_type: _type, ...payload } = body;
       const request: PortalAdminRequest = { id: state.nextId++, account_id: account!.id, account_name: account!.name, request_type: type, status: "pending", payload, requester_user_id: c.user.id, requester_email: c.user.email, created_at: now, updated_at: now, messages: [] };
       state.requests.push(request); return json(request, 201);
@@ -42,11 +42,19 @@ export function portal(c: DemoRequest): Response | undefined {
             if (!Number.isFinite(quota) || quota <= 0) throw new DemoError(422, "Quota must be positive");
             account.quota_max_size_gb = quota; request.result = { quota_max_size_gb: quota };
           } else if (request.request_type === "portal_user_access") {
-            const email = textField(request.payload, "target_email"); let user = state.users.find(u => u.email === email);
-            if (!user) { user = { id: state.nextId++, email, full_name: String(request.payload.target_name ?? ""), role: "ui_user", is_active: true, ui_language: "en", account_links: [] }; state.users.push(user); }
-            user.account_links = [...(user.account_links ?? []).filter(l => l.account_id !== account.id), { account_id: account.id, manager_role: null, portal_role: "portal_user" }];
-            account.user_links = [...account.user_links.filter(l => l.user_id !== user!.id), { user_id: user.id, user_email: email, user_full_name: user.full_name, manager_role: null, portal_role: "portal_user" }];
-            request.result = { user_id: user.id, email };
+            const portalRole = request.payload.portal_role === "portal_manager" ? "portal_manager" : "portal_user";
+            if (request.payload.intent === "role_change") {
+              const user = required(state.users.find(u => u.id === Number(request.payload.target_user_id)));
+              user.account_links = [...(user.account_links ?? []).filter(l => l.account_id !== account.id), { account_id: account.id, manager_role: null, portal_role: portalRole }];
+              account.user_links = [...account.user_links.filter(l => l.user_id !== user.id), { user_id: user.id, user_email: user.email, user_full_name: user.full_name, manager_role: null, portal_role: portalRole }];
+              request.result = { target_user_id: user.id, portal_role: portalRole };
+            } else {
+              const email = textField(request.payload, "target_email"); let user = state.users.find(u => u.email === email);
+              if (!user) { user = { id: state.nextId++, email, full_name: String(request.payload.target_name ?? ""), role: "ui_user", is_active: true, ui_language: "en", account_links: [] }; state.users.push(user); }
+              user.account_links = [...(user.account_links ?? []).filter(l => l.account_id !== account.id), { account_id: account.id, manager_role: null, portal_role: portalRole }];
+              account.user_links = [...account.user_links.filter(l => l.user_id !== user!.id), { user_id: user.id, user_email: email, user_full_name: user.full_name, manager_role: null, portal_role: portalRole }];
+              request.result = { user_id: user.id, email, portal_role: portalRole };
+            }
           } else if (request.request_type === "portal_user_removal") {
             const user = required(state.users.find(u => u.email === request.payload.target_email));
             if (user.id <= 5) throw new DemoError(409, "Demo persona memberships are reserved");
@@ -69,15 +77,15 @@ export function portal(c: DemoRequest): Response | undefined {
     const l = accountGrant(c, account, user.id);
     return { user_id: user.id, email: user.email, display_name: user.full_name, portal_role: l.portal_role, access_source: "direct", member_since: state.initializedAt, can_review_access: manager };
   });
-  if (path === "/portal/state" && method === "GET") return json({ portal_role: manager ? "portal_manager" : "portal_user", can_manage_buckets: manager, can_create_private_storage_spaces: true, can_create_team_storage_spaces: manager, can_create_external_sharing: false, can_manage_portal_users: manager, allow_named_bucket_create: true, storage_space_version_cleanup_enabled: false, server_access_logging_enabled: true });
+  if (path === "/portal/state" && method === "GET") return json({ portal_role: manager ? "portal_manager" : "portal_user", can_manage_buckets: manager, can_create_private_storage_spaces: true, can_create_team_storage_spaces: manager, can_create_external_sharing: false, can_manage_portal_users: manager, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false, allow_named_bucket_create: true, storage_space_version_cleanup_enabled: false, server_access_logging_enabled: true });
   if (path === "/portal/settings") {
     if (method !== "GET") throw new DemoError(403, "Project settings are read-only in this demo");
-    return json({ effective: settings.portal, project_override: {}, delegated_to_portal_managers: false, can_update: false });
+    return json({ effective: settings.portal, project_override: {}, delegated_to_portal_managers: false, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false, can_update: false });
   }
   if (path === "/portal/collaborators" && method === "GET") return json({ summary: { collaborator_count: candidates.length, external_access_key_count: 0 }, collaborators: candidates });
   if (path === "/portal/share-candidates" && method === "GET") return json(candidates);
   const review = path.match(/^\/portal\/collaborators\/(\d+)\/access$/);
-  if (review && method === "GET") return json({ collaborator: required(candidates.find(u => u.user_id === Number(review[1]))), can_request_project_removal: manager, space_accesses: state.spaces.filter(s => s.accountId === account.id && s.visibility === "shared").map(s => ({ storage_space_id: s.id, storage_space_name: s.name, role: s.account_member_role ?? "Viewer", source: "team", can_revoke: false })) });
+  if (review && method === "GET") return json({ collaborator: required(candidates.find(u => u.user_id === Number(review[1]))), can_request_project_removal: manager, can_request_role_change: manager, space_accesses: state.spaces.filter(s => s.accountId === account.id && s.visibility === "shared").map(s => ({ storage_space_id: s.id, storage_space_name: s.name, role: s.account_member_role ?? "Viewer", source: "team", can_revoke: false })) });
   const match = path.match(/^\/portal\/storage-spaces(?:\/([^/]+)(?:\/(settings|shares|share-candidates|access-summary|public-links)(?:\/(\d+))?)?)?$/);
   if (!match) return undefined;
   if (!match[1]) {

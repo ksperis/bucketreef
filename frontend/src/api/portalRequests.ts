@@ -32,8 +32,9 @@ export type PortalSettingKey =
   | "bucket_defaults.cors_allowed_origins";
 export type PortalSettingValue = boolean | number | string[];
 
-type PortalUserAccessRequestCreate = {
+type PortalUserAccessAddRequestCreate = {
   request_type: "portal_user_access";
+  intent?: "add";
   target_name: string;
   target_email: string;
   portal_role: PortalRequestedRole;
@@ -46,6 +47,18 @@ type PortalUserRemovalRequestCreate = {
   target_name?: string | null;
   reason?: string | null;
 };
+
+export type PortalRoleChangeRequestCreate = {
+  request_type: "portal_user_access";
+  intent: "role_change";
+  target_user_id: number;
+  portal_role: PortalRequestedRole;
+  reason?: string | null;
+};
+
+type PortalUserAccessRequestCreate =
+  | PortalUserAccessAddRequestCreate
+  | PortalRoleChangeRequestCreate;
 
 type PortalAccountQuotaChangeRequestCreate = {
   request_type: "account_quota_change";
@@ -66,6 +79,7 @@ export type PortalSettingChangeRequestCreate = {
 type PortalAdminRequestCreate =
   | PortalUserAccessRequestCreate
   | PortalUserRemovalRequestCreate
+  | PortalRoleChangeRequestCreate
   | PortalAccountQuotaChangeRequestCreate
   | PortalSettingChangeRequestCreate;
 

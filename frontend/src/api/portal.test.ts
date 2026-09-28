@@ -450,6 +450,12 @@ describe("portal storage spaces api", () => {
       target_email: "old@example.org",
       reason: "Left the project",
     });
+    await createPortalRequest("101", {
+      request_type: "portal_user_access",
+      intent: "role_change",
+      target_user_id: 13,
+      portal_role: "portal_manager",
+    });
     await listAdminPortalRequests({
       status: "pending",
       request_type: "account_quota_change",
@@ -481,6 +487,16 @@ describe("portal storage spaces api", () => {
         target_name: "Old User",
         target_email: "old@example.org",
         reason: "Left the project",
+      },
+      { params: { account_id: "101" } }
+    );
+    expect(clientMock.post).toHaveBeenCalledWith(
+      "/portal/requests",
+      {
+        request_type: "portal_user_access",
+        intent: "role_change",
+        target_user_id: 13,
+        portal_role: "portal_manager",
       },
       { params: { account_id: "101" } }
     );

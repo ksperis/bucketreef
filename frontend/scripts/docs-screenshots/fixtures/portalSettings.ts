@@ -15,7 +15,7 @@ export function buildPortalSettingsRules(): MockRule[] {
     { id: "coherence-pending-counts", path: /^\/admin\/navigation\/pending-requests$/, body: { identity_link_requests: 0, portal_requests: 0 } },
     { id: "coherence-accounts", path: /^\/admin\/accounts$/, body: { items: [account], total: 1, page: 1, page_size: 25, has_next: false } },
     { id: "coherence-account", path: /^\/admin\/accounts\/101$/, body: account },
-    { id: "coherence-account-settings", path: /^\/admin\/accounts\/101\/portal-settings$/, body: { effective: project.effective, admin_override: { browser_access_enabled: true }, delegated_to_portal_managers: true } },
+    { id: "coherence-account-settings", path: /^\/admin\/accounts\/101\/portal-settings$/, body: { effective: project.effective, admin_override: { browser_access_enabled: true }, delegated_to_portal_managers: true, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false } },
     { id: "coherence-account-stats", path: /^\/admin\/stats\/account$/, body: { used_bytes: 0, used_objects: 0, bucket_count: 0 } },
     { id: "coherence-groups", path: /^\/admin\/groups\/minimal$/, body: [] },
     { id: "coherence-tags", path: /^\/admin\/tag-definitions$/, body: { items: [] } },
