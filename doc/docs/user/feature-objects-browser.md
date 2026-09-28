@@ -163,7 +163,7 @@ Listing and sorted pagination keep their existing bounds. A sorted scan can reac
 
 ### Personal path favorites
 
-The standalone sidebar has **Buckets / Favorites** tabs. Each favorite shows its bucket, path and context in a subtitle. Search the list or use an item's menu to rename or remove it. Embedded surfaces expose **Favorites** in **More**.
+The standalone sidebar has **Buckets / Favorites** tabs. Each favorite shows its bucket, path and context in a subtitle. Search the list or use an item's menu to rename or remove it. Embedded Browser surfaces do not expose favorites because they do not include the standalone sidebar.
 
 Use **Pin location** to save the current context and exact path. Favorites synchronize through your UI account and refresh when the window regains focus. Concurrent edits or removals are rejected; refresh before retrying. Unavailable locations remain identifiable and never silently change execution identity.
 

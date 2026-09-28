@@ -1073,9 +1073,8 @@ describe("BrowserPage interactions", () => {
 
     const moreMenu = await openContextMoreMenu(user);
     expect(within(moreMenu).queryByRole("menuitem", { name: "Transfers and recovery" })).not.toBeInTheDocument();
-    await user.click(within(moreMenu).getByRole("menuitem", { name: "Favorites" }));
-    expect(await screen.findByRole("dialog", { name: "Favorites" })).toBeInTheDocument();
-
+    expect(within(moreMenu).queryByRole("menuitem", { name: "Favorites" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Favorites" })).not.toBeInTheDocument();
   });
 
   it("uses the explicit connection kind for transfer guidance", async () => {

@@ -17,8 +17,6 @@ import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import { cx, uiMenuClass } from "../../components/ui/styles";
 import { BrowserToolbarActionMenuItem } from "./BrowserActionPresentation";
-import BrowserUtilityIcon from "./BrowserUtilityIcon";
-import { useBrowserText } from "./browserMessages";
 import BrowserBucketSelector from "./BrowserBucketSelector";
 import BrowserPathNavigator from "./BrowserPathNavigator";
 import {
@@ -77,7 +75,6 @@ type ToolbarColumns = Pick<
 };
 
 type BrowserToolbarProps = {
-  onOpenFavorites?: () => void;
   compactMode: boolean;
   bucketSelector: ComponentProps<typeof BrowserBucketSelector>;
   pathNavigator: ComponentProps<typeof BrowserPathNavigator>;
@@ -137,7 +134,6 @@ type BrowserToolbarProps = {
 };
 
 export default function BrowserToolbar({
-  onOpenFavorites,
   compactMode,
   bucketSelector,
   pathNavigator,
@@ -153,7 +149,6 @@ export default function BrowserToolbar({
   onRunPathAction,
   onRunSelectionAction,
 }: BrowserToolbarProps) {
-  const tr = useBrowserText();
   const uploadButtonRef = useRef<HTMLButtonElement | null>(null);
   const uploadMenuRef = useRef<HTMLDivElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -202,7 +197,7 @@ export default function BrowserToolbar({
     hasStatusSection ||
     hasLayoutSection ||
     hasColumnsSection ||
-    hasSecondaryActionsSection || Boolean(onOpenFavorites);
+    hasSecondaryActionsSection;
   const closeMoreMenu = () => {
     setColumnsMenuOpen(false);
     setMoreMenuOpen(false);
@@ -520,8 +515,6 @@ export default function BrowserToolbar({
                 hasTrailingActionsSection) && (
                 <div className={contextMenuSeparatorClasses} />
               )}
-
-            {onOpenFavorites && <button type="button" role="menuitem" className={contextMenuItemClasses} onClick={() => runMoreAction(onOpenFavorites)}><BrowserUtilityIcon />{tr("Favorites")}</button>}
 
             {!hasPrioritizedSelectionActions && moreMenu.view && (
               <>
