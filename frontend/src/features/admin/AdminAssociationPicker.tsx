@@ -34,11 +34,6 @@ export const adminAssociationOptionRowClass = (selected: boolean) =>
     selected ? "bg-[var(--ui-selected-bg)]" : "hover:bg-[var(--ui-hover)]"
   }`;
 
-export const adminAssociationAccountOptionRowClass = (selected: boolean) =>
-  `flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1 ${
-    selected ? "bg-[var(--ui-selected-bg)]" : "hover:bg-[var(--ui-hover)]"
-  }`;
-
 type AdminAssociationOptionCheckboxProps = Omit<
   React.ComponentProps<typeof UiCheckboxField>,
   "checkboxClassName"

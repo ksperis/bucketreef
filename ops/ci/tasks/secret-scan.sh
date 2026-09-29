@@ -10,15 +10,20 @@ export SECRET_DETECTION_LOG_OPTIONS SECRET_DETECTION_HISTORIC_SCAN
 CI_COMMIT_SHA=$(python3 -c 'import json; print(json.load(open("ci-plan.json"))["sha"])')
 CI_COMMIT_BRANCH=${CI_COMMIT_BRANCH:-public-validation}
 export CI_COMMIT_SHA CI_COMMIT_BRANCH
+analyzer_failed() {
+  echo 'Secret analyzer failed (raw output withheld)'
+  python3 ops/ci/secret_diagnostics.py "$temporary/analyzer.log"
+  exit 1
+}
 # Analyzer output can include credentials. Only the redacted summary is emitted.
 if [ -x /analyzer ]; then
-  /analyzer run >"$temporary/analyzer.log" 2>&1 || { echo 'Secret analyzer failed (raw output withheld)'; exit 1; }
+  /analyzer run >"$temporary/analyzer.log" 2>&1 || analyzer_failed
 else
   : "${SECRET_ANALYZER_IMAGE:?}"
   docker run --rm --volume "$PWD:/repo" --workdir /repo \
     --env CI_PROJECT_DIR=/repo --env CI_COMMIT_SHA --env CI_COMMIT_BRANCH \
     --env CI_DEFAULT_BRANCH=main --env SECRET_DETECTION_HISTORIC_SCAN \
     --env SECRET_DETECTION_LOG_OPTIONS --entrypoint /analyzer "$SECRET_ANALYZER_IMAGE" run \
-    >"$temporary/analyzer.log" 2>&1 || { echo 'Secret analyzer failed (raw output withheld)'; exit 1; }
+    >"$temporary/analyzer.log" 2>&1 || analyzer_failed
 fi
 python3 ops/ci/secret_report.py

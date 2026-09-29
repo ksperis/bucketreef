@@ -339,6 +339,13 @@ class _BucketContentPurger:
         stage: str,
         items: list[dict],
     ) -> _PendingDeletes:
+        if self.worker_count == 1:
+            # Sequential callers may check a lease with their owning DB session.
+            # Run the check and deletion on that same thread, without overlap.
+            future: Future[_DeleteBatchResult] = Future()
+            future.set_result(self._delete_batch(stage, items))
+            pending.add(future)
+            return self._drain(pending)
         pending.add(executor.submit(self._delete_batch, stage, items))
         while len(pending) >= self.worker_count * 2:
             self._check_cancel()

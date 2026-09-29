@@ -1,12 +1,57 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from unittest.mock import Mock
+import threading
 
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.parsers import ResponseParserError
 
 from app.services import s3_deletion
+
+
+def test_sequential_purge_keeps_lease_checks_and_deletions_on_owning_thread():
+    owner = threading.get_ident()
+    checked = []
+    client = Mock()
+    client.list_objects_v2.return_value = {"Contents": [{"Key": "current"}]}
+    client.list_object_versions.return_value = {
+        "Versions": [{"Key": "old", "VersionId": "v1"}],
+        "DeleteMarkers": [{"Key": "old", "VersionId": "marker"}],
+    }
+
+    def check():
+        assert threading.get_ident() == owner
+        checked.append(True)
+
+    def delete(**kwargs):
+        assert threading.get_ident() == owner
+        assert checked
+        checked.clear()
+        return {}
+
+    client.delete_objects.side_effect = delete
+    result = s3_deletion.purge_bucket_contents(
+        client, "source", parallelism=1, cancel_check=check,
+    )
+    assert result.deleted_objects == 1
+    assert result.deleted_versions == 2
+    assert result.failed_count == 0
+
+
+def test_sequential_purge_checks_lease_before_each_destructive_batch():
+    client = Mock()
+    client.list_objects_v2.return_value = {"Contents": [{"Key": "current"}]}
+    client.list_object_versions.return_value = {"Versions": [{"Key": "old", "VersionId": "v1"}]}
+    client.delete_objects.return_value = {}
+
+    def check():
+        if client.delete_objects.call_count:
+            raise RuntimeError("lease lost")
+
+    with pytest.raises(RuntimeError, match="lease lost"):
+        s3_deletion.purge_bucket_contents(client, "source", parallelism=1, cancel_check=check)
+    client.delete_objects.assert_called_once_with(Bucket="source", Delete={"Objects": [{"Key": "current"}]})
 
 
 @pytest.mark.parametrize("delete", [s3_deletion.delete_objects, s3_deletion.delete_objects_count])
