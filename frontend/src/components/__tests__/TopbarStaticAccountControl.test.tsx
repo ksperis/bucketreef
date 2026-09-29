@@ -16,7 +16,7 @@ describe("TopbarStaticAccountControl", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByText("Account context Research account")).toHaveClass("sr-only");
     expect(screen.getByTestId("account-icon").parentElement).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByTitle("IAM Identity: alice")).toHaveClass("shell-control");
+    expect(screen.getByTitle("IAM Identity: alice")).toHaveClass("shell-control-static");
   });
 
   it("shares label geometry while preserving optional muted and badge content", () => {
@@ -33,6 +33,6 @@ describe("TopbarStaticAccountControl", () => {
     expect(screen.getByText("Account")).toBeInTheDocument();
     expect(screen.getByText("No account selected")).toBeInTheDocument();
     expect(screen.getByText("Session")).toBeInTheDocument();
-    expect(screen.getByText("No account selected").closest("div.shell-control")).toHaveClass("shell-muted-text");
+    expect(screen.getByText("No account selected").closest("div.shell-control-static")).toHaveClass("shell-muted-text");
   });
 });

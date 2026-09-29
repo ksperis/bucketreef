@@ -132,7 +132,7 @@ export default function TopbarWorkspaceSelector({
 
   if (!workspaceSwitcher) {
     return (
-      <div className="shell-control flex h-10 w-[140px] min-w-0 items-center gap-2 rounded-lg border px-3">
+      <div className="shell-control-static flex h-10 w-[140px] min-w-0 items-center gap-2 rounded-lg border px-3">
         <span className="min-w-0 leading-[1.05]">
           <span className="shell-muted-text block truncate text-[10px] font-medium">Workspace</span>
           {triggerLabel && (

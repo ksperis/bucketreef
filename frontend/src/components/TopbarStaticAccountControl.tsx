@@ -30,7 +30,7 @@ export default function TopbarStaticAccountControl({
     return (
       <div
         title={title ?? selectedLabel}
-        className={`shell-control inline-flex h-9 ${TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS} items-center justify-center rounded-lg border`}
+        className={`shell-control-static inline-flex h-9 ${TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS} items-center justify-center rounded-lg border`}
       >
         <span aria-hidden="true">{icon}</span>
         <span className="sr-only">Account context {selectedLabel}</span>
@@ -41,7 +41,7 @@ export default function TopbarStaticAccountControl({
   return (
     <div
       title={title}
-      className={`shell-control inline-flex h-10 ${TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS} items-center gap-2.5 rounded-lg border px-3 text-left ${
+      className={`shell-control-static inline-flex h-10 ${TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS} items-center gap-2.5 rounded-lg border px-3 text-left ${
         muted ? "shell-muted-text" : ""
       }`}
     >

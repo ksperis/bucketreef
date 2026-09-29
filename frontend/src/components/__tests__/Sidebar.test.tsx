@@ -440,4 +440,29 @@ describe("Sidebar", () => {
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
   });
+
+  it("keeps the active desktop navigation link in view when compact", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/admin/general-settings"]}>
+        <Sidebar
+          compact
+          sections={[
+            {
+              label: "Settings",
+              collapsed: false,
+              links: [{ to: "/admin/general-settings", label: "General" }],
+            },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+  });
 });

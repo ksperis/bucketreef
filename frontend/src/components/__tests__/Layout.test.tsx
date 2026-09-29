@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Layout from "../Layout";
 import { SIDEBAR_COMPACT_WIDTH, SIDEBAR_DEFAULT_WIDTH } from "../sidebarSizing";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
 const mocks = vi.hoisted(() => ({
   workspaceSwitcherModel: null as {
@@ -93,6 +94,7 @@ function getMobileSidebar(container: HTMLElement) {
 
 describe("Layout", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     window.sessionStorage.clear();
     mocks.workspaceSwitcherModel = null;
   });
@@ -132,6 +134,22 @@ describe("Layout", () => {
     fireEvent.click(within(desktopSidebar).getByRole("button", { name: "Expand sidebar" }));
     expect(desktopSidebar).toHaveStyle({ width: `${SIDEBAR_DEFAULT_WIDTH}px` });
     expect(within(desktopSidebar).getByText("Quick action")).toBeInTheDocument();
+  });
+
+  it("persists the desktop sidebar compact preference", () => {
+    const firstRender = renderLayout();
+    const firstSidebar = getDesktopSidebar(firstRender.container);
+
+    fireEvent.click(within(firstSidebar).getByRole("button", { name: "Collapse sidebar" }));
+    expect(window.localStorage.getItem(CLIENT_STORAGE_KEYS.sidebarCompact)).toBe("1");
+    firstRender.unmount();
+
+    const secondRender = renderLayout();
+    const secondSidebar = getDesktopSidebar(secondRender.container);
+    expect(secondSidebar).toHaveStyle({ width: `${SIDEBAR_COMPACT_WIDTH}px` });
+
+    fireEvent.click(within(secondSidebar).getByRole("button", { name: "Expand sidebar" }));
+    expect(window.localStorage.getItem(CLIENT_STORAGE_KEYS.sidebarCompact)).toBe("0");
   });
 
   it("uses shared sidebar chrome for a custom workspace body on desktop and mobile", () => {
