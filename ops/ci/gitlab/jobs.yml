@@ -716,6 +716,7 @@ secret-scan:
     when: always
     paths:
     - gl-security-reports/secrets-redacted.json
+    - gl-security-reports/secret-analyzer-diagnostics.json
     expire_in: 1 week
 release-preflight:
   stage: test
