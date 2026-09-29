@@ -18,6 +18,7 @@ const listMinimalUsersMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
 const effectiveAccessPanelMountedMock = vi.fn();
+const adminS3UserStatsMock = vi.fn();
 
 const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
   id,
@@ -27,11 +28,7 @@ const makeTag = (id: number, label: string, color_key = "neutral", scope = "stan
 });
 
 vi.mock("./useAdminS3UserStats", () => ({
-  useAdminS3UserStats: () => ({
-    stats: null,
-    loading: false,
-    error: null,
-  }),
+  useAdminS3UserStats: (...args: unknown[]) => adminS3UserStatsMock(...args),
 }));
 
 vi.mock("../../api/s3Users", () => ({
@@ -72,6 +69,7 @@ vi.mock("./AdminEffectiveAccessPanel", () => ({
 describe("S3UsersPage modal tabs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    adminS3UserStatsMock.mockReturnValue({ stats: null, loading: false, error: null, reload: vi.fn() });
 
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
 
@@ -161,7 +159,23 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.queryByText("Import or create standalone RGW users to expose them to managers.")).not.toBeInTheDocument();
   });
 
-  it("presents user identity and quotas in consistent General sections", async () => {
+  it("presents user identity, usage gauges, and quotas in consistent General sections", async () => {
+    adminS3UserStatsMock.mockReturnValue({
+      stats: {
+        total_bytes: 512 * 1024 ** 2,
+        total_objects: 25,
+        bucket_overview: {
+          bucket_count: 4,
+          non_empty_buckets: 3,
+          empty_buckets: 1,
+          avg_bucket_size_bytes: 128 * 1024 ** 2,
+          avg_objects_per_bucket: 6.25,
+        },
+      },
+      loading: false,
+      error: null,
+      reload: vi.fn(),
+    });
     render(
       <MemoryRouter>
         <S3UsersPage />
@@ -174,15 +188,18 @@ describe("S3UsersPage modal tabs", () => {
 
     const generalPanel = await screen.findByRole("tabpanel", { name: "General" });
     expect(
-      screen.getByText("Manage quotas, UI associations, and privileged access for this RGW user.")
+      screen.getByText("Manage quotas, usage, UI associations, and privileged access for this RGW user.")
     ).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "User details" })).toBeInTheDocument();
+    expect(within(generalPanel).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuenow", "50");
+    expect(within(generalPanel).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuenow", "25");
+    expect(within(generalPanel).getByText("Active buckets")).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "Quotas" })).toBeInTheDocument();
     expect(within(generalPanel).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Object quota")).toHaveClass("ui-control");
     expect(within(generalPanel).queryByLabelText("Ceph endpoint (locked)")).not.toBeInTheDocument();
-    expect(within(generalPanel).queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(within(generalPanel).getByRole("button", { name: "Save changes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
     expect(screen.getAllByText("UID").some((node) => node.tagName === "DT")).toBe(true);
   });
