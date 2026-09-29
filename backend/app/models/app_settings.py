@@ -151,7 +151,7 @@ class LoginSettings(ApiModel):
 
 
 class PortalSettings(ApiModel):
-    browser_access_enabled: bool = False
+    browser_access_enabled: bool = True
     allow_private_storage_space_create: bool = True
     allow_portal_named_bucket_create: bool = False
     allow_portal_user_access_key_create: bool = True

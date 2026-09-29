@@ -265,7 +265,7 @@ Managed from Admin UI:
 - Authentication settings (`allow_login_access_keys`, endpoint selection for access-key login, custom login endpoints, `require_passkey_for_admins`, `require_passkey_for_users`, `allow_user_profile_name_edit`, and `allow_user_external_identity_unlink`). Fresh installations leave both passkey requirements disabled to simplify onboarding and keep both self-service permissions disabled. Before production, enroll an administrator passkey from **Profile > Security** and enable `require_passkey_for_admins`; Production readiness treats the disabled policy as a Critical publication finding, not a startup blocker. Persisted settings from older releases keep the historical Admin requirement when this field is absent.
 - Quota supervision toggles (`quota_alerts_enabled`, `usage_history_enabled`).
 - Browser sub-flags (`browser_root_enabled`, `browser_manager_enabled`, `browser_portal_enabled`, `browser_ceph_admin_enabled`).
-- Portal settings (`portal`): standalone Browser access (`browser_access_enabled`, disabled by default), IAM key availability, private Storage Space creation, portal user access-key creation, Portal User external sharing (`allow_portal_user_external_sharing`, disabled by default), server access log retention for newly created technical log buckets, max portal user keys, and bucket defaults. When external sharing is enabled, a `portal_user` may create public links and external S3 credentials only for an owned Storage Space; disabling it blocks new creation while existing links and credentials remain manageable. Portal Managers keep their existing behavior independently of this flag. Portal settings can be overridden per account by a super-admin. The per-account `portal_settings_delegated` flag is disabled by default; when enabled, project Portal Managers can edit the same shared override from `/portal/settings`. Disabling delegation keeps the stored override effective but read-only in Portal. `bucket_defaults.noncurrent_version_expiration_days` is the internal key for **Version history retention**; it is a positive integer (90 by default) and applies only when provisioning a new Storage Space with the default lifecycle enabled. Existing buckets are not reconciled automatically.
+- Portal settings (`portal`): standalone Browser access (`browser_access_enabled`, enabled by default), IAM key availability, private Storage Space creation, portal user access-key creation, Portal User external sharing (`allow_portal_user_external_sharing`, disabled by default), server access log retention for newly created technical log buckets, max portal user keys, and bucket defaults. When external sharing is enabled, a `portal_user` may create public links and external S3 credentials only for an owned Storage Space; disabling it blocks new creation while existing links and credentials remain manageable. Portal Managers keep their existing behavior independently of this flag. Portal settings can be overridden per account by a super-admin. The per-account `portal_settings_delegated` flag is disabled by default; when enabled, project Portal Managers can edit the same shared override from `/portal/settings`. Disabling delegation keeps the stored override effective but read-only in Portal. `bucket_defaults.noncurrent_version_expiration_days` is the internal key for **Version history retention**; it is a positive integer (90 by default) and applies only when provisioning a new Storage Space with the default lifecycle enabled. Existing buckets are not reconciled automatically.
 - Manager tool flags and behavior: bucket migration, compare, integrity check,
   purge, usage stats, Ceph S3 User key management, and migration parallelism.
 - Quota notification policy (`quota_notifications`: threshold, SMTP non-secret fields, contact-email option).
@@ -275,10 +275,10 @@ On a fresh deployment with no persisted app settings, `Endpoint Status` and
 explicitly enabled and configured.
 
 The Browser surface is enabled on root `/browser` and inside Portal storage
-spaces (`/portal/storage-spaces/:spaceId`) by default. Portal projects do not
-appear in the root Browser until `portal.browser_access_enabled` is enabled
-globally or by account override. Manager and Ceph Admin Browser integrations
-remain disabled until explicitly enabled.
+spaces (`/portal/storage-spaces/:spaceId`) by default. Portal projects also
+appear in the root Browser by default through `portal.browser_access_enabled`;
+the global setting or an account override can disable that access. Manager and
+Ceph Admin Browser integrations remain disabled until explicitly enabled.
 
 The Settings tab of an existing Storage Space is separate from project
 defaults. Owners and Portal Managers can read the bucket's Versioning,
