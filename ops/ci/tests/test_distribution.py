@@ -107,20 +107,18 @@ def test_qualification_requires_completed_pipeline_and_unchanged_registry(monkey
 
 
 @pytest.mark.parametrize('stage', expected_names(dist.REQUIRED))
-@pytest.mark.parametrize('status', ['failed', 'canceled', 'skipped', 'missing'])
+@pytest.mark.parametrize('status', ['failed', 'canceled', 'skipped', 'missing', 'wrong-sha'])
 def test_global_distribution_gate_requires_every_job_and_matrix_member(monkeypatch, tmp_path, stage, status):
-    monkeypatch.chdir(tmp_path)
-    dist.write('ci-plan.json', {'profile':'prepare-release','sha':SHA})
-    monkeypatch.setenv('CI_PIPELINE_ID', '20')
-    monkeypatch.setenv('RELEASE_VERSION', '1.2.3')
-    monkeypatch.setattr(dist, 'source_record', qualified)
-    jobs = [{'id': i, 'name': name, 'status': 'success', 'commit': {'id': SHA}} for i, name in enumerate(expected_names(dist.REQUIRED))]
-    jobs = [j for j in jobs if status != 'missing' or j['name'] != stage]
+    api, jobs = prepared(monkeypatch, tmp_path)
+    # Establish a valid proof first, so another precondition cannot mask the gate.
+    dist.ready(api)
+    jobs[:] = [j for j in jobs if status != 'missing' or j['name'] != stage]
     for job in jobs:
-        if job['name'] == stage: job['status'] = status
-    api = SimpleNamespace(jobs=lambda _: jobs, get=lambda _: {'sha':SHA,'ref':'main','source':'parent_pipeline'})
+        if job['name'] == stage:
+            if status == 'wrong-sha': job['commit']['id'] = 'f' * 40
+            else: job['status'] = status
     monkeypatch.setattr(dist, 'verify_public', lambda: pytest.fail('Registry checks must follow the job gate'))
-    with pytest.raises(ValueError): dist.ready(api)
+    with pytest.raises(ValueError, match='Unsuccessful|Required pipeline jobs'): dist.ready(api)
 
 
 @pytest.mark.parametrize('current,published,expected', [
