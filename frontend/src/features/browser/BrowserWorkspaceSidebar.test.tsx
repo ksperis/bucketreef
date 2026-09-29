@@ -114,7 +114,7 @@ describe("BrowserWorkspaceSidebar", () => {
       />,
     );
 
-    expect(screen.getByText("45 items")).toBeInTheDocument();
+    expect(screen.getByText("45 buckets")).toBeInTheDocument();
     expect(screen.queryByText("Buckets")).not.toBeInTheDocument();
     expect(screen.queryByText("+ Bucket")).not.toBeInTheDocument();
     const createButton = screen.getByRole("button", { name: "Create bucket" });

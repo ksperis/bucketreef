@@ -1085,6 +1085,10 @@ export default function BrowserPage({
     }
     return next;
   }, [bucketMenuItems, lockedBucketLabel, resolvedLockedBucketName, usePortalWorkspaceLabels]);
+  const bucketDetailsByName = useMemo(
+    () => new Map(bucketMenuItems.map((bucket) => [bucket.name, bucket] as const)),
+    [bucketMenuItems],
+  );
   const bucketButtonLabel = useMemo(() => {
     if (resolvedLockedBucketName) {
       return lockedBucketLabel?.trim() || resolvedLockedBucketName;
@@ -1927,6 +1931,7 @@ export default function BrowserPage({
         favorites={
           <BrowserFavoritesControl
             accountUser={accountUser}
+            bucketDetailsByName={isStorageSpaceContext ? bucketDetailsByName : undefined}
             bucketLabels={isStorageSpaceContext ? bucketDisplayNameByName : undefined}
             busy={browserFavoritesBusy}
             compact={compact}
@@ -1982,6 +1987,7 @@ export default function BrowserPage({
       browserFavoriteItems,
       browserFavoritesBusy,
       browserFavoritesError,
+      bucketDetailsByName,
       bucketDisplayNameByName,
       currentFavorite,
       favoriteContextLabels,
