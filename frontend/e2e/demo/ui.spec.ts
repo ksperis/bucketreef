@@ -29,6 +29,25 @@ test("files UI: folder, upload, preview, download and multiple deletion", async 
   expect(await page.evaluate(() => window.__bucketreefDemo.failures)).toEqual([]);
 });
 
+test("portal primary listing links keep button contrast in dark mode", async ({ page }) => {
+  await open(page, "/portal/shares?demoPersona=project-manager");
+  await page.getByRole("button", { name: "Toggle theme", exact: true }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+
+  const requestMember = page.getByRole("button", { name: "Request member", exact: true });
+  const openSpaces = page.getByRole("link", { name: "Open spaces", exact: true }).first();
+  await expect(requestMember).toBeVisible();
+  await expect(openSpaces).toBeVisible();
+
+  const buttonColor = await requestMember.evaluate((element) => getComputedStyle(element).color);
+  const linkColor = await openSpaces.evaluate((element) => getComputedStyle(element).color);
+  expect(linkColor).toBe(buttonColor);
+  expect(linkColor).toBe("rgb(255, 255, 255)");
+
+  await openSpaces.hover();
+  expect(await openSpaces.evaluate((element) => getComputedStyle(element).color)).toBe("rgb(255, 255, 255)");
+});
+
 test("workspaces UI: profiles, keyboard, mobile and both themes", async ({ page }, info) => {
   const external: string[] = [];
   page.on("request", request => { const url = request.url(); if (url.startsWith("http") && (!url.startsWith("http://127.0.0.1:4187/") || new URL(url).pathname.startsWith("/api/"))) external.push(url); });
