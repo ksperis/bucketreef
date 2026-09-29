@@ -41,7 +41,7 @@ function SidebarLinkBadge({
     ? "absolute right-0.5 top-0.5 min-w-4 px-1 py-px text-[9px] leading-3"
     : "shrink-0 px-1.5 py-0.5 ui-caption";
   const toneClasses = highlighted
-    ? "bg-primary/15 text-primary-700 dark:text-[var(--shell-selected-text)]"
+    ? "bg-primary/15 text-primary-700 dark:text-primary-200"
     : "shell-menu-muted shell-muted-text";
 
   return (
@@ -299,7 +299,7 @@ export default function Sidebar({
                                     <span
                                       className={`shrink-0 ${
                                         isActive
-                                          ? "text-[var(--shell-selected-text)]"
+                                          ? "text-[var(--shell-text)]"
                                           : "shell-icon-muted group-hover:text-[var(--shell-icon)]"
                                       } ${iconClasses}`}
                                     >

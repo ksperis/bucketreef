@@ -293,7 +293,7 @@ body {
 
   .shell-sidebar-item-active {
     background: var(--shell-sidebar-selected-bg);
-    color: var(--shell-selected-text);
+    color: var(--shell-text);
   }
 
   .shell-section-label {
@@ -552,22 +552,12 @@ body {
   }
 }
 
-a:not(.ui-button-base):not(.ui-list-action) {
+a:not(.ui-button-base):not(.ui-list-action):not(.shell-sidebar-item):not(.shell-sidebar-item-active) {
   @apply text-primary-700 transition-colors dark:text-primary-200;
 }
 
-a:not(.ui-button-base):not(.ui-list-action):hover {
+a:not(.ui-button-base):not(.ui-list-action):not(.shell-sidebar-item):not(.shell-sidebar-item-active):hover {
   @apply text-primary-600 dark:text-primary-100;
-}
-
-:root.dark a.shell-sidebar-item,
-:root.dark a.shell-sidebar-item:hover {
-  color: var(--shell-text);
-}
-
-:root.dark a.shell-sidebar-item-active,
-:root.dark a.shell-sidebar-item-active:hover {
-  color: var(--shell-selected-text);
 }
 
 #root {

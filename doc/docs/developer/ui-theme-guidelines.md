@@ -59,9 +59,10 @@ The frontend theme is anchored by the shared shell and UI tokens in
   class takes precedence over the standard `ui-control` typography; do not
   recreate compact field sizing at individual call sites.
 - Selection: line tabs use a 3px primary underline and primary `700` text in
-  light mode / `200` in dark mode. Sidebar links, including Profile, reuse the
-  shared active styling and vertical primary marker. Keep shell backgrounds
-  on `shell-*` tokens and content backgrounds on `ui-*` tokens.
+  light mode / `200` in dark mode. Sidebar labels and icons, including Profile,
+  retain the neutral shell text color in both themes; the shared selected
+  background and vertical primary marker carry the active state. Keep shell
+  backgrounds on `shell-*` tokens and content backgrounds on `ui-*` tokens.
 - Use primary `500` in light mode and `400` in dark mode for active tab/sidebar
   markers and switch tracks. The lighter dark-mode shade keeps these small
   indicators legible, including with darker custom branding colors.
