@@ -1135,14 +1135,14 @@ export default function BrowserPage({
     [clearActiveItem, requestDetailsDrawerTransition, selectBucket],
   );
   const workspaceAccountActionTarget = useMemo<"manager" | "portal" | null>(() => {
+    if (selectedContext?.kind === "portal_account" || isPortalBrowserSurface) {
+      return accountIdForApi != null ? "portal" : null;
+    }
     if (
       selectedContext?.manager_role === "account_administrator" ||
       selectedContext?.kind === "s3_user"
     ) {
       return "manager";
-    }
-    if (selectedContext?.kind === "portal_account" || isPortalBrowserSurface) {
-      return accountIdForApi != null ? "portal" : null;
     }
     return null;
   }, [accountIdForApi, isPortalBrowserSurface, selectedContext]);

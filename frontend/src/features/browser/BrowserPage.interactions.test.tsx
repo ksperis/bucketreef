@@ -3696,7 +3696,7 @@ describe("BrowserPage interactions", () => {
     expect(screen.getByLabelText("Current location")).toHaveTextContent("/portal?project=101");
   });
 
-  it("opens a manager-available Portal Browser account in Manager from the sidebar", async () => {
+  it("keeps a manager-available Portal Browser account in the Portal workspace", async () => {
     const user = userEvent.setup();
     const portalContext = makeExecutionContext({
       id: "101",
@@ -3715,11 +3715,12 @@ describe("BrowserPage interactions", () => {
     renderPage();
 
     const sidebar = await screen.findByTestId("browser-workspace-sidebar");
-    await user.click(await within(sidebar).findByRole("button", { name: "Open in Manager" }));
+    expect(within(sidebar).queryByRole("button", { name: "Open in Manager" })).not.toBeInTheDocument();
+    await user.click(await within(sidebar).findByRole("button", { name: "Open in Portal" }));
 
-    expect(window.localStorage.getItem("selectedManagerExecutionContextId")).toBe("101");
-    expect(window.localStorage.getItem("selectedWorkspace")).toBe("manager");
-    expect(screen.getByLabelText("Current location")).toHaveTextContent("/manager?ctx=101");
+    expect(window.localStorage.getItem("selectedPortalAccountId")).toBe("101");
+    expect(window.localStorage.getItem("selectedWorkspace")).toBe("portal");
+    expect(screen.getByLabelText("Current location")).toHaveTextContent("/portal?project=101");
   });
 
   it("opens an S3 user Browser context in Manager from the sidebar", async () => {
