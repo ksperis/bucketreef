@@ -68,6 +68,7 @@ const fetchPortalObjectDetailMock = vi.fn();
 const fetchPortalObjectVersionsMock = vi.fn();
 const listPortalPublicLinksMock = vi.fn();
 const fetchPortalAccessSummaryMock = vi.fn();
+const listBrowserFavoritesMock = vi.fn();
 
 const getBucketStatsMock = vi.fn();
 const getBucketPropertiesMock = vi.fn();
@@ -194,6 +195,18 @@ vi.mock("../../api/browserBuckets", async () => {
       ensureBrowserBucketCorsMock(...args),
     createBrowserBucket: (...args: unknown[]) =>
       createBrowserBucketMock(...args),
+  };
+});
+
+vi.mock("../../api/browserFavorites", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../api/browserFavorites")>(
+      "../../api/browserFavorites",
+    );
+  return {
+    ...actual,
+    listBrowserFavorites: (...args: unknown[]) =>
+      listBrowserFavoritesMock(...args),
   };
 });
 
@@ -718,6 +731,7 @@ describe("BrowserPage interactions", () => {
       streaming_zip_threshold_mb: 200,
     });
     fetchBrowserUsageSummaryMock.mockResolvedValue({ available: false });
+    listBrowserFavoritesMock.mockResolvedValue([]);
 
     searchBrowserBucketsMock.mockResolvedValue({
       items: [{ name: "bucket-1" }],

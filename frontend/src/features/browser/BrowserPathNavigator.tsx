@@ -4,6 +4,8 @@ import UiIconButton from "../../components/ui/UiIconButton";
 import UiInput from "../../components/ui/UiInput";
 import { cx, uiMenuClass, uiMenuItemClass } from "../../components/ui/styles";
 import { UpIcon } from "./browserIcons";
+import BrowserUtilityIcon from "./BrowserUtilityIcon";
+import { useBrowserText } from "./browserMessages";
 import type { PathSuggestion } from "./browserPathSuggestions";
 
 const pathStripClasses =
@@ -25,6 +27,12 @@ type BrowserPathNavigatorProps = {
   activeSuggestionIndex: number;
   breadcrumbs: BrowserPathBreadcrumb[];
   canGoUp: boolean;
+  favorite?: {
+    active: boolean;
+    busy: boolean;
+    disabled: boolean;
+    onToggle: () => void;
+  };
   onStartEditing: () => void;
   onChange: (value: string) => void;
   onBlur: () => void;
@@ -51,6 +59,7 @@ export default function BrowserPathNavigator({
   activeSuggestionIndex,
   breadcrumbs,
   canGoUp,
+  favorite,
   onStartEditing,
   onChange,
   onBlur,
@@ -60,6 +69,7 @@ export default function BrowserPathNavigator({
   onGoUp,
   onSelectPrefix,
 }: BrowserPathNavigatorProps) {
+  const tr = useBrowserText();
   const activeSuggestion =
     activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length;
 
@@ -214,6 +224,28 @@ export default function BrowserPathNavigator({
               </span>
             ))}
           </nav>
+          {favorite && (
+            <UiIconButton
+              size="compact"
+              aria-pressed={favorite.active}
+              disabled={favorite.disabled || favorite.busy}
+              label={tr(favorite.active ? "Remove from favorites" : "Add to favorites")}
+              onClick={(event) => {
+                event.stopPropagation();
+                favorite.onToggle();
+              }}
+              icon={
+                <BrowserUtilityIcon
+                  filled={favorite.active}
+                  className={
+                    favorite.active
+                      ? "h-4 w-4 text-yellow-400 dark:text-yellow-300"
+                      : "h-4 w-4 text-[var(--ui-text-muted)]"
+                  }
+                />
+              }
+            />
+          )}
         </>
       )}
     </div>
