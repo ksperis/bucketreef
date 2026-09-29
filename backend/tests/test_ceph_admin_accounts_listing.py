@@ -609,7 +609,7 @@ def test_build_account_detail_ignores_legacy_kebab_case_limit_fields():
     assert detail.max_users is None
 
 
-def test_ceph_admin_accounts_quota_usage_percent_filter_aggregates_bucket_usage():
+def test_ceph_admin_accounts_quota_usage_percent_filter_aggregates_bucket_usage(monkeypatch):
     accounts_payload = [{"id": "RGW01", "name": "Alpha", "quota": {"max_size": 100, "max_objects": 10}}]
     account_details = {
         "RGW01": _build_account_payload("RGW01", account_name="Alpha", quota_size=100, quota_objects=10),
@@ -625,6 +625,12 @@ def test_ceph_admin_accounts_quota_usage_percent_filter_aggregates_bucket_usage(
         accounts_payload=accounts_payload,
         account_details=account_details,
         bucket_payloads=bucket_payloads,
+    )
+    supervision_admin = FakeRGWAdmin([], {}, bucket_payloads=bucket_payloads)
+    monkeypatch.setattr(
+        account_listing_enrichment,
+        "get_supervision_rgw_client",
+        lambda endpoint: supervision_admin,
     )
     advanced_filter = json.dumps(
         {
@@ -645,7 +651,8 @@ def test_ceph_admin_accounts_quota_usage_percent_filter_aggregates_bucket_usage(
     )
 
     assert [item.account_id for item in response.items] == ["RGW01"]
-    assert rgw_admin.get_all_buckets_calls == 1
+    assert supervision_admin.get_all_buckets_calls == 1
+    assert rgw_admin.get_all_buckets_calls == 0
 
 
 def test_ceph_admin_accounts_do_not_fetch_usage_without_usage_percent_filter():

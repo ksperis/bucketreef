@@ -229,7 +229,6 @@ class QuotaMonitoringService:
         usage_client = self._resolve_usage_client(
             endpoint,
             run.usage_clients,
-            run.admin_clients,
         )
         if usage_client is None:
             run.summary["errors"].append(
@@ -555,7 +554,6 @@ class QuotaMonitoringService:
         self,
         endpoint: StorageEndpoint,
         cache: dict[int, RGWAdminClient | None],
-        admin_cache: dict[int, RGWAdminClient | None],
     ) -> RGWAdminClient | None:
         cached = cache.get(endpoint.id)
         if endpoint.id in cache:
@@ -566,7 +564,7 @@ class QuotaMonitoringService:
         try:
             client = get_supervision_rgw_client(endpoint)
         except Exception:
-            client = self._resolve_admin_client(endpoint, admin_cache)
+            client = None
         cache[endpoint.id] = client
         return client
 

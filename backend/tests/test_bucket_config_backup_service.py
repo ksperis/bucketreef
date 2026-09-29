@@ -136,7 +136,7 @@ def test_ceph_admin_backup_route_uses_endpoint_quota_loader(monkeypatch):
     class FakeRGWAdmin:
         def get_bucket_info(self, bucket_name, stats=True, allow_not_found=True):  # noqa: ANN001
             assert bucket_name == "bucket-a"
-            assert stats is True
+            assert stats is False
             assert allow_not_found is True
             return {"bucket": "bucket-a", "bucket_quota": {"max_size": 2048, "max_objects": 3}}
 

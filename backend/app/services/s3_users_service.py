@@ -43,6 +43,7 @@ from app.models.s3_user import (
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
+from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services import s3_client
 from app.utils.rgw_payloads import extract_bucket_list, extract_rgw_user_payload
@@ -121,7 +122,7 @@ class S3UsersService:
             endpoint = self._endpoint_for_user(s3_user)
             if not resolve_feature_flags(endpoint).metrics_enabled:
                 return None, None, None
-            admin = self._admin_for_endpoint(endpoint)
+            admin = get_supervision_rgw_client(endpoint)
             payload = admin.get_all_buckets(uid=s3_user.rgw_user_uid, with_stats=True)
         except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to list buckets with stats for user %s: %s", s3_user.rgw_user_uid, exc)

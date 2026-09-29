@@ -22,6 +22,7 @@ from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin
 from app.routers.ceph_admin.listing_common import fields_set
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
 from app.services.rgw_admin import RGWAdminError
+from app.services.rgw_supervision import get_supervision_rgw_client
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.rgw_payloads import extract_bucket_list
@@ -241,8 +242,9 @@ def get_rgw_account_metrics(
     if not normalized_account_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="account_id is required")
     try:
-        payload = ctx.rgw_admin.get_all_buckets(account_id=normalized_account_id, with_stats=True)
-    except RGWAdminError as exc:
+        rgw_admin = get_supervision_rgw_client(ctx.endpoint)
+        payload = rgw_admin.get_all_buckets(account_id=normalized_account_id, with_stats=True)
+    except (RGWAdminError, ValueError) as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
     bucket_usage, total_bytes, total_objects, bucket_count = summarize_bucket_usage(extract_bucket_list(payload))

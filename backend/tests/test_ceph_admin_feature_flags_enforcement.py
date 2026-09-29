@@ -100,8 +100,14 @@ def test_ceph_admin_bucket_objects_use_endpoint_credentials_without_browser_work
     assert kwargs == {"prefix": "reports/", "continuation_token": None, "max_keys": 100}
 
 
-def test_ceph_admin_bucket_listing_can_request_stats_when_metrics_feature_disabled():
+def test_ceph_admin_bucket_listing_can_request_stats_when_metrics_feature_disabled(monkeypatch):
     ctx, rgw_admin = _build_ctx(metrics_enabled=False)
+    supervision_admin = FakeRGWAdmin()
+    monkeypatch.setattr(
+        ceph_admin_bucket_listing_cache,
+        "get_supervision_rgw_client",
+        lambda endpoint: supervision_admin,
+    )
 
     response = buckets_router.list_buckets(
         page=1,
@@ -115,12 +121,13 @@ def test_ceph_admin_bucket_listing_can_request_stats_when_metrics_feature_disabl
         ctx=ctx,
     )
 
-    assert rgw_admin.with_stats_calls == [True]
+    assert supervision_admin.with_stats_calls == [True]
+    assert rgw_admin.with_stats_calls == []
     assert response.stats_available is True
     assert response.stats_warning is None
 
 
-def test_ceph_admin_bucket_listing_returns_owner_and_usage_without_metrics_feature():
+def test_ceph_admin_bucket_listing_returns_owner_and_usage_without_metrics_feature(monkeypatch):
     class StatsPayloadAdmin(FakeRGWAdmin):
         def get_all_buckets(self, with_stats: bool = True, **_: object):
             self.with_stats_calls.append(bool(with_stats))
@@ -134,11 +141,18 @@ def test_ceph_admin_bucket_listing_returns_owner_and_usage_without_metrics_featu
                 ]
             }
 
+    rgw_admin = FakeRGWAdmin()
+    supervision_admin = StatsPayloadAdmin()
     ctx = SimpleNamespace(
         endpoint=_build_endpoint(metrics_enabled=False),
-        rgw_admin=StatsPayloadAdmin(),
+        rgw_admin=rgw_admin,
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
+    )
+    monkeypatch.setattr(
+        ceph_admin_bucket_listing_cache,
+        "get_supervision_rgw_client",
+        lambda endpoint: supervision_admin,
     )
 
     response = buckets_router.list_buckets(
@@ -157,7 +171,8 @@ def test_ceph_admin_bucket_listing_returns_owner_and_usage_without_metrics_featu
     assert response.items[0].used_bytes == 2048
     assert response.items[0].object_count == 5
     assert response.stats_available is True
-    assert ctx.rgw_admin.with_stats_calls == [True]
+    assert supervision_admin.with_stats_calls == [True]
+    assert rgw_admin.with_stats_calls == []
 
 
 def test_ceph_admin_account_metrics_requires_metrics_feature():
@@ -170,6 +185,23 @@ def test_ceph_admin_account_metrics_requires_metrics_feature():
     assert rgw_admin.with_stats_calls == []
 
 
+def test_ceph_admin_account_metrics_use_supervision_ops(monkeypatch):
+    ctx, rgw_admin = _build_ctx(metrics_enabled=True)
+    supervision_admin = FakeRGWAdmin()
+    monkeypatch.setattr(
+        account_profiles_router,
+        "get_supervision_rgw_client",
+        lambda endpoint: supervision_admin,
+    )
+
+    result = account_profiles_router.get_rgw_account_metrics(account_id="RGW0001", ctx=ctx)
+
+    assert result.total_bytes is None
+    assert result.bucket_count == 0
+    assert supervision_admin.with_stats_calls == [True]
+    assert rgw_admin.with_stats_calls == []
+
+
 def test_ceph_admin_user_metrics_requires_metrics_feature():
     ctx, rgw_admin = _build_ctx(metrics_enabled=False)
 
@@ -177,6 +209,23 @@ def test_ceph_admin_user_metrics_requires_metrics_feature():
         user_profiles_router.get_rgw_user_metrics(user_id="user-a", tenant=None, ctx=ctx)
 
     assert exc.value.status_code == 403
+    assert rgw_admin.with_stats_calls == []
+
+
+def test_ceph_admin_user_metrics_use_supervision_ops(monkeypatch):
+    ctx, rgw_admin = _build_ctx(metrics_enabled=True)
+    supervision_admin = FakeRGWAdmin()
+    monkeypatch.setattr(
+        user_profiles_router,
+        "get_supervision_rgw_client",
+        lambda endpoint: supervision_admin,
+    )
+
+    result = user_profiles_router.get_rgw_user_metrics(user_id="user-a", tenant=None, ctx=ctx)
+
+    assert result.total_bytes is None
+    assert result.bucket_count == 0
+    assert supervision_admin.with_stats_calls == [True]
     assert rgw_admin.with_stats_calls == []
 
 
