@@ -31,9 +31,9 @@ cleanup() {
   fi
   if [[ $status -ne 0 ]]; then
     kubectl --namespace "$NAMESPACE" get pods -o wide >&2 || true
-    kubectl --namespace "$NAMESPACE" describe pods >&2 || true
-    kubectl --namespace "$NAMESPACE" logs deployment/${RELEASE}-backend --tail=120 >&2 || true
-    kubectl --namespace "$NAMESPACE" logs deployment/${RELEASE}-frontend --tail=120 >&2 || true
+  fi
+  if [[ -f candidate-inventory.json ]]; then
+    python3 ops/ci/installation_evidence.py diagnostics kind || true
   fi
   kind delete cluster --name "$CLUSTER_NAME" >/dev/null 2>&1 || true
   rm -rf "$temporary_directory"
@@ -97,6 +97,9 @@ else
   docker pull "${frontend_source:-$FRONTEND_IMAGE}"
   if [[ -n "$backend_source" ]]; then docker tag "$backend_source" "$BACKEND_IMAGE"; fi
   if [[ -n "$frontend_source" ]]; then docker tag "$frontend_source" "$FRONTEND_IMAGE"; fi
+fi
+if [[ -f candidate-inventory.json ]]; then
+  python3 ops/ci/installation_evidence.py kind-preload
 fi
 docker pull "$POSTGRES_IMAGE"
 kind_config_args=()
@@ -244,3 +247,6 @@ status_after_upgrade="$(curl --fail --silent --header "Host: ${PUBLIC_HOST}" \
 [[ "$(printf '%s' "$status_after_upgrade" | jq -r '.available')" == "false" ]]
 
 printf 'Kind install, onboarding and upgrade smoke test passed.\n'
+if [[ -f candidate-inventory.json ]]; then
+  python3 ops/ci/installation_evidence.py verify-kind
+fi

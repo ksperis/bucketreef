@@ -122,7 +122,10 @@ account-scoped; the deployment script fixes the destination project name.
 3. Associate `demo.bucketreef.ksperis.com` as a custom domain in Cloudflare,
    then add `demo.bucketreef CNAME bucketreef-demo.pages.dev.` in Gandi with
    TTL 300.
-4. Later releases run `frontend-demo` on the exact `prepare-release` revision.
+4. Automatic version-change releases and explicit `prepare-release` runs execute
+   `frontend-demo` on the application revision. Publication checks the final
+   `publication.json` and every retained demo file hash. `resume-release` reuses
+   those same tested files, with separate application and orchestration SHAs.
    `release-ready` requires that result. `demo-deploy` consumes that same
    artifact only after `finalize-release` succeeds. Stable tag pipelines keep
    their verification-only role.

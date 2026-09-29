@@ -363,7 +363,7 @@ helm-kind-onboarding-smoke:
   - export FRONTEND_IMAGE_DIGEST="$(cat image-receipts/frontend.digest)"
   - bash ops/ci/kind-onboarding-smoke.sh
 release-source-images-ready:
-  stage: build
+  stage: evidence
   image: python:3.12-alpine
   before_script:
   - apk add --no-cache skopeo git
@@ -372,6 +372,7 @@ release-source-images-ready:
     action: verify
   needs:
   - release-tag-metadata
+  - integration-ready
   script:
   - python3 ops/release/distribution.py resolve
   artifacts:
@@ -405,7 +406,7 @@ scheduler-image-vuln-scan:
     SCAN_KIND: image
 backend-release-image-vuln-scan:
   extends: .multiarch-image-scan
-  stage: security
+  stage: candidate
   needs:
   - release-source-images-ready
   variables:
@@ -413,7 +414,7 @@ backend-release-image-vuln-scan:
     SCAN_KIND: release-image
 frontend-release-image-vuln-scan:
   extends: .multiarch-image-scan
-  stage: security
+  stage: candidate
   needs:
   - release-source-images-ready
   variables:
@@ -421,7 +422,7 @@ frontend-release-image-vuln-scan:
     SCAN_KIND: release-image
 scheduler-release-image-vuln-scan:
   extends: .multiarch-image-scan
-  stage: security
+  stage: candidate
   needs:
   - release-source-images-ready
   variables:
@@ -492,25 +493,6 @@ release-bundles:
     paths:
     - dist/release/
     expire_in: never
-publish-helm-release:
-  stage: promote
-  image:
-    name: alpine/helm:3.18.6
-    entrypoint:
-    - ''
-  needs:
-  - release-tag-metadata
-  - release-bundles
-  - publish-candidate-images
-  resource_group: public-helm-release
-  before_script:
-  - apk add --no-cache diffutils
-  script:
-  - helm lint deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth
-  - sh ops/release/publish-chart.sh
-  environment:
-    name: release-public
-    action: prepare
 resume-release-assets:
   stage: deploy
   image:
@@ -524,7 +506,7 @@ resume-release-assets:
     name: ci-orchestration
     action: verify
   before_script:
-  - apk add --no-cache curl git python3 skopeo
+  - apk add --no-cache curl git python3 skopeo diffutils
   - sh ops/ci/install-oras.sh
   script:
   - python3 ops/release/resume_release.py prepare
@@ -532,26 +514,17 @@ resume-release-assets:
     paths:
     - recovery-release.json
     - qualification.json
-    - bundle-distribution.json
-    - public-bundles/
+    - candidate-inventory.json
+    - distribution-ready.json
+    - source-plan.json
+    - installation-receipts/
+    - release-tags.env
+    - frontend/dist-demo/
     - dist/release/
     - dist/release-notes/
+    reports:
+      dotenv: release-tags.env
     expire_in: never
-resume-release-bundle-smoke:
-  stage: deploy
-  image: docker:27-cli
-  services:
-  - docker:27-dind
-  needs:
-  - resume-release-assets
-  variables:
-    IMAGE_ARCH: arm64
-  environment:
-    name: ci-public-distribution
-    action: verify
-  script:
-  - docker run --privileged --rm "$BINFMT_IMAGE" --install arm64
-  - sh ops/ci/quickstart-bundle-smoke.sh
 resume-finalize-release:
   stage: finalize
   image:
@@ -560,7 +533,6 @@ resume-finalize-release:
     - ''
   needs:
   - resume-release-assets
-  - resume-release-bundle-smoke
   variables:
     GIT_DEPTH: '0'
   environment:
@@ -568,13 +540,14 @@ resume-finalize-release:
     action: prepare
   resource_group: public-release
   before_script:
-  - apk add --no-cache curl git python3 skopeo
+  - apk add --no-cache curl git python3 skopeo diffutils
   - sh ops/ci/install-oras.sh
   script:
   - python3 ops/release/resume_release.py finalize
   artifacts:
     paths:
-    - recovery-finalized.json
+    - publication.json
+    - bundle-distribution.json
     expire_in: never
 
 recover-gitlab-release:
@@ -611,7 +584,8 @@ bootstrap-release-bundles:
     - bundle-distribution.json
     expire_in: 30 days
 release-bundle-smoke:
-  stage: deploy
+  stage: installation
+  timeout: 45m
   image: docker:27-cli
   services:
   - docker:27-dind
@@ -622,21 +596,31 @@ release-bundle-smoke:
       - arm64
   needs:
   - release-tag-metadata
-  - release-bundles
+  - release-source-images-ready
+  - publish-candidate-artifacts
   - release-public-images-check
   - release-public-bundles-check
+  before_script:
+  - apk add --no-cache python3 coreutils
   script:
   - docker run --privileged --rm "$BINFMT_IMAGE" --install arm64,amd64
-  - sh ops/ci/quickstart-bundle-smoke.sh
+  - timeout --signal=TERM --kill-after=60s 40m sh ops/ci/quickstart-bundle-smoke.sh
+  artifacts:
+    when: always
+    paths:
+    - installation-receipts/
+    - smoke-diagnostics/
+    expire_in: never
 release-kind-onboarding-smoke:
   extends: helm-kind-onboarding-smoke
   needs:
   - release-tag-metadata
   - release-source-images-ready
-  - release-bundles
-  - publish-helm-release
+  - publish-candidate-artifacts
+  - release-public-bundles-check
   - release-public-images-check
-  stage: deploy
+  stage: installation
+  timeout: 45m
   variables:
     BACKEND_IMAGE_REPOSITORY: $GHCR_BACKEND_IMAGE
     FRONTEND_IMAGE_REPOSITORY: $GHCR_FRONTEND_IMAGE
@@ -645,13 +629,16 @@ release-kind-onboarding-smoke:
   - apk add --no-cache bash curl jq openssl python3
   - sh ops/ci/install-kube-tools.sh
   script:
-  - mkdir -p /tmp/public-chart
-  - helm pull oci://ghcr.io/ksperis/charts/bucketreef --version "$RELEASE_VERSION" --destination /tmp/public-chart
-  - cmp "dist/release/bucketreef-$RELEASE_VERSION.tgz" "/tmp/public-chart/bucketreef-$RELEASE_VERSION.tgz"
-  - export HELM_CHART_PATH="/tmp/public-chart/bucketreef-$RELEASE_VERSION.tgz"
+  - export HELM_CHART_PATH="public-candidate/bucketreef-$RELEASE_VERSION.tgz"
   - export BACKEND_IMAGE_DIGEST="${BACKEND_IMAGE_DIGEST:-$(sed 's/.*@//' release-sources/backend)}"
   - export FRONTEND_IMAGE_DIGEST="${FRONTEND_IMAGE_DIGEST:-$(sed 's/.*@//' release-sources/frontend)}"
   - bash ops/ci/kind-onboarding-smoke.sh
+  artifacts:
+    when: always
+    paths:
+    - installation-receipts/
+    - smoke-diagnostics/
+    expire_in: never
 docs-build:
   stage: build
   image: python:3.12-slim
@@ -791,7 +778,7 @@ publish-candidate-images:
   environment:
     name: release-public
     action: prepare
-  stage: promote
+  stage: candidate
   needs:
   - release-tag-metadata
   - release-source-images-ready
@@ -802,7 +789,7 @@ publish-candidate-images:
   script:
   - python3 ops/release/distribution.py candidates
 release-public-images-check:
-  stage: deploy
+  stage: installation
   image: python:3.12-alpine
   before_script:
   - apk add --no-cache skopeo
@@ -813,10 +800,11 @@ release-public-images-check:
   - release-tag-metadata
   - release-source-images-ready
   - publish-candidate-images
+  - publish-candidate-artifacts
   script:
   - python3 ops/release/distribution.py verify-public
 release-ready:
-  stage: evidence
+  stage: ready
   image: python:3.12-alpine
   before_script:
   - apk add --no-cache skopeo
@@ -824,6 +812,7 @@ release-ready:
     name: ci-orchestration
     action: verify
   needs:
+  - integration-ready
   - frontend-demo
   - release-tag-metadata
   - release-source-images-ready
@@ -832,11 +821,10 @@ release-ready:
   - frontend-release-image-vuln-scan
   - scheduler-release-image-vuln-scan
   - publish-candidate-images
-  - publish-helm-release
   - release-public-images-check
   - release-kind-onboarding-smoke
   - release-bundle-smoke
-  - publish-release-bundles
+  - publish-candidate-artifacts
   - release-public-bundles-check
   script:
   - python3 ops/release/distribution.py ready
@@ -845,12 +833,18 @@ release-ready:
     - distribution-ready.json
     - qualification.json
     - gl-security-reports/
-    - bundle-distribution.json
+    - candidate-inventory.json
+    - installation-receipts/
+    - ci-plan.json
+    - frontend/dist-demo/
     expire_in: never
 finalize-release:
-  image: python:3.12-alpine
+  image:
+    name: alpine/helm:3.18.6
+    entrypoint: ['']
   before_script:
-  - apk add --no-cache skopeo git
+  - apk add --no-cache python3 skopeo git curl diffutils
+  - sh ops/ci/install-oras.sh
   environment:
     name: release-public
     action: prepare
@@ -860,10 +854,15 @@ finalize-release:
   - release-tag-metadata
   - release-source-images-ready
   - release-bundles
-  - publish-release-bundles
   resource_group: public-release
   script:
   - python3 ops/release/distribution.py finalize
+  artifacts:
+    when: always
+    paths:
+    - publication.json
+    - bundle-distribution.json
+    expire_in: never
 verify-release-tag:
   stage: deploy
   image: python:3.12-alpine
@@ -876,8 +875,8 @@ verify-release-tag:
     action: verify
   script:
   - python3 ops/release/distribution.py verify-release-tag
-publish-release-bundles:
-  stage: promote
+publish-candidate-artifacts:
+  stage: candidate
   image: python:3.12-alpine
   before_script:
   - apk add --no-cache curl
@@ -888,27 +887,29 @@ publish-release-bundles:
   needs:
   - release-tag-metadata
   - release-bundles
-  resource_group: public-release
+  - release-source-images-ready
+  - publish-candidate-images
   script:
-  - python3 ops/release/distribution.py publish-bundles
+  - python3 ops/release/distribution.py publish-candidate
   artifacts:
     paths:
-    - bundle-distribution.json
+    - candidate-inventory.json
     expire_in: never
 release-public-bundles-check:
-  stage: deploy
+  stage: installation
   image: python:3.12-alpine
   before_script:
   - apk add --no-cache curl
   - sh ops/ci/install-oras.sh
   needs:
   - release-tag-metadata
-  - publish-release-bundles
+  - release-source-images-ready
+  - publish-candidate-artifacts
   script:
-  - python3 ops/release/distribution.py download-bundles
+  - python3 ops/release/distribution.py download-candidate
   artifacts:
     paths:
-    - public-bundles/
+    - public-candidate/
     expire_in: never
 scheduler-contract:
   stage: test
@@ -940,3 +941,9 @@ publish-release-history:
     paths:
       - dist/release-history/
     expire_in: 30 days
+
+resume-demo-deploy:
+  extends: .demo-publication
+  needs:
+  - resume-release-assets
+  - resume-finalize-release

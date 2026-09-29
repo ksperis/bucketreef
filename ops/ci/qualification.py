@@ -4,16 +4,18 @@ import json
 import os
 from pathlib import Path
 
-from gitlab_api import completed_records
+from gitlab_api import completed_records, expected_names, successful_jobs
 from plan import COMPONENTS, PUBLIC
 from registry import DIGEST, credentials, inspect
 
 
 def validate(record, sha):
     if (record.get("schema") != 1 or record.get("sha") != sha or record.get("ref") != "main"
-        or record.get("plan", {}).get("profile") != "qualify" or record["plan"].get("sha") != sha):
+        or record.get("plan", {}).get("profile") not in {"qualify", "prepare-release"} or record["plan"].get("sha") != sha):
         raise ValueError("A complete main qualification for this SHA is required")
     required = {*PUBLIC, "ceph-functional-tests", "helm-kind-onboarding-smoke"}
+    if record["plan"]["profile"] == "prepare-release":
+        required.add("release-preflight")
     required.update(f"{c}-image-vuln-scan" for c in COMPONENTS)
     required.update(f"build-{c}" for c in COMPONENTS)
     if not required <= set(record["plan"]["jobs"]):
@@ -35,6 +37,19 @@ def validate(record, sha):
             or scan["arch"] != arch or not scan["image"].endswith("@" + record["images"][component]["digest"])
             or not scan.get("created_at") or not scan.get("tool")):
             raise ValueError("Scan evidence differs from qualification")
+
+
+def verify_jobs(api, record):
+    """Validate finished gates while their parent pipeline is still running."""
+    validate(record, record["sha"])
+    pipeline = api.get(f"pipelines/{record['pipeline_id']}")
+    if (pipeline["sha"] != record["sha"] or pipeline["ref"] != "main"
+            or pipeline["source"] != "parent_pipeline"):
+        raise ValueError("Qualification pipeline provenance differs")
+    actual = successful_jobs(api.jobs(record["pipeline_id"]), expected_names(record["plan"]["jobs"]), record["sha"])
+    if actual != record["jobs"]:
+        raise ValueError("Qualification no longer matches successful job evidence")
+    return record
 
 
 def complete(record):

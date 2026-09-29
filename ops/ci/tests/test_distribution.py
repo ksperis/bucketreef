@@ -38,6 +38,47 @@ def qualified():
     return record
 
 
+def prepared(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    for name, value in {'RELEASE_VERSION':'1.2.3', 'CI_COMMIT_SHA':SHA, 'CI_PIPELINE_ID':'20', 'CI_JOB_ID':'999',
+                        'GITHUB_RELEASE_TOKEN':'fixture', 'CI_API_V4_URL':'fixture', 'CI_PROJECT_ID':'1', 'CI_JOB_TOKEN':'fixture'}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv('RELEASE_SOURCE_SHA', raising=False)
+    record = qualified()
+    plan = {**select('prepare-release', []), 'sha':SHA, 'parent_id':19}
+    jobs = [{'id':i, 'name':name, 'status':'success', 'commit':{'id':SHA}}
+            for i,name in enumerate(sorted(set(expected_names([*plan['jobs'], *dist.REQUIRED]))), 1)]
+    ids = {job['name']:job['id'] for job in jobs}
+    record.update(plan=plan, pipeline_id=20, parent_id=19, jobs={name:ids[name] for name in expected_names(plan['jobs'])})
+    for key, scan in record['scans'].items():
+        component, arch = key.rsplit('-',1)
+        scan.update(pipeline_id=20, job_id=ids[f'{component}-image-vuln-scan: [{arch}]'])
+    dist.write('ci-plan.json', plan)
+    dist.write('qualification.json', record)
+    for path in dist.files():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('fixture')
+    inventory = {'schema':2, 'sha':SHA, 'version':'1.2.3', 'pipeline_id':20, 'job_id':ids['publish-candidate-artifacts'],
+                 'tag':f'candidate-{SHA}-20', 'images':record['images'], 'qualification_sha256':dist.digest(record),
+                 'files':dist.fingerprints(), 'artifact':{'digest':DIGEST, 'sha':SHA, 'version':f'candidate-{SHA}-20',
+                 'files':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in dist.files()}}}
+    dist.write('candidate-inventory.json', inventory)
+    Path('frontend/dist-demo').mkdir(parents=True)
+    dist.write('frontend/dist-demo/demo-release.json', {'revision':SHA,'version':'1.2.3','pipelineId':20})
+    Path('installation-receipts').mkdir()
+    for key, job in (('amd64','release-bundle-smoke: [amd64]'), ('arm64','release-bundle-smoke: [arm64]'), ('kind','release-kind-onboarding-smoke')):
+        arch = 'amd64' if key == 'kind' else key
+        images = {c:{'id':DIGEST,'arch':arch,'os':'linux','manifest':IMAGE['platforms'][arch]}
+                  for c in (('backend','frontend') if key == 'kind' else COMPONENTS)}
+        phases = ('install-and-upgrade',) if key == 'kind' else ('first-start','restart','compose')
+        dist.write(f'installation-receipts/{key}.json', {'schema':1,'status':'success','sha':SHA,'version':'1.2.3',
+                   'pipeline_id':20,'job_id':ids[job],'candidate_sha256':dist.digest(inventory),
+                   'checkpoints':{phase:images for phase in phases}})
+    api = SimpleNamespace(jobs=lambda _: jobs, get=lambda _: {'sha':SHA,'ref':'main','source':'parent_pipeline','status':'running'})
+    monkeypatch.setattr(dist, 'inspect', lambda *args, **kwargs: IMAGE)
+    return api, jobs
+
+
 @pytest.mark.parametrize('damage', ['sha', 'profile', 'ceph', 'image', 'arch', 'scan', 'scan-job', 'scan-digest'])
 def test_qualification_refuses_incomplete_or_mismatched_proofs(damage):
     record = qualified()
@@ -97,7 +138,7 @@ def test_finalization_rechecks_artifacts_before_any_public_mutation(monkeypatch,
     monkeypatch.chdir(tmp_path)
     dist.write('distribution-ready.json', {'files': {'bundle': 'original'}})
     monkeypatch.setattr(dist, 'GitLabAPI', lambda: None)
-    monkeypatch.setattr(dist, 'ready', lambda _: {'files': {'bundle': 'changed'}})
+    monkeypatch.setattr(dist, 'ready', lambda _, **kwargs: {'files': {'bundle': 'changed'}})
     monkeypatch.setattr(dist, 'ensure_github_tag', lambda *args: pytest.fail('Premature stable tag creation'))
     monkeypatch.setattr(dist, 'github', lambda **kwargs: pytest.fail('Premature GitHub publication'))
     with pytest.raises(ValueError, match='stale'): dist.finalize()
@@ -111,7 +152,7 @@ def test_finalization_rechecks_both_main_refs_before_creating_tag(monkeypatch, t
                         'CI_API_V4_URL':'fixture','CI_PROJECT_ID':'1','CI_JOB_TOKEN':'fixture'}.items():
         monkeypatch.setenv(name, value)
     monkeypatch.setattr(dist, 'GitLabAPI', lambda: object())
-    monkeypatch.setattr(dist, 'ready', lambda _: proof)
+    monkeypatch.setattr(dist, 'ready', lambda _, **kwargs: proof)
     monkeypatch.setattr(dist, 'verify_remote_main', lambda *args: (_ for _ in ()).throw(RuntimeError('main moved')))
     monkeypatch.setattr(dist, 'ensure_github_tag', lambda *args: pytest.fail('Stable tag must follow the main check'))
     with pytest.raises(RuntimeError, match='main moved'):
@@ -119,20 +160,16 @@ def test_finalization_rechecks_both_main_refs_before_creating_tag(monkeypatch, t
 
 
 def test_interrupted_finalization_can_resume_and_older_retries_do_not_move_aliases(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    proof = {'fixture':True, 'bundles':{'files':{}}}
+    api, _ = prepared(monkeypatch, tmp_path)
+    proof = dist.ready(api)
     dist.write('distribution-ready.json', proof)
-    for name, value in {'RELEASE_VERSION':'1.2.3', 'CI_COMMIT_SHA':SHA, 'GITHUB_RELEASE_TOKEN':'fixture',
-                        'CI_API_V4_URL':'fixture','CI_PROJECT_ID':'1','CI_JOB_TOKEN':'fixture'}.items():
-        monkeypatch.setenv(name, value)
-    Path('dist/release-notes').mkdir(parents=True)
-    Path('dist/release-notes/gitlab.md').write_text('Notes')
-    Path('dist/release-notes/github.md').write_text('Notes')
-    monkeypatch.setattr(dist, 'GitLabAPI', lambda: None)
-    monkeypatch.setattr(dist, 'ready', lambda _: proof)
+    monkeypatch.setattr(dist, 'GitLabAPI', lambda: api)
     monkeypatch.setattr(dist, 'verify_remote_main', lambda *args: None)
     monkeypatch.setattr(dist, 'verify_public_release', lambda *args, **kwargs: None)
+    monkeypatch.setattr(dist.candidate_registry, 'download', lambda *args: None)
+    monkeypatch.setattr(dist.candidate_registry, 'hashes', lambda *args: proof['candidate']['artifact']['files'])
     calls = []
+    monkeypatch.setattr(dist, 'promote_stable', lambda proof: calls.append('stable') or {'files':{}})
     monkeypatch.setattr(dist, 'ensure_github_tag', lambda *args: calls.append('tag'))
     monkeypatch.setattr(dist, 'github', lambda **kwargs: calls.append('github'))
     def fail(*args):
@@ -140,12 +177,15 @@ def test_interrupted_finalization_can_resume_and_older_retries_do_not_move_alias
         raise RuntimeError('Interrupted between services')
     monkeypatch.setattr(dist, 'publish_gitlab', fail)
     monkeypatch.setattr(dist, 'copy_image', lambda *args, **kwargs: calls.append('alias'))
-    with pytest.raises(RuntimeError): dist.finalize()
-    assert calls == ['tag', 'github', 'gitlab']
+    with pytest.raises(RuntimeError, match='Interrupted'): dist.finalize()
+    assert calls == ['stable','tag','github','gitlab']
     monkeypatch.setattr(dist, 'publish_gitlab', lambda *args: calls.append('gitlab'))
+    monkeypatch.setattr(dist, 'resolve_tag', lambda *args: SHA)
+    monkeypatch.setattr(dist, 'resolve_git_tag', lambda *args: SHA)
     monkeypatch.setattr(dist, 'published_versions', lambda *args: ['1.2.3','1.2.10'])
-    dist.finalize()
-    assert calls == ['tag','github','gitlab','tag','github','gitlab']
+    result = dist.finalize()
+    assert calls == ['stable','tag','github','gitlab'] * 2
+    assert result['sha'] == SHA and result['aliases'] == []
 
 
 def test_tag_pipeline_only_accepts_an_already_published_matching_release(monkeypatch):
@@ -225,7 +265,7 @@ def test_child_graphs_cover_every_profile_without_optional_or_dangling_edges():
             assert 'ceph-functional-tests' in config
             assert config['integration-ready']['artifacts']['expire_in'] == 'never'
         if profile == 'prepare-release':
-            assert not any(name.startswith('build-') for name in config)
+            assert all(f'build-{component}' in config for component in COMPONENTS)
             assert 'release-ready' in config and 'finalize-release' in config
             assert 'prepare-github-release' not in config
         if profile == 'release':
@@ -233,7 +273,7 @@ def test_child_graphs_cover_every_profile_without_optional_or_dangling_edges():
             assert 'verify-release-tag' in config
             assert 'publish-candidate-images' not in config
         if profile == 'resume-release':
-            assert {'resume-release-assets', 'resume-release-bundle-smoke', 'resume-finalize-release'} <= set(config)
+            assert {'resume-release-assets', 'resume-finalize-release', 'resume-demo-deploy'} <= set(config)
             assert config['resume-finalize-release']['variables']['RELEASE_RECOVERY_VERSION'] == '1.2.3'
             assert config['resume-finalize-release']['variables']['RELEASE_RECOVERY_PIPELINE_ID'] == '123'
             assert 'finalize-release' not in config
@@ -387,28 +427,13 @@ def test_bundle_bootstrap_uses_immutable_tag_source(monkeypatch, tmp_path):
 
 
 def test_global_gate_records_files_and_rechecks_original_qualification(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv('RELEASE_VERSION','1.2.3')
-    monkeypatch.setenv('CI_COMMIT_SHA',SHA)
-    monkeypatch.setenv('CI_PIPELINE_ID','20')
-    record = qualified()
-    dist.write('ci-plan.json', {'profile':'prepare-release','sha':SHA})
-    dist.write('qualification.json', record)
-    for path in dist.files():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text('fixture')
-    bundles = {'schema':1,'sha':SHA,'version':'1.2.3','digest':DIGEST,'files':bundle_registry.hashes(Path('dist/release'))}
-    dist.write('bundle-distribution.json', bundles)
-    jobs = [{'id':i,'name':name,'status':'success','commit':{'id':SHA}} for i,name in enumerate(expected_names(dist.REQUIRED))]
-    api = SimpleNamespace(jobs=lambda _:jobs, get=lambda _: {'sha':SHA,'ref':'main','source':'parent_pipeline'})
-    monkeypatch.setattr(dist, 'find', lambda api,sha,pipeline: copy.deepcopy(record))
-    monkeypatch.setattr(dist, 'inspect', lambda *args,**kwargs: IMAGE)
+    api, jobs = prepared(monkeypatch, tmp_path)
     proof = dist.ready(api)
     assert proof['files'] == dist.fingerprints()
     assert len(proof['jobs']) == len(expected_names(dist.REQUIRED))
-    def invalid(*args): raise ValueError('qualification canceled')
-    monkeypatch.setattr(dist, 'find', invalid)
-    with pytest.raises(ValueError, match='canceled'): dist.ready(api)
+    # The parent and child can still run; only completed mandatory jobs authorize promotion.
+    next(job for job in jobs if job['name'] == 'ceph-functional-tests')['status'] = 'canceled'
+    with pytest.raises(ValueError, match='Unsuccessful'): dist.ready(api)
 
 
 def test_chart_archive_is_reproducible(tmp_path):

@@ -1,11 +1,12 @@
 # Release distribution
 
-GitLab CI builds and validates the application once, then promotes those exact
-images from protected `main`. A `prepare-release` pipeline publishes and validates
-all immutable versioned artifacts before `finalize-release` creates the stable
-`vX.Y.Z` tags and public releases.
-GitHub Actions validates public PRs without secrets. See [CI/CD](ci-cd.md) for
-selection, tool locks and required external settings.
+A version increase pushed to protected `main` automatically runs one parent/child
+pipeline through qualification, candidate distribution, installation tests,
+stable promotion, public verification and demo deployment. Stable registry tags,
+Git tags, releases and aliases are created only after **all** installation tests
+pass. Images are built once; promotion preserves their exact digests and the
+exact tested archive bytes. GitHub Actions validates PRs without release secrets.
+See [CI/CD](ci-cd.md) for selection, tool locks and required external settings.
 
 ## Prerequisites
 
@@ -35,25 +36,19 @@ selection, tool locks and required external settings.
    Compose example. For `0.X.1` it also generates the schema reference snapshot.
    Review and commit the complete diff. Chart image tags remain empty to inherit
    `appVersion`; the bundle packager stamps its exact version into `.env.example`.
-2. Integrate and synchronize the release source on main in GitLab and GitHub.
-   A version metadata change selects complete qualification automatically. For
-   any other main SHA, launch a web pipeline with `CI_MODE=qualify`. Wait for
-   the successful parent and child: all autonomous tests, mandatory Ceph, three
-   AMD64/ARM64 images, runtime checks, six scans and Kind. `qualification.json`
-   binds their exact job IDs, digests and scan receipts to that SHA. The same
-   child must have a green `release-preflight`, proving that release credentials,
-   both `main` refs, public GHCR packages and prepared metadata are ready.
-3. From that same synchronized `main` SHA, launch a web pipeline with
-   `CI_MODE=prepare-release`. It resolves the existing qualification, rescans the
-   qualified image digests, publishes the immutable `X.Y.Z` images, chart and OCI
-   bundle, runs anonymous pulls plus Kind/QuickStart/Compose smoke tests, and
-   writes `distribution-ready.json`. No stable Git tag exists during these long
-   or failure-prone steps.
-4. The same pipeline runs `finalize-release` under the shared publication lock.
-   It revalidates both `main` refs and the distribution proof, creates the GitHub
-   tag, publishes and verifies the GitHub Release, creates the GitLab Release and
-   its tag at the exact SHA, then advances eligible minor/latest aliases. Wait for
-   the parent and child pipelines to finish successfully.
+2. Push the identical commit to GitHub **first**, then GitLab `main`. The GitLab
+   push compares version fields against `CI_COMMIT_BEFORE_SHA`, checks metadata,
+   changelog and numeric progression, and selects `prepare-release` automatically.
+   Dependency-only changes, PRs and `dev` never publish. If the push comparison is
+   unavailable, CI selects full qualification without authorizing publication.
+3. Follow the parent pipeline to its terminal result. It waits for qualification,
+   candidate distribution, AMD64/ARM64 QuickStart and Compose/scheduler tests,
+   packaged-chart Kind installation/upgrade, stable promotion and demo deployment.
+   Do not create the stable tag manually.
+4. For explicit preparation after a CI fix, use a protected main web pipeline with
+   `CI_MODE=prepare-release`. It runs the **same complete workflow**, reusing only
+   already-built immutable images at that exact SHA. `CI_MODE=qualify` performs
+   full qualification and preflight, without publishing candidates or a release.
 
 `ops/release/tag.py` is retained only as an exceptional manual helper. Do not use
 it for normal publication: a manually created stable tag is verification-only in
@@ -118,52 +113,52 @@ Retrying identical metadata is read-only.
 
 ## Qualification and distribution gates
 
-A `prepare-release` pipeline resolves the existing qualification for its exact
-`main` SHA before any stable tag exists. It checks successful parent/child
-qualification, the real job results through the project read API, and rejects a
-pre-existing release tag on either forge. Missing, canceled, skipped or
-allowed-to-fail jobs, absent Ceph, incomplete architecture matrices, another SHA,
-a missing report, or changed index/platform digests stop the release. No mutable
-tag or reconstruction fallback is permitted.
+Qualification verifies successful real job IDs through the read API, exact source
+SHA, Ceph, all architecture matrices, reports and index/platform digests. Missing,
+failed, canceled, skipped or allowed-to-fail gates stop the release. Evidence
+validation reads completed jobs while its own parent is still running; waiting
+for that parent to finish would create a circular dependency.
 
 Distribution proceeds in this order:
 
-1. Fetch qualified images by digest and rescan both architectures without rebuild.
-2. Prepare deterministic bundles, chart and changelog notes once as durable
-   artifacts. Later jobs reuse those bytes and fingerprints.
-3. Copy only immutable `X.Y.Z` images with all manifests, preserved index digests
-   and attestations. Publish the versioned chart and OCI bundle artifact. Different
-   existing content fails; identical partial publication resumes without replacement.
-4. Check anonymous GHCR pulls, exact index/platform digests, chart bytes and Kind
-   onboarding. Download bundles anonymously from `ghcr.io/ksperis/bucketreef-bundles`
-   and run both QuickStart and Compose/scheduler smoke tests on AMD64 and ARM64.
-5. `release-ready` verifies every real distribution job and records the complete
-   `distribution-ready.json`, including asset fingerprints. No alias moves here.
-6. `finalize-release` takes the shared `public-release` lock, rechecks jobs,
-   qualification, files and both current `main` refs, then creates the GitHub tag,
-   publishes GitHub, verifies its public downloads, creates/publishes the GitLab
-   tag and release, then moves eligible minor/latest image aliases.
-   The anonymous GitHub asset check allows a short bounded propagation window
-   after publication, while content mismatches still fail immediately.
+1. Complete application, security, Ceph and Kubernetes qualification. Build the
+   three multiarchitecture images once and rescan their exact digests for release.
+2. Prepare deterministic Compose/QuickStart archives, chart and notes once.
+3. Publish images as `candidate-<full-source-SHA>-<child-pipeline-id>` in the existing
+   public GHCR image repositories. A candidate OCI envelope in
+   `ghcr.io/ksperis/bucketreef-bundles` stores the four assets, chart and both notes.
+   Neither stable `X.Y.Z` tags nor aliases exist at this point.
+4. Download the candidate envelope anonymously and run installation tests. Each
+   isolated DinD daemon pulls images by platform digest, then assigns their
+   expected `X.Y.Z` names **locally**, without pushing those names to a registry.
+   QuickStart first start/restart and fresh Compose verify the running image IDs
+   and architectures; Kind uses the unchanged packaged chart and digest-bound
+   images for installation, onboarding and upgrade.
+5. `release-ready` checks all actual jobs and installation receipts. It records
+   schema-2 `distribution-ready.json`, binding the candidate inventory, source SHA,
+   pipelines/jobs, image digests, archive hashes and tested demo files.
+6. One `finalize-release` job holds `public-release` through all stable mutations.
+   It rechecks proofs and both current main refs, anonymously fetches the same
+   candidate bytes, promotes images/bundles/chart, verifies public registry access,
+   creates and verifies GitHub, then creates GitLab. Minor/latest aliases (and
+   GitHub latest) move last, only when numeric ordering permits. Demo deployment
+   consumes the final `publication.json` and the fingerprinted demo artifact.
 
-The OCI candidate supplies an anonymous distribution surface before finalization,
-and its checksummed bytes must equal the GitHub assets uploaded only after the
-stable-tag gate. Application images, the chart package and
-`bucketreef-bundles` must remain public. ORAS is pinned in the tool lock and
-stores bundles in the existing GHCR registry.
+`qualification.json` (schema 1), `candidate-inventory.json` (schema 2),
+`installation-receipts/*.json` (schema 1), `distribution-ready.json` (schema 2) and
+`publication.json` (schema 2) are durable contracts. Evidence, reports and prepared
+files use `expire_in: never`; preserve their registry digests during cleanup and
+back up GitLab artifacts. A missing proof never authorizes a rebuild or a bypass.
 
-Registry bootstrap is an exceptional recovery path; see
-[Recovery / exceptional cases](#recovery-exceptional-cases) below.
+On the current AMD64 runner ARM64 is emulated through QEMU. Public Compose keeps
+24 health attempts by default; CI explicitly sets `BUCKETREEF_HEALTHCHECK_RETRIES`
+to 60 for QEMU, with readiness budgets of 600 seconds. The bundle test has a global
+40-minute ceiling inside a 45-minute job. Its helper has no shorter lifetime.
+Before cleanup, retain only allowlisted container states, health exit codes,
+architectures, image identities, phase timings and installation checkpoints.
+Raw application logs, generated environments and bootstrap URLs stay ephemeral
+inside DinD and are never uploaded as artifacts.
 
-Alias decisions compare numeric versions under the publication lock, using
-stable releases that are actually published on both platforms. Merely creating a
-higher Git tag does not advance an alias. A replay of an older pipeline cannot
-regress minor/latest. A failure before the global gate leaves aliases unchanged,
-stable tags absent and no public GitHub Release created.
-
-Evidence artifacts, scan reports and qualified image digests must survive registry
-and artifact cleanup. Revalidating an existing SHA reuses and tests the immutable
-images; it never silently rebuilds a missing release source during distribution.
 The chart retains the existing Secret, proxy and NetworkPolicy contracts.
 
 The standard-library packager emits deterministic archives containing only
@@ -195,42 +190,36 @@ Exercise the installer on a fresh home directory, then rerun it and confirm
 the installed version and secrets are unchanged. Record native and emulated
 architecture evidence separately.
 
-If a preparation job fails, correct the cause and retry the same pipeline; no
-stable tag has been created yet. A failed chart visibility check can be retried
-after making the package public. Content conflicts require investigation and a
-new release rather than overwriting an immutable version. An application rollback
-may require restoring a verified database backup with its matching encryption keys.
+Before stable promotion, fix a failed check and retry its dependent jobs, or
+prepare a newly qualified candidate for the same still-unused version. No stable
+registry reference, Git tag, release or alias has been created by candidate tests.
 
-
-There is no cross-service atomic transaction. After global validation, interruption
-can leave the GitHub tag/release published while the GitLab tag/release or aliases
-remain pending. All long-running validation and distribution work has already
-completed before this short window opens.
-Retry `finalize-release` from the same pipeline: it revalidates evidence, accepts
-identical existing content and recomputes aliases under the lock. Do not delete or
-move immutable versions to repair a failure. Public GitHub download checks occur
-again after publication; an outage there leaves GitLab publication and aliases unchanged.
-Metadata-only recovery cannot finish aliases or substitute for qualification.
+After promotion starts, there is no transaction spanning registries and forges.
+Retry the original finalizer after a network interruption: identical existing
+content is accepted and different content is refused. Never delete, overwrite or
+move an immutable version. A public GitHub outage stops GitLab publication and
+alias updates. An application rollback may require restoring a verified database
+backup with matching encryption keys.
 
 ### Recovery / exceptional cases
 
-`resume-release` is a narrow recovery path for a prepared release whose immutable
-versioned images, Helm chart and OCI bundles were already published and verified,
-but whose final distribution gate did not complete. Run it only from protected
-`main` with `CI_MODE=resume-release`, `RELEASE_RECOVERY_VERSION=X.Y.Z`, and
-`RELEASE_RECOVERY_PIPELINE_ID=<failed prepared-release child pipeline>`. The
-recovery verifies the retained qualification, release notes and bundle proof,
-rechecks the public immutable images/chart/bundles, and requires every original
-distribution job except the ARM64 bundle smoke to have succeeded. It reruns only
-that smoke with the current CI harness, then creates the stable GitHub/GitLab
-tags and releases at the original prepared release SHA and advances eligible
-aliases.
+If the finalizer code needs a fix, use protected main web mode `resume-release`
+with `RELEASE_RECOVERY_VERSION=X.Y.Z` and
+`RELEASE_RECOVERY_PIPELINE_ID=<original child pipeline>`. Recovery requires a
+successful `release-ready` job with schema-2 evidence and rechecks every original
+qualification and installation job, including both architectures. It is not
+specialized to one failing job or one version. A candidate with failed installation
+checks cannot be promoted through recovery; repair and qualify it first.
 
-The recovery commit must descend from the prepared release SHA and may contain
-only CI, release tooling, `.gitlab-ci.yml`, and developer-documentation changes.
-Product-code changes between those SHAs are rejected. Existing versioned
-artifacts are never deleted, overwritten, retagged or rebuilt by this path; any
-content mismatch or stable tag at another SHA stops recovery.
+The orchestration commit must descend from the original source commit. Recovery
+restores only retained proofs, the exact candidate OCI bytes and fingerprinted
+demo files. It never packages the current product checkout. The publication proof
+separately records the application SHA and orchestration SHA; forge tags refer to
+the former. Both current main refs must match the latter. Missing retained files,
+changed hashes or conflicting stable content stop recovery. The same finalizer
+and publication lock handle registry, forge and alias retries; demo follows its
+successful final publication proof. Legacy schema-1 distribution evidence does
+not qualify for this new generic recovery path.
 
 `bootstrap-release-bundles` is retained only for registry recovery and is not a
 normal release step. If the OCI bundle package is ever missing and a stable tag
