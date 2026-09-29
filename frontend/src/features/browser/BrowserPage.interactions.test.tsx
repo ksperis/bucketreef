@@ -1645,7 +1645,7 @@ describe("BrowserPage interactions", () => {
     const selector = screen.getByRole("button", { name: "Select storage space" });
     expect(selector).toHaveTextContent("Research Data");
     const sidebar = screen.getByTestId("browser-workspace-sidebar");
-    expect(sidebar).toHaveAttribute("aria-label", "Storage Spaces");
+    expect(sidebar).toHaveAttribute("aria-label", "Spaces");
     expect(within(sidebar).getByText("Research Data")).toBeInTheDocument();
     const description = within(sidebar).getByText("Shared research datasets with a deliberately detailed description");
     expect(description).toHaveAttribute("title", "Shared research datasets with a deliberately detailed description");
@@ -1653,7 +1653,8 @@ describe("BrowserPage interactions", () => {
 
     await user.click(selector);
     expect(screen.getByPlaceholderText("Filter storage spaces")).toBeInTheDocument();
-    expect(screen.getAllByText("Storage Spaces", { exact: true })).toHaveLength(2); // Includes the sidebar tab.
+    expect(screen.getByText("Storage Spaces", { exact: true })).toBeInTheDocument();
+    expect(within(sidebar).getByText("Spaces", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("1 of 1 storage space")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Filter buckets")).not.toBeInTheDocument();
     expect(screen.queryByText("Buckets", { exact: true })).not.toBeInTheDocument();
