@@ -27,7 +27,19 @@ from app.db import (
 from app.models.s3_account import S3AccountCreate, S3AccountImport
 
 
-def _seed_ceph_endpoint(db_session, *, account_enabled: bool = True, is_default: bool = True) -> StorageEndpoint:
+def _seed_ceph_endpoint(
+    db_session,
+    *,
+    account_enabled: bool = True,
+    metrics_enabled: bool = False,
+    is_default: bool = True,
+) -> StorageEndpoint:
+    metrics_config = (
+        "  metrics:\n"
+        "    enabled: true\n"
+        if metrics_enabled
+        else ""
+    )
     endpoint = StorageEndpoint(
         name="ceph-accounts-test",
         endpoint_url="https://ceph-accounts.example.test",
@@ -40,6 +52,7 @@ def _seed_ceph_endpoint(db_session, *, account_enabled: bool = True, is_default:
             "    enabled: true\n"
             "  account:\n"
             f"    enabled: {'true' if account_enabled else 'false'}\n"
+            f"{metrics_config}"
         ),
         is_default=is_default,
         is_editable=True,
@@ -125,6 +138,47 @@ class FakeRGWAdmin:
         if self.account_payload is not None:
             return self.account_payload
         return {"id": account_id, "user_list": []}
+
+
+def test_get_account_usage_uses_supervision_ops(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=True)
+    account = S3Account(
+        name="Usage Account",
+        rgw_account_id="RGW00000000000000009",
+        rgw_user_uid="usage-account-admin",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+    db_session.refresh(account)
+
+    admin = FakeRGWAdmin()
+    supervision_calls: list[dict[str, object]] = []
+
+    class FakeSupervisionAdmin:
+        def get_all_buckets(self, account_id=None, uid=None, with_stats=False):  # noqa: ANN001
+            supervision_calls.append(
+                {"account_id": account_id, "uid": uid, "with_stats": with_stats}
+            )
+            return {
+                "buckets": [
+                    {"name": "alpha", "usage": {"total_bytes": 32, "total_objects": 2}},
+                    {"name": "beta", "usage": {"total_bytes": 64, "total_objects": 3}},
+                ]
+            }
+
+    service = _build_service(db_session, monkeypatch, admin)
+    monkeypatch.setattr(
+        "app.services.s3_accounts_service.get_supervision_rgw_client",
+        lambda received_endpoint: FakeSupervisionAdmin()
+        if received_endpoint.id == endpoint.id
+        else pytest.fail("unexpected endpoint"),
+    )
+
+    assert service.get_account_usage(account) == (96, 5, 2)
+    assert supervision_calls == [
+        {"account_id": None, "uid": "usage-account-admin", "with_stats": True}
+    ]
 
 
 def test_create_account_with_root(db_session, monkeypatch):

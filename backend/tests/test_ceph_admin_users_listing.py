@@ -519,7 +519,7 @@ def test_build_user_detail_ignores_legacy_kebab_case_default_fields():
     assert detail.default_storage_class is None
 
 
-def test_ceph_admin_users_quota_usage_percent_filter_aggregates_bucket_usage():
+def test_ceph_admin_users_quota_usage_percent_filter_aggregates_bucket_usage(monkeypatch):
     users_payload = ["tenant-a$alice"]
     user_details = {
         ("tenant-a", "alice"): _build_user_payload(
@@ -541,6 +541,12 @@ def test_ceph_admin_users_quota_usage_percent_filter_aggregates_bucket_usage():
         user_details=user_details,
         bucket_payloads=bucket_payloads,
     )
+    supervision_admin = FakeRGWAdmin([], {}, bucket_payloads=bucket_payloads)
+    monkeypatch.setattr(
+        user_listing_enrichment,
+        "get_supervision_rgw_client",
+        lambda endpoint: supervision_admin,
+    )
     advanced_filter = json.dumps(
         {
             "match": "all",
@@ -560,7 +566,8 @@ def test_ceph_admin_users_quota_usage_percent_filter_aggregates_bucket_usage():
     )
 
     assert [item.uid for item in response.items] == ["alice"]
-    assert rgw_admin.get_all_buckets_calls == 1
+    assert supervision_admin.get_all_buckets_calls == 1
+    assert rgw_admin.get_all_buckets_calls == 0
 
 
 def test_ceph_admin_users_do_not_fetch_usage_without_usage_percent_filter():

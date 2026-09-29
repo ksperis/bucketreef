@@ -56,7 +56,7 @@ def backup_bucket_configs(
 
     def quota_loader(bucket_name: str) -> dict[str, int | None]:
         try:
-            raw = ctx.rgw_admin.get_bucket_info(bucket_name, stats=True, allow_not_found=True)
+            raw = ctx.rgw_admin.get_bucket_info(bucket_name, stats=False, allow_not_found=True)
         except RGWAdminError as exc:
             raise RuntimeError(f"Unable to fetch bucket quota: {exc}") from exc
         if not isinstance(raw, dict):
