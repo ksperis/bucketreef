@@ -214,6 +214,24 @@ Metadata-only recovery cannot finish aliases or substitute for qualification.
 
 ### Recovery / exceptional cases
 
+`resume-release` is a narrow recovery path for a prepared release whose immutable
+versioned images, Helm chart and OCI bundles were already published and verified,
+but whose final distribution gate did not complete. Run it only from protected
+`main` with `CI_MODE=resume-release`, `RELEASE_RECOVERY_VERSION=X.Y.Z`, and
+`RELEASE_RECOVERY_PIPELINE_ID=<failed prepared-release child pipeline>`. The
+recovery verifies the retained qualification, release notes and bundle proof,
+rechecks the public immutable images/chart/bundles, and requires every original
+distribution job except the ARM64 bundle smoke to have succeeded. It reruns only
+that smoke with the current CI harness, then creates the stable GitHub/GitLab
+tags and releases at the original prepared release SHA and advances eligible
+aliases.
+
+The recovery commit must descend from the prepared release SHA and may contain
+only CI, release tooling, `.gitlab-ci.yml`, and developer-documentation changes.
+Product-code changes between those SHAs are rejected. Existing versioned
+artifacts are never deleted, overwritten, retagged or rebuilt by this path; any
+content mismatch or stable tag at another SHA stops recovery.
+
 `bootstrap-release-bundles` is retained only for registry recovery and is not a
 normal release step. If the OCI bundle package is ever missing and a stable tag
 already exists, keep that tag unchanged. From protected `main`, run a web pipeline

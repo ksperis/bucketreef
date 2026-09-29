@@ -72,7 +72,7 @@ def classify(*, source: str, ref: str, protected: bool, mode: str = "auto", tag:
         raise ValueError("Private pipelines require main or dev")
     if source == "push" and mode == "auto":
         return "integration"
-    if source == "web" and ref == "main" and mode in {"qualify", "prepare-release", "docs", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
+    if source == "web" and ref == "main" and mode in {"qualify", "prepare-release", "resume-release", "docs", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         return mode
     if source == "schedule" and ref == "main" and mode in {"regression", "security", "secrets-history"}:
         return mode
@@ -80,7 +80,7 @@ def classify(*, source: str, ref: str, protected: bool, mode: str = "auto", tag:
 
 
 def select(profile: str, paths: list[str] | None, *, ref: str = "main", version: bool = False) -> dict:
-    if profile not in {"pr", "integration", "qualify", "prepare-release", "release", "docs", "regression", "security", "secrets-history", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
+    if profile not in {"pr", "integration", "qualify", "prepare-release", "resume-release", "release", "docs", "regression", "security", "secrets-history", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         raise ValueError("Unknown CI profile")
     if profile == "integration" and ref == "main" and version:
         profile = "qualify"
@@ -140,7 +140,7 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
         selected, images, ceph = {"backend-vuln-scan", "frontend-vuln-scan", "secret-scan", "scan-published-images"}, set(), False
     elif profile == "secrets-history":
         selected, images, ceph = {"secret-scan"}, set(), False
-    elif profile in {"prepare-release", "release", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
+    elif profile in {"prepare-release", "resume-release", "release", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         selected, images, ceph = set(), set(), False
     if profile == "pr":
         images, ceph = set(), False

@@ -22,6 +22,7 @@ integration and changes to CI select all relevant checks conservatively.
 | Effective version metadata change on main | Complete qualification, including Ceph and all official images |
 | Web pipeline on main, `CI_MODE=qualify` | Complete qualification of the pipeline's exact main SHA, including docs-only revisions, plus the release preflight |
 | Web pipeline on main, `CI_MODE=prepare-release` | Promote and validate the exact qualified SHA, then create stable tags/releases only after `release-ready` |
+| Web pipeline on main, `CI_MODE=resume-release` | Resume an interrupted prepared release from retained immutable distribution evidence; requires `RELEASE_RECOVERY_VERSION=X.Y.Z` and the failed prepared-release child `RELEASE_RECOVERY_PIPELINE_ID` |
 | Protected stable `vX.Y.Z` push | Verify that the tag belongs to an already-published matching GitHub/GitLab release; no build or distribution |
 | Schedule on main, `CI_MODE=regression` | All autonomous checks and Ceph, without producing official images |
 | Schedule on main, `CI_MODE=security` | Dependency/secret checks and both architectures of the latest qualified public images |

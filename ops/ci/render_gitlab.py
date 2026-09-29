@@ -26,6 +26,8 @@ def render(plan):
         names = {*REQUIRED, "release-ready", "finalize-release", "demo-deploy"}
     elif profile == "bootstrap-demo":
         names = {"frontend-demo", "demo-bootstrap"}
+    elif profile == "resume-release":
+        names = {"resume-release-assets", "resume-release-bundle-smoke", "resume-finalize-release"}
     elif profile == "release":
         # Stable tags are created by finalize-release. A tag pipeline only verifies
         # the already-published release and never distributes artifacts.
@@ -59,6 +61,9 @@ def render(plan):
         config[".kind-base"].pop("needs", None)
     for name in sorted(names):
         job = copy.deepcopy(source[name])
+        if profile == "resume-release":
+            job.setdefault("variables", {})["RELEASE_RECOVERY_VERSION"] = plan["recovery_version"]
+            job.setdefault("variables", {})["RELEASE_RECOVERY_PIPELINE_ID"] = str(plan["recovery_pipeline_id"])
         if name == "recover-gitlab-release" and plan.get("recovery_version"):
             job.setdefault("variables", {})["GITLAB_RELEASE_RECOVERY_VERSION"] = plan["recovery_version"]
         if job.get("extends") == "helm-kind-onboarding-smoke":

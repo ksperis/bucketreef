@@ -48,6 +48,15 @@ def gitlab_plan(env, api=None):
                 raise ValueError("No CI baseline exists and the commit parent cannot be resolved") from error
     paths = changes(base, sha)
     plan = select(profile, paths, ref=ref, version=profile == "integration" and version_changed(base, sha, paths))
+    if profile == "resume-release":
+        value = env.get("RELEASE_RECOVERY_VERSION", "")
+        pipeline_id = env.get("RELEASE_RECOVERY_PIPELINE_ID", "")
+        if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
+            raise ValueError("RELEASE_RECOVERY_VERSION must be X.Y.Z")
+        if not re.fullmatch(r"[1-9][0-9]*", pipeline_id):
+            raise ValueError("RELEASE_RECOVERY_PIPELINE_ID must be a positive integer")
+        plan["recovery_version"] = value
+        plan["recovery_pipeline_id"] = int(pipeline_id)
     if profile == "recover-release" and env.get("GITLAB_RELEASE_RECOVERY_VERSION"):
         value = env["GITLAB_RELEASE_RECOVERY_VERSION"]
         if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
