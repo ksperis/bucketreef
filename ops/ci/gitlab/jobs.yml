@@ -511,6 +511,72 @@ publish-helm-release:
   environment:
     name: release-public
     action: prepare
+resume-release-assets:
+  stage: deploy
+  image:
+    name: alpine/helm:3.18.6
+    entrypoint:
+    - ''
+  needs: []
+  variables:
+    GIT_DEPTH: '0'
+  environment:
+    name: ci-orchestration
+    action: verify
+  before_script:
+  - apk add --no-cache curl git python3 skopeo
+  - sh ops/ci/install-oras.sh
+  script:
+  - python3 ops/release/resume_release.py prepare
+  artifacts:
+    paths:
+    - recovery-release.json
+    - qualification.json
+    - bundle-distribution.json
+    - public-bundles/
+    - dist/release/
+    - dist/release-notes/
+    expire_in: never
+resume-release-bundle-smoke:
+  stage: deploy
+  image: docker:27-cli
+  services:
+  - docker:27-dind
+  needs:
+  - resume-release-assets
+  variables:
+    IMAGE_ARCH: arm64
+  environment:
+    name: ci-public-distribution
+    action: verify
+  script:
+  - docker run --privileged --rm "$BINFMT_IMAGE" --install arm64
+  - sh ops/ci/quickstart-bundle-smoke.sh
+resume-finalize-release:
+  stage: finalize
+  image:
+    name: alpine/helm:3.18.6
+    entrypoint:
+    - ''
+  needs:
+  - resume-release-assets
+  - resume-release-bundle-smoke
+  variables:
+    GIT_DEPTH: '0'
+  environment:
+    name: release-public
+    action: prepare
+  resource_group: public-release
+  before_script:
+  - apk add --no-cache curl git python3 skopeo
+  - sh ops/ci/install-oras.sh
+  script:
+  - python3 ops/release/resume_release.py finalize
+  artifacts:
+    paths:
+    - recovery-finalized.json
+    expire_in: never
+
 recover-gitlab-release:
   stage: deploy
   image: python:3.12-alpine

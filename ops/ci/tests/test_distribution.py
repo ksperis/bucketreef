@@ -207,8 +207,11 @@ def test_public_release_verification_retries_only_transient_visibility(monkeypat
 
 
 def test_child_graphs_cover_every_profile_without_optional_or_dangling_edges():
-    for profile in ('qualify', 'prepare-release', 'release', 'docs', 'recover-release', 'security', 'regression', 'secrets-history', 'bootstrap-release-bundles'):
+    for profile in ('qualify', 'prepare-release', 'resume-release', 'release', 'docs', 'recover-release', 'security', 'regression', 'secrets-history', 'bootstrap-release-bundles'):
         plan = {**select(profile, []), 'sha': SHA, 'parent_id': 9}
+        if profile == 'resume-release':
+            plan['recovery_version'] = '1.2.3'
+            plan['recovery_pipeline_id'] = 123
         if profile == 'bootstrap-release-bundles':
             plan['bootstrap_version'] = '1.2.3'
         config = render(plan)
@@ -229,6 +232,11 @@ def test_child_graphs_cover_every_profile_without_optional_or_dangling_edges():
             assert 'finalize-release' not in config
             assert 'verify-release-tag' in config
             assert 'publish-candidate-images' not in config
+        if profile == 'resume-release':
+            assert {'resume-release-assets', 'resume-release-bundle-smoke', 'resume-finalize-release'} <= set(config)
+            assert config['resume-finalize-release']['variables']['RELEASE_RECOVERY_VERSION'] == '1.2.3'
+            assert config['resume-finalize-release']['variables']['RELEASE_RECOVERY_PIPELINE_ID'] == '123'
+            assert 'finalize-release' not in config
         if profile == 'recover-release':
             assert 'finalize-release' not in config
 
