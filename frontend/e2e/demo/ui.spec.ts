@@ -48,6 +48,35 @@ test("portal primary listing links keep button contrast in dark mode", async ({ 
   expect(await openSpaces.evaluate((element) => getComputedStyle(element).color)).toBe("rgb(255, 255, 255)");
 });
 
+test("sidebar labels keep neutral shell colors in both themes", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await open(page, "/admin");
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+
+  const navigation = page.getByRole("navigation", { name: "ADMIN navigation" });
+  const activeLink = navigation.getByRole("link", { name: "Dashboard", exact: true });
+  const inactiveLink = navigation.getByRole("link", { name: "UI Users", exact: true });
+  const profileLink = page.getByRole("link", { name: "Profile", exact: true });
+
+  const expectNeutralSidebarColors = async () => {
+    const expectedColor = await page.locator(".shell-sidebar").first().evaluate(
+      (element) => getComputedStyle(element).color,
+    );
+    for (const link of [activeLink, inactiveLink, profileLink]) {
+      await expect(link).toHaveCSS("color", expectedColor);
+    }
+    await expect(activeLink.locator("span").first()).toHaveCSS("color", expectedColor);
+
+    await inactiveLink.hover();
+    await expect(inactiveLink).toHaveCSS("color", expectedColor);
+  };
+
+  await expectNeutralSidebarColors();
+  await page.getByRole("button", { name: "Toggle theme", exact: true }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expectNeutralSidebarColors();
+});
+
 test("workspaces UI: profiles, keyboard, mobile and both themes", async ({ page }, info) => {
   const external: string[] = [];
   page.on("request", request => { const url = request.url(); if (url.startsWith("http") && (!url.startsWith("http://127.0.0.1:4187/") || new URL(url).pathname.startsWith("/api/"))) external.push(url); });
