@@ -8,7 +8,8 @@ import sys
 
 ERROR_MARKERS = {
     "git_revision_unavailable": ("bad revision", "unknown revision", "ambiguous argument", "bad object"),
-    "git_fetch_failed": ("fetch failed", "failed to fetch", "could not fetch", "unable to fetch"),
+    "git_fetch_failed": ("fetch failed", "failed to fetch", "could not fetch", "unable to fetch", "git fetch operations failed"),
+    "git_ancestry_failed": ("base commit is not an ancestor", "invalid commit range"),
     "git_unsafe_repository": ("dubious ownership", "unsafe repository"),
     "git_repository_missing": ("not a git repository",),
     "authentication_failed": ("authentication failed", "access denied", "could not read username"),

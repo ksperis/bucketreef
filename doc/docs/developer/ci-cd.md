@@ -146,8 +146,12 @@ examples additionally require their original commit and exact extract fingerprin
 reintroducing one in a new commit still fails. Changed hosts, passwords, identifiers
 or paths remain blocking. The job reports the number of exempt fixture findings.
 Only redacted file/line/type diagnostics are uploaded; raw analyzer output is discarded.
-Normal scans use the explicit Git range, while historical maintenance scans all
-history. The scheduled image scan refuses old releases without qualification;
+Normal scans use the explicit Git revision set (`head ^baseline`), including both
+sides of merges. The scanner receives no branch/ref hint, so its fetch strategy
+retains full history instead of truncating ancestry by commit date. The job
+checks complete history and records the identical commit set before and after
+analysis in `secret-scope.json`; missing or changed history blocks validation.
+Historical maintenance scans all history. The scheduled image scan refuses old releases without qualification;
 qualify and publish a new version before enabling that schedule after migration.
 
 ## External setup and rollout

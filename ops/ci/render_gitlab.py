@@ -59,7 +59,8 @@ def render(plan):
     if "release-kind-onboarding-smoke" in names:
         config[".kind-base"] = copy.deepcopy(source["helm-kind-onboarding-smoke"])
         config[".kind-base"].pop("needs", None)
-    for name in sorted(names):
+    # Queue this short mandatory build gate before the long application suites.
+    for name in sorted(names, key=lambda name: (name != "secret-scan", name)):
         job = copy.deepcopy(source[name])
         if profile == "resume-release":
             job.setdefault("variables", {})["RELEASE_RECOVERY_VERSION"] = plan["recovery_version"]
