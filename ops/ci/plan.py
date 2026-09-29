@@ -206,4 +206,6 @@ def secret_scan_options(plan: dict) -> tuple[str, str]:
     sha = plan.get("sha") or ""
     if not re.fullmatch(r"[0-9a-f]{40}", base) or not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("Secret scan requires an explicit baseline outside secrets-history")
-    return f"{base}..{sha}", "false"
+    # Equivalent Git revision set without the analyzer's date-based range fetch,
+    # which can truncate merge ancestry even in an initially complete checkout.
+    return f"{sha} ^{base}", "false"
