@@ -7,6 +7,46 @@ import { describe, expect, it, vi } from "vitest";
 import BrowserWorkspaceSidebar from "./BrowserWorkspaceSidebar";
 
 describe("BrowserWorkspaceSidebar", () => {
+  it("balances the compact bucket and favorites tab icons optically", () => {
+    render(
+      <BrowserWorkspaceSidebar
+        favorites={<div>Favorite locations</div>}
+        compact
+        variant="desktop"
+        isPortalContext={false}
+        rows={[]}
+        activeBucketName=""
+        bucketFilter=""
+        loadingBuckets={false}
+        bucketError={null}
+        bucketManagementEnabled={false}
+        canLoadMore={false}
+        bucketMenuLoadingMore={false}
+        bucketMenuTotal={0}
+        bucketTotalCount={0}
+        usageSummary={null}
+        usageLoading={false}
+        usageError={null}
+        closeMobile={vi.fn()}
+        onBucketFilterChange={vi.fn()}
+        onRetryBuckets={vi.fn()}
+        onCreateBucket={vi.fn()}
+        onSelectBucket={vi.fn()}
+        onLoadMore={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "Buckets" }).querySelector("svg")).toHaveClass(
+      "h-5",
+      "w-5",
+      "shrink-0",
+    );
+    expect(screen.getByRole("tab", { name: "Favorites" }).querySelector("svg")).toHaveClass(
+      "h-4",
+      "w-4",
+    );
+  });
+
   it("renders the Portal Storage Space descriptor instead of the generic bucket icon", () => {
     render(
       <BrowserWorkspaceSidebar
