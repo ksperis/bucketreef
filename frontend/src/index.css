@@ -304,14 +304,23 @@ body {
   .shell-sidebar-scroll {
     overscroll-behavior: contain;
     scrollbar-color: transparent transparent;
-    scrollbar-width: none;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  .shell-sidebar-scroll-compact {
+    padding-inline-start: 12px;
+  }
+
+  .shell-sidebar-compact-rail {
+    width: 32px;
+    flex: none;
   }
 
   .shell-sidebar-scroll:hover,
   .shell-sidebar-scroll:focus-within,
   .shell-sidebar-scroll.shell-sidebar-scroll-active {
     scrollbar-color: var(--shell-icon-muted) transparent;
-    scrollbar-width: thin;
   }
 
   .shell-sidebar-scroll::-webkit-scrollbar {

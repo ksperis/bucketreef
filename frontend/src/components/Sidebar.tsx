@@ -181,7 +181,7 @@ export default function Sidebar({
       : "shell-sidebar flex h-full flex-col border-r";
   const rootClassName = className ? `${containerClasses} ${className}` : containerClasses;
   const iconClasses = "h-4 w-4";
-  const navSpacingClasses = compact ? "gap-1.5 px-2 pb-3 pt-3" : "gap-2 px-2.5 pb-3 pt-3";
+  const navSpacingClasses = compact ? "gap-1.5 pb-3 pt-3" : "gap-2 px-2.5 pb-3 pt-3";
   const rootStyle: CSSProperties | undefined =
     variant === "desktop"
       ? {
@@ -233,7 +233,7 @@ export default function Sidebar({
         <>
           <nav
             ref={navRef}
-            className={`shell-sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto ${navScrolling ? "shell-sidebar-scroll-active" : ""} ${navSpacingClasses}`}
+            className={`shell-sidebar-scroll ${compact ? "shell-sidebar-scroll-compact" : ""} flex min-h-0 flex-1 flex-col overflow-y-auto ${navScrolling ? "shell-sidebar-scroll-active" : ""} ${navSpacingClasses}`}
             onScroll={handleNavScroll}
             aria-label={`${title} navigation`}
           >
@@ -245,7 +245,7 @@ export default function Sidebar({
               return (
                 <section
                   key={section.label}
-                  className={`${showSeparator && !compact ? "border-b border-[color:var(--shell-border-soft)] pb-3" : ""} space-y-1.5`}
+                  className={`${showSeparator && !compact ? "border-b border-[color:var(--shell-border-soft)] pb-3" : ""} ${compact ? "shell-sidebar-compact-rail" : ""} space-y-1.5`}
                 >
                   {compact ? (
                     <div className="mx-auto my-1 h-px w-5 rounded-full bg-[var(--shell-border)]" />

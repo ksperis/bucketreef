@@ -233,6 +233,12 @@ describe("Sidebar", () => {
     expect(expandButton).toHaveAttribute("title", "Expand sidebar");
     expect(expandButton.querySelector("img")).toHaveAttribute("src", "/brand/bucketreef-mark-256.png");
     expect(expandButton).not.toHaveClass("bg-primary");
+    expect(screen.getByRole("navigation", { name: "BucketReef navigation" })).toHaveClass(
+      "shell-sidebar-scroll-compact",
+    );
+    expect(screen.getByRole("link", { name: "Metrics" }).closest("section")).toHaveClass(
+      "shell-sidebar-compact-rail",
+    );
     expect(container.querySelector('[data-sidebar-variant="desktop"]')?.firstElementChild).toContainElement(expandButton);
     fireEvent.click(expandButton);
     expect(onCollapseToggle).toHaveBeenCalledTimes(1);

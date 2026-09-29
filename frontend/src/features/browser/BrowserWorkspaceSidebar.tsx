@@ -206,9 +206,9 @@ export default function BrowserWorkspaceSidebar({
 
       <div
         ref={panelViewportRef}
-        className={`shell-sidebar-scroll min-h-0 flex-1 overflow-y-auto ${compact ? "px-2 py-2" : "px-2.5 py-3"}`}
+        className={`shell-sidebar-scroll ${compact ? "shell-sidebar-scroll-compact py-2" : "px-2.5 py-3"} min-h-0 flex-1 overflow-y-auto`}
       >
-        <div className="space-y-1.5">
+        <div className={`space-y-1.5 ${compact ? "shell-sidebar-compact-rail" : ""}`}>
           {rows.map(({ bucket, access }) => {
             const isActive = bucket.name === activeBucketName;
             const displayName = getBucketDisplayName(bucket, isPortalContext);
