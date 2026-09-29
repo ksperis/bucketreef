@@ -7,10 +7,19 @@ import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { ListActionButton } from "../../components/list/ListControls";
 import { useId, type ReactNode } from "react";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
+import {
+  hasAccountAccessRole,
+  type AccountAccessGrant,
+} from "../../api/accountAccess";
 
 import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTableContainerClass } from "../../components/ui/styles";
+import {
+  AccountAccessRoleValidationMessage,
+  ManagerAccountRoleSelect,
+  PortalAccountRoleSelect,
+} from "./AccountAccessRoleSelectors";
 import "./adminAssociations.css";
 
 const adminAssociationAddPanelClass = cx(uiCardMutedClass, "space-y-2 px-3 py-2");
@@ -170,6 +179,109 @@ export function AdminAssociationLinkedTable({
         </table>
       </div>
       {picker}
+    </div>
+  );
+}
+
+type AdminAssociationAccessPickerOption = {
+  id: number;
+  label: string;
+  selected: boolean;
+  access: AccountAccessGrant;
+};
+
+type AdminAssociationAccessPickerTableProps = {
+  title: string;
+  principalLabel: string;
+  options: readonly AdminAssociationAccessPickerOption[];
+  portalEnabled: boolean;
+  onToggle: (id: number) => void;
+  onAccessChange: (id: number, access: AccountAccessGrant) => void;
+};
+
+/**
+ * Account-scoped association pickers use the same column model as linked
+ * association tables so role labels are defined once in the header.
+ */
+export function AdminAssociationAccessPickerTable({
+  title,
+  principalLabel,
+  options,
+  portalEnabled,
+  onToggle,
+  onAccessChange,
+}: AdminAssociationAccessPickerTableProps) {
+  const prefix = "admin-association-picker-" + useId().replaceAll(":", "");
+  if (options.length === 0) return null;
+
+  return (
+    <div className={adminAssociationTableContainerClass}>
+      <table className="ui-data-table" aria-label={title}>
+        <thead>
+          <tr>
+            <th className="text-left">{principalLabel}</th>
+            <th className="text-left">Manager role</th>
+            <th className="text-left">Portal role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {options.map((option) => {
+            const invalid = option.selected && !hasAccountAccessRole(option.access);
+            const errorId = prefix + "-" + option.id + "-error";
+            return (
+              <tr
+                key={option.id}
+                className={
+                  option.selected
+                    ? "bg-[var(--ui-selected-bg)]"
+                    : "hover:bg-[var(--ui-hover)]"
+                }
+              >
+                <td className="ui-table-primary min-w-[220px]">
+                  <AdminAssociationOptionCheckbox
+                    account
+                    checked={option.selected}
+                    onChange={() => onToggle(option.id)}
+                  >
+                    <span className="break-words">{option.label}</span>
+                  </AdminAssociationOptionCheckbox>
+                  {invalid ? (
+                    <AccountAccessRoleValidationMessage
+                      id={errorId}
+                      value={option.access}
+                      portalEnabled={portalEnabled}
+                    />
+                  ) : null}
+                </td>
+                <td>
+                  <ManagerAccountRoleSelect
+                    label={option.label}
+                    portalEnabled={portalEnabled}
+                    value={option.access}
+                    onChange={(access) => onAccessChange(option.id, access)}
+                    showLabel={false}
+                    fieldClassName="w-full md:w-52"
+                    invalid={invalid}
+                    describedBy={invalid ? errorId : undefined}
+                  />
+                </td>
+                <td>
+                  <PortalAccountRoleSelect
+                    label={option.label}
+                    portalEnabled={portalEnabled}
+                    value={option.access}
+                    onChange={(access) => onAccessChange(option.id, access)}
+                    showLabel={false}
+                    fieldClassName="w-full md:w-44"
+                    invalid={invalid}
+                    describedBy={invalid ? errorId : undefined}
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

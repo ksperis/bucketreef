@@ -109,7 +109,7 @@ collaborator grants as their source of truth.
     Portal requires `portal_enabled` and an explicit project link. File browsing
     inside spaces also requires `browser_enabled` and
     `browser_portal_enabled`. Standalone `/browser` access additionally requires
-    the project's effective `browser_access_enabled` setting, which is disabled
+    the project's effective `browser_access_enabled` setting, which is enabled
     by default and does not affect file browsing inside Portal.
 
 ## Related pages

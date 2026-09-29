@@ -68,6 +68,7 @@ const fetchPortalObjectDetailMock = vi.fn();
 const fetchPortalObjectVersionsMock = vi.fn();
 const listPortalPublicLinksMock = vi.fn();
 const fetchPortalAccessSummaryMock = vi.fn();
+const listBrowserFavoritesMock = vi.fn();
 
 const getBucketStatsMock = vi.fn();
 const getBucketPropertiesMock = vi.fn();
@@ -194,6 +195,18 @@ vi.mock("../../api/browserBuckets", async () => {
       ensureBrowserBucketCorsMock(...args),
     createBrowserBucket: (...args: unknown[]) =>
       createBrowserBucketMock(...args),
+  };
+});
+
+vi.mock("../../api/browserFavorites", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../api/browserFavorites")>(
+      "../../api/browserFavorites",
+    );
+  return {
+    ...actual,
+    listBrowserFavorites: (...args: unknown[]) =>
+      listBrowserFavoritesMock(...args),
   };
 });
 
@@ -718,6 +731,7 @@ describe("BrowserPage interactions", () => {
       streaming_zip_threshold_mb: 200,
     });
     fetchBrowserUsageSummaryMock.mockResolvedValue({ available: false });
+    listBrowserFavoritesMock.mockResolvedValue([]);
 
     searchBrowserBucketsMock.mockResolvedValue({
       items: [{ name: "bucket-1" }],
@@ -1645,7 +1659,7 @@ describe("BrowserPage interactions", () => {
     const selector = screen.getByRole("button", { name: "Select storage space" });
     expect(selector).toHaveTextContent("Research Data");
     const sidebar = screen.getByTestId("browser-workspace-sidebar");
-    expect(sidebar).toHaveAttribute("aria-label", "Storage Spaces");
+    expect(sidebar).toHaveAttribute("aria-label", "Spaces");
     expect(within(sidebar).getByText("Research Data")).toBeInTheDocument();
     const description = within(sidebar).getByText("Shared research datasets with a deliberately detailed description");
     expect(description).toHaveAttribute("title", "Shared research datasets with a deliberately detailed description");
@@ -1653,7 +1667,8 @@ describe("BrowserPage interactions", () => {
 
     await user.click(selector);
     expect(screen.getByPlaceholderText("Filter storage spaces")).toBeInTheDocument();
-    expect(screen.getAllByText("Storage Spaces", { exact: true })).toHaveLength(2); // Includes the sidebar tab.
+    expect(screen.getByText("Storage Spaces", { exact: true })).toBeInTheDocument();
+    expect(within(sidebar).getByText("Spaces", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("1 of 1 storage space")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Filter buckets")).not.toBeInTheDocument();
     expect(screen.queryByText("Buckets", { exact: true })).not.toBeInTheDocument();

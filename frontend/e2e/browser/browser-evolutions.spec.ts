@@ -39,36 +39,38 @@ async function upload(page: Page, name: string, body: Buffer, mimeType = "text/p
   await (await chooser).setFiles({ name, mimeType, buffer: body });
 }
 
-test("synchronizes path favorites across sessions and retains the original search menu", async ({ page, browser }) => {
+test("toggles path favorites directly, synchronizes them across sessions, and retains the original search menu", async ({ page, browser }) => {
   await open(page);
+  const name = prefix.replace(/\/$/, "").split("/").at(-1)!;
+  const contextBar = page.getByRole("toolbar", { name: "Browser context bar" });
+  const addFavorite = contextBar.getByRole("button", { name: "Add to favorites", exact: true });
+  await expect(addFavorite).toHaveAttribute("aria-pressed", "false");
+  await addFavorite.click();
+  const removeFavorite = contextBar.getByRole("button", { name: "Remove from favorites", exact: true });
+  await expect(removeFavorite).toHaveAttribute("aria-pressed", "true");
+
   await page.getByRole("tab", { name: "Favorites", exact: true }).click();
-  await page.getByRole("button", { name: "Manage favorites", exact: true }).click();
-  const favorites = page.getByRole("dialog", { name: "Favorites" });
-  const name = `Documents ${prefix}`;
-  await favorites.getByLabel("Name", { exact: true }).fill(name);
-  await favorites.getByRole("button", { name: "Pin location", exact: true }).click();
-  const saved = favorites.getByRole("listitem").filter({ hasText: name });
-  await expect(saved).toBeVisible();
-  await expect(favorites.getByRole("button", { name: "Save view" })).toHaveCount(0);
-  await saved.getByRole("button", { name: "Rename", exact: true }).click();
-  await favorites.getByLabel("Rename saved item").fill(name + " renamed");
-  await favorites.getByRole("button", { name: "Save name", exact: true }).click();
-  await expect(saved).toContainText("renamed");
-  await page.keyboard.press("Escape");
   const sidebar = page.locator("[data-testid=browser-workspace-sidebar]:visible");
+  await expect(sidebar.getByText(name, { exact: true })).toBeVisible();
   await expect(sidebar).toContainText(E2E_BUCKET_NAME);
   await expect(sidebar).toContainText("Browser Moto E2E");
+  await expect(page.getByRole("dialog", { name: "Favorites" })).toHaveCount(0);
+
   const second = await browser.newContext({ storageState: await page.context().storageState(), baseURL: new URL(page.url()).origin, viewport: { width: 1728, height: 972 } });
   try {
     const other = await second.newPage(); await open(other);
+    await expect(other.getByRole("toolbar", { name: "Browser context bar" }).getByRole("button", { name: "Remove from favorites", exact: true })).toHaveAttribute("aria-pressed", "true");
     await other.getByRole("tab", { name: "Favorites", exact: true }).click();
-    await expect(other.getByText(name + " renamed", { exact: true })).toBeVisible();
-    await other.getByRole("button", { name: `Manage favorites: ${name} renamed`, exact: true }).click();
-    await other.getByRole("dialog", { name: "Favorites" }).getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: "Remove", exact: true }).click();
-    await expect(other.getByRole("button", { name: `★ ${name} renamed`, exact: true })).toHaveCount(0);
+    const otherSidebar = other.locator("[data-testid=browser-workspace-sidebar]:visible");
+    await expect(otherSidebar.getByText(name, { exact: true })).toBeVisible();
+    await other.getByRole("button", { name: `Remove from favorites: ${name}`, exact: true }).click();
+    await expect(otherSidebar.getByText(name, { exact: true })).toHaveCount(0);
   } finally { await second.close(); }
+
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(sidebar.getByText(name + " renamed", { exact: true })).toHaveCount(0);
+  await expect(sidebar.getByText(name, { exact: true })).toHaveCount(0);
+  await expect(contextBar.getByRole("button", { name: "Add to favorites", exact: true })).toHaveAttribute("aria-pressed", "false");
+
   await page.getByRole("button", { name: "Search options", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Search scope" })).toBeDisabled();
   await expect(page.getByRole("dialog", { name: "Advanced search" })).toHaveCount(0);

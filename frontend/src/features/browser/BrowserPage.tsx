@@ -1,5 +1,4 @@
 import { retireBrowserTransferStorage } from "./browserRetiredTransferStorage";
-import { cloneElement } from "react";
 import type { BrowserFavorite } from "../../api/browserFavorites";
 import BrowserFavoritesControl from "./BrowserFavoritesControl";
 /*
@@ -77,6 +76,7 @@ import {
   useBrowserNavigationHistory,
 } from "./useBrowserNavigationHistory";
 import { useBrowserNotices } from "./useBrowserNotices";
+import { browserFavoriteDefaultName, useBrowserFavorites } from "./useBrowserFavorites";
 import { useBrowserObjectColumns } from "./useBrowserObjectColumns";
 import { useBrowserDetailsDrawerState } from "./useBrowserDetailsDrawerState";
 import { useBrowserObjectListing } from "./useBrowserObjectListing";
@@ -1824,31 +1824,127 @@ export default function BrowserPage({
     openCreateBucketForm();
   }, [bucketManagementEnabled, openCreateBucketForm, setBucketFilter]);
 
-  const favoriteControl = useMemo(() => (
-    <BrowserFavoritesControl
-      contextLabels={Object.fromEntries(browserContext.contexts.map(context => [context.id, context.display_name]))}
-      availableContexts={isMainBrowserPath ? browserContext.contexts.map(context => context.id) : []}
-      accountUser={Boolean(storedUser && storedUser.authType !== "s3_session")}
-      lockedBucket={resolvedLockedBucketName}
-      current={{ name: normalizedPrefix || bucketName, surface: isMainBrowserPath ? "browser" : workspaceSurface, workspace: workspaceSurface, context: String(accountIdForApi ?? ""), bucket: bucketName, prefix: normalizedPrefix }}
-      onApply={favorite => requestDetailsDrawerTransition(() => {
+  const accountUser = Boolean(storedUser && storedUser.authType !== "s3_session");
+  const currentFavoriteName = useMemo(
+    () =>
+      browserFavoriteDefaultName({
+        bucketName,
+        bucketLabel: isStorageSpaceContext
+          ? bucketDisplayNameByName.get(bucketName)
+          : undefined,
+        prefix: normalizedPrefix,
+      }),
+    [bucketDisplayNameByName, bucketName, isStorageSpaceContext, normalizedPrefix],
+  );
+  const currentFavorite = useMemo(
+    () => ({
+      name: currentFavoriteName,
+      surface: isMainBrowserPath ? ("browser" as const) : workspaceSurface,
+      workspace: workspaceSurface,
+      context: String(accountIdForApi ?? ""),
+      bucket: bucketName,
+      prefix: normalizedPrefix,
+    }),
+    [
+      accountIdForApi,
+      bucketName,
+      currentFavoriteName,
+      isMainBrowserPath,
+      normalizedPrefix,
+      workspaceSurface,
+    ],
+  );
+  const favoriteContextLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        browserContext.contexts.map((context) => [context.id, context.display_name]),
+      ),
+    [browserContext.contexts],
+  );
+  const favoriteAvailableContexts = useMemo(
+    () =>
+      isMainBrowserPath
+        ? browserContext.contexts.map((context) => context.id)
+        : [],
+    [browserContext.contexts, isMainBrowserPath],
+  );
+  const handleApplyFavorite = useCallback(
+    (favorite: BrowserFavorite) =>
+      requestDetailsDrawerTransition(() => {
         if (favorite.context !== String(accountIdForApi ?? "")) {
           const nextParams = new URLSearchParams(searchParams);
           nextParams.set("ctx", favorite.context);
-          navigate(buildBrowserLocationPath(location.pathname, nextParams.toString(), location.hash, { bucketName: favorite.bucket, prefix: favorite.prefix }));
+          navigate(
+            buildBrowserLocationPath(
+              location.pathname,
+              nextParams.toString(),
+              location.hash,
+              { bucketName: favorite.bucket, prefix: favorite.prefix },
+            ),
+          );
         } else {
           setBucketName(favorite.bucket);
           setPrefix(favorite.prefix);
         }
         clearActiveItem();
-      })}
-    />
-  ), [isMainBrowserPath, browserContext.contexts, storedUser, resolvedLockedBucketName, normalizedPrefix, bucketName, workspaceSurface, accountIdForApi, requestDetailsDrawerTransition, searchParams, navigate, location.pathname, location.hash, setBucketName, setPrefix, clearActiveItem]);
+      }),
+    [
+      accountIdForApi,
+      clearActiveItem,
+      location.hash,
+      location.pathname,
+      navigate,
+      requestDetailsDrawerTransition,
+      searchParams,
+      setBucketName,
+      setPrefix,
+    ],
+  );
+  const {
+    apply: applyBrowserFavorite,
+    busy: browserFavoritesBusy,
+    canToggleCurrent: canToggleCurrentFavorite,
+    error: browserFavoritesError,
+    favorites: browserFavoriteItems,
+    isCurrentFavorite,
+    removeLocation: removeBrowserFavoriteLocation,
+    toggleCurrent: toggleCurrentFavorite,
+    unavailable: unavailableBrowserFavorites,
+  } = useBrowserFavorites({
+    accountUser,
+    availableContexts: favoriteAvailableContexts,
+    current: currentFavorite,
+    enabled: isMainBrowserPath,
+    lockedBucket: resolvedLockedBucketName,
+    onApply: handleApplyFavorite,
+    onStatus: setStatusMessage,
+    onWarning: setWarningMessage,
+  });
 
   const renderWorkspaceSidebarBody = useCallback<BrowserSidebarBodyRenderer>(
     ({ compact, variant, closeMobile }) => (
       <BrowserWorkspaceSidebar
-        favorites={cloneElement(favoriteControl, { variant: "sidebar", compact, onApply: (favorite: BrowserFavorite) => { favoriteControl.props.onApply(favorite); if (variant === "mobile") closeMobile(); } })}
+        favorites={
+          <BrowserFavoritesControl
+            accountUser={accountUser}
+            bucketLabels={isStorageSpaceContext ? bucketDisplayNameByName : undefined}
+            busy={browserFavoritesBusy}
+            compact={compact}
+            contextLabels={favoriteContextLabels}
+            current={currentFavorite}
+            error={browserFavoritesError}
+            favorites={browserFavoriteItems}
+            onApply={(favorite) => {
+              void applyBrowserFavorite(favorite).then((applied) => {
+                if (applied && variant === "mobile") closeMobile();
+              });
+            }}
+            onRemove={(favorite) => {
+              void removeBrowserFavoriteLocation(favorite);
+            }}
+            unavailable={unavailableBrowserFavorites}
+          />
+        }
         compact={compact}
         variant={variant}
         closeMobile={closeMobile}
@@ -1881,7 +1977,14 @@ export default function BrowserPage({
       />
     ),
     [
-      favoriteControl,
+      accountUser,
+      applyBrowserFavorite,
+      browserFavoriteItems,
+      browserFavoritesBusy,
+      browserFavoritesError,
+      bucketDisplayNameByName,
+      currentFavorite,
+      favoriteContextLabels,
       bucketError,
       bucketFilter,
       bucketManagementEnabled,
@@ -1895,13 +1998,16 @@ export default function BrowserPage({
       handleBucketChange,
       handleBucketMenuLoadMore,
       isPortalBrowserSurface,
+      isStorageSpaceContext,
       loadingBuckets,
       openCreateBucketDialog,
+      removeBrowserFavoriteLocation,
       refreshBucketList,
       setBucketFilter,
       usageSummary,
       usageSummaryError,
       usageSummaryLoading,
+      unavailableBrowserFavorites,
       workspaceAccountAction,
       workspaceSidebarRows,
     ],
@@ -2552,6 +2658,17 @@ export default function BrowserPage({
               activeSuggestionIndex: pathSuggestionIndex,
               breadcrumbs,
               canGoUp,
+              favorite:
+                isMainBrowserPath && accountUser
+                  ? {
+                      active: isCurrentFavorite,
+                      busy: browserFavoritesBusy,
+                      disabled: !canToggleCurrentFavorite,
+                      onToggle: () => {
+                        void toggleCurrentFavorite();
+                      },
+                    }
+                  : undefined,
               onStartEditing: startEditingPath,
               onChange: setPathDraft,
               onBlur: commitPathDraft,

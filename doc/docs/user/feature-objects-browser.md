@@ -163,9 +163,9 @@ Listing and sorted pagination keep their existing bounds. A sorted scan can reac
 
 ### Personal path favorites
 
-The standalone sidebar has **Buckets / Favorites** tabs. Each favorite shows its bucket, path and context in a subtitle. Search the list or use an item's menu to rename or remove it. Embedded Browser surfaces do not expose favorites because they do not include the standalone sidebar.
+The standalone sidebar has **Buckets / Favorites** tabs. Each favorite shows its storage location, path and context in a subtitle. Storage Space contexts use the Storage Space name instead of the technical bucket name. Search the list and select a favorite to open it. Embedded Browser surfaces do not expose favorites because they do not include the standalone sidebar.
 
-Use **Pin location** to save the current context and exact path. Favorites synchronize through your UI account and refresh when the window regains focus. Concurrent edits or removals are rejected; refresh before retrying. Unavailable locations remain identifiable and never silently change execution identity.
+Use the star in the current-path bar to add or remove the exact location. An outlined star means the path is not saved; a filled yellow star means it is a favorite. The same yellow star appears beside saved locations in the Favorites sidebar and removes that location directly. New favorites are named automatically from the current folder, or from the bucket/Storage Space at its root. Favorites synchronize through your UI account and refresh when the window regains focus. Duplicate records for the same exact location are treated as one favorite and removed together. Unavailable locations remain identifiable and never silently change execution identity.
 
 Temporary S3 sessions cannot synchronize favorites. Standalone and embedded workspace collections remain separate. Favorites do not save search, filters, sorting or columns. Previously saved views are removed by the path-favorites migration; existing path favorites retain their IDs and revision history.
 

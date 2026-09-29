@@ -1,6 +1,7 @@
 # Browser simplification: implementation and validation
 
-Implementation record for 28 September 2026. The managed worktree starts from
+Implementation record for 28 September 2026, updated on 29 September for the
+simplified favorites workflow. The managed worktree starts from
 `main` at `75f29467` on `codex/browser-simplification`. Earlier Browser behavior at
 `6f37a18c` is a reference, not a sequence of blind reverts. The original checkout
 is preserved; delivery consists of local commits only.
@@ -13,9 +14,13 @@ See the [user guide](../user/feature-objects-browser.md) for behavior and limits
   and immediate operation results. Empty archives and streaming writer closure
   retain the fixes made after the original implementation.
 - Personal path favorites retain the standalone **Buckets / Favorites** sidebar,
-  bucket/path/context subtitles, create/rename/delete and account synchronization.
-  Embedded Browser surfaces expose favorites through **More**. Inaccessible
-  contexts never silently switch execution identity.
+  bucket/path/context subtitles and account synchronization. The current exact
+  location is added or removed directly from the path-bar star; the sidebar uses
+  the same yellow active star for direct removal. Names are generated from the
+  final path segment, or from the bucket/Storage Space at its root. Storage Space
+  contexts display the Storage Space name while preserving the technical bucket
+  as storage identity. Embedded Browser surfaces do not expose favorites.
+  Inaccessible contexts never silently switch execution identity.
 - Current-object previews retain CSV tables, collapsible JSON, raw-text fallback,
   text search, loaded-file navigation and unsaved-change protection. Limits remain
   50 MiB per object and 64 KiB of text; previews execute no active markup.
@@ -77,10 +82,16 @@ not connect to production storage. Commands run from `frontend/` or `backend/`.
 | Retired functionality | OpenAPI and model tests assert the removed routes, filters, session fields and generic preset columns are absent; source inspection finds no recovery worker, lock or database-open path. |
 
 The combined Browser journeys cover favorites shared between two browser contexts,
-rename/delete, original search options, normal overwrite, mixed ZIP bytes, CSV/JSON
+direct add/remove, original search options, normal overwrite, mixed ZIP bytes, CSV/JSON
 search and navigation, 1440-pixel desktop and 390-pixel mobile in both themes,
 a 26 MiB direct multipart upload, a proxy upload and original Copy/Cut/Paste.
 The layout journey records screenshots and asserts no uncaught browser errors.
+
+The 29 September favorites follow-up passed 149 targeted Browser Vitest tests,
+frontend type checking, the updated Chromium multi-session favorites journey,
+and authenticated desktop/mobile visual smoke checks in light and dark themes.
+The Storage Space label mapping is covered by the targeted favorites component
+tests. The qualification boundary below remains unchanged.
 
 The ZIP browser journey uses the bounded Blob path because headless tests cannot
 operate an OS save dialog. Focused tests exercise streaming completion, cancellation,
