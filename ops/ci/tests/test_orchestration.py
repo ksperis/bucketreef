@@ -27,6 +27,27 @@ def test_public_workflow_covers_all_jobs_and_no_privileged_event():
     assert config['permissions'] == {'contents': 'read'}
 
 
+def test_public_validation_uses_full_history_and_runtimes_only_when_needed():
+    config = yaml.safe_load((ROOT / '.github/workflows/validate-task.yml').read_text())
+    steps = config['jobs']['validate']['steps']
+    checkout = next(step for step in steps if str(step.get('uses', '')).startswith('actions/checkout@'))
+    setup_python = next(step for step in steps if str(step.get('uses', '')).startswith('actions/setup-python@'))
+    setup_node = next(step for step in steps if str(step.get('uses', '')).startswith('actions/setup-node@'))
+    assert 'ci-contract' in checkout['with']['fetch-depth']
+    assert 'secret-scan' in checkout['with']['fetch-depth']
+    assert 'docs-build' in checkout['with']['fetch-depth']
+    assert 'backend-tests' in setup_python['if']
+    assert 'frontend-quality' in setup_node['if']
+    assert 'frontend-audit' in setup_node['if']
+    events = config.get('on', config.get(True))
+    assert events['workflow_call']['inputs']['shard']['default'] == ''
+    assert events['workflow_call']['inputs']['artifact_suffix']['default'] == ''
+    secret_resolver = next(step for step in steps if step.get('name') == 'Resolve secret-scan revision')
+    revision_check = next(step for step in steps if step.get('name') == 'Verify tested revision')
+    assert secret_resolver['if'] == "${{ inputs.task == 'secret-scan' }}"
+    assert revision_check['if'] == "${{ inputs.task != 'secret-scan' }}"
+
+
 @pytest.mark.parametrize('paths', [['README.md'], ['ops/cron/run-billing.sh'], ['backend/app/main.py'], ['ops/release/prepare.py'], None])
 def test_selected_graph_has_no_dangling_or_optional_needs(paths):
     plan = {**select('integration', paths), 'sha': 'a'*40, 'parent_id': 10}
@@ -38,8 +59,66 @@ def test_selected_graph_has_no_dangling_or_optional_needs(paths):
         for need in job.get('needs', []):
             assert need['job'] in config
             assert not need.get('optional')
+            assert isinstance(need.get('artifacts'), bool)
         assert job.get('allow_failure', False) is False
     assert config['ceph-functional-tests']['allow_failure'] is False if 'ceph-functional-tests' in config else True
+
+
+def test_public_frontend_tests_are_two_fixed_shards_with_distinct_artifacts():
+    config = yaml.safe_load((ROOT / '.github/workflows/pr.yml').read_text())
+    job = config['jobs']['frontend-tests']
+    assert job['strategy']['fail-fast'] is False
+    assert job['strategy']['matrix']['include'] == [
+        {'shard': '1/2', 'artifact_suffix': '-1-of-2'},
+        {'shard': '2/2', 'artifact_suffix': '-2-of-2'},
+    ]
+    assert job['with']['shard'] == '${{ matrix.shard }}'
+    assert job['with']['artifact_suffix'] == '${{ matrix.artifact_suffix }}'
+
+
+def test_private_vitest_and_artifact_graph_is_explicit_and_parallel():
+    integration = render({**select('integration', ['frontend/src/main.tsx']), 'sha': 'a'*40, 'parent_id': 10})
+    assert integration['frontend-tests']['parallel']['matrix'] == [{'VITEST_SHARD': ['1/2', '2/2']}]
+    expected_build_needs = {'pipeline-plan', 'project-naming', 'ci-contract', 'secret-scan'}
+    for name in ('build-backend', 'build-frontend'):
+        needs = {item['job']: item['artifacts'] for item in integration[name]['needs']}
+        assert set(needs) == expected_build_needs
+        assert needs['pipeline-plan'] is True
+        assert all(needs[gate] is False for gate in expected_build_needs - {'pipeline-plan'})
+    ready = {item['job']: item['artifacts'] for item in integration['integration-ready']['needs']}
+    assert ready['build-backend'] is True and ready['build-frontend'] is True
+    assert ready['frontend-tests'] is False
+    assert ready['frontend-browser-e2e'] is False
+    assert ready['frontend-image-vuln-scan'] is False
+
+    qualification = render({**select('qualify', None), 'sha': 'a'*40, 'parent_id': 11})
+    qualified_ready = {item['job']: item['artifacts'] for item in qualification['integration-ready']['needs']}
+    assert qualified_ready['backend-image-vuln-scan'] is True
+    assert qualified_ready['frontend-image-vuln-scan'] is True
+    assert qualified_ready['scheduler-image-vuln-scan'] is True
+    assert qualified_ready['frontend-tests'] is False
+
+    docs = render({**select('docs', None), 'sha': 'a'*40, 'parent_id': 12})
+    deploy = {item['job']: item['artifacts'] for item in docs['docs-deploy']['needs']}
+    assert deploy['docs-build'] is True
+    assert deploy['docs-screenshots'] is False
+
+
+def test_expected_names_expands_both_vitest_and_image_matrices():
+    assert expected_names(['frontend-tests', 'backend-image-vuln-scan']) == [
+        'frontend-tests: [1/2]', 'frontend-tests: [2/2]',
+        'backend-image-vuln-scan: [amd64]', 'backend-image-vuln-scan: [arm64]',
+    ]
+
+
+def test_only_integration_validation_is_interruptible_by_default():
+    integration = render({**select('integration', ['backend/app/main.py']), 'sha': 'a'*40, 'parent_id': 10})
+    qualification = render({**select('qualify', None), 'sha': 'a'*40, 'parent_id': 11})
+    dev = render({**select('integration', ['backend/app/main.py'], ref='dev'), 'sha': 'a'*40, 'parent_id': 12})
+    assert integration['default']['interruptible'] is True
+    assert qualification['default']['interruptible'] is False
+    assert dev['promote-backend-dev']['interruptible'] is False
+    assert dev['promote-frontend-dev']['interruptible'] is False
 
 
 @pytest.mark.parametrize('status', ['failed', 'canceled', 'skipped', 'manual', 'running'])
@@ -50,6 +129,18 @@ def test_private_gate_rejects_non_successful_matrix_member(status):
     jobs[1]['status'] = status
     with pytest.raises(ValueError): successful_jobs(jobs, names, 'a'*40)
     with pytest.raises(ValueError): successful_jobs(jobs[:1], names, 'a'*40)
+
+
+def test_vitest_matrix_requires_every_shard():
+    names = expected_names(['frontend-tests'])
+    jobs = [{'id': i, 'name': name, 'status': 'success', 'allow_failure': False,
+             'commit': {'id': 'a' * 40}} for i, name in enumerate(names)]
+    assert len(successful_jobs(jobs, names, 'a' * 40)) == 2
+    with pytest.raises(ValueError):
+        successful_jobs(jobs[:1], names, 'a' * 40)
+    jobs[1]['status'] = 'failed'
+    with pytest.raises(ValueError):
+        successful_jobs(jobs, names, 'a' * 40)
 
 
 def test_secret_findings_are_redacted_and_invalid_report_fails():

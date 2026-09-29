@@ -87,13 +87,30 @@ jobs:
     uses: ./.github/workflows/validate-task.yml
     with:
       task: frontend-quality
+  frontend-audit:
+    needs:
+    - plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'frontend-audit') }}
+    uses: ./.github/workflows/validate-task.yml
+    with:
+      task: frontend-audit
   frontend-tests:
     needs:
     - plan
     if: ${{ contains(fromJSON(needs.plan.outputs.jobs), 'frontend-tests') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - shard: 1/2
+          artifact_suffix: -1-of-2
+        - shard: 2/2
+          artifact_suffix: -2-of-2
     uses: ./.github/workflows/validate-task.yml
     with:
       task: frontend-tests
+      shard: ${{ matrix.shard }}
+      artifact_suffix: ${{ matrix.artifact_suffix }}
   frontend-browser-e2e:
     needs:
     - plan
@@ -156,6 +173,7 @@ jobs:
     - backend-deadcode
     - backend-vuln-scan
     - frontend-quality
+    - frontend-audit
     - frontend-tests
     - frontend-browser-e2e
     - frontend-demo

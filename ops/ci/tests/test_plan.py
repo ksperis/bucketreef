@@ -15,8 +15,17 @@ from required import check
     ("ops/release/prepare.py", {"backend-tests", "helm-contract"}, {"frontend-tests"}),
     ("ops/cron/run-billing.sh", {"build-scheduler", "compose-contract"}, {"build-frontend"}),
     ("backend/app/main.py", {"backend-tests", "backend-security-contract", "backend-postgresql-tests", "ceph-functional-tests", "build-frontend"}, {"build-scheduler"}),
-    ("frontend/src/main.tsx", {"frontend-quality", "frontend-tests", "frontend-browser-e2e"}, {"ceph-functional-tests"}),
+    ("frontend/src/main.tsx", {"frontend-quality", "frontend-tests", "frontend-browser-e2e", "frontend-demo", "build-frontend"}, {"frontend-audit", "ceph-functional-tests"}),
+    ("frontend/src/features/admin/UsersPage.test.tsx", {"frontend-quality", "frontend-tests"}, {"frontend-browser-e2e", "frontend-demo", "build-frontend"}),
+    ("frontend/src/test/setup.ts", {"frontend-quality", "frontend-tests"}, {"frontend-browser-e2e", "frontend-demo", "build-frontend"}),
+    ("frontend/e2e/browser/browser-login.spec.ts", {"frontend-quality", "frontend-browser-e2e"}, {"frontend-tests", "frontend-demo", "build-frontend"}),
+    ("frontend/e2e/helpers/config.ts", {"frontend-quality", "frontend-browser-e2e"}, {"frontend-tests", "frontend-demo", "build-frontend"}),
+    ("frontend/e2e/demo/ui.spec.ts", {"frontend-quality", "frontend-demo"}, {"frontend-tests", "frontend-browser-e2e", "build-frontend"}),
+    ("frontend/package-lock.json", {"frontend-audit", "frontend-vuln-scan", "build-backend", "build-frontend"}, {"ceph-functional-tests"}),
     ("frontend/scripts/docs-screenshots/check.mjs", {"docs-build", "frontend-quality"}, {"build-backend"}),
+    ("backend/tests/test_example.py", {"backend-tests"}, {"backend-security-contract", "backend-postgresql-tests", "backend-deadcode", "ceph-functional-tests"}),
+    ("backend/tests_postgresql/test_example.py", {"backend-postgresql-tests"}, {"backend-tests", "backend-security-contract", "backend-deadcode", "ceph-functional-tests"}),
+    ("backend/tests_ceph_functional/test_example.py", {"backend-tests", "ceph-functional-tests"}, {"backend-security-contract", "backend-postgresql-tests", "backend-deadcode"}),
 ])
 def test_dependencies(path, expected, absent):
     jobs = set(select("integration", [path])["jobs"])
@@ -56,6 +65,7 @@ def test_profiles_are_disjoint():
         plan = select(profile, None)
         assert not plan["images"]
         assert "docs-deploy" not in plan["jobs"]
+    assert "frontend-audit" in select("security", None)["jobs"]
     assert select("integration", ["README.md"], version=True)["profile"] == "qualify"
     assert select("integration", ["README.md"], ref="dev", version=True)["profile"] == "integration"
 

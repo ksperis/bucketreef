@@ -43,14 +43,16 @@ is an error. Integration and manual qualification always carry an explicit basel
 when no successful baseline exists yet, they use the current commit's parent.
 Only the scheduled `secrets-history` profile enables the detector's full-history mode.
 
-Backend changes select pytest, the Admin sensitive-route security contract,
-PostgreSQL/migrations and Vulture; runtime changes also select browser checks,
-Ceph and image tests. The security contract scans every mutating `/admin` route,
+Backend application, migration and dependency changes select pytest, the Admin
+sensitive-route security contract, PostgreSQL/migrations and Vulture. Ordinary
+backend test changes select only the matching test suite; Ceph functional-test
+changes keep the general backend tests plus the private Ceph suite. Runtime
+changes also select browser checks, Ceph and image tests. The security contract scans every mutating `/admin` route,
 requires an explicit guard classification, detects guard downgrades/drift, and
-publishes `gl-security-reports/backend-sensitive-routes.md`. Frontend selects the existing
-quality suite, Vitest, browser tests and the static demo browser suite.
-See [Static interactive demo](static-demo.md) for coverage and publication. Dependency changes add the corresponding
-Trivy scans; `npm audit --omit=dev --audit-level=high` remains in frontend quality.
+publishes `gl-security-reports/backend-sensitive-routes.md`. Frontend runtime changes select the
+quality suite, Vitest, browser tests, the static demo suite and image validation. Unit-test-only, Browser E2E and
+demo-only paths select only their matching frontend validation plus the shared quality gate. Dependency changes
+add a dedicated `npm audit` job and the corresponding Trivy scans.
 Release scripts select Python tests and Helm/Compose contracts. Deploy changes
 also select image onboarding checks. Cron/scheduler selects Python/ops contracts,
 a public native scheduler smoke and the private scheduler build/scan. Backend and
@@ -69,7 +71,7 @@ GitLab generates one bounded child pipeline from `ops/ci/gitlab/jobs.yml`.
 Every selected dependency is mandatory, with no `optional` or `allow_failure`
 escape. The parent uses `strategy: depend` for GitLab CE 18.1 compatibility.
 `integration-ready` and `release-ready` also inspect real API job results,
-including both named members of scan/smoke matrices and each job's commit SHA.
+including every named member of test, scan and smoke matrices and each job's commit SHA.
 Every complete `qualify` child also runs `release-preflight`. It verifies the four
 release credentials are available, validates GitLab read access and GitHub write
 authority, requires the same `main` SHA on both forges, checks prepared version,
@@ -124,12 +126,19 @@ Runtime checks pull each architecture by its platform manifest digest from that
 index. This supports Docker's classic image store while qualification and SHA tags
 continue to identify the complete multiarchitecture index, including attestations.
 
-Only npm/pip downloads are cached, keyed by dependencies and tool versions. Public
-GitHub caches and protected GitLab caches are separate; do not share runner caches
+Only npm/pip downloads are cached, keyed by dependencies and tool versions. GitHub
+keeps complete history only for CI-contract, secret-scan and strict documentation
+jobs; other validation tasks use a shallow checkout and install only the Python
+or Node runtime they need. Vitest is split into two fixed shards on both providers.
+GitLab starts image builds after the short mandatory policy gates while application
+suites run in parallel, and `needs` downloads artifacts only when the consumer reads
+them. Public GitHub caches and protected GitLab caches are separate; do not share runner caches
 across trust boundaries. BuildKit cache writes are restricted to protected builds
 and component/branch namespaces. Builds still run tests and scans when reusing an
-existing SHA image. Global retries cover infrastructure errors only; test failures
-are not retried as entire jobs. Playwright retains its explicit single retry and
+existing SHA image. Ordinary GitLab integration child jobs are interruptible so
+obsolete revisions can be canceled; deployment and dev-promotion jobs remain
+non-interruptible, as do qualification and release profiles. Global retries cover
+infrastructure errors only; test failures are not retried as entire jobs. Playwright retains its explicit single retry and
 failure diagnostics.
 
 One Trivy JSON scan produces table and CycloneDX output, preserving HIGH/CRITICAL,
