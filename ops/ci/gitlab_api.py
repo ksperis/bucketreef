@@ -48,7 +48,9 @@ class GitLabAPI:
 def expected_names(names):
     result = []
     for name in names:
-        if name.endswith("image-vuln-scan") or name in {"release-quickstart-smoke", "release-compose-smoke"}:
+        if name == "frontend-tests":
+            result.extend(f"{name}: [{shard}]" for shard in ("1/2", "2/2"))
+        elif name.endswith("image-vuln-scan") or name in {"release-quickstart-smoke", "release-compose-smoke"}:
             result.extend(f"{name}: [{arch}]" for arch in ("amd64", "arm64"))
         else:
             result.append(name)

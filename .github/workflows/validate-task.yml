@@ -5,6 +5,14 @@ name: Validation task
       task:
         required: true
         type: string
+      shard:
+        required: false
+        type: string
+        default: ''
+      artifact_suffix:
+        required: false
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -29,9 +37,10 @@ jobs:
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
-        fetch-depth: 0
+        fetch-depth: ${{ contains(fromJSON('["ci-contract","secret-scan","docs-build"]'), inputs.task) && 0 || 1 }}
         persist-credentials: false
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      if: ${{ contains(fromJSON('["project-naming","ci-contract","secret-scan","backend-tests","backend-security-contract","backend-postgresql-tests","backend-deadcode","frontend-browser-e2e","docs-build"]'), inputs.task) }}
       with:
         python-version: 3.12.14
         cache: ${{ contains(fromJSON('["backend-tests","backend-postgresql-tests","backend-deadcode","ci-contract","docs-build","frontend-browser-e2e"]'), inputs.task) && 'pip' || '' }}
@@ -40,13 +49,18 @@ jobs:
           doc/requirements.txt
           ops/ci/requirements.txt
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      if: ${{ contains(fromJSON('["frontend-quality","frontend-audit","frontend-tests","frontend-browser-e2e","frontend-demo","docs-screenshots"]'), inputs.task) }}
       with:
         node-version: 24.21.0
         cache: ${{ contains(fromJSON('["frontend-quality","frontend-tests","frontend-browser-e2e","frontend-demo"]'), inputs.task) && 'npm' || '' }}
         cache-dependency-path: frontend/package-lock.json
         package-manager-cache: false
-    - name: Resolve tested revision
+    - name: Resolve secret-scan revision
+      if: ${{ inputs.task == 'secret-scan' }}
       run: python3 ops/ci/events.py github
+    - name: Verify tested revision
+      if: ${{ inputs.task != 'secret-scan' }}
+      run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
     - name: Install validation dependencies
       env:
         CI_TASK: ${{ inputs.task }}
@@ -54,12 +68,13 @@ jobs:
     - name: Validate
       env:
         CI_TASK: ${{ inputs.task }}
+        VITEST_SHARD: ${{ inputs.shard }}
       run: sh ops/ci/tasks/public.sh "$CI_TASK"
     - name: Reports
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
-        name: ${{ inputs.task }}-reports
+        name: ${{ inputs.task }}${{ inputs.artifact_suffix }}-reports
         path: |-
           gl-test-reports/
           gl-security-reports/

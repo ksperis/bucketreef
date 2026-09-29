@@ -14,6 +14,24 @@ def templates():
     return yaml.safe_load((ROOT / "ops/ci/gitlab/jobs.yml").read_text())
 
 
+BUILD_GATES = {"project-naming", "ci-contract", "secret-scan"}
+
+
+def dependency_artifacts(consumer, dependency, profile):
+    """Download only artifacts the consumer reads; status-only edges stay cheap."""
+    if dependency == "pipeline-plan":
+        return True
+    if consumer.startswith("build-"):
+        return False
+    if consumer == "integration-ready":
+        if dependency.startswith("build-"):
+            return True
+        return profile in {"qualify", "prepare-release"} and dependency.endswith("image-vuln-scan")
+    if consumer == "docs-deploy" and dependency == "docs-screenshots":
+        return False
+    return True
+
+
 def render(plan):
     source = templates()
     names = set(plan["jobs"])
@@ -48,7 +66,7 @@ def render(plan):
     config = {
         "workflow": {"rules": [{"if": '$CI_PIPELINE_SOURCE == "parent_pipeline" && $CI_COMMIT_REF_PROTECTED == "true"'}, {"when": "never"}]},
         "stages": ["plan", "test", "build", "security", "promote", "deploy", "evidence", "candidate", "installation", "ready", "finalize", "publish-demo"],
-        "default": {"interruptible": False, "retry": {"max": 1, "when": ["api_failure", "runner_system_failure", "stuck_or_timeout_failure"]}, "tags": ["bucketreef-protected"]},
+        "default": {"interruptible": profile == "integration", "retry": {"max": 1, "when": ["api_failure", "runner_system_failure", "stuck_or_timeout_failure"]}, "tags": ["bucketreef-protected"]},
         **yaml.safe_load((ROOT / "ops/ci/gitlab/variables.yml").read_text()),
         "pipeline-plan": {"stage": "plan", "image": "python:3.12-slim", "script": [f"python3 -c \"import base64; open('ci-plan.json','wb').write(base64.b64decode('{payload}'))\""], "artifacts": {"paths": ["ci-plan.json"]}},
     }
@@ -75,17 +93,23 @@ def render(plan):
             job.setdefault("variables", {})["BUNDLE_BOOTSTRAP_VERSION"] = plan["bootstrap_version"]
         dependencies = job.get("needs", [])
         if name.startswith("build-"):
-            dependencies = sorted(set(plan["jobs"]) & {"backend-tests", "backend-security-contract", "backend-postgresql-tests", "backend-deadcode", "frontend-quality", "frontend-tests", "frontend-browser-e2e", "helm-contract", "compose-contract", "ci-contract", "project-naming", "secret-scan"})
+            dependencies = sorted(set(plan["jobs"]) & BUILD_GATES)
         if name == "integration-ready":
             dependencies = plan["jobs"]
         if name.startswith("promote-") and name.endswith("-dev"):
             dependencies = ["integration-ready"]
             job["stage"] = "finalize"
             job["resource_group"] = "internal-dev-images"
-        normalized = [{"job": item, "artifacts": True} if isinstance(item, str) else item for item in dependencies]
-        for dependency in normalized:
+            job["interruptible"] = False
+        normalized = []
+        for item in dependencies:
+            dependency = {"job": item} if isinstance(item, str) else copy.deepcopy(item)
+            dependency.setdefault("artifacts", dependency_artifacts(name, dependency["job"], profile))
             if dependency["job"] not in names or dependency.get("optional"):
                 raise ValueError(f"Missing mandatory dependency: {name} -> {dependency['job']}")
+            if not isinstance(dependency.get("artifacts"), bool):
+                raise ValueError(f"Artifact dependency must be explicit: {name} -> {dependency['job']}")
+            normalized.append(dependency)
         job["needs"] = [{"job": "pipeline-plan", "artifacts": True}, *normalized]
         job.pop("rules", None)
         job["allow_failure"] = False

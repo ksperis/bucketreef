@@ -190,10 +190,21 @@ frontend-quality:
   - sh ops/ci/tasks/run.sh frontend-quality
   before_script:
   - npm ci --prefix frontend --no-audit --no-fund
+frontend-audit:
+  stage: test
+  image: node:24.21.0-bookworm
+  needs: []
+  script:
+  - sh ops/ci/tasks/run.sh frontend-audit
 frontend-tests:
   stage: test
   image: node:24.21.0-bookworm
   needs: []
+  parallel:
+    matrix:
+    - VITEST_SHARD:
+      - 1/2
+      - 2/2
   before_script:
   - npm ci --prefix frontend --no-audit --no-fund
   script:

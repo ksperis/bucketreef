@@ -13,7 +13,7 @@ PUBLIC = (
     "project-naming", "ci-contract", "secret-scan", "backend-tests",
     "backend-security-contract", "backend-postgresql-tests", "backend-deadcode", "backend-vuln-scan",
     "frontend-quality", "frontend-tests", "frontend-browser-e2e", "frontend-demo",
-    "frontend-vuln-scan", "helm-contract", "compose-contract", "docs-build",
+    "frontend-audit", "frontend-vuln-scan", "helm-contract", "compose-contract", "docs-build",
     "docs-screenshots", "scheduler-contract",
 )
 BACKEND = {"backend-tests", "backend-security-contract", "backend-postgresql-tests", "backend-deadcode"}
@@ -131,6 +131,24 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
             add(DOCS, path)
         elif path.startswith("frontend/scripts/docs-screenshots/") or path.startswith("frontend/playwright.docs"):
             add(DOCS | FRONTEND, path)
+        elif (path == "frontend/vitest.config.ts"
+              or path.startswith("frontend/src/test/")
+              or (path.startswith("frontend/src/") and re.search(r"\.test\.(?:ts|tsx)$", path))):
+            add({"frontend-quality", "frontend-tests"}, path)
+        elif (path == "frontend/playwright.e2e.config.ts"
+              or path.startswith(("frontend/e2e/browser/", "frontend/e2e/auth/",
+                                  "frontend/e2e/setup/", "frontend/e2e/helpers/",
+                                  "frontend/e2e/fixtures/"))):
+            add({"frontend-quality", "frontend-browser-e2e"}, path)
+        elif path == "frontend/playwright.demo.config.ts" or path.startswith("frontend/e2e/demo/"):
+            add({"frontend-quality", "frontend-demo"}, path)
+        elif path.startswith("backend/tests_postgresql/"):
+            add({"backend-postgresql-tests"}, path)
+        elif path.startswith("backend/tests_ceph_functional/"):
+            add({"backend-tests"}, path)
+            ceph = True
+        elif path.startswith("backend/tests/"):
+            add({"backend-tests"}, path)
         elif path.startswith("backend/"):
             add(BACKEND, path)
             if path.startswith(("backend/app/", "backend/alembic/")) or "requirements" in path or path.endswith("Dockerfile"):
@@ -139,13 +157,11 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
                 ceph = True
             if "requirements" in path:
                 add({"backend-vuln-scan"}, path)
-            if path.startswith("backend/tests_ceph_functional/"):
-                ceph = True
         elif path.startswith("frontend/"):
             add(FRONTEND | {"frontend-browser-e2e"}, path)
             images.add("frontend")
             if path.endswith(("package.json", "package-lock.json")):
-                add({"frontend-vuln-scan", "backend-tests"}, path)
+                add({"frontend-audit", "frontend-vuln-scan", "backend-tests"}, path)
         elif path.startswith(("ops/release/", "deploy/")) or path in {"CHANGELOG.md", "compose.yaml"}:
             add(DEPLOY, path)
             if path.startswith("deploy/") or path == "compose.yaml":
@@ -166,7 +182,7 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
     elif profile == "docs":
         selected, images, ceph = set(DOCS), set(), False
     elif profile == "security":
-        selected, images, ceph = {"backend-vuln-scan", "frontend-vuln-scan", "secret-scan", "scan-published-images"}, set(), False
+        selected, images, ceph = {"backend-vuln-scan", "frontend-audit", "frontend-vuln-scan", "secret-scan", "scan-published-images"}, set(), False
     elif profile == "secrets-history":
         selected, images, ceph = {"secret-scan"}, set(), False
     elif profile in {"resume-release", "release", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
