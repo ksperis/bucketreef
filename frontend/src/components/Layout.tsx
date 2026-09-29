@@ -13,7 +13,12 @@ import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
 import { useWorkspaceSwitcherModel } from "./EnvironmentSwitcher";
 import Topbar from "./Topbar";
 import type { TopbarControlDescriptor } from "./topbarControlsLayout";
-import { clearAuthStorage } from "../utils/clientStorage";
+import {
+  CLIENT_STORAGE_KEYS,
+  clearAuthStorage,
+  readClientStorage,
+  writeClientStorage,
+} from "../utils/clientStorage";
 import { readStoredUser } from "../utils/workspaces";
 
 type LayoutProps = {
@@ -71,7 +76,9 @@ export default function Layout({
 }: LayoutProps) {
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [desktopSidebarCompact, setDesktopSidebarCompact] = useState(false);
+  const [desktopSidebarCompact, setDesktopSidebarCompact] = useState(
+    () => readClientStorage(CLIENT_STORAGE_KEYS.sidebarCompact) === "1",
+  );
   const shouldShowSidebar = !hideSidebar;
   const userEmail = getUserEmail();
   const workspaceSwitcher = useWorkspaceSwitcherModel();
@@ -127,7 +134,11 @@ export default function Layout({
   }, [mobileSidebarOpen]);
 
   const handleDesktopSidebarCollapseToggle = () => {
-    setDesktopSidebarCompact((current) => !current);
+    setDesktopSidebarCompact((current) => {
+      const next = !current;
+      writeClientStorage(CLIENT_STORAGE_KEYS.sidebarCompact, next ? "1" : "0");
+      return next;
+    });
   };
 
   return (

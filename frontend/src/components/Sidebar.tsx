@@ -136,7 +136,6 @@ export default function Sidebar({
   }, [effectiveSections]);
 
   useEffect(() => {
-    if (compact) return;
     const activeLink = navRef.current?.querySelector<HTMLElement>(".shell-sidebar-item-active");
     activeLink?.scrollIntoView?.({ block: "nearest" });
   }, [collapsedSections, compact, location.pathname]);

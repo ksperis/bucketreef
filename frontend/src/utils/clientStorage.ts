@@ -14,6 +14,7 @@ export const CLIENT_STORAGE_KEYS = {
   brandingPrimaryColor: "branding.primary_color",
   generalSettingsCache: "settings:general:v1",
   selectorTagsPreference: "showSelectorTags",
+  sidebarCompact: "shell:sidebar-compact:v1",
   browserRootUiStateV2: "browser:root-ui-state:v2",
   browserRootUiStateV3: "browser:root-ui-state:v3",
   browserRootContextSelections: "browser:root-context-selections:v2",

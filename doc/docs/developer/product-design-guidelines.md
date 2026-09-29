@@ -234,8 +234,15 @@ or permissions validation.
   that breakpoint. Allow labels and tabs to wrap, with visible keyboard focus;
   preserve arrow, Home and End navigation and disabled-tab behavior.
 - The sidebar uses the same primary color for its vertical selection marker.
-  Profile reuses the navigation links' active and inactive styling, including
-  the marker in expanded/mobile navigation and the icon state when collapsed.
+  Keep the selected background restrained, especially in dark mode, so the
+  marker remains the primary location cue. Profile reuses the navigation links'
+  active and inactive styling, including the marker in expanded/mobile
+  navigation and the icon state when collapsed.
+- Desktop sidebar compact/expanded state is a persisted client preference. Keep
+  the active navigation entry scrolled into view in both states.
+- Topbar workspace/account/endpoint selectors use interactive shell controls
+  only when they can change context. Fixed context values use the static shell
+  presentation without hover, focus, or button semantics.
 - Use `SettingsSwitch` for on/off settings, including profile tag visibility
   and quota notifications. Its 36 x 20px track sits inside a 36 x 32px desktop
   target or a minimum 44 x 44px target below 1024px. Use theme primary for on,

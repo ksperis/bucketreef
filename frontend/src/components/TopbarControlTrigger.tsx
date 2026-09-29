@@ -124,16 +124,16 @@ export function TopbarStaticControl({
   iconSlotClassName,
 }: TopbarStaticControlProps) {
   const iconOnly = mode === "icon";
-  const controlClassName = `shell-control inline-flex items-center rounded-lg border text-left ${
+  const controlClassName = `shell-control-static inline-flex items-center rounded-lg border text-left ${
     iconOnly ? "h-9 w-9 justify-center px-0" : "h-10 min-w-[12rem] gap-2.5 px-3"
   } ${className ?? ""}`;
 
   if (iconOnly) {
     return (
-      <button type="button" aria-label={ariaLabel} title={title ?? value} className={controlClassName}>
-        <span className="shell-icon-muted">{icon}</span>
+      <div role="group" aria-label={ariaLabel} title={title ?? value} className={controlClassName}>
+        <span className="shell-icon-muted" aria-hidden="true">{icon}</span>
         <span className="sr-only">{value}</span>
-      </button>
+      </div>
     );
   }
 
