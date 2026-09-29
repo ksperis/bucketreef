@@ -53,6 +53,14 @@ describe("saved Browser locations", () => {
     expect(screen.queryByRole("region", { name: "Locations" })).not.toBeInTheDocument();
   });
 
+  it("anchors compact favorites to the shared sidebar rail", () => {
+    render(<BrowserFavoritesControl {...buildProps()} compact />);
+
+    const region = screen.getByRole("region", { name: "Favorites" });
+    expect(region).toHaveClass("shell-sidebar-scroll-compact");
+    expect(region.firstElementChild).toHaveClass("shell-sidebar-compact-rail");
+  });
+
   it("shows the Storage Space name instead of its technical bucket for the current context", () => {
     const technicalNamed = { ...saved, name: "reports" };
     render(

@@ -8,7 +8,7 @@ import BrowserWorkspaceSidebar from "./BrowserWorkspaceSidebar";
 
 describe("BrowserWorkspaceSidebar", () => {
   it("balances the compact bucket and favorites tab icons optically", () => {
-    render(
+    const { container } = render(
       <BrowserWorkspaceSidebar
         favorites={<div>Favorite locations</div>}
         compact
@@ -45,6 +45,9 @@ describe("BrowserWorkspaceSidebar", () => {
       "h-4",
       "w-4",
     );
+    const viewport = container.querySelector(".shell-sidebar-scroll-compact");
+    expect(viewport).toBeInTheDocument();
+    expect(viewport?.firstElementChild).toHaveClass("shell-sidebar-compact-rail");
   });
 
   it("renders the Portal Storage Space descriptor instead of the generic bucket icon", () => {

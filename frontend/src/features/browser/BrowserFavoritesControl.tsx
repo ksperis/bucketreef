@@ -98,9 +98,9 @@ export default function BrowserFavoritesControl({
           <div
             role="region"
             aria-label={tr("Favorites")}
-            className={`shell-sidebar-scroll min-h-0 flex-1 overflow-y-auto ${compact ? "px-2 py-2" : "px-2.5 py-3"}`}
+            className={`shell-sidebar-scroll ${compact ? "shell-sidebar-scroll-compact py-2" : "px-2.5 py-3"} min-h-0 flex-1 overflow-y-auto`}
           >
-            <div className="space-y-1.5">
+            <div className={`space-y-1.5 ${compact ? "shell-sidebar-compact-rail" : ""}`}>
               {filteredFavorites.map((favorite) => {
                 const bucketLabel =
                   favorite.context === current.context
