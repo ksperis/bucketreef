@@ -135,7 +135,11 @@ export default function BrowserWorkspaceSidebar({
     usageSummary?.quota_max_size_bytes != null && usageSummary.quota_max_size_bytes > 0
       ? formatBytes(usageSummary.quota_max_size_bytes)
       : null;
-  const totalLabel = bucketTotalCount === 1 ? "1 item" : `${bucketTotalCount} items`;
+  const itemNoun = isPortalContext ? "space" : "bucket";
+  const totalLabel =
+    bucketTotalCount === 1
+      ? `1 ${itemNoun}`
+      : `${bucketTotalCount} ${itemNoun}s`;
   const filteredLabel =
     bucketFilter.trim().length > 0 && bucketMenuTotal !== bucketTotalCount
       ? `${bucketMenuTotal} result${bucketMenuTotal === 1 ? "" : "s"}`
@@ -161,6 +165,22 @@ export default function BrowserWorkspaceSidebar({
       </div>}
       {favorites && tab === "favorites" ? <div role="tabpanel" id={`browser-${variant}-favorites-panel`} aria-labelledby={`browser-${variant}-favorites-tab`} className="flex min-h-0 flex-1 flex-col">{favorites}</div> : <div role={favorites ? "tabpanel" : undefined} id={`browser-${variant}-buckets-panel`} aria-labelledby={favorites ? `browser-${variant}-buckets-tab` : undefined} className="flex min-h-0 flex-1 flex-col">
       {!compact && (
+        <div className="shrink-0 space-y-2 border-b border-[color:var(--shell-border-soft)] px-3 py-3">
+          <ToolbarSearchInput
+            value={bucketFilter}
+            onChange={onBucketFilterChange}
+            placeholder={searchPlaceholder}
+            label={searchPlaceholder}
+            labelClassName="sr-only"
+            className="w-full"
+            inputClassName="w-full py-2 font-medium"
+            leadingControl={<SearchIcon className="h-3.5 w-3.5 text-slate-400" />}
+            spellCheck={false}
+          />
+        </div>
+      )}
+
+      {!compact && (
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[color:var(--shell-border-soft)] px-3">
           <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-[var(--shell-muted-text)]">
             {filteredLabel}
@@ -181,22 +201,6 @@ export default function BrowserWorkspaceSidebar({
               icon={<RefreshIcon className={cx("h-3.5 w-3.5", loadingBuckets ? "animate-spin" : "")} />}
             />
           </div>
-        </div>
-      )}
-
-      {!compact && (
-        <div className="shrink-0 space-y-2 border-b border-[color:var(--shell-border-soft)] px-3 py-3">
-          <ToolbarSearchInput
-            value={bucketFilter}
-            onChange={onBucketFilterChange}
-            placeholder={searchPlaceholder}
-            label={searchPlaceholder}
-            labelClassName="sr-only"
-            className="w-full"
-            inputClassName="w-full py-2 font-medium"
-            leadingControl={<SearchIcon className="h-3.5 w-3.5 text-slate-400" />}
-            spellCheck={false}
-          />
         </div>
       )}
 

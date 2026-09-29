@@ -46,9 +46,11 @@ describe("saved Browser locations", () => {
 
     expect(screen.getByText("Saved")).toBeVisible();
     expect(screen.getByTitle("reports / études// · Research")).toBeVisible();
-    expect(screen.getByRole("region", { name: "Locations" })).toContainElement(
+    expect(screen.getByText("1 favorite")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Favorites" })).toContainElement(
       screen.getByText("Saved"),
     );
+    expect(screen.queryByRole("region", { name: "Locations" })).not.toBeInTheDocument();
   });
 
   it("shows the Storage Space name instead of its technical bucket for the current context", () => {
@@ -58,11 +60,26 @@ describe("saved Browser locations", () => {
         {...buildProps()}
         favorites={[technicalNamed]}
         bucketLabels={new Map([["reports", "Research Data"]])}
+        bucketDetailsByName={new Map([
+          [
+            "reports",
+            {
+              name: "reports",
+              display_name: "Research Data",
+              icon: { source: "preset", preset: "media" },
+            },
+          ],
+        ])}
       />,
     );
 
     expect(screen.getByText("Research Data", { exact: true })).toBeVisible();
     expect(screen.getByText("Research Data / études//")).toBeVisible();
+    expect(
+      screen
+        .getByTitle("Research Data · Research Data / études//")
+        .querySelector('[data-storage-space-icon-preset="media"]'),
+    ).toHaveClass("h-6", "w-6");
     expect(screen.queryByText("reports", { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByText("reports / études//")).not.toBeInTheDocument();
   });
@@ -124,7 +141,7 @@ describe("saved Browser locations", () => {
       />,
     );
 
-    const search = screen.getByRole("textbox", { name: "Search favorites" });
+    const search = screen.getByRole("searchbox", { name: "Search favorites" });
     fireEvent.change(search, { target: { value: "research data" } });
     expect(screen.getByText("Research Data", { exact: true })).toBeVisible();
 
