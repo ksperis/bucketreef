@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2.11 - 2026-09-29
+
+### Changed
+
+- Simplified Browser favorites, path navigation and Storage Space labels while preserving the current execution context and S3 permissions.
+- Aligned Admin RGW editors and account/group/user association pickers with their role columns and shared layouts.
+- Enabled standalone Browser access for Portal projects by default on fresh installations; explicit global settings and account overrides remain authoritative.
+- Automated releases on protected main version increases, with complete qualification and anonymous candidate installation tests before any stable promotion.
+
+### Fixed
+
+- Preserved primary-link contrast in dark mode.
+- Kept sequential migration cleanup and its lease checks on the same database-session thread, preventing intermittent source-cleanup failures.
+- Preserved complete merged Git history during secret detection and verified the exact scanned commit set before and after analysis.
+- Prevented failed ARM64 installation checks from reserving immutable stable image, bundle or chart versions.
+- Added durable release evidence and idempotent recovery of partial registry/forge publication using the exact tested artifacts and original application commit.
+- Replaced CI edits to Compose archives with explicit healthcheck settings and bounded QEMU startup/test budgets, retaining secret-free diagnostics before cleanup.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path; this patch introduces no database migration or schema baseline.
+- The four public download assets and their URLs remain unchanged. Compose keeps its existing default healthcheck budget of 24 attempts; advanced deployments can set `BUCKETREEF_HEALTHCHECK_RETRIES` explicitly.
+
+### Tests
+
+- Added automatic-trigger, graph, mandatory-gate, architecture identity, candidate-byte integrity, interrupted-promotion, cross-forge recovery and immutable-conflict coverage.
+- Release qualification covers application, Ceph, security and both image architectures; candidate installation checks cover QuickStart, Compose/scheduler, Kind onboarding and Helm upgrade before stable publication and demo deployment.
+
 ## 0.2.10 - 2026-09-28
 
 ### Added
