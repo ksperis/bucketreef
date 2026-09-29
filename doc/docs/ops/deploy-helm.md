@@ -231,7 +231,7 @@ Published images:
 
 - `ghcr.io/ksperis/bucketreef-backend`
 - `ghcr.io/ksperis/bucketreef-frontend`
-- `ghcr.io/ksperis/bucketreef-scheduler` (Docker Compose operations profile)
+- `ghcr.io/ksperis/bucketreef-scheduler` (standard Docker Compose scheduler service)
 
 These three images are built, tested, scanned, assigned SBOM artifacts, and
 published by GitLab CI.

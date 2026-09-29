@@ -60,6 +60,9 @@ REMOVED_PASSWORD_URL_BOUNDARIES = {
     "backend/tests/test_admin_onboarding.py": "54e42de088d8ba3208657410e984cd307c4c1f8e",
     "deploy/compose/.env.example": "3900ea5bfaf9eac3189ce1bf9ce37936ab0f130b",
 }
+CURRENT_PATHS = {
+    "deploy/compose/.env.example": "deploy/bundle/.env.example",
+}
 
 
 def is_removed_password_url_fixture(path, extract):
@@ -67,7 +70,7 @@ def is_removed_password_url_fixture(path, extract):
     if digest not in REMOVED_PASSWORD_URL_FIXTURES.get(path, set()):
         return False
     try:
-        current = (ROOT / path).read_text()
+        current = (ROOT / CURRENT_PATHS.get(path, path)).read_text()
     except (OSError, UnicodeError):
         return False
     return extract not in current

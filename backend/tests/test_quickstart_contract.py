@@ -13,7 +13,7 @@ import yaml
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-QUICKSTART = REPOSITORY_ROOT / "deploy/quickstart/bucketreef-quickstart"
+QUICKSTART = REPOSITORY_ROOT / "deploy/bundle/bucketreef-quickstart"
 CONFIG_KEYS = (
     "BUCKETREEF_BIND_ADDRESS",
     "BUCKETREEF_BACKEND_PORT",
@@ -57,7 +57,7 @@ def quickstart_runtime(tmp_path: Path) -> tuple[Path, dict[str, str], Path]:
     shutil.copy2(QUICKSTART, workdir / "quickstart")
     (workdir / "quickstart").chmod(0o755)
     (workdir / "VERSION").write_text("1.2.3\n")
-    (workdir / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
+    (workdir / "compose.yaml").write_text("services: {}\n", encoding="utf-8")
     (volume_source / "app.db").write_bytes(b"sqlite fixture")
 
     docker = bin_dir / "docker"
@@ -69,7 +69,7 @@ if [ "${1:-}" = "info" ]; then
   exit 0
 fi
 if [ "${1:-}" = "volume" ] && [ "${2:-}" = "ls" ]; then
-  [ \"${FAKE_HAS_VOLUME:-1}\" = 0 ] || printf '%s\n' 'bucketreef-quickstart_backend-data'
+  [ \"${FAKE_HAS_VOLUME:-1}\" = 0 ] || printf '%s\n' 'bucketreef_backend-data'
   exit 0
 fi
 if [ "${1:-}" = "volume" ] && [ "${2:-}" = "rm" ]; then
@@ -203,7 +203,7 @@ def _write_environment(workdir: Path, **overrides: str) -> dict[str, str]:
         "ALLOWED_HOSTS": '["demo.local", "backend"]',
     }
     values.update(overrides)
-    path = workdir / ".env.quickstart"
+    path = workdir / ".env"
     path.write_text(
         "".join(f"{key}={value}\n" for key, value in values.items()),
         encoding="utf-8",
@@ -240,7 +240,8 @@ def test_start_uses_bundle_and_refuses_token_when_a_service_stops(quickstart_run
     assert result.returncode == 1
     assert "Backend, frontend or scheduler stopped before becoming ready" in result.stderr
     log = docker_log.read_text(encoding="utf-8")
-    assert "--profile operations up --detach --no-build backend frontend scheduler" in log
+    assert "up --detach --no-build backend frontend scheduler" in log
+    assert "--profile operations" not in log
     assert "logs --tail 80 backend frontend scheduler" in log
     assert "issue_first_admin_bootstrap" not in log
 
@@ -266,7 +267,7 @@ def test_rerun_is_idempotent_and_uses_public_origin_for_login(quickstart_runtime
 
     assert result.returncode == 0
     assert "Sign in at https://bucketreef.example/login" in result.stdout
-    assert "--profile operations up --detach --no-build backend frontend scheduler" in docker_log.read_text(encoding="utf-8")
+    assert "up --detach --no-build backend frontend scheduler" in docker_log.read_text(encoding="utf-8")
 
 
 def test_status_reports_services_and_bootstrap_separately(quickstart_runtime):
@@ -302,7 +303,7 @@ def test_logs_include_the_scheduler(quickstart_runtime):
     result = _run(workdir, environment, "logs")
 
     assert result.returncode == 0
-    assert "--profile operations logs --tail 80 backend frontend scheduler" in docker_log.read_text()
+    assert "logs --tail 80 backend frontend scheduler" in docker_log.read_text()
 
 
 def test_stop_is_idempotent_and_preserves_data(quickstart_runtime):
@@ -314,7 +315,7 @@ def test_stop_is_idempotent_and_preserves_data(quickstart_runtime):
 
     assert first.returncode == second.returncode == 0
     assert "Data and secrets were preserved" in first.stdout
-    assert docker_log.read_text(encoding="utf-8").count("--profile operations stop") == 2
+    assert docker_log.read_text(encoding="utf-8").count(" stop") == 2
 
 
 def test_reset_refuses_incorrect_confirmation_without_touching_volume(quickstart_runtime):
@@ -338,36 +339,36 @@ def test_reset_preserves_network_config_rotates_secrets_and_verifies_backup(quic
         workdir,
         environment,
         "reset",
-        input_text="RESET BUCKETREEF QUICKSTART\n",
+        input_text="RESET BUCKETREEF\n",
     )
 
     assert result.returncode == 0, result.stderr
-    current = _parse_env(workdir / ".env.quickstart")
+    current = _parse_env(workdir / ".env")
     assert {key: current[key] for key in CONFIG_KEYS} == {
         key: previous[key] for key in CONFIG_KEYS
     }
     assert all(current[key] != previous[key] for key in SECRET_KEYS)
     assert len({current[key] for key in SECRET_KEYS}) == len(SECRET_KEYS)
-    assert (workdir / ".env.quickstart").stat().st_mode & 0o777 == 0o600
+    assert (workdir / ".env").stat().st_mode & 0o777 == 0o600
 
     backups = list((workdir / ".bucketreef-backups").iterdir())
     assert len(backups) == 1
     backup = backups[0]
-    assert _parse_env(backup / "env.quickstart") == previous
+    assert _parse_env(backup / ".env") == previous
     assert (backup / "backend-data.tar").stat().st_size > 0
     assert (backup / "backend-data.manifest").stat().st_size > 0
     assert backup.stat().st_mode & 0o777 == 0o700
     log = docker_log.read_text(encoding="utf-8")
-    assert "volume rm bucketreef-quickstart_backend-data" in log
+    assert "volume rm bucketreef_backend-data" in log
     assert "down --volumes" not in log
 
 
 def test_compose_defaults_are_safe_and_services_have_healthchecks():
-    for filename in ("docker-compose.yml", "deploy/compose/docker-compose.yml"):
+    for filename in ("compose.yaml", "deploy/bundle/compose.yaml"):
         payload = yaml.safe_load((REPOSITORY_ROOT / filename).read_text(encoding="utf-8"))
         services = payload["services"]
 
-        assert services["scheduler"]["profiles"] == ["operations"]
+        assert "profiles" not in services["scheduler"]
         assert services["backend"]["ports"] == [
             "${BUCKETREEF_BIND_ADDRESS:-127.0.0.1}:${BUCKETREEF_BACKEND_PORT:-8000}:8000"
         ]
@@ -395,7 +396,7 @@ def test_existing_volume_without_keys_is_never_initialized(quickstart_runtime):
     result = _run(workdir, environment)
     assert result.returncode == 1
     assert "resources already exist" in result.stderr
-    assert not (workdir / ".env.quickstart").exists()
+    assert not (workdir / ".env").exists()
     assert "up --detach" not in docker_log.read_text()
 
 
@@ -404,11 +405,11 @@ def test_new_install_generates_secrets_once_and_preserves_version(quickstart_run
     environment["FAKE_HAS_VOLUME"] = "0"
     result = _run(workdir, environment)
     assert result.returncode == 0, result.stderr
-    previous = (workdir / ".env.quickstart").read_bytes()
-    assert len(set(_parse_env(workdir / ".env.quickstart")[key] for key in SECRET_KEYS)) == 4
-    assert (workdir / ".env.quickstart").stat().st_mode & 0o777 == 0o600
+    previous = (workdir / ".env").read_bytes()
+    assert len(set(_parse_env(workdir / ".env")[key] for key in SECRET_KEYS)) == 4
+    assert (workdir / ".env").stat().st_mode & 0o777 == 0o600
     assert _run(workdir, environment).returncode == 0
-    assert (workdir / ".env.quickstart").read_bytes() == previous
+    assert (workdir / ".env").read_bytes() == previous
     assert "1.2.3" in _run(workdir, environment, "version").stdout
     assert "--build" not in docker_log.read_text()
 
@@ -424,7 +425,7 @@ def test_command_uses_bundle_directory_from_any_cwd(quickstart_runtime, tmp_path
 def test_caller_environment_cannot_replace_installed_keys_ports_or_version(quickstart_runtime):
     workdir, environment, _docker_log = quickstart_runtime
     _write_environment(workdir)
-    previous = (workdir / ".env.quickstart").read_bytes()
+    previous = (workdir / ".env").read_bytes()
     environment.update({
         "CHECK_CALLER_OVERRIDES": "1", "UI_JWT_KEYS": '["unrelated"]',
         "CREDENTIAL_KEYS": '["unrelated"]', "BUCKETREEF_FRONTEND_PORT": "9999",
@@ -432,7 +433,7 @@ def test_caller_environment_cannot_replace_installed_keys_ports_or_version(quick
     })
     result = _run(workdir, environment)
     assert result.returncode == 0, result.stderr
-    assert (workdir / ".env.quickstart").read_bytes() == previous
+    assert (workdir / ".env").read_bytes() == previous
 
 
 def test_port_conflict_prevents_start(quickstart_runtime):
@@ -451,11 +452,11 @@ def test_port_conflict_prevents_start(quickstart_runtime):
 def test_failed_backup_prevents_volume_removal_and_key_rotation(quickstart_runtime):
     workdir, environment, docker_log = quickstart_runtime
     _write_environment(workdir)
-    previous = (workdir / ".env.quickstart").read_bytes()
+    previous = (workdir / ".env").read_bytes()
     environment["FAKE_BACKUP_FAILURE"] = "1"
-    result = _run(workdir, environment, "reset", input_text="RESET BUCKETREEF QUICKSTART\n")
+    result = _run(workdir, environment, "reset", input_text="RESET BUCKETREEF\n")
     assert result.returncode != 0
-    assert (workdir / ".env.quickstart").read_bytes() == previous
+    assert (workdir / ".env").read_bytes() == previous
     assert "volume rm" not in docker_log.read_text()
 
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.12 - 2026-09-29
+
+### Changed
+
+- Replaced the separate Compose and QuickStart release archives with one deterministic `bucketreef-deploy` bundle shared by both installation paths.
+- Standardized distributed and source Compose filenames on `compose.yaml` and made the scheduler part of the normal full deployment.
+- Simplified QuickStart around the normal `bucketreef` Compose project, `.env`, and `~/.local/share/bucketreef` installation directory.
+- Split release qualification into independent AMD64/ARM64 QuickStart and manual Compose smoke tests consuming the exact same candidate bundle.
+
+### Upgrade notes
+
+- **Breaking change:** the separate `bucketreef-compose` and `bucketreef-quickstart` release bundles have been replaced by the single `bucketreef-deploy` bundle. Legacy QuickStart installations, project names, volumes, environment files, and previous bundle layouts are not migrated automatically.
+- Existing older GitHub releases remain available with their original assets. Install 0.2.12 as a new deployment or deliberately preserve and reconfigure any data you want to carry forward.
+
+### Tests
+
+- Release tests verify deterministic packaging, SHA-256 integrity, immutable publication/recovery, and exact candidate bytes across both installation paths.
+- QuickStart and Compose qualification independently cover bootstrap, scheduler health, restart persistence, and the exact AMD64/ARM64 images selected by the qualified multi-architecture manifests.
+
 ## 0.2.11 - 2026-09-29
 
 ### Changed

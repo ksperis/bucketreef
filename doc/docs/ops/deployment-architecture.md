@@ -160,8 +160,8 @@ workflows use that explicit storage execution identity.
   with distinct ingress hosts and one shared PostgreSQL/key-ring contract.
 - With Docker Compose, use distinct project names and the matching profile
   overlays. For the high-security alternative, pair
-  `docker-compose.admin-no-ceph-admin.yml` with a separate
-  `docker-compose.ceph-admin-high-security.yml` project.
+  `compose.admin-no-ceph-admin.yaml` with a separate
+  `compose.ceph-admin-high-security.yaml` project.
 - Run scheduled jobs from the Administration deployment only.
 - Apply network policy or firewall rules so Administration and dedicated Ceph
   Admin ingresses are reachable only from their intended operator networks.

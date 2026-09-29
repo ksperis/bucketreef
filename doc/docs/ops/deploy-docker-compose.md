@@ -7,18 +7,19 @@ For a loopback-only evaluation with generated secrets, start with
 ## Download a release bundle
 
 Select a published `vX.Y.Z` from [GitHub Releases](https://github.com/ksperis/bucketreef/releases).
-The bundle contains only Compose, an example environment, instructions,
-license and `VERSION`. No checkout is required. Images support Linux AMD64 and
-ARM64 and are pinned to the chosen release.
+The shared deployment bundle contains Compose, the QuickStart command, an
+example environment, instructions, license and `VERSION`. No checkout is
+required. Images support Linux AMD64 and ARM64 and are pinned to the chosen
+release.
 
 ```sh
 VERSION=X.Y.Z
 mkdir bucketreef && cd bucketreef
-curl -fsSLO "https://github.com/ksperis/bucketreef/releases/download/v${VERSION}/bucketreef-compose.tar.gz"
-curl -fsSLO "https://github.com/ksperis/bucketreef/releases/download/v${VERSION}/bucketreef-compose.tar.gz.sha256"
-sha256sum -c bucketreef-compose.tar.gz.sha256
-# On macOS: shasum -a 256 -c bucketreef-compose.tar.gz.sha256
-tar -xzf bucketreef-compose.tar.gz
+curl -fsSLO "https://github.com/ksperis/bucketreef/releases/download/v${VERSION}/bucketreef-deploy.tar.gz"
+curl -fsSLO "https://github.com/ksperis/bucketreef/releases/download/v${VERSION}/bucketreef-deploy.tar.gz.sha256"
+sha256sum -c bucketreef-deploy.tar.gz.sha256
+# On macOS: shasum -a 256 -c bucketreef-deploy.tar.gz.sha256
+tar -xzf bucketreef-deploy.tar.gz
 cp .env.example .env
 chmod 600 .env
 ```
@@ -28,11 +29,12 @@ from `openssl rand -hex 48`. Configure your origins and proxy settings. Keep
 `BUCKETREEF_TAG` equal to the bundle's `VERSION`, then start:
 
 ```sh
-docker compose up -d --wait backend frontend
+docker compose up -d --wait
 ```
 
-The source of this bundle is `deploy/compose` in the product repository. It
-contains no build contexts. Stop preserves data and keys. Before changing
+This starts backend, frontend and scheduler. QuickStart automates the same
+bundle and service set. The source of this bundle is `deploy/bundle` in the
+product repository. It contains no build contexts. Stop preserves data and keys. Before changing
 versions, stop services, back up the complete volume and matching `.env`, and
 review the target release's migration notes. Replace bundle files and deliberately
 update `BUCKETREEF_TAG`; do not overwrite `.env` with example secrets.
@@ -81,12 +83,11 @@ to the parent directory and its journal/WAL files.
 
 Stop the deployment and back up the complete volume before changing ownership.
 Use the same Compose options as your deployment (including its env file,
-overrides, project name, and profiles) for every command below. For example:
+overrides and project name) for every command below. For example:
 
 ```bash
 compose=(docker compose --env-file .env.bucketreef-local \
-  -f docker-compose.yml -f .env.bucketreef-local.override.yml \
-  --profile operations)
+  -f compose.yaml -f .env.bucketreef-local.override.yml)
 "${compose[@]}" stop
 backend_id=$("${compose[@]}" ps -aq backend)
 docker inspect "$backend_id" --format '{{json .Mounts}}'
@@ -114,14 +115,9 @@ Do not remove the volume or disable the backend's runtime security controls.
 
 ## Scheduler service
 
-The scheduler is in the `operations` profile. QuickStart activates this profile
-automatically and starts all three services. For a standalone Compose deployment,
-start the scheduler explicitly:
-
-```bash
-export INTERNAL_CRON_TOKEN="$(openssl rand -hex 48)"
-docker compose --profile operations up -d
-```
+The scheduler is part of the standard Compose deployment and starts with
+backend and frontend. QuickStart uses the same service definition. Configure a
+strong `INTERNAL_CRON_TOKEN` in `.env` before starting the deployment.
 
 The scheduler uses the dedicated rootless
 `ghcr.io/ksperis/bucketreef-scheduler` image. Supercronic is pinned and checksum
@@ -169,8 +165,8 @@ History retention / SMTP knobs:
 See [Recommended production architecture](deployment-architecture.md) for the
 recommended ingress, runtime, PostgreSQL, and Ceph Admin security boundaries.
 
-The release bundle contains `docker-compose.admin.yml`,
-`docker-compose.admin-no-ceph-admin.yml`, and `docker-compose.user.yml`. Use two
+The release bundle contains `compose.admin.yaml`,
+`compose.admin-no-ceph-admin.yaml`, and `compose.user.yaml`. Use two
 distinct Compose project names, different published ports/origins, the same
 PostgreSQL `DATABASE_URL`, and the same UI/API JWT and credential key rings.
 Each backend must trust both public origins so WebAuthn and OIDC can operate
@@ -183,21 +179,21 @@ internal scheduled-job endpoints.
 ```bash
 # admin instance
 docker compose --project-name bucketreef-admin \
-  -f docker-compose.yml -f docker-compose.admin.yml \
-  --profile operations up -d --wait
+  -f compose.yaml -f compose.admin.yaml \
+  up -d --wait backend frontend scheduler
 
-# user instance: do not enable the operations profile
+# user instance: this runtime does not run scheduled jobs
 docker compose --project-name bucketreef-user \
-  -f docker-compose.yml -f docker-compose.user.yml \
+  -f compose.yaml -f compose.user.yaml \
   up -d --wait backend frontend
 ```
 
 Run the hardening checker in both backends before publishing either URL:
 
 ```bash
-docker compose --project-name bucketreef-admin -f docker-compose.yml -f docker-compose.admin.yml \
+docker compose --project-name bucketreef-admin -f compose.yaml -f compose.admin.yaml \
   exec backend python -m app.scripts.check_production_hardening
-docker compose --project-name bucketreef-user -f docker-compose.yml -f docker-compose.user.yml \
+docker compose --project-name bucketreef-user -f compose.yaml -f compose.user.yaml \
   exec backend python -m app.scripts.check_production_hardening
 ```
 
@@ -205,11 +201,11 @@ Do not use SQLite for this topology. The two projects must point at the same
 PostgreSQL database; only the admin project should start the scheduler.
 
 For a dedicated Ceph Admin security boundary, run the main Administration
-project with `docker-compose.admin-no-ceph-admin.yml` and run a separate project
-with `docker-compose.ceph-admin-high-security.yml`. The dedicated project can
+project with `compose.admin-no-ceph-admin.yaml` and run a separate project
+with `compose.ceph-admin-high-security.yaml`. The dedicated project can
 either reuse the shared PostgreSQL/key rings or use a dedicated database and
 distinct key rings through a separate env file. Do not use the normal
-`docker-compose.admin.yml` for the companion Administration project when the
+`compose.admin.yaml` for the companion Administration project when the
 goal is to make the Ceph Admin ingress exclusive. See
 [Ceph Admin high-security deployment](ceph-admin-high-security.md).
 

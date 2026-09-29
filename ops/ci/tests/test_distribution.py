@@ -66,11 +66,22 @@ def prepared(monkeypatch, tmp_path):
     Path('frontend/dist-demo').mkdir(parents=True)
     dist.write('frontend/dist-demo/demo-release.json', {'revision':SHA,'version':'1.2.3','pipelineId':20})
     Path('installation-receipts').mkdir()
-    for key, job in (('amd64','release-bundle-smoke: [amd64]'), ('arm64','release-bundle-smoke: [arm64]'), ('kind','release-kind-onboarding-smoke')):
-        arch = 'amd64' if key == 'kind' else key
+    for key, job in (
+        ('quickstart-amd64','release-quickstart-smoke: [amd64]'),
+        ('quickstart-arm64','release-quickstart-smoke: [arm64]'),
+        ('compose-amd64','release-compose-smoke: [amd64]'),
+        ('compose-arm64','release-compose-smoke: [arm64]'),
+        ('kind','release-kind-onboarding-smoke'),
+    ):
+        arch = 'amd64' if key == 'kind' else key.rsplit('-', 1)[-1]
         images = {c:{'id':DIGEST,'arch':arch,'os':'linux','manifest':IMAGE['platforms'][arch]}
                   for c in (('backend','frontend') if key == 'kind' else COMPONENTS)}
-        phases = ('install-and-upgrade',) if key == 'kind' else ('first-start','restart','compose')
+        if key == 'kind':
+            phases = ('install-and-upgrade',)
+        elif key.startswith('quickstart-'):
+            phases = ('first-start','restart')
+        else:
+            phases = ('compose','compose-restart')
         dist.write(f'installation-receipts/{key}.json', {'schema':1,'status':'success','sha':SHA,'version':'1.2.3',
                    'pipeline_id':20,'job_id':ids[job],'candidate_sha256':dist.digest(inventory),
                    'checkpoints':{phase:images for phase in phases}})
@@ -228,11 +239,11 @@ def test_public_release_verification_retries_only_transient_visibility(monkeypat
     def verify(*args, **kwargs):
         attempts.append(kwargs['expected_files'])
         if len(attempts) == 1:
-            raise RuntimeError('Missing public release asset: bucketreef-compose.tar.gz')
+            raise RuntimeError('Missing public release asset: bucketreef-deploy.tar.gz')
 
     monkeypatch.setattr(dist, 'verify_public_release', verify)
     monkeypatch.setattr(dist.time, 'sleep', sleeps.append)
-    expected = {'bucketreef-compose.tar.gz': 'digest'}
+    expected = {'bucketreef-deploy.tar.gz': 'digest'}
     dist.verify_published_github_release(expected)
     assert attempts == [expected, expected]
     assert sleeps == [dist.PUBLIC_RELEASE_VERIFY_DELAY_SECONDS]
@@ -420,7 +431,7 @@ def test_bundle_bootstrap_uses_immutable_tag_source(monkeypatch, tmp_path):
     record = bootstrap_registry.bootstrap('1.2.3')
     assert exported == ['v1.2.3']
     assert record == {'schema': 1, 'version': '1.2.3', 'sha': SHA}
-    assert commands and commands[0][1].endswith('/ops/release/package_bundles.py')
+    assert commands and commands[0][1].endswith('/ops/release/package_deploy_bundle.py')
     assert json.loads(Path('bundle-distribution.json').read_text()) == record
 
 

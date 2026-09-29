@@ -32,10 +32,10 @@ at first login. Replace all default development secrets before exposing the serv
 SQLite is supported for local development and mono-backend deployments only. Use
 PostgreSQL for multiple backend replicas.
 
-The root `docker-compose.yml` builds this backend and the frontend from the
-current checkout with `docker compose up --build`. The standalone
-`bucketreef-quickstart` command and deployment files under `deploy/` run published
-release images; they do not include unpublished checkout changes.
+The root `compose.yaml` builds backend, frontend and scheduler from the current
+checkout with `docker compose up --build`. The `bucketreef-quickstart` command
+and shared deployment bundle under `deploy/bundle/` run published release
+images; they do not include unpublished checkout changes.
 
 ## Migrations (Alembic)
 

@@ -54,7 +54,7 @@ def test_previous_release_is_numeric_stable_and_reachable(tmp_path):
 
 
 def test_patch_preparation_synchronizes_metadata_without_baseline(tmp_path):
-    for relative in ("frontend/package.json", "frontend/package-lock.json", "deploy/helm/bucketreef/Chart.yaml", "deploy/compose/.env.example"):
+    for relative in ("frontend/package.json", "frontend/package-lock.json", "deploy/helm/bucketreef/Chart.yaml", "deploy/bundle/.env.example"):
         target = tmp_path / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / relative, target)
@@ -62,7 +62,7 @@ def test_patch_preparation_synchronizes_metadata_without_baseline(tmp_path):
     prepare(tmp_path, "0.2.5")
     check_version(tmp_path, "0.2.5")
     assert not (tmp_path / "backend/schema-baselines").exists()
-    (tmp_path / "deploy/compose/.env.example").write_text("BUCKETREEF_TAG=0.2.4\n")
+    (tmp_path / "deploy/bundle/.env.example").write_text("BUCKETREEF_TAG=0.2.4\n")
     with pytest.raises(ValueError, match="mismatch"):
         check_version(tmp_path, "0.2.5")
 
@@ -117,7 +117,7 @@ def test_gitlab_release_retry_is_read_only_and_conflicts_fail(monkeypatch):
     api = GitLabFixture()
     monkeypatch.setattr("publish_gitlab_release.resolve_git_tag", lambda *args, **kwargs: api.sha)
     publish(api, "0.2.5", "a" * 40, "Notes\n")
-    assert len(api.writes) == 1 and len(api.release["assets"]["links"]) == 4
+    assert len(api.writes) == 1 and len(api.release["assets"]["links"]) == 2
     publish(api, "0.2.5", "a" * 40, "Notes\n")
     assert len(api.writes) == 1
     with pytest.raises(RuntimeError, match="differs"):

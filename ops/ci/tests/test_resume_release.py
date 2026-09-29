@@ -48,11 +48,11 @@ def test_recovery_inputs_are_strict(monkeypatch,version,pipeline):
 
 def test_resume_restores_only_original_tested_bytes_despite_new_product_checkout(monkeypatch,tmp_path):
     api,_,proof,_=retained(monkeypatch,tmp_path)
-    Path('dist/release/bucketreef-compose.tar.gz').write_text('new unqualified application')
+    Path('dist/release/bucketreef-deploy.tar.gz').write_text('new unqualified application')
     Path('frontend/dist-demo/demo-release.json').write_text('new demo')
     actual,plan=resume.load_source(api)
     assert actual==proof and plan['sha']==SHA
-    assert Path('dist/release/bucketreef-compose.tar.gz').read_text()=='fixture'
+    assert Path('dist/release/bucketreef-deploy.tar.gz').read_text()=='fixture'
     assert dist.demo_fingerprints()==proof['demo_files']
     assert dist.release_sha()==SHA
     assert not (tmp_path.parent/'must-not-extract').exists()

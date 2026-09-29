@@ -45,7 +45,7 @@ def bootstrap(version: str) -> dict:
         export_tag(tag, source)
         output = Path(temporary) / "release"
         subprocess.run(
-            [sys.executable, str(source / "ops/release/package_bundles.py"),
+            [sys.executable, str(source / "ops/release/package_deploy_bundle.py"),
              "--version", version, "--output", str(output)],
             cwd=source,
             check=True,

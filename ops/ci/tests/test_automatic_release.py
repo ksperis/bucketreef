@@ -25,7 +25,7 @@ def version_repository(tmp_path):
             'frontend/package.json':json.dumps({'version':version,'dependencies':{'x':dependency}}),
             'frontend/package-lock.json':json.dumps({'version':version,'packages':{'':{'version':version}},'dependencies':{'x':dependency}}),
             'deploy/helm/bucketreef/Chart.yaml':f'version: {version}\nappVersion: {version}\n',
-            'deploy/compose/.env.example':f'BUCKETREEF_TAG={version}\n',
+            'deploy/bundle/.env.example':f'BUCKETREEF_TAG={version}\n',
             'CHANGELOG.md':f'## {version} - 2026-09-29\n\n- Fixture changes.\n',
         }
         for name, text in files.items():
@@ -56,10 +56,10 @@ def test_mismatched_metadata_and_missing_changelog_cannot_publish(tmp_path):
     commit = version_repository(tmp_path)
     before = commit('0.2.10')
     head = commit('0.2.11')
-    (tmp_path/'deploy/compose/.env.example').write_text('BUCKETREEF_TAG=0.2.10\n')
+    (tmp_path/'deploy/bundle/.env.example').write_text('BUCKETREEF_TAG=0.2.10\n')
     with pytest.raises(ValueError, match='mismatch'):
         release_transition(before, head, root=tmp_path)
-    (tmp_path/'deploy/compose/.env.example').write_text('BUCKETREEF_TAG=0.2.11\n')
+    (tmp_path/'deploy/bundle/.env.example').write_text('BUCKETREEF_TAG=0.2.11\n')
     (tmp_path/'CHANGELOG.md').write_text('No release section')
     with pytest.raises(ValueError): release_transition(before, head, root=tmp_path)
 
@@ -78,7 +78,7 @@ def test_push_uses_event_comparison_not_impact_baseline(monkeypatch, comparison,
 def test_arm64_failure_creates_no_stable_reference(monkeypatch, tmp_path):
     api, jobs = prepared(monkeypatch, tmp_path)
     dist.write('distribution-ready.json',dist.ready(api))
-    next(j for j in jobs if j['name']=='release-bundle-smoke: [arm64]')['status']='failed'
+    next(j for j in jobs if j['name']=='release-compose-smoke: [arm64]')['status']='failed'
     monkeypatch.setattr(dist,'GitLabAPI',lambda:api)
     monkeypatch.setattr(dist,'promote_stable',lambda *args:pytest.fail('Stable mutation before ARM64 passed'))
     monkeypatch.setattr(dist,'ensure_github_tag',lambda *args:pytest.fail('Premature stable tag'))
@@ -88,11 +88,11 @@ def test_arm64_failure_creates_no_stable_reference(monkeypatch, tmp_path):
 @pytest.mark.parametrize('damage',['arch','manifest','phase','sha','job','candidate'])
 def test_installation_proofs_cannot_be_substituted(monkeypatch,tmp_path,damage):
     api, _ = prepared(monkeypatch,tmp_path)
-    path='installation-receipts/arm64.json'
+    path='installation-receipts/compose-arm64.json'
     proof=dist.read(path)
     if damage=='arch': proof['checkpoints']['compose']['backend']['arch']='amd64'
     elif damage=='manifest': proof['checkpoints']['compose']['backend']['manifest']=IMAGE['platforms']['amd64']
-    elif damage=='phase': proof['checkpoints'].pop('restart')
+    elif damage=='phase': proof['checkpoints'].pop('compose-restart')
     elif damage=='sha': proof['sha']='f'*40
     elif damage=='job': proof['job_id']=123456
     elif damage=='candidate': proof['candidate_sha256']='f'*64
@@ -159,7 +159,7 @@ def test_installation_pulls_actual_platform_digests_and_rechecks_candidate_bytes
     assert len(pulls)==(2 if kind else 3)
     assert all(args[-1].endswith('@'+IMAGE['platforms'][arch]) for args in pulls)
     calls.clear()
-    Path('public-candidate/bucketreef-quickstart.tar.gz').write_text('substituted')
+    Path('public-candidate/bucketreef-deploy.tar.gz').write_text('substituted')
     with pytest.raises(ValueError,match='input differs'): installation.preload(kind=kind)
     assert not calls
 
@@ -177,14 +177,18 @@ def test_smoke_budgets_and_public_defaults_are_explicit():
     from plan import ROOT, select
     from render_gitlab import render
     config=render({**select('prepare-release',[]),'sha':SHA,'parent_id':19})
-    assert config['release-bundle-smoke']['timeout']=='45m'
-    assert '40m' in '\n'.join(config['release-bundle-smoke']['script'])
-    script=(ROOT/'ops/ci/quickstart-bundle-smoke.sh').read_text()
+    for job in ('release-quickstart-smoke', 'release-compose-smoke'):
+        assert config[job]['extends']=='.release-deploy-smoke'
+        assert config['.release-deploy-smoke']['timeout']=='45m'
+        assert '40m' in '\n'.join(config['.release-deploy-smoke']['script'])
+    script=(ROOT/'ops/ci/deploy-bundle-smoke.sh').read_text()
     assert 'health_retries=60' in script and 'compose_wait_timeout=600' in script
     assert 'QUICKSTART_HEALTH_TIMEOUT_SECONDS' in script
-    assert 'sed -i' not in script and 'runner_lifetime' not in script
+    assert script.count('public-candidate/bucketreef-deploy.tar.gz') == 1
+    assert 'bucketreef-quickstart.tar.gz' not in script and 'bucketreef-compose.tar.gz' not in script
+    assert '--profile operations' not in script
     assert script.index('installation_evidence.py diagnostics') < script.index('down --volumes')
-    compose=(ROOT/'deploy/compose/docker-compose.yml').read_text()
+    compose=(ROOT/'deploy/bundle/compose.yaml').read_text()
     assert compose.count('${BUCKETREEF_HEALTHCHECK_RETRIES:-24}')==2
 
 
