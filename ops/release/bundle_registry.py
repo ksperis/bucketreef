@@ -41,18 +41,18 @@ def hashes(directory):
     return {name: hashlib.sha256((directory / name).read_bytes()).hexdigest() for name in ASSETS}
 
 
-def publish(version, sha, directory):
+def publish(version, sha, directory, *, members=ASSETS, artifact_type="application/vnd.bucketreef.bundles.v1"):
     with tempfile.TemporaryDirectory() as temporary:
         layout = str(Path(temporary) / "layout")
         manifest = Path(temporary) / "manifest.json"
         annotations = [
-            "--artifact-type", "application/vnd.bucketreef.bundles.v1",
+            "--artifact-type", artifact_type,
             "--annotation", "org.opencontainers.image.created=1970-01-01T00:00:00Z",
             "--annotation", f"org.opencontainers.image.revision={sha}",
         ]
         # Fix the creation annotation, otherwise ORAS embeds the current time.
         run(["push", "--oci-layout", f"{layout}:{version}",
-             *annotations, "--export-manifest", str(manifest), *ASSETS], cwd=directory)
+             *annotations, "--export-manifest", str(manifest), *members], cwd=directory)
         digest = "sha256:" + hashlib.sha256(manifest.read_bytes()).hexdigest()
         auth = ["--username", os.environ["GHCR_USERNAME"], "--password-stdin"]
         secret = os.environ["GHCR_TOKEN"].encode()
@@ -66,12 +66,13 @@ def publish(version, sha, directory):
             # the resolve below still proves the immutable digest before returning.
             remote_manifest = Path(temporary) / "remote-manifest.json"
             run(["push", *auth, *annotations, "--export-manifest", str(remote_manifest),
-                 target, *ASSETS], cwd=directory, input_data=secret)
+                 target, *members], cwd=directory, input_data=secret)
             if "sha256:" + hashlib.sha256(remote_manifest.read_bytes()).hexdigest() != digest:
                 raise ValueError("Remote bundle manifest differs from deterministic bundle manifest")
         if run(["resolve", *auth, target], input_data=secret).decode().strip() != digest:
             raise ValueError("Published bundle manifest differs")
-        return {"schema": 1, "sha": sha, "version": version, "digest": digest, "files": hashes(directory)}
+        return {"schema": 1, "sha": sha, "version": version, "digest": digest,
+                "files": {name: hashlib.sha256((directory / name).read_bytes()).hexdigest() for name in members}}
 
 
 def download(record, directory, *, version, sha):

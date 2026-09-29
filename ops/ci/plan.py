@@ -45,7 +45,7 @@ def version_values(text: str, path: str) -> tuple:
         value = json.loads(text)
         return value.get("version"), value.get("packages", {}).get("", {}).get("version")
     if path.endswith("Chart.yaml"):
-        return tuple(re.findall(r"(?m)^(?:version|appVersion):\s*(.+)$", text))
+        return tuple(value.strip().strip("\"'") for value in re.findall(r"(?m)^(?:version|appVersion):\s*(.+)$", text))
     return tuple(re.findall(r"(?m)^BUCKETREEF_TAG=(.*)$", text))
 
 
@@ -59,6 +59,35 @@ def version_changed(base: str | None, head: str, paths: list[str] | None, *, roo
         except (subprocess.CalledProcessError, ValueError):
             return True
     return False
+
+
+def release_transition(base: str | None, head: str, *, root: Path = ROOT) -> dict | None:
+    """Authorize publication only from a readable, real push version increase.
+
+    Impact baselines deliberately fail open to full testing. They are never
+    authority to publish: only CI_COMMIT_BEFORE_SHA describes this push.
+    """
+    paths = changes(base, head, root=root)
+    if paths is None:
+        return None
+    try:
+        previous = json.loads(git("show", f"{base}:frontend/package.json", root=root))["version"]
+        current = json.loads(git("show", f"{head}:frontend/package.json", root=root))["version"]
+    except (subprocess.CalledProcessError, ValueError, KeyError):
+        return None
+    if not version_changed(base, head, paths, root=root):
+        return None
+    stable = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+    if not re.fullmatch(stable, previous) or not re.fullmatch(stable, current):
+        raise ValueError("Automatic release requires stable version metadata")
+    if tuple(map(int, current.split("."))) <= tuple(map(int, previous.split("."))):
+        raise ValueError("Release version must increase across the push")
+    # HEAD was already checked against the event by events.py.
+    import sys
+    sys.path.insert(0, str(ROOT / "ops/release"))
+    from check_version import check_version
+    check_version(root, current)
+    return {"before_sha": base, "previous_version": previous, "version": current}
 
 
 def classify(*, source: str, ref: str, protected: bool, mode: str = "auto", tag: str = "") -> str:
@@ -94,7 +123,7 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
         for job in jobs:
             reasons.setdefault(job, []).append(reason)
 
-    full = paths is None or profile in {"qualify", "regression"}
+    full = paths is None or profile in {"qualify", "prepare-release", "regression"}
     for path in paths or []:
         if path.startswith((".github/", "ops/ci/")) or path in {".gitlab-ci.yml", ".trivyignore", "pytest.ini"}:
             full = True
@@ -140,7 +169,7 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
         selected, images, ceph = {"backend-vuln-scan", "frontend-vuln-scan", "secret-scan", "scan-published-images"}, set(), False
     elif profile == "secrets-history":
         selected, images, ceph = {"secret-scan"}, set(), False
-    elif profile in {"prepare-release", "resume-release", "release", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
+    elif profile in {"resume-release", "release", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         selected, images, ceph = set(), set(), False
     if profile == "pr":
         images, ceph = set(), False
@@ -153,6 +182,8 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
         selected.update((f"build-{component}", f"{component}-image-vuln-scan"))
     if ceph:
         selected.add("ceph-functional-tests")
+    if profile == "prepare-release":
+        selected.add("release-preflight")
     if profile in {"integration", "docs"} and ref == "main" and DOCS <= selected:
         selected.add("docs-deploy")
     for job in selected:

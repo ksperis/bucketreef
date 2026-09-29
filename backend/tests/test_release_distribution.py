@@ -135,7 +135,7 @@ def test_release_gates_cover_all_architectures_and_artifacts():
     assert set(REQUIRED) <= {need["job"] for need in ci["release-ready"]["needs"]}
     assert "release-ready" in {need["job"] for need in ci["finalize-release"]["needs"]}
     assert ci["finalize-release"]["resource_group"] == "public-release"
-    assert not any(name.startswith("build-") for name in ci)
+    assert all(f"build-{component}" in ci for component in ("backend", "frontend", "scheduler"))
     for component in ("backend", "frontend", "scheduler"):
         assert ci[f"{component}-release-image-vuln-scan"]["extends"] == ".multiarch-image-scan"
         assert f"{component}-release-image-vuln-scan" in {n["job"] for n in ci["publish-candidate-images"]["needs"]}

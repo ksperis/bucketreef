@@ -103,4 +103,4 @@ def completed_records(api, ref, filename="integration.json", sha=None):
 
 def latest_baseline(api, ref):
     return next((record["sha"] for record in completed_records(api, ref)
-                 if record["plan"]["profile"] in {"integration", "qualify"}), None)
+                 if record["plan"]["profile"] in {"integration", "qualify", "prepare-release"}), None)

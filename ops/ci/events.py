@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 
-from plan import ROOT, changes, classify, git, select, version_changed
+from plan import ROOT, changes, classify, git, select, version_changed, release_transition
 
 
 def github_plan(env):
@@ -38,7 +38,7 @@ def gitlab_plan(env, api=None):
     if git("rev-parse", "HEAD") != sha:
         raise ValueError("Checkout differs from GitLab revision")
     base = None
-    if profile in {"integration", "qualify"}:
+    if profile in {"integration", "qualify", "prepare-release"}:
         from gitlab_api import GitLabAPI, latest_baseline
         base = latest_baseline(api or GitLabAPI(), ref)
         if base is None:
@@ -47,7 +47,17 @@ def gitlab_plan(env, api=None):
             except subprocess.CalledProcessError as error:
                 raise ValueError("No CI baseline exists and the commit parent cannot be resolved") from error
     paths = changes(base, sha)
+    transition = None
+    if profile == "integration" and ref == "main":
+        transition = release_transition(env.get("CI_COMMIT_BEFORE_SHA"), sha)
+        if transition:
+            profile = "prepare-release"
+        elif changes(env.get("CI_COMMIT_BEFORE_SHA"), sha) is None:
+            # Unknown push comparison may widen tests, never authorize release.
+            profile = "qualify"
     plan = select(profile, paths, ref=ref, version=profile == "integration" and version_changed(base, sha, paths))
+    if transition:
+        plan["release_trigger"] = transition
     if profile == "resume-release":
         value = env.get("RELEASE_RECOVERY_VERSION", "")
         pipeline_id = env.get("RELEASE_RECOVERY_PIPELINE_ID", "")

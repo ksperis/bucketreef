@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 const PROJECT = "bucketreef-demo";
@@ -13,14 +14,30 @@ export function assertDeploymentOrder(previous, current, bootstrap) {
   if (difference === 0 && previous.revision !== current.revision) throw new Error("A different revision of this version is already deployed");
 }
 
+export function assertPublication(plan, artifact, publication, sha) {
+  if (plan.sha !== sha) throw new Error("Demo orchestration differs from the pipeline revision");
+  if (plan.profile === "bootstrap-demo") {
+    if (artifact.revision !== sha) throw new Error("Bootstrap artifact differs from the pipeline revision");
+    return;
+  }
+  if (!["prepare-release", "resume-release"].includes(plan.profile) || publication?.schema !== 2
+    || publication.sha !== artifact.revision || publication.version !== artifact.version
+    || publication.orchestration_sha !== sha) throw new Error("Demo requires matching final publication evidence");
+}
+
 async function deploy() {
   const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token, CI_COMMIT_SHA: sha } = process.env;
   if (!account || !token || !sha) throw new Error("Protected demo-production Cloudflare variables and CI revision are required");
   const plan = JSON.parse(readFileSync("ci-plan.json", "utf8"));
   const artifact = JSON.parse(readFileSync("frontend/dist-demo/demo-release.json", "utf8"));
   const bootstrap = plan.profile === "bootstrap-demo";
-  if (!bootstrap && plan.profile !== "prepare-release") throw new Error("Demo deployment is allowed only after release finalization or during initial bootstrap");
-  if (plan.sha !== sha || artifact.revision !== sha) throw new Error("The tested demo artifact differs from the pipeline revision");
+  const publication = bootstrap ? null : JSON.parse(readFileSync("publication.json", "utf8"));
+  assertPublication(plan, artifact, publication, sha);
+  if (publication) for (const [name, expected] of Object.entries(publication.demo_files)) {
+    if (name.startsWith("/") || name.split("/").includes("..")) throw new Error("Unsafe demo artifact member");
+    if (createHash("sha256").update(readFileSync(`frontend/dist-demo/${name}`)).digest("hex") !== expected) throw new Error("Demo file differs from its tested publication evidence");
+  }
+  const releaseSha = artifact.revision;
   if (process.env.CI_COMMIT_REF_PROTECTED !== "true" || process.env.CI_COMMIT_BRANCH !== "main") throw new Error("Demo publication requires protected main");
   const api = async (path, options = {}, allowMissing = false) => {
     const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/pages/projects${path}`, { ...options, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
@@ -42,10 +59,10 @@ async function deploy() {
     previous = await response.json();
   }
   assertDeploymentOrder(previous, artifact, bootstrap);
-  execFileSync("ops/cloudflare/node_modules/.bin/wrangler", ["pages", "deploy", "frontend/dist-demo", "--project-name", PROJECT, "--branch", "main", "--commit-hash", sha, "--commit-message", `BucketReef demo ${artifact.version} · pipeline ${artifact.pipelineId}`], { stdio: "inherit" });
+  execFileSync("ops/cloudflare/node_modules/.bin/wrangler", ["pages", "deploy", "frontend/dist-demo", "--project-name", PROJECT, "--branch", "main", "--commit-hash", releaseSha, "--commit-message", `BucketReef demo ${artifact.version} · pipeline ${artifact.pipelineId}`], { stdio: "inherit" });
   const published = (await api(`/${PROJECT}`)).canonical_deployment;
-  if (published?.deployment_trigger?.metadata?.commit_hash !== sha) throw new Error("Cloudflare did not confirm the requested demo revision");
+  if (published?.deployment_trigger?.metadata?.commit_hash !== releaseSha) throw new Error("Cloudflare did not confirm the requested demo revision");
   writeFileSync("demo-deployment.json", JSON.stringify({ ...artifact, deploymentId: published.id, url: published.url, previousDeploymentId: current?.id ?? null }, null, 2) + "\n");
-  console.log(`Demo deployment confirmed: ${published.id} (${sha})`);
+  console.log(`Demo deployment confirmed: ${published.id} (${releaseSha})`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await deploy();

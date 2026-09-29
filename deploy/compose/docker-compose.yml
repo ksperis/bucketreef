@@ -48,7 +48,7 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 5s
       timeout: 5s
-      retries: 24
+      retries: ${BUCKETREEF_HEALTHCHECK_RETRIES:-24}
       start_period: 10s
   frontend:
     image: ${BUCKETREEF_FRONTEND_IMAGE:-ghcr.io/ksperis/bucketreef-frontend}:${BUCKETREEF_TAG:?Set BUCKETREEF_TAG to the release version}
@@ -72,7 +72,7 @@ services:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/setup/first-admin || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 24
+      retries: ${BUCKETREEF_HEALTHCHECK_RETRIES:-24}
       start_period: 5s
   scheduler:
     image: ${BUCKETREEF_SCHEDULER_IMAGE:-ghcr.io/ksperis/bucketreef-scheduler}:${BUCKETREEF_TAG:?Set BUCKETREEF_TAG to the release version}
