@@ -139,6 +139,31 @@ def test_candidate_distribution_never_writes_stable_tags(monkeypatch,tmp_path):
     assert all(target.endswith(f':candidate-{SHA}-20') for target in calls)
 
 
+@pytest.mark.parametrize('kind',[False,True])
+def test_installation_pulls_actual_platform_digests_and_rechecks_candidate_bytes(monkeypatch,tmp_path,kind):
+    prepared(monkeypatch,tmp_path)
+    monkeypatch.setenv('IMAGE_ARCH','arm64')
+    Path('public-candidate').mkdir()
+    for name in dist.read('candidate-inventory.json')['artifact']['files']:
+        Path('public-candidate',name).write_text('fixture')
+    calls=[]
+    def command(*args,**kwargs):
+        if args[:2]==('docker','pull'):
+            assert json.loads(Path(kwargs['env']['DOCKER_CONFIG'],'config.json').read_text())=={'auths':{}}
+        calls.append(args)
+    monkeypatch.setattr(installation,'command',command)
+    arch='amd64' if kind else 'arm64'
+    monkeypatch.setattr(installation,'inspect_image',lambda ref:{'id':IMAGE['digest'],'arch':arch,'os':'linux'})
+    installation.preload(kind=kind)
+    pulls=[args for args in calls if args[:2]==('docker','pull')]
+    assert len(pulls)==(2 if kind else 3)
+    assert all(args[-1].endswith('@'+IMAGE['platforms'][arch]) for args in pulls)
+    calls.clear()
+    Path('public-candidate/bucketreef-quickstart.tar.gz').write_text('substituted')
+    with pytest.raises(ValueError,match='input differs'): installation.preload(kind=kind)
+    assert not calls
+
+
 def test_diagnostics_exclude_generated_secrets_and_bootstrap_urls():
     secret='generated-test-secret'
     container={'Id':'abc','Image':'sha256:'+'1'*64,'Name':'fixture', 'Config':{'Env':[secret]},

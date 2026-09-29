@@ -22,10 +22,19 @@ readonly POSTGRES_IMAGE="postgres:16-alpine"
 
 temporary_directory="$(mktemp -d)"
 frontend_forward_pid=""
+phase_start=$SECONDS
+mark_phase() {
+  if [[ -f candidate-inventory.json ]]; then
+    mkdir -p smoke-diagnostics/kind
+    printf '%s\t%s\n' "$1" "$((SECONDS - phase_start))" >> smoke-diagnostics/kind/timings.tsv
+  fi
+  phase_start=$SECONDS
+}
 
 cleanup() {
   local status=$?
   set +e
+  mark_phase exit
   if [[ -n "$frontend_forward_pid" ]]; then
     kill "$frontend_forward_pid" >/dev/null 2>&1 || true
   fi
@@ -127,6 +136,7 @@ configure_kind_api_access
 load_kind_image "$BACKEND_IMAGE"
 load_kind_image "$FRONTEND_IMAGE"
 load_kind_image "$POSTGRES_IMAGE"
+mark_phase cluster-and-images
 
 kubectl create namespace "$NAMESPACE"
 
@@ -166,6 +176,7 @@ helm upgrade --install "$RELEASE" "$HELM_CHART_PATH" \
 kubectl --namespace "$NAMESPACE" rollout status deployment/${RELEASE}-postgresql --timeout=120s
 kubectl --namespace "$NAMESPACE" rollout status deployment/${RELEASE}-backend --timeout=180s
 kubectl --namespace "$NAMESPACE" rollout status deployment/${RELEASE}-frontend --timeout=120s
+mark_phase install
 
 bootstrap_output="$(
   kubectl --namespace "$NAMESPACE" exec deployment/${RELEASE}-backend -- \
@@ -236,6 +247,7 @@ status_after="$(
     "http://127.0.0.1:${FRONTEND_PORT}/api/auth/bootstrap/first-admin/status"
 )"
 [[ "$(printf '%s' "$status_after" | jq -r '.available')" == "false" ]]
+mark_phase onboarding
 
 helm upgrade "$RELEASE" "$HELM_CHART_PATH" \
   --namespace "$NAMESPACE" --reuse-values --set frontend.replicas=2 \
@@ -245,6 +257,7 @@ helm upgrade "$RELEASE" "$HELM_CHART_PATH" \
 status_after_upgrade="$(curl --fail --silent --header "Host: ${PUBLIC_HOST}" \
   "http://127.0.0.1:${FRONTEND_PORT}/api/auth/bootstrap/first-admin/status")"
 [[ "$(printf '%s' "$status_after_upgrade" | jq -r '.available')" == "false" ]]
+mark_phase upgrade
 
 printf 'Kind install, onboarding and upgrade smoke test passed.\n'
 if [[ -f candidate-inventory.json ]]; then

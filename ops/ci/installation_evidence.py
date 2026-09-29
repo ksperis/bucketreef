@@ -32,6 +32,9 @@ def inspect_image(ref):
 
 def preload(*, kind=False):
     inventory = read("candidate-inventory.json")
+    for name, expected in inventory["artifact"]["files"].items():
+        if Path(name).name != name or hashlib.sha256((Path("public-candidate") / name).read_bytes()).hexdigest() != expected:
+            raise ValueError("Installation input differs from the anonymous candidate")
     arch = "amd64" if kind else os.environ["IMAGE_ARCH"]
     images = {}
     with tempfile.TemporaryDirectory() as temporary:
@@ -41,9 +44,10 @@ def preload(*, kind=False):
             manifest = inventory["images"][component]["platforms"][arch]
             repository = f"ghcr.io/ksperis/bucketreef-{component}"
             ref = f"{repository}@{manifest}"
-            if not kind:
-                command("docker", "pull", "--platform", f"linux/{arch}", ref, env=env)
-                command("docker", "tag", ref, f"{repository}:{inventory['version']}")
+            # Also pull Kind inputs by their expected platform digest, regardless
+            # of previously loaded tags or orchestration environment overrides.
+            command("docker", "pull", "--platform", f"linux/{arch}", ref, env=env)
+            command("docker", "tag", ref, f"{repository}:{inventory['version']}")
             image = inspect_image(f"{repository}:{inventory['version']}")
             if image["arch"] != arch or image["os"] != "linux":
                 raise ValueError("Installed candidate image architecture differs")
@@ -125,6 +129,11 @@ def diagnostics(key):
             container = json.loads(command("docker", "inspect", cid, timeout=10))[0]
             result["containers"].append(safe_container(container))
         result["images"] = read(f"installation-images/{key}.json")
+        if key == "kind":
+            pods = json.loads(command("kubectl", "-n", "bucketreef-smoke", "get", "pods", "-o", "json", timeout=10))["items"]
+            result["pods"] = [{"name": pod["metadata"]["name"], "phase": pod["status"].get("phase"),
+                               "containers": [{k: c.get(k) for k in ("name", "ready", "restartCount", "imageID")}
+                                              for c in pod["status"].get("containerStatuses", [])]} for pod in pods]
     except (OSError, ValueError, subprocess.SubprocessError):
         result["collection_incomplete"] = True
     write(f"smoke-diagnostics/{key}/containers.json", result)
