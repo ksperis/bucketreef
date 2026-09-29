@@ -12,12 +12,12 @@ import {
 import type { S3AccountSummary } from "../../api/accounts";
 
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
-import AccountAccessRoleSelectors, {
+import {
   AccountAccessRoleValidationMessage,
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
-import { AdminAssociationOptionCheckbox, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
+import { AdminAssociationAccessPickerTable, AdminAssociationPickerPanel, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
 
 export type AccountSelection = AccountAccessGrant & {
   id: number;
@@ -210,40 +210,27 @@ export default function UserAccountAssociationsPanel({
             accounts.setShowPanel(false);
           }}
         >
-          {accounts.visible.map((option) => {
-            const accountId = Number(option.id);
-            const isSelected = accounts.selections.includes(accountId);
-            const access =
-              accounts.accountAccessChoice[accountId] ?? defaultAccess;
-            return (
-              <div
-                key={option.id}
-                className={adminAssociationAccountOptionRowClass(isSelected)}
-              >
-                <AdminAssociationOptionCheckbox
-                  account
-                  checked={isSelected}
-                  onChange={() => accounts.toggleSelection(accountId)}
-                >
-                  <span>{option.label}</span>
-                </AdminAssociationOptionCheckbox>
-                <div className="flex flex-wrap items-center gap-2">
-                  <AccountAccessRoleSelectors
-                    label={option.label}
-                    portalEnabled={showPortalRole}
-                    value={access}
-                    showValidation={isSelected}
-                    onChange={(value) =>
-                      accounts.setAccountAccessChoice((current) => ({
-                        ...current,
-                        [accountId]: value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            );
-          })}
+          <AdminAssociationAccessPickerTable
+            title="Available accounts"
+            principalLabel="Account"
+            options={accounts.visible.map((option) => {
+              const accountId = Number(option.id);
+              return {
+                id: accountId,
+                label: option.label,
+                selected: accounts.selections.includes(accountId),
+                access: accounts.accountAccessChoice[accountId] ?? defaultAccess,
+              };
+            })}
+            portalEnabled={showPortalRole}
+            onToggle={accounts.toggleSelection}
+            onAccessChange={(accountId, value) =>
+              accounts.setAccountAccessChoice((current) => ({
+                ...current,
+                [accountId]: value,
+              }))
+            }
+          />
         </AdminAssociationPickerPanel>
       ) : null}
     </div>

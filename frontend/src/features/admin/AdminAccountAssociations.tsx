@@ -6,12 +6,11 @@ import { listMinimalUsers } from "../../api/users";
 import { listMinimalGroups } from "../../api/groups";
 import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
 import { SettingsButton } from "../../components/settings/SettingsControls";
-import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { ListActionButton, ListActions } from "../../components/list/ListControls";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { AdminAssociationSectionHeader, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
-import AccountAccessRoleSelectors, { AccountAccessRoleValidationMessage, ManagerAccountRoleSelect, PortalAccountRoleSelect } from "./AccountAccessRoleSelectors";
+import { AdminAssociationAccessPickerTable, AdminAssociationSectionHeader, AdminAssociationPickerPanel, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
+import { AccountAccessRoleValidationMessage, ManagerAccountRoleSelect, PortalAccountRoleSelect } from "./AccountAccessRoleSelectors";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 
 type Principal = { id: number; label: string };
@@ -103,12 +102,29 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
         loadingLabel={catalogue.loadError ? "The catalogue is unavailable." : `Loading UI ${adapter.kind}...`}
         availableCount={available.length} maxVisibleOptions={10} selectedCount={selected.length}
         onCancel={cancel} onAdd={add} addDisabled={disabled || catalogue.loading || Boolean(catalogue.loadError) || selected.length === 0 || selected.some(id => !hasAccountAccessRole(access(id)))}>
-        {!catalogue.loading && !catalogue.loadError && available.slice(0, 10).map(principal => <div key={principal.id} className={adminAssociationAccountOptionRowClass(selected.includes(principal.id))}>
-          <UiCheckboxField checked={selected.includes(principal.id)} onChange={() => setSelected(current => current.includes(principal.id) ? current.filter(id => id !== principal.id) : [...current, principal.id])}>{principal.label}</UiCheckboxField>
-          <AccountAccessRoleSelectors label={principal.label} value={access(principal.id)} portalEnabled={portalEnabled}
-            showValidation={selected.includes(principal.id)}
-            onChange={grant => setChoices(current => ({ ...current, [principal.id]: grant }))} />
-        </div>)}
+        {!catalogue.loading && !catalogue.loadError ? (
+          <AdminAssociationAccessPickerTable
+            title={"Available UI " + adapter.kind}
+            principalLabel={adapter.singular}
+            options={available.slice(0, 10).map((principal) => ({
+              id: principal.id,
+              label: principal.label,
+              selected: selected.includes(principal.id),
+              access: access(principal.id),
+            }))}
+            portalEnabled={portalEnabled}
+            onToggle={(id) =>
+              setSelected((current) =>
+                current.includes(id)
+                  ? current.filter((selectedId) => selectedId !== id)
+                  : [...current, id],
+              )
+            }
+            onAccessChange={(id, grant) =>
+              setChoices((current) => ({ ...current, [id]: grant }))
+            }
+          />
+        ) : null}
       </AdminAssociationPickerPanel>
     </> : undefined}
   </fieldset>;

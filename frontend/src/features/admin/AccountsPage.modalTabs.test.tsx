@@ -884,7 +884,7 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Add UI users" }));
     const userCheckbox = await screen.findByRole("checkbox", { name: "ui7@example.com" });
     fireEvent.click(userCheckbox);
-    const userRow = userCheckbox.closest("div");
+    const userRow = userCheckbox.closest("tr");
     if (!userRow) {
       throw new Error("User row not found");
     }

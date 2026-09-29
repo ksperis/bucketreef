@@ -40,7 +40,7 @@ import { S3AccountSummary, listMinimalS3Accounts } from "../../api/accounts";
 import { S3UserSummary, listMinimalS3Users } from "../../api/s3Users";
 import { S3ConnectionSummary, listMinimalS3Connections } from "../../api/s3ConnectionsAdmin";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
-import AccountAccessRoleSelectors, {
+import {
   AccountAccessRoleValidationMessage,
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
@@ -68,7 +68,7 @@ import {
   ManagerToolAccessSection,
   WorkspaceAccessSection,
 } from "./AdminAccessSections";
-import { AdminAssociationLinkedTable, AdminAssociationOptionCheckbox, AdminAssociationTabs, adminAssociationPanelClass, AdminAssociationPickerPanel, adminAssociationAccountOptionRowClass, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
+import { AdminAssociationAccessPickerTable, AdminAssociationLinkedTable, AdminAssociationOptionCheckbox, AdminAssociationTabs, adminAssociationPanelClass, AdminAssociationPickerPanel, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
@@ -750,38 +750,28 @@ export default function GroupsPage() {
                       setAccountSearch("");
                     }}
                   >
-                    {visibleAccounts.map((account) => {
-                      const accountId = account.id;
-                      const selected = accountSelections.includes(accountId);
-                      return (
-                        <div key={accountId} className={adminAssociationAccountOptionRowClass(selected)}>
-                          <AdminAssociationOptionCheckbox
-                            account
-                              checked={selected}
-                              onChange={() => togglePendingSelection(setAccountSelections, accountId)}
-                          >
-                            <span>{account.name}</span>
-                          </AdminAssociationOptionCheckbox>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <AccountAccessRoleSelectors
-                              label={account.name}
-                              portalEnabled={showPortalRole}
-                              value={
-                                accountAccessChoice[accountId] ??
-                                defaultAccountAccessGrant(showPortalRole)
-                              }
-                              showValidation={selected}
-                              onChange={(value) =>
-                                setAccountAccessChoice((current) => ({
-                                  ...current,
-                                  [accountId]: value,
-                                }))
-                              }
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <AdminAssociationAccessPickerTable
+                      title="Available accounts"
+                      principalLabel="Account"
+                      options={visibleAccounts.map((account) => ({
+                        id: account.id,
+                        label: account.name,
+                        selected: accountSelections.includes(account.id),
+                        access:
+                          accountAccessChoice[account.id] ??
+                          defaultAccountAccessGrant(showPortalRole),
+                      }))}
+                      portalEnabled={showPortalRole}
+                      onToggle={(accountId) =>
+                        togglePendingSelection(setAccountSelections, accountId)
+                      }
+                      onAccessChange={(accountId, value) =>
+                        setAccountAccessChoice((current) => ({
+                          ...current,
+                          [accountId]: value,
+                        }))
+                      }
+                    />
                   </AdminAssociationPickerPanel>
                 ) : undefined
               }
