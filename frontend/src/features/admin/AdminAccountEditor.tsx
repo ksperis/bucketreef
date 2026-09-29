@@ -15,6 +15,7 @@ import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRem
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiTagEditor from "../../components/UiTagEditor";
+import UsageTile from "../../components/UsageTile";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { extractApiError } from "../../utils/apiError";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
@@ -155,20 +156,33 @@ function LoadedAccountEditor({ account, portalEnabled, canManagePrivilegedTarget
                 {!usageEnabled ? <UiInlineMessage tone="info">Storage metrics are not available for this account.</UiInlineMessage>
                   : usage.loading ? <p role="status">Loading storage usage...</p>
                     : usage.error ? <UiInlineMessage tone="error">{usage.error} <SettingsButton variant="secondary" onClick={() => void usage.reload()}>Retry usage</SettingsButton></UiInlineMessage>
-                      : <InlineSummary items={[
-                        { label: "Storage", value: usage.stats?.total_bytes == null ? "—" : formatBytes(usage.stats.total_bytes) },
-                        { label: "Objects", value: usage.stats?.total_objects == null ? "—" : formatCompactNumber(usage.stats.total_objects) },
-                        ...(usage.stats?.bucket_overview ? [
+                      : <>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <UsageTile
+                            label="Storage"
+                            used={usage.stats?.total_bytes ?? null}
+                            quota={account.quota_max_size_gb != null ? account.quota_max_size_gb * 1024 ** 3 : null}
+                            formatter={formatBytes}
+                            quotaFormatter={formatBytes}
+                            emptyHint="No storage quota defined."
+                          />
+                          <UsageTile
+                            label="Objects"
+                            used={usage.stats?.total_objects ?? null}
+                            quota={account.quota_max_objects ?? null}
+                            formatter={formatCompactNumber}
+                            quotaFormatter={value => value != null ? value.toLocaleString() : "-"}
+                            unitHint="objects"
+                            emptyHint="No object quota defined."
+                          />
+                        </div>
+                        {usage.stats?.bucket_overview && <InlineSummary items={[
                           { label: "Active buckets", value: `${usage.stats.bucket_overview.non_empty_buckets}/${usage.stats.bucket_overview.bucket_count}` },
                           { label: "Empty buckets", value: String(usage.stats.bucket_overview.empty_buckets) },
                           { label: "Average size", value: usage.stats.bucket_overview.avg_bucket_size_bytes == null ? "—" : formatBytes(usage.stats.bucket_overview.avg_bucket_size_bytes) },
                           { label: "Average objects", value: usage.stats.bucket_overview.avg_objects_per_bucket == null ? "—" : formatCompactNumber(usage.stats.bucket_overview.avg_objects_per_bucket) },
-                        ] : []),
-                      ]} />}
-                <InlineSummary items={[
-                  { label: "Saved storage limit", value: form.baseline.quota_max_size_gb === "" ? "No limit" : `${form.baseline.quota_max_size_gb} ${form.baseline.quota_max_size_unit}` },
-                  { label: "Saved object limit", value: form.baseline.quota_max_objects === "" ? "No limit" : form.baseline.quota_max_objects },
-                ]} />
+                        ]} />}
+                      </>}
               </SettingsSection>
               {permissions.loading ? <p role="status">Checking endpoint permissions...</p> : permissions.loadError ? <UiInlineMessage tone="error" role="alert">
                 {permissions.loadError} <SettingsButton variant="secondary" onClick={permissions.retry}>Retry permissions</SettingsButton>

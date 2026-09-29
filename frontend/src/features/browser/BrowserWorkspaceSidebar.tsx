@@ -124,7 +124,7 @@ export default function BrowserWorkspaceSidebar({
 }: BrowserWorkspaceSidebarProps) {
   const tr = useBrowserText();
   const [tab, setTab] = useState<"buckets" | "favorites">("buckets");
-  const title = isPortalContext ? "Storage Spaces" : "Buckets";
+  const title = isPortalContext ? "Spaces" : "Buckets";
   const searchPlaceholder = isPortalContext ? "Search storage spaces" : "Search buckets";
   const hasUsageGauge =
     usageSummary?.available === true && usageSummary.used_bytes != null;

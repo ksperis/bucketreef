@@ -27,30 +27,10 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Demo: lokal für diese Identität gespeichert.",
     "演示：仅为当前身份保存在本地。"
   ],
-  "Rename saved item": [
-    "Renommer l’élément enregistré",
-    "Gespeicherten Eintrag umbenennen",
-    "重命名已保存项"
-  ],
   "Name": [
     "Nom",
     "Name",
     "名称"
-  ],
-  "Save name": [
-    "Enregistrer le nom",
-    "Namen speichern",
-    "保存名称"
-  ],
-  "Cancel editing": [
-    "Annuler la modification",
-    "Bearbeitung abbrechen",
-    "取消编辑"
-  ],
-  "Pin location": [
-    "Épingler cet emplacement",
-    "Ort anheften",
-    "收藏位置"
   ],
   "Refresh": [
     "Actualiser",
@@ -82,6 +62,16 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Favoriten",
     "收藏"
   ],
+  "Add to favorites": [
+    "Ajouter aux favoris",
+    "Zu Favoriten hinzufügen",
+    "添加到收藏"
+  ],
+  "Remove from favorites": [
+    "Retirer des favoris",
+    "Aus Favoriten entfernen",
+    "从收藏中移除"
+  ],
   "Locations": [
     "Emplacements",
     "Orte",
@@ -91,11 +81,6 @@ const messages: Record<string, readonly [string, string, string]> = {
     "Rechercher un favori",
     "Favoriten suchen",
     "搜索收藏"
-  ],
-  "Manage favorites": [
-    "Gérer les favoris",
-    "Favoriten verwalten",
-    "管理收藏"
   ],
   "Type": [
     "Type",

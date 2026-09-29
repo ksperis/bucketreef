@@ -88,6 +88,40 @@ describe("BrowserPathNavigator", () => {
     ).toHaveClass("browser-path-scroll", "overflow-x-auto");
   });
 
+  it("toggles the current path favorite without entering path editing", () => {
+    const onToggle = vi.fn();
+    const onStartEditing = vi.fn();
+    const { rerender } = render(
+      <BrowserPathNavigator
+        {...buildProps({
+          onStartEditing,
+          favorite: { active: false, busy: false, disabled: false, onToggle },
+        })}
+      />,
+    );
+
+    const add = screen.getByRole("button", { name: "Add to favorites" });
+    expect(add).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(add);
+    expect(onToggle).toHaveBeenCalledOnce();
+    expect(onStartEditing).not.toHaveBeenCalled();
+
+    rerender(
+      <BrowserPathNavigator
+        {...buildProps({
+          onStartEditing,
+          favorite: { active: true, busy: false, disabled: false, onToggle },
+        })}
+      />,
+    );
+    const remove = screen.getByRole("button", { name: "Remove from favorites" });
+    expect(remove).toHaveAttribute("aria-pressed", "true");
+    expect(remove.querySelector("svg")).toHaveClass(
+      "text-yellow-400",
+      "dark:text-yellow-300",
+    );
+  });
+
   it("keeps the breadcrumb strip compact", () => {
     render(
       <BrowserPathNavigator

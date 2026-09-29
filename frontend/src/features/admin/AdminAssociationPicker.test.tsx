@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, AdminAssociationSectionHeader, AdminAssociationTabs } from "./AdminAssociationPicker";
+import { AdminAssociationAccessPickerTable, AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, AdminAssociationSectionHeader, AdminAssociationTabs } from "./AdminAssociationPicker";
 
 describe("AdminAssociationPicker", () => {
   it("renders the shared linked table and its picker action", () => {
@@ -123,6 +123,47 @@ describe("AdminAssociationPicker", () => {
 
     await user.click(screen.getByRole("button", { name: "Add selected" }));
     expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders access choices with shared role column headers", () => {
+    render(
+      <AdminAssociationAccessPickerTable
+        title="Available accounts"
+        principalLabel="Account"
+        portalEnabled
+        options={[
+          {
+            id: 1,
+            label: "Research Archive",
+            selected: true,
+            access: { manager_role: "account_administrator", portal_role: null },
+          },
+          {
+            id: 2,
+            label: "Analytics",
+            selected: false,
+            access: { manager_role: null, portal_role: "portal_user" },
+          },
+        ]}
+        onToggle={vi.fn()}
+        onAccessChange={vi.fn()}
+      />
+    );
+
+    const table = screen.getByRole("table", { name: "Available accounts" });
+    expect(within(table).getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+      "Account",
+      "Manager role",
+      "Portal role",
+    ]);
+    expect(within(table).queryByText("Manager")).not.toBeInTheDocument();
+    expect(within(table).queryByText("Portal")).not.toBeInTheDocument();
+    expect(
+      within(table).getByRole("combobox", { name: "Manager role for Research Archive" }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole("combobox", { name: "Portal role for Analytics" }),
+    ).toBeInTheDocument();
   });
 
   it("renders shared checkbox options and forwards the selected id", async () => {

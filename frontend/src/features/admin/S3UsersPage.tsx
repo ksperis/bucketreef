@@ -28,29 +28,28 @@ import PageHeader from "../../components/PageHeader";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import SettingsForm from "../../components/settings/SettingsForm";
-import { SettingsDialog } from "../../components/settings/SettingsControls";
+import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
 import AdminRgwEndpointField from "./AdminRgwEndpointField";
 import AdminRgwCreateFields from "./AdminRgwCreateFields";
 import { useAdminRgwFormValidation, rgwCreateErrors, rgwImportEntries } from "./useAdminRgwFormValidation";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import WorkflowPage, {
-  WorkflowActions,
   WorkflowMetadata,
-  WorkflowSection,
   workflowPageHostClass,
 } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
+import InlineSummary from "../../components/InlineSummary";
 import DataTableShell, {
   dataTableDefaultActionProps,
   type DataTableColumn,
 } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import StorageUsageCard from "../../components/StorageUsageCard";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import UiTagEditor from "../../components/UiTagEditor";
-import UiButton from "../../components/ui/UiButton";
+import UsageTile from "../../components/UsageTile";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
@@ -58,6 +57,7 @@ import UiTextarea from "../../components/ui/UiTextarea";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { extractApiError } from "../../utils/apiError";
+import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
 import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
@@ -203,6 +203,7 @@ export default function S3UsersPage() {
     stats: editingUsageStats,
     loading: editingUsageLoading,
     error: editingUsageError,
+    reload: editingUsageReload,
   } = useAdminS3UserStats(editingUserId, Boolean(editingUserId));
   const showEditGeneralTab = editTab === "general";
   const showEditUsersTab = editTab === "users";
@@ -410,6 +411,8 @@ export default function S3UsersPage() {
   const editingEndpointId = editingUser?.storage_endpoint_id ?? null;
   const allowUserQuotaUpdates = editingEndpointId ? endpointUsersWrite[editingEndpointId] === true : false;
   const editingEndpointCanWriteBuckets = editingEndpointId ? endpointBucketsWrite[editingEndpointId] === true : false;
+  const editPermissionLoading = editingEndpointId ? Boolean(endpointPermissionLoading[editingEndpointId]) : false;
+  const editPermissionError = editingEndpointId ? endpointPermissionErrors[editingEndpointId] ?? null : null;
 
   useEffect(() => {
     const defaultCeph =
@@ -940,12 +943,13 @@ export default function S3UsersPage() {
       {editingUser && (
         <WorkflowPage
           title={`Edit ${editingUser.name}`}
-          description="Manage quotas, UI associations, and privileged access for this RGW user."
+          description="Manage quotas, usage, UI associations, and privileged access for this RGW user."
           breadcrumbs={adminPageBreadcrumbs("rgw-users", { label: "Edit" })}
           backLabel="Back to RGW users"
           onBack={editCloseGuard.requestClose}
           contentVariant="plain"
           width="wide"
+          contentClassName="settings-compact settings-form"
           metaContent={
             <WorkflowMetadata
               items={[
@@ -962,16 +966,11 @@ export default function S3UsersPage() {
             />
           }
         >
-          {editError && (
-            <UiInlineMessage tone="error" className="mb-3">
-              {editError}
-            </UiInlineMessage>
-          )}
-          <form onSubmit={submitEdit} className="space-y-4">
-            <WorkflowTabs<EditTab>
-              panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
+          <WorkflowTabs<EditTab>
+              panelClassName="mt-3 min-w-0"
               activeTab={editTab}
               onTabChange={(tab) => {
+                if (editBusy) return;
                 if (tab === "users") {
                   void loadPortalUsersIfNeeded();
                 }
@@ -988,16 +987,26 @@ export default function S3UsersPage() {
                 { id: "groups", label: "Linked UI groups" },
                 { id: "privileged", label: "Privileged access", visible: canManagePrivilegedTargets },
                 { id: "effective_access", label: "Effective access" },
-              ]}
+              ].map((item) => ({ ...item, id: item.id as EditTab, disabled: editBusy }))}
             >
-
-            {showEditGeneralTab && (
-              <>
-                <WorkflowSection
-                  title="User details"
-                  description="Update the display information and administrative tags for this RGW user."
-                >
-                  <div className="grid gap-4 md:grid-cols-2">
+            {editTab !== "effective_access" && (
+              <SettingsForm
+                label="Edit RGW user"
+                busy={editBusy}
+                onSubmit={submitEdit}
+                onCancel={editCloseGuard.requestClose}
+                submitLabel="Save changes"
+                busyLabel="Saving..."
+              >
+                {editError && <UiInlineMessage tone="error" role="alert">{editError}</UiInlineMessage>}
+                {showEditGeneralTab && (
+                  <div className="settings-stack">
+                    <SettingsSection
+                      title="User details"
+                      description="Update the display information and administrative tags for this RGW user."
+                      presentation="compact"
+                    >
+                      <div className="settings-fields sm:grid-cols-2">
                     <UiInput
                       label="Display name"
                       value={editForm.name}
@@ -1009,8 +1018,8 @@ export default function S3UsersPage() {
                       value={editForm.email}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
                     />
-                    <div className="md:col-span-2">
-                      {adminTagCatalogError && <PageBanner tone="warning">{adminTagCatalogError}</PageBanner>}
+                    <div className="sm:col-span-2">
+                      {adminTagCatalogError && <UiInlineMessage tone="warning">{adminTagCatalogError}</UiInlineMessage>}
                       <UiTagEditor
                         label="Tags"
                         tags={editForm.tags}
@@ -1020,25 +1029,46 @@ export default function S3UsersPage() {
                         hint={adminTagCatalogLoading ? "Loading existing tag catalog..." : undefined}
                       />
                     </div>
-                  </div>
-                </WorkflowSection>
-                <StorageUsageCard
-                  accountName={editingUser.name}
-                  storage={{
-                    used: editingUsageStats?.total_bytes ?? null,
-                    quotaBytes:
-                      editingUser.quota_max_size_gb != null ? editingUser.quota_max_size_gb * 1024 ** 3 : null,
-                  }}
-                  objects={{
-                    used: editingUsageStats?.total_objects ?? null,
-                    quota: editingUser.quota_max_objects ?? null,
-                  }}
-                  bucketOverview={editingUsageStats?.bucket_overview}
-                  loading={editingUsageLoading}
-                  metricsDisabled={false}
-                  errorMessage={editingUsageError}
-                />
+                      </div>
+                    </SettingsSection>
+                    <SettingsSection title="Usage" description="Observed storage use and the currently saved limits." presentation="compact">
+                      {editingUsageLoading ? <p role="status">Loading storage usage...</p>
+                        : editingUsageError ? <UiInlineMessage tone="error">{editingUsageError} <SettingsButton variant="secondary" onClick={() => void editingUsageReload()}>Retry usage</SettingsButton></UiInlineMessage>
+                          : <>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <UsageTile
+                                label="Storage"
+                                used={editingUsageStats?.total_bytes ?? null}
+                                quota={editingUser.quota_max_size_gb != null ? editingUser.quota_max_size_gb * 1024 ** 3 : null}
+                                formatter={formatBytes}
+                                quotaFormatter={formatBytes}
+                                emptyHint="No storage quota defined."
+                              />
+                              <UsageTile
+                                label="Objects"
+                                used={editingUsageStats?.total_objects ?? null}
+                                quota={editingUser.quota_max_objects ?? null}
+                                formatter={formatCompactNumber}
+                                quotaFormatter={value => value != null ? value.toLocaleString() : "-"}
+                                unitHint="objects"
+                                emptyHint="No object quota defined."
+                              />
+                            </div>
+                            {editingUsageStats?.bucket_overview && <InlineSummary items={[
+                              { label: "Active buckets", value: `${editingUsageStats.bucket_overview.non_empty_buckets}/${editingUsageStats.bucket_overview.bucket_count}` },
+                              { label: "Empty buckets", value: String(editingUsageStats.bucket_overview.empty_buckets) },
+                              { label: "Average size", value: editingUsageStats.bucket_overview.avg_bucket_size_bytes == null ? "—" : formatBytes(editingUsageStats.bucket_overview.avg_bucket_size_bytes) },
+                              { label: "Average objects", value: editingUsageStats.bucket_overview.avg_objects_per_bucket == null ? "—" : formatCompactNumber(editingUsageStats.bucket_overview.avg_objects_per_bucket) },
+                            ]} />}
+                          </>}
+                    </SettingsSection>
+                    {editPermissionLoading ? <p role="status">Checking endpoint permissions...</p>
+                      : editPermissionError ? <UiInlineMessage tone="error" role="alert">
+                        {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void fetchEndpointUsersWritePermission(editingEndpointId)}>Retry permissions</SettingsButton>
+                      </UiInlineMessage>
+                        : !allowUserQuotaUpdates && <UiInlineMessage tone="info">Quota editing requires Admin Ops support and users=write on the endpoint.</UiInlineMessage>}
                 <AdminQuotaFields
+                  compact
                   storageValue={editForm.quota_max_size_gb}
                   storageUnit={editForm.quota_max_size_unit}
                   objectValue={editForm.quota_max_objects}
@@ -1050,14 +1080,14 @@ export default function S3UsersPage() {
                     setEditForm((prev) => ({ ...prev, quota_max_size_unit: value }))
                   }
                   onObjectValueChange={(value) =>
-                    setEditForm((prev) => ({ ...prev, quota_max_objects: value }))
+                      setEditForm((prev) => ({ ...prev, quota_max_objects: value }))
                   }
                 />
-              </>
-            )}
+                  </div>
+                )}
 
             {showEditUsersTab && (
-              <div className="space-y-3">
+              <div className={`${adminAssociationPanelClass} space-y-3`}>
                 <AdminAssociationSectionHeader
                   title="Linked UI users"
                   countLabel={`${editForm.user_links.length} linked`}
@@ -1171,7 +1201,7 @@ export default function S3UsersPage() {
             )}
 
             {showEditGroupsTab && (
-              <div className="space-y-3">
+              <div className={`${adminAssociationPanelClass} space-y-3`}>
                 <AdminAssociationSectionHeader
                   title="Linked UI groups"
                   countLabel={`${editForm.group_links.length} linked${uiGroupsLoading ? " · loading..." : ""}`}
@@ -1333,6 +1363,8 @@ export default function S3UsersPage() {
                 ]}
               />
             )}
+              </SettingsForm>
+            )}
             {editTab === "effective_access" && (
               <AdminEffectiveAccessPanel
                 scope="rgw_user"
@@ -1340,25 +1372,8 @@ export default function S3UsersPage() {
                 contextLabel={editingUser.name}
               />
             )}
-            </WorkflowTabs>
-
-            <WorkflowActions>
-              {editTab === "effective_access" ? (
-                <UiButton variant="secondary" onClick={editCloseGuard.requestClose}>Done</UiButton>
-              ) : <>
-                <UiButton variant="secondary" onClick={editCloseGuard.requestClose}>
-                  Cancel
-                </UiButton>
-                <UiButton
-                  type="submit"
-                  disabled={editBusy}
-                >
-                  {editBusy ? "Saving..." : "Save changes"}
-                </UiButton>
-              </>}
-            </WorkflowActions>
-            {editCloseGuard.confirmationDialog}
-          </form>
+          </WorkflowTabs>
+          {editCloseGuard.confirmationDialog}
         </WorkflowPage>
       )}
 
