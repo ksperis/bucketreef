@@ -64,7 +64,7 @@ It can also be used solely through the integrated S3 browser for direct object a
 
 ## QuickStart
 
-Install a small release bundle and start the published GHCR images:
+Install the published deployment bundle and start the GHCR images:
 
 ```sh
 curl -fsSL https://bucketreef.ksperis.com/quickstart.sh | sh
@@ -75,7 +75,7 @@ Requirements: Docker Compose v2, Bash, OpenSSL, curl and tar on Linux or macOS
 strong secrets, starts backend/frontend on loopback with SQLite, then prints a
 15-minute URL to create the first administrator and enroll a passkey.
 
-The bundle lives in `~/.local/share/bucketreef-quickstart`; the command is in
+The bundle lives in `~/.local/share/bucketreef`; the command is in
 `~/.local/bin`. Re-running it preserves the installed version, data and keys.
 
 ```sh
@@ -86,20 +86,22 @@ bucketreef-quickstart version
 ```
 
 See the [QuickStart guide](https://docs.bucketreef.ksperis.com/ops/quickstart/)
-for explicit versions, script inspection, custom ports, reset backups and
-migration from the previous source-checkout QuickStart. This evaluation setup
-does not configure storage or enable the scheduler.
+for explicit versions, script inspection, custom ports and reset backups. This
+evaluation setup does not configure storage; it runs the same backend, frontend
+and scheduler contained in the normal Compose deployment.
 
 ## Deploy a release
 
-- **Docker Compose:** download and verify the Compose bundle from
+- **Docker Compose:** download and verify `bucketreef-deploy.tar.gz` from
   [GitHub Releases](https://github.com/ksperis/bucketreef/releases), configure
   `.env` and follow the [deployment guide](https://docs.bucketreef.ksperis.com/ops/deploy-docker-compose/).
 - **Kubernetes:** install `oci://ghcr.io/ksperis/charts/bucketreef` with an explicit
   `--version X.Y.Z` and the required security values and existing Secret from
   the [Helm guide](https://docs.bucketreef.ksperis.com/ops/deploy-helm/).
 
-The chart and bundles follow application releases. Each release pins the
+QuickStart automates installation and configuration of the same Docker Compose
+bundle distributed with each release. The Helm chart remains a separate
+Kubernetes artifact. Each release pins the
 backend, frontend and scheduler images to the same version.
 
 ## Build from source

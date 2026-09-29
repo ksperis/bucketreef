@@ -128,7 +128,8 @@ def diagnostics(key):
         for cid in ids:
             container = json.loads(command("docker", "inspect", cid, timeout=10))[0]
             result["containers"].append(safe_container(container))
-        result["images"] = read(f"installation-images/{key}.json")
+        image_key = "kind" if key == "kind" else key.rsplit("-", 1)[-1]
+        result["images"] = read(f"installation-images/{image_key}.json")
         if key == "kind":
             pods = json.loads(command("kubectl", "-n", "bucketreef-smoke", "get", "pods", "-o", "json", timeout=10))["items"]
             result["pods"] = [{"name": pod["metadata"]["name"], "phase": pod["status"].get("phase"),

@@ -1,9 +1,9 @@
 # Local QuickStart
 
-QuickStart installs a small, versioned release bundle and starts published GHCR
-images. It requires no Git checkout or source build. Use it for local evaluation;
-use the [Compose](deploy-docker-compose.md) or [Helm](deploy-helm.md) guide for a
-complete deployment.
+QuickStart automates the same versioned Docker Compose deployment bundle that is
+published for manual installation. It requires no Git checkout or source build.
+Use it for local evaluation; use the [Compose](deploy-docker-compose.md) or
+[Helm](deploy-helm.md) guide for a complete deployment.
 
 ## Install
 
@@ -16,8 +16,8 @@ curl -fsSL https://bucketreef.ksperis.com/quickstart.sh | sh
 ```
 
 The installer resolves the latest stable GitHub Release once, downloads that
-version's bundle and SHA-256 checksum, validates them, and installs into
-`~/.local/share/bucketreef-quickstart`. The management command is
+version's `bucketreef-deploy.tar.gz` and SHA-256 checksum, validates them, and
+installs into `~/.local/share/bucketreef`. The management command is
 `~/.local/bin/bucketreef-quickstart`. Use the full path if that directory is not
 on PATH; no shell startup file is modified.
 
@@ -41,7 +41,7 @@ You can also download the bundle from
 
 ## What it starts
 
-The isolated Compose project `bucketreef-quickstart` runs:
+The normal Compose project `bucketreef` runs:
 
 - the backend with SQLite in its persistent `backend-data` volume;
 - the frontend at `http://localhost:8080`;
@@ -60,7 +60,7 @@ Enabling **Endpoint Status** in Admin settings or creating an endpoint in Admin
 also requests an initial check after the response, before the next scheduled run.
 See [Endpoint healthchecks](operations-healthchecks.md) for concurrency and failure behavior.
 
-First start generates four distinct high-entropy secrets in `.env.quickstart`,
+First start generates four distinct high-entropy secrets in `.env`,
 mode `0600`. Existing environments are preserved. Startup refuses to generate
 replacement keys when a volume already exists without its environment.
 
@@ -117,7 +117,7 @@ curl -fsSL https://bucketreef.ksperis.com/quickstart.sh |
 ```
 
 These values are persisted on first start. For an existing installation, stop
-it and edit `.env.quickstart`, keeping ports, `PUBLIC_ORIGIN`, `WEBAUTHN_ORIGIN`,
+it and edit `.env`, keeping ports, `PUBLIC_ORIGIN`, `WEBAUTHN_ORIGIN`,
 `WEBAUTHN_RP_ID`, CORS and allowed hosts coherent. Changing
 `BUCKETREEF_BIND_ADDRESS` is an explicit operator decision. Follow the full
 deployment guide for TLS before exposing the development profile.
@@ -128,7 +128,7 @@ deployment guide for TLS before exposing the development profile.
 bucketreef-quickstart reset
 ```
 
-Enter exactly `RESET BUCKETREEF QUICKSTART`. The command stops the project,
+Enter exactly `RESET BUCKETREEF`. The command stops the project,
 saves the environment and complete SQLite volume, verifies the non-empty
 archive and writes its manifest, then removes only the identified backend
 volume. It preserves network/origin settings, creates fresh secrets and
@@ -139,28 +139,6 @@ installation directory, including `app.db` and any WAL/SHM files. Preserve
 keys together with their data. See [Backup and restore](backup-restore.md).
 Never restore a database with unrelated keys.
 
-## Migrate a source-checkout QuickStart
-
-There is no automatic legacy importer or compatibility wrapper. Choose a
-release compatible with the old checkout's database schema; a database from
-newer sources cannot safely be downgraded to an older release.
-
-1. Before removing the old checkout, stop it with its existing `./quickstart stop`.
-   If that script is gone, use its old Compose configuration with project
-   `bucketreef-quickstart` and its `.env.quickstart` to stop the services.
-2. Back up the complete stopped volume and matching `.env.quickstart`, following
-   [Backup and restore](backup-restore.md). Verify the archive and retain the
-   old configuration and image references.
-3. Install the new bundle with `--version X.Y.Z --no-start`.
-4. Copy the old `.env.quickstart` to
-   `~/.local/share/bucketreef-quickstart/.env.quickstart`, mode `0600`.
-   Keep the existing `bucketreef-quickstart` project and backend volume.
-5. Run `~/.local/bin/bucketreef-quickstart start`, then `status` and `version`.
-   Confirm the existing login, data and storage connections are usable.
-
-Do not run `reset` during migration. Restore the matching environment if an
-existing volume is detected; do not generate replacement keys.
-
 ## Manual upgrade
 
 1. Stop QuickStart. Back up and verify the complete database volume and matching
@@ -168,7 +146,7 @@ existing volume is detected; do not generate replacement keys.
 2. Move the installation directory to a sibling backup directory, retaining its
    old `VERSION`, Compose, environment and backups. Keep the existing volume.
 3. Install the target version with `--version X.Y.Z --no-start`.
-4. Copy the previous `.env.quickstart` into the new installation with mode `0600`,
+4. Copy the previous `.env` into the new installation with mode `0600`,
    then start and verify health and login.
 
 The bundle supplies the image version; editing an old `BUCKETREEF_TAG` value

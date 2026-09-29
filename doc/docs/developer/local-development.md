@@ -38,11 +38,11 @@ default SQLite configuration is sufficient.
 
 For a Docker-based check of the exact working tree, configure a root `.env`
 with distinct UI/API JWT rings, credential-encryption keys and an internal Cron
-token (use `deploy/compose/.env.example` as the configuration reference), then run:
+token (use `deploy/bundle/.env.example` as the configuration reference), then run:
 
 ```sh
 docker compose build
-docker compose up -d --build --wait backend frontend
+docker compose up -d --build --wait
 docker compose exec backend python -m app.scripts.issue_first_admin_bootstrap
 ```
 

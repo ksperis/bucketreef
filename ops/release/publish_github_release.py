@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 
 REPOSITORY = "ksperis/bucketreef"
-ASSETS = tuple(f"bucketreef-{kind}.tar.gz{suffix}" for kind in ("compose", "quickstart") for suffix in ("", ".sha256"))
+ASSETS = ("bucketreef-deploy.tar.gz", "bucketreef-deploy.tar.gz.sha256")
 
 
 class GitHub:
@@ -75,11 +75,10 @@ def publish(api, version: str, sha: str, directory: Path, latest: bool, notes: s
     if resolve_tag(api, tag) != sha:
         raise RuntimeError("GitHub tag SHA differs from the validated GitLab commit")
     files = {name: (directory / name).read_bytes() for name in ASSETS}
-    for kind in ("compose", "quickstart"):
-        name = f"bucketreef-{kind}.tar.gz"
-        expected = f"{hashlib.sha256(files[name]).hexdigest()}  {name}\n".encode()
-        if files[name + ".sha256"] != expected:
-            raise RuntimeError(f"Invalid local checksum for {name}")
+    name = "bucketreef-deploy.tar.gz"
+    expected = f"{hashlib.sha256(files[name]).hexdigest()}  {name}\n".encode()
+    if files[name + ".sha256"] != expected:
+        raise RuntimeError(f"Invalid local checksum for {name}")
 
     release = api.request(f"releases/tags/{tag}", missing_ok=True)
     if release is None:

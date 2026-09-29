@@ -46,7 +46,7 @@ def load_source(api):
     plan = json.loads(source_artifact(api, ready_job, "ci-plan.json"))
     dist.write("source-plan.json", plan)
     Path("installation-receipts").mkdir(exist_ok=True)
-    for key in ("amd64", "arm64", "kind"):
+    for key in ("quickstart-amd64", "quickstart-arm64", "compose-amd64", "compose-arm64", "kind"):
         path = f"installation-receipts/{key}.json"
         Path(path).write_bytes(source_artifact(api, ready_job, path))
     inventory = dist.inventory_record()

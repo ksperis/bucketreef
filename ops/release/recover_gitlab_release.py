@@ -46,11 +46,10 @@ def verify_public_release(api, version, sha, notes, *, expected_files=None):
             or asset.get("size") != len(data)):
             raise RuntimeError(f"Public release asset differs: {name}")
         files[name] = data
-    for kind in ("compose", "quickstart"):
-        name = f"bucketreef-{kind}.tar.gz"
-        expected = f"{hashlib.sha256(files[name]).hexdigest()}  {name}\n".encode()
-        if files[name + ".sha256"] != expected:
-            raise RuntimeError(f"Public release checksum differs: {name}")
+    name = "bucketreef-deploy.tar.gz"
+    expected = f"{hashlib.sha256(files[name]).hexdigest()}  {name}\n".encode()
+    if files[name + ".sha256"] != expected:
+        raise RuntimeError(f"Public release checksum differs: {name}")
 
 
 def recover(api, github, version, gitlab_url, *, root=ROOT, remote="origin"):

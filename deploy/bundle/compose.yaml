@@ -76,7 +76,6 @@ services:
       start_period: 5s
   scheduler:
     image: ${BUCKETREEF_SCHEDULER_IMAGE:-ghcr.io/ksperis/bucketreef-scheduler}:${BUCKETREEF_TAG:?Set BUCKETREEF_TAG to the release version}
-    profiles: ["operations"]
     depends_on:
       backend:
         condition: service_healthy

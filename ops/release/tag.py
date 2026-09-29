@@ -17,7 +17,7 @@ RELEASE_METADATA = (
     "frontend/package.json",
     "frontend/package-lock.json",
     "deploy/helm/bucketreef/Chart.yaml",
-    "deploy/compose/.env.example",
+    "deploy/bundle/.env.example",
     "backend/schema-baselines",
 )
 

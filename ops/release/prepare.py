@@ -24,7 +24,7 @@ def prepare(root: Path, version: str) -> None:
         edits[path] = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     chart = root / "deploy/helm/bucketreef/Chart.yaml"
     edits[chart] = re.sub(r"(?m)^(version|appVersion):.*$", lambda m: f"{m[1]}: {version}", chart.read_text())
-    compose = root / "deploy/compose/.env.example"
+    compose = root / "deploy/bundle/.env.example"
     edits[compose] = re.sub(r"(?m)^BUCKETREEF_TAG=.*$", f"BUCKETREEF_TAG={version}", compose.read_text())
     baseline(root, version, check=False)
     for path, content in edits.items():

@@ -5,11 +5,11 @@ set -euo pipefail
 
 # Every path is relative to the installed bundle, never the caller's checkout.
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
-readonly PROJECT_NAME="bucketreef-quickstart"
-readonly COMPOSE_FILE="docker-compose.yml"
-readonly ENV_FILE=".env.quickstart"
+readonly PROJECT_NAME="bucketreef"
+readonly COMPOSE_FILE="compose.yaml"
+readonly ENV_FILE=".env"
 readonly BACKUP_ROOT=".bucketreef-backups"
-readonly RESET_CONFIRMATION="RESET BUCKETREEF QUICKSTART"
+readonly RESET_CONFIRMATION="RESET BUCKETREEF"
 
 die() {
   printf 'Error: %s\n' "$*" >&2
@@ -33,7 +33,7 @@ compose() (
   unset APP_ENV UI_JWT_KEYS API_JWT_KEYS CREDENTIAL_KEYS INTERNAL_CRON_TOKEN
   unset BUCKETREEF_BIND_ADDRESS BUCKETREEF_BACKEND_PORT BUCKETREEF_FRONTEND_PORT
   unset PUBLIC_ORIGIN WEBAUTHN_ORIGIN WEBAUTHN_RP_ID CORS_ORIGINS ALLOWED_HOSTS
-  # Also identify upgraded bundles whose existing env file predates this hint.
+  # QuickStart is an installation mode of the common deployment bundle.
   export ONBOARDING_SOURCE=quickstart
   docker compose \
     --project-name "$PROJECT_NAME" \
@@ -121,7 +121,7 @@ check_prerequisites() {
 
 service_is_running() {
   local service="$1"
-  [[ -n "$(compose --profile operations ps --status running --quiet "$service" 2>/dev/null)" ]]
+  [[ -n "$(compose ps --status running --quiet "$service" 2>/dev/null)" ]]
 }
 
 port_is_open() {
@@ -134,15 +134,15 @@ check_ports() {
   backend_port="$(env_value BUCKETREEF_BACKEND_PORT 8000)"
   frontend_port="$(env_value BUCKETREEF_FRONTEND_PORT 8080)"
   if port_is_open "$backend_port" && ! service_is_running backend; then
-    die "Port ${backend_port} is already occupied outside the quickstart project."
+    die "Port ${backend_port} is already occupied outside the BucketReef project."
   fi
   if port_is_open "$frontend_port" && ! service_is_running frontend; then
-    die "Port ${frontend_port} is already occupied outside the quickstart project."
+    die "Port ${frontend_port} is already occupied outside the BucketReef project."
   fi
 }
 
 show_service_logs() {
-  compose --profile operations logs --tail 80 backend frontend scheduler >&2 || true
+  compose logs --tail 80 backend frontend scheduler >&2 || true
 }
 
 wait_for_services() {
@@ -199,14 +199,14 @@ start_quickstart() {
     if [[ -n "$(resolve_backend_volume)" ]] \
       || docker volume inspect "${PROJECT_NAME}_backend-data" >/dev/null 2>&1 \
       || [[ -n "$(docker ps --all --quiet --filter "label=com.docker.compose.project=${PROJECT_NAME}")" ]]; then
-      die "QuickStart resources already exist without $ENV_FILE. Restore their matching environment before starting; see the migration guide."
+      die "BucketReef resources already exist without $ENV_FILE. Restore their matching environment before starting or remove those resources explicitly."
     fi
     write_environment
     printf 'Created %s with mode 0600.\n' "$ENV_FILE"
   fi
   chmod 0600 "$ENV_FILE"
   check_ports
-  compose --profile operations up --detach --no-build backend frontend scheduler
+  compose up --detach --no-build backend frontend scheduler
   wait_for_services
   print_bootstrap_or_login
 }
@@ -217,7 +217,7 @@ show_status() {
     printf 'QuickStart has not been initialized. Run bucketreef-quickstart start first.\n'
     return
   fi
-  compose --profile operations ps --all
+  compose ps --all
   local backend_port frontend_port
   backend_port="$(env_value BUCKETREEF_BACKEND_PORT 8000)"
   frontend_port="$(env_value BUCKETREEF_FRONTEND_PORT 8080)"
@@ -249,7 +249,7 @@ show_status() {
 show_logs() {
   check_prerequisites
   [[ -f "$ENV_FILE" ]] || die "QuickStart has not been initialized."
-  compose --profile operations logs --tail 80 backend frontend scheduler
+  compose logs --tail 80 backend frontend scheduler
 }
 
 stop_quickstart() {
@@ -258,8 +258,8 @@ stop_quickstart() {
     printf 'Quickstart is already stopped.\n'
     return
   fi
-  compose --profile operations stop
-  printf 'Quickstart stopped. Data and secrets were preserved.\n'
+  compose stop
+  printf 'QuickStart stopped. Data and secrets were preserved.\n'
 }
 
 resolve_backend_volume() {
@@ -294,12 +294,12 @@ reset_quickstart() {
   IFS= read -r confirmation
   [[ "$confirmation" == "$RESET_CONFIRMATION" ]] || die "Reset cancelled; confirmation did not match."
 
-  compose --profile operations stop
+  compose stop
 
   local volume_name volume_count timestamp backup_directory
   volume_name="$(resolve_backend_volume)"
   volume_count="$(printf '%s\n' "$volume_name" | awk 'NF { count++ } END { print count + 0 }')"
-  [[ "$volume_count" == "1" ]] || die "Expected exactly one quickstart backend volume; found ${volume_count}."
+  [[ "$volume_count" == "1" ]] || die "Expected exactly one BucketReef backend volume; found ${volume_count}."
 
   timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
   backup_directory="${BACKUP_ROOT}/${timestamp}"
@@ -308,14 +308,14 @@ reset_quickstart() {
   [[ ! -e "$backup_directory" ]] || die "Backup directory already exists: ${backup_directory}"
   mkdir "$backup_directory"
   chmod 0700 "$BACKUP_ROOT" "$backup_directory"
-  cp "$ENV_FILE" "${backup_directory}/env.quickstart"
-  [[ -s "${backup_directory}/env.quickstart" ]] || die "Quickstart environment backup is empty."
-  chmod 0600 "${backup_directory}/env.quickstart"
+  cp "$ENV_FILE" "${backup_directory}/.env"
+  [[ -s "${backup_directory}/.env" ]] || die "QuickStart environment backup is empty."
+  chmod 0600 "${backup_directory}/.env"
   backup_volume "$volume_name" "$backup_directory"
 
-  compose --profile operations rm --force --stop
+  compose rm --force --stop
   docker volume rm "$volume_name" >/dev/null
-  write_environment "${backup_directory}/env.quickstart"
+  write_environment "${backup_directory}/.env"
   printf 'Verified backup written to %s before removing volume %s.\n' "$backup_directory" "$volume_name"
   start_quickstart
 }

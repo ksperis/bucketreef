@@ -80,7 +80,6 @@ services:
     build:
       context: .
       dockerfile: scheduler/Dockerfile
-    profiles: ["operations"]
     depends_on:
       backend:
         condition: service_healthy

@@ -21,7 +21,7 @@ FRONTEND = {"frontend-quality", "frontend-tests", "frontend-demo"}
 DOCS = {"docs-build", "docs-screenshots"}
 DEPLOY = {"backend-tests", "helm-contract", "compose-contract"}
 VERSION_FILES = ("frontend/package.json", "frontend/package-lock.json",
-                 "deploy/helm/bucketreef/Chart.yaml", "deploy/compose/.env.example")
+                 "deploy/helm/bucketreef/Chart.yaml", "deploy/bundle/.env.example")
 
 
 def git(*args: str, root: Path = ROOT) -> str:
@@ -146,9 +146,9 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
             images.add("frontend")
             if path.endswith(("package.json", "package-lock.json")):
                 add({"frontend-vuln-scan", "backend-tests"}, path)
-        elif path.startswith(("ops/release/", "deploy/")) or path in {"CHANGELOG.md", "docker-compose.yml"}:
+        elif path.startswith(("ops/release/", "deploy/")) or path in {"CHANGELOG.md", "compose.yaml"}:
             add(DEPLOY, path)
-            if path.startswith("deploy/") or path == "docker-compose.yml":
+            if path.startswith("deploy/") or path == "compose.yaml":
                 images.update(("backend", "frontend"))
         elif path.startswith(("ops/cron/", "scheduler/")):
             add(DEPLOY | {"scheduler-contract"}, path)

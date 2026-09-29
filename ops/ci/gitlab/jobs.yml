@@ -486,7 +486,7 @@ release-bundles:
   before_script:
   - apk add --no-cache python3
   script:
-  - python3 ops/release/package_bundles.py --version "$RELEASE_VERSION"
+  - python3 ops/release/package_deploy_bundle.py --version "$RELEASE_VERSION"
   - helm package deploy/helm/bucketreef --destination dist/release --version "$RELEASE_VERSION" --app-version "$RELEASE_VERSION"
   - python3 ops/release/distribution.py normalize-chart
   artifacts:
@@ -583,7 +583,7 @@ bootstrap-release-bundles:
     paths:
     - bundle-distribution.json
     expire_in: 30 days
-release-bundle-smoke:
+.release-deploy-smoke:
   stage: installation
   timeout: 45m
   image: docker:27-cli
@@ -594,23 +594,37 @@ release-bundle-smoke:
     - IMAGE_ARCH:
       - amd64
       - arm64
-  needs:
-  - release-tag-metadata
-  - release-source-images-ready
-  - publish-candidate-artifacts
-  - release-public-images-check
-  - release-public-bundles-check
   before_script:
   - apk add --no-cache python3 coreutils
   script:
   - docker run --privileged --rm "$BINFMT_IMAGE" --install arm64,amd64
-  - timeout --signal=TERM --kill-after=60s 40m sh ops/ci/quickstart-bundle-smoke.sh
+  - timeout --signal=TERM --kill-after=60s 40m sh ops/ci/deploy-bundle-smoke.sh
   artifacts:
     when: always
     paths:
     - installation-receipts/
     - smoke-diagnostics/
     expire_in: never
+release-quickstart-smoke:
+  extends: .release-deploy-smoke
+  variables:
+    SMOKE_MODE: quickstart
+  needs:
+  - release-tag-metadata
+  - release-source-images-ready
+  - publish-candidate-artifacts
+  - release-public-images-check
+  - release-public-bundles-check
+release-compose-smoke:
+  extends: .release-deploy-smoke
+  variables:
+    SMOKE_MODE: compose
+  needs:
+  - release-tag-metadata
+  - release-source-images-ready
+  - publish-candidate-artifacts
+  - release-public-images-check
+  - release-public-bundles-check
 release-kind-onboarding-smoke:
   extends: helm-kind-onboarding-smoke
   needs:
@@ -681,7 +695,7 @@ docs-deploy:
   - test -n "$CLOUDFLARE_ACCOUNT_ID"
   - test -n "$CLOUDFLARE_API_TOKEN"
   - |
-    for asset in bucketreef-compose.tar.gz bucketreef-quickstart.tar.gz; do
+    for asset in bucketreef-deploy.tar.gz; do
       curl --fail --silent --show-error --head --location "https://github.com/ksperis/bucketreef/releases/latest/download/$asset"
       curl --fail --silent --show-error --head --location "https://github.com/ksperis/bucketreef/releases/latest/download/$asset.sha256"
     done
@@ -825,7 +839,8 @@ release-ready:
   - publish-candidate-images
   - release-public-images-check
   - release-kind-onboarding-smoke
-  - release-bundle-smoke
+  - release-quickstart-smoke
+  - release-compose-smoke
   - publish-candidate-artifacts
   - release-public-bundles-check
   script:

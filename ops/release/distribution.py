@@ -29,7 +29,7 @@ from recover_gitlab_release import PublicGitHub, verify_public_release
 
 REQUIRED = ["integration-ready", "frontend-demo", "release-tag-metadata", "release-source-images-ready", "release-bundles",
             "publish-candidate-images", "publish-candidate-artifacts", "release-public-bundles-check",
-            "release-public-images-check", "release-kind-onboarding-smoke", "release-bundle-smoke",
+            "release-public-images-check", "release-kind-onboarding-smoke", "release-quickstart-smoke", "release-compose-smoke",
             *(f"{c}-release-image-vuln-scan" for c in COMPONENTS)]
 
 PUBLIC_RELEASE_VERIFY_ATTEMPTS = 6
@@ -170,9 +170,14 @@ def demo_fingerprints():
 
 
 def validate_installation(receipt, key, inventory):
-    phases = {"install-and-upgrade"} if key == "kind" else {"first-start", "restart", "compose"}
-    components = {"backend", "frontend"} if key == "kind" else set(COMPONENTS)
-    arch = "amd64" if key == "kind" else key
+    if key == "kind":
+        phases = {"install-and-upgrade"}
+        components = {"backend", "frontend"}
+        arch = "amd64"
+    else:
+        mode, arch = key.split("-", 1)
+        phases = {"first-start", "restart"} if mode == "quickstart" else {"compose", "compose-restart"}
+        components = set(COMPONENTS)
     if set(receipt.get("checkpoints", {})) != phases:
         raise ValueError("Installation proof omits a required phase")
     for images in receipt["checkpoints"].values():
@@ -202,8 +207,13 @@ def ready(api, *, pipeline_id=None, plan=None):
         raise ValueError("Candidate files or producer differ")
     verify_public()
     installations = {}
-    for key, job in (("amd64", "release-bundle-smoke: [amd64]"), ("arm64", "release-bundle-smoke: [arm64]"),
-                     ("kind", "release-kind-onboarding-smoke")):
+    for key, job in (
+        ("quickstart-amd64", "release-quickstart-smoke: [amd64]"),
+        ("quickstart-arm64", "release-quickstart-smoke: [arm64]"),
+        ("compose-amd64", "release-compose-smoke: [amd64]"),
+        ("compose-arm64", "release-compose-smoke: [arm64]"),
+        ("kind", "release-kind-onboarding-smoke"),
+    ):
         receipt = read(f"installation-receipts/{key}.json")
         if (receipt.get("schema") != 1 or receipt.get("status") != "success"
                 or receipt.get("sha") != record["sha"] or receipt.get("version") != version()

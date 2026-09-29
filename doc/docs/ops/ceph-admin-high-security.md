@@ -48,34 +48,34 @@ isolated database and credential ring independently from the main deployment.
 
 ## Docker Compose
 
-The release bundle contains `docker-compose.ceph-admin-high-security.yml`.
+The release bundle contains `compose.ceph-admin-high-security.yaml`.
 Use a dedicated project name and preferably a separate env file:
 
 ```bash
 docker compose --project-name bucketreef-ceph-admin \
   --env-file .env.ceph-admin \
-  -f docker-compose.yml \
-  -f docker-compose.ceph-admin-high-security.yml \
+  -f compose.yaml \
+  -f compose.ceph-admin-high-security.yaml \
   up -d --wait backend frontend
 ```
 
 Run the main Administration project with
-`docker-compose.admin-no-ceph-admin.yml` when this dedicated project is the
-intended Ceph Admin boundary. The standard `docker-compose.admin.yml` keeps
+`compose.admin-no-ceph-admin.yaml` when this dedicated project is the
+intended Ceph Admin boundary. The standard `compose.admin.yaml` keeps
 Ceph Admin enabled for the simpler shared-Administration model.
 
 To share state, put the main deployment's PostgreSQL `DATABASE_URL` and key
 rings in `.env.ceph-admin`. To isolate state, use a dedicated PostgreSQL URL and
 new values for `UI_JWT_KEYS`, `API_JWT_KEYS`, and `CREDENTIAL_KEYS`. Do not
-start the `operations` profile for this instance.
+start the scheduler service for this isolated Ceph Admin instance.
 
 Validate the running backend:
 
 ```bash
 docker compose --project-name bucketreef-ceph-admin \
   --env-file .env.ceph-admin \
-  -f docker-compose.yml \
-  -f docker-compose.ceph-admin-high-security.yml \
+  -f compose.yaml \
+  -f compose.ceph-admin-high-security.yaml \
   exec backend python -m app.scripts.check_production_hardening
 ```
 

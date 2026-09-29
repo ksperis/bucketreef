@@ -54,13 +54,12 @@ See [CI/CD](ci-cd.md) for selection, tool locks and required external settings.
 it for normal publication: a manually created stable tag is verification-only in
 CI and cannot start or repair a distribution.
 
-The initial deployment reorganization does not republish `0.2.4`. It takes
-effect with the next new application version. For the first rollout, publish
-the distribution changes and release artifacts before deploying the updated
-user-facing documentation and website. Both deployments check that the public
-bundles and checksums exist before advertising the installer. Until the first
-new release is published, these deployment jobs fail without changing the live
-sites; retry them after release publication.
+The unified deployment bundle takes effect with `0.2.12`; older releases keep
+their original assets unchanged. Publish the application release artifacts
+before deploying the updated user-facing documentation and website. Both site
+deployments check that `bucketreef-deploy.tar.gz` and its checksum exist before
+advertising the installer; retry them after release publication if that gate is
+reached first.
 
 ## Database schema baselines
 
@@ -95,7 +94,7 @@ URLs. Published notes and asset contents are immutable on retry.
 GitLab publishes its release only after GitHub has published and verified the
 release. It uses the built-in `CI_JOB_TOKEN`; when the GitLab tag is still absent,
 the Release API creates it at the validated SHA from the supplied `ref`. GitLab
-links to the same four public GitHub assets, so there is no second bundle upload
+links to the same two public GitHub assets, so there is no second bundle upload
 or stored GitLab personal token. If GitLab fails after GitHub succeeds, retry the
 same `finalize-release`: identical tags, assets and metadata are accepted.
 Manage and renew the dedicated GitHub token before its configured expiration.
@@ -123,17 +122,18 @@ Distribution proceeds in this order:
 
 1. Complete application, security, Ceph and Kubernetes qualification. Build the
    three multiarchitecture images once and rescan their exact digests for release.
-2. Prepare deterministic Compose/QuickStart archives, chart and notes once.
+2. Prepare the deterministic shared deployment bundle, chart and notes once.
 3. Publish images as `candidate-<full-source-SHA>-<child-pipeline-id>` in the existing
    public GHCR image repositories. A candidate OCI envelope in
-   `ghcr.io/ksperis/bucketreef-bundles` stores the four assets, chart and both notes.
+   `ghcr.io/ksperis/bucketreef-bundles` stores the two deployment assets, chart and both notes.
    Neither stable `X.Y.Z` tags nor aliases exist at this point.
 4. Download the candidate envelope anonymously and run installation tests. Each
    isolated DinD daemon pulls images by platform digest, then assigns their
    expected `X.Y.Z` names **locally**, without pushing those names to a registry.
-   QuickStart first start/restart and fresh Compose verify the running image IDs
-   and architectures; Kind uses the unchanged packaged chart and digest-bound
-   images for installation, onboarding and upgrade.
+   Independent QuickStart and Compose jobs consume the same deployment archive
+   on AMD64 and ARM64, verify running image IDs/architectures and restart
+   persistence; Kind uses the unchanged packaged chart and digest-bound images
+   for installation, onboarding and upgrade.
 5. `release-ready` checks all actual jobs and installation receipts. It records
    schema-2 `distribution-ready.json`, binding the candidate inventory, source SHA,
    pipelines/jobs, image digests, archive hashes and tested demo files.
@@ -161,23 +161,24 @@ inside DinD and are never uploaded as artifacts.
 
 The chart retains the existing Secret, proxy and NetworkPolicy contracts.
 
-The standard-library packager emits deterministic archives containing only
-Compose, `.env.example`, `README.md`, `LICENSE`, `VERSION`, and (for QuickStart)
-the lifecycle command:
+The standard-library packager emits one deterministic archive containing only
+Compose, `.env.example`, `README.md`, `LICENSE`, `VERSION`, and the QuickStart
+lifecycle command:
 
 ```sh
-python3 ops/release/package_bundles.py --version X.Y.Z --output dist/release
+python3 ops/release/package_deploy_bundle.py --version X.Y.Z --output dist/release
 ```
 
-The four GitHub assets have stable names within each release:
+The two GitHub assets have stable names within each release:
 
-- `bucketreef-compose.tar.gz` and `bucketreef-compose.tar.gz.sha256`;
-- `bucketreef-quickstart.tar.gz` and `bucketreef-quickstart.tar.gz.sha256`.
+- `bucketreef-deploy.tar.gz`;
+- `bucketreef-deploy.tar.gz.sha256`.
 
-Release smoke tests run anonymously downloaded QuickStart and Compose bundles
-from isolated Docker-in-Docker daemons using public GHCR images, without a source
-checkout.
-They check readiness, bootstrap URL issuance, stop/restart and secret persistence.
+Release smoke tests exercise QuickStart and manual Compose separately from the
+same anonymously downloaded `bucketreef-deploy.tar.gz` in isolated
+Docker-in-Docker daemons using public GHCR images, without a source checkout.
+They check readiness, bootstrap URL issuance, scheduler execution, stop/restart
+and persistence.
 The global distribution gate precedes stable-tag creation and GitHub asset upload.
 Existing identical assets are reused; conflicting or unverifiable assets stop publication. Published
 releases are never repaired by silently replacing assets.

@@ -43,7 +43,7 @@ def test_frontend_proxy_streams_browser_uploads_with_explicit_limit():
     assert "${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE}" in entrypoint
     assert 'BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE="5g"' in dockerfile
 
-    for filename in ("docker-compose.yml", "deploy/compose/docker-compose.yml"):
+    for filename in ("compose.yaml", "deploy/bundle/compose.yaml"):
         compose = yaml.safe_load(_read(filename))
         assert compose["services"]["frontend"]["environment"][
             "BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE"
@@ -54,7 +54,7 @@ def test_frontend_proxy_streams_browser_uploads_with_explicit_limit():
 
 
 def test_compose_services_drop_privileges_and_keep_public_port():
-    for filename in ("docker-compose.yml", "deploy/compose/docker-compose.yml"):
+    for filename in ("compose.yaml", "deploy/bundle/compose.yaml"):
         compose = yaml.safe_load(_read(filename))
         services = compose["services"]
         for name in ("backend", "frontend", "scheduler"):

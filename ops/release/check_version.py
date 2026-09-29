@@ -17,7 +17,7 @@ def check_version(root: Path, version: str) -> None:
     ]
     for key in ("version", "appVersion"):
         values.append(re.search(rf"(?m)^{key}:\s*[\"']?([0-9.]+)", chart).group(1))
-    values.append(re.search(r"(?m)^BUCKETREEF_TAG=(.+)$", (root / "deploy/compose/.env.example").read_text()).group(1))
+    values.append(re.search(r"(?m)^BUCKETREEF_TAG=(.+)$", (root / "deploy/bundle/.env.example").read_text()).group(1))
     if any(value != version for value in values):
         raise ValueError("Release metadata mismatch: run ops/release/prepare.py")
     changelog_section((root / "CHANGELOG.md").read_text(), version)

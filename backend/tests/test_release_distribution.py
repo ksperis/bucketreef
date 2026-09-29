@@ -13,11 +13,11 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ops/release"))
 NOTES = "## 1.2.3 - 2026-09-20\n\n- Release fixture.\n"
-package = runpy.run_path(str(ROOT / "ops/release/package_bundles.py"))["package_bundles"]
+package = runpy.run_path(str(ROOT / "ops/release/package_deploy_bundle.py"))["package_deploy_bundle"]
 publisher = runpy.run_path(str(ROOT / "ops/release/publish_github_release.py"))
 
 
-def test_bundles_are_reproducible_versioned_and_source_free(tmp_path):
+def test_deploy_bundle_is_reproducible_versioned_and_source_free(tmp_path):
     first = package("1.2.3", tmp_path / "first")
     second = package("1.2.3", tmp_path / "second")
     assert [p.read_bytes() for p in first] == [p.read_bytes() for p in second]
@@ -28,19 +28,18 @@ def test_bundles_are_reproducible_versioned_and_source_free(tmp_path):
                 "LICENSE",
                 "README.md",
                 ".env.example",
-                "docker-compose.yml",
-                "docker-compose.admin.yml",
-                "docker-compose.admin-no-ceph-admin.yml",
-                "docker-compose.user.yml",
-                "docker-compose.ceph-admin-high-security.yml",
+                "compose.yaml",
+                "compose.admin.yaml",
+                "compose.admin-no-ceph-admin.yaml",
+                "compose.user.yaml",
+                "compose.ceph-admin-high-security.yaml",
             }
-            if "quickstart" in archive.name:
-                expected.add("bucketreef-quickstart")
+            expected.add("bucketreef-quickstart")
             assert set(tar.getnames()) == expected
             assert all(entry.isfile() for entry in tar)
             assert tar.extractfile("VERSION").read() == b"1.2.3\n"
             assert b"BUCKETREEF_TAG=1.2.3\n" in tar.extractfile(".env.example").read()
-            compose = yaml.safe_load(tar.extractfile("docker-compose.yml"))
+            compose = yaml.safe_load(tar.extractfile("compose.yaml"))
             assert all("build" not in service for service in compose["services"].values())
             assert all("latest" not in service["image"] for service in compose["services"].values())
         assert archive.with_name(archive.name + ".sha256").read_text() == f"{hashlib.sha256(archive.read_bytes()).hexdigest()}  {archive.name}\n"
@@ -81,7 +80,7 @@ def test_publish_verifies_before_exposing_release_and_retry_is_read_only(tmp_pat
     package("1.2.3", tmp_path)
     api = GitHubFixture()
     publisher["publish"](api, "1.2.3", "a" * 40, tmp_path, True, NOTES)
-    assert len(api.assets) == 4
+    assert len(api.assets) == 2
     assert api.writes[-1] == ("releases/1", "PATCH", {"draft": False, "make_latest": "true"})
     api.writes.clear()
     publisher["publish"](api, "1.2.3", "a" * 40, tmp_path, True, NOTES)
@@ -239,7 +238,7 @@ def test_interrupted_asset_upload_resumes_before_publication(tmp_path):
     original = api.request
 
     def interrupt(path, **kwargs):
-        if path.startswith("https://uploads.github.com/") and len(api.assets) == 2:
+        if path.startswith("https://uploads.github.com/") and len(api.assets) == 1:
             raise RuntimeError("Interrupted upload")
         return original(path, **kwargs)
 
@@ -247,10 +246,10 @@ def test_interrupted_asset_upload_resumes_before_publication(tmp_path):
     with pytest.raises(RuntimeError, match="Interrupted"):
         publisher["publish"](api, "1.2.3", "a" * 40, tmp_path, True, NOTES)
     assert api.release["draft"]
-    assert len(api.assets) == 2
+    assert len(api.assets) == 1
     api.request = original
     api.writes.clear()
     publisher["publish"](api, "1.2.3", "a" * 40, tmp_path, True, NOTES)
-    assert len(api.assets) == 4
-    assert len([entry for entry in api.writes if entry[1] == "POST"]) == 2
+    assert len(api.assets) == 2
+    assert len([entry for entry in api.writes if entry[1] == "POST"]) == 1
     assert api.writes[-1][1] == "PATCH"
