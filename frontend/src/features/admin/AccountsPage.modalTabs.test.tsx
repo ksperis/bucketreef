@@ -22,6 +22,7 @@ const listMinimalUsersMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
 const effectiveAccessPanelMountedMock = vi.fn();
+const adminAccountStatsMock = vi.fn();
 let portalEnabled = false;
 
 const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
@@ -58,11 +59,7 @@ const makePortalAccountSettings = (overrides?: Record<string, unknown>) => ({
 });
 
 vi.mock("./useAdminAccountStats", () => ({
-  useAdminAccountStats: () => ({
-    stats: null,
-    loading: false,
-    error: null,
-  }),
+  useAdminAccountStats: (...args: unknown[]) => adminAccountStatsMock(...args),
 }));
 
 vi.mock("../../api/accounts", () => ({
@@ -117,6 +114,7 @@ describe("AccountsPage modal tabs", () => {
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
 
     portalEnabled = false;
+    adminAccountStatsMock.mockReturnValue({ stats: null, loading: false, error: null, reload: vi.fn() });
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
     listS3AccountsMock.mockResolvedValue({
       items: [
@@ -222,7 +220,25 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.queryByText("No accounts yet.")).not.toBeInTheDocument();
   });
 
-  it("presents account identity and quotas in consistent General sections", async () => {
+  it("presents account identity, usage gauges, and quotas in consistent General sections", async () => {
+    const account = await getS3AccountMock();
+    getS3AccountMock.mockResolvedValue({ ...account, quota_max_size_gb: 2, quota_max_objects: 200 });
+    adminAccountStatsMock.mockReturnValue({
+      stats: {
+        total_bytes: 1024 ** 3,
+        total_objects: 50,
+        bucket_overview: {
+          bucket_count: 4,
+          non_empty_buckets: 3,
+          empty_buckets: 1,
+          avg_bucket_size_bytes: 256 * 1024 ** 2,
+          avg_objects_per_bucket: 12.5,
+        },
+      },
+      loading: false,
+      error: null,
+      reload: vi.fn(),
+    });
     render(<AccountsPage />);
 
     await screen.findByText("acc-1");
@@ -233,6 +249,9 @@ describe("AccountsPage modal tabs", () => {
       screen.getByText("Manage quotas, usage, UI associations, privileged access, and Portal overrides for this account.")
     ).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "Account details" })).toBeInTheDocument();
+    expect(within(generalPanel).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuenow", "50");
+    expect(within(generalPanel).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuenow", "25");
+    expect(within(generalPanel).getByText("Active buckets")).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "Quotas" })).toBeInTheDocument();
     expect(within(generalPanel).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
