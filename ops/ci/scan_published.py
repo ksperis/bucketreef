@@ -20,7 +20,7 @@ def scan():
         raise ValueError("Expected a published stable distribution")
     sha = resolve_tag(public, release["tag_name"])
     record = next(completed_records(GitLabAPI(), "main", "qualification.json", sha), None)
-    if not record or record["plan"]["profile"] != "qualify":
+    if not record or record["plan"]["profile"] not in {"qualify", "prepare-release"}:
         raise ValueError("Published distribution lacks qualification evidence; no mutable-tag fallback")
     validate(record, sha)
     for component in ("backend", "frontend", "scheduler"):

@@ -99,6 +99,8 @@ def source_record():
 
 def resolve():
     record = verify_jobs(GitLabAPI(), source_record())
+    if record["pipeline_id"] != int(os.environ["CI_PIPELINE_ID"]):
+        raise ValueError("Release preparation requires qualification in its own pipeline")
     if os.environ.get("CI_COMMIT_BRANCH") != "main":
         raise ValueError("Release preparation must run from main")
     if resolve_git_tag(version(), missing_ok=True) is not None:
@@ -189,7 +191,8 @@ def ready(api, *, pipeline_id=None, plan=None):
     pipeline = api.get(f"pipelines/{pipeline_id}")
     plan = plan or read("ci-plan.json")
     if (pipeline["sha"] != record["sha"] or pipeline["ref"] != "main" or pipeline["source"] != "parent_pipeline"
-        or plan.get("profile") != "prepare-release" or plan.get("sha") != record["sha"]):
+        or plan.get("profile") != "prepare-release" or plan.get("sha") != record["sha"]
+        or record["pipeline_id"] != pipeline_id or record["plan"] != plan):
         raise ValueError("Unexpected release validation pipeline")
     jobs = successful_jobs(api.jobs(pipeline_id), expected_names(REQUIRED), record["sha"])
     verify_jobs(api, record)

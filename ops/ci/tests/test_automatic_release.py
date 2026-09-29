@@ -161,3 +161,21 @@ def test_smoke_budgets_and_public_defaults_are_explicit():
     assert script.index('installation_evidence.py diagnostics') < script.index('down --volumes')
     compose=(ROOT/'deploy/compose/docker-compose.yml').read_text()
     assert compose.count('${BUCKETREEF_HEALTHCHECK_RETRIES:-24}')==2
+
+
+@pytest.mark.parametrize('profile',['qualify','prepare-release'])
+def test_scheduled_security_scan_accepts_both_complete_qualification_profiles(monkeypatch,tmp_path,profile):
+    import scan_published
+    api,_=prepared(monkeypatch,tmp_path)
+    record=dist.read('qualification.json')
+    record['plan']['profile']=profile
+    public=SimpleNamespace(request=lambda path:{'draft':False,'prerelease':False,'tag_name':'v1.2.3'})
+    monkeypatch.setattr(scan_published,'PublicGitHub',lambda:public)
+    monkeypatch.setattr(scan_published,'resolve_tag',lambda *args:SHA)
+    monkeypatch.setattr(scan_published,'GitLabAPI',lambda:api)
+    monkeypatch.setattr(scan_published,'completed_records',lambda *args:iter([record]))
+    calls=[]
+    monkeypatch.setattr(scan_published.subprocess,'run',lambda args,**kwargs:calls.append(kwargs['env']))
+    scan_published.scan()
+    assert len(calls)==6
+    assert all(call['SCAN_KIND']=='scheduled' and call['SOURCE_IMAGE'].endswith('@'+IMAGE['digest']) for call in calls)
