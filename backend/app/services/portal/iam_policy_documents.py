@@ -7,6 +7,13 @@ from typing import Any, Optional
 
 from app.db import PortalStorageSpaceMetadata, S3Account
 from app.models.portal_storage_spaces import PortalStorageSpaceRole
+from app.services.managed_resource_naming import (
+    PORTAL_EXPIRE_DELETE_MARKERS_RULE_ID,
+    PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID,
+    PORTAL_MANAGER_BOOTSTRAP_SID,
+    PORTAL_MANAGER_PROJECT_STORAGE_SID,
+    PORTAL_USER_BOOTSTRAP_SID,
+)
 
 
 class PortalIamPolicyDocumentsMixin:
@@ -19,13 +26,13 @@ class PortalIamPolicyDocumentsMixin:
                 "Version": "2012-10-17",
                 "Statement": [
                     {
-                        "Sid": "PortalManagerBootstrap",
+                        "Sid": PORTAL_MANAGER_BOOTSTRAP_SID,
                         "Effect": "Allow",
                         "Action": ["s3:ListAllMyBuckets", "sts:GetSessionToken"],
                         "Resource": ["*"],
                     },
                     {
-                        "Sid": "PortalManagerProjectStorage",
+                        "Sid": PORTAL_MANAGER_PROJECT_STORAGE_SID,
                         "Effect": "Allow",
                         "Action": self._storage_space_role_actions("Manager"),
                         "Resource": ["arn:aws:s3:::*", "arn:aws:s3:::*/*"],
@@ -36,7 +43,7 @@ class PortalIamPolicyDocumentsMixin:
             "Version": "2012-10-17",
             "Statement": [
                 {
-                    "Sid": "PortalUserBootstrap",
+                    "Sid": PORTAL_USER_BOOTSTRAP_SID,
                     "Effect": "Allow",
                     "Action": ["s3:ListAllMyBuckets", "sts:GetSessionToken"],
                     "Resource": ["*"],
@@ -197,13 +204,13 @@ class PortalIamPolicyDocumentsMixin:
     def _portal_bucket_lifecycle_rules(self, noncurrent_version_expiration_days: int) -> list[dict]:
         return [
             {
-                "ID": "ExpireDeleteMarkers",
+                "ID": PORTAL_EXPIRE_DELETE_MARKERS_RULE_ID,
                 "Status": "Enabled",
                 "Prefix": "",
                 "Expiration": {"ExpiredObjectDeleteMarker": True},
             },
             {
-                "ID": "ExpireOldVersions",
+                "ID": PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID,
                 "Status": "Enabled",
                 "Prefix": "",
                 "NoncurrentVersionExpiration": {

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import uuid
 from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any, Optional
@@ -11,6 +10,7 @@ from typing import Any, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import BucketMigrationItem
+from app.services.managed_resource_naming import migration_lock_probe_object_key
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.rgw_identifiers import resolve_admin_uid
 
@@ -482,7 +482,7 @@ class BucketMigrationPolicyGrantsMixin:
 
     def _validate_target_lock_worker_access(self, target_ctx: _ResolvedContext, target_bucket: str) -> None:
         client = self._context_client(target_ctx)
-        test_key = f"__bucketreef-migration-lock-check/{uuid.uuid4().hex}"
+        test_key = migration_lock_probe_object_key()
         try:
             client.put_object(Bucket=target_bucket, Key=test_key, Body=b"lock-check")
             client.delete_object(Bucket=target_bucket, Key=test_key)

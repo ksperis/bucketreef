@@ -8,10 +8,12 @@
 - Standardized distributed and source Compose filenames on `compose.yaml` and made the scheduler part of the normal full deployment.
 - Simplified QuickStart around the normal `bucketreef` Compose project, `.env`, and `~/.local/share/bucketreef` installation directory.
 - Split release qualification into independent AMD64/ARM64 QuickStart and manual Compose smoke tests consuming the exact same candidate bundle.
+- Namespaced BucketReef-managed Portal IAM resources, generated Storage Space buckets, lifecycle IDs, policy Sids, migration probes, onboarding sample names, and RGW account-root key names under the canonical `bkr-`/`BucketReef` contracts.
 
 ### Upgrade notes
 
 - **Breaking change:** the separate `bucketreef-compose` and `bucketreef-quickstart` release bundles have been replaced by the single `bucketreef-deploy` bundle. Legacy QuickStart installations, project names, volumes, environment files, and previous bundle layouts are not migrated automatically.
+- **Breaking change:** previous implicit BucketReef-managed storage resource names are not migrated, aliased, or adopted by runtime compatibility logic. Recreate pre-cutover Portal IAM resources deliberately before using the new `bkr-` naming contract; old lifecycle IDs and generic Portal policy Sids are preserved as foreign configuration. User-created/imported resources and the `<RGW_ACCOUNT_ID>-admin` root-user contract are unchanged.
 - Existing older GitHub releases remain available with their original assets. Install 0.2.12 as a new deployment or deliberately preserve and reconfigure any data you want to carry forward.
 
 ### Tests

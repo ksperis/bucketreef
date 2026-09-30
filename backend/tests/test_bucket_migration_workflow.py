@@ -16,6 +16,7 @@ from app.models.bucket_migration import (
 from app.services.bucket_migration import maintenance as bucket_migration_maintenance
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.bucket_migration.workflow import available_actions, preparation_state
+from app.services.managed_resource_naming import MIGRATION_PROBE_OBJECT_KEY
 from app.services.mappers.bucket_migration import bucket_migration_to_detail
 from app.utils.time import utcnow
 from tests.test_bucket_migration_service import (
@@ -649,6 +650,7 @@ def test_active_destination_probe_exercises_multipart_tags_and_cleanup(prepared)
         service, migration, item, source, target, strategy="current_only"
     )
     assert item.preparation_effects_json is None
+    assert client.put_object.call_args.kwargs["Key"] == MIGRATION_PROBE_OBJECT_KEY
     client.put_object_tagging.assert_called_once()
     client.get_object_tagging.assert_called_once()
     client.complete_multipart_upload.assert_called_once()
@@ -668,7 +670,7 @@ def test_probe_interruption_leaves_durable_cleanup_intent(prepared):
             service, migration, item, source, target, strategy="current_only"
         )
     effect = json.loads(item.preparation_effects_json)["probe_bucket"]
-    assert effect["bucket"].startswith("bucketreef-mig-precheck-")
+    assert effect["bucket"].startswith("bkr-mig-precheck-")
     service._precheck_bucket_exists = Mock(side_effect=[True, False])
     service._buckets.delete_bucket = Mock()
     service._recover_preparation_effects(migration)

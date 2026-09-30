@@ -26,8 +26,11 @@ from app.models.s3_account import (
     S3AccountUpdate,
 )
 from app.services.app_settings_service import load_app_settings_for_db
+from app.services.managed_resource_naming import (
+    ACCOUNT_ROOT_KEY_NAME,
+    PORTAL_MANAGED_IAM_GROUP_NAMES,
+)
 from app.services.mappers.s3_account import s3_account_from_db, s3_account_summary_from_db
-from app.services.portal.iam_contracts import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
     sync_portal_role_downgrades,
@@ -509,7 +512,7 @@ class S3AccountsService:
                     resp = admin.create_access_key(
                         prepared.root_uid,
                         tenant=item.rgw_account_id,
-                        key_name="bucketreef",
+                        key_name=ACCOUNT_ROOT_KEY_NAME,
                     )
                     access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
                         admin.extract_keys(resp)
@@ -607,7 +610,7 @@ class S3AccountsService:
             try:
                 key_payload = admin.create_access_key(
                     root_uid,
-                    key_name="bucketreef",
+                    key_name=ACCOUNT_ROOT_KEY_NAME,
                 )
             except RGWAdminError as exc:
                 raise ValueError(f"RGW root access key creation failed: {exc}") from exc

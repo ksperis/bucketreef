@@ -110,7 +110,9 @@ a failed or interrupted operation requires an explicit restart. Partial results
 remain visible and are not reported as a successful cleanup.
 
 On an imported bucket, Portal preserves every lifecycle rule it does not own.
-Disabling automatic cleanup removes only `ExpireDeleteMarkers` and `ExpireOldVersions`.
+Disabling automatic cleanup removes only
+`BucketReefPortalExpireDeleteMarkers` and
+`BucketReefPortalExpireOldVersions`.
 
 ## Archiving and permanent deletion
 

@@ -285,8 +285,9 @@ The Settings tab of an existing Storage Space is separate from project
 defaults. Owners and Portal Managers can read the bucket's Versioning,
 Lifecycle, and version history retention values. Only a project Portal Manager
 can update an active space. These calls use the manager's personal IAM identity
-and manage only the Portal lifecycle rules `ExpireDeleteMarkers` and
-`ExpireOldVersions`; unrelated lifecycle rules are preserved.
+and manage only the Portal lifecycle rules
+`BucketReefPortalExpireDeleteMarkers` and
+`BucketReefPortalExpireOldVersions`; unrelated lifecycle rules are preserved.
 
 Superadmins manage login behavior and UI-managed OIDC/LDAP providers from Admin
 **Settings > Authentication**. The four access-key login options remain in
@@ -300,14 +301,42 @@ axis is required. Disabling Portal prevents new Portal selections but does not
 rewrite or remove existing Portal roles; new links default to Manager
 administrator while the feature is off and to Portal user while it is on.
 
-The code-owned `portal-user` IAM group policy grants only
+The code-owned `bkr-portal-user` IAM group policy grants only
 `s3:ListAllMyBuckets` and `sts:GetSessionToken`. The code-owned
-`portal-manager` group adds the explicit Storage Space data-plane actions on
+`bkr-portal-manager` group adds the explicit Storage Space data-plane actions on
 all buckets in the single RGW Account backing the project. Technical Portal
 buckets add an explicit resource-policy denial for manager IAM principals.
 Storage Space creation and bucket defaults remain backend workflows. Private
 Owner and team Viewer/Editor projections are generated from database state;
 Portal IAM policies are not editable settings.
+
+### BucketReef-managed storage resource names
+
+BucketReef-owned implicit storage resources use an explicit application
+namespace so they can be distinguished from user-created or imported storage
+resources. Current generated names include:
+
+- Portal IAM users: `bkr-portal-<account-id>-<user-id>`;
+- Portal IAM groups and inline policies: `bkr-portal-*`;
+- external Portal IAM users: `bkr-portal-ext-*`;
+- generic Portal Storage Space buckets: `bkr-space-<uuid>`;
+- Portal access-log buckets: `bkr-portal-access-logs-*`;
+- managed private IAM users: `bkr-private-*`;
+- bucket-migration probe buckets: `bkr-mig-precheck-*`;
+- migration probe objects: `__bkr__/migration/...`;
+- guided-onboarding sample accounts: `bkr-sample-*`;
+- generated RGW account-root access-key name: `bkr-account-root`.
+
+Portal-owned lifecycle rule IDs and policy `Sid` values use the `BucketReef`
+namespace. The RGW account-root user name remains `<RGW_ACCOUNT_ID>-admin` as an
+explicit integration contract.
+
+This naming change is a clean cutover. BucketReef does not alias, migrate, or
+adopt the previous implicit resource names at runtime. Existing pre-cutover
+Portal-managed IAM resources must be removed and recreated deliberately before
+using the new contract. Old lifecycle rule IDs and generic Portal policy `Sid`
+values are treated as foreign configuration and are preserved. User-created and
+imported resources are never renamed automatically.
 
 ## Frontend runtime settings
 

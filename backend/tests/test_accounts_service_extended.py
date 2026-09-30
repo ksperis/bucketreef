@@ -7,6 +7,12 @@ import pytest
 from app.db import ManagerAccountRole, PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
 from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.models.s3_account import AccountUserLink, S3AccountUpdate
+from app.services.managed_resource_naming import (
+    PORTAL_MANAGER_GROUP_NAME,
+    PORTAL_MANAGER_GROUP_POLICY_NAME,
+    PORTAL_USER_BUCKET_POLICY_NAME,
+    PORTAL_USER_GROUP_NAME,
+)
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_topics_resolver import normalize_account_key
 from app.services.s3_accounts_service import S3AccountsService
@@ -409,12 +415,12 @@ def test_delete_account_removes_empty_portal_groups_before_root_user(db_session,
     service, admin = _service(db_session)
     iam = _FakeAccountIAM(
         groups=[
-            IAMGroup(name="portal-manager", policies=["arn:policy:manager"]),
-            IAMGroup(name="portal-user"),
+            IAMGroup(name=PORTAL_MANAGER_GROUP_NAME, policies=["arn:policy:manager"]),
+            IAMGroup(name=PORTAL_USER_GROUP_NAME),
         ],
         inline_policies={
-            "portal-manager": ["portal-manager"],
-            "portal-user": ["portal-user-buckets"],
+            PORTAL_MANAGER_GROUP_NAME: [PORTAL_MANAGER_GROUP_POLICY_NAME],
+            PORTAL_USER_GROUP_NAME: [PORTAL_USER_BUCKET_POLICY_NAME],
         },
     )
     events: list[str] = []
@@ -432,10 +438,23 @@ def test_delete_account_removes_empty_portal_groups_before_root_user(db_session,
 
     service.delete_account(account.id, delete_rgw=True)
 
-    assert ("detach_group_policy", "portal-manager", "arn:policy:manager") in iam.calls
-    assert ("delete_group_inline_policy", "portal-manager", "portal-manager") in iam.calls
-    assert ("delete_group_inline_policy", "portal-user", "portal-user-buckets") in iam.calls
-    assert events == ["group:portal-manager", "group:portal-user", "root", "account"]
+    assert ("detach_group_policy", PORTAL_MANAGER_GROUP_NAME, "arn:policy:manager") in iam.calls
+    assert (
+        "delete_group_inline_policy",
+        PORTAL_MANAGER_GROUP_NAME,
+        PORTAL_MANAGER_GROUP_POLICY_NAME,
+    ) in iam.calls
+    assert (
+        "delete_group_inline_policy",
+        PORTAL_USER_GROUP_NAME,
+        PORTAL_USER_BUCKET_POLICY_NAME,
+    ) in iam.calls
+    assert events == [
+        f"group:{PORTAL_MANAGER_GROUP_NAME}",
+        f"group:{PORTAL_USER_GROUP_NAME}",
+        "root",
+        "account",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -451,8 +470,8 @@ def test_delete_account_removes_empty_portal_groups_before_root_user(db_session,
         ),
         (
             _FakeAccountIAM(
-                groups=[IAMGroup(name="portal-user")],
-                group_members={"portal-user": [IAMUser(name="member")]},
+                groups=[IAMGroup(name=PORTAL_USER_GROUP_NAME)],
+                group_members={PORTAL_USER_GROUP_NAME: [IAMUser(name="member")]},
             ),
             "groups_with_members=1",
         ),

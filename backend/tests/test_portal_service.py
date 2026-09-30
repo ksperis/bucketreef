@@ -37,7 +37,7 @@ from app.db import (
 from app.models.app_settings import AppSettings, PortalSettings, PortalSettingsOverride
 from app.models.bucket import Bucket
 from app.models.bucket_usage_stats import BucketUsageStatsDistributionEntry, BucketUsageStatsSnapshot
-from app.models.iam import AccessKey as IAMAccessKey, IAMUser
+from app.models.iam import AccessKey as IAMAccessKey, IAMGroup, IAMUser
 from app.models.portal_monitoring import PortalAlert
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceInitialShare,
@@ -70,6 +70,11 @@ from app.routers import portal_storage_spaces as portal_storage_spaces_router
 from app.routers import portal_usage as portal_usage_router
 from tests.router_test_utils import effective_routes
 from app.services import app_settings_service, s3_bucket_access, s3_bucket_metadata, s3_client, s3_deletion
+from app.services.managed_resource_naming import (
+    PORTAL_EXTERNAL_ACCESS_POLICY_NAME,
+    PORTAL_SERVER_ACCESS_LOGGING_RETENTION_RULE_ID,
+    portal_iam_username,
+)
 from app.services.portal import public_links as portal_public_links
 from app.services.portal.exceptions import (
     PortalAccessKeyLimitExceeded,
@@ -537,6 +542,81 @@ def test_portal_groups_always_receive_their_bootstrap_policies(db_session):
     iam_service.delete_group_inline_policy.assert_not_called()
 
 
+def test_portal_groups_refuse_unowned_name_collision(db_session):
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.list_groups.return_value = [IAMGroup(name=service._manager_group_name)]
+    iam_service.get_group_inline_policy.return_value = None
+
+    with pytest.raises(RuntimeError, match="not marked as BucketReef-managed"):
+        service._ensure_portal_groups(iam_service)
+
+    iam_service.list_group_policies.assert_not_called()
+    iam_service.detach_group_policy.assert_not_called()
+    iam_service.put_group_inline_policy.assert_not_called()
+
+
+def test_portal_group_collision_is_preflighted_before_creating_other_group(db_session):
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.list_groups.return_value = [IAMGroup(name=service._user_group_name)]
+    iam_service.get_group_inline_policy.return_value = None
+
+    with pytest.raises(RuntimeError, match="not marked as BucketReef-managed"):
+        service._ensure_portal_groups(iam_service)
+
+    iam_service.create_group.assert_not_called()
+    iam_service.list_group_policies.assert_not_called()
+    iam_service.detach_group_policy.assert_not_called()
+    iam_service.put_group_inline_policy.assert_not_called()
+
+
+def test_portal_user_creation_uses_managed_name_without_adopting_existing_remote_user(db_session):
+    account = make_s3_account(db_session, name="portal-managed-name")
+    user = User(email="portal-managed-name@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.get_user.return_value = None
+    username = portal_iam_username(account.id, user.id)
+    iam_service.create_user.return_value = (
+        IAMUser(name=username, user_id="managed-uid"),
+        IAMAccessKey(access_key_id="AK-MANAGED", secret_access_key="SK-MANAGED"),
+    )
+
+    link, iam_user, created = service._ensure_portal_user(user, account, iam_service)
+
+    iam_service.create_user.assert_called_once_with(
+        username,
+        create_key=True,
+        allow_existing=False,
+    )
+    assert link.iam_username == username
+    assert iam_user is not None and iam_user.name == username
+    assert created is True
+
+
+def test_portal_user_creation_leaves_unowned_remote_collision_untouched(db_session):
+    account = make_s3_account(db_session, name="portal-managed-collision")
+    user = User(email="portal-managed-collision@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.create_user.side_effect = RuntimeError("Unable to create IAM user: EntityAlreadyExists")
+
+    with pytest.raises(RuntimeError, match="EntityAlreadyExists"):
+        service._ensure_portal_user(user, account, iam_service)
+
+    assert (
+        db_session.query(AccountIAMUser)
+        .filter_by(user_id=user.id, account_id=account.id)
+        .first()
+        is None
+    )
+
+
 def test_manager_group_access_is_protected_before_policy_update(monkeypatch, db_session):
     service = PortalService(db_session)
     account = make_s3_account(db_session, name="ordering")
@@ -559,16 +639,17 @@ def test_manager_group_access_is_protected_before_policy_update(monkeypatch, db_
     )
     monkeypatch.setattr(service, "_ensure_portal_groups", lambda *_args, **_kwargs: events.append(("update-groups",)))
 
+    portal_username = portal_iam_username(account.id, 1)
     service._sync_user_group_membership(
         FakeIAM(),
-        "portal-manager-1",
+        portal_username,
         PortalAccountRole.PORTAL_MANAGER.value,
         account=account,
     )
 
     assert events[0] == ("protect-technical-bucket",)
     assert events[1] == ("update-groups",)
-    assert events[2] == ("add", "portal-manager", "portal-manager-1")
+    assert events[2] == ("add", service._manager_group_name, portal_username)
 
 
 def test_manager_demotion_removes_manager_group_before_adding_user_group(monkeypatch, db_session):
@@ -577,7 +658,7 @@ def test_manager_demotion_removes_manager_group_before_adding_user_group(monkeyp
 
     class FakeIAM:
         def list_group_users(self, group_name):
-            return [IAMUser(name="portal-1")] if group_name == "portal-manager" else []
+            return [IAMUser(name="bkr-portal-test")] if group_name == service._manager_group_name else []
 
         def add_user_to_group(self, group_name, username):
             events.append(("add", group_name, username))
@@ -586,11 +667,11 @@ def test_manager_demotion_removes_manager_group_before_adding_user_group(monkeyp
             events.append(("remove", group_name, username))
 
     monkeypatch.setattr(service, "_ensure_portal_groups", lambda *_args, **_kwargs: None)
-    service._sync_user_group_membership(FakeIAM(), "portal-1", PortalAccountRole.PORTAL_USER.value)
+    service._sync_user_group_membership(FakeIAM(), "bkr-portal-test", PortalAccountRole.PORTAL_USER.value)
 
     assert events == [
-        ("remove", "portal-manager", "portal-1"),
-        ("add", "portal-user", "portal-1"),
+        ("remove", service._manager_group_name, "bkr-portal-test"),
+        ("add", service._user_group_name, "bkr-portal-test"),
     ]
 
 
@@ -1976,6 +2057,7 @@ def test_storage_space_bucket_policy_preserves_external_statements_and_private_o
         "Version": "2012-10-17",
         "Statement": [
             {"Sid": "ExternalRule", "Effect": "Allow", "Action": "s3:GetObject", "Resource": "*"},
+            {"Sid": "PortalStorageSpaceAccess", "Effect": "Deny", "Action": "s3:DeleteObject", "Resource": "*"},
             {"Sid": service._storage_space_private_sid, "Effect": "Deny", "Action": "s3:*", "Resource": "*"},
             {"Sid": service._storage_space_archived_sid, "Effect": "Deny", "Action": "s3:*", "Resource": "*"},
         ],
@@ -1983,8 +2065,12 @@ def test_storage_space_bucket_policy_preserves_external_statements_and_private_o
 
     private_policy = service._storage_space_bucket_policy(account, "research-data", metadata, existing)
     assert private_policy is not None
-    assert [stmt["Sid"] for stmt in private_policy["Statement"]] == ["ExternalRule", service._storage_space_access_sid]
-    private_statement = private_policy["Statement"][1]
+    assert [stmt["Sid"] for stmt in private_policy["Statement"]] == [
+        "ExternalRule",
+        "PortalStorageSpaceAccess",
+        service._storage_space_access_sid,
+    ]
+    private_statement = _storage_space_policy_statement(private_policy, service._storage_space_access_sid)
     allowed_principals = _storage_space_policy_principals(private_statement)
     assert "Principal" not in private_statement
     assert "Condition" not in private_statement
@@ -2003,15 +2089,25 @@ def test_storage_space_bucket_policy_preserves_external_statements_and_private_o
     metadata.archived_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     archived_policy = service._storage_space_bucket_policy(account, "research-data", metadata, private_policy)
     assert archived_policy is not None
-    assert [stmt["Sid"] for stmt in archived_policy["Statement"]] == ["ExternalRule", service._storage_space_archived_sid]
+    assert [stmt["Sid"] for stmt in archived_policy["Statement"]] == [
+        "ExternalRule",
+        "PortalStorageSpaceAccess",
+        service._storage_space_archived_sid,
+    ]
 
     metadata.archived_at = None
     metadata.visibility = "shared"
     metadata.owner_user_id = None
     restored_policy = service._storage_space_bucket_policy(account, "research-data", metadata, archived_policy)
     assert restored_policy is not None
-    assert [stmt["Sid"] for stmt in restored_policy["Statement"]] == ["ExternalRule", service._storage_space_access_sid]
-    restored_principals = _storage_space_policy_principals(restored_policy["Statement"][1])
+    assert [stmt["Sid"] for stmt in restored_policy["Statement"]] == [
+        "ExternalRule",
+        "PortalStorageSpaceAccess",
+        service._storage_space_access_sid,
+    ]
+    restored_principals = _storage_space_policy_principals(
+        _storage_space_policy_statement(restored_policy, service._storage_space_access_sid)
+    )
     assert "arn:aws:iam:::user/owner-iam" not in restored_principals
     assert "arn:aws:iam::rgw-policy-account:root" in restored_principals
 
@@ -2237,7 +2333,7 @@ def test_get_storage_space_keeps_bucket_scope_and_returns_none_when_hidden(monke
     assert hidden is None
 
 
-def test_create_storage_space_generic_uses_uuid_bucket_and_editable_name(monkeypatch, db_session):
+def test_create_storage_space_generic_uses_managed_uuid_bucket_and_editable_name(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-storage-generic", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     user = User(email="portal-storage-generic@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -2272,7 +2368,9 @@ def test_create_storage_space_generic_uses_uuid_bucket_and_editable_name(monkeyp
 
     assert len(created_buckets) == 1
     bucket_name = created_buckets[0][0]
-    assert str(uuid.UUID(bucket_name)) == bucket_name
+    assert bucket_name.startswith("bkr-space-")
+    uuid_part = bucket_name.removeprefix("bkr-space-")
+    assert str(uuid.UUID(uuid_part)) == uuid_part
     metadata = (
         db_session.query(PortalStorageSpaceMetadata)
         .filter_by(account_id=account.id, bucket_name=bucket_name)
@@ -2494,7 +2592,9 @@ def test_portal_user_can_create_storage_space_when_setting_is_enabled(monkeypatc
     assert storage_space.name == "Research Data"
     assert len(created_buckets) == 1
     bucket_name, applied_settings = created_buckets[0]
-    assert str(uuid.UUID(bucket_name)) == bucket_name
+    assert bucket_name.startswith("bkr-space-")
+    uuid_part = bucket_name.removeprefix("bkr-space-")
+    assert str(uuid.UUID(uuid_part)) == uuid_part
     assert applied_settings is portal_settings
     metadata = (
         db_session.query(PortalStorageSpaceMetadata)
@@ -3245,7 +3345,7 @@ def test_portal_server_access_log_bucket_creation_sets_retention_lifecycle(monke
             {
                 "rules": [
                     {
-                        "ID": "ExpirePortalServerAccessLogs",
+                        "ID": PORTAL_SERVER_ACCESS_LOGGING_RETENTION_RULE_ID,
                         "Status": "Enabled",
                         "Prefix": "portal-server-access/",
                         "Expiration": {"Days": retention_days},
@@ -3752,7 +3852,10 @@ def test_storage_space_role_matrix_for_files_shares_and_portal_settings(monkeypa
     )
     assert target_grant.role == "Viewer"
     target_policy = iam_service.policies[(f"iam-{target.id}", service._bucket_access_policy_name)]
-    assert any(statement["Sid"] == "PortalStorageSpaceViewer" for statement in target_policy["Statement"])
+    assert any(
+        statement["Sid"] == service._storage_space_share_sid("Viewer")
+        for statement in target_policy["Statement"]
+    )
     assert ("GET", "/portal/settings") in {
         (method, route.path)
         for route in effective_routes(portal_router.router)
@@ -4219,7 +4322,10 @@ def test_storage_space_share_roles_are_translated_to_iam_policy(db_session):
 
     service._sync_user_storage_space_policy_projection(iam, "portal-iam", {"research-data": "Viewer"})
     policy = iam.policies[("portal-iam", service._bucket_access_policy_name)]
-    viewer_statement = next(stmt for stmt in policy["Statement"] if stmt["Sid"] == "PortalStorageSpaceViewer")
+    viewer_sid = service._storage_space_share_sid("Viewer")
+    editor_sid = service._storage_space_share_sid("Editor")
+    owner_sid = service._storage_space_share_sid("Owner")
+    viewer_statement = next(stmt for stmt in policy["Statement"] if stmt["Sid"] == viewer_sid)
     assert {
         "s3:GetBucketLocation",
         "s3:GetBucketVersioning",
@@ -4229,14 +4335,14 @@ def test_storage_space_share_roles_are_translated_to_iam_policy(db_session):
 
     service._sync_user_storage_space_policy_projection(iam, "portal-iam", {"research-data": "Editor"})
     policy = iam.policies[("portal-iam", service._bucket_access_policy_name)]
-    assert not any(stmt["Sid"] == "PortalStorageSpaceViewer" for stmt in policy["Statement"])
-    editor_statement = next(stmt for stmt in policy["Statement"] if stmt["Sid"] == "PortalStorageSpaceEditor")
+    assert not any(stmt["Sid"] == viewer_sid for stmt in policy["Statement"])
+    editor_statement = next(stmt for stmt in policy["Statement"] if stmt["Sid"] == editor_sid)
     assert "s3:PutObject" in editor_statement["Action"]
     assert "s3:DeleteObject" in editor_statement["Action"]
 
     service._sync_user_storage_space_policy_projection(iam, "portal-iam", {"research-data": "Owner"})
     policy = iam.policies[("portal-iam", service._bucket_access_policy_name)]
-    owner_statement = next(stmt for stmt in policy["Statement"] if stmt["Sid"] == "PortalStorageSpaceOwner")
+    owner_statement = next(stmt for stmt in policy["Statement"] if stmt["Sid"] == owner_sid)
     assert "s3:*" not in owner_statement["Action"]
     assert {"s3:PutObject", "s3:DeleteObject", "s3:GetBucketPolicy"}.issubset(owner_statement["Action"])
 
@@ -6708,7 +6814,8 @@ def test_create_external_access_key_scopes_policy_to_storage_space(
     assert row.external_email == "partner@example.org"
     assert not hasattr(row, "secret_access_key")
     assert synced == [(metadata.bucket_name, metadata.id, False)]
-    policy = iam_service.policies[(row.iam_username, "portal-external-storage-space")]
+    assert row.iam_username.startswith("bkr-portal-ext-")
+    policy = iam_service.policies[(row.iam_username, PORTAL_EXTERNAL_ACCESS_POLICY_NAME)]
     statements = policy["Statement"]
     actions = set(statements[0]["Action"])
     resources = set(statements[0]["Resource"])
@@ -6938,7 +7045,7 @@ def test_external_access_key_status_and_delete_resync_policy(monkeypatch, db_ses
     assert credential.revoked_at is not None
     assert credential.status == "Inactive"
     assert ("delete_key", "portal-ext-lifecycle", "AK-EXT-LIFE") in iam_service.calls
-    assert ("delete_policy", "portal-ext-lifecycle", "portal-external-storage-space") in iam_service.calls
+    assert ("delete_policy", "portal-ext-lifecycle", PORTAL_EXTERNAL_ACCESS_POLICY_NAME) in iam_service.calls
     assert ("delete_user", "portal-ext-lifecycle") in iam_service.calls
     assert synced == [(metadata.bucket_name, False), (metadata.bucket_name, False)]
 

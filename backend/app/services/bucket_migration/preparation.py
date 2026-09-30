@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 from datetime import timedelta
-import uuid
 from contextlib import nullcontext
 from sqlalchemy import or_
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration
+from app.services.managed_resource_naming import (
+    MIGRATION_PROBE_OBJECT_KEY,
+    migration_probe_bucket_name,
+)
 from app.utils.time import utcnow
 from ._shared import _json_dumps, _json_loads, _WorkerLeaseLostError
 from .workflow import require_action
@@ -267,7 +270,7 @@ class BucketMigrationPreparationMixin:
     def _precheck_destination(
         self, migration, item, source_ctx, target_ctx, *, strategy: str
     ) -> None:
-        probe = f"bucketreef-mig-precheck-{migration.id}-{uuid.uuid4().hex[:12]}"
+        probe = migration_probe_bucket_name(migration.id)
         self._journal_preparation_effect(
             item,
             "probe_bucket",
@@ -306,7 +309,7 @@ class BucketMigrationPreparationMixin:
                     self._build_target_write_lock_policy(probe, policy),
                 )
             client = self._context_client(target_ctx)
-            key = "__bucketreef-check"
+            key = MIGRATION_PROBE_OBJECT_KEY
             response = client.put_object(
                 Bucket=probe, Key=key, Body=b"migration permission check"
             )

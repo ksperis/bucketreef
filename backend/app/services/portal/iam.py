@@ -16,6 +16,7 @@ from app.db import (
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
 from app.models.portal_access_keys import PortalAccessKey
 from app.services import s3_client
+from app.services.managed_resource_naming import portal_iam_username
 from app.services.mappers.portal import portal_access_key_from_active_link, portal_access_key_from_iam_metadata
 from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.utils.account_roles import PortalAccountRoleValue
@@ -92,16 +93,22 @@ class PortalIamMixin:
         created = False
         iam_user: Optional[IAMUser] = None
         created_key: Optional[ModelAccessKey] = None
+        expected_username = portal_iam_username(account.id, user.id)
+
+        if link and link.iam_username and link.iam_username != expected_username:
+            raise RuntimeError(
+                "Stored Portal IAM identity does not match the BucketReef-managed naming contract"
+            )
 
         if link and link.iam_username:
             iam_user = iam_service.get_user(link.iam_username)
 
         if link is None or iam_user is None:
-            username = link.iam_username if link and link.iam_username else f"portal-{account.id}-{user.id}"[:63]
+            username = expected_username
             iam_user, created_key = iam_service.create_user(
                 username,
                 create_key=True,
-                allow_existing=True,
+                allow_existing=False,
             )
             if link is None:
                 link = AccountIAMUser(
@@ -155,27 +162,40 @@ class PortalIamMixin:
     ) -> None:
         """Ensure portal groups exist and carry the expected policies."""
         groups = {g.name for g in iam_service.list_groups()}
-        if self._manager_group_name not in groups:
-            iam_service.create_group(self._manager_group_name)
-        if self._user_group_name not in groups:
-            iam_service.create_group(self._user_group_name)
+        managed_groups = (
+            (
+                self._manager_group_name,
+                self._manager_group_policy_name,
+                self._resolve_group_policy("manager"),
+            ),
+            (
+                self._user_group_name,
+                self._inline_policy_name,
+                self._resolve_group_policy("user"),
+            ),
+        )
 
-        for group_name in (self._manager_group_name, self._user_group_name):
+        for group_name, policy_name, _policy_document in managed_groups:
+            if (
+                group_name in groups
+                and iam_service.get_group_inline_policy(group_name, policy_name) is None
+            ):
+                raise RuntimeError(
+                    f"Refusing to reuse existing IAM group '{group_name}' because it is not marked as BucketReef-managed"
+                )
+
+        for group_name, policy_name, policy_document in managed_groups:
+            if group_name not in groups:
+                iam_service.create_group(group_name)
             attached = iam_service.list_group_policies(group_name)
             for policy in attached:
                 if policy.arn:
                     iam_service.detach_group_policy(group_name, policy.arn)
-
-        iam_service.put_group_inline_policy(
-            self._manager_group_name,
-            self._manager_group_policy_name,
-            self._resolve_group_policy("manager"),
-        )
-        iam_service.put_group_inline_policy(
-            self._user_group_name,
-            self._inline_policy_name,
-            self._resolve_group_policy("user"),
-        )
+            iam_service.put_group_inline_policy(
+                group_name,
+                policy_name,
+                policy_document,
+            )
 
     def _sync_user_group_membership(
         self,

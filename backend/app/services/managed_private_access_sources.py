@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account, S3Connection, S3User, StorageProvider, User
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.managed_resource_naming import managed_private_iam_username
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessError,
     ManagedPrivateAccessForbidden,
@@ -245,5 +246,4 @@ class ManagedPrivateAccessSourceResolver:
 
     @staticmethod
     def _iam_username(user_id: int, source_kind: str, source_id: int) -> str:
-        kind = "acc" if source_kind == "account" else "conn"
-        return f"bkr-private-u{user_id}-{kind}{source_id}"
+        return managed_private_iam_username(user_id, source_kind, source_id)

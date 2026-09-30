@@ -18,6 +18,7 @@ from app.services.app_settings_service import (
     enable_onboarding_features,
     load_app_settings_for_db,
 )
+from app.services.managed_resource_naming import onboarding_sample_account_name
 from app.services.onboarding_service import OnboardingError, REQUIRED_FEATURES
 from app.services.portal_access_service import resolve_portal_account_access
 from app.services.portal_service import get_portal_service
@@ -333,7 +334,7 @@ class OnboardingSetupService:
         # BucketReef's local database. Derive the sample name from the durable
         # account id so retries keep the same name and new journeys do not
         # collide with those remote accounts.
-        base = f"BucketReef-sample-{rgw_account_id[-8:]}"
+        base = onboarding_sample_account_name(rgw_account_id)
         candidate = base
         index = 2
         while self.db.query(S3Account.id).filter_by(name=candidate).first():
