@@ -286,7 +286,6 @@ describe("S3ConnectionsPage modal tabs", () => {
     expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
       scope: "s3_connection",
       targetId: 1,
-      contextLabel: "connection-1",
     }));
   });
 

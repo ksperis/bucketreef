@@ -18,7 +18,6 @@ type Props = {
   userId?: number;
   scope?: AccessAuditScope;
   targetId?: number;
-  contextLabel: string;
   showUserColumn?: boolean;
 };
 
@@ -26,7 +25,6 @@ export default function AdminEffectiveAccessPanel({
   userId,
   scope,
   targetId,
-  contextLabel,
   showUserColumn = userId == null,
 }: Props) {
   const [rows, setRows] = useState<AccessAuditRow[]>([]);
@@ -70,11 +68,10 @@ export default function AdminEffectiveAccessPanel({
 
   return (
     <ListPageSection
-      variant="section"
+      variant="page"
       title="Effective access"
-      description={`Saved effective BucketReef permissions for ${contextLabel}, including UI Group inheritance.`}
       countLabel={`${total} ${total === 1 ? "entry" : "entries"}`}
-      headingActions={<ListActionLink to={auditPath}>View in Access audit</ListActionLink>}
+      actions={<ListActionLink to={auditPath}>View in Access audit</ListActionLink>}
       secondaryContent={error ? <span role="alert">{error}</span> : undefined}
     >
       <AccessAuditTable

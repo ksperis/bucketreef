@@ -38,7 +38,7 @@ describe("AdminEffectiveAccessPanel", () => {
   it("loads only the requested target and links to the same filtered audit", async () => {
     render(
       <MemoryRouter>
-        <AdminEffectiveAccessPanel scope="rgw_user" targetId={42} contextLabel="pipeline" />
+        <AdminEffectiveAccessPanel scope="rgw_user" targetId={42} />
       </MemoryRouter>,
     );
 
@@ -49,6 +49,8 @@ describe("AdminEffectiveAccessPanel", () => {
       page_size: 25,
     })));
     expect(await screen.findByText("RGW user access")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Effective access" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Effective access" })).toBeInTheDocument();
     const rights = screen.getByLabelText("1 effective right");
     fireEvent.focus(rights);
     expect(within(screen.getByRole("tooltip", { name: "Effective rights details" })).getByText("Direct")).toBeInTheDocument();

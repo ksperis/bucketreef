@@ -219,7 +219,6 @@ describe("S3UsersPage modal tabs", () => {
     expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
       scope: "rgw_user",
       targetId: 5,
-      contextLabel: "rgw-user-1",
     }));
   });
 
