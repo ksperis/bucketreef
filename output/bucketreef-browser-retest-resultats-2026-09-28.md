@@ -2,11 +2,11 @@
 
 ## Résumé exécutif
 
-Les dix scénarios ont été exécutés sur une instance Docker dédiée construite depuis le `main` local, avec une base SQLite neuve migrée jusqu'à `0137_browser_path_favorites`. Le frontend était exposé sur `http://localhost:19080`, le backend sur `http://localhost:19000` et seul le endpoint de laboratoire `s3-z1.lab.ksperis.com` a été utilisé.
+Les dix scénarios ont été exécutés sur une instance Docker dédiée construite depuis le `main` local, avec une base SQLite neuve migrée jusqu'à `0137_browser_path_favorites`. Le frontend était exposé sur `http://localhost:19080`, le backend sur `http://localhost:19000` et seul un endpoint S3 de laboratoire non production a été utilisé.
 
 Résultat global : **8 scénarios atteints et 2 scénarios partiels**. Trois régressions Browser ont été corrigées et validées dans le navigateur. Deux défauts backend découverts pendant le nettoyage RGW ont également été corrigés. Tous les correctifs sont dans des commits locaux indépendants, sans push.
 
-Les deux résultats partiels concernent une action destructive de favori qui n'a pas été déclenchée dans l'interface et l'impossibilité du navigateur intégré à restituer le fichier local produit par un téléchargement `blob:`. Les autres critères, y compris les mutations S3, les versions, les surfaces intégrées et la largeur étroite, ont été qualifiés.
+Les deux résultats partiels concernent une action destructive de favori qui n'a pas été déclenchée dans l'interface et l'impossibilité du navigateur de test à restituer le fichier local produit par un téléchargement `blob:`. Les autres critères, y compris les mutations S3, les versions, les surfaces intégrées et la largeur étroite, ont été qualifiés.
 
 ## Instance et données de test
 
@@ -28,7 +28,7 @@ Les vérifications directes ont utilisé l'API S3 avec les identifiants de test 
 | 3 | Recherche et filtres conservés | Atteint | Les portées chemin courant, bucket complet et récursive, la correspondance exacte, la casse, le type et la classe `STANDARD` ont été combinés. Les filtres retirés ne réapparaissent pas et un changement de requête efface les résultats périmés. |
 | 4 | Glisser-déposer d'un dossier volumineux | Atteint après correction | Le dépôt des 16 fichiers termine, y compris le binaire multipart de 27 MiB. La taille totale et le SHA-256 du fichier volumineux correspondent dans S3. Le proxy Nginx rejetait initialement les corps de plus de 1 MiB ; `f20a029b` ajoute la route de streaming et une limite configurable. Aucune rafale anormale de `HeadObject 404` n'a été observée. |
 | 5 | Copier, couper et coller | Atteint | Un JSON a été copié et un texte déplacé entre préfixes. Les octets de destination correspondent ; la source déplacée n'est supprimée qu'après réussite. Aucun ancien dialogue de destination n'est réapparu. |
-| 6 | Téléchargement simple et ZIP mixte | Partiel | L'objet simple et les objets du ZIP mixte sont demandés, les opérations passent dans un état terminal et les routes renvoient les bonnes ressources. Le navigateur intégré ne fournit toutefois pas le fichier local issu du téléchargement `blob:`, ce qui empêche de rouvrir l'archive produite. Les tests unitaires couvrent les noms, chemins, octets et états terminaux de l'archive. |
+| 6 | Téléchargement simple et ZIP mixte | Partiel | L'objet simple et les objets du ZIP mixte sont demandés, les opérations passent dans un état terminal et les routes renvoient les bonnes ressources. Le navigateur de test ne fournit toutefois pas le fichier local issu du téléchargement `blob:`, ce qui empêche de rouvrir l'archive produite. Les tests unitaires couvrent les noms, chemins, octets et états terminaux de l'archive. |
 | 7 | Aperçus et panneau d'objet | Atteint | CSV, JSON et texte brut, recherche interne, bascule brut/aperçu et navigation précédent/suivant fonctionnent. Le panneau ne contient plus « Copier le chemin » ni les actions historiques de comparaison de versions. |
 | 8 | Versions, suppression et restauration | Atteint après correction | Deux versions distinctes ont été chargées et leurs identifiants contrôlés dans S3. Le téléchargement d'une version ancienne transmet maintenant son `versionId` grâce à `dc2458f7`. Suppression, restauration de l'ancienne version puis restauration de la version courante ont été vérifiées par lecture directe des octets. |
 | 9 | Actions avancées réversibles | Atteint | Métadonnées et tags ont été modifiés, relus dans S3 puis restaurés. L'ACL privée expose uniquement le propriétaire en `FULL_CONTROL`. Une URL GET présignée est générée. L'information CORS/proxy reste informative et l'historique de transferts retiré ne réapparaît pas après rechargement. |
@@ -59,7 +59,7 @@ Les cinq messages ont été validés avec `backend/scripts/validate_ai_commit_me
 
 ### 1. Qualifier les téléchargements `blob:` avec un vrai artefact local
 
-Le navigateur intégré voit les requêtes et l'état terminal, mais son événement de téléchargement expire pour les téléchargements déclenchés par une URL `blob:`. Il faut ajouter un projet E2E Chrome avec un répertoire de téléchargement contrôlé, puis ouvrir l'objet simple et le ZIP pour comparer noms, chemins et SHA-256. Ce travail concerne l'infrastructure de test ; aucun défaut produit supplémentaire n'a été reproduit.
+Le navigateur de test voit les requêtes et l'état terminal, mais son événement de téléchargement expire pour les téléchargements déclenchés par une URL `blob:`. Il faut ajouter un projet E2E Chrome avec un répertoire de téléchargement contrôlé, puis ouvrir l'objet simple et le ZIP pour comparer noms, chemins et SHA-256. Ce travail concerne l'infrastructure de test ; aucun défaut produit supplémentaire n'a été reproduit.
 
 ### 2. Découpler l'inventaire de suppression d'un compte des droits S3 de sa racine
 

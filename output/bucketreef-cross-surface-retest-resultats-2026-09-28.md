@@ -12,7 +12,7 @@ Résultat global : **10 scénarios atteints, dont 2 après correction**. Deux d�
 - frontend : `http://localhost:19280` ; backend : `http://localhost:19200` ;
 - base SQLite neuve migrée jusqu'à `0137_browser_path_favorites` ;
 - source initiale : `main` au commit `764f24cd` ;
-- endpoint de laboratoire : `s3-z1.lab.ksperis.com` ;
+- endpoint S3 de laboratoire non production ;
 - un super-administrateur, un manager, un collaborateur, un groupe d'habilitation et un compte RGW éphémères ;
 - buckets versionnés `cross-audit-1b6a5e-data` et `cross-audit-1b6a5e-portal`, plus le bucket technique de journaux Portal ;
 - objets texte, CSV et JSON, chemins avec espaces et Unicode, deux versions de `audit-folder/report.txt` ;

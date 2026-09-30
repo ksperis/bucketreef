@@ -11,8 +11,8 @@ adaptation to BucketReef's shared components, not a full replacement of its shel
 
 Source visual truth:
 
-- `/Users/laurent/.codex/generated_images/01a0e6a3-aacf-7a80-9650-6234d4b8cfec/exec-84b1516e-5dec-4864-ae34-a62be652d28f.png`
-- `/Users/laurent/.codex/generated_images/01a0e6a3-aacf-7a80-9650-6234d4b8cfec/exec-cfc8568e-4b02-42e1-aefa-d84740d474f6.png`
+- Two transient local reference images were used for the visual comparison.
+  They are not repository artifacts.
 
 Rendered implementation: authenticated `http://localhost:14173/browser` using
 the isolated Moto harness. Local screenshots are in

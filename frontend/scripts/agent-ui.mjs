@@ -288,12 +288,12 @@ async function run(options) {
   process.stdout.write(`\nAuthenticated agent UI is ready from the current checkout.\n\n`);
   process.stdout.write(`Admin:   ${frontendOrigin}/admin\n`);
   process.stdout.write(`Browser: ${frontendOrigin}/browser\n\n`);
-  process.stdout.write("From frontend/, open a reusable Playwright CLI session with:\n");
+  process.stdout.write("From frontend/, open an authenticated Playwright browser with:\n");
   process.stdout.write(
-    `  "$PWCLI" --session bucketreef-admin --config playwright-cli.agent-admin.json open ${frontendOrigin}/admin\n`,
+    `  npx playwright codegen --load-storage=e2e/.auth/agent-admin.json ${frontendOrigin}/admin\n`,
   );
   process.stdout.write(
-    `  "$PWCLI" --session bucketreef-browser --config playwright-cli.agent-browser.json open ${frontendOrigin}/browser\n`,
+    `  npx playwright codegen --load-storage=e2e/.auth/browser-user.json ${frontendOrigin}/browser\n`,
   );
   process.stdout.write("\nPress Ctrl+C in this terminal to stop only these isolated services.\n");
 

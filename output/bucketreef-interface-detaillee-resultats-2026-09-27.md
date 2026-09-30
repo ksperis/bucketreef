@@ -2,7 +2,7 @@
 
 ## Résumé exécutif
 
-Le lot de 80 scénarios a été exécuté sur une instance Docker dédiée construite depuis le code source local. Elle utilise le projet Compose `bucketreef-ui-audit`, le frontend `http://localhost:19080`, le backend `http://localhost:19000` et le endpoint S3 de laboratoire `s3-z1.lab.ksperis.com`. Les conteneurs backend et frontend sont sains. Aucun déploiement existant ni aucune donnée de production n’a été utilisé.
+Le lot de 80 scénarios a été exécuté sur une instance Docker dédiée construite depuis le code source local. Elle utilise le projet Compose `bucketreef-ui-audit`, le frontend `http://localhost:19080`, le backend `http://localhost:19000` et un endpoint S3 de laboratoire non production. Les conteneurs backend et frontend sont sains. Aucun déploiement existant ni aucune donnée de production n’a été utilisé.
 
 Résultat global :
 
@@ -90,7 +90,7 @@ Ces ressources n’ont pas été supprimées afin de conserver les preuves et de
 | UI-54 | Upload de plusieurs fichiers | Atteint | Deux fichiers envoyés ensemble et visibles. Le mode direct échoue dans cet environnement puis le proxy reprend automatiquement. |
 | UI-55 | Annuler un upload en cours | Non atteint | Aucun transfert suffisamment long n’a été utilisé pour prouver l’annulation sans objet résiduel. |
 | UI-56 | Aperçu texte, image et fichier non prévisualisable | Partiel | Aperçu texte exact vérifié. Les branches image et binaire non prévisualisable n’ont pas été couvertes. |
-| UI-57 | Télécharger et comparer le fichier | Partiel | Le backend `/download` répond 200 avec le bon objet. L’événement de téléchargement du navigateur intégré a expiré, donc la sauvegarde client n’est pas prouvée. |
+| UI-57 | Télécharger et comparer le fichier | Partiel | Le backend `/download` répond 200 avec le bon objet. L’événement de téléchargement du navigateur de test a expiré, donc la sauvegarde client n’est pas prouvée. |
 | UI-58 | Détails objet, ETag, taille, date et métadonnées | Atteint | Le tiroir de détail expose les propriétés attendues et les versions. |
 | UI-59 | Copier/coller un objet | Atteint | La sélection de deux objets et la copie affichent le statut « Items copied ». |
 | UI-60 | Dialogue de suppression puis annulation | Atteint | Le dialogue « Delete objects » a été ouvert pour le fichier JSON puis annulé ; le fichier reste visible dans la liste. |
@@ -109,7 +109,7 @@ Ces ressources n’ont pas été supprimées afin de conserver les preuves et de
 | UI-73 | Responsive 1440 px | Atteint | Toutes les surfaces principales restent lisibles et denses sur desktop. |
 | UI-74 | Responsive 1024 px | Partiel | Dashboard et détails sont utilisables. Les tables larges nécessitent un défilement horizontal et les dernières colonnes sortent du viewport. |
 | UI-75 | Responsive 390 px | Partiel | Dashboard, détail, menus et dialogue Object Lock sont corrects. La liste Storage Ops reste une table horizontale et masque les colonnes/actions à droite. |
-| UI-76 | Zoom navigateur 200 % | Bloqué outillage | Le navigateur intégré ne fournit pas de commande de zoom vérifiable ; les raccourcis testés n’ont pas modifié la représentation. |
+| UI-76 | Zoom navigateur 200 % | Bloqué outillage | Le navigateur de test ne fournit pas de commande de zoom vérifiable ; les raccourcis testés n’ont pas modifié la représentation. |
 | UI-77 | Requête lente, état de chargement et double soumission | Partiel | Les états Loading et boutons désactivés sont visibles. La recherche Accounts révèle une attente excessive, mais toutes les doubles soumissions n’ont pas été instrumentées. |
 | UI-78 | Erreur récupérable et nouvelle tentative | Atteint | L’upload direct en erreur bascule maintenant automatiquement vers le proxy et termine avec succès, avec message explicite. |
 | UI-79 | Cohérence du même bucket entre Manager et Browser | Atteint | Nom, objets, versions, tag et configuration convergent entre les vues testées. |
@@ -165,7 +165,7 @@ Les colonnes Used et Objects restent à `-` pour le bucket de test, même après
 
 Le bouton Apply peut rester actif sans section sélectionnée ou avec une ligne de tag inexploitable. La validation devrait appliquer la même règle que le correctif Storage Ops : aucune mutation utile, aucun Apply.
 
-### 8. Téléchargement non prouvé côté navigateur intégré
+### 8. Téléchargement non prouvé côté navigateur de test
 
 Le backend renvoie bien 200 sur l’endpoint de téléchargement, mais l’événement de téléchargement du navigateur de test a expiré. Une vérification E2E Playwright avec dossier de téléchargement contrôlé est recommandée.
 

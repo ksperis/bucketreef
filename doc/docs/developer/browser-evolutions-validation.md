@@ -1,10 +1,10 @@
 # Browser simplification: implementation and validation
 
 Implementation record for 28 September 2026, updated on 29 September for the
-simplified favorites workflow. The managed worktree starts from
-`main` at `75f29467` on `codex/browser-simplification`. Earlier Browser behavior at
-`6f37a18c` is a reference, not a sequence of blind reverts. The original checkout
-is preserved; delivery consists of local commits only.
+simplified favorites workflow. The isolated worktree starts from
+`main` at `75f29467`. Earlier Browser behavior at `6f37a18c` is a reference,
+not a sequence of blind reverts. The original checkout is preserved; delivery
+consists of local commits only.
 See the [user guide](../user/feature-objects-browser.md) for behavior and limits.
 
 ## Retained behavior and shared contracts

@@ -3,7 +3,6 @@ import path from "node:path";
 
 const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css", ".scss", ".mjs"]);
 const EXCLUDED_DIRS = new Set([
-  ".playwright-cli",
   "coverage",
   "dist",
   "node_modules",

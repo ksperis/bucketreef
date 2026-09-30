@@ -34,7 +34,6 @@ dist-demo/
 frontend/playwright-report/
 frontend/test-results/
 frontend/e2e/.auth/
-.playwright-cli/
 gl-test-reports/
 gl-security-reports/
 gl-secret-detection-report.json

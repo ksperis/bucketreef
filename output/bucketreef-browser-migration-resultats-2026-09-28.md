@@ -2,11 +2,11 @@
 
 ## Résumé exécutif
 
-Ce lot cible les fonctions Browser ajoutées depuis le précédent audit et le nouveau parcours de migration de bucket. Les scénarios ont été exécutés dans le navigateur intégré contre deux instances Docker dédiées, toutes deux construites depuis le code local et reliées uniquement au endpoint de laboratoire `s3-z1.lab.ksperis.com`.
+Ce lot cible les fonctions Browser ajoutées depuis le précédent audit et le nouveau parcours de migration de bucket. Les scénarios ont été exécutés dans un navigateur de test contre deux instances Docker dédiées, toutes deux construites depuis le code local et reliées uniquement à un endpoint S3 de laboratoire non production.
 
 Deux instances ont été nécessaires parce que la branche Browser et le travail de migration en cours définissent chacun une migration Alembic `0135` différente depuis `0134` :
 
-- `bucketreef-browser-audit` : frontend `http://localhost:19180`, backend `http://localhost:19100`, branche `codex/browser-evolutions` ;
+- `bucketreef-browser-audit` : frontend `http://localhost:19180`, backend `http://localhost:19100`, branche de travail Browser ;
 - `bucketreef-ui-audit` : frontend `http://localhost:19080`, backend `http://localhost:19000`, arbre principal contenant le travail de migration non committé déjà présent.
 
 Résultat global : **35 scénarios atteints, 2 partiels et 1 non atteint**. Un défaut Browser évident a été corrigé et committé. Trois sujets demandent une correction plus structurelle : la finalisation du ZIP en streaming, un faux positif dans le rapport de différences de migration et la collision entre les deux révisions Alembic `0135`.
@@ -39,7 +39,7 @@ Les effets des opérations sensibles ont été vérifiés à deux niveaux : éta
 | BR-16 | Déplacer explicitement un objet Unicode | Atteint | Le fichier est déplacé vers `reports/empty/`, disparaît de la source et apparaît dans la destination. |
 | BR-17 | Vérifier la copie et le déplacement Unicode directement sur S3 | Atteint | La copie imbriquée et la destination du déplacement existent; la clé source a disparu. |
 | BR-18 | Calculer le volume d’une sélection mixte | Atteint | Un fichier et un dossier donnent `1 file · 1 folder · 73 B`. |
-| BR-19 | Télécharger une sélection mixte sous forme de ZIP | Non atteint | Les quatre objets sont téléchargés et marqués terminés, mais l’opération parent reste indéfiniment sur `Streaming zip` dans le navigateur intégré. |
+| BR-19 | Télécharger une sélection mixte sous forme de ZIP | Non atteint | Les quatre objets sont téléchargés et marqués terminés, mais l’opération parent reste indéfiniment sur `Streaming zip` dans le navigateur de test. |
 | BR-20 | Recharger après navigation dans un sous-dossier | Partiel | La navigation fonctionne, mais le préfixe courant est conservé seulement dans l’état du routeur; un rechargement revient au préfixe encodé dans l’URL précédente. |
 | MIG-01 | Charger l’inventaire source et filtrer les buckets | Atteint | Le sélecteur charge 48 buckets et filtre la source attendue. |
 | MIG-02 | Refuser un nom de destination S3 invalide | Atteint | Un nom contenant des majuscules produit une erreur inline et bloque la progression. |
@@ -70,9 +70,9 @@ La régression est couverte par un test d’une copie explicite vers un autre do
 
 ### 1. Finalisation du ZIP en streaming
 
-Le navigateur intégré accepte le descripteur de fichier, télécharge les quatre objets et termine les quatre sous-opérations, mais `ZipWriter.close()` ne rend pas la main. L’opération parent reste donc `In progress` avec le bouton Stop.
+Le navigateur de test accepte le descripteur de fichier, télécharge les quatre objets et termine les quatre sous-opérations, mais `ZipWriter.close()` ne rend pas la main. L’opération parent reste donc `In progress` avec le bouton Stop.
 
-Proposition : introduire une abstraction de destination d’archive avec détection explicite des capacités et temporisation de la finalisation. Pour les sélections dont le volume est déjà calculé et reste sous un seuil raisonnable, produire le ZIP en mémoire puis écrire le blob final dans le descripteur ou déclencher le téléchargement standard. Ajouter des tests E2E sur Chrome, Firefox, Safari et le navigateur intégré, couvrant finalisation, annulation et repli; une opération dont tous les enfants sont terminés ne doit jamais rester active sans diagnostic.
+Proposition : introduire une abstraction de destination d’archive avec détection explicite des capacités et temporisation de la finalisation. Pour les sélections dont le volume est déjà calculé et reste sous un seuil raisonnable, produire le ZIP en mémoire puis écrire le blob final dans le descripteur ou déclencher le téléchargement standard. Ajouter des tests E2E sur Chrome, Firefox, Safari et le navigateur de test, couvrant finalisation, annulation et repli; une opération dont tous les enfants sont terminés ne doit jamais rester active sans diagnostic.
 
 ### 2. Faux positif « Differences found »
 
