@@ -315,17 +315,17 @@ concepts can be introduced without another surface rewrite.
 Use focused Portal validation before broader suites:
 
 - Frontend Portal unit and route checks, from `frontend/`:
-  `rtk npm run test:portal`
+  `npm run test:portal`
 - Frontend typecheck, from `frontend/`:
-  `rtk npm run typecheck`
+  `npm run typecheck`
 - Frontend dead-code check, from `frontend/`:
-  `rtk npm run deadcode:check`
+  `npm run deadcode:check`
 - Backend Portal service and route-contract checks:
-  `rtk env PYTHONPATH=backend backend/.venv/bin/pytest backend/tests/test_portal_service.py backend/tests/test_manager_workspace_access_rules.py -q`
+  `env PYTHONPATH=backend backend/.venv/bin/pytest backend/tests/test_portal_service.py backend/tests/test_manager_workspace_access_rules.py -q`
 - Backend Portal request workflow checks:
-  `rtk env PYTHONPATH=backend backend/.venv/bin/pytest backend/tests/test_portal_requests_service.py backend/tests/test_portal_requests_routes.py -q`
+  `env PYTHONPATH=backend backend/.venv/bin/pytest backend/tests/test_portal_requests_service.py backend/tests/test_portal_requests_routes.py -q`
 - Diff hygiene:
-  `rtk git diff --check`
+  `git diff --check`
 
 The Portal backend tests include permission regressions for `Viewer`, `Editor`,
 and `Owner` across object detail/download/delete, sharing, and removed advanced
