@@ -55,6 +55,7 @@ const smtpFields = [
 ] as const;
 const paths = [
   ...featureFields.map((field) => `general.${field}` as const),
+  "general.rgw_account_id_prefix",
   "general.quota_alerts_enabled",
   "general.usage_history_enabled",
   "quota_notifications.threshold_percent",
@@ -100,8 +101,14 @@ function validateSmtp(values: AppSettingsValues): FieldErrors {
   };
 }
 function validate(values: AppSettingsValues): FieldErrors {
+  const rgwAccountIdPrefix = String(
+    values["general.rgw_account_id_prefix"] ?? "",
+  );
   return {
     ...validateSmtp(values),
+    "general.rgw_account_id_prefix": /^\d{1,3}$/.test(rgwAccountIdPrefix)
+      ? undefined
+      : "RGW account ID prefix must contain 1 to 3 digits.",
     "quota_notifications.threshold_percent": validateInteger(
       values["quota_notifications.threshold_percent"],
       "Threshold percent",
@@ -411,6 +418,32 @@ export default function GeneralSettingsPage() {
           "Storage Ops",
           "Cross-account and cross-connection bucket operations.",
         )}
+      </SettingsSection>
+      <SettingsSection
+        presentation="compact"
+        title="RGW accounts"
+        description="Defaults used when BucketReef generates a Ceph RGW Account ID."
+      >
+        <SettingsItem
+          compact
+          title="Account ID prefix"
+          description={`Generated IDs keep the RGW + 17 digits format. Current pattern: RGW${String(form.draft["general.rgw_account_id_prefix"] ?? "")}…`}
+          action={
+            <SettingsField
+              name="general.rgw_account_id_prefix"
+              label="RGW account ID prefix"
+              inputMode="numeric"
+              maxLength={3}
+              value={String(form.draft["general.rgw_account_id_prefix"] ?? "")}
+              error={form.errors["general.rgw_account_id_prefix"]}
+              disabled={form.busy}
+              onChange={(event) =>
+                form.setValue("general.rgw_account_id_prefix", event.target.value)
+              }
+              className="w-28"
+            />
+          }
+        />
       </SettingsSection>
       <SettingsSection
         presentation="compact"

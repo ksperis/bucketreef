@@ -51,6 +51,7 @@ export type PortalSettingsAdminUpdate = PortalSettingsOverride & {
 };
 
 export type GeneralSettings = {
+  rgw_account_id_prefix: string;
   manager_enabled: boolean;
   ceph_admin_enabled: boolean;
   storage_ops_enabled: boolean;

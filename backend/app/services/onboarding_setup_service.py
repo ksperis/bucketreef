@@ -3,7 +3,6 @@
 """Setup orchestration for the guided administrator onboarding."""
 import json
 from urllib.parse import urlsplit
-from uuid import uuid4
 
 from app.db import S3Account, S3Connection, StorageEndpoint, UserS3Account
 from app.models.s3_account import S3AccountCreate
@@ -15,7 +14,10 @@ from app.models.storage_endpoint import (
     StorageEndpointUpdate,
 )
 from app.models.user import UserUpdate
-from app.services.app_settings_service import enable_onboarding_features
+from app.services.app_settings_service import (
+    enable_onboarding_features,
+    load_app_settings_for_db,
+)
 from app.services.onboarding_service import OnboardingError, REQUIRED_FEATURES
 from app.services.portal_access_service import resolve_portal_account_access
 from app.services.portal_service import get_portal_service
@@ -27,6 +29,7 @@ from app.services.storage_endpoint_admin_permissions import (
     has_account_provisioning_permissions,
 )
 from app.services.users_service import get_users_service
+from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.storage_endpoint_features import (
     dump_features_config,
     normalize_features_config,
@@ -348,7 +351,8 @@ class OnboardingSetupService:
 
         identifier = resources.get("rgw_account_id")
         if not identifier:
-            identifier = f"RGW{uuid4().int % (10 ** 17):017d}"
+            prefix = load_app_settings_for_db(self.db).general.rgw_account_id_prefix
+            identifier = generate_rgw_account_id(prefix)
             self.progress.checkpoint(row, rgw_account_id=identifier)
             resources = json.loads(row.resources_json)
 

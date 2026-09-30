@@ -52,6 +52,7 @@ vi.mock("../../components/ui/brandingRuntime", async () => {
 function buildSettings(): AppSettings {
   return {
     general: {
+      rgw_account_id_prefix: "80",
       manager_enabled: true,
       ceph_admin_enabled: false,
       storage_ops_enabled: false,
@@ -194,6 +195,32 @@ describe("GeneralSettingsPage branding", () => {
     expect(applyBrandingMock).toHaveBeenCalledWith("#0057b8");
   });
 
+  it("saves a valid RGW account ID prefix", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const input = await screen.findByLabelText("RGW account ID prefix");
+    await user.clear(input);
+    await user.type(input, "123");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
+    expect(updateAppSettingsMock.mock.calls[0][0].general.rgw_account_id_prefix).toBe("123");
+  });
+
+  it("rejects an invalid RGW account ID prefix", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const input = await screen.findByLabelText("RGW account ID prefix");
+    await user.clear(input);
+    await user.type(input, "ab");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(await screen.findByText("RGW account ID prefix must contain 1 to 3 digits.")).toBeInTheDocument();
+    expect(updateAppSettingsMock).not.toHaveBeenCalled();
+  });
+
   it("does not render authentication options", async () => {
     renderPage();
 
@@ -260,6 +287,7 @@ describe("GeneralSettingsPage branding", () => {
     initialSettings.general.allow_login_access_keys = true;
     initialSettings.general.allow_login_endpoint_list = true;
     initialSettings.general.allow_login_custom_endpoint = true;
+    initialSettings.general.rgw_account_id_prefix = "123";
     const defaultSettings = buildSettings();
     defaultSettings.general.allow_login_access_keys = false;
     defaultSettings.general.allow_login_endpoint_list = false;
@@ -287,6 +315,7 @@ describe("GeneralSettingsPage branding", () => {
     expect(payload.general.allow_login_access_keys).toBe(true);
     expect(payload.general.allow_login_endpoint_list).toBe(true);
     expect(payload.general.allow_login_custom_endpoint).toBe(true);
+    expect(payload.general.rgw_account_id_prefix).toBe("80");
     expect(payload.general).not.toHaveProperty("allow_user_private_connections");
     expect(payload.branding.primary_color).toBe("#0569f8");
   });

@@ -47,6 +47,7 @@ export type DemoState = {
 };
 export const settings: AppSettings = {
   general: {
+    rgw_account_id_prefix: "80",
     manager_enabled: true, ceph_admin_enabled: true, storage_ops_enabled: false,
     browser_enabled: true, browser_root_enabled: true, browser_manager_enabled: true,
     browser_portal_enabled: true, browser_ceph_admin_enabled: true, portal_enabled: true,

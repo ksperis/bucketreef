@@ -14,6 +14,7 @@ import { CLIENT_STORAGE_KEYS, readClientJson, writeClientJson } from "../utils/c
 import { useSession } from "../auth/SessionProvider";
 
 const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
+  rgw_account_id_prefix: "80",
   manager_enabled: true,
   ceph_admin_enabled: false,
   storage_ops_enabled: false,

@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from dataclasses import dataclass
 import logging
-import random
 import re
 from typing import Any, Optional
 
@@ -26,6 +25,7 @@ from app.models.s3_account import (
     S3AccountSummary,
     S3AccountUpdate,
 )
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.mappers.s3_account import s3_account_from_db, s3_account_summary_from_db
 from app.services.portal.iam_contracts import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.portal_role_sync import (
@@ -53,7 +53,7 @@ from app.utils.storage_endpoint_features import (
     resolve_admin_endpoint,
     resolve_feature_flags,
 )
-from app.utils.rgw_identifiers import normalize_rgw_identifier
+from app.utils.rgw_identifiers import generate_rgw_account_id, normalize_rgw_identifier
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.usage_stats import aggregate_bucket_usage
 from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
@@ -279,7 +279,8 @@ class S3AccountsService:
         return len(deduped), deduped
 
     def _generate_account_id(self) -> str:
-        return f"RGW{random.randint(0, 10**17 - 1):017d}"
+        prefix = load_app_settings_for_db(self.db).general.rgw_account_id_prefix
+        return generate_rgw_account_id(prefix)
 
     def list_accounts(
         self,

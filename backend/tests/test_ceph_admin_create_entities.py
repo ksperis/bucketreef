@@ -127,6 +127,27 @@ def test_create_rgw_account_supports_quota():
     assert fake_rgw.set_account_quota_calls[0]["enabled"] is True
 
 
+def test_create_rgw_account_generates_configured_id_when_omitted(monkeypatch):
+    fake_rgw = FakeAccountsAdmin()
+    ctx = SimpleNamespace(endpoint=SimpleNamespace(id=901), rgw_admin=fake_rgw)
+    monkeypatch.setattr(
+        account_profiles_router,
+        "load_app_settings",
+        lambda: SimpleNamespace(
+            general=SimpleNamespace(rgw_account_id_prefix="80")
+        ),
+    )
+    monkeypatch.setattr("app.utils.rgw_identifiers.secrets.randbelow", lambda _limit: 42)
+
+    response = account_profiles_router.create_rgw_account(
+        payload=CephAdminRgwAccountCreate(account_name="Generated"),
+        ctx=ctx,
+    )
+
+    assert response.account.account_id == "RGW80000000000000042"
+    assert fake_rgw.create_account_calls[0]["account_id"] == "RGW80000000000000042"
+
+
 @pytest.mark.parametrize("account_name", ["invalid:name", "invalid$name", "   ", "invalid\ud800"])
 def test_create_rgw_account_model_rejects_invalid_name(account_name: str):
     with pytest.raises(ValidationError):

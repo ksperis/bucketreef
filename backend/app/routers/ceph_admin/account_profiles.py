@@ -21,10 +21,12 @@ from app.routers.ceph_admin.audit import record_ceph_admin_action
 from app.routers.ceph_admin.dependencies import CephAdminContext, get_ceph_admin_context
 from app.routers.ceph_admin.listing_common import fields_set
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
+from app.services.app_settings_service import load_app_settings
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
+from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import summarize_bucket_usage
@@ -39,6 +41,10 @@ def create_rgw_account(
 ) -> CephAdminRgwAccountCreateResponse:
     requested_account_id = payload.account_id.strip() if isinstance(payload.account_id, str) else None
     requested_account_id = requested_account_id or None
+    if requested_account_id is None:
+        requested_account_id = generate_rgw_account_id(
+            load_app_settings().general.rgw_account_id_prefix
+        )
     account_name = payload.account_name.strip()
     if not account_name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="account_name is required")

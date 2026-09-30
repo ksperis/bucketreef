@@ -57,6 +57,7 @@ class PortalBucketDefaults(ApiModel):
 
 
 class GeneralSettings(ApiModel):
+    rgw_account_id_prefix: str = Field(default="80", pattern=r"^\d{1,3}$")
     manager_enabled: bool = True
     ceph_admin_enabled: bool = False
     storage_ops_enabled: bool = False
