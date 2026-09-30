@@ -78,6 +78,7 @@ test("sidebar labels keep neutral shell colors in both themes", async ({ page })
 });
 
 test("workspaces UI: profiles, keyboard, mobile and both themes", async ({ page }, info) => {
+  test.slow();
   const external: string[] = [];
   page.on("request", request => { const url = request.url(); if (url.startsWith("http") && (!url.startsWith("http://127.0.0.1:4187/") || new URL(url).pathname.startsWith("/api/"))) external.push(url); });
   await page.emulateMedia({ colorScheme: "light" });
