@@ -27,8 +27,11 @@ test("enrolls and reuses a verified passkey with cookie-only multi-tab revocatio
     try {
       await page.goto("/login");
     } catch {
-      // The auth guard can complete its own redirect to /login first.
-      await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
+      // A stale local identity can complete the expired-session redirect while
+      // the explicit navigation is still pending.
+    }
+    if (/\/session-expired(?:\?.*)?$/.test(page.url())) {
+      await page.getByRole("link", { name: "Sign in again" }).click();
     }
     await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
     await page.locator('input[type="email"]').fill(E2E_AUTH_ADMIN_EMAIL);
@@ -76,10 +79,13 @@ test("enrolls and reuses a verified passkey with cookie-only multi-tab revocatio
   try {
     await secondTab.reload();
   } catch {
-    // The auth guard may complete its redirect while reload is still pending.
-    await expect(secondTab).toHaveURL(/\/login(?:\?.*)?$/);
+    // The auth guard may complete its expired-session redirect while reload is
+    // still pending.
   }
-  await expect(secondTab).toHaveURL(/\/login(?:\?.*)?$/);
+  await expect(secondTab).toHaveURL(/\/(?:login|session-expired)(?:\?.*)?$/);
+  if (/\/session-expired(?:\?.*)?$/.test(secondTab.url())) {
+    await expect(secondTab.getByRole("link", { name: "Sign in again" })).toBeVisible();
+  }
   expect((await secondTab.request.get("/api/auth/session")).status()).toBe(401);
   cookies = await context.cookies();
   expect(cookies.some((cookie) => cookie.name === "ui_access" || cookie.name === "refresh_token")).toBe(false);

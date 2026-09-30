@@ -74,6 +74,7 @@ export default defineConfig({
     {
       name: "auth",
       dependencies: ["setup"],
+      retries: 0,
       testMatch: "auth/**/*.spec.ts",
       use: {
         browserName: "chromium",
