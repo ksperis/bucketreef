@@ -118,6 +118,7 @@ export function createSeed(): DemoState {
   const endpoints: StorageEndpoint[] = ["Paris · Production", "Lyon · Archive"].map((name, i) => ({
     id: 11 + i, name, endpoint_url: `https://ceph-${i ? "lyon" : "paris"}.demo.invalid`, provider: "ceph",
     region: i ? "eu-lyon-1" : "eu-paris-1", force_path_style: true, verify_tls: true,
+    latitude: i ? 45.764 : 48.8566, longitude: i ? 4.8357 : 2.3522,
     has_admin_secret: true, has_supervision_secret: true, has_ceph_admin_secret: true,
     admin_access_key: "DEMO_NOT_A_REAL_KEY", supervision_access_key: "DEMO_NOT_A_REAL_KEY", ceph_admin_access_key: "DEMO_NOT_A_REAL_KEY",
     capabilities: { admin: true, account: true, usage: true, metrics: true, iam: true, sts: false, sns: false, sse: true, replication: true, static_website: true },
