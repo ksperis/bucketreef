@@ -389,7 +389,6 @@ describe("AccountsPage modal tabs", () => {
     expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
       scope: "rgw_account",
       targetId: 1,
-      contextLabel: "acc-1",
     }));
   });
 

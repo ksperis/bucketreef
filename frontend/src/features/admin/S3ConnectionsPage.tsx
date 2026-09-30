@@ -1382,7 +1382,6 @@ export default function S3ConnectionsPage() {
               <AdminEffectiveAccessPanel
                 scope="s3_connection"
                 targetId={editing.id}
-                contextLabel={editing.name}
               />
             )}
             </WorkflowTabs>

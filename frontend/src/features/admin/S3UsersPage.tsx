@@ -1369,7 +1369,6 @@ export default function S3UsersPage() {
               <AdminEffectiveAccessPanel
                 scope="rgw_user"
                 targetId={editingUser.id}
-                contextLabel={editingUser.name}
               />
             )}
           </WorkflowTabs>

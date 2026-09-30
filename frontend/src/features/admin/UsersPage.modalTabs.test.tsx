@@ -857,7 +857,6 @@ describe("UsersPage modal tabs", () => {
     expect(await screen.findByText("Effective access panel")).toBeInTheDocument();
     expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
       userId: 9,
-      contextLabel: "Audit User",
       showUserColumn: false,
     }));
   });

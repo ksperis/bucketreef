@@ -215,7 +215,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManagePrivilegedTarget
             disabled={controller.locked} onDirtyChange={setPortalDirty} onBusyChange={setPortalBusy} />
         </div>}
         {tab === "effective_access" && <AdminEffectiveAccessPanel
-          scope="rgw_account" targetId={account.id} contextLabel={account.name} />}
+          scope="rgw_account" targetId={account.id} />}
       </WorkflowTabs>
     </WorkflowPage>
     {controller.confirmationDialog}

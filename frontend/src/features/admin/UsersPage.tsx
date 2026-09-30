@@ -1844,7 +1844,6 @@ export default function UsersPage() {
             {editModalTab === "effective_access" && (
               <AdminEffectiveAccessPanel
                 userId={editingUser.id}
-                contextLabel={editingUser.full_name || editingUser.email}
                 showUserColumn={false}
               />
             )}
