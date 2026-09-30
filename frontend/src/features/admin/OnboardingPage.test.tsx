@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { axe } from "jest-axe";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   OnboardingDraft,
@@ -174,7 +174,10 @@ function journey(id: string, draft: OnboardingDraft, configured = false): Onboar
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/admin/onboarding"]}>
-      <OnboardingPage />
+      <Routes>
+        <Route path="/admin/onboarding" element={<OnboardingPage />} />
+        <Route path="/admin" element={<div>Admin dashboard</div>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -438,18 +441,13 @@ describe("simplified onboarding", () => {
     await waitFor(() => expect(applyButton).toBeEnabled());
 
     fireEvent.click(applyButton);
-    expect(await screen.findByRole("heading", { name: "BucketReef is ready to explore" })).toBeInTheDocument();
+    expect(await screen.findByText("Admin dashboard")).toBeInTheDocument();
     expect(mocks.applyOnboardingJourney).toHaveBeenCalledWith(
       expect.objectContaining({ draft: expect.objectContaining({ private_connection: true }) }),
       expect.objectContaining({
         private_access_key: "private-access",
         private_secret_key: "private-secret",
       }),
-    );
-    expect(screen.getByRole("link", { name: "Open Browser" })).toHaveAttribute("href", "/browser?ctx=conn-12");
-    expect(screen.getByRole("link", { name: "Open private connection in Manager" })).toHaveAttribute(
-      "href",
-      "/manager/buckets?ctx=conn-12",
     );
     expect(mocks.refreshSettings).toHaveBeenCalled();
     expect(mocks.refreshSession).toHaveBeenCalled();

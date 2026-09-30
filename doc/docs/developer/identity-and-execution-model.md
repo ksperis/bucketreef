@@ -38,7 +38,7 @@ for password, role, activation, MFA, and external-identity changes.
 - `/portal` requires explicit Portal account access and uses Portal Storage
   Space metadata and grants as the source of truth.
 - One RGW account represents one Portal project. The account-local
-  `portal-manager` IAM group can therefore grant the fixed Manager data-plane
+  `bkr-portal-manager` IAM group can therefore grant the fixed Manager data-plane
   action set once for all project Storage Spaces; technical buckets apply an
   explicit principal-scoped resource-policy `Deny`.
 - `/ceph-admin` uses an endpoint-scoped Ceph Admin context.

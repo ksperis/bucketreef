@@ -8,15 +8,16 @@ from typing import Optional, TYPE_CHECKING
 from app.db import PortalAccountRole, S3Account, User
 from app.models.portal_versions import PortalStorageSpaceSettings, PortalStorageSpaceSettingsUpdate
 from app.services import s3_bucket_metadata, s3_client
+from app.services.managed_resource_naming import (
+    PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID,
+    PORTAL_LIFECYCLE_RULE_IDS,
+)
 from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 
 if TYPE_CHECKING:
     from app.models.access_context import AccountAccess
 
 logger = logging.getLogger(__name__)
-
-
-_PORTAL_LIFECYCLE_RULE_IDS = {"ExpireDeleteMarkers", "ExpireOldVersions"}
 
 
 class PortalStorageSpaceSettingsMixin:
@@ -32,14 +33,14 @@ class PortalStorageSpaceSettingsMixin:
         managed_rules = {
             str(rule.get("ID")): rule
             for rule in rules
-            if isinstance(rule, dict) and str(rule.get("ID") or "") in _PORTAL_LIFECYCLE_RULE_IDS
+            if isinstance(rule, dict) and str(rule.get("ID") or "") in PORTAL_LIFECYCLE_RULE_IDS
         }
         lifecycle_enabled = all(
             rule_id in managed_rules
             and str(managed_rules[rule_id].get("Status") or "Enabled").lower() == "enabled"
-            for rule_id in _PORTAL_LIFECYCLE_RULE_IDS
+            for rule_id in PORTAL_LIFECYCLE_RULE_IDS
         )
-        expiration_rule = managed_rules.get("ExpireOldVersions") or {}
+        expiration_rule = managed_rules.get(PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID) or {}
         expiration = expiration_rule.get("NoncurrentVersionExpiration")
         retention_days = expiration.get("NoncurrentDays") if isinstance(expiration, dict) else None
         if not isinstance(retention_days, int) or isinstance(retention_days, bool) or retention_days < 1:
@@ -148,7 +149,7 @@ class PortalStorageSpaceSettingsMixin:
         retained_rules = [
             rule
             for rule in previous_rules
-            if not (isinstance(rule, dict) and str(rule.get("ID") or "") in _PORTAL_LIFECYCLE_RULE_IDS)
+            if not (isinstance(rule, dict) and str(rule.get("ID") or "") in PORTAL_LIFECYCLE_RULE_IDS)
         ]
         target_rules = list(retained_rules)
         if payload.lifecycle_enabled:

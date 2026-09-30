@@ -2,12 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import uuid
 from typing import Any, Callable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import BucketMigration, BucketMigrationItem
+from app.services.managed_resource_naming import migration_probe_bucket_name
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
 from app.utils.time import utcnow
@@ -648,7 +648,7 @@ class BucketMigrationItemRunnerMixin:
             ) from restore_error
 
     def _precheck_target_lock_with_probe_bucket(self, target_ctx: _ResolvedContext, *, migration_id: int) -> None:
-        probe_bucket = f"bucketreef-mig-precheck-{migration_id}-{uuid.uuid4().hex[:12]}"
+        probe_bucket = migration_probe_bucket_name(migration_id)
         try:
             self._buckets.create_bucket(
                 probe_bucket,

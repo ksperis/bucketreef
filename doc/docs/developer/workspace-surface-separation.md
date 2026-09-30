@@ -119,13 +119,14 @@ labels.
   only as an anonymous `Other` aggregate with no bucket or Storage Space
   identifiers.
 - Portal-managed bucket policies must only add, replace, or remove dedicated
-  `Sid` statements such as `PortalStorageSpaceAccess` and
-  `PortalStorageSpaceArchived`. They must preserve unrelated bucket policy
-  statements. The Portal role templates for `Viewer`, `Editor`, `Owner`, and `Manager`
-  are code-owned backend projections from DB grants; they are not an editable
+  `Sid` statements such as `BucketReefPortalStorageSpaceAccess` and
+  `BucketReefPortalStorageSpaceArchived`. They must preserve unrelated bucket
+  policy statements, including pre-cutover generic Portal `Sid` values. The
+  Portal role templates for `Viewer`, `Editor`, `Owner`, and `Manager` are
+  code-owned backend projections from DB grants; they are not an editable
   bucket/IAM policy document in Portal.
 - Because one RGW account maps to one Portal project, the code-owned
-  `portal-manager` IAM group carries both the minimal global bootstrap actions
+  `bkr-portal-manager` IAM group carries both the minimal global bootstrap actions
   (`s3:ListAllMyBuckets`, `sts:GetSessionToken`) and the explicit Manager
   data-plane action set on that account's bucket and object ARNs. Do not
   reintroduce `iam:*`, `s3:*`, or `s3:CreateBucket`. The only mutating bucket
@@ -211,10 +212,12 @@ makes an existing override read-only without deleting or deactivating it.
 Lifecycle baseline, and version history retention to Storage Space Owners and
 Portal Managers. Only a project `portal_manager` may call the corresponding
 `PUT`, using the actor's personal Portal IAM identity. The workflow owns only
-the `ExpireDeleteMarkers` and `ExpireOldVersions` lifecycle rules and must
-preserve every foreign lifecycle rule, including on imported buckets. Archived
-spaces remain read-only. Native IAM, policy compliance, access-key, and all
-other bucket administration workflows belong outside the Portal user surface.
+the `BucketReefPortalExpireDeleteMarkers` and
+`BucketReefPortalExpireOldVersions` lifecycle rules and must preserve every
+foreign lifecycle rule, including pre-cutover generic rule IDs and rules on
+imported buckets. Archived spaces remain read-only. Native IAM, policy
+compliance, access-key, and all other bucket administration workflows belong
+outside the Portal user surface.
 Personal Portal preferences belong to `/portal/profile` and use the simple
 `/users/me` `ui_preferences` contract. Stored preferences such as theme and
 default Portal account are UI defaults only; they never grant account access.

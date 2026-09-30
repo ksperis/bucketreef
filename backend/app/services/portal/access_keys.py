@@ -17,6 +17,10 @@ from app.models.portal_access_keys import (
     PortalAccessKeysState,
     PortalIAMUser,
 )
+from app.services.managed_resource_naming import (
+    PORTAL_EXTERNAL_STORAGE_SPACE_SID,
+    portal_external_iam_username,
+)
 from app.services.mappers.portal import (
     portal_access_key_from_external_credential,
     portal_access_key_from_iam_metadata,
@@ -211,7 +215,7 @@ class PortalAccessKeysMixin:
         slug = re.sub(r"[^a-z0-9-]+", "-", local_part.strip().lower())
         slug = re.sub(r"-+", "-", slug).strip("-") or "external"
         token = secrets.token_hex(4)
-        return f"portal-ext-{account.id}-{metadata.id}-{slug[:24]}-{token}"[:63]
+        return portal_external_iam_username(account.id, metadata.id, slug, token)
 
     def _external_permission_role(self, permission: Optional[str]) -> PortalStorageSpaceRole:
         if permission == "read_write":
@@ -224,7 +228,7 @@ class PortalAccessKeysMixin:
             "Version": "2012-10-17",
             "Statement": [
                 {
-                    "Sid": "PortalExternalStorageSpace",
+                    "Sid": PORTAL_EXTERNAL_STORAGE_SPACE_SID,
                     "Effect": "Allow",
                     "Action": self._storage_space_role_actions(role),
                     "Resource": self._bucket_arns(bucket_name),

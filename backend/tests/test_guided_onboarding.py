@@ -30,6 +30,7 @@ from app.services import app_settings_service as settings_service
 from app.services import onboarding_service as progress_module
 from app.services import onboarding_setup_service as setup_service
 from app.services import users_service as users_module
+from app.services.managed_resource_naming import onboarding_sample_account_name
 from app.services.onboarding_service import OnboardingError, OnboardingService, REQUIRED_FEATURES
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.storage_endpoints_service import StorageEndpointsService
@@ -381,9 +382,7 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     assert db_session.query(S3Account).count() == 1
     account = db_session.get(S3Account, result.resources["account_id"])
     assert account.rgw_account_id == "RGW70000000000000042"
-    assert account.name == (
-        f"BucketReef-sample-{account.rgw_account_id[-8:]}"
-    )
+    assert account.name == onboarding_sample_account_name(account.rgw_account_id)
     link = (
         db_session.query(UserS3Account)
         .filter_by(user_id=user.id, account_id=account.id)

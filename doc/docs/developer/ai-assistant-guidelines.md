@@ -64,7 +64,7 @@ the execution identity.
   listings.
 - Every `portal_manager` has full Portal UI and object access to every Storage
   Space in the project. This data-plane access is carried by the code-owned
-  account-wide `portal-manager` IAM group policy. Technical buckets must add a
+  account-wide `bkr-portal-manager` IAM group policy. Technical buckets must add a
   resource-policy `Deny` for the individual manager IAM principals before that
   group access is granted.
 - Portal project settings reuse the single Admin-owned account override. A
@@ -72,9 +72,10 @@ the execution identity.
   update it; other project members can read effective values but cannot mutate
   them.
 - Storage Space Versioning and Lifecycle settings run with the Portal Manager's
-  personal IAM identity. The lifecycle editor owns only `ExpireDeleteMarkers`
-  and `ExpireOldVersions`, preserves foreign rules, and compensates a partial
-  update when possible. Owners and archived spaces are read-only.
+  personal IAM identity. The lifecycle editor owns only
+  `BucketReefPortalExpireDeleteMarkers` and
+  `BucketReefPortalExpireOldVersions`, preserves foreign rules, and compensates
+  a partial update when possible. Owners and archived spaces are read-only.
 - The application must never silently widen storage privileges outside the
   documented Portal orchestration.
 - UI rights such as manager, portal, browser, ceph-admin, or storage-ops gate

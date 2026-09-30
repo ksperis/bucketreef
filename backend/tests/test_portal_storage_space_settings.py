@@ -9,6 +9,10 @@ from app.models.portal_versions import PortalStorageSpaceSettingsUpdate
 from app.models.access_context import AccountAccess
 from app.models.account_capabilities import AccountCapabilities
 from app.services import s3_bucket_metadata, s3_client
+from app.services.managed_resource_naming import (
+    PORTAL_EXPIRE_DELETE_MARKERS_RULE_ID,
+    PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID,
+)
 from app.services.portal_service import PortalService
 from tests.s3_account_factory import make_s3_account
 
@@ -147,8 +151,13 @@ def test_manager_updates_managed_rules_and_preserves_foreign_lifecycle(monkeypat
 
     assert state["versioning"] == "Enabled"
     assert state["rules"][0] == foreign_rule
-    assert {rule["ID"] for rule in state["rules"][1:]} == {"ExpireDeleteMarkers", "ExpireOldVersions"}
-    expiration_rule = next(rule for rule in state["rules"] if rule["ID"] == "ExpireOldVersions")
+    assert {rule["ID"] for rule in state["rules"][1:]} == {
+        PORTAL_EXPIRE_DELETE_MARKERS_RULE_ID,
+        PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID,
+    }
+    expiration_rule = next(
+        rule for rule in state["rules"] if rule["ID"] == PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID
+    )
     assert expiration_rule["NoncurrentVersionExpiration"]["NoncurrentDays"] == 45
     assert updated.can_update is True
 
@@ -178,6 +187,44 @@ def test_manager_disables_only_portal_lifecycle_rules(monkeypatch, db_session):
     assert state["versioning"] == "Suspended"
     assert state["rules"] == [foreign_rule]
     assert updated.lifecycle_enabled is False
+
+
+def test_legacy_generic_lifecycle_ids_are_preserved_as_foreign_rules(monkeypatch, db_session):
+    account, manager, _metadata = _setup(db_session)
+    service = PortalService(db_session)
+    _prepare_service(monkeypatch, service)
+    legacy_rules = [
+        {"ID": "ExpireDeleteMarkers", "Status": "Enabled", "Prefix": ""},
+        {
+            "ID": "ExpireOldVersions",
+            "Status": "Enabled",
+            "Prefix": "",
+            "NoncurrentVersionExpiration": {"NoncurrentDays": 365},
+        },
+    ]
+    state = _install_s3_state(
+        monkeypatch,
+        versioning="Enabled",
+        rules=legacy_rules,
+    )
+
+    updated = service.update_storage_space_settings(
+        manager,
+        _access(account, manager, PortalAccountRole.PORTAL_MANAGER.value),
+        "research-data",
+        PortalStorageSpaceSettingsUpdate(
+            versioning_enabled=True,
+            lifecycle_enabled=True,
+            version_history_retention_days=45,
+        ),
+    )
+
+    assert state["rules"][:2] == legacy_rules
+    assert {rule["ID"] for rule in state["rules"][2:]} == {
+        PORTAL_EXPIRE_DELETE_MARKERS_RULE_ID,
+        PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID,
+    }
+    assert updated.lifecycle_enabled is True
 
 
 def test_storage_space_settings_require_project_manager_and_active_space(monkeypatch, db_session):

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -16,6 +15,7 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceSummary,
     PortalStorageSpaceVisibility,
 )
+from app.services.managed_resource_naming import portal_storage_space_bucket_name
 from app.utils.time import normalize_utc
 
 if TYPE_CHECKING:
@@ -108,9 +108,9 @@ class PortalStorageSpaceCatalogMixin:
         return candidate
 
     def _unique_uuid_storage_space_bucket_name(self, existing: set[str]) -> str:
-        candidate = str(uuid.uuid4())
+        candidate = portal_storage_space_bucket_name()
         while candidate in existing:
-            candidate = str(uuid.uuid4())
+            candidate = portal_storage_space_bucket_name()
         return candidate
 
     def _storage_space_origin(self, metadata: PortalStorageSpaceMetadata | None) -> str:

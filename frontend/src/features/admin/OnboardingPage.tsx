@@ -746,6 +746,8 @@ export default function OnboardingPage() {
       notifyExecutionContextsRefresh();
       const nextStatus = await refreshStatus();
       if (nextStatus) announceOnboardingStatus(nextStatus);
+      flushSync(() => setInternalNavigation(true));
+      navigate("/admin", { replace: true });
     });
 
   const hideSetup = () =>

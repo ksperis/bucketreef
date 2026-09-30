@@ -40,6 +40,7 @@ from app.services.bucket_migration._shared import (
 )
 from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
+from app.services.managed_resource_naming import MIGRATION_LOCK_PROBE_OBJECT_PREFIX
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookService
 
@@ -1114,6 +1115,29 @@ def test_apply_target_write_lock_policy_uses_migration_user_agent_condition(db_s
     assert "s3:DeleteObject" in actions
     assert isinstance(user_agent_cond, str)
     assert "bucketreef-migration-worker" in user_agent_cond
+
+
+def test_validate_target_lock_worker_access_uses_managed_object_namespace(db_session):
+    calls: list[tuple[str, str, str]] = []
+
+    class _Client:
+        def put_object(self, *, Bucket, Key, Body):
+            assert Body == b"lock-check"
+            calls.append(("put", Bucket, Key))
+
+        def delete_object(self, *, Bucket, Key):
+            calls.append(("delete", Bucket, Key))
+
+    service = BucketMigrationService(db_session)
+    service._context_client = lambda _ctx: _Client()  # type: ignore[method-assign]
+
+    service._validate_target_lock_worker_access(SimpleNamespace(), "target-bucket")
+
+    assert len(calls) == 2
+    assert calls[0][0:2] == ("put", "target-bucket")
+    assert calls[1][0:2] == ("delete", "target-bucket")
+    assert calls[0][2] == calls[1][2]
+    assert calls[0][2].startswith(f"{MIGRATION_LOCK_PROBE_OBJECT_PREFIX}/")
 
 
 def test_build_source_copy_grant_policy_uses_target_principal(db_session):

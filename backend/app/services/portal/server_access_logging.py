@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 import logging
 from typing import Optional
 
@@ -15,23 +14,28 @@ from app.db import (
 )
 from app.models.app_settings import PortalSettings
 from app.services import s3_bucket_access, s3_bucket_metadata, s3_client
+from app.services.managed_resource_naming import (
+    PORTAL_SERVER_ACCESS_LOGGING_MANAGER_DENY_SID,
+    PORTAL_SERVER_ACCESS_LOGGING_RETENTION_RULE_ID,
+    PORTAL_SERVER_ACCESS_LOGGING_SID,
+    portal_access_log_bucket_name,
+)
 from app.services.s3_client import get_s3_client
 from app.utils.aws_errors import aws_error_code
 
 logger = logging.getLogger(__name__)
 
 
-SERVER_ACCESS_LOGGING_SID = "BucketReefPortalServerAccessLogging"
-SERVER_ACCESS_LOGGING_MANAGER_DENY_SID = "BucketReefPortalManagerDeny"
 SERVER_ACCESS_LOGGING_PREFIX_ROOT = "portal-server-access/"
-SERVER_ACCESS_LOGGING_RETENTION_RULE_ID = "ExpirePortalServerAccessLogs"
 
 
 class PortalServerAccessLoggingMixin:
     def _portal_server_access_log_bucket_name(self, account: S3Account) -> str:
-        seed = f"{account.rgw_account_id}{account.name or ''}"
-        digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:8]
-        return f"bkr-portal-access-logs-{account.id}-{digest}"
+        return portal_access_log_bucket_name(
+            account.id,
+            account.rgw_account_id,
+            account.name or "",
+        )
 
     def _portal_server_access_log_source_prefix(self, source_bucket: str) -> str:
         return f"{SERVER_ACCESS_LOGGING_PREFIX_ROOT}{source_bucket}/"
@@ -51,7 +55,7 @@ class PortalServerAccessLoggingMixin:
     def _portal_server_access_log_lifecycle_rules(self, portal_settings: PortalSettings) -> list[dict]:
         return [
             {
-                "ID": SERVER_ACCESS_LOGGING_RETENTION_RULE_ID,
+                "ID": PORTAL_SERVER_ACCESS_LOGGING_RETENTION_RULE_ID,
                 "Status": "Enabled",
                 "Prefix": SERVER_ACCESS_LOGGING_PREFIX_ROOT,
                 "Expiration": {"Days": portal_settings.server_access_log_retention_days},
@@ -115,7 +119,10 @@ class PortalServerAccessLoggingMixin:
         statements = policy.get("Statement") or []
         if not isinstance(statements, list):
             statements = [statements]
-        managed_sids = {SERVER_ACCESS_LOGGING_SID, SERVER_ACCESS_LOGGING_MANAGER_DENY_SID}
+        managed_sids = {
+            PORTAL_SERVER_ACCESS_LOGGING_SID,
+            PORTAL_SERVER_ACCESS_LOGGING_MANAGER_DENY_SID,
+        }
         filtered = [
             stmt
             for stmt in statements
@@ -123,7 +130,7 @@ class PortalServerAccessLoggingMixin:
         ]
         filtered.append(
             {
-                "Sid": SERVER_ACCESS_LOGGING_SID,
+                "Sid": PORTAL_SERVER_ACCESS_LOGGING_SID,
                 "Effect": "Allow",
                 "Principal": {"Service": "logging.s3.amazonaws.com"},
                 "Action": "s3:PutObject",
@@ -138,7 +145,7 @@ class PortalServerAccessLoggingMixin:
         if manager_principals:
             filtered.append(
                 {
-                    "Sid": SERVER_ACCESS_LOGGING_MANAGER_DENY_SID,
+                    "Sid": PORTAL_SERVER_ACCESS_LOGGING_MANAGER_DENY_SID,
                     "Effect": "Deny",
                     "Principal": {"AWS": manager_principals},
                     "Action": "s3:*",
