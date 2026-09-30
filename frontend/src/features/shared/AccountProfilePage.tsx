@@ -12,8 +12,10 @@ import { ProfileConfirmation } from "./ProfileControls";
 import { useProfileI18n } from "./profileMessages";
 import {
   canAccessPrivateConnectionsSection,
+  isAdminLikeRole,
   readStoredUser,
 } from "../../utils/workspaces";
+import ApiTokensPage from "../admin/ApiTokensPage";
 import ProfilePage from "./ProfilePage";
 import SecurityPage from "./SecurityPage";
 import {
@@ -22,7 +24,7 @@ import {
   workspaceProfilePath,
 } from "../../navigation/workspacePages";
 
-type AccountTab = "profile" | "security" | "connections";
+type AccountTab = "profile" | "security" | "connections" | "api-tokens";
 
 export default function AccountProfilePage() {
   const { text } = useProfileI18n();
@@ -31,6 +33,7 @@ export default function AccountProfilePage() {
   const location = useLocation();
   const storedUser = useMemo(() => readStoredUser(), []);
   const isS3Session = storedUser?.authType === "s3_session";
+  const canAccessApiTokens = !isS3Session && isAdminLikeRole(storedUser?.role);
   const canAccessPrivateConnections =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);
   const availableTabs = useMemo<AccountTab[]>(
@@ -38,8 +41,9 @@ export default function AccountProfilePage() {
       "profile",
       ...(!isS3Session ? (["security"] as const) : []),
       ...(canAccessPrivateConnections ? (["connections"] as const) : []),
+      ...(canAccessApiTokens ? (["api-tokens"] as const) : []),
     ],
-    [canAccessPrivateConnections, isS3Session]
+    [canAccessApiTokens, canAccessPrivateConnections, isS3Session]
   );
   const requestedTab = searchParams.get("tab") as AccountTab | null;
   const activeTab: AccountTab = requestedTab && availableTabs.includes(requestedTab) ? requestedTab : "profile";
@@ -76,6 +80,7 @@ export default function AccountProfilePage() {
     { id: "profile", label: text("preferencesTab") },
     ...(!isS3Session ? [{ id: "security", label: text("security") }] : []),
     ...(canAccessPrivateConnections ? [{ id: "connections", label: text("connections") }] : []),
+    ...(canAccessApiTokens ? [{ id: "api-tokens", label: text("apiTokens") }] : []),
   ];
 
   return (
@@ -105,6 +110,9 @@ export default function AccountProfilePage() {
             onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "security" ? <SecurityPage onUnsavedChangesChange={setHasUnsavedChanges} /> : null}
+        {activeTab === "api-tokens" ? (
+          <ApiTokensPage showPageHeader={false} onUnsavedChangesChange={setHasUnsavedChanges} />
+        ) : null}
       </PageTabPanel>
       <SettingsNavigationGuard dirty={hasUnsavedChanges} onDiscard={() => setHasUnsavedChanges(false)} title={text("discardTitle")} description={text("discardDescription")} confirmLabel={text("discard")} cancelLabel={text("keepEditing")} closeLabel={text("close")} />
       {pendingTab ? (
