@@ -80,13 +80,13 @@ frontend with explicit loopback addresses and ports:
 Backend, from `backend/`:
 
 ```bash
-rtk .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Frontend, from `frontend/`:
 
 ```bash
-rtk npm run dev -- --host 127.0.0.1 --port 5173
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
 Open `http://127.0.0.1:5173/<route>`, for example
@@ -98,7 +98,7 @@ running backend:
 
 ```bash
 cd backend
-rtk .venv/bin/python -m app.scripts.issue_first_admin_bootstrap
+.venv/bin/python -m app.scripts.issue_first_admin_bootstrap
 ```
 
 Open the printed `/setup/first-admin#token=...` URL and enroll a passkey. The
@@ -114,10 +114,10 @@ Other interface testing options:
 
 - Use Vitest and Testing Library for component states, forms, and request
   payload assertions.
-- Use `cd frontend && rtk npm run test:e2e` for repeatable `/browser` flows
+- Use `cd frontend && npm run test:e2e` for repeatable `/browser` flows
   backed by the browser E2E Playwright config.
-- Use `cd frontend && rtk npm run docs:screenshots` and then
-  `rtk npm run docs:screenshots:check` for documentation screenshots and
+- Use `cd frontend && npm run docs:screenshots` and then
+  `npm run docs:screenshots:check` for documentation screenshots and
   visual states.
 
 Documentation scenarios declare a typed API user separately from browser UI

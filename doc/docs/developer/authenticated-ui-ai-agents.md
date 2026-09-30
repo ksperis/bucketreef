@@ -37,13 +37,6 @@ From the repository root:
 npm --prefix frontend run ui:agent
 ```
 
-In an agent shell where every command must use RTK, use the streaming form so
-the readiness message remains visible:
-
-```bash
-rtk proxy npm --prefix frontend run ui:agent
-```
-
 The command:
 
 1. refuses to reuse occupied ports;
@@ -91,21 +84,21 @@ cd frontend
 Open Admin:
 
 ```bash
-rtk "$PWCLI" --session bucketreef-admin \
+"$PWCLI" --session bucketreef-admin \
   --config playwright-cli.agent-admin.json \
   open http://localhost:4173/admin --headed
-rtk "$PWCLI" --session bucketreef-admin snapshot
-rtk "$PWCLI" --session bucketreef-admin console
+"$PWCLI" --session bucketreef-admin snapshot
+"$PWCLI" --session bucketreef-admin console
 ```
 
 Open Browser:
 
 ```bash
-rtk "$PWCLI" --session bucketreef-browser \
+"$PWCLI" --session bucketreef-browser \
   --config playwright-cli.agent-browser.json \
   open http://localhost:4173/browser --headed
-rtk "$PWCLI" --session bucketreef-browser snapshot
-rtk "$PWCLI" --session bucketreef-browser console
+"$PWCLI" --session bucketreef-browser snapshot
+"$PWCLI" --session bucketreef-browser console
 ```
 
 When ports were overridden, replace `4173` with the printed frontend port. Use
@@ -113,8 +106,8 @@ the same named session for later navigation, snapshots, console inspection,
 and tracing. Close the sessions when finished:
 
 ```bash
-rtk "$PWCLI" --session bucketreef-admin close
-rtk "$PWCLI" --session bucketreef-browser close
+"$PWCLI" --session bucketreef-admin close
+"$PWCLI" --session bucketreef-browser close
 ```
 
 The state files live under `frontend/e2e/.auth/`; Playwright CLI runtime files
@@ -128,8 +121,8 @@ Use this before relying on the interactive workflow or after changing its
 authentication, process, or port behavior:
 
 ```bash
-rtk npm --prefix frontend run ui:agent:test
-rtk npm --prefix frontend run ui:agent:check
+npm --prefix frontend run ui:agent:test
+npm --prefix frontend run ui:agent:check
 ```
 
 The first command verifies option parsing and occupied-port refusal. The second
@@ -183,7 +176,7 @@ To validate unpublished checkout changes, use the source Compose commands in
 Open its login URL in a distinct headed Playwright CLI session:
 
 ```bash
-rtk "$PWCLI" --session bucketreef-live open http://localhost:8080/login --headed
+"$PWCLI" --session bucketreef-live open http://localhost:8080/login --headed
 ```
 
 The user must complete password and passkey authentication in that visible
