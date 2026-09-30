@@ -289,7 +289,7 @@ browser E2E suite.
 
 ## After deploy checklist
 
-1. Confirm backend, frontend, and scheduler pods are running.
+1. Confirm backend and frontend pods are running, and confirm the enabled built-in CronJobs are present.
 2. Confirm secrets are injected from Kubernetes Secrets or an external secret manager.
 3. Issue the bootstrap URL, create the first administrator and verify `/admin`.
 4. Enroll the administrator passkey from **Profile > Security**, enable **Require passkeys for administrators**, and confirm Production readiness no longer reports `admin-passkey-policy` as `Critical`.

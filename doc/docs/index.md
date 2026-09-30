@@ -14,7 +14,7 @@
 | Operate the platform, users, endpoints, settings, audit, or billing | [Storage admin runbook](user/admin-runbook-storage-admin.md) | It connects Admin, Manager, Browser, Portal, and Ops checks into one handover path. |
 | Administer Ceph RGW cluster resources | [Ceph Admin overview](user/workspace-ceph-admin.md) | Ceph Admin is separate from Manager because it acts at cluster scope. |
 | Deploy, secure, or troubleshoot the application | [Ops / Sysadmin onboarding](ops/sysadmin-onboarding.md) | It routes operators to deployment, configuration, security, scheduler, backup, and troubleshooting pages. |
-| Evaluate a clean local installation | [Local quickstart](ops/quickstart.md) | It starts backend/frontend and guides the one-time first-administrator setup. |
+| Evaluate a clean local installation | [Local quickstart](ops/quickstart.md) | It starts backend, frontend, and scheduler and guides the one-time first-administrator setup. |
 | Make a first contribution | [Developer / First Contribution](developer/first-contribution.md) | It points to architecture, local setup, validation, and documentation rules. |
 
 ## Documentation by audience
@@ -46,4 +46,4 @@
 
 ## Release history
 
-See [Releases](releases.md) for the version history, full release notes, and GitHub/GitLab comparison links.
+See [Releases](releases.md) for the version history, full release notes, and GitHub release and comparison links.

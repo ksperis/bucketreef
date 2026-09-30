@@ -61,7 +61,13 @@ def test_patch_preparation_synchronizes_metadata_without_baseline(tmp_path):
     (tmp_path / "CHANGELOG.md").write_text("## 0.2.5 - 2026-09-20\n\n- Release fixture.\n")
     prepare(tmp_path, "0.2.5")
     check_version(tmp_path, "0.2.5")
+    release_documentation = tmp_path / "doc/docs/releases.md"
+    assert "## 0.2.5 {#release-0-2-5}" in release_documentation.read_text()
     assert not (tmp_path / "backend/schema-baselines").exists()
+    release_documentation.write_text("stale\n")
+    with pytest.raises(ValueError, match="documentation mismatch"):
+        check_version(tmp_path, "0.2.5")
+    prepare(tmp_path, "0.2.5")
     (tmp_path / "deploy/bundle/.env.example").write_text("BUCKETREEF_TAG=0.2.4\n")
     with pytest.raises(ValueError, match="mismatch"):
         check_version(tmp_path, "0.2.5")

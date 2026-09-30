@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 
 from check_version import check_version
+from history import write_documentation
 from release_notes import ROOT, changelog_section, version_tuple
 from schema_baseline import baseline
 
@@ -29,6 +30,7 @@ def prepare(root: Path, version: str) -> None:
     baseline(root, version, check=False)
     for path, content in edits.items():
         path.write_text(content)
+    write_documentation(root)
     check_version(root, version)
 
 

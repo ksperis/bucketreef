@@ -17,7 +17,7 @@ def history(tmp_path):
     def git(*args):
         return subprocess.check_output(['git','-c','user.name=Fixture','-c','user.email=fixture@example.invalid',*args],cwd=tmp_path,text=True).strip()
     git('init','--quiet')
-    (tmp_path/'CHANGELOG.md').write_text('## 0.2.5 - 2026-09-20\n\n- Current.\n\n## 0.1.0 - 2026-01-06\n\n- Historical.\n')
+    (tmp_path/'CHANGELOG.md').write_text('## 0.2.6 - 2026-09-22\n\n- Prepared.\n\n## 0.2.5 - 2026-09-20\n\n- Current.\n\n## 0.1.0 - 2026-01-06\n\n- Historical.\n')
     git('add','CHANGELOG.md');git('commit','-m','initial');git('tag','-a','v0.1.0','-m','annotated')
     old=git('rev-parse','HEAD')
     git('commit','--allow-empty','-m','current');git('tag','v0.2.5')
@@ -108,9 +108,10 @@ def test_catalog_resolves_annotated_and_lightweight_tags_and_generates_offline(h
     root,catalog=history;p=root/'history.json';p.write_text(json.dumps(catalog))
     assert load_catalog(p,root)==catalog
     page=documentation(catalog,root)
-    assert '## 0.2.5 {#release-0-2-5}' in page and '## 0.1.0' not in page
-    catalog['releases'][0]['confirmed']=True
-    page=documentation(catalog,root)
+    assert '## 0.2.6 {#release-0-2-6}' in page
+    assert 'Prepared.' in page
+    assert 'compare/v0.2.5...v0.2.6' in page
+    assert page.index('## 0.2.6') < page.index('## 0.2.5') < page.index('## 0.1.0')
     assert '## 0.1.0 {#release-0-1-0}' in page
     assert 'Historical.' in page and 'Reconstructed' in page
     assert page==documentation(catalog,root)

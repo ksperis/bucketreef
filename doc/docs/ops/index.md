@@ -9,8 +9,8 @@ BucketReef.
 |---|---|---|
 | I am installing or taking over the service | [Sysadmin onboarding](sysadmin-onboarding.md) | A fast path through deployment, secrets, endpoint setup, jobs, backup, and handover evidence. |
 | I am designing a production topology | [Recommended production architecture](deployment-architecture.md) | Separates administration and user runtimes, shared PostgreSQL, Ceph Admin isolation, and strict RGW provisioning. |
-| I want a secured local evaluation quickly | [Local quickstart](quickstart.md) | Starts backend/frontend only, then creates the first administrator through a one-time web link. |
-| I need a lab or validation deployment | [Deploy with Docker Compose](deploy-docker-compose.md) | Manual Compose deployment, scheduler profile and production-like controls. |
+| I want a secured local evaluation quickly | [Local quickstart](quickstart.md) | Starts backend, frontend, and scheduler, then creates the first administrator through a one-time web link. |
+| I need a lab or validation deployment | [Deploy with Docker Compose](deploy-docker-compose.md) | Manual Compose deployment with the standard scheduler service and production-like controls. |
 | I need Kubernetes deployment details | [Deploy with Helm](deploy-helm.md) | Chart values, images, CronJobs, and multi-replica notes. |
 | I need to know which knob controls behavior | [Configuration](configuration.md) | Environment variables, app settings, feature locks, and symptom-to-setting lookup. |
 | I need to publish to real users | [Production readiness](production-readiness.md) | One operator checklist for secrets, database, scheduler, access, audit, and support. |
