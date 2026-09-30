@@ -12,8 +12,11 @@ project. Other branches and merge requests only validate. The separate product
 website lives at <https://bucketreef.ksperis.com/>.
 
 Publication runs for documentation or deployment changes pushed to protected
-`main`, or a pipeline started manually on `main`. Documentation jobs have their
-own validation dependencies; container image publishing remains separate.
+`main`, a pipeline started manually on `main`, or after a release finalizer
+succeeds. Release and resume-release pipelines keep `docs-deploy` behind their
+respective finalizer so the public release assets exist before the documentation
+advertises them. Documentation jobs have their own validation dependencies;
+container image publishing remains separate.
 Site artifacts are retained for 30 days and the commit SHA is sent to Cloudflare.
 Record the Cloudflare deployment ID alongside each published revision.
 

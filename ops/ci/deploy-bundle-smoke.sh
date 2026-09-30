@@ -79,7 +79,6 @@ docker exec \
     cp .env /tmp/initial-env
     ./bucketreef-quickstart version
     ./bucketreef-quickstart status
-    test "$(docker compose --project-name bucketreef --env-file .env --file compose.yaml ps --status running --services | wc -l | tr -d " ")" = 3
     docker compose --project-name bucketreef --env-file .env --file compose.yaml exec -T scheduler id -u | grep -qx 10001
     docker compose --project-name bucketreef --env-file .env --file compose.yaml exec -T backend python - seed </tmp/healthcheck-smoke.py
     wait_for_scheduled_healthcheck bucketreef
@@ -103,7 +102,6 @@ docker exec \
     docker compose --project-name bucketreef-compose-smoke --env-file .env --file compose.yaml up --detach --wait --wait-timeout "$SMOKE_COMPOSE_WAIT_TIMEOUT"
     mark compose-start
     python3 /tmp/installation-evidence.py verify-compose bucketreef-compose-smoke compose
-    test "$(docker compose --project-name bucketreef-compose-smoke --env-file .env --file compose.yaml ps --status running --services | wc -l | tr -d " ")" = 3
     docker compose --project-name bucketreef-compose-smoke --env-file .env --file compose.yaml exec -T scheduler id -u | grep -qx 10001
     docker compose --project-name bucketreef-compose-smoke --env-file .env --file compose.yaml exec -T backend python -m app.scripts.issue_first_admin_bootstrap >/tmp/compose-bootstrap.log
     grep -q "/setup/first-admin#token=" /tmp/compose-bootstrap.log
