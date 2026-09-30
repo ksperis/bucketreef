@@ -2,7 +2,7 @@ import type { User } from "../api/users";
 import type { UiGroup } from "../api/groups";
 import type { S3Account } from "../api/accounts";
 import type { StorageEndpoint } from "../api/storageEndpoints";
-import { bucketView, emptyIam, personaIds, tools } from "./state";
+import { bucketView, emptyIam, personaIds, settings, tools } from "./state";
 import { DemoError, done, json, page, required, safeFields, textField, type DemoRequest } from "./http";
 
 function synchronizeLinks(c: DemoRequest, source: "users" | "accounts" | "groups") {
@@ -72,7 +72,9 @@ export function governance(c: DemoRequest): Response | undefined {
     if (method === "POST" && !accountMatch[1]) {
       const endpoint = required(state.endpoints.find(e => e.id === Number(body.storage_endpoint_id)));
       const id = state.nextId++;
-      account = { id, name: textField(body, "name"), rgw_account_id: `RGW${String(id).padStart(17, "0")}`, user_links: [], group_links: [], tags: [],
+      const prefix = settings.general.rgw_account_id_prefix;
+      const suffixLength = 17 - prefix.length;
+      account = { id, name: textField(body, "name"), rgw_account_id: `RGW${prefix}${String(id).padStart(suffixLength, "0").slice(-suffixLength)}`, user_links: [], group_links: [], tags: [],
         storage_endpoint_id: endpoint.id, storage_endpoint_name: endpoint.name, storage_endpoint_url: endpoint.endpoint_url,
         storage_endpoint_is_default: endpoint.is_default, storage_endpoint_capabilities: endpoint.capabilities ?? {}, allow_bucket_quota_management: true };
       state.accounts.push(account); state.iam[id] = emptyIam();

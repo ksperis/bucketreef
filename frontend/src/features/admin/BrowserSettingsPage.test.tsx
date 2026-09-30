@@ -17,6 +17,7 @@ vi.mock("../../api/appSettings", async (importOriginal) => ({
 function buildSettings(overrides: Partial<AppSettings["general"]> = {}): AppSettings {
   return {
     general: {
+      rgw_account_id_prefix: "80",
       manager_enabled: true,
       ceph_admin_enabled: false,
       storage_ops_enabled: false,

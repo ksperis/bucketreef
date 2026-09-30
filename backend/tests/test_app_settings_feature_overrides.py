@@ -43,6 +43,17 @@ def _raw_db_settings(db_session) -> dict:
     return json.loads(row.payload_json)
 
 
+def test_rgw_account_id_prefix_defaults_to_80_and_requires_one_to_three_digits():
+    assert AppSettings().general.rgw_account_id_prefix == "80"
+
+    for value in ("7", "80", "123"):
+        assert AppSettings(general={"rgw_account_id_prefix": value}).general.rgw_account_id_prefix == value
+
+    for value in ("", "1234", "ab", "8x"):
+        with pytest.raises(ValidationError):
+            AppSettings(general={"rgw_account_id_prefix": value})
+
+
 def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, db_session):
     settings_path = tmp_path / "app_settings.json"
     persisted = AppSettings()

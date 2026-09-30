@@ -262,6 +262,7 @@ persisted setting.
 Managed from Admin UI:
 
 - General feature toggles (`manager_enabled`, `portal_enabled`, `browser_enabled`, `ceph_admin_enabled`, `storage_ops_enabled`, `billing_enabled`, `endpoint_status_enabled`).
+- RGW Account ID prefix (`rgw_account_id_prefix`): 1 to 3 digits, `80` by default. BucketReef keeps the Ceph RGW `RGW` + 17 digits format by shortening the random suffix accordingly. The setting applies to automatically generated IDs in Admin, guided onboarding, and Ceph Admin; explicitly supplied Ceph Admin IDs are preserved.
 - Authentication settings (`allow_login_access_keys`, endpoint selection for access-key login, custom login endpoints, `require_passkey_for_admins`, `require_passkey_for_users`, `allow_user_profile_name_edit`, and `allow_user_external_identity_unlink`). Fresh installations leave both passkey requirements disabled to simplify onboarding and keep both self-service permissions disabled. Before production, enroll an administrator passkey from **Profile > Security** and enable `require_passkey_for_admins`; Production readiness treats the disabled policy as a Critical publication finding, not a startup blocker. Persisted settings from older releases keep the historical Admin requirement when this field is absent.
 - Quota supervision toggles (`quota_alerts_enabled`, `usage_history_enabled`).
 - Browser sub-flags (`browser_root_enabled`, `browser_manager_enabled`, `browser_portal_enabled`, `browser_ceph_admin_enabled`).

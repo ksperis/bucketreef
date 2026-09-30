@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 from typing import Optional
 
 import pytest
@@ -204,6 +205,28 @@ def test_create_account_with_root(db_session, monkeypatch):
     # No interface user is created; only RGW root keys stored on account
     root_user = db_session.query(User).filter(User.email.like("%-admin")).first()
     assert root_user is None
+
+
+def test_create_account_uses_configured_rgw_account_id_prefix(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdmin()
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    monkeypatch.setattr(
+        "app.services.s3_accounts_service.load_app_settings_for_db",
+        lambda _db: SimpleNamespace(
+            general=SimpleNamespace(rgw_account_id_prefix="123")
+        ),
+    )
+    monkeypatch.setattr("app.utils.rgw_identifiers.secrets.randbelow", lambda _limit: 42)
+
+    created = svc.create_account_with_manager(
+        S3AccountCreate(name="Prefixed", storage_endpoint_id=endpoint.id)
+    )
+
+    assert created.rgw_account_id == "RGW12300000000000042"
+    assert fake_admin.created_accounts == [
+        ("RGW12300000000000042", "Prefixed")
+    ]
 
 
 class FakeRGWAdminProvisioning(FakeRGWAdmin):

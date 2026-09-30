@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 import re
+import secrets
 
 _ACCOUNT_ID_PATTERN = re.compile(r"^RGW\d{17}$", re.IGNORECASE)
+_ACCOUNT_ID_PREFIX_PATTERN = re.compile(r"^\d{1,3}$")
+
+
+def generate_rgw_account_id(prefix: str) -> str:
+    if not isinstance(prefix, str) or not _ACCOUNT_ID_PREFIX_PATTERN.fullmatch(prefix):
+        raise ValueError("RGW account ID prefix must contain 1 to 3 digits.")
+    random_digits = 17 - len(prefix)
+    random_part = secrets.randbelow(10**random_digits)
+    return f"RGW{prefix}{random_part:0{random_digits}d}"
 
 
 def validate_rgw_account_name(name: str) -> str:

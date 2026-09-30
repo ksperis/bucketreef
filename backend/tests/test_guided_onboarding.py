@@ -322,6 +322,13 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
 def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     guided, db_session, monkeypatch
 ):
+    settings = AppSettings()
+    settings.general.rgw_account_id_prefix = "7"
+    db_session.query(AppSetting).filter(AppSetting.key == "default").update(
+        {AppSetting.payload_json: settings.model_dump_json()}
+    )
+    db_session.commit()
+    monkeypatch.setattr("app.utils.rgw_identifiers.secrets.randbelow", lambda _limit: 42)
     user = actor(db_session)
     ep = endpoint(
         db_session,
@@ -373,6 +380,7 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     assert ep.ceph_admin_secret_key is None
     assert db_session.query(S3Account).count() == 1
     account = db_session.get(S3Account, result.resources["account_id"])
+    assert account.rgw_account_id == "RGW70000000000000042"
     assert account.name == (
         f"BucketReef-sample-{account.rgw_account_id[-8:]}"
     )
