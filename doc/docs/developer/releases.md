@@ -55,11 +55,12 @@ it for normal publication: a manually created stable tag is verification-only in
 CI and cannot start or repair a distribution.
 
 The unified deployment bundle takes effect with `0.2.12`; older releases keep
-their original assets unchanged. Publish the application release artifacts
-before deploying the updated user-facing documentation and website. Both site
-deployments check that `bucketreef-deploy.tar.gz` and its checksum exist before
-advertising the installer; retry them after release publication if that gate is
-reached first.
+their original assets unchanged. The release pipeline deploys the updated
+user-facing documentation only after the application finalizer succeeds; a
+resume-release pipeline applies the same ordering after its recovery finalizer.
+The separate website deployment follows the same release-first ordering. Both
+site deployments check that `bucketreef-deploy.tar.gz` and its checksum exist
+before advertising the installer.
 
 ## Database schema baselines
 

@@ -103,6 +103,21 @@ def test_private_vitest_and_artifact_graph_is_explicit_and_parallel():
     assert deploy['docs-build'] is True
     assert deploy['docs-screenshots'] is False
 
+    release = render({**select('prepare-release', None), 'sha': 'a'*40, 'parent_id': 13})
+    release_deploy = {item['job']: item['artifacts'] for item in release['docs-deploy']['needs']}
+    assert release['docs-deploy']['stage'] == 'publish-demo'
+    assert release_deploy['docs-build'] is True
+    assert release_deploy['docs-screenshots'] is False
+    assert release_deploy['finalize-release'] is False
+
+    resume = render({**select('resume-release', None), 'sha': 'a'*40, 'parent_id': 14,
+                     'recovery_version': '1.2.3', 'recovery_pipeline_id': 123})
+    resume_deploy = {item['job']: item['artifacts'] for item in resume['docs-deploy']['needs']}
+    assert resume['docs-deploy']['stage'] == 'publish-demo'
+    assert resume_deploy['docs-build'] is True
+    assert resume_deploy['docs-screenshots'] is False
+    assert resume_deploy['resume-finalize-release'] is False
+
 
 def test_expected_names_expands_both_vitest_and_image_matrices():
     assert expected_names(['frontend-tests', 'backend-image-vuln-scan']) == [

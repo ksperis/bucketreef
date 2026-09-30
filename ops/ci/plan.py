@@ -185,7 +185,9 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
         selected, images, ceph = {"backend-vuln-scan", "frontend-audit", "frontend-vuln-scan", "secret-scan", "scan-published-images"}, set(), False
     elif profile == "secrets-history":
         selected, images, ceph = {"secret-scan"}, set(), False
-    elif profile in {"resume-release", "release", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
+    elif profile == "resume-release":
+        selected, images, ceph = set(DOCS) | {"docs-deploy"}, set(), False
+    elif profile in {"release", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         selected, images, ceph = set(), set(), False
     if profile == "pr":
         images, ceph = set(), False

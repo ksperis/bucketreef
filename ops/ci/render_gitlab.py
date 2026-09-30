@@ -27,8 +27,8 @@ def dependency_artifacts(consumer, dependency, profile):
         if dependency.startswith("build-"):
             return True
         return profile in {"qualify", "prepare-release"} and dependency.endswith("image-vuln-scan")
-    if consumer == "docs-deploy" and dependency == "docs-screenshots":
-        return False
+    if consumer == "docs-deploy":
+        return dependency == "docs-build"
     return True
 
 
@@ -41,11 +41,11 @@ def render(plan):
         import sys
         sys.path.insert(0, str(ROOT / "ops/release"))
         from distribution import REQUIRED
-        names.update({*REQUIRED, "release-ready", "finalize-release", "demo-deploy"})
+        names.update({*REQUIRED, "release-ready", "finalize-release", "demo-deploy", "docs-deploy"})
     elif profile == "bootstrap-demo":
         names = {"frontend-demo", "demo-bootstrap"}
     elif profile == "resume-release":
-        names = {"resume-release-assets", "resume-finalize-release", "resume-demo-deploy"}
+        names.update({"resume-release-assets", "resume-finalize-release", "resume-demo-deploy"})
     elif profile == "release":
         # Stable tags are created by finalize-release. A tag pipeline only verifies
         # the already-published release and never distributes artifacts.
@@ -101,6 +101,10 @@ def render(plan):
             job["stage"] = "finalize"
             job["resource_group"] = "internal-dev-images"
             job["interruptible"] = False
+        if name == "docs-deploy" and profile in {"prepare-release", "resume-release"}:
+            finalizer = "finalize-release" if profile == "prepare-release" else "resume-finalize-release"
+            dependencies = [*dependencies, finalizer]
+            job["stage"] = "publish-demo"
         normalized = []
         for item in dependencies:
             dependency = {"job": item} if isinstance(item, str) else copy.deepcopy(item)

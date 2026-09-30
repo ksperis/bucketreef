@@ -187,6 +187,8 @@ def test_smoke_budgets_and_public_defaults_are_explicit():
     assert script.count('public-candidate/bucketreef-deploy.tar.gz') == 1
     assert 'bucketreef-quickstart.tar.gz' not in script and 'bucketreef-compose.tar.gz' not in script
     assert '--profile operations' not in script
+    assert script.count('verify-compose') == 4
+    assert 'ps --status running --services' not in script
     assert script.index('installation_evidence.py diagnostics') < script.index('down --volumes')
     compose=(ROOT/'deploy/bundle/compose.yaml').read_text()
     assert compose.count('${BUCKETREEF_HEALTHCHECK_RETRIES:-24}')==2
