@@ -11,6 +11,7 @@ export const profileMessages = {
   preferencesTab: m("Profile and preferences", "Profil et préférences", "Profil und Einstellungen", "个人资料与偏好设置"),
   connections: m("Private S3 connections", "Connexions S3 privées", "Private S3-Verbindungen", "私有 S3 连接"),
   security: m("Security", "Sécurité", "Sicherheit", "安全"),
+  apiTokens: m("API tokens", "Jetons API", "API-Tokens", "API 令牌"),
   sections: m("Profile sections", "Sections du profil", "Profilbereiche", "个人资料分区"),
   intro: m("Your details, preferences, and sign-in security.", "Vos informations, vos préférences et la sécurité de votre accès.", "Ihre Angaben, Einstellungen und Anmeldesicherheit.", "你的个人信息、偏好设置和登录安全。"),
   temporary: m("Temporary S3 session: profile details are read-only.", "Session S3 temporaire : les informations du profil sont en lecture seule.", "Temporäre S3-Sitzung: Profilangaben sind schreibgeschützt.", "临时 S3 会话：个人资料为只读。"),

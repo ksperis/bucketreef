@@ -1,5 +1,6 @@
+import { isValidElement, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import { matchRoutes, type RouteObject } from "react-router-dom";
+import { Navigate, matchRoutes, type RouteObject } from "react-router-dom";
 
 import { createAppRoutes } from "./router";
 
@@ -146,5 +147,17 @@ describe("route snapshot", () => {
     const routes = createAppRoutes();
     expect(matchRoutes(routes, "/admin/s3-accounts")?.at(-1)?.route.path).toBe("s3-accounts");
     expect(matchRoutes(routes, "/ceph-admin/accounts")?.at(-1)?.route.path).toBe("accounts");
+  });
+
+  it("redirects the legacy API token settings route to the personal profile tab", () => {
+    const element = matchRoutes(createAppRoutes(), "/admin/api-tokens")?.at(-1)?.route.element;
+
+    expect(isValidElement(element)).toBe(true);
+    if (!isValidElement(element)) return;
+    expect(element.type).toBe(Navigate);
+    expect((element as ReactElement<{ to: string; replace: boolean }>).props).toMatchObject({
+      to: "/admin/profile?tab=api-tokens",
+      replace: true,
+    });
   });
 });

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { Suspense, lazy, useMemo } from "react";
-import { Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useLocation } from "react-router-dom";
+import { Navigate, Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import { useGeneralSettings } from "./components/GeneralSettingsContext";
 import FeatureDisabledPage from "./features/shared/FeatureDisabledPage";
@@ -63,7 +63,6 @@ const AdminMetricsPage = lazy(() => import("./features/admin/AdminMetricsPage"))
 const AdminPortalRequestsPage = lazy(() => import("./features/admin/AdminPortalRequestsPage"));
 const BillingPage = lazy(() => import("./features/admin/BillingPage"));
 const UsageHistoryPage = lazy(() => import("./features/admin/UsageHistoryPage"));
-const ApiTokensPage = lazy(() => import("./features/admin/ApiTokensPage"));
 const S3UsersPage = lazy(() => import("./features/admin/S3UsersPage"));
 const S3UserKeysPage = lazy(() => import("./features/admin/S3UserKeysPage"));
 const S3ConnectionsPage = lazy(() => import("./features/admin/S3ConnectionsPage"));
@@ -142,7 +141,6 @@ const ADMIN_SETTINGS_PATHS = [
   "/admin/webhook-settings",
   "/admin/production-readiness",
   "/admin/key-rotation",
-  "/admin/api-tokens",
 ];
 
 function isAdminSettingsPath(pathname: string): boolean {
@@ -182,10 +180,6 @@ export const buildAdminNav = (
       iconName: "shield" as const,
     },
     workspacePageLink(ADMIN_PAGE_CONTRACTS["key-rotation"]),
-    {
-      ...workspacePageLink(ADMIN_PAGE_CONTRACTS["api-tokens"]),
-      iconName: "key" as const,
-    },
   ];
 
   return [
@@ -375,8 +369,8 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route path="webhook-settings/new" element={<WebhookEndpointPage />} />
                   <Route path="webhook-settings/:endpointId" element={<WebhookEndpointPage />} />
                   <Route path="key-rotation" element={<KeyRotationPage />} />
-                  <Route path="api-tokens" element={<ApiTokensPage />} />
                 </Route>
+                <Route path="api-tokens" element={<Navigate to="/admin/profile?tab=api-tokens" replace />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Route>

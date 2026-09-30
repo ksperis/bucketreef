@@ -353,7 +353,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
       {showPageHeader ? (
         <PageHeader actionPresentation="listing"
           title="API tokens"
-          description="Manage long-lived admin tokens for automation and integrations."
+          description="Manage personal API tokens linked to your account for automation and integrations."
           breadcrumbs={adminPageBreadcrumbs("api-tokens")}
           actions={headerActions}
         />
@@ -400,7 +400,7 @@ export default function ApiTokensPage({ showPageHeader = true, onUnsavedChangesC
 
       <ListPageSection
           title="API tokens"
-          description="Manage long-lived admin tokens for automation and integrations."
+          description="Manage personal API tokens linked to your account for automation and integrations."
           variant={showPageHeader ? "page" : "section"}
           countLabel={`${sortedTokens.length} token${sortedTokens.length === 1 ? "" : "s"}${includeRevoked ? " (including revoked/expired)" : ""}`}
           filters={

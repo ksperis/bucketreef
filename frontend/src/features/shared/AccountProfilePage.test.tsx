@@ -24,6 +24,15 @@ vi.mock("./SecurityPage", () => ({
   default: ({ onUnsavedChangesChange }: { onUnsavedChangesChange?: (dirty: boolean) => void }) => <div>Security content<button onClick={() => onUnsavedChangesChange?.(true)}>Edit password</button></div>,
 }));
 
+vi.mock("../admin/ApiTokensPage", () => ({
+  default: ({ showPageHeader, onUnsavedChangesChange }: { showPageHeader?: boolean; onUnsavedChangesChange?: (dirty: boolean) => void }) => (
+    <div data-testid="api-tokens-content" data-show-page-header={String(showPageHeader ?? true)}>
+      API tokens content
+      <button type="button" onClick={() => onUnsavedChangesChange?.(true)}>Edit token draft</button>
+    </div>
+  ),
+}));
+
 function LocationProbe() {
   const location = useLocation();
   return <output>{location.pathname + location.search}</output>;
@@ -67,7 +76,7 @@ describe("AccountProfilePage", () => {
     expect(screen.getByText("Profile content")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Private S3 connections" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Security" })).toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "API tokens" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "API tokens" })).toBeInTheDocument();
     expect(screen.getByText("Your details, preferences, and sign-in security.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Private S3 connections" }));
@@ -75,14 +84,31 @@ describe("AccountProfilePage", () => {
     expect(screen.getByText("/profile?tab=connections")).toBeInTheDocument();
   });
 
-  it("hides forbidden tabs and replaces a forbidden direct URL with profile", async () => {
-    setSessionUserCache({ role: "ui_user", authType: "password" });
+  it.each([
+    ["ui_user", "password"],
+    ["ui_none", "password"],
+    ["ui_superadmin", "s3_session"],
+  ] as const)("hides API tokens for role %s with a %s session and replaces a forbidden direct URL", async (role, authType) => {
+    setSessionUserCache({ role, authType });
     renderPage("/profile?tab=api-tokens");
 
     expect(screen.queryByRole("button", { name: "Private S3 connections" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "API tokens" })).not.toBeInTheDocument();
-    expect(screen.getByText("Your details, preferences, and sign-in security.")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "API tokens" })).not.toBeInTheDocument();
+    expect(screen.getByText(
+      authType === "s3_session"
+        ? "Temporary S3 session: profile details are read-only."
+        : "Your details, preferences, and sign-in security.",
+    )).toBeInTheDocument();
     expect(await screen.findByText("/profile?tab=profile")).toBeInTheDocument();
+  });
+
+  it.each(["ui_admin", "ui_superadmin"] as const)("shows the embedded API token tab for %s", async (role) => {
+    setSessionUserCache({ role, authType: "password" });
+    renderPage("/manager/profile?tab=api-tokens");
+
+    expect(screen.getByRole("tab", { name: "API tokens" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("api-tokens-content")).toHaveAttribute("data-show-page-header", "false");
+    expect(screen.getByText("/manager/profile?tab=api-tokens")).toBeInTheDocument();
   });
 
   it("keeps the connections tab after permission revocation when a connection is owned", () => {
@@ -121,6 +147,21 @@ describe("AccountProfilePage", () => {
     expect(screen.getByText("/profile?tab=security")).toBeInTheDocument();
   });
 
+  it("protects an unfinished API token draft before changing tabs", async () => {
+    const user = userEvent.setup();
+    renderPage("/profile?tab=api-tokens");
+
+    await user.click(screen.getByRole("button", { name: "Edit token draft" }));
+    await user.click(screen.getByRole("tab", { name: "Profile and preferences" }));
+
+    expect(screen.getByRole("dialog", { name: "Discard unsaved changes?" })).toBeInTheDocument();
+    expect(screen.getByText("API tokens content")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(screen.getByText("Profile content")).toBeInTheDocument();
+    expect(screen.getByText("/profile?tab=profile")).toBeInTheDocument();
+  });
+
   it.each(["admin", "browser", "manager", "portal", "ceph-admin", "storage-ops"])("limits the common connection header to non-Browser uses under /%s", workspace => {
     renderPage(`/${workspace}/profile?tab=connections`);
     expect(screen.getByTestId("profile-content")).toHaveAttribute("data-list-presentation", String(workspace !== "browser"));
@@ -138,6 +179,12 @@ describe("AccountProfilePage", () => {
     expect(screen.getByText("Security content")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Security" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it.each(["admin", "browser", "manager", "portal", "ceph-admin", "storage-ops"])("mounts personal API tokens under /%s/profile", workspace => {
+    renderPage(`/${workspace}/profile?tab=api-tokens`);
+    expect(screen.getByText("API tokens content")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "API tokens" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("protects route navigation and browser history as well as security tab changes", async () => {

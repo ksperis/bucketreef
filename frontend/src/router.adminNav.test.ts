@@ -51,8 +51,7 @@ describe("buildAdminNav", () => {
   });
 
   it("does not expose API Tokens in settings navigation", () => {
-    const settingsSection = buildAdminNav(true, true, true, false, true, true).find((section) => section.label === "Settings");
-    const apiTokensLink = settingsSection?.links.find((link) => link.label === "API Tokens");
+    const apiTokensLink = getSettingsLink("API tokens", [true, true, true, false, true, true]);
 
     expect(apiTokensLink).toBeUndefined();
   });
@@ -77,7 +76,6 @@ describe("buildAdminNav", () => {
       "Webhooks",
       "Production readiness",
       "Key Rotation",
-      "API tokens",
     ]);
   });
 
@@ -206,12 +204,6 @@ describe("buildAdminNav", () => {
       "Audit trail",
     ]);
     expect(overview?.links.find((link) => link.label === "Getting started")?.iconName).toBe("tools");
-  });
-
-  it("uses the key icon for API tokens", () => {
-    const apiTokensLink = getSettingsLink("API tokens", [true, true, false, false, false, true]);
-
-    expect(apiTokensLink?.iconName).toBe("key");
   });
 
   it("hides Getting started after onboarding is complete or dismissed", () => {
