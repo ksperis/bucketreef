@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from gitlab_api import expected_names, successful_jobs, latest_baseline
+from gitlab_api import evidence_job_names, expected_names, successful_jobs, latest_baseline
 from plan import ROOT, PUBLIC, select
 from render_gitlab import render
 from secret_report import AWS_FIXTURES, FIXTURE_LOCATIONS, HISTORICAL_ENV_EXAMPLES, finding_metadata, summarize
@@ -371,6 +371,20 @@ class BaselineAPI:
 
 def test_baseline_uses_completed_integration_not_documentation():
     assert latest_baseline(BaselineAPI(), 'main') == 'b'*40
+
+
+def test_historical_matrix_names_do_not_depend_on_current_expansion_rules():
+    jobs = [
+        {'name': 'backend-tests'},
+        {'name': 'release-bundle-smoke: [amd64]'},
+        {'name': 'release-bundle-smoke: [arm64]'},
+        {'name': 'unrelated-job'},
+    ]
+    assert evidence_job_names(jobs, ['backend-tests', 'release-bundle-smoke']) == [
+        'backend-tests',
+        'release-bundle-smoke: [amd64]',
+        'release-bundle-smoke: [arm64]',
+    ]
 
 
 def test_modified_or_missing_evidence_is_not_accepted():

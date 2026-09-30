@@ -72,6 +72,23 @@ def successful_jobs(jobs, expected, sha):
     return found
 
 
+def evidence_job_names(jobs, planned):
+    """Resolve the concrete historical jobs for a recorded logical plan."""
+    result = []
+    for logical_name in planned:
+        matrix_prefix = f"{logical_name}: ["
+        matches = [
+            job["name"]
+            for job in jobs
+            if job["name"] == logical_name
+            or (job["name"].startswith(matrix_prefix) and job["name"].endswith("]"))
+        ]
+        if not matches:
+            raise ValueError("Required pipeline jobs are missing")
+        result.extend(matches)
+    return result
+
+
 def completed_records(api, ref, filename="integration.json", sha=None):
     query = urllib.parse.urlencode({"ref": ref, "status": "success", "order_by": "id", "sort": "desc", **({"sha": sha} if sha else {})})
     for parent in api.pages(f"pipelines?{query}"):
@@ -97,7 +114,7 @@ def completed_records(api, ref, filename="integration.json", sha=None):
                 or record.get("pipeline_id") != child["id"] or record.get("parent_id") != parent["id"]
                 or record.get("ref") != ref):
                 raise ValueError("Pipeline evidence has inconsistent provenance")
-            actual = successful_jobs(jobs, expected_names(record["plan"]["jobs"]), record["sha"])
+            actual = successful_jobs(jobs, evidence_job_names(jobs, record["plan"]["jobs"]), record["sha"])
             if actual != record["jobs"]:
                 raise ValueError("Pipeline evidence no longer matches its jobs")
             yield record
