@@ -84,20 +84,30 @@ describe("ProductionReadinessPage", () => {
   it("groups blockers, critical findings, warnings, manual checks and OK results", async () => {
     render(<ProductionReadinessPage />);
 
-    expect(await screen.findByText("Runtime summary")).toBeInTheDocument();
+    expect(await screen.findByText("Readiness overview")).toBeInTheDocument();
     expect(screen.getByText(/evaluates the production target for this backend instance/i)).toBeInTheDocument();
     expect(screen.getByText("Administrator passkey policy")).toBeInTheDocument();
     expect(screen.getByText("Backup and restore test")).toBeInTheDocument();
-    expect(screen.getByText("Critical", { selector: "dt" }).parentElement).toHaveTextContent("1");
-    expect(screen.getByText("Manual", { selector: "dt" }).parentElement).toHaveTextContent("1");
+    expect(screen.getByText("Blocked").closest("div")).toHaveTextContent("0");
+    expect(screen.getByText("Critical", { selector: "dt span" }).closest("div")).toHaveTextContent("1");
+    expect(screen.getByText("Warning", { selector: "dt span" }).closest("div")).toHaveTextContent("1");
+    expect(screen.getByText("Manual", { selector: "dt span" }).closest("div")).toHaveTextContent("1");
+    expect(screen.getByText("OK", { selector: "dt span" }).closest("div")).toHaveTextContent("2");
+    expect(screen.getByText(/all five levels remain visible/i)).toBeInTheDocument();
+    expect(screen.getByText("Critical · 1")).toBeInTheDocument();
+    expect(screen.getByText("Warning · 1")).toBeInTheDocument();
+    expect(screen.getByText("Manual · 1")).toBeInTheDocument();
+    expect(screen.getByText("OK · 2")).toBeInTheDocument();
     const successfulChecks = screen.getByText("Show 2 successful checks").closest("details");
     expect(successfulChecks).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByText("Show 2 successful checks"));
+    expect(successfulChecks).toHaveAttribute("open");
     expect(screen.getAllByRole("link", { name: "Documentation" })).toHaveLength(report.findings.length);
   });
 
   it("refreshes the report on demand", async () => {
     render(<ProductionReadinessPage />);
-    await screen.findByText("Runtime summary");
+    await screen.findByText("Readiness overview");
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
