@@ -12,6 +12,7 @@ import distribution as dist
 import events
 import gitlab_api
 import installation_evidence as installation
+from history import write_documentation
 from plan import release_transition
 from test_distribution import prepared, SHA, IMAGE
 
@@ -32,6 +33,7 @@ def version_repository(tmp_path):
             path = tmp_path / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
+        write_documentation(tmp_path)
         git('add','.')
         git('commit','-qm','fixture')
         return git('rev-parse','HEAD')

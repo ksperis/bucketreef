@@ -33,7 +33,8 @@ See [CI/CD](ci-cd.md) for selection, tool locks and required external settings.
 1. Write one non-empty `## X.Y.Z - YYYY-MM-DD` section in `CHANGELOG.md`, then run
    `backend/.venv/bin/python ops/release/prepare.py X.Y.Z` from the repository root.
    This synchronizes the frontend package/lock, chart `version`/`appVersion`, and
-   Compose example. For `0.X.1` it also generates the schema reference snapshot.
+   Compose example, and regenerates `doc/docs/releases.md` from the changelog.
+   For `0.X.1` it also generates the schema reference snapshot.
    Review and commit the complete diff. Chart image tags remain empty to inherit
    `appVersion`; the bundle packager stamps its exact version into `.env.example`.
 2. Push the identical commit to GitHub **first**, then GitLab `main`. The GitLab
@@ -242,9 +243,12 @@ explicitly to apply the reviewed catalog. Both modes verify remote tags and
 refuse conflicting descriptions before writing. Application is idempotent and
 never builds images, uploads assets, creates baselines, or edits tags.
 
-The versioned `ops/release/history.json` catalog records commit, historical date,
-date provenance and whether publication on both platforms has been confirmed.
-Notes are taken only from `CHANGELOG.md`; reconstructed sections are labelled.
+`CHANGELOG.md` is the source of truth for the versions and notes displayed in
+`doc/docs/releases.md`; normal release preparation regenerates that page before
+the release tag exists. The versioned `ops/release/history.json` catalog remains
+supplemental metadata for reconstructed historical releases: it records commit,
+historical date, date provenance and whether publication on both platforms has
+been confirmed. Reconstructed sections are labelled.
 GitHub's actual publication timestamp is not backdated. Historical GitLab
 releases receive their catalog date, and neither platform's latest release moves.
 The one-time v0.1.8 GitLab alignment is recorded in the catalog and rendered notes;
@@ -260,9 +264,9 @@ python3 ops/release/history.py --check
 python3 -m mkdocs build -f doc/mkdocs.yml --strict
 ```
 
-Commit the confirmed catalog and generated page, synchronize the commit and
-publish documentation with the normal docs pipeline. For future versions,
-append their changelog and catalog metadata, then confirm publication on both
-platforms before setting `confirmed: true` and regenerating the page. Generation
-is offline and includes only confirmed entries; the browser never queries APIs.
-Do not run historical publication against future drafts or pending releases.
+Commit the confirmed historical catalog and regenerated page, synchronize the
+commit and publish documentation with the normal docs pipeline. Future normal
+releases need only their changelog section before `prepare.py`; they do not need
+an entry in the historical catalog to appear in the release index. Generation
+is offline and the browser never queries release APIs. Do not run historical
+publication against future drafts or pending releases.
