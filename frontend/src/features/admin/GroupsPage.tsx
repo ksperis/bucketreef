@@ -96,7 +96,7 @@ import {
   readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
 
-type GroupModalTab = "general" | "members" | "associations" | "workspaces" | "connections";
+type GroupModalTab = "general" | "members" | "associations" | "access";
 type AssociationTab = "accounts" | "s3_users" | "connections";
 const MAX_VISIBLE_OPTIONS = 10;
 const groupAvatarIcons: Array<{ value: UiGroupAvatarIcon; label: string }> = [
@@ -1227,8 +1227,7 @@ export default function GroupsPage() {
                 { id: "general", label: "General" },
                 { id: "members", label: "Members" },
                 { id: "associations", label: "Associations" },
-                { id: "workspaces", label: "Workspaces" },
-                { id: "connections", label: "Connections" },
+                { id: "access", label: "Platform access" },
               ]}
             >
 
@@ -1296,7 +1295,7 @@ export default function GroupsPage() {
               renderAssociationsTab()
             )}
 
-            {modalTab === "workspaces" && (
+            {modalTab === "access" && (
               <>
                 <WorkspaceAccessSection
                   description="Additional operational workspaces inherited by group members."
@@ -1359,27 +1358,24 @@ export default function GroupsPage() {
                     }))
                   }
                 />
+                <AdminAccessToggleSection
+                  title="Connections"
+                  description="Private S3 connection permissions inherited by group members."
+                  items={[
+                    {
+                      title: "Create manual private connections",
+                      description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
+                      checked: Boolean(form.can_create_manual_private_connections),
+                      onChange: (value) =>
+                        setForm((current) => ({
+                          ...current,
+                          can_create_manual_private_connections: value,
+                        })),
+                      ariaLabel: "Allow manual private connection creation",
+                    },
+                  ]}
+                />
               </>
-            )}
-
-            {modalTab === "connections" && (
-              <AdminAccessToggleSection
-                title="Connections"
-                description="Private S3 connection permissions inherited by group members."
-                items={[
-                  {
-                    title: "Create manual private connections",
-                    description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
-                    checked: Boolean(form.can_create_manual_private_connections),
-                    onChange: (value) =>
-                      setForm((current) => ({
-                        ...current,
-                        can_create_manual_private_connections: value,
-                      })),
-                    ariaLabel: "Allow manual private connection creation",
-                  },
-                ]}
-              />
             )}
 
             </WorkflowTabs>

@@ -90,15 +90,14 @@ import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
 import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
 
-type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access" | "connections" | "effective_access";
+type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access" | "effective_access";
 type AuxiliaryLoadState = "idle" | "loading" | "loaded" | "error";
 
 const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "general", label: "General" },
   { id: "groups", label: "Groups" },
   { id: "associations", label: "Associations" },
-  { id: "access", label: "Workspaces" },
-  { id: "connections", label: "Connections" },
+  { id: "access", label: "Platform access" },
 ];
 const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "general", label: profileMessages.preferencesTab.en },
@@ -1397,28 +1396,25 @@ export default function UsersPage() {
                     }))
                   }
                 />
+                <AdminAccessToggleSection
+                  title="Connections"
+                  description="Private S3 connection permissions for this UI user. Groups can also grant this permission."
+                  items={[
+                    {
+                      title: "Create manual private connections",
+                      description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
+                      checked: createTargetSupportsManagerTools && Boolean(form.can_create_manual_private_connections),
+                      disabled: !createTargetSupportsManagerTools,
+                      onChange: (value) =>
+                        setForm((current) => ({
+                          ...current,
+                          can_create_manual_private_connections: value,
+                        })),
+                      ariaLabel: "Allow manual private connection creation",
+                    },
+                  ]}
+                />
               </>
-            )}
-
-            {createModalTab === "connections" && (
-              <AdminAccessToggleSection
-                title="Connections"
-                description="Private S3 connection permissions for this UI user. Groups can also grant this permission."
-                items={[
-                  {
-                    title: "Create manual private connections",
-                    description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
-                    checked: createTargetSupportsManagerTools && Boolean(form.can_create_manual_private_connections),
-                    disabled: !createTargetSupportsManagerTools,
-                    onChange: (value) =>
-                      setForm((current) => ({
-                        ...current,
-                        can_create_manual_private_connections: value,
-                      })),
-                    ariaLabel: "Allow manual private connection creation",
-                  },
-                ]}
-              />
             )}
 
             {createModalTab === "associations" && (
@@ -1734,28 +1730,25 @@ export default function UsersPage() {
                     }))
                   }
                 />
+                <AdminAccessToggleSection
+                  title="Connections"
+                  description="Private S3 connection permissions for this UI user. Groups can also grant this permission."
+                  items={[
+                    {
+                      title: "Create manual private connections",
+                      description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
+                      checked: editTargetSupportsManagerTools && Boolean(editForm.can_create_manual_private_connections),
+                      disabled: !editTargetSupportsManagerTools,
+                      onChange: (value) =>
+                        setEditForm((current) => ({
+                          ...current,
+                          can_create_manual_private_connections: value,
+                        })),
+                      ariaLabel: "Allow manual private connection creation",
+                    },
+                  ]}
+                />
               </>
-            )}
-
-            {editModalTab === "connections" && (
-              <AdminAccessToggleSection
-                title="Connections"
-                description="Private S3 connection permissions for this UI user. Groups can also grant this permission."
-                items={[
-                  {
-                    title: "Create manual private connections",
-                    description: "Allow credentials supplied by the user on a registered endpoint or a custom URL.",
-                    checked: editTargetSupportsManagerTools && Boolean(editForm.can_create_manual_private_connections),
-                    disabled: !editTargetSupportsManagerTools,
-                    onChange: (value) =>
-                      setEditForm((current) => ({
-                        ...current,
-                        can_create_manual_private_connections: value,
-                      })),
-                    ariaLabel: "Allow manual private connection creation",
-                  },
-                ]}
-              />
             )}
 
             {editModalTab === "associations" && (

@@ -713,7 +713,7 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 
-  it("shows Workspaces tab and keeps workspace toggles out of General in create modal", async () => {
+  it("shows Platform access and keeps platform permissions out of General in create modal", async () => {
     render(<UsersPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
@@ -721,21 +721,23 @@ describe("UsersPage modal tabs", () => {
       "General",
       "Groups",
       "Associations",
-      "Workspaces",
-      "Connections",
+      "Platform access",
     ]);
     expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Workspaces" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Platform access" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Workspaces" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Access" })).not.toBeInTheDocument();
     expect(screen.queryByText("Ceph Admin access")).not.toBeInTheDocument();
     expect(screen.queryByText("Storage Ops access")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
     expect(screen.getByText("Mass management workspaces")).toBeInTheDocument();
     expect(screen.getByText("Ceph Admin access")).toBeInTheDocument();
     expect(screen.getByText("Storage Ops access")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Allow manual private connection creation" })).toBeInTheDocument();
   });
 
   it("shows Groups tab in create modal and sends group_ids in create payload", async () => {
@@ -799,7 +801,7 @@ describe("UsersPage modal tabs", () => {
     );
   });
 
-  it("shows Workspaces tab and keeps workspace toggles out of General in edit modal", async () => {
+  it("shows Platform access and keeps platform permissions out of General in edit modal", async () => {
     listUsersMock.mockResolvedValue({
       items: [
         {
@@ -823,21 +825,22 @@ describe("UsersPage modal tabs", () => {
       "Security",
       "Groups",
       "Associations",
-      "Workspaces",
-      "Connections",
+      "Platform access",
       "Effective access",
     ]);
     expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Workspaces" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Access" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Platform access" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Workspaces" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
     expect(screen.queryByText("Ceph Admin access")).not.toBeInTheDocument();
     expect(screen.queryByText("Storage Ops access")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
     expect(screen.getByText("Mass management workspaces")).toBeInTheDocument();
     expect(screen.getByText("Ceph Admin access")).toBeInTheDocument();
     expect(screen.getByText("Storage Ops access")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
   });
 
   it("loads Effective access only when the edit tab is opened", async () => {
@@ -898,7 +901,7 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeEnabled();
   });
 
-  it("shows Connections and Manager in create/edit and submits their permissions", async () => {
+  it("groups Connections and Manager in Platform access and submits their permissions", async () => {
     listUsersMock.mockResolvedValue({
       items: [
         {
@@ -924,14 +927,17 @@ describe("UsersPage modal tabs", () => {
 
     render(<UsersPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
-    expect(screen.getByRole("tab", { name: "Connections" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Platform access" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Manager" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
+    expect(screen.getByRole("heading", { name: "Manager", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connections", exact: true })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Connections" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow manual private connection creation" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow managed private connection provisioning" }));
 
     expect(screen.getByRole("heading", { name: "Manager", exact: true })).toBeInTheDocument();
@@ -991,7 +997,7 @@ describe("UsersPage modal tabs", () => {
 
     render(<UsersPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
 
     const toggle = screen.getByRole("switch", {
       name: "Allow managed private connection provisioning",
@@ -1062,7 +1068,7 @@ describe("UsersPage modal tabs", () => {
 
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ops@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
     expect(screen.getByText("Mass management workspaces")).toBeInTheDocument();
     expect(screen.getByText("Storage Ops access")).toBeInTheDocument();
     expect(
@@ -1089,7 +1095,7 @@ describe("UsersPage modal tabs", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "browser@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
     expect(screen.getByText("Browser options for this UI user. Groups can also grant these options.")).toBeInTheDocument();
     const advancedToggle = screen.getByRole("switch", { name: "Enable technical S3 tools" });
     expect(advancedToggle).not.toBeChecked();
@@ -1209,7 +1215,7 @@ describe("UsersPage modal tabs", () => {
     await act(async () => { fireEvent.click(trigger); });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "invalid-email" } });
     if (!editing) fireEvent.change(screen.getByLabelText("Password"), { target: { value: "fixture-password" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Workspaces" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
     fireEvent.click(screen.getByRole("button", { name: editing ? "Save" : "Create", exact: true }));
     const email = await screen.findByLabelText("Email");
     expect(email).toHaveAttribute("aria-invalid", "true");

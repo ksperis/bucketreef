@@ -171,19 +171,23 @@ describe("Admin principal editor navigation", () => {
       expect(unloadBlocked()).toBe(false);
     });
 
-    it("keeps operational, Manager and Browser access together across tab changes and saves", async () => {
+    it("keeps all platform access together across tab changes and saves", async () => {
       await openEditor();
-      fireEvent.click(screen.getByRole("tab", { name: "Workspaces", exact: true }));
+      fireEvent.click(screen.getByRole("tab", { name: "Platform access", exact: true }));
       expect(screen.queryByRole("tab", { name: "Manager" })).not.toBeInTheDocument();
       expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
       expect(within(screen.getByRole("tabpanel")).getAllByRole("heading", { level: 2 }).map(heading => heading.textContent)).toEqual([
-        "Mass management workspaces", "Manager", "Browser",
+        "Mass management workspaces", "Manager", "Browser", "Connections",
       ]);
       const labels = [editor.name === "UI User" ? "Allow access to /storage-ops" : "Allow group access to /storage-ops",
-        "Bucket compare", "Enable technical S3 tools"];
+        "Bucket compare", "Enable technical S3 tools", "Allow manual private connection creation"];
       for (const label of labels) fireEvent.click(screen.getByRole("switch", { name: label, exact: true }));
-      fireEvent.click(screen.getByRole("tab", { name: "Connections", exact: true }));
-      fireEvent.click(screen.getByRole("tab", { name: "Workspaces", exact: true }));
+      fireEvent.click(screen.getByRole("tab", {
+        name: editor.name === "UI User" ? "Profile and preferences" : "General",
+        exact: true,
+      }));
+      fireEvent.click(screen.getByRole("tab", { name: "Platform access", exact: true }));
       fireEvent.click(screen.getByRole("link", { name: "Other page" }));
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
       for (const label of labels) expect(screen.getByRole("switch", { name: label, exact: true })).toBeChecked();
@@ -191,6 +195,7 @@ describe("Admin principal editor navigation", () => {
       await waitFor(() => expect(editor.update).toHaveBeenCalledOnce());
       expect(editor.update.mock.calls[0][1]).toEqual(expect.objectContaining({
         can_access_storage_ops: true, browser_advanced_features_enabled: true,
+        can_create_manual_private_connections: true,
         manager_tool_access: expect.objectContaining({ bucket_compare: true }),
       }));
       await waitFor(() => expect(unloadBlocked()).toBe(false));
