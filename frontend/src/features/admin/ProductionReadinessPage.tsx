@@ -46,6 +46,45 @@ const groupDescription: Record<CheckLevel, string> = {
   ok: "Automated checks that currently satisfy their expected configuration.",
 };
 
+const levelSummary: Record<CheckLevel, string> = {
+  blocked: "Can prevent startup in production.",
+  critical: "Correct before production publication.",
+  warning: "Review against your deployment context.",
+  manual: "Requires explicit operator verification.",
+  ok: "Automated checks currently satisfied.",
+};
+
+function ReadinessLevelOverview({ report }: { report: ProductionReadinessResponse }) {
+  return (
+    <div>
+      <dl
+        aria-label="Readiness levels"
+        className="grid gap-px overflow-hidden rounded-lg border border-[color:var(--ui-border-soft)] bg-[var(--ui-border-soft)] sm:grid-cols-2 lg:grid-cols-5"
+      >
+        {groupOrder.map((level) => (
+          <div
+            key={level}
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 bg-[var(--ui-surface-muted)] px-3 py-3"
+          >
+            <dt>
+              <UiBadge tone={levelTone[level]}>{levelLabel[level]}</UiBadge>
+            </dt>
+            <dd className={cx("text-[18px] font-semibold leading-5", uiTitleTextClass)}>
+              {report.counts[level]}
+            </dd>
+            <dd className={cx("col-span-2 mt-2 ui-caption leading-4", uiMutedTextClass)}>
+              {levelSummary[level]}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>
+        All five levels remain visible, including levels with no current findings.
+      </p>
+    </div>
+  );
+}
+
 function FindingRows({ findings }: { findings: ProductionReadinessResponse["findings"] }) {
   return (
     <div className="divide-y divide-[color:var(--ui-border-soft)] border-t border-[color:var(--ui-border-soft)]">
@@ -141,30 +180,30 @@ export default function ProductionReadinessPage() {
       {report ? (
         <>
           <PageBanner tone={statusBannerTone(report.status)}>
-            This report evaluates the production target for this backend instance. Current environment:{" "}
-            <strong>{report.environment}</strong>; deployment profile: <strong>{report.profile}</strong>. Only obvious
-            security blockers can prevent application startup; critical findings remain operational so they can be
-            corrected without taking the application offline.
+            This report evaluates the production target for this backend instance. Findings marked as startup-blocking
+            can prevent backend startup; critical findings remain operational so they can be corrected before
+            publication.
           </PageBanner>
 
-          <UiCard title="Runtime summary" description="Current deployment-readiness result for this instance.">
+          <UiCard
+            title="Readiness overview"
+            description="The five readiness levels used by startup diagnostics, the CLI and this page."
+          >
             <InlineSummary
               items={[
                 { label: "Environment", value: report.environment },
                 { label: "Profile", value: report.profile },
                 { label: "Overall", value: statusLabel(report.status) },
-                { label: "Blocked", value: report.counts.blocked },
-                { label: "Critical", value: report.counts.critical },
-                { label: "Warnings", value: report.counts.warning },
-                { label: "Manual", value: report.counts.manual },
-                { label: "OK", value: report.counts.ok },
               ]}
             />
+            <div className="mt-3">
+              <ReadinessLevelOverview report={report} />
+            </div>
           </UiCard>
 
           <UiCard
             title="Deployment checks"
-            description="One shared set of checks used by startup diagnostics, the CLI and this page."
+            description="Findings are grouped by readiness level. Successful checks stay collapsed by default."
             bodyClassName="p-0"
           >
             <div className="divide-y divide-[color:var(--ui-border-soft)]">
@@ -174,14 +213,15 @@ export default function ProductionReadinessPage() {
                 const sectionId = "production-readiness-" + level;
                 return (
                   <section key={level} aria-labelledby={sectionId}>
-                    <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
-                      <div>
-                        <h3 id={sectionId} className={cx("ui-body font-semibold", uiTitleTextClass)}>
-                          {levelLabel[level]}
-                        </h3>
-                        <p className={cx("mt-0.5 ui-caption leading-5", uiMutedTextClass)}>{groupDescription[level]}</p>
-                      </div>
-                      <UiBadge tone={levelTone[level]}>{findings.length}</UiBadge>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                      <h3 id={sectionId}>
+                        <UiBadge tone={levelTone[level]}>
+                          {levelLabel[level]} · {findings.length}
+                        </UiBadge>
+                      </h3>
+                      <p className={cx("ui-caption leading-5", uiMutedTextClass)}>
+                        {groupDescription[level]}
+                      </p>
                     </div>
                     {level === "ok" ? (
                       <UiDetails className="border-t border-[color:var(--ui-border-soft)]">

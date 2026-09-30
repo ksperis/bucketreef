@@ -1,89 +1,84 @@
-# Browser design QA — 28 September 2026
+# Production readiness design QA — 30 September 2026
 
 final result: passed
-
-The target is the combination explicitly selected by the user: Image 1's path
-bar, advanced search and unframed file icons; Image 2's Display submenu and Help
-placement; Buckets/Favorites sidebar tabs with contextual subtitles. This is an
-adaptation to BucketReef's shared components, not a full replacement of its shell.
 
 ## Evidence
 
 Source visual truth:
 
-- Two transient local reference images were used for the visual comparison.
-  They are not repository artifacts.
+- `/Users/laurent/.codex/visualizations/2026/09/30/01a0f240-dfe9-7bb1-95b8-68a44a2c5772/deployment-checks-mockup.png`
+- 1280 × 1031 pixels, desktop light theme, device scale factor 1.
 
-Rendered implementation: authenticated `http://localhost:14173/browser` using
-the isolated Moto harness. Local screenshots are in
-`frontend/output/browser-evolutions/`: `search-dark.png`, `display-dark.png`,
-`browser-light.png` and `search-mobile.png`. They are deliberately excluded
-from the commit.
+Rendered implementation:
 
-Sources: 1672 × 941 pixels. Desktop: 1728 × 972 CSS pixels and image pixels,
-device scale factor 1. Mobile: 390 × 844, scale factor 1. No raster resampling.
-The desktop sources and captures have essentially the same aspect ratio; the
-existing compact density and 208-pixel shared sidebar are intentional. Source
-content is illustrative French; captures use the harness's English labels and
-small, real S3 fixtures. Object count is not treated as a geometry mismatch.
+- Authenticated `http://localhost:4173/admin/production-readiness` using the
+  isolated agent UI backend and Moto harness.
+- Desktop light comparison capture:
+  `/Users/laurent/.codex/visualizations/2026/09/30/01a0f240-dfe9-7bb1-95b8-68a44a2c5772/deployment-checks-implementation-1280.png`
+  at a 1280 × 1000 CSS viewport and 1280 × 1000 pixels, device scale factor 1.
+- Desktop dark capture:
+  `/Users/laurent/.codex/visualizations/2026/09/30/01a0f240-dfe9-7bb1-95b8-68a44a2c5772/deployment-checks-implementation-dark.png`
+  at a 1440 × 900 CSS viewport and 1440 × 900 pixels, device scale factor 1.
+- Mobile light capture:
+  `/Users/laurent/.codex/visualizations/2026/09/30/01a0f240-dfe9-7bb1-95b8-68a44a2c5772/deployment-checks-implementation-mobile.png`
+  at a 390 × 844 CSS viewport and 390 × 844 pixels, device scale factor 1.
 
-Each source and its implementation capture was opened together in the same
-comparison input. Focused inspection covered sidebar tab labels and bucket-first
-subtitles, path borders and separators, search padding and form fields, file icon
-backgrounds, Display nesting and Help placement. The full-resolution comparison
-made these regions readable, so separate cropped raster artifacts were unnecessary.
+The approved mockup and authenticated implementation were opened together in
+`deployment-checks-comparison.png`. The comparison uses the same light theme and
+desktop width. The implementation includes the real BucketReef shell, while the
+mockup intentionally showed only page content. Fixture counts and findings also
+differ from the illustrative mockup; their layout and status treatment are the
+comparison target.
+
+Focused raster crops were unnecessary because the full-resolution comparison
+keeps the five readiness tiles, group headers, finding rows, badges and copy
+legible. Separate full-resolution mobile and dark captures cover responsive and
+theme behavior.
 
 ## Findings and comparison history
 
-- P2, corrected: the context-first subtitle hid the bucket. It now starts with
-  the bucket and path; full identity remains available through the item.
-- P2, corrected: leftover icon color classes still painted decorative backgrounds.
-  Object icons now render as outlines without tiles.
-- P2, corrected: compact input padding could override the space reserved for the
-  search icon. The shared list control selector now preserves icon padding.
-- P2, corrected: advanced search was tied to the desktop table header. The mobile
-  list now exposes the same search header and a viewport-bounded popover.
-- Capture correction: waiting only for DOM visibility could capture Display before
-  its animation-frame positioning. The scenario now asserts viewport intersection
-  before capture; the final image shows both menus and Help.
+No actionable P0, P1 or P2 differences were found on the first implementation
+comparison. No visual correction loop was required.
 
-The final same-state captures were inspected after these corrections. No actionable
-P0/P1/P2 visual findings remain in the approved scope.
+The implementation preserves the approved information hierarchy: runtime context
+first, all five readiness levels always visible with counts and short definitions,
+then detailed findings grouped by level. Successful checks remain collapsed by
+default. Empty levels remain visible in the overview and do not create empty detail
+sections.
 
 ## Required fidelity surfaces
 
-- Typography: native shared UI font, caption/body hierarchy and compact density
-  retained. Sidebar names truncate within their column, and a second line
-  distinguishes the location. The source image's font is not claimed as an exact
-  identified typeface.
-- Spacing/layout: one path bar, filters inside the search popover, favorites in
-  the sidebar, Display in an adjacent submenu and Help at the bottom. Compact
-  row heights and additional Advanced-profile actions are expected product
-  differences from the illustrative mock.
-- Colors/tokens: existing dark surfaces, light surfaces, blue selection/action
-  color and yellow folder outlines retained. Focus remains visible in both themes.
-  The mock's decorative gradients are not introduced into shared UI tokens.
-- Image quality/assets: existing BucketReef logo retained; native object SVG icons
-  kept sharp without frames; official Feather star/bookmark/help assets use their
-  original vectors with license. No raster mock is embedded as interface content.
-- Copy/content: locations and saved views are distinct; subtitles start with the
-  bucket. Search scope, file-only filter behavior and local dates are explicit.
-  Additional technical actions remain visible for the authenticated Advanced user.
+- Typography: existing Inter/system UI typography and shared caption, subtitle and
+  title weights are retained. Labels and descriptions wrap without truncation on
+  desktop and mobile.
+- Spacing/layout: the shared page rhythm, card headers, 8-pixel card radius and
+  soft dividers match BucketReef. Five equal desktop columns become a readable
+  single mobile column without horizontal overflow.
+- Colors/tokens: all surfaces, borders, text and semantic states use existing
+  `ui-*` tokens and `UiBadge` tones. Light and dark captures preserve contrast.
+- Image quality/assets: the page introduces no raster assets or replacement icons.
+  The existing BucketReef shell and logo remain unchanged.
+- Copy/content: Blocked, Critical, Warning, Manual and OK are explicitly named,
+  counted and defined. The startup wording keeps the backend contract that only
+  findings marked as startup-blocking can prevent startup.
 
-## Interaction checks
+## Interaction and validation checks
 
-The authenticated scenario covers saving a favorite and a view, synchronization in
-a second browser context, applying a filter without text, search focus restoration,
-ArrowRight/ArrowLeft for Display, Help, theme switching and mobile search. The
-scenario's page-error collection is empty. Expected capability/network diagnostics
-from the isolated fixture are distinct from uncaught application errors.
+- Authenticated production-readiness route rendered with the isolated browser
+  fixture at desktop, mobile and dark-theme viewports.
+- Refresh behavior remains covered by the targeted component test.
+- The successful-check disclosure is closed initially and opens when activated in
+  the targeted component test.
+- The authenticated Playwright smoke verifies the five accessible level labels,
+  disclosure interaction, mobile overflow and an empty application-error list
+  covering uncaught page errors and browser console errors.
+- Targeted Vitest, frontend TypeScript checks, ESLint and the production build
+  pass.
 
 ## Implementation checklist
 
-- [x] Approved navigation, search, icons and menu changes.
-- [x] Earlier visual findings corrected and captured again.
-- [x] Desktop dark/light and mobile checks.
-- [x] Keyboard interaction and no uncaught page errors in the combined UX scenario.
-
-Provider compatibility and functional validation limits are documented separately
-in `doc/docs/developer/browser-evolutions-validation.md`.
+- [x] Five-level overview remains visible even for zero-count levels.
+- [x] Detailed group headings expose level and count together.
+- [x] Successful checks retain progressive disclosure.
+- [x] Desktop, mobile, light and dark visual checks.
+- [x] Targeted interaction and compile-time validation.

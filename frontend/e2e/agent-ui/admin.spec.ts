@@ -43,6 +43,40 @@ test("keeps an authenticated administrator session across reloads", async ({
   expect(applicationErrors).toEqual([]);
 });
 
+test("keeps all production readiness levels visible across desktop and mobile", async ({
+  page,
+}) => {
+  const applicationErrors = collectApplicationErrors(page);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/admin/production-readiness");
+  await expect(
+    page.getByRole("heading", { name: "Production readiness" }),
+  ).toBeVisible();
+  const overview = page.getByLabel("Readiness levels");
+  await expect(overview).toBeVisible();
+  await expect(overview.locator("dt")).toHaveText([
+    "Blocked",
+    "Critical",
+    "Warning",
+    "Manual",
+    "OK",
+  ]);
+  const successfulChecks = page.getByText(/Show \d+ successful checks?/);
+  await successfulChecks.click();
+  await expect(successfulChecks.locator("xpath=ancestor::details")).toHaveAttribute(
+    "open",
+    "",
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(overview).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+  ).toBeLessThanOrEqual(2);
+  expect(applicationErrors).toEqual([]);
+});
+
 test("shows the compact administrator profile and protects the mandatory passkey", async ({
   page,
 }) => {
