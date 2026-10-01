@@ -410,6 +410,17 @@ def test_user_group_role_policy_crud_smoke(monkeypatch):
     service.delete_role("missing")
 
 
+def test_create_group_exposes_structured_existing_group_conflict(monkeypatch):
+    service, fake = _service(monkeypatch)
+    fake.raise_on["create_group"] = _client_error("EntityAlreadyExists", "CreateGroup")
+
+    with pytest.raises(rgw_iam.RGWIAMGroupAlreadyExistsError) as exc_info:
+        service.create_group("grp-b")
+
+    assert isinstance(exc_info.value.__cause__, ClientError)
+    assert exc_info.value.__cause__.response["Error"]["Code"] == "EntityAlreadyExists"
+
+
 def test_policy_fallbacks_and_create_policy_not_supported(monkeypatch):
     service, fake = _service(monkeypatch)
 
