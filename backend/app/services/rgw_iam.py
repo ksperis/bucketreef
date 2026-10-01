@@ -18,6 +18,10 @@ def _is_no_such_entity(exc: ClientError) -> bool:
     return aws_error_code(exc) == "NoSuchEntity"
 
 
+class RGWIAMGroupAlreadyExistsError(RuntimeError):
+    """Raised when IAM reports a concurrent group-name conflict."""
+
+
 def get_iam_client(
     access_key: str,
     secret_key: str,
@@ -277,7 +281,11 @@ class RGWIAMService:
             resp = self.client.create_group(GroupName=name)
             g = resp.get("Group", {})
             return IAMGroup(name=g.get("GroupName") or name, arn=g.get("Arn"))
-        except (BotoCoreError, ClientError) as exc:
+        except ClientError as exc:
+            if aws_error_code(exc) == "EntityAlreadyExists":
+                raise RGWIAMGroupAlreadyExistsError(f"IAM group already exists: {name}") from exc
+            raise RuntimeError(f"Unable to create IAM group: {exc}") from exc
+        except BotoCoreError as exc:
             raise RuntimeError(f"Unable to create IAM group: {exc}") from exc
 
     def delete_group(self, name: str) -> None:

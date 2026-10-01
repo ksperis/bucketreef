@@ -82,6 +82,7 @@ from app.services.portal.exceptions import (
     PortalAccessKeyProtected,
     PortalStorageSpaceNotEmpty,
 )
+from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError
 from app.services.portal_service import PortalService
 from app.services.portal.version_cleanup import PortalStorageSpaceVersionCleanupTarget
 from app.services.portal.trash_restore import PortalDeletedPrefixRestoreTarget
@@ -542,25 +543,28 @@ def test_portal_groups_always_receive_their_bootstrap_policies(db_session):
     iam_service.delete_group_inline_policy.assert_not_called()
 
 
-def test_portal_groups_refuse_unowned_name_collision(db_session):
+def test_portal_groups_refuse_unowned_name_collision(monkeypatch, db_session):
     service = PortalService(db_session)
     iam_service = Mock()
     iam_service.list_groups.return_value = [IAMGroup(name=service._manager_group_name)]
     iam_service.get_group_inline_policy.return_value = None
+    monkeypatch.setattr("app.services.portal.iam.time.sleep", lambda _delay: None)
 
     with pytest.raises(RuntimeError, match="not marked as BucketReef-managed"):
         service._ensure_portal_groups(iam_service)
 
+    assert iam_service.get_group_inline_policy.call_count == 5
     iam_service.list_group_policies.assert_not_called()
     iam_service.detach_group_policy.assert_not_called()
     iam_service.put_group_inline_policy.assert_not_called()
 
 
-def test_portal_group_collision_is_preflighted_before_creating_other_group(db_session):
+def test_portal_group_collision_is_preflighted_before_creating_other_group(monkeypatch, db_session):
     service = PortalService(db_session)
     iam_service = Mock()
     iam_service.list_groups.return_value = [IAMGroup(name=service._user_group_name)]
     iam_service.get_group_inline_policy.return_value = None
+    monkeypatch.setattr("app.services.portal.iam.time.sleep", lambda _delay: None)
 
     with pytest.raises(RuntimeError, match="not marked as BucketReef-managed"):
         service._ensure_portal_groups(iam_service)
@@ -568,6 +572,85 @@ def test_portal_group_collision_is_preflighted_before_creating_other_group(db_se
     iam_service.create_group.assert_not_called()
     iam_service.list_group_policies.assert_not_called()
     iam_service.detach_group_policy.assert_not_called()
+    iam_service.put_group_inline_policy.assert_not_called()
+
+
+def test_portal_group_existing_name_waits_for_managed_marker(monkeypatch, db_session):
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.list_groups.return_value = [IAMGroup(name=service._manager_group_name)]
+    iam_service.get_group_inline_policy.side_effect = [None, None, {"Statement": []}]
+    iam_service.list_group_policies.return_value = []
+    sleep = Mock()
+    monkeypatch.setattr("app.services.portal.iam.time.sleep", sleep)
+
+    service._ensure_portal_groups(iam_service)
+
+    assert [item.args[0] for item in sleep.call_args_list] == [0.1, 0.2]
+    iam_service.create_group.assert_called_once_with(service._user_group_name)
+    assert iam_service.put_group_inline_policy.call_count == 2
+
+
+def test_portal_group_create_conflict_waits_for_managed_marker(monkeypatch, db_session):
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.list_groups.return_value = []
+    iam_service.create_group.side_effect = [
+        RGWIAMGroupAlreadyExistsError("already exists"),
+        IAMGroup(name=service._user_group_name),
+    ]
+    iam_service.get_group_inline_policy.side_effect = [None, {"Statement": []}]
+    iam_service.list_group_policies.return_value = []
+    sleep = Mock()
+    monkeypatch.setattr("app.services.portal.iam.time.sleep", sleep)
+
+    service._ensure_portal_groups(iam_service)
+
+    assert [item.args[0] for item in sleep.call_args_list] == [0.1]
+    assert iam_service.create_group.call_args_list[0].args == (service._manager_group_name,)
+    assert iam_service.create_group.call_args_list[1].args == (service._user_group_name,)
+    assert iam_service.put_group_inline_policy.call_count == 2
+
+
+def test_portal_group_create_conflict_accepts_immediate_managed_marker(monkeypatch, db_session):
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.list_groups.return_value = []
+    iam_service.create_group.side_effect = [
+        RGWIAMGroupAlreadyExistsError("already exists"),
+        IAMGroup(name=service._user_group_name),
+    ]
+    iam_service.get_group_inline_policy.return_value = {"Statement": []}
+    iam_service.list_group_policies.return_value = []
+    sleep = Mock()
+    monkeypatch.setattr("app.services.portal.iam.time.sleep", sleep)
+
+    service._ensure_portal_groups(iam_service)
+
+    sleep.assert_not_called()
+    assert iam_service.put_group_inline_policy.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        RuntimeError("Unable to fetch inline policy for group: AccessDenied"),
+        RuntimeError("Unable to fetch inline policy for group: connection reset"),
+    ],
+)
+def test_portal_group_marker_lookup_errors_fail_immediately(monkeypatch, db_session, error):
+    service = PortalService(db_session)
+    iam_service = Mock()
+    iam_service.list_groups.return_value = [IAMGroup(name=service._manager_group_name)]
+    iam_service.get_group_inline_policy.side_effect = error
+    sleep = Mock()
+    monkeypatch.setattr("app.services.portal.iam.time.sleep", sleep)
+
+    with pytest.raises(RuntimeError, match=str(error)):
+        service._ensure_portal_groups(iam_service)
+
+    sleep.assert_not_called()
+    iam_service.create_group.assert_not_called()
     iam_service.put_group_inline_policy.assert_not_called()
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from sqlalchemy.exc import IntegrityError
@@ -18,7 +19,7 @@ from app.models.portal_access_keys import PortalAccessKey
 from app.services import s3_client
 from app.services.managed_resource_naming import portal_iam_username
 from app.services.mappers.portal import portal_access_key_from_active_link, portal_access_key_from_iam_metadata
-from app.services.rgw_iam import RGWIAMService, get_iam_service
+from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError, RGWIAMService, get_iam_service
 from app.utils.account_roles import PortalAccountRoleValue
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -28,6 +29,8 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+_PORTAL_GROUP_MARKER_RETRY_DELAYS = (0.1, 0.2, 0.4, 0.8)
 
 
 class PortalIamMixin:
@@ -176,17 +179,15 @@ class PortalIamMixin:
         )
 
         for group_name, policy_name, _policy_document in managed_groups:
-            if (
-                group_name in groups
-                and iam_service.get_group_inline_policy(group_name, policy_name) is None
-            ):
-                raise RuntimeError(
-                    f"Refusing to reuse existing IAM group '{group_name}' because it is not marked as BucketReef-managed"
-                )
+            if group_name in groups:
+                self._wait_for_portal_group_marker(iam_service, group_name, policy_name)
 
         for group_name, policy_name, policy_document in managed_groups:
             if group_name not in groups:
-                iam_service.create_group(group_name)
+                try:
+                    iam_service.create_group(group_name)
+                except RGWIAMGroupAlreadyExistsError:
+                    self._wait_for_portal_group_marker(iam_service, group_name, policy_name)
             attached = iam_service.list_group_policies(group_name)
             for policy in attached:
                 if policy.arn:
@@ -196,6 +197,22 @@ class PortalIamMixin:
                 policy_name,
                 policy_document,
             )
+
+    def _wait_for_portal_group_marker(
+        self,
+        iam_service: RGWIAMService,
+        group_name: str,
+        policy_name: str,
+    ) -> None:
+        if iam_service.get_group_inline_policy(group_name, policy_name) is not None:
+            return
+        for delay in _PORTAL_GROUP_MARKER_RETRY_DELAYS:
+            time.sleep(delay)
+            if iam_service.get_group_inline_policy(group_name, policy_name) is not None:
+                return
+        raise RuntimeError(
+            f"Refusing to reuse existing IAM group '{group_name}' because it is not marked as BucketReef-managed"
+        )
 
     def _sync_user_group_membership(
         self,
