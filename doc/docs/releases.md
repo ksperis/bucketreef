@@ -8,6 +8,7 @@ Current release dates come from the changelog; reconstructed historical dates re
 
 | Version | Date | Notes | Publications |
 | --- | --- | --- | --- |
+| [0.2.13](#release-0-2-13) | 2026-10-01 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.13) |
 | [0.2.12](#release-0-2-12) | 2026-09-29 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.12) |
 | [0.2.11](#release-0-2-11) | 2026-09-29 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.11) |
 | [0.2.10](#release-0-2-10) | 2026-09-28 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.10) |
@@ -33,6 +34,36 @@ Current release dates come from the changelog; reconstructed historical dates re
 | [0.1.2](#release-0-1-2) | 2026-01-09 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.2) |
 | [0.1.1](#release-0-1-1) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.1) |
 | [0.1.0](#release-0-1-0) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.0) |
+
+## 0.2.13 {#release-0-2-13}
+
+[GitHub release](https://github.com/ksperis/bucketreef/releases/tag/v0.2.13)
+
+Compare v0.2.12 → v0.2.13: [GitHub](https://github.com/ksperis/bucketreef/compare/v0.2.12...v0.2.13)
+
+
+### Added
+
+- Added a configurable numeric prefix for automatically generated Ceph RGW account IDs, with a default of `80` while preserving Ceph's required identifier format.
+
+### Changed
+
+- Moved personal API token management into the shared user profile for administrators, with a redirect from the previous Admin settings route.
+- Consolidated Admin platform-access tabs and effective-access investigation into the dedicated access audit, with contextual Review access links and UI Group provenance filtering.
+- Namespaced BucketReef-managed Portal IAM resources, generated Storage Space buckets, lifecycle IDs, policy Sids, migration probes, onboarding sample names, and RGW account-root key names under the canonical `bkr-`/`BucketReef` contracts.
+
+### Fixed
+
+- Allowed empty private Portal Storage Spaces to be deleted without listing their contents through a technical principal, while preserving non-empty buckets and handling deletion races explicitly.
+- Recognized empty Ceph RGW usage maps as zero usage and recovered concurrent creation of BucketReef-managed Portal IAM groups through bounded ownership checks.
+- Preserved Storage Ops execution-context fields when enriching bucket feature columns.
+- Aligned demo access-review data, endpoint geolocation, theme readability, endpoint-health columns, and production-readiness descriptions with the application.
+- Kept the release documentation synchronized with the changelog and corrected S3 Connection validation test routing.
+
+### Upgrade notes
+
+- **Breaking change:** previous implicit BucketReef-managed storage resource names are not migrated, aliased, or adopted automatically. Recreate pre-cutover Portal IAM resources deliberately before using the new naming contract. Foreign lifecycle rules and bucket-policy statements remain preserved.
+- Apply the normal Alembic upgrade path. This patch adds no database migration or schema baseline and keeps the unified `bucketreef-deploy` bundle introduced in 0.2.12.
 
 ## 0.2.12 {#release-0-2-12}
 
