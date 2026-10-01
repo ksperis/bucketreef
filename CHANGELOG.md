@@ -19,6 +19,7 @@
 - Preserved Storage Ops execution-context fields when enriching bucket feature columns.
 - Aligned demo access-review data, endpoint geolocation, theme readability, endpoint-health columns, and production-readiness descriptions with the application.
 - Kept the release documentation synchronized with the changelog and corrected S3 Connection validation test routing.
+- Invalidated cached backend OS upgrades when Debian publishes security updates, ensuring newly fixed PCRE2 and OpenSSL packages are included in release images.
 
 ### Upgrade notes
 
