@@ -410,18 +410,16 @@ def list_storage_ops_context_buckets(
             account,
         ):
             enriched_payload = enriched.model_dump(mode="json")
-            enriched_buckets.append(
-                StorageOpsBucketSummary(
-                    **enriched_payload,
-                    context_id=ref.context_id,
-                    context_name=ref.context_name,
-                    context_kind=ref.context_kind,
-                    endpoint_id=ref.endpoint_id,
-                    endpoint_name=ref.endpoint_name,
-                    bucket_name=enriched.name,
-                    bucket_identity=build_storage_ops_bucket_identity(ref.endpoint_id, enriched.tenant, enriched.name),
-                )
+            enriched_payload.update(
+                context_id=ref.context_id,
+                context_name=ref.context_name,
+                context_kind=ref.context_kind,
+                endpoint_id=ref.endpoint_id,
+                endpoint_name=ref.endpoint_name,
+                bucket_name=enriched.name,
+                bucket_identity=build_storage_ops_bucket_identity(ref.endpoint_id, enriched.tenant, enriched.name),
             )
+            enriched_buckets.append(StorageOpsBucketSummary.model_validate(enriched_payload))
         context_buckets = enriched_buckets
 
     context_buckets = apply_storage_ops_advanced_filter(

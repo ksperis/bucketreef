@@ -556,12 +556,7 @@ class _BucketEnricher:
             update["column_details"] = column_details
         if not update:
             return bucket
-        return BucketListingSummary(
-            **{
-                **bucket.model_dump(),
-                **update,
-            }
-        )
+        return type(bucket).model_validate({**bucket.model_dump(), **update})
 
 
 def enrich_buckets(

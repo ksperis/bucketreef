@@ -11,7 +11,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.db import S3Account, S3Connection, User, UserRole
-from app.models.bucket import Bucket, BucketEncryptionConfiguration, BucketLifecycleConfig, BucketNotificationConfiguration
+from app.models.bucket import Bucket, BucketEncryptionConfiguration, BucketFeatureStatus, BucketLifecycleConfig, BucketNotificationConfiguration
 from app.models.bucket_filter import BucketFilterQuery
 from app.models.bucket_listing import BucketListingSummary
 from app.models.execution_context import ExecutionContextCapabilities
@@ -20,6 +20,7 @@ from app.routers import dependencies
 from app.routers.storage_ops import buckets as storage_ops_router
 from app.services import storage_ops_bucket_listing_service as storage_ops_listing_service
 from app.services import storage_ops_bucket_filtering as storage_ops_filtering
+from app.services.bucket_listing_enrichment import _BucketEnricher
 from app.routers.storage_ops import summary as storage_ops_summary_router
 from app.services import app_settings_service, effective_access_service
 from app.services.connection_identity_service import ConnectionIdentityResolution
@@ -27,6 +28,32 @@ from app.services.listing_progress import ListingProgressSnapshot
 from app.services.s3_execution_context import S3ExecutionContext
 from app.main import app
 from tests.execution_context_factory import make_execution_context
+
+
+def test_feature_enrichment_preserves_storage_ops_context_fields():
+    bucket = StorageOpsBucketSummary(
+        name="example-bucket",
+        context_id="1",
+        context_name="example-account",
+        context_kind="account",
+        endpoint_id=7,
+        endpoint_name="example-endpoint",
+        bucket_name="example-bucket",
+        bucket_identity='[1,"","example-bucket"]',
+    )
+
+    enriched = _BucketEnricher._project_bucket(
+        bucket,
+        None,
+        {"versioning": BucketFeatureStatus(state="Enabled", tone="active")},
+        {},
+    )
+
+    assert isinstance(enriched, StorageOpsBucketSummary)
+    assert enriched.context_id == "1"
+    assert enriched.endpoint_name == "example-endpoint"
+    assert enriched.bucket_identity == bucket.bucket_identity
+    assert enriched.features["versioning"].state == "Enabled"
 
 
 class _CompositeConfigurationStub:
@@ -1223,19 +1250,10 @@ def test_storage_ops_applies_cheap_field_prefilter_before_feature_enrichment(cli
             tone = "active" if bucket.name == "alpha" else "inactive"
             state = "Enabled" if bucket.name == "alpha" else "Disabled"
             enriched.append(
-                BucketListingSummary(
-                    name=bucket.name,
-                    tenant=bucket.tenant,
-                    owner=bucket.owner,
-                    owner_name=bucket.owner_name,
-                    used_bytes=bucket.used_bytes,
-                    object_count=bucket.object_count,
-                    quota_max_size_bytes=bucket.quota_max_size_bytes,
-                    quota_max_objects=bucket.quota_max_objects,
-                    features={
-                        "versioning": {"state": state, "tone": tone},
-                    },
-                )
+                type(bucket).model_validate({
+                    **bucket.model_dump(),
+                    "features": {"versioning": {"state": state, "tone": tone}},
+                })
             )
         return enriched
 
