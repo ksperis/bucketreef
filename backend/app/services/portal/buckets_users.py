@@ -128,6 +128,28 @@ class PortalBucketsUsersMixin:
             )
         )
 
+    def delete_empty_bucket(
+        self,
+        access: "AccountAccess",
+        bucket_name: str,
+    ) -> bool:
+        account = access.account
+        access_key, secret_key = self._account_credentials(account)
+        deleted = s3_deletion.delete_empty_bucket(
+            bucket_name,
+            access_key=access_key,
+            secret_key=secret_key,
+            **self._s3_client_kwargs(account),
+        )
+        BucketUiTagsService(self.db).remove_all_namespaces_for_bucket(
+            PhysicalBucketTarget.create(
+                int(account.storage_endpoint_id),
+                resolve_storage_ops_context_tenant(account),
+                bucket_name,
+            )
+        )
+        return deleted
+
     def provision_portal_user(self, target: User, account: S3Account, portal_role: str) -> None:
         """Create/sync IAM user and group membership immediately when roles change."""
         if portal_role in {PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value}:

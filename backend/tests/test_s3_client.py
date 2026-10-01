@@ -3,6 +3,7 @@
 from botocore.exceptions import ClientError, ParamValidationError
 from botocore.parsers import ResponseParserError
 from concurrent.futures import ThreadPoolExecutor
+import pytest
 
 from app.services import (
     s3_bucket_access,
@@ -28,11 +29,56 @@ class FakeS3PublicAccessClient:
 
 def test_s3_deletion_owns_destructive_contracts_without_legacy_exports():
     assert s3_deletion.delete_bucket.__module__ == "app.services.s3_deletion"
+    assert s3_deletion.delete_empty_bucket.__module__ == "app.services.s3_deletion"
     assert s3_deletion.delete_objects.__module__ == "app.services.s3_deletion"
     assert s3_deletion.purge_bucket_contents.__module__ == "app.services.s3_deletion"
     assert not hasattr(s3_client, "delete_bucket")
+    assert not hasattr(s3_client, "delete_empty_bucket")
     assert not hasattr(s3_client, "delete_objects")
     assert not hasattr(s3_client, "purge_bucket_contents")
+
+
+def test_delete_empty_bucket_calls_delete_without_listing(monkeypatch):
+    class DeleteClient:
+        def __init__(self):
+            self.deleted = []
+
+        def list_objects_v2(self, **_kwargs):
+            pytest.fail("delete_empty_bucket must not inspect bucket contents")
+
+        def delete_bucket(self, **kwargs):
+            self.deleted.append(kwargs["Bucket"])
+
+    client = DeleteClient()
+    monkeypatch.setattr(s3_deletion, "get_s3_client", lambda *_args, **_kwargs: client)
+
+    assert s3_deletion.delete_empty_bucket("private-empty") is True
+    assert client.deleted == ["private-empty"]
+
+
+@pytest.mark.parametrize(
+    ("error_code", "expected"),
+    [
+        ("NoSuchBucket", False),
+        ("BucketNotEmpty", s3_deletion.BucketNotEmptyError),
+        ("AccessDenied", RuntimeError),
+    ],
+)
+def test_delete_empty_bucket_maps_provider_errors(monkeypatch, error_code, expected):
+    class DeleteClient:
+        def delete_bucket(self, **_kwargs):
+            raise ClientError(
+                {"Error": {"Code": error_code, "Message": error_code}},
+                "DeleteBucket",
+            )
+
+    monkeypatch.setattr(s3_deletion, "get_s3_client", lambda *_args, **_kwargs: DeleteClient())
+
+    if expected is False:
+        assert s3_deletion.delete_empty_bucket("private-empty") is False
+        return
+    with pytest.raises(expected):
+        s3_deletion.delete_empty_bucket("private-empty")
 
 
 def test_s3_bucket_replication_owns_replication_contracts_without_legacy_exports():
