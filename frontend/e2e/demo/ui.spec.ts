@@ -77,6 +77,46 @@ test("sidebar labels keep neutral shell colors in both themes", async ({ page })
   await expectNeutralSidebarColors();
 });
 
+test("demo coverage stays readable in both themes and viewport sizes", async ({ page }, info) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await open(page, "/manager");
+  for (const theme of ["light", "dark"]) {
+    if (theme === "dark") {
+      await page.getByRole("button", { name: "Toggle theme", exact: true }).click();
+      await expect(page.locator("html")).toHaveClass(/dark/);
+    }
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 960 });
+      await page.getByRole("button", { name: "Coverage & limits", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Demo coverage" });
+      await expect(dialog).toBeVisible();
+      const contrast = await dialog.evaluate(element => {
+        const luminance = (color: string) => {
+          const channels = color.match(/[\d.]+/g)!.slice(0, 3).map(value => {
+            const channel = Number(value) / 255;
+            return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+          });
+          return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+        };
+        const background = getComputedStyle(element).backgroundColor;
+        return [element, ...element.querySelectorAll("h2, p, th, td, button")].map(node => {
+          const style = getComputedStyle(node);
+          const foreground = luminance(style.color);
+          const surface = luminance(node.matches("th, button") ? style.backgroundColor : background);
+          return (Math.max(foreground, surface) + 0.05) / (Math.min(foreground, surface) + 0.05);
+        });
+      });
+      expect(Math.min(...contrast)).toBeGreaterThanOrEqual(4.5);
+      await expect(dialog.getByRole("cell", { name: "interactive", exact: true }).first()).toHaveCSS("white-space", "nowrap");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await dialog.getByRole("button", { name: "Close coverage", exact: true }).press("Control+Home");
+      await page.screenshot({ path: info.outputPath(`coverage-${theme}-${width}.png`), animations: "disabled" });
+      await dialog.getByRole("button", { name: "Close coverage", exact: true }).press("Escape");
+      await expect(dialog).toHaveCount(0);
+    }
+  }
+});
+
 test("workspaces UI: profiles, keyboard, mobile and both themes", async ({ page }, info) => {
   test.slow();
   const external: string[] = [];
