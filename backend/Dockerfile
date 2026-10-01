@@ -8,8 +8,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TMPDIR=/tmp
 
 COPY requirements.txt ./
+# Make Debian security metadata part of the BuildKit cache key so newly
+# published security fixes invalidate the cached OS-upgrade layer.
+ADD https://deb.debian.org/debian-security/dists/trixie-security/InRelease /tmp/debian-security-InRelease
 RUN apt-get update \
     && apt-get upgrade --yes \
+    && rm -f /tmp/debian-security-InRelease \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir -r requirements.txt \
     && pip uninstall --yes setuptools wheel
