@@ -157,6 +157,10 @@ export function createSeed(): DemoState {
     id: 201 + i, name, description: `${name} team · demo organisation`, user_details: users.filter(u => u.id % 6 === i),
     account_links: [], account_details: [], s3_user_details: [], s3_connection_details: [], created_at: at(90), updated_at: at(i),
   }));
+  const designGroupGrant = { account_id: accounts[0].id, manager_role: "account_administrator" as const, portal_role: null, allow_manager_browser_data_access: true };
+  groups[2].account_links = [designGroupGrant];
+  groups[2].account_details = [{ id: accounts[0].id, name: accounts[0].name, rgw_account_id: accounts[0].rgw_account_id }];
+  accounts[0].group_links = [{ ...designGroupGrant, group_id: groups[2].id, group_name: groups[2].name }];
   const buckets: DemoBucket[] = [];
   // Different account workloads, ordered as documents/media/reports/backups/logs/datasets.
   const objectCounts = [

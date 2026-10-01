@@ -21,12 +21,26 @@ export function textField(body: Record<string, unknown>, key: string): string {
   if (typeof value !== "string" || !value.trim()) throw new DemoError(422, `${key} is required`);
   return value.trim();
 }
-export function accountGrant(c: DemoRequest, account: S3Account, userId = c.user.id) {
-  const grants = [account.user_links.find(l => l.user_id === userId), ...account.group_links.filter(l => c.state.groups.some(g => g.id === l.group_id && g.user_details?.some(u => u.id === userId)))].filter(l => l !== undefined);
+export function resolveDemoAccountGrant(state: DemoState, account: S3Account, userId: number) {
+  const direct = account.user_links.find(link => link.user_id === userId);
+  const inherited = account.group_links.flatMap(link => {
+    const group = state.groups.find(candidate => candidate.id === link.group_id && candidate.user_details?.some(user => user.id === userId));
+    return group ? [{ kind: "group" as const, group, link }] : [];
+  });
+  const sources = [
+    ...(direct ? [{ kind: "direct" as const, link: direct }] : []),
+    ...inherited,
+  ];
+  const grants = sources.map(source => source.link);
   return {
     manager_role: grants.some(l => l.manager_role === "account_administrator") ? "account_administrator" as const : null,
     portal_role: grants.some(l => l.portal_role === "portal_manager") ? "portal_manager" as const : grants.some(l => l.portal_role === "portal_user") ? "portal_user" as const : null,
+    sources,
   };
+}
+export function accountGrant(c: DemoRequest, account: S3Account, userId = c.user.id) {
+  const { manager_role, portal_role } = resolveDemoAccountGrant(c.state, account, userId);
+  return { manager_role, portal_role };
 }
 export function spaceRole(c: DemoRequest, space: DemoSpace) {
   const account = required(c.state.accounts.find(a => a.id === space.accountId));
