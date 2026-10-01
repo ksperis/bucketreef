@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import S3ConnectionsPage from "./S3ConnectionsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
@@ -45,6 +46,12 @@ const makeConnection = (id: number, overrides?: Partial<Record<string, unknown>>
   ...overrides,
 });
 
+const renderPage = () => render(
+  <MemoryRouter>
+    <S3ConnectionsPage />
+  </MemoryRouter>
+);
+
 describe("S3ConnectionsPage live validation", () => {
   beforeEach(() => {
     listAdminS3ConnectionsMock.mockResolvedValue({
@@ -75,7 +82,7 @@ describe("S3ConnectionsPage live validation", () => {
   });
 
   it("shows validation error without disabling Create", async () => {
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByRole("button", { name: "Add connection" });
 
     fireEvent.click(screen.getByRole("button", { name: "Add connection" }));
@@ -121,7 +128,7 @@ describe("S3ConnectionsPage live validation", () => {
       has_next: false,
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-1");
 
     fireEvent.click(screen.getByLabelText("Select connection connection-1"));
@@ -144,7 +151,7 @@ describe("S3ConnectionsPage live validation", () => {
       has_next: false,
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-1");
 
     fireEvent.click(screen.getByLabelText("Select connection connection-1"));
@@ -187,7 +194,7 @@ describe("S3ConnectionsPage live validation", () => {
       });
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-1");
 
     fireEvent.click(screen.getByLabelText("Select all filtered connections"));
@@ -222,7 +229,7 @@ describe("S3ConnectionsPage live validation", () => {
       });
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-1");
 
     fireEvent.click(screen.getByLabelText("Select connection connection-1"));
@@ -243,7 +250,7 @@ describe("S3ConnectionsPage live validation", () => {
       has_next: false,
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-1");
 
     fireEvent.click(screen.getByLabelText("Select connection connection-1"));
@@ -276,7 +283,7 @@ describe("S3ConnectionsPage live validation", () => {
       });
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-tagged");
     await screen.findByText("connection-plain");
 
@@ -323,7 +330,7 @@ describe("S3ConnectionsPage live validation", () => {
       });
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-tagged");
 
     fireEvent.change(screen.getByLabelText("Search"), {
