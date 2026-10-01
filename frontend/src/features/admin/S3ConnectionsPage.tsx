@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActions, ListBadge, ListActionButton, ListSelectionCheckbox } from "../../components/list/ListControls";
+import { ListActions, ListBadge, ListActionButton, ListActionLink, ListSelectionCheckbox } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   isRecentWebAuthnVerificationCancelled,
@@ -46,7 +46,6 @@ import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textM
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
-import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import S3ConnectionIdentityFields from "../shared/S3ConnectionIdentityFields";
 import { useS3ConnectionFormValidation } from "../shared/useS3ConnectionFormValidation";
@@ -68,7 +67,7 @@ import {
   type S3ConnectionEndpointMode,
 } from "../shared/s3ConnectionFormModel";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
-import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
+import { buildAccessAuditHref } from "./accessAuditLink";
 
 const credentialOwnerTypeOptions = [
   { value: "", label: "(none)" },
@@ -76,7 +75,7 @@ const credentialOwnerTypeOptions = [
   { value: "account_user", label: "Account user" },
   { value: "s3_user", label: "S3 user" },
 ];
-type EditTab = "general" | "users" | "groups" | "effective_access";
+type EditTab = "general" | "users" | "groups";
 
 function getConnectionSearchCandidates(connection: S3ConnectionAdminItem): Array<string | number | null | undefined> {
   return [
@@ -922,7 +921,7 @@ export default function S3ConnectionsPage() {
       label: "Actions",
       align: "right",
       mobileRole: "actions",
-      cellClassName: "min-w-[260px]",
+      cellClassName: "min-w-[344px]",
       render: (connection) => {
         const remediationRequired = connection.execution_status === "remediation_required";
         const isActive = connection.is_active !== false;
@@ -954,6 +953,12 @@ export default function S3ConnectionsPage() {
             >
               Edit
             </ListActionButton>
+            <ListActionLink to={buildAccessAuditHref({
+              scope: "s3_connection",
+              targetId: connection.id,
+            })}>
+              Review access
+            </ListActionLink>
             <ListActionButton
               type="button"
                variant="danger"
@@ -1133,8 +1138,7 @@ export default function S3ConnectionsPage() {
             </UiInlineMessage>
           )}
           <SettingsForm label="Edit shared S3 connection" onSubmit={submitEdit} busy={editBusy}
-            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
-            actions={editTab === "effective_access" ? <SettingsButton variant="secondary" onClick={editCloseGuard.requestClose}>Done</SettingsButton> : undefined}>
+            onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving...">
             <WorkflowTabs<EditTab>
               panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
               activeTab={editTab}
@@ -1145,7 +1149,6 @@ export default function S3ConnectionsPage() {
                 { id: "general", label: "General" },
                 { id: "users", label: "Linked UI users" },
                 { id: "groups", label: "Linked UI groups" },
-                { id: "effective_access", label: "Effective access" },
               ]}
             >
 
@@ -1377,12 +1380,6 @@ export default function S3ConnectionsPage() {
                   </AdminAssociationPickerPanel>
                 )}
               </div>
-            )}
-            {editTab === "effective_access" && (
-              <AdminEffectiveAccessPanel
-                scope="s3_connection"
-                targetId={editing.id}
-              />
             )}
             </WorkflowTabs>
 

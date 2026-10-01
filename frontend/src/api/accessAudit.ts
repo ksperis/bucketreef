@@ -66,6 +66,7 @@ type AccessAuditQuery = {
   right?: AccessAuditRightCode;
   source?: AccessAuditSourceKind;
   user_id?: number;
+  group_id?: number;
   target_id?: number;
   sort_by?: AccessAuditSortBy;
   sort_dir?: AccessAuditSortDir;

@@ -70,7 +70,15 @@ export function readModels(c: DemoRequest): Response | undefined {
   if (path === "/admin/navigation/pending-requests") return json({ identity_link_requests: 0, portal_requests: state.requests.filter(r => r.status === "pending").length });
   if (path === "/admin/audit/logs") return json({ logs: state.history.slice(-20).reverse().map((p, i) => ({ id: 800 - i, created_at: p.timestamp, user_email: state.users[i % 5].email, user_role: "ui_admin", scope: i % 2 ? "manager" : "admin", action: i % 2 ? "put_bucket_lifecycle" : "account.link_user", entity_type: i % 2 ? "bucket" : "account", entity_id: i % 2 ? "helios-documents" : "Helios Retail", account_id: 101, account_name: "Helios Retail", status: "success", message: "Historical demo activity", metadata: {} })), next_cursor: null });
   if (path === "/admin/access-audit" || path === "/admin/access-audit/export.csv") {
-    const rows = state.accounts.flatMap(a => a.user_links.map(l => ({ key: `${a.id}-${l.user_id}`, principal: { ...required(state.users.find(u => u.id === l.user_id)), is_active: true }, scope: "rgw_account", target: { id: a.id, name: a.name, identifier: a.rgw_account_id }, rights: [l.manager_role, l.portal_role].filter(Boolean).map(code => ({ code, label: code === "account_administrator" ? "Account administrator" : code === "portal_manager" ? "Portal manager" : "Portal member", sources: [{ kind: "direct" }] })) })));
+    let rows = state.accounts.flatMap(a => a.user_links.map(l => ({ key: `${a.id}-${l.user_id}`, principal: { ...required(state.users.find(u => u.id === l.user_id)), is_active: true }, scope: "rgw_account", target: { id: a.id, name: a.name, identifier: a.rgw_account_id }, rights: [l.manager_role, l.portal_role].filter(Boolean).map(code => ({ code, label: code === "account_administrator" ? "Account administrator" : code === "portal_manager" ? "Portal manager" : "Portal member", sources: [{ kind: "direct" }] })) })));
+    const userId = Number(c.url.searchParams.get("user_id") || 0);
+    const groupId = Number(c.url.searchParams.get("group_id") || 0);
+    const targetId = Number(c.url.searchParams.get("target_id") || 0);
+    const scope = c.url.searchParams.get("scope");
+    if (userId) rows = rows.filter(row => row.principal.id === userId);
+    if (groupId) rows = rows.filter(row => row.rights.some(right => right.sources.some(source => "group_id" in source && source.group_id === groupId)));
+    if (targetId) rows = rows.filter(row => row.target.id === targetId);
+    if (scope) rows = rows.filter(row => row.scope === scope);
     if (path.endsWith(".csv")) return new Response("User,Account,Rights\n" + rows.map(r => [r.principal.email, r.target.name, r.rights.map(v => v.label).join("; ")].map(v => JSON.stringify(v)).join(",")).join("\n"), { headers: { "Content-Type": "text/csv" } });
     return json(page(rows, c.url));
   }

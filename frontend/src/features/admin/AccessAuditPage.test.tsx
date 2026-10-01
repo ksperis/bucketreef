@@ -67,12 +67,13 @@ describe("AccessAuditPage", () => {
 
   it("loads URL filters, renders provenance in the rights tooltip, and exports the same filtered view", async () => {
     render(
-      <MemoryRouter initialEntries={["/admin/access-audit?scope=platform&source=group"]}>
+      <MemoryRouter initialEntries={["/admin/access-audit?scope=platform&source=group&group_id=8"]}>
         <AccessAuditPage />
       </MemoryRouter>,
     );
 
     expect(await screen.findByText("Example User")).toBeInTheDocument();
+    expect(screen.getByText("Context filter: UI Group: Storage admins")).toBeInTheDocument();
     expect(screen.queryByText("Granted via")).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /Scope/ })).toHaveClass("w-px", "whitespace-nowrap");
     expect(screen.getByText("Platform", { selector: ".ui-badge-base" }).closest("td")).toHaveClass(
@@ -97,6 +98,7 @@ describe("AccessAuditPage", () => {
     await waitFor(() => expect(listAccessAuditMock).toHaveBeenCalledWith(expect.objectContaining({
       scope: "platform",
       source: "group",
+      group_id: 8,
       page: 1,
       page_size: 25,
     })));
@@ -105,6 +107,7 @@ describe("AccessAuditPage", () => {
     await waitFor(() => expect(listAccessAuditMock).toHaveBeenLastCalledWith(expect.objectContaining({
       scope: "platform",
       source: "group",
+      group_id: 8,
       right: "manager_bucket_compare",
       page: 1,
     })));
@@ -113,6 +116,7 @@ describe("AccessAuditPage", () => {
     await waitFor(() => expect(downloadAccessAuditCsvMock).toHaveBeenCalledWith(expect.objectContaining({
       scope: "platform",
       source: "group",
+      group_id: 8,
       right: "manager_bucket_compare",
     })));
     expect(triggerBlobDownloadMock).toHaveBeenCalledWith("access-audit.csv", expect.any(Blob));

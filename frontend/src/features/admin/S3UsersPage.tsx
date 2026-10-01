@@ -70,10 +70,10 @@ import AdminQuotaFields from "./AdminQuotaFields";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 import { AssociationPrincipalStack, type AssociationPrincipalItem } from "./AssociationSummary";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
-import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
+import { buildAccessAuditHref } from "./accessAuditLink";
 
 type SortField = "name" | "uid";
-type EditTab = "general" | "users" | "groups" | "privileged" | "effective_access";
+type EditTab = "general" | "users" | "groups" | "privileged";
 
 function getS3UserSearchCandidates(user: S3User): Array<string | number | null | undefined> {
   return [
@@ -765,7 +765,7 @@ export default function S3UsersPage() {
       label: "Actions",
       align: "right",
       mobileRole: "actions",
-      cellClassName: "min-w-[176px]",
+      cellClassName: "min-w-[272px]",
       render: (user) => {
         const deleteBusy = deleteBusyId === user.id;
         return (
@@ -778,6 +778,12 @@ export default function S3UsersPage() {
             >
               Edit
             </ListActionButton>
+            <ListActionLink to={buildAccessAuditHref({
+              scope: "rgw_user",
+              targetId: user.id,
+            })}>
+              Review access
+            </ListActionLink>
             <ListActionLink to={`/admin/s3-users/${user.id}/keys`}>
               Keys
             </ListActionLink>
@@ -986,10 +992,8 @@ export default function S3UsersPage() {
                 { id: "users", label: "Linked UI users" },
                 { id: "groups", label: "Linked UI groups" },
                 { id: "privileged", label: "Privileged access", visible: canManagePrivilegedTargets },
-                { id: "effective_access", label: "Effective access" },
               ].map((item) => ({ ...item, id: item.id as EditTab, disabled: editBusy }))}
             >
-            {editTab !== "effective_access" && (
               <SettingsForm
                 label="Edit RGW user"
                 busy={editBusy}
@@ -1364,13 +1368,6 @@ export default function S3UsersPage() {
               />
             )}
               </SettingsForm>
-            )}
-            {editTab === "effective_access" && (
-              <AdminEffectiveAccessPanel
-                scope="rgw_user"
-                targetId={editingUser.id}
-              />
-            )}
           </WorkflowTabs>
           {editCloseGuard.confirmationDialog}
         </WorkflowPage>

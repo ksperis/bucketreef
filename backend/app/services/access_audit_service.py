@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.db import ManagerAccountRole, S3Account, S3Connection, S3User, User
+from app.db import ManagerAccountRole, S3Account, S3Connection, S3User, User, UserUiGroup
 from app.models.access_audit import (
     AccessAuditGrantSource,
     AccessAuditPrincipal,
@@ -60,6 +60,7 @@ class AccessAuditFilters:
     right: AccessAuditRightCode | None = None
     source: AccessAuditSourceKind | None = None
     user_id: int | None = None
+    group_id: int | None = None
     target_id: int | None = None
     sort_by: str = "user"
     sort_dir: str = "asc"
@@ -321,6 +322,12 @@ class AccessAuditService:
             return False
         if filters.user_id is not None and row.principal.id != filters.user_id:
             return False
+        if filters.group_id is not None and not any(
+            source.kind == "group" and source.group_id == filters.group_id
+            for right in row.rights
+            for source in right.sources
+        ):
+            return False
         if filters.target_id is not None and row.target.id != filters.target_id:
             return False
         if filters.right is not None and not any(right.code == filters.right for right in row.rights):
@@ -352,6 +359,10 @@ class AccessAuditService:
         query = self.db.query(User)
         if filters.user_id is not None:
             query = query.filter(User.id == filters.user_id)
+        if filters.group_id is not None:
+            query = query.join(UserUiGroup, UserUiGroup.user_id == User.id).filter(
+                UserUiGroup.group_id == filters.group_id
+            )
         users = query.order_by(User.email.asc(), User.id.asc()).all()
         rows = [row for row in self._build_rows(users) if self._matches_filters(row, filters)]
         return self._sort_rows(rows, filters.sort_by, filters.sort_dir)

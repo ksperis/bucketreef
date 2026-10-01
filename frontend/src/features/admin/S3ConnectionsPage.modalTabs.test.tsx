@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import S3ConnectionsPage from "./S3ConnectionsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
@@ -13,7 +14,6 @@ const listMinimalUsersMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
 const listStorageEndpointsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
-const effectiveAccessPanelMountedMock = vi.fn();
 
 function expectBefore(first: Element, second: Element) {
   expect(Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
@@ -59,13 +59,6 @@ vi.mock("../../api/tags", () => ({
   listPrivateConnectionTagDefinitions: vi.fn(),
 }));
 
-vi.mock("./AdminEffectiveAccessPanel", () => ({
-  default: (props: unknown) => {
-    effectiveAccessPanelMountedMock(props);
-    return <div>Effective access panel</div>;
-  },
-}));
-
 const makeConnection = (id: number, overrides?: Partial<Record<string, unknown>>) => ({
   id,
   name: `connection-${id}`,
@@ -79,6 +72,10 @@ const makeConnection = (id: number, overrides?: Partial<Record<string, unknown>>
   user_details: [{ id: 11, email: "u11@example.com", role: "ui_user" }],
   ...overrides,
 });
+
+function renderPage() {
+  return render(<MemoryRouter><S3ConnectionsPage /></MemoryRouter>);
+}
 
 describe("S3ConnectionsPage modal tabs", () => {
   beforeEach(() => {
@@ -124,7 +121,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   });
 
   it("returns to General and focuses an invalid field from an association tab", async () => {
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Endpoint URL"), { target: { value: "invalid-url" } });
@@ -141,7 +138,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   it("freezes the shared draft and association tabs until an identical retry completes", async () => {
     let reject!: (error: Error) => void;
     updateAdminS3ConnectionMock.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const form = screen.getByRole("form", { name: "Edit shared S3 connection" });
@@ -175,7 +172,7 @@ describe("S3ConnectionsPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     expect(await screen.findByRole("columnheader", { name: "UI Users / Groups" })).toBeInTheDocument();
     const table = screen.getByRole("table");
@@ -209,7 +206,7 @@ describe("S3ConnectionsPage modal tabs", () => {
       page_size: 25,
       has_next: false,
     });
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Activate in Manager" }));
 
@@ -221,7 +218,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   });
 
   it("keeps linked UI user selections across tabs and submits user_ids", async () => {
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -275,22 +272,16 @@ describe("S3ConnectionsPage modal tabs", () => {
     );
   });
 
-  it("loads Effective access only when the shared connection tab is opened", async () => {
-    render(<S3ConnectionsPage />);
-    await screen.findByText("connection-1");
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(effectiveAccessPanelMountedMock).not.toHaveBeenCalled();
-
-    fireEvent.click(await screen.findByRole("tab", { name: "Effective access" }));
-    expect(await screen.findByText("Effective access panel")).toBeInTheDocument();
-    expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
-      scope: "s3_connection",
-      targetId: 1,
-    }));
+  it("links each shared connection to its filtered access review", async () => {
+    renderPage();
+    expect(await screen.findByRole("link", { name: "Review access" })).toHaveAttribute(
+      "href",
+      "/admin/access-audit?scope=s3_connection&target_id=1",
+    );
   });
 
   it("updates metadata and credentials through one Admin request", async () => {
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -323,7 +314,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   });
 
   it("keeps linked UI group selections across tabs and submits group_ids", async () => {
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -354,7 +345,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   });
 
   it("keeps users tab actions enabled for shared-only admin connections", async () => {
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -380,7 +371,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   });
 
   it("resets edit tab and add-user panel when closing then reopening", async () => {
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -401,7 +392,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   });
 
   it("creates a shared connection with tags", async () => {
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Add connection" }));
     await screen.findByRole("heading", { name: "Add S3 connection" });
@@ -474,7 +465,7 @@ describe("S3ConnectionsPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<S3ConnectionsPage />);
+    renderPage();
 
     await screen.findByText("connection-7");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -487,7 +478,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   });
   it("keeps single-deletion failures in a protected confirmation", async () => {
     deleteAdminS3ConnectionMock.mockRejectedValueOnce(new Error("Connection is in use"));
-    render(<S3ConnectionsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
     const dialog = within(screen.getByRole("dialog", { name: "Delete: connection-1" }));
     expect(deleteAdminS3ConnectionMock).not.toHaveBeenCalled();
@@ -511,7 +502,7 @@ describe("S3ConnectionsPage modal tabs", () => {
   it("retains only failed connections for an explicitly confirmed bulk retry", async () => {
     listAdminS3ConnectionsMock.mockResolvedValue({ items: [makeConnection(1), makeConnection(2)], total: 2, page: 1, page_size: 25, has_next: false });
     deleteAdminS3ConnectionMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Denied"));
-    render(<S3ConnectionsPage />);
+    renderPage();
     await screen.findByText("connection-2");
     fireEvent.click(screen.getByRole("checkbox", { name: "Select connection connection-1" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select connection connection-2" }));

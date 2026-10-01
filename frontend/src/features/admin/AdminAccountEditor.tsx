@@ -29,9 +29,8 @@ import AdminQuotaFields from "./AdminQuotaFields";
 import { adminQuotaErrors } from "./useAdminRgwFormValidation";
 import { adminAccountForm, adminAccountPayload, accountQuotaChanged, type AdminAccountForm } from "./adminAccountForm";
 import AdminAccountAssociations, { accountUserAssociations, accountGroupAssociations } from "./AdminAccountAssociations";
-import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
 
-type EditTab = "general" | "users" | "groups" | "privileged" | "portal" | "effective_access";
+type EditTab = "general" | "users" | "groups" | "privileged" | "portal";
 type EditorState = { dirty: boolean; busy: boolean };
 type Props = {
   account: S3Account | S3AccountSummary;
@@ -138,10 +137,9 @@ function LoadedAccountEditor({ account, portalEnabled, canManagePrivilegedTarget
       <WorkflowTabs<EditTab> activeTab={tab} onTabChange={next => { if (!controller.locked) setTab(next); }}
         ariaLabel="RGW account configuration sections" idPrefix="admin-rgw-account-edit" panelClassName="mt-3 min-w-0"
         tabs={[{ id: "general", label: "General" }, { id: "users", label: "Linked UI users" }, { id: "groups", label: "Linked UI groups" },
-          { id: "privileged", label: "Privileged access", visible: canManagePrivilegedTargets }, { id: "portal", label: "Portal settings", visible: portalEnabled },
-          { id: "effective_access", label: "Effective access" }]
+          { id: "privileged", label: "Privileged access", visible: canManagePrivilegedTargets }, { id: "portal", label: "Portal settings", visible: portalEnabled }]
           .map(item => ({ ...item, id: item.id as EditTab, disabled: controller.locked }))}>
-        <div hidden={tab === "portal" || tab === "effective_access"}>
+        <div hidden={tab === "portal"}>
           <SettingsForm label="Edit RGW account" formRef={formRef} onSubmit={controller.submit} busy={controller.locked}
             submitDisabled={!form.dirty && !userPending && !groupPending} onCancel={controller.requestClose} submitLabel="Save changes" busyLabel="Saving...">
             {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
@@ -214,8 +212,6 @@ function LoadedAccountEditor({ account, portalEnabled, canManagePrivilegedTarget
           <ProjectSettingsEditor accountId={String(account.id)} projectName={account.name} adapter={portalAdapter} admin navigationGuard={false}
             disabled={controller.locked} onDirtyChange={setPortalDirty} onBusyChange={setPortalBusy} />
         </div>}
-        {tab === "effective_access" && <AdminEffectiveAccessPanel
-          scope="rgw_account" targetId={account.id} />}
       </WorkflowTabs>
     </WorkflowPage>
     {controller.confirmationDialog}

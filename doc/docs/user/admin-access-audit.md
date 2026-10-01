@@ -32,13 +32,17 @@ not limit the export.
 
 ## Reviewing one resource
 
-The edit pages for **UI Users**, **RGW Accounts**, **RGW Users**, and **Shared S3
-Connections** include a read-only **Effective access** tab. It shows the saved
-effective permissions for the current user or resource and links back to the
-global Access audit with the corresponding context filters applied.
+Use **Review access** from the **UI Users**, **UI Groups**, **RGW Accounts**,
+**RGW Users**, or **Shared S3 Connections** list. BucketReef opens this audit
+directly with the corresponding context filter applied.
 
-The tab reflects persisted state. Save pending association or permission
-changes before using it to verify the resulting access.
+For a UI Group, the filtered inventory contains rows where that group
+contributes to at least one effective right. Each matching row still shows its
+complete effective-right summary so direct grants and contributions from other
+groups remain visible in context.
+
+The audit reflects persisted state. Save pending association or permission
+changes before using **Review access** to verify the resulting access.
 
 ## Visual example
 
