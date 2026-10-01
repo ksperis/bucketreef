@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import UsersPage from "./UsersPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { ApiError } from "../../api/client";
@@ -12,7 +13,6 @@ const deleteUserMock = vi.fn();
 const beginRecentWebAuthnVerificationMock = vi.fn();
 const finishRecentWebAuthnVerificationMock = vi.fn();
 const authenticatePasskeyMock = vi.fn();
-const effectiveAccessPanelMountedMock = vi.fn();
 
 const listMinimalS3AccountsMock = vi.fn();
 const listMinimalS3UsersMock = vi.fn();
@@ -95,12 +95,9 @@ vi.mock("./UserAuthenticationPanel", () => ({
   </div>,
 }));
 
-vi.mock("./AdminEffectiveAccessPanel", () => ({
-  default: (props: unknown) => {
-    effectiveAccessPanelMountedMock(props);
-    return <div>Effective access panel</div>;
-  },
-}));
+function renderPage() {
+  return render(<MemoryRouter><UsersPage /></MemoryRouter>);
+}
 
 describe("UsersPage modal tabs", () => {
   beforeEach(() => {
@@ -191,7 +188,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
 
     expect(
       await screen.findByRole("heading", { name: "Edit user" }, { timeout: 5_000 }),
@@ -260,7 +257,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
 
     const associations = await screen.findByLabelText("3 linked associations");
     expect(associations).toHaveAccessibleDescription(
@@ -296,7 +293,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
 
     const table = await screen.findByRole("table");
     expect(screen.getByRole("columnheader", { name: "User" })).toHaveAttribute(
@@ -365,7 +362,7 @@ describe("UsersPage modal tabs", () => {
         has_next: false,
       });
 
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.change(await screen.findByLabelText("Search"), {
       target: { value: "missing" },
@@ -378,7 +375,7 @@ describe("UsersPage modal tabs", () => {
   it("clears a failed creation error when the create workflow is cancelled", async () => {
     createUserMock.mockRejectedValue(new Error("Password must be at least 12 characters long"));
 
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     fireEvent.change(screen.getByLabelText("Email"), {
@@ -416,7 +413,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
 
     const associations = await screen.findByLabelText("1 linked association");
     expect(associations).toHaveAccessibleDescription(
@@ -482,7 +479,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
 
@@ -535,7 +532,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
     const managerRoleSelect = screen.getByRole("combobox", {
@@ -548,7 +545,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("keeps associations when switching General/Associations and submits linked payload", async () => {
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     expect(
@@ -625,7 +622,7 @@ describe("UsersPage modal tabs", () => {
     updateUserMock
       .mockRejectedValueOnce(recentWebAuthnRequiredError())
       .mockResolvedValueOnce({ id: 100 });
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "step-up@example.com" } });
@@ -652,7 +649,7 @@ describe("UsersPage modal tabs", () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     listMinimalS3AccountsMock.mockRejectedValue(new Error("backend down"));
 
-    render(<UsersPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(1);
@@ -669,7 +666,7 @@ describe("UsersPage modal tabs", () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     listMinimalS3AccountsMock.mockRejectedValue(new Error("backend down"));
 
-    render(<UsersPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(1);
@@ -702,7 +699,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("returns to General when required fields are missing and submit is triggered from Associations", async () => {
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
@@ -714,7 +711,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("shows Platform access and keeps platform permissions out of General in create modal", async () => {
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
@@ -741,7 +738,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("shows Groups tab in create modal and sends group_ids in create payload", async () => {
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "grouped@example.com" } });
@@ -780,7 +777,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Groups" }));
 
@@ -817,7 +814,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
 
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
@@ -826,7 +823,6 @@ describe("UsersPage modal tabs", () => {
       "Groups",
       "Associations",
       "Platform access",
-      "Effective access",
     ]);
     expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
@@ -843,7 +839,7 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
   });
 
-  it("loads Effective access only when the edit tab is opened", async () => {
+  it("links the UI user listing to its filtered access review", async () => {
     listUsersMock.mockResolvedValue({
       items: [{ id: 9, email: "audit.user@example.com", full_name: "Audit User", role: "ui_user", account_links: [] }],
       total: 1,
@@ -852,16 +848,11 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    expect(effectiveAccessPanelMountedMock).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("tab", { name: "Effective access" }));
-    expect(await screen.findByText("Effective access panel")).toBeInTheDocument();
-    expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
-      userId: 9,
-      showUserColumn: false,
-    }));
+    render(<MemoryRouter><UsersPage /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: "Review access" })).toHaveAttribute(
+      "href",
+      "/admin/access-audit?user_id=9",
+    );
   });
 
   it("uses a single Done action for the immediate Authentication workflow", async () => {
@@ -880,7 +871,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Security" }));
 
@@ -925,7 +916,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     expect(screen.getByRole("tab", { name: "Platform access" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
@@ -995,7 +986,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
 
@@ -1017,7 +1008,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("keeps role access note hidden by default in create modal and shows it on help button click", async () => {
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
 
@@ -1047,7 +1038,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
 
@@ -1062,7 +1053,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("shows Storage Ops access in create modal and sends it in create payload", async () => {
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
 
@@ -1089,7 +1080,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("shows Browser options in create modal and sends advanced Browser access", async () => {
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "browser@example.com" } });
@@ -1114,7 +1105,7 @@ describe("UsersPage modal tabs", () => {
 
   it("allows choosing Manager and Portal roles independently while linking an account", async () => {
     generalSettingsState.portal_enabled = true;
-    render(<UsersPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "pm@example.com" } });
@@ -1187,7 +1178,7 @@ describe("UsersPage modal tabs", () => {
     const save = editing ? updateUserMock : createUserMock;
     let rejectSave!: (error: Error) => void;
     save.mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
-    render(<UsersPage />);
+    renderPage();
     const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create user", exact: true });
     await act(async () => { fireEvent.click(trigger); });
     const form = screen.getByRole("form", { name: editing ? "Edit UI user" : "Create UI user" });
@@ -1210,7 +1201,7 @@ describe("UsersPage modal tabs", () => {
 
   it.each([false, true])("returns to the invalid email from another tab (edit=%s)", async (editing) => {
     listUsersMock.mockResolvedValue({ items: [{ id: 12, email: "draft@example.com", role: "ui_user" }], total: 1, page: 1, page_size: 25 });
-    render(<UsersPage />);
+    renderPage();
     const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create user", exact: true });
     await act(async () => { fireEvent.click(trigger); });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "invalid-email" } });

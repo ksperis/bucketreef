@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import TableSortControls from "../../components/list/TableSortControls";
-import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
+import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateUserPayload,
@@ -88,9 +88,9 @@ import type { AccountSelection } from "./UserAccountAssociationsPanel";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
-import AdminEffectiveAccessPanel from "./AdminEffectiveAccessPanel";
+import { buildAccessAuditHref } from "./accessAuditLink";
 
-type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access" | "effective_access";
+type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
 type AuxiliaryLoadState = "idle" | "loading" | "loaded" | "error";
 
 const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
@@ -103,7 +103,6 @@ const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
   { id: "general", label: profileMessages.preferencesTab.en },
   { id: "authentication", label: profileMessages.security.en },
   ...userWorkflowTabs.filter((tab) => tab.id !== "general"),
-  { id: "effective_access", label: "Effective access" },
 ];
 
 const adminProfileText: ProfileText = (key) => profileMessages[key].en;
@@ -1214,6 +1213,7 @@ export default function UsersPage() {
       align: "right",
       field: null,
       mobileRole: "actions",
+      cellClassName: "min-w-[220px]",
       render: (user) => {
         const isCurrentUser = currentUserId !== null && user.id === currentUserId;
         const canManage = currentIsSuperAdmin || (user.role !== "ui_admin" && user.role !== "ui_superadmin");
@@ -1227,6 +1227,9 @@ export default function UsersPage() {
             >
               Edit
             </ListActionButton>
+            <ListActionLink to={buildAccessAuditHref({ userId: user.id })}>
+              Review access
+            </ListActionLink>
             <ListActionButton
               type="button"
               onClick={() => handleDeleteRequest(user)}
@@ -1587,7 +1590,7 @@ export default function UsersPage() {
           )}
           <SettingsForm label="Edit UI user" busy={busyId === editingUser.id || avatarBusy} onSubmit={submitEdit}
             onCancel={editCloseGuard.requestClose} submitLabel="Save" busyLabel="Saving..."
-            actions={editModalTab === "authentication" || editModalTab === "effective_access" ? (
+            actions={editModalTab === "authentication" ? (
               <SettingsButton variant="secondary" disabled={authenticationBusy} onClick={editCloseGuard.requestClose}>Done</SettingsButton>
             ) : undefined}>
             <WorkflowTabs<UserModalTab>
@@ -1834,12 +1837,6 @@ export default function UsersPage() {
               />
             )}
 
-            {editModalTab === "effective_access" && (
-              <AdminEffectiveAccessPanel
-                userId={editingUser.id}
-                showUserColumn={false}
-              />
-            )}
             </WorkflowTabs>
 
           </SettingsForm>

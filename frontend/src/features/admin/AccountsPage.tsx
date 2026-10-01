@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import TableSortControls from "../../components/list/TableSortControls";
-import { ListActions, ListActionButton } from "../../components/list/ListControls";
+import { ListActions, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   S3Account,
@@ -53,6 +53,7 @@ import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { buildAccessAuditHref } from "./accessAuditLink";
 
 type SortField = "name" | "rgw_account_id";
 export default function S3AccountsPage() {
@@ -395,7 +396,7 @@ export default function S3AccountsPage() {
       label: "Actions",
       align: "right",
       mobileRole: "actions",
-      cellClassName: "min-w-[144px]",
+      cellClassName: "min-w-[232px]",
       render: (account) => {
         const deleteBusy = deletingS3AccountId === account.id;
         return isSuperAdmin ? (
@@ -408,6 +409,12 @@ export default function S3AccountsPage() {
             >
               Edit
             </ListActionButton>
+            <ListActionLink to={buildAccessAuditHref({
+              scope: "rgw_account",
+              targetId: account.id,
+            })}>
+              Review access
+            </ListActionLink>
             <ListActionButton
               type="button"
               onClick={() => openDeleteS3AccountModal(account)}

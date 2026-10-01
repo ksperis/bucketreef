@@ -45,6 +45,7 @@ export default function AccessAuditPage() {
   const [right, setRight] = useState<AllOr<AccessAuditRightCode>>(initialRight && ACCESS_AUDIT_RIGHTS.some((item) => item.value === initialRight) ? initialRight : "all");
   const [source, setSource] = useState<AllOr<AccessAuditSourceKind>>(initialSource === "direct" || initialSource === "group" ? initialSource : "all");
   const [userId, setUserId] = useState<number | undefined>(() => positiveInt(searchParams.get("user_id")));
+  const [groupId, setGroupId] = useState<number | undefined>(() => positiveInt(searchParams.get("group_id")));
   const [targetId, setTargetId] = useState<number | undefined>(() => positiveInt(searchParams.get("target_id")));
   const [sortBy, setSortBy] = useState<AccessAuditSortBy>("user");
   const [sortDir, setSortDir] = useState<AccessAuditSortDir>("asc");
@@ -62,10 +63,11 @@ export default function AccessAuditPage() {
     right: right === "all" ? undefined : right,
     source: source === "all" ? undefined : source,
     user_id: userId,
+    group_id: groupId,
     target_id: targetId,
     sort_by: sortBy,
     sort_dir: sortDir,
-  }), [right, scope, search, sortBy, sortDir, source, targetId, userId]);
+  }), [groupId, right, scope, search, sortBy, sortDir, source, targetId, userId]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -74,6 +76,7 @@ export default function AccessAuditPage() {
     if (query.right) params.set("right", query.right);
     if (query.source) params.set("source", query.source);
     if (query.user_id) params.set("user_id", String(query.user_id));
+    if (query.group_id) params.set("group_id", String(query.group_id));
     if (query.target_id) params.set("target_id", String(query.target_id));
     setSearchParams(params, { replace: true });
   }, [query, setSearchParams]);
@@ -121,9 +124,31 @@ export default function AccessAuditPage() {
     }
   }
 
-  const hasContextFilter = userId != null || targetId != null;
+  const hasContextFilter = userId != null || groupId != null || targetId != null;
   const status = resolveListTableStatus({ loading, error, rowCount: rows.length });
   const hasActiveFilters = Boolean(query.search || query.scope || query.right || query.source || hasContextFilter);
+  const contextLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (userId != null) {
+      const principal = rows.find((row) => row.principal.id === userId)?.principal;
+      parts.push(`UI User: ${principal?.full_name?.trim() || principal?.email || `#${userId}`}`);
+    }
+    if (groupId != null) {
+      const source = rows
+        .flatMap((row) => row.rights)
+        .flatMap((right) => right.sources)
+        .find((candidate) => candidate.kind === "group" && candidate.group_id === groupId);
+      parts.push(`UI Group: ${source?.group_name || `#${groupId}`}`);
+    }
+    if (targetId != null) {
+      const target = rows.find((row) => row.target.id === targetId)?.target;
+      const scopeLabel = scope === "all"
+        ? "Target"
+        : ACCESS_AUDIT_SCOPES.find((item) => item.value === scope)?.label ?? "Target";
+      parts.push(`${scopeLabel}: ${target?.name || `#${targetId}`}`);
+    }
+    return parts.join(" · ");
+  }, [groupId, rows, scope, targetId, userId]);
 
   return (
     <PageShell
@@ -160,8 +185,13 @@ export default function AccessAuditPage() {
         actions={<ListActionButton onClick={() => void handleExport()} loading={exporting}>Export CSV</ListActionButton>}
         secondaryContent={hasContextFilter || error ? <div className="flex flex-wrap items-center gap-2">
           {hasContextFilter ? <>
-            <span>Context filter: {userId != null ? `UI User #${userId}` : ""}{userId != null && targetId != null ? " · " : ""}{targetId != null ? `Target #${targetId}` : ""}</span>
-            <ListActionButton variant="ghost" onClick={() => { setPage(1); setUserId(undefined); setTargetId(undefined); }}>Clear context</ListActionButton>
+            <span>Context filter: {contextLabel}</span>
+            <ListActionButton variant="ghost" onClick={() => {
+              setPage(1);
+              setUserId(undefined);
+              setGroupId(undefined);
+              setTargetId(undefined);
+            }}>Clear context</ListActionButton>
           </> : null}
           {error ? <span role="alert">{error}</span> : null}
         </div> : undefined}

@@ -17,7 +17,6 @@ const getStorageEndpointMock = vi.fn();
 const listMinimalUsersMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
-const effectiveAccessPanelMountedMock = vi.fn();
 const adminS3UserStatsMock = vi.fn();
 
 const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
@@ -57,13 +56,6 @@ vi.mock("../../api/groups", () => ({
 vi.mock("../../api/tags", () => ({
   listAdminTagDefinitions: (domain: unknown) => listAdminTagDefinitionsMock(domain),
   listPrivateConnectionTagDefinitions: vi.fn(),
-}));
-
-vi.mock("./AdminEffectiveAccessPanel", () => ({
-  default: (props: unknown) => {
-    effectiveAccessPanelMountedMock(props);
-    return <div>Effective access panel</div>;
-  },
 }));
 
 describe("S3UsersPage modal tabs", () => {
@@ -204,22 +196,16 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.getAllByText("UID").some((node) => node.tagName === "DT")).toBe(true);
   });
 
-  it("loads Effective access only when the RGW user tab is opened", async () => {
+  it("links each RGW user to its filtered access review", async () => {
     render(
       <MemoryRouter>
         <S3UsersPage />
       </MemoryRouter>
     );
-    await screen.findByText("rgw-user-1");
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(effectiveAccessPanelMountedMock).not.toHaveBeenCalled();
-
-    fireEvent.click(await screen.findByRole("tab", { name: "Effective access" }));
-    expect(await screen.findByText("Effective access panel")).toBeInTheDocument();
-    expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
-      scope: "rgw_user",
-      targetId: 5,
-    }));
+    expect(await screen.findByRole("link", { name: "Review access" })).toHaveAttribute(
+      "href",
+      "/admin/access-audit?scope=rgw_user&target_id=5",
+    );
   });
 
   it("renders direct UI users and UI groups in the combined listing column", async () => {

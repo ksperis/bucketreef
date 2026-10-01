@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import TableSortControls from "../../components/list/TableSortControls";
-import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
+import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
@@ -95,6 +95,7 @@ import {
   clearAdminPrincipalEditRequest,
   readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
+import { buildAccessAuditHref } from "./accessAuditLink";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 type AssociationTab = "accounts" | "s3_users" | "connections";
@@ -1120,6 +1121,7 @@ export default function GroupsPage() {
       label: "Actions",
       align: "right",
       mobileRole: "actions",
+      cellClassName: "min-w-[220px]",
       render: (group) => (
         <ListActions>
           <ListActionButton
@@ -1130,6 +1132,9 @@ export default function GroupsPage() {
           >
             Edit
           </ListActionButton>
+          <ListActionLink to={buildAccessAuditHref({ groupId: group.id })}>
+            Review access
+          </ListActionLink>
           <ListActionButton
             type="button"
             onClick={() => setPendingDeleteGroup(group)}

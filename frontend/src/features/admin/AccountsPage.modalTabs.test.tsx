@@ -1,5 +1,5 @@
 import { transferableAbortController } from "node:util";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,7 +21,6 @@ const getStorageEndpointMock = vi.fn();
 const listMinimalUsersMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
-const effectiveAccessPanelMountedMock = vi.fn();
 const adminAccountStatsMock = vi.fn();
 let portalEnabled = false;
 
@@ -101,12 +100,9 @@ vi.mock("../../api/tags", () => ({
   listPrivateConnectionTagDefinitions: vi.fn(),
 }));
 
-vi.mock("./AdminEffectiveAccessPanel", () => ({
-  default: (props: unknown) => {
-    effectiveAccessPanelMountedMock(props);
-    return <div>Effective access panel</div>;
-  },
-}));
+function renderPage() {
+  return render(<MemoryRouter><AccountsPage /></MemoryRouter>);
+}
 
 describe("AccountsPage modal tabs", () => {
   beforeEach(() => {
@@ -214,7 +210,7 @@ describe("AccountsPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<AccountsPage />);
+    renderPage();
 
     expect(await screen.findByText("No accounts.")).toBeInTheDocument();
     expect(screen.queryByText("No accounts yet.")).not.toBeInTheDocument();
@@ -239,7 +235,7 @@ describe("AccountsPage modal tabs", () => {
       error: null,
       reload: vi.fn(),
     });
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -297,7 +293,7 @@ describe("AccountsPage modal tabs", () => {
       has_next: false,
     });
 
-    render(<AccountsPage />);
+    renderPage();
 
     expect(await screen.findByRole("columnheader", { name: "UI Users / Groups" })).toBeInTheDocument();
     const table = screen.getByRole("table");
@@ -320,7 +316,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("shows General/Linked UI users tabs and submits updated user_links", async () => {
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -377,23 +373,16 @@ describe("AccountsPage modal tabs", () => {
     );
   });
 
-  it("loads Effective access only when the account tab is opened", async () => {
-    render(<AccountsPage />);
-    await screen.findByText("acc-1");
-    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    await screen.findByRole("tab", { name: "General" });
-    expect(effectiveAccessPanelMountedMock).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("tab", { name: "Effective access" }));
-    expect(await screen.findByText("Effective access panel")).toBeInTheDocument();
-    expect(effectiveAccessPanelMountedMock).toHaveBeenCalledWith(expect.objectContaining({
-      scope: "rgw_account",
-      targetId: 1,
-    }));
+  it("links each account to its filtered access review", async () => {
+    renderPage();
+    expect(await screen.findByRole("link", { name: "Review access" })).toHaveAttribute(
+      "href",
+      "/admin/access-audit?scope=rgw_account&target_id=1",
+    );
   });
 
   it("submits direct UI group links from the account edit tab", async () => {
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -442,7 +431,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("assigns portal roles while linking UI users and groups when Portal is enabled", async () => {
     portalEnabled = true;
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -561,7 +550,7 @@ describe("AccountsPage modal tabs", () => {
       group_links: [],
     });
 
-    render(<AccountsPage />);
+    renderPage();
 
     expect(await screen.findByLabelText("1 linked principal")).toHaveAccessibleDescription(
       "Linked principals (1)\nUI user: ui7@example.com — Roles: Portal manager",
@@ -642,7 +631,7 @@ describe("AccountsPage modal tabs", () => {
       },
     });
 
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click((await screen.findAllByRole("button", { name: "Edit" }))[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
     expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
@@ -657,7 +646,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("submits privileged access grants from the account edit tab", async () => {
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -690,7 +679,7 @@ describe("AccountsPage modal tabs", () => {
   it("lets ui_admin submit privileged access grants from account edits", async () => {
     setSessionUserCache({ id: 2, role: "ui_admin" });
 
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -724,7 +713,7 @@ describe("AccountsPage modal tabs", () => {
       admin_ops_permissions: { accounts_write: true, buckets_write: false },
     });
 
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -740,7 +729,7 @@ describe("AccountsPage modal tabs", () => {
     portalEnabled = true;
     fetchAccountPortalSettingsMock.mockResolvedValueOnce(makePortalAccountSettings());
 
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -755,7 +744,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("hides portal overrides tab when the portal feature is disabled", async () => {
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -773,7 +762,7 @@ describe("AccountsPage modal tabs", () => {
       })
     );
 
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -812,7 +801,7 @@ describe("AccountsPage modal tabs", () => {
   it("rejects a non-positive account lifecycle expiration override", async () => {
     portalEnabled = true;
 
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -832,7 +821,7 @@ describe("AccountsPage modal tabs", () => {
   it("resets account portal overrides from the portal tab", async () => {
     portalEnabled = true;
 
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -850,7 +839,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("edits tags inline from the general tab", async () => {
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -874,7 +863,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("defaults a new link to account administrator when Portal is unavailable", async () => {
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
@@ -915,7 +904,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("creates an account with normalized tags", async () => {
-    render(<AccountsPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create account" }));
     const dialog = screen.getByRole("dialog");
@@ -959,7 +948,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("uses guarded create and import modals without treating endpoint defaults as edits", async () => {
-    render(<AccountsPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create account" }));
     const createDialog = screen.getByRole("dialog", { name: "Create an account" });
@@ -1019,7 +1008,7 @@ describe("AccountsPage modal tabs", () => {
       });
     });
 
-    render(<AccountsPage />);
+    renderPage();
 
     await screen.findByText("acc-1");
     await screen.findByText("acc-2");
@@ -1047,7 +1036,7 @@ describe("AccountsPage modal tabs", () => {
   it("restores inherited values only on Save and preserves delegation", async () => {
     portalEnabled = true;
     fetchAccountPortalSettingsMock.mockResolvedValue(makePortalAccountSettings({ admin_override: { browser_access_enabled: true }, delegated_to_portal_managers: true }));
-    render(<AccountsPage />);
+    renderPage();
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
@@ -1068,7 +1057,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("keeps Portal drafts across account tabs and preserves unrelated server edits", async () => {
     portalEnabled = true;
-    render(<AccountsPage />);
+    renderPage();
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
@@ -1090,7 +1079,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("identifies a conflicting Portal field and keeps the draft after failure", async () => {
     portalEnabled = true;
-    render(<AccountsPage />);
+    renderPage();
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
@@ -1112,7 +1101,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("keeps CORS edits inside the dialog until Apply and protects editor closure", async () => {
     portalEnabled = true;
-    render(<AccountsPage />);
+    renderPage();
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
@@ -1132,7 +1121,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("does not discard an unrelated account draft after saving Portal settings", async () => {
     portalEnabled = true;
-    render(<AccountsPage />);
+    renderPage();
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
@@ -1152,7 +1141,7 @@ describe("AccountsPage modal tabs", () => {
     portalEnabled = true;
     let finishSave!: () => void;
     updateS3AccountMock.mockReturnValueOnce(new Promise<void>(resolve => { finishSave = resolve; }));
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
@@ -1178,14 +1167,14 @@ describe("AccountsPage modal tabs", () => {
     portalEnabled = true;
     let finishSave!: () => void;
     updateS3AccountMock.mockReturnValueOnce(new Promise<void>(resolve => { finishSave = resolve; }));
-    const first = render(<AccountsPage />);
+    const first = renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Privileged access" }));
     fireEvent.click(screen.getByRole("switch", { name: "Bucket quota management" }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
     first.unmount();
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     fireEvent.change(await screen.findByLabelText("Browser workspace access"), { target: { value: "enabled" } });
@@ -1200,7 +1189,7 @@ describe("AccountsPage modal tabs", () => {
   ])("keeps RGW deletion unavailable for unverified or attached resources: %j", async (counts) => {
     getS3AccountMock.mockResolvedValueOnce({ id: 1, name: "acc-1", rgw_account_id: "RGW001", ...counts,
       rgw_user_uids: ["tenant$user"], rgw_topics: ["notification-topic"] });
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete acc-1" }));
     expect(dialog.getByRole("checkbox", { name: "Also delete RGW tenant RGW001" })).toBeDisabled();
@@ -1216,7 +1205,7 @@ describe("AccountsPage modal tabs", () => {
   it("retains the explicit RGW choice after failure and locks the confirmation during retry", async () => {
     getS3AccountMock.mockResolvedValueOnce({ id: 1, name: "acc-1", rgw_account_id: "RGW001", bucket_count: 0, rgw_user_count: 0, rgw_topic_count: 0 });
     deleteS3AccountMock.mockRejectedValueOnce(new Error("RGW refused deletion"));
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete acc-1" }));
     const choice = dialog.getByRole("checkbox", { name: "Also delete RGW tenant RGW001" });
@@ -1242,7 +1231,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("validates creation fields before sending and retains the pending draft after failure", async () => {
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", {name: "Create account", exact: true}));
     const form = await screen.findByRole("form", {name: "Create RGW account"});
     const fields = within(form);
@@ -1287,7 +1276,7 @@ describe("AccountsPage modal tabs", () => {
     ["tenant:account", "Account name must not contain ':'."],
     ["tenant$account", "Account name must not contain '$'."],
   ])("rejects an RGW account name containing reserved characters: %s", async (value, message) => {
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", {name: "Create account", exact: true}));
     const form = await screen.findByRole("form", {name: "Create RGW account"});
     const name = within(form).getByLabelText("Account name *");
@@ -1305,7 +1294,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("validates import identifiers inline and freezes the same payload through a retry", async () => {
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));
     const form = await screen.findByRole("form", {name: "Import RGW accounts"});
     const fields = within(form), text = fields.getByLabelText("RGW tenant IDs");
@@ -1385,7 +1374,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("retries an account read without enabling an empty editor", async () => {
     getS3AccountMock.mockRejectedValueOnce(new Error("Account unavailable"));
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Account unavailable");
     expect(screen.queryByRole("form", { name: "Edit RGW account" })).not.toBeInTheDocument();
@@ -1400,7 +1389,7 @@ describe("AccountsPage modal tabs", () => {
     { kind: "groups", label: "Research Group", mock: listMinimalGroupsMock },
   ])("recovers the $kind catalogue and protects selected additions before they are applied", async ({ kind, label, mock }) => {
     mock.mockRejectedValueOnce(new Error("Catalogue unavailable"));
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: `Linked UI ${kind}` }));
     fireEvent.click(screen.getByRole("button", { name: `Add UI ${kind}` }));
@@ -1425,7 +1414,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("reveals invalid quota fields across tabs and preserves zero and selected units", async () => {
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     const quota = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(quota).toBeEnabled());
@@ -1447,7 +1436,7 @@ describe("AccountsPage modal tabs", () => {
   it("keeps a fractional storage quota exact when changing only the object limit", async () => {
     const account = await getS3AccountMock();
     getS3AccountMock.mockResolvedValue({ ...account, quota_max_size_gb: 0.5001, quota_max_objects: 100 });
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     const objects = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(objects).toBeEnabled());
@@ -1461,7 +1450,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("keeps endpoint-permission failures retryable without authorizing quota edits", async () => {
     getStorageEndpointMock.mockRejectedValueOnce(new Error("Permission lookup failed"));
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Permission lookup failed");
     expect(screen.getByLabelText("Object quota")).toBeDisabled();
@@ -1474,7 +1463,7 @@ describe("AccountsPage modal tabs", () => {
     portalEnabled = true;
     let reject!: (error: Error) => void;
     updateAccountPortalSettingsMock.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     const quota = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(quota).toBeEnabled());
@@ -1498,7 +1487,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("keeps endpoint capability failures visible and prevents creating or importing", async () => {
     getStorageEndpointMock.mockResolvedValue({id: 10, provider: "ceph", admin_ops_permissions: {accounts_write: false, users_write: false}});
-    render(<AccountsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", {name: "Create account", exact: true}));
     let form = await screen.findByRole("form", {name: "Create RGW account"});
     await within(form).findByText(/Selected endpoint does not allow this operation/);

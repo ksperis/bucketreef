@@ -186,8 +186,24 @@ def test_access_audit_filters_and_csv_share_the_same_inventory(db_session):
     assert "false" in payload
 
 
+def test_access_audit_filters_by_exact_group_provenance(db_session):
+    user, group, _, _, _, _ = _seed_access_graph(db_session)
+    rows = AccessAuditService(db_session).list_rows(AccessAuditFilters(group_id=group.id))
+
+    assert {row.scope for row in rows} == {"platform", "rgw_account", "rgw_user", "s3_connection"}
+    assert {row.principal.id for row in rows} == {user.id}
+    assert all(
+        any(
+            source.kind == "group" and source.group_id == group.id
+            for right in row.rights
+            for source in right.sources
+        )
+        for row in rows
+    )
+
+
 def test_access_audit_route_supports_resource_filters_and_export(client, db_session):
-    user, _, _, rgw_user, _, _ = _seed_access_graph(db_session)
+    user, group, _, rgw_user, _, _ = _seed_access_graph(db_session)
 
     response = client.get(
         "/api/admin/access-audit",
@@ -199,11 +215,20 @@ def test_access_audit_route_supports_resource_filters_and_export(client, db_sess
     assert body["items"][0]["principal"]["id"] == user.id
     assert body["items"][0]["target"]["id"] == rgw_user.id
 
+    group_response = client.get(
+        "/api/admin/access-audit",
+        params={"group_id": group.id, "page_size": 10},
+    )
+    assert group_response.status_code == 200
+    group_body = group_response.json()
+    assert group_body["total"] == 4
+    assert all(item["principal"]["id"] == user.id for item in group_body["items"])
+
     exported = client.get(
         "/api/admin/access-audit/export.csv",
-        params={"scope": "rgw_user", "target_id": rgw_user.id},
+        params={"group_id": group.id},
     )
     assert exported.status_code == 200
     assert exported.headers["content-type"].startswith("text/csv")
     assert "attachment" in exported.headers["content-disposition"]
-    assert "research-user" in exported.text
+    assert group.name in exported.text

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import GroupsPage from "./GroupsPage";
 
 const listGroupsMock = vi.fn();
@@ -73,6 +74,10 @@ vi.mock("../../api/s3ConnectionsAdmin", () => ({
   listMinimalS3Connections: () => listMinimalS3ConnectionsMock(),
 }));
 
+function renderPage() {
+  return render(<MemoryRouter><GroupsPage /></MemoryRouter>);
+}
+
 describe("GroupsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -122,7 +127,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
 
     expect(await screen.findByRole("heading", { name: "Edit UI group" })).toBeInTheDocument();
     expect(
@@ -152,7 +157,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
 
     const groupRow = (await screen.findByText("ops-group")).closest("tr");
     expect(groupRow).not.toBeNull();
@@ -162,6 +167,23 @@ describe("GroupsPage", () => {
     });
 
     expect(screen.getByRole("heading", { name: "Edit UI group" })).toBeInTheDocument();
+  });
+
+  it("links the UI group listing to access contributed by that group", async () => {
+    listGroupsMock.mockResolvedValue({
+      items: [{ id: 50, name: "ops-group", description: null, account_links: [] }],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("link", { name: "Review access" })).toHaveAttribute(
+      "href",
+      "/admin/access-audit?group_id=50",
+    );
   });
 
   it("renders association names from group details without waiting for modal resources", async () => {
@@ -198,7 +220,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
 
     const associations = await screen.findByLabelText("3 linked associations");
     expect(associations).toHaveAccessibleDescription(
@@ -267,7 +289,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
 
     const memberStack = await screen.findByLabelText("7 linked principals");
     expect(within(memberStack).getAllByRole("link")).toHaveLength(5);
@@ -301,7 +323,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
 
     const associations = await screen.findByLabelText("1 linked association");
     expect(associations).toHaveAccessibleDescription(
@@ -366,7 +388,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
     const editButton = await screen.findByRole("button", { name: "Edit" });
     await act(async () => {
       fireEvent.click(editButton);
@@ -384,7 +406,7 @@ describe("GroupsPage", () => {
   });
 
   it("creates a group with default rights off, members, associations, and Manager tool access", async () => {
-    render(<GroupsPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create group" }));
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
@@ -502,7 +524,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
 
@@ -538,7 +560,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
 
@@ -561,7 +583,7 @@ describe("GroupsPage", () => {
   });
 
   it("lets an administrator choose a preset or upload a custom group image", async () => {
-    render(<GroupsPage />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create group" }));
     fireEvent.change(screen.getByPlaceholderText("Storage operators"), { target: { value: "visual-group" } });
@@ -610,7 +632,7 @@ describe("GroupsPage", () => {
       has_next: false,
     });
 
-    render(<GroupsPage />);
+    renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByPlaceholderText("Storage operators"), { target: { value: "ops-group-updated" } });
     fireEvent.click(screen.getByRole("tab", { name: "Members" }));
@@ -642,7 +664,7 @@ describe("GroupsPage", () => {
     const save = editing ? updateGroupMock : createGroupMock;
     let rejectSave!: (error: Error) => void;
     save.mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
-    render(<GroupsPage />);
+    renderPage();
     const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create group", exact: true });
     await act(async () => { fireEvent.click(trigger); });
     const form = screen.getByRole("form", { name: editing ? "Edit UI group" : "Create UI group" });
@@ -663,7 +685,7 @@ describe("GroupsPage", () => {
   });
 
   it("guards pending member selections and resets them after discarding", async () => {
-    render(<GroupsPage />);
+    renderPage();
     const trigger = await screen.findByRole("button", { name: "Create group" });
     await act(async () => { fireEvent.click(trigger); });
     fireEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
@@ -684,7 +706,7 @@ describe("GroupsPage", () => {
 
   it("keeps the latest pictogram choice after cancelling image removal", async () => {
     listGroupsMock.mockResolvedValue({ items: [{ id: 50, name: "illustrated", avatar: { source: "uploaded", initials: "I" } }], total: 1, page: 1, page_size: 25 });
-    render(<GroupsPage />);
+    renderPage();
     const trigger = await screen.findByRole("button", { name: "Edit", exact: true });
     await act(async () => { fireEvent.click(trigger); });
     fireEvent.click(screen.getByRole("button", { name: "Remove uploaded image" }));

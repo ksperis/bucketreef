@@ -174,10 +174,12 @@ Use **Remove** to unlink the account instead of saving two absent roles.
 Direct and group grants combine independently for each workspace; removing a
 direct grant does not revoke an equivalent right inherited from a UI group.
 
-The **Effective access** tab on UI Users, RGW Accounts, RGW Users, and Shared S3
-Connections provides a read-only view of the saved result after those direct
-and inherited grants are combined. Use **Audit & Reporting > Access audit** for
-the global searchable inventory and CSV export. This authorization review covers
+Use **Review access** from the UI Users, UI Groups, RGW Accounts, RGW Users,
+and Shared S3 Connections lists to open **Audit & Reporting > Access audit**
+with the corresponding context filter. The audit shows the saved result after
+direct and inherited grants are combined, with a global searchable inventory
+and CSV export. For UI Groups, the context selects rows to which that group
+contributes at least one effective right. This authorization review covers
 BucketReef UI rights; storage-side IAM policies, bucket policies, and S3 ACLs
 remain outside its scope.
 
