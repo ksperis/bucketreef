@@ -335,6 +335,10 @@ class PortalStorageSpacesMixin:
         if stats is None:
             return False, None, None
         usage = stats.get("usage") if isinstance(stats, dict) else None
+        # RGW returns an empty usage map for a new bucket with no objects.
+        # Missing or incomplete statistics must still block deletion.
+        if usage == {}:
+            return True, 0, 0
         used_bytes, object_count = extract_usage_stats(usage)
         return True, used_bytes, object_count
 

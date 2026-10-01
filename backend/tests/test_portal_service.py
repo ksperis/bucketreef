@@ -1559,7 +1559,7 @@ def test_delete_storage_space_removes_empty_imported_bucket_and_access_state(mon
         def delete_user(self, username):
             iam_calls.append(("delete_user", username))
 
-    monkeypatch.setattr(service, "_storage_space_deletion_usage", lambda *_args: (True, 0, 0))
+    monkeypatch.setattr(service, "_admin_bucket_info", lambda *_args: {"usage": {}})
     monkeypatch.setattr(
         service,
         "delete_bucket",
@@ -1701,6 +1701,25 @@ def test_delete_storage_space_requires_zero_known_stats(monkeypatch, db_session,
         service.delete_storage_space(owner, _portal_access(account, owner), "delete-stats-data")
 
     assert db_session.query(PortalStorageSpaceMetadata).filter_by(bucket_name="delete-stats-data").one()
+
+
+@pytest.mark.parametrize(
+    ("stats", "expected"),
+    [
+        (None, (False, None, None)),
+        ({"usage": {}}, (True, 0, 0)),
+        ({}, (True, None, None)),
+        ({"usage": None}, (True, None, None)),
+        ({"usage": {"rgw.main": {}}}, (True, None, None)),
+        ({"usage": {"rgw.main": {"size_actual": 3, "num_objects": 1}}}, (True, 3, 1)),
+    ],
+)
+def test_storage_space_deletion_usage_accepts_empty_rgw_map_only(monkeypatch, db_session, stats, expected):
+    account = make_s3_account(db_session, name="portal-empty-usage")
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_admin_bucket_info", lambda *_args: stats)
+
+    assert service._storage_space_deletion_usage(account, "empty-space") == expected
 
 
 def test_delete_storage_space_maps_delete_bucket_race_without_force(monkeypatch, db_session):

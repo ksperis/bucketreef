@@ -130,6 +130,10 @@ bucket automatically during deletion. Before deleting a space:
 3. Return to **Space settings** and confirm **Delete space** after usage shows
    zero files and zero storage.
 
+A newly created space that has never contained files does not require file
+removal or history cleanup. The server still checks that its bucket is empty;
+missing storage statistics block deletion rather than being treated as zero.
+
 If the space is archived but still contains data, restore it before completing
 these steps. Deletion also revokes collaborator access, external credentials,
 and public links. Audit and activity history remain available to authorized
