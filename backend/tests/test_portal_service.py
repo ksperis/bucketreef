@@ -1562,8 +1562,8 @@ def test_delete_storage_space_removes_empty_imported_bucket_and_access_state(mon
     monkeypatch.setattr(service, "_admin_bucket_info", lambda *_args: {"usage": {}})
     monkeypatch.setattr(
         service,
-        "delete_bucket",
-        lambda *args, **kwargs: delete_bucket_calls.append((args, kwargs)),
+        "delete_empty_bucket",
+        lambda *args, **kwargs: delete_bucket_calls.append((args, kwargs)) or True,
     )
     monkeypatch.setattr(service, "_get_iam_service", lambda _account: FakeIAMService())
     monkeypatch.setattr(
@@ -1589,8 +1589,8 @@ def test_delete_storage_space_removes_empty_imported_bucket_and_access_state(mon
         "public_link_count": 1,
         "bucket_already_absent": False,
     }
-    assert delete_bucket_calls[0][0][2] == "imported-data"
-    assert delete_bucket_calls[0][1] == {"force": False, "use_root": True}
+    assert delete_bucket_calls[0][0][1] == "imported-data"
+    assert delete_bucket_calls[0][1] == {}
     assert iam_calls == [
         ("delete_access_key", "external-delete-user", "AK-EXTERNAL-DELETE"),
         ("delete_policy", "external-delete-user", service._external_access_policy_name),
@@ -1694,7 +1694,11 @@ def test_delete_storage_space_requires_zero_known_stats(monkeypatch, db_session,
     db_session.commit()
     service = PortalService(db_session)
     monkeypatch.setattr(service, "_storage_space_deletion_usage", lambda *_args: usage)
-    monkeypatch.setattr(service, "delete_bucket", lambda *_args, **_kwargs: pytest.fail("Bucket deletion must be blocked"))
+    monkeypatch.setattr(
+        service,
+        "delete_empty_bucket",
+        lambda *_args, **_kwargs: pytest.fail("Bucket deletion must be blocked"),
+    )
 
     expected_exception = PortalStorageSpaceNotEmpty if "not empty" in expected_message else RuntimeError
     with pytest.raises(expected_exception, match=expected_message):
@@ -1722,7 +1726,7 @@ def test_storage_space_deletion_usage_accepts_empty_rgw_map_only(monkeypatch, db
     assert service._storage_space_deletion_usage(account, "empty-space") == expected
 
 
-def test_delete_storage_space_maps_delete_bucket_race_without_force(monkeypatch, db_session):
+def test_delete_storage_space_maps_delete_bucket_race(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-delete-race", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     owner = User(email="owner-delete-race@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, owner])
@@ -1739,14 +1743,97 @@ def test_delete_storage_space_maps_delete_bucket_race_without_force(monkeypatch,
     service = PortalService(db_session)
     monkeypatch.setattr(service, "_storage_space_deletion_usage", lambda *_args: (True, 0, 0))
 
-    def reject_delete(_user, _access, _bucket_name, *, force, use_root):
-        assert force is False
-        assert use_root is True
+    def reject_delete(_access, _bucket_name):
         raise s3_deletion.BucketNotEmptyError("BucketNotEmpty")
 
-    monkeypatch.setattr(service, "delete_bucket", reject_delete)
+    monkeypatch.setattr(service, "delete_empty_bucket", reject_delete)
     with pytest.raises(PortalStorageSpaceNotEmpty, match="not empty"):
         service.delete_storage_space(owner, _portal_access(account, owner), "delete-race-data")
+
+
+def test_delete_empty_bucket_uses_account_technical_credentials(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-delete-empty-technical",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    actor = User(email="delete-empty-technical@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, actor])
+    db_session.commit()
+    service = PortalService(db_session)
+    calls = []
+
+    monkeypatch.setattr(
+        s3_deletion,
+        "delete_empty_bucket",
+        lambda bucket_name, **kwargs: calls.append((bucket_name, kwargs)) or True,
+    )
+    monkeypatch.setattr(
+        "app.services.portal.buckets_users.BucketUiTagsService.remove_all_namespaces_for_bucket",
+        lambda *_args, **_kwargs: None,
+    )
+
+    deleted = service.delete_empty_bucket(_portal_access(account, actor), "private-empty")
+
+    assert deleted is True
+    assert calls[0][0] == "private-empty"
+    assert calls[0][1]["access_key"] == "ROOT-AK"
+    assert calls[0][1]["secret_key"] == "ROOT-SK"
+
+
+def test_delete_storage_space_marks_bucket_absent_when_delete_races(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-delete-missing-race", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
+    owner = User(email="owner-delete-missing-race@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner])
+    db_session.commit()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="delete-missing-race-data",
+            owner_user_id=owner.id,
+            visibility="private",
+        )
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_storage_space_deletion_usage", lambda *_args: (True, 0, 0))
+    monkeypatch.setattr(service, "delete_empty_bucket", lambda *_args: False)
+    monkeypatch.setattr(service, "_delete_storage_space_external_iam_credentials", lambda *_args: 0)
+    monkeypatch.setattr(service, "_sync_storage_space_user_projections", lambda *_args: None)
+
+    result = service.delete_storage_space(owner, _portal_access(account, owner), "delete-missing-race-data")
+
+    assert result["bucket_already_absent"] is True
+    assert db_session.query(PortalStorageSpaceMetadata).filter_by(bucket_name="delete-missing-race-data").first() is None
+
+
+def test_delete_storage_space_preserves_metadata_when_provider_delete_fails(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-delete-access-denied", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
+    owner = User(email="owner-delete-access-denied@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner])
+    db_session.commit()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="delete-access-denied-data",
+            owner_user_id=owner.id,
+            visibility="private",
+        )
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_storage_space_deletion_usage", lambda *_args: (True, 0, 0))
+
+    def reject_delete(*_args):
+        raise RuntimeError("Unable to delete bucket 'delete-access-denied-data': AccessDenied")
+
+    monkeypatch.setattr(service, "delete_empty_bucket", reject_delete)
+
+    with pytest.raises(RuntimeError, match="AccessDenied"):
+        service.delete_storage_space(owner, _portal_access(account, owner), "delete-access-denied-data")
+
+    assert db_session.query(PortalStorageSpaceMetadata).filter_by(bucket_name="delete-access-denied-data").one()
 
 
 def test_delete_storage_space_finalizes_archived_metadata_when_bucket_is_already_absent(monkeypatch, db_session):
@@ -1766,7 +1853,11 @@ def test_delete_storage_space_finalizes_archived_metadata_when_bucket_is_already
     db_session.commit()
     service = PortalService(db_session)
     monkeypatch.setattr(service, "_storage_space_deletion_usage", lambda *_args: (False, None, None))
-    monkeypatch.setattr(service, "delete_bucket", lambda *_args, **_kwargs: pytest.fail("Missing bucket must not be deleted again"))
+    monkeypatch.setattr(
+        service,
+        "delete_empty_bucket",
+        lambda *_args, **_kwargs: pytest.fail("Missing bucket must not be deleted again"),
+    )
     monkeypatch.setattr(service, "_delete_storage_space_external_iam_credentials", lambda *_args: 0)
     monkeypatch.setattr(service, "_sync_storage_space_user_projections", lambda *_args: None)
 

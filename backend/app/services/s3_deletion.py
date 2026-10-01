@@ -455,6 +455,46 @@ def purge_bucket_contents(
     ).run()
 
 
+def delete_empty_bucket(
+    bucket_name: str,
+    access_key: Optional[str] = None,
+    secret_key: Optional[str] = None,
+    session_token: Optional[str] = None,
+    endpoint: Optional[str] = None,
+    region: Optional[str] = None,
+    force_path_style: bool = False,
+    verify_tls: bool = True,
+) -> bool:
+    """Delete a bucket without inspecting or purging its contents.
+
+    Returns True when the bucket was deleted and False when the provider
+    confirms that it was already absent.
+    """
+    client = get_s3_client(
+        access_key,
+        secret_key,
+        endpoint=endpoint,
+        session_token=session_token,
+        region=region,
+        force_path_style=force_path_style,
+        verify_tls=verify_tls,
+    )
+    try:
+        client.delete_bucket(Bucket=bucket_name)
+    except ClientError as exc:
+        error_code = aws_error_code(exc, lowercase=True)
+        if error_code == "bucketnotempty":
+            raise BucketNotEmptyError(f"Bucket '{bucket_name}' is not empty.") from exc
+        if error_code == "nosuchbucket":
+            logger.debug("Bucket %s was already absent", bucket_name)
+            return False
+        raise RuntimeError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
+    except BotoCoreError as exc:
+        raise RuntimeError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
+    logger.debug("Deleted empty bucket %s", bucket_name)
+    return True
+
+
 def delete_bucket(
     bucket_name: str,
     force: bool = False,

@@ -394,11 +394,12 @@ class PortalStorageSpacesMixin:
         )
         storage_space_name = self._display_storage_space_name(bucket_name, metadata)
         origin = self._storage_space_origin(metadata)
+        bucket_already_absent = not bucket_exists
 
         try:
             if bucket_exists:
                 try:
-                    self.delete_bucket(user, access, bucket_name, force=False, use_root=True)
+                    bucket_already_absent = not self.delete_empty_bucket(access, bucket_name)
                 except s3_deletion.BucketNotEmptyError as exc:
                     raise PortalStorageSpaceNotEmpty(
                         "Storage Space is not empty. Delete all current files and clean up its history before deleting it."
@@ -432,7 +433,7 @@ class PortalStorageSpacesMixin:
             "participant_count": len(participant_user_ids),
             "external_access_count": external_access_count,
             "public_link_count": len(public_links),
-            "bucket_already_absent": not bucket_exists,
+            "bucket_already_absent": bucket_already_absent,
         }
 
     def _resolve_storage_space_bucket_name(
