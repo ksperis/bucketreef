@@ -4,7 +4,7 @@
  */
 import type { Dispatch, SetStateAction } from "react";
 import type { UiGroupSummary } from "../../api/groups";
-import { formInlineDeleteClasses } from "../../components/formInlineActionClasses";
+import { ListActionButton } from "../../components/list/ListControls";
 import { AdminAssociationLinkedTable, AdminAssociationOptionCheckbox, AdminAssociationPickerPanel, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
 
 type UserGroupsSelectorProps = {
@@ -57,15 +57,15 @@ export default function UserGroupsSelector({
             {groupById.get(groupId)?.name ?? `Group #${groupId}`}
           </td>
           <td className="ui-table-actions-cell w-px text-right">
-            <button
+            <ListActionButton
               type="button"
-              className={formInlineDeleteClasses}
+              variant="danger"
               onClick={() =>
                 setSelectedIds((current) => current.filter((id) => id !== groupId))
               }
             >
               Remove
-            </button>
+            </ListActionButton>
           </td>
         </tr>
       ))}
