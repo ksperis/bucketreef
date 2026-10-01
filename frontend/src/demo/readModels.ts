@@ -5,6 +5,7 @@ import type { UsageHistoryTrendPoint } from "../api/usageHistory";
 import { bucketView, GiB, settings, type DemoState } from "./state";
 import { accountView } from "./governance";
 import { accountGrant, json, page, required, scopedAccount, type DemoRequest } from "./http";
+import { buildDemoAccessAuditRows, listDemoS3Users } from "./accessAudit";
 import snapshots from "./snapshots.json";
 
 export type DemoStorageTrendBaseline = ManagerUsageTrendBaseline & {
@@ -70,15 +71,19 @@ export function readModels(c: DemoRequest): Response | undefined {
   if (path === "/admin/navigation/pending-requests") return json({ identity_link_requests: 0, portal_requests: state.requests.filter(r => r.status === "pending").length });
   if (path === "/admin/audit/logs") return json({ logs: state.history.slice(-20).reverse().map((p, i) => ({ id: 800 - i, created_at: p.timestamp, user_email: state.users[i % 5].email, user_role: "ui_admin", scope: i % 2 ? "manager" : "admin", action: i % 2 ? "put_bucket_lifecycle" : "account.link_user", entity_type: i % 2 ? "bucket" : "account", entity_id: i % 2 ? "helios-documents" : "Helios Retail", account_id: 101, account_name: "Helios Retail", status: "success", message: "Historical demo activity", metadata: {} })), next_cursor: null });
   if (path === "/admin/access-audit" || path === "/admin/access-audit/export.csv") {
-    let rows = state.accounts.flatMap(a => a.user_links.map(l => ({ key: `${a.id}-${l.user_id}`, principal: { ...required(state.users.find(u => u.id === l.user_id)), is_active: true }, scope: "rgw_account", target: { id: a.id, name: a.name, identifier: a.rgw_account_id }, rights: [l.manager_role, l.portal_role].filter(Boolean).map(code => ({ code, label: code === "account_administrator" ? "Account administrator" : code === "portal_manager" ? "Portal manager" : "Portal member", sources: [{ kind: "direct" }] })) })));
+    let rows = buildDemoAccessAuditRows(state);
     const userId = Number(c.url.searchParams.get("user_id") || 0);
     const groupId = Number(c.url.searchParams.get("group_id") || 0);
     const targetId = Number(c.url.searchParams.get("target_id") || 0);
     const scope = c.url.searchParams.get("scope");
+    const right = c.url.searchParams.get("right");
+    const source = c.url.searchParams.get("source");
     if (userId) rows = rows.filter(row => row.principal.id === userId);
     if (groupId) rows = rows.filter(row => row.rights.some(right => right.sources.some(source => "group_id" in source && source.group_id === groupId)));
     if (targetId) rows = rows.filter(row => row.target.id === targetId);
     if (scope) rows = rows.filter(row => row.scope === scope);
+    if (right) rows = rows.filter(row => row.rights.some(candidate => candidate.code === right));
+    if (source) rows = rows.filter(row => row.rights.some(candidate => candidate.sources.some(candidateSource => candidateSource.kind === source)));
     if (path.endsWith(".csv")) return new Response("User,Account,Rights\n" + rows.map(r => [r.principal.email, r.target.name, r.rights.map(v => v.label).join("; ")].map(v => JSON.stringify(v)).join(",")).join("\n"), { headers: { "Content-Type": "text/csv" } });
     return json(page(rows, c.url));
   }
@@ -108,8 +113,8 @@ export function readModels(c: DemoRequest): Response | undefined {
   if (/^\/browser\/buckets\/[^/]+\/cors$/.test(path)) return json({ enabled: false, rules: [] });
   if (/^\/(?:ceph-admin\/endpoints\/\d+|manager)\/bucket-ui-tags$/.test(path)) return json({ definitions: [] });
   if (path === "/admin/tags") return json(state.endpoints[0].tags);
-  if (path === "/admin/s3-users/minimal") return json(state.accounts.flatMap(a => (state.iam[a.id]?.users ?? []).map((u, i) => ({ id: a.id * 100 + i, name: u.name }))));
-  if (path === "/admin/s3-users") return json(page(state.accounts.flatMap(a => (state.iam[a.id]?.users ?? []).map((u, i) => ({ id: a.id * 100 + i, name: u.name, rgw_user_uid: u.name, storage_endpoint_id: a.storage_endpoint_id, storage_endpoint_name: a.storage_endpoint_name, tags: [], user_links: [], group_links: [] }))), c.url));
+  if (path === "/admin/s3-users/minimal") return json(listDemoS3Users(state).map(({ id, name }) => ({ id, name })));
+  if (path === "/admin/s3-users") return json(page(listDemoS3Users(state), c.url));
   const security = path.match(/^\/admin\/users\/(\d+)\/security$/);
   if (security) return json({ user_id: Number(security[1]), ...required(state.users.find(u => u.id === Number(security[1]))), has_local_password: true, passkey_required: false, passkeys: [], external_identities: [], sessions: [] });
   if (path.endsWith("/usage-trends") && (path.startsWith("/manager/") || path.startsWith("/portal/"))) {
