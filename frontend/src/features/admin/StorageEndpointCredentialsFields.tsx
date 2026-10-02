@@ -68,22 +68,22 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       : "This provider does not use dedicated operational credentials in BucketReef."}
   </UiInlineMessage>;
   return <>
-    <SettingsSection title="Monitoring (Supervision Ops)" description="Use these keys for read-only monitoring actions." presentation="compact">
-      <CredentialFields {...props} kind="supervision" label="Supervision" required={props.form.features.usage.enabled || props.form.features.metrics.enabled} />
-    </SettingsSection>
     <SettingsSection title="Administration (Admin Ops)" description="Credentials for platform provisioning and explicitly delegated bucket quotas." presentation="compact">
       <CredentialFields {...props} kind="admin" label="Admin" required={props.form.features.admin.enabled} />
     </SettingsSection>
-    <SettingsSection title="What are Supervision Ops and Admin Ops?" description="Ceph (radosgw-admin) examples" presentation="compact">
+    <SettingsSection title="Monitoring (Supervision Ops)" description="Use these keys for read-only monitoring actions." presentation="compact">
+      <CredentialFields {...props} kind="supervision" label="Supervision" required={props.form.features.usage.enabled || props.form.features.metrics.enabled} />
+    </SettingsSection>
+    <SettingsSection title="What are Admin Ops and Supervision Ops?" description="Ceph (radosgw-admin) examples" presentation="compact">
       <div className="settings-stack">
-        <p className="settings-description">Supervision Ops keys are read-only credentials used for usage logs and metrics collection.</p>
         <p className="settings-description">
           Admin Ops keys let BucketReef create RGW accounts and S3 users, and apply explicitly delegated Manager bucket quota changes.
           Individual bucket quota changes require the <code>buckets=write</code> capability included in the example below.
           If you do not provide Admin Ops keys, you must create accounts/users outside of BucketReef and import them manually (or via the API).
         </p>
-        <CommandExample title="Supervision Ops">{SUPERVISION_OPS_COMMAND}</CommandExample>
+        <p className="settings-description">Supervision Ops keys are read-only credentials used for usage logs and metrics collection.</p>
         <CommandExample title="Admin Ops">{ADMIN_OPS_COMMAND}</CommandExample>
+        <CommandExample title="Supervision Ops">{SUPERVISION_OPS_COMMAND}</CommandExample>
       </div>
     </SettingsSection>
     {props.cephAdminEnabled && <SettingsSection title="Ceph Admin dedicated credentials"

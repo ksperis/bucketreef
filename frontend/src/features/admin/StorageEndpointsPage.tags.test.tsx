@@ -387,13 +387,13 @@ describe("StorageEndpointsPage tags", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
-    const supervisionAccessKey = screen.getByLabelText("Supervision access key");
     const adminAccessKey = screen.getByLabelText("Admin access key");
+    const supervisionAccessKey = screen.getByLabelText("Supervision access key");
     const cephAdminAccessKey = screen.getByLabelText("Ceph Admin access key");
-    expect(supervisionAccessKey.compareDocumentPosition(adminAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(adminAccessKey.compareDocumentPosition(cephAdminAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(adminAccessKey.compareDocumentPosition(supervisionAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(supervisionAccessKey.compareDocumentPosition(cephAdminAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    const opsHelp = screen.getByRole("region", { name: "What are Supervision Ops and Admin Ops?" });
+    const opsHelp = screen.getByRole("region", { name: "What are Admin Ops and Supervision Ops?" });
     expect(opsHelp).not.toBeNull();
     expect(within(opsHelp as HTMLElement).getByText(/keys let BucketReef create RGW accounts and S3 users/)).toBeVisible();
     expect(within(opsHelp as HTMLElement).getByText("Ceph (radosgw-admin) examples")).toBeVisible();
