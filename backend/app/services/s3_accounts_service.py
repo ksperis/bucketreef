@@ -44,7 +44,6 @@ from app.services.rgw_account_topics_resolver import (
 )
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_iam import RGWIAMService, get_iam_service
-from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.tags_service import TagsService
@@ -154,13 +153,8 @@ class S3AccountsService:
             raise ValueError("RGW account quota update is not supported on this cluster.")
 
     def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
-        endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
-        if not resolve_feature_flags(endpoint).metrics_enabled:
-            return None, None, None
-        try:
-            admin = get_supervision_rgw_client(endpoint)
-        except Exception as exc:
-            logger.warning("Unable to build RGW supervision client for endpoint %s: %s", endpoint.name, exc)
+        admin = self._admin_for_account(account, allow_missing=True)
+        if not admin:
             return None, None, None
         try:
             payload = admin.get_all_buckets(uid=account.rgw_user_uid, with_stats=True)

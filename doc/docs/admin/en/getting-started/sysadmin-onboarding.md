@@ -93,7 +93,8 @@ RGW admin/system identity.
 The live checks distinguish endpoint reachability, credential access and the
 capability needed by each selected path. Manager/Portal validates Admin Ops and
 the RGW Account API, plus the Admin Ops `users=read,write` and
-`accounts=read,write` caps needed to provision the sample account and identities.
+`accounts=read,write` caps needed to provision the sample account and identities,
+and `buckets=read` for live bucket-stat enrichment in Manager and Portal.
 `buckets=write` is displayed separately and does not block onboarding; it is
 needed only for delegated Manager bucket quota changes. Monitoring validates
 Supervision Ops by retrieving bucket statistics and RGW usage data. The usage

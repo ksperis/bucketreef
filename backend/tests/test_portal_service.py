@@ -5716,7 +5716,7 @@ def test_portal_usage_exposes_quota_and_real_storage_space_breakdown(monkeypatch
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 
     monkeypatch.setattr(service, "_account_limits", lambda _account: (1_000, 100, 12))
-    monkeypatch.setattr(service, "_supervision_admin_for_account", lambda _account: object())
+    monkeypatch.setattr(service, "_admin_ops_for_account", lambda _account: object())
     monkeypatch.setattr(
         service,
         "_admin_bucket_list",
@@ -5778,7 +5778,7 @@ def test_portal_user_usage_aggregates_hidden_storage_as_other(monkeypatch, db_se
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False)
 
     monkeypatch.setattr(service, "_account_limits", lambda _account: (2_000, 200, 20))
-    monkeypatch.setattr(service, "_supervision_admin_for_account", lambda _account: object())
+    monkeypatch.setattr(service, "_admin_ops_for_account", lambda _account: object())
     monkeypatch.setattr(
         service,
         "_admin_bucket_list",
@@ -5827,7 +5827,7 @@ def test_portal_user_usage_omits_other_when_all_usage_is_visible(monkeypatch, db
     service = PortalService(db_session)
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False)
 
-    monkeypatch.setattr(service, "_supervision_admin_for_account", lambda _account: object())
+    monkeypatch.setattr(service, "_admin_ops_for_account", lambda _account: object())
     monkeypatch.setattr(
         service,
         "_admin_bucket_list",

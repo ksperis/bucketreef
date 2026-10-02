@@ -11,13 +11,8 @@ from app.services import ceph_admin_bucket_listing_cache as cache
 
 
 @pytest.fixture(autouse=True)
-def reset_caches(monkeypatch):
+def reset_caches():
     cache.reset_ceph_admin_bucket_listing_caches_for_tests()
-    monkeypatch.setattr(
-        cache,
-        "get_supervision_rgw_client",
-        lambda endpoint: endpoint._test_supervision_rgw_admin,
-    )
     yield
     cache.reset_ceph_admin_bucket_listing_caches_for_tests()
 
@@ -25,7 +20,7 @@ def reset_caches(monkeypatch):
 def _read_raw(builder, *, endpoint_id=17, with_stats=False):
     rgw_admin = SimpleNamespace(get_all_buckets=lambda with_stats: builder())
     ctx = SimpleNamespace(
-        endpoint=SimpleNamespace(id=endpoint_id, _test_supervision_rgw_admin=rgw_admin),
+        endpoint=SimpleNamespace(id=endpoint_id),
         rgw_admin=rgw_admin,
     )
     return cache.get_cached_rgw_bucket_entries(ctx, with_stats=with_stats)[0]["name"]

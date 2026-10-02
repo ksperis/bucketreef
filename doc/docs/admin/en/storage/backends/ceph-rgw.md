@@ -15,7 +15,9 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
 - Validate feature support per Ceph release.
 - Consider multisite implications in production.
 - Document cluster-specific limits for your organization.
-- Keep the RGW Admin Ops credential restricted to documented admin and internal collection flows.
+- Keep the RGW Admin Ops credential restricted to documented Manager/Portal and
+  administrative flows. Live Manager/Portal bucket-stat enrichment requires
+  `buckets=read`; background monitoring uses the separate Supervision Ops identity.
 - Give the RGW Admin Ops identity `buckets=write` only when Manager bucket quota
   management is enabled. The per-account or per-user
   `allow_bucket_quota_management` grant authorizes a BucketReef target; it does
@@ -43,20 +45,27 @@ set:
 radosgw-admin user create \
   --uid="bkr-admin" \
   --display-name="BucketReef Admin Ops" \
-  --caps="users=read,write;accounts=read,write;buckets=write"
+  --caps="users=read,write;accounts=read,write;buckets=read,write"
 ```
 
-For an existing identity created without the bucket capability, add only the
-missing capability and keep the existing access keys:
+For an existing identity, `buckets=read` is required for Manager/Portal live
+bucket statistics. Add the missing read capability while keeping the existing
+access keys:
+
+```bash
+radosgw-admin caps add --uid="bkr-admin" --caps="buckets=read"
+```
+
+If delegated Manager bucket quota updates are enabled, add `buckets=write` too:
 
 ```bash
 radosgw-admin caps add --uid="bkr-admin" --caps="buckets=write"
 ```
 
-Confirm the returned `caps` include `buckets=write`, then reopen the account or
-RGW user in Admin. BucketReef detects this capability before allowing the
-`Bucket quota management` target grant and revalidates it when Manager exposes
-or executes the action.
+Confirm the returned `caps` include `buckets=read`. When bucket quota management
+is delegated, confirm `buckets=write` as well. BucketReef detects the write
+capability before allowing the `Bucket quota management` target grant and
+revalidates it when Manager exposes or executes the action.
 
 ## Minimum lab validation
 

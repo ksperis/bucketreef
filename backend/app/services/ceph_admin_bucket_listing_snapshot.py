@@ -45,7 +45,7 @@ from app.utils.http_errors import is_upstream_timeout
 logger = logging.getLogger(__name__)
 
 _BUCKET_STATS_UNAVAILABLE_WARNING = (
-    "Bucket stats are unavailable via Supervision Ops credentials on this endpoint. "
+    "Bucket stats are unavailable via Ceph Admin credentials on this endpoint. "
     "Showing owner metadata without usage or quota values."
 )
 
@@ -106,14 +106,14 @@ class CephAdminBucketSnapshotBuilder:
         )
         try:
             entries = self._fetch_entries(self.request.with_stats, name_candidates)
-        except (RGWAdminError, ValueError) as exc:
+        except RGWAdminError as exc:
             if not self.request.with_stats:
                 raise
             if is_upstream_timeout(exc):
                 raise
             if self.request.stats_required:
                 raise RequiredBucketStatsUnavailableError(
-                    "Bucket stats are unavailable via Supervision Ops credentials for this request"
+                    "Bucket stats are unavailable via Ceph Admin credentials for this request"
                 ) from exc
             logger.warning(
                 "Ceph admin bucket listing stats fallback on endpoint=%s error=%s",

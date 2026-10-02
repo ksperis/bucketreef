@@ -33,13 +33,11 @@ from app.routers.ceph_admin.user_common import (
 )
 from app.routers.ceph_admin.user_listing_cache import invalidate_users_listing_cache
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import extract_bucket_list, extract_rgw_user_payload
-from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import summarize_bucket_usage
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/users", tags=["ceph-admin-users"])
@@ -471,19 +469,13 @@ def get_rgw_user_metrics(
     tenant: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminEntityMetrics:
-    if not resolve_feature_flags(ctx.endpoint).metrics_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Storage metrics are disabled for this endpoint",
-        )
     uid = user_id.strip()
     if not uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="uid is required")
     lookup_uid = f"{tenant}${uid}" if tenant else uid
     try:
-        rgw_admin = get_supervision_rgw_client(ctx.endpoint)
-        payload = rgw_admin.get_all_buckets(uid=lookup_uid, with_stats=True)
-    except (RGWAdminError, ValueError) as exc:
+        payload = ctx.rgw_admin.get_all_buckets(uid=lookup_uid, with_stats=True)
+    except RGWAdminError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     bucket_usage, total_bytes, total_objects, bucket_count = summarize_bucket_usage(extract_bucket_list(payload))
     return CephAdminEntityMetrics(

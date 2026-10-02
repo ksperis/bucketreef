@@ -141,8 +141,8 @@ class FakeRGWAdmin:
         return {"id": account_id, "user_list": []}
 
 
-def test_get_account_usage_uses_supervision_ops(db_session, monkeypatch):
-    endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=True)
+def test_get_account_usage_uses_admin_ops_without_monitoring_feature(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=False)
     account = S3Account(
         name="Usage Account",
         rgw_account_id="RGW00000000000000009",
@@ -153,12 +153,11 @@ def test_get_account_usage_uses_supervision_ops(db_session, monkeypatch):
     db_session.commit()
     db_session.refresh(account)
 
-    admin = FakeRGWAdmin()
-    supervision_calls: list[dict[str, object]] = []
+    admin_calls: list[dict[str, object]] = []
 
-    class FakeSupervisionAdmin:
+    class FakeAdmin(FakeRGWAdmin):
         def get_all_buckets(self, account_id=None, uid=None, with_stats=False):  # noqa: ANN001
-            supervision_calls.append(
+            admin_calls.append(
                 {"account_id": account_id, "uid": uid, "with_stats": with_stats}
             )
             return {
@@ -168,19 +167,12 @@ def test_get_account_usage_uses_supervision_ops(db_session, monkeypatch):
                 ]
             }
 
-    service = _build_service(db_session, monkeypatch, admin)
-    monkeypatch.setattr(
-        "app.services.s3_accounts_service.get_supervision_rgw_client",
-        lambda received_endpoint: FakeSupervisionAdmin()
-        if received_endpoint.id == endpoint.id
-        else pytest.fail("unexpected endpoint"),
-    )
+    service = _build_service(db_session, monkeypatch, FakeAdmin())
 
     assert service.get_account_usage(account) == (96, 5, 2)
-    assert supervision_calls == [
+    assert admin_calls == [
         {"account_id": None, "uid": "usage-account-admin", "with_stats": True}
     ]
-
 
 def test_create_account_with_root(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)

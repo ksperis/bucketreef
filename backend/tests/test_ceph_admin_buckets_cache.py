@@ -171,7 +171,6 @@ def test_ceph_admin_bucket_listing_cache_is_reused_across_pages():
 def test_ceph_admin_bucket_listing_skips_owner_backfill_for_explicit_global_tenant(monkeypatch):
     payload = [{"name": "bucket-a", "tenant": "", "owner": "owner-a"}]
     ctx, rgw_admin = _build_ctx(endpoint_id=18, payload=payload)
-    monkeypatch.setattr(bucket_listing_cache, "get_supervision_rgw_client", lambda endpoint: rgw_admin)
 
     class EmptyBucketUiTagsService:
         def get_tags_for_targets(self, *, domain_kind, actor_user_id, targets):  # noqa: ARG002
@@ -344,7 +343,6 @@ def test_ceph_admin_rgw_bucket_payload_serializes_stats_variants_for_endpoint(mo
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
     )
-    monkeypatch.setattr(bucket_listing_cache, "get_supervision_rgw_client", lambda endpoint: rgw_admin)
     results = []
     errors: list[Exception] = []
 
@@ -1565,17 +1563,11 @@ def test_ceph_admin_bucket_listing_falls_back_without_stats_and_backfills_owner(
             return {"name": bucket_name, "owner": owners.get(bucket_name)}
 
     rgw_admin = StatsFallbackAdmin()
-    supervision_admin = StatsFallbackAdmin()
     ctx = SimpleNamespace(
         endpoint=SimpleNamespace(id=188),
         rgw_admin=rgw_admin,
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
-    )
-    monkeypatch.setattr(
-        bucket_listing_cache,
-        "get_supervision_rgw_client",
-        lambda endpoint: supervision_admin,
     )
 
     response = buckets_router.list_buckets(
@@ -1596,8 +1588,7 @@ def test_ceph_admin_bucket_listing_falls_back_without_stats_and_backfills_owner(
         ("bucket-a", "owner-a"),
         ("bucket-b", "owner-b"),
     ]
-    assert supervision_admin.calls == [True]
-    assert rgw_admin.calls == [False]
+    assert rgw_admin.calls == [True, False]
     assert rgw_admin.info_calls == [("bucket-a", False), ("bucket-b", False)]
 
 
@@ -1610,18 +1601,12 @@ def test_ceph_admin_bucket_listing_returns_gateway_timeout_without_fallback(monk
             self.calls.append(with_stats)
             raise RGWAdminError("RGW admin request failed: Read timed out. (read timeout=120.0)")
 
-    rgw_admin = FakeRGWAdmin([])
-    supervision_admin = TimingOutStatsAdmin()
+    rgw_admin = TimingOutStatsAdmin()
     ctx = SimpleNamespace(
         endpoint=SimpleNamespace(id=190),
         rgw_admin=rgw_admin,
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
-    )
-    monkeypatch.setattr(
-        bucket_listing_cache,
-        "get_supervision_rgw_client",
-        lambda endpoint: supervision_admin,
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -1639,8 +1624,7 @@ def test_ceph_admin_bucket_listing_returns_gateway_timeout_without_fallback(monk
 
     assert exc.value.status_code == 504
     assert "timed out" in str(exc.value.detail).lower()
-    assert supervision_admin.calls == [True]
-    assert rgw_admin.get_all_buckets_calls == 0
+    assert rgw_admin.calls == [True]
 
 
 def test_ceph_admin_bucket_listing_rejects_stats_sort_when_stats_fetch_fails(monkeypatch):
@@ -1650,18 +1634,12 @@ def test_ceph_admin_bucket_listing_rejects_stats_sort_when_stats_fetch_fails(mon
                 raise RGWAdminError("stats call failed")
             return ["bucket-a"]
 
-    rgw_admin = FakeRGWAdmin([])
-    supervision_admin = FailingStatsAdmin()
+    rgw_admin = FailingStatsAdmin()
     ctx = SimpleNamespace(
         endpoint=SimpleNamespace(id=189),
         rgw_admin=rgw_admin,
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
-    )
-    monkeypatch.setattr(
-        bucket_listing_cache,
-        "get_supervision_rgw_client",
-        lambda endpoint: supervision_admin,
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -1679,7 +1657,6 @@ def test_ceph_admin_bucket_listing_rejects_stats_sort_when_stats_fetch_fails(mon
 
     assert exc.value.status_code == 502
     assert "Bucket stats are unavailable" in str(exc.value.detail)
-    assert rgw_admin.get_all_buckets_calls == 0
 
 
 def test_ceph_admin_bucket_listing_sort_by_usage_treats_missing_values_as_zero(monkeypatch):
@@ -1689,12 +1666,6 @@ def test_ceph_admin_bucket_listing_sort_by_usage_treats_missing_values_as_zero(m
         {"name": "bucket-zero", "owner": "owner-b", "usage": {"total_bytes": 0, "total_objects": 0}},
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=187, payload=payload)
-    supervision_admin = FakeRGWAdmin(payload)
-    monkeypatch.setattr(
-        bucket_listing_cache,
-        "get_supervision_rgw_client",
-        lambda endpoint: supervision_admin,
-    )
 
     used_desc = buckets_router.list_buckets(
         page=1,
@@ -1745,8 +1716,7 @@ def test_ceph_admin_bucket_listing_sort_by_usage_treats_missing_values_as_zero(m
     assert [item.name for item in used_asc.items] == ["bucket-missing", "bucket-zero", "bucket-max"]
     assert [item.name for item in objects_desc.items] == ["bucket-max", "bucket-missing", "bucket-zero"]
     assert [item.name for item in objects_asc.items] == ["bucket-missing", "bucket-zero", "bucket-max"]
-    assert supervision_admin.get_all_buckets_calls == 1
-    assert rgw_admin.get_all_buckets_calls == 0
+    assert rgw_admin.get_all_buckets_calls == 1
 
 
 def test_ceph_admin_bucket_listing_prefers_quota_max_size_bytes_when_both_units_are_present(monkeypatch):
@@ -1763,12 +1733,6 @@ def test_ceph_admin_bucket_listing_prefers_quota_max_size_bytes_when_both_units_
         }
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=188, payload=payload)
-    supervision_admin = FakeRGWAdmin(payload)
-    monkeypatch.setattr(
-        bucket_listing_cache,
-        "get_supervision_rgw_client",
-        lambda endpoint: supervision_admin,
-    )
 
     response = buckets_router.list_buckets(
         page=1,
@@ -1785,7 +1749,7 @@ def test_ceph_admin_bucket_listing_prefers_quota_max_size_bytes_when_both_units_
     assert len(response.items) == 1
     assert response.items[0].quota_max_size_bytes == max_size_bytes
     assert response.items[0].quota_max_size_bytes != max_size_bytes * 1024
-    assert rgw_admin.get_all_buckets_calls == 0
+    assert rgw_admin.get_all_buckets_calls == 1
 
 
 def test_ceph_admin_bucket_listing_lifecycle_param_filters_use_same_rule_matching(monkeypatch: pytest.MonkeyPatch):
@@ -3185,12 +3149,6 @@ def test_ceph_admin_owner_quota_usage_percent_filter_uses_global_owner_usage(mon
             }
         ],
     )
-    supervision_admin = FakeRGWAdmin(payload)
-    monkeypatch.setattr(
-        bucket_listing_cache,
-        "get_supervision_rgw_client",
-        lambda endpoint: supervision_admin,
-    )
     advanced_filter = json.dumps(
         {
             "match": "all",
@@ -3214,8 +3172,7 @@ def test_ceph_admin_owner_quota_usage_percent_filter_uses_global_owner_usage(mon
     )
 
     assert [item.name for item in response.items] == ["bucket-a"]
-    assert supervision_admin.get_all_buckets_calls == 1
-    assert rgw_admin.get_all_buckets_calls == 0
+    assert rgw_admin.get_all_buckets_calls == 1
     assert rgw_admin.list_accounts_calls == 1
 
 
@@ -3234,12 +3191,6 @@ def test_ceph_admin_bucket_quota_usage_percent_filter_matches_bucket_usage_and_i
         },
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=404, payload=payload)
-    supervision_admin = FakeRGWAdmin(payload)
-    monkeypatch.setattr(
-        bucket_listing_cache,
-        "get_supervision_rgw_client",
-        lambda endpoint: supervision_admin,
-    )
     advanced_filter = json.dumps(
         {
             "match": "all",
@@ -3260,5 +3211,4 @@ def test_ceph_admin_bucket_quota_usage_percent_filter_matches_bucket_usage_and_i
     )
 
     assert [item.name for item in response.items] == ["bucket-a"]
-    assert supervision_admin.get_all_buckets_calls == 1
-    assert rgw_admin.get_all_buckets_calls == 0
+    assert rgw_admin.get_all_buckets_calls == 1

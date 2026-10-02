@@ -16,11 +16,10 @@ from app.services import (
     s3_deletion,
 )
 from app.services.rgw_admin import RGWAdminError
+from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.models.bucket import Bucket
-from app.services.rgw_supervision import get_supervision_rgw_client
 from app.utils.rgw_identifiers import resolve_admin_uid
 from app.utils.rgw_payloads import extract_bucket_list
-from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import extract_usage_stats
 
 logger = logging.getLogger(__name__)
@@ -33,12 +32,9 @@ class BucketsService:
     def _rgw_admin_for_account(self, account: S3ExecutionTarget):
         endpoint = account.storage_endpoint
         if endpoint is None:
-            raise RuntimeError("Supervision credentials are not configured for this endpoint")
-        flags = resolve_feature_flags(endpoint)
-        if not flags.metrics_enabled:
-            raise RuntimeError("Storage metrics are disabled for this endpoint")
+            raise RuntimeError("Admin Ops credentials are not configured for this endpoint")
         try:
-            return get_supervision_rgw_client(endpoint)
+            return get_endpoint_admin_rgw_client(endpoint)
         except ValueError as exc:
             raise RuntimeError(sanitized_error_log_detail(exc)) from exc
         except RGWAdminError as exc:
@@ -100,28 +96,20 @@ class BucketsService:
         account_uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
         admin_by_name: dict[str, dict] = {}
         if account_uid and with_stats:
-            endpoint = getattr(account, "storage_endpoint", None)
-            storage_metrics_enabled = bool(resolve_feature_flags(endpoint).metrics_enabled) if endpoint else True
-            if not storage_metrics_enabled:
+            try:
+                admin_list = self._admin_bucket_list(account, with_stats=True)
                 logger.debug(
-                    "S3 execution context %s skipped RGW admin stats enrichment (storage metrics feature disabled)",
+                    "S3 execution context %s fetched %s bucket stats via RGW admin",
                     account.rgw_account_id or account.id,
+                    len(admin_list),
                 )
-            else:
-                try:
-                    admin_list = self._admin_bucket_list(account, with_stats=True)
-                    logger.debug(
-                        "S3 execution context %s fetched %s bucket stats via RGW admin",
-                        account.rgw_account_id or account.id,
-                        len(admin_list),
-                    )
-                    admin_by_name = {
-                        entry.get("bucket") or entry.get("name"): entry
-                        for entry in admin_list
-                        if isinstance(entry, dict) and (entry.get("bucket") or entry.get("name"))
-                    }
-                except RuntimeError as exc:
-                    logger.warning("Unable to fetch admin bucket stats for %s: %s", account.rgw_account_id or account.id, exc)
+                admin_by_name = {
+                    entry.get("bucket") or entry.get("name"): entry
+                    for entry in admin_list
+                    if isinstance(entry, dict) and (entry.get("bucket") or entry.get("name"))
+                }
+            except RuntimeError as exc:
+                logger.warning("Unable to fetch admin bucket stats for %s: %s", account.rgw_account_id or account.id, exc)
         elif account_uid and not with_stats:
             logger.debug("S3 execution context %s skipped RGW admin stats enrichment", account.rgw_account_id or account.id)
         logger.debug("S3 execution context %s listed %s buckets", account.rgw_account_id or account.id, len(buckets))
@@ -185,24 +173,21 @@ class BucketsService:
         if with_stats:
             account_uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
             if account_uid:
-                endpoint = getattr(account, "storage_endpoint", None)
-                storage_metrics_enabled = bool(resolve_feature_flags(endpoint).metrics_enabled) if endpoint else True
-                if storage_metrics_enabled:
-                    try:
-                        rgw_admin = self._rgw_admin_for_account(account)
-                        stats = rgw_admin.get_bucket_info(normalized_bucket, uid=account_uid, allow_not_found=True)
-                        if stats is None:
-                            stats = rgw_admin.get_bucket_info(normalized_bucket, allow_not_found=True)
-                        usage = stats.get("usage") if isinstance(stats, dict) else None
-                        usage_bytes, object_count = extract_usage_stats(usage)
-                        quota_size, quota_objects = self._extract_quota_from_admin_stats(stats)
-                    except (RuntimeError, RGWAdminError) as exc:
-                        logger.warning(
-                            "Unable to fetch bucket stats for %s on %s: %s",
-                            normalized_bucket,
-                            account.rgw_account_id or account.id,
-                            exc,
-                        )
+                try:
+                    rgw_admin = self._rgw_admin_for_account(account)
+                    stats = rgw_admin.get_bucket_info(normalized_bucket, uid=account_uid, allow_not_found=True)
+                    if stats is None:
+                        stats = rgw_admin.get_bucket_info(normalized_bucket, allow_not_found=True)
+                    usage = stats.get("usage") if isinstance(stats, dict) else None
+                    usage_bytes, object_count = extract_usage_stats(usage)
+                    quota_size, quota_objects = self._extract_quota_from_admin_stats(stats)
+                except (RuntimeError, RGWAdminError) as exc:
+                    logger.warning(
+                        "Unable to fetch bucket stats for %s on %s: %s",
+                        normalized_bucket,
+                        account.rgw_account_id or account.id,
+                        exc,
+                    )
 
         return Bucket(
             name=normalized_bucket,

@@ -21,8 +21,7 @@ from app.services.listing_progress import (
     interpolate_progress_percent,
     invoke_cancel_check,
 )
-from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_supervision import get_supervision_rgw_client
+from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
@@ -66,12 +65,6 @@ def enrich_accounts(
 ) -> list[CephAdminRgwAccountSummary]:
     if not accounts or not requested:
         return accounts
-    usage_admin: RGWAdminClient | None = None
-    if "usage" in requested:
-        try:
-            usage_admin = get_supervision_rgw_client(ctx.endpoint)
-        except (RGWAdminError, ValueError) as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     enriched: list[CephAdminRgwAccountSummary] = []
     total = len(accounts)
     for index, item in enumerate(accounts, start=1):
@@ -85,7 +78,7 @@ def enrich_accounts(
         except RGWAdminError as exc:
             raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
         if payload and not payload.get("not_found"):
-            _apply_account_detail_payload(account, payload, requested, ctx, usage_admin=usage_admin)
+            _apply_account_detail_payload(account, payload, requested, ctx)
         enriched.append(account)
         if progress is not None:
             progress.emit(
@@ -109,8 +102,6 @@ def _apply_account_detail_payload(
     payload: dict[str, Any],
     requested: set[str],
     ctx: CephAdminContext,
-    *,
-    usage_admin: RGWAdminClient | None = None,
 ) -> None:
     if "profile" in requested:
         if not account.account_name:
@@ -145,10 +136,8 @@ def _apply_account_detail_payload(
         account.bucket_count = extract_bucket_count(payload)
         account.user_count = extract_user_count(payload)
     if "usage" in requested:
-        if usage_admin is None:
-            raise RuntimeError("Supervision Ops client is required for account usage enrichment")
         try:
-            buckets_payload = usage_admin.get_all_buckets(
+            buckets_payload = ctx.rgw_admin.get_all_buckets(
                 account_id=account.account_id,
                 with_stats=True,
             )

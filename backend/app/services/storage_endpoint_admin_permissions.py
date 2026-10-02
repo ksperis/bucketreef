@@ -86,11 +86,11 @@ def admin_ops_permissions_from_caps(raw_caps: object) -> StorageEndpointAdminOps
     buckets_write = _allows(buckets_permissions, "write")
     accounts_write = _allows(accounts_permissions, "write")
     return StorageEndpointAdminOpsPermissions(
-        users_read=_allows(users_permissions, "read") or users_write,
+        users_read=_allows(users_permissions, "read"),
         users_write=users_write,
-        buckets_read=_allows(buckets_permissions, "read") or buckets_write,
+        buckets_read=_allows(buckets_permissions, "read"),
         buckets_write=buckets_write,
-        accounts_read=_allows(accounts_permissions, "read") or accounts_write,
+        accounts_read=_allows(accounts_permissions, "read"),
         accounts_write=accounts_write,
     )
 
@@ -139,10 +139,11 @@ def resolve_storage_endpoint_admin_ops_permissions(
 def has_account_provisioning_permissions(
     permissions: StorageEndpointAdminOpsPermissions,
 ) -> bool:
-    """Return whether Admin Ops can provision the RGW users/accounts onboarding needs."""
+    """Return whether Admin Ops can provision and inspect Manager/Portal RGW resources."""
     return bool(
         permissions.users_read
         and permissions.users_write
         and permissions.accounts_read
         and permissions.accounts_write
+        and permissions.buckets_read
     )
