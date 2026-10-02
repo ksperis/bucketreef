@@ -21,8 +21,7 @@ from app.services.listing_progress import (
     interpolate_progress_percent,
     invoke_cancel_check,
 )
-from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_supervision import get_supervision_rgw_client
+from app.services.rgw_admin import RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
@@ -54,12 +53,6 @@ class _UserDetailsEnricher:
         self.progress_end = progress_end
         self.cancel_check = cancel_check
         self.account_name_by_id: dict[str, Optional[str]] = {}
-        self.usage_admin: RGWAdminClient | None = None
-        if "usage" in requested:
-            try:
-                self.usage_admin = get_supervision_rgw_client(ctx.endpoint)
-            except (RGWAdminError, ValueError) as exc:
-                raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
     def run(self) -> list[CephAdminRgwUserSummary]:
         enriched: list[CephAdminRgwUserSummary] = []
@@ -174,11 +167,9 @@ class _UserDetailsEnricher:
         return self.account_name_by_id.get(account_id) or payload_account_name
 
     def _apply_usage(self, user: CephAdminRgwUserSummary) -> None:
-        if self.usage_admin is None:
-            raise RuntimeError("Supervision Ops client is required for user usage enrichment")
         lookup_uid = f"{user.tenant}${user.uid}" if user.tenant else user.uid
         try:
-            buckets_payload = self.usage_admin.get_all_buckets(
+            buckets_payload = self.ctx.rgw_admin.get_all_buckets(
                 uid=lookup_uid,
                 with_stats=True,
             )

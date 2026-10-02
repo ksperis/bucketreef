@@ -268,29 +268,21 @@ def test_get_user_usage_aggregates_live_bucket_stats(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=True)
     s3_user = _seed_local_user(db_session, name="Usage User", uid="usage-user", endpoint_id=endpoint.id)
     fake_admin = FakeRGWAdmin()
-    fake_supervision = FakeRGWAdmin()
-    fake_supervision.bucket_payloads_by_uid["usage-user"] = {
+    fake_admin.bucket_payloads_by_uid["usage-user"] = {
         "buckets": [
             {"name": "alpha", "usage": {"rgw.main": {"size_actual": 20, "num_objects": 2}}},
             {"name": "beta", "usage": {"total_bytes": 30, "total_objects": 3}},
         ]
     }
     service = _build_service(db_session, monkeypatch, fake_admin)
-    monkeypatch.setattr(
-        "app.services.s3_users_service.get_supervision_rgw_client",
-        lambda received_endpoint: fake_supervision
-        if received_endpoint.id == endpoint.id
-        else pytest.fail("unexpected endpoint"),
-    )
 
     assert service.get_user_usage(s3_user) == (50, 5, 2)
-    assert fake_supervision.bucket_list_calls == [
+    assert fake_admin.bucket_list_calls == [
         {"account_id": None, "uid": "usage-user", "with_stats": True}
     ]
-    assert fake_admin.bucket_list_calls == []
 
 
-def test_get_user_usage_hides_when_endpoint_metrics_are_disabled(db_session, monkeypatch):
+def test_get_user_usage_uses_admin_ops_when_monitoring_is_disabled(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     s3_user = _seed_local_user(db_session, name="No Metrics User", uid="no-metrics-user", endpoint_id=endpoint.id)
     fake = FakeRGWAdmin()
@@ -301,8 +293,10 @@ def test_get_user_usage_hides_when_endpoint_metrics_are_disabled(db_session, mon
     }
     service = _build_service(db_session, monkeypatch, fake)
 
-    assert service.get_user_usage(s3_user) == (None, None, None)
-    assert fake.bucket_list_calls == []
+    assert service.get_user_usage(s3_user) == (30, 3, 1)
+    assert fake.bucket_list_calls == [
+        {"account_id": None, "uid": "no-metrics-user", "with_stats": True}
+    ]
 
 
 def test_get_user_limits_reads_embedded_quota_without_repeating_lookup(db_session, monkeypatch):

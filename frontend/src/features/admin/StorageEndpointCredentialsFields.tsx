@@ -68,7 +68,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       : "This provider does not use dedicated operational credentials in BucketReef."}
   </UiInlineMessage>;
   return <>
-    <SettingsSection title="Administration (Admin Ops)" description="Credentials for platform provisioning and explicitly delegated bucket quotas." presentation="compact">
+    <SettingsSection title="Administration (Admin Ops)" description="Credentials for platform provisioning, Manager/Portal RGW reads, and explicitly delegated bucket quotas." presentation="compact">
       <CredentialFields {...props} kind="admin" label="Admin" required={props.form.features.admin.enabled} />
     </SettingsSection>
     <SettingsSection title="Monitoring (Supervision Ops)" description="Use these keys for read-only monitoring actions." presentation="compact">
@@ -77,8 +77,8 @@ export default function StorageEndpointCredentialsFields(props: Props) {
     <SettingsSection title="What are Admin Ops and Supervision Ops?" description="Ceph (radosgw-admin) examples" presentation="compact">
       <div className="settings-stack">
         <p className="settings-description">
-          Admin Ops keys let BucketReef create RGW accounts and S3 users, and apply explicitly delegated Manager bucket quota changes.
-          Individual bucket quota changes require the <code>buckets=write</code> capability included in the example below.
+          Admin Ops keys let BucketReef create RGW accounts and S3 users, enrich Manager/Portal views with live RGW bucket statistics, and apply explicitly delegated Manager bucket quota changes.
+          Live bucket statistics require <code>buckets=read</code>; individual bucket quota changes additionally require <code>buckets=write</code>.
           If you do not provide Admin Ops keys, you must create accounts/users outside of BucketReef and import them manually (or via the API).
         </p>
         <p className="settings-description">Supervision Ops keys are read-only credentials used for usage logs and metrics collection.</p>

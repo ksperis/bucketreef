@@ -138,7 +138,7 @@ function detectionFor(
     admin_ops_permissions: {
       users_read: Boolean(payload.admin_access_key),
       users_write: Boolean(payload.admin_access_key),
-      buckets_read: false,
+      buckets_read: Boolean(payload.admin_access_key),
       buckets_write: false,
       accounts_read: Boolean(payload.admin_access_key),
       accounts_write: Boolean(payload.admin_access_key),
@@ -307,7 +307,7 @@ describe("simplified onboarding", () => {
     expect(
       screen.getAllByText("Show the Ceph RGW command to create this identity"),
     ).toHaveLength(4);
-    expect(screen.getByText(/users=read,write;accounts=read,write;buckets=write/)).toBeInTheDocument();
+    expect(screen.getByText(/users=read,write;accounts=read,write;buckets=read,write/)).toBeInTheDocument();
     expect(screen.getByText(/usage=read;buckets=read/)).toBeInTheDocument();
     expect(screen.getByText(/--admin/)).toBeInTheDocument();
     expect(screen.getByText(/BucketReef private S3 user/)).toBeInTheDocument();
@@ -315,11 +315,13 @@ describe("simplified onboarding", () => {
 
   it("requires Admin Ops provisioning caps while keeping bucket quota capability optional", async () => {
     let accountsWrite = false;
+    let bucketsRead = false;
     mocks.detectStorageEndpointFeatures.mockImplementation(
       async (payload: StorageEndpointFeatureDetectionPayload) => {
         const result = detectionFor(payload);
         if (payload.admin_access_key) {
           result.admin_ops_permissions.accounts_write = accountsWrite;
+          result.admin_ops_permissions.buckets_read = bucketsRead;
         }
         return result;
       },
@@ -341,6 +343,7 @@ describe("simplified onboarding", () => {
     });
 
     expect(await screen.findByText("× Accounts cap · missing read/write")).toBeInTheDocument();
+    expect(screen.getByText("× Bucket stats · missing read")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
 
     accountsWrite = true;
@@ -348,8 +351,18 @@ describe("simplified onboarding", () => {
       target: { value: "admin-secret-2" },
     });
 
+    expect(await screen.findByText("✓ Accounts cap · read/write")).toBeInTheDocument();
+    expect(screen.getByText("× Bucket stats · missing read")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+
+    bucketsRead = true;
+    fireEvent.change(screen.getByLabelText("Admin Ops secret key"), {
+      target: { value: "admin-secret-3" },
+    });
+
     await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
     expect(screen.getByText("✓ Accounts cap · read/write")).toBeInTheDocument();
+    expect(screen.getByText("✓ Bucket stats · read")).toBeInTheDocument();
     expect(screen.getByText("Bucket quotas · optional cap not granted")).toBeInTheDocument();
   });
 

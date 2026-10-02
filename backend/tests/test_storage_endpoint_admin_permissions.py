@@ -34,7 +34,7 @@ def _endpoint(**overrides) -> StorageEndpoint:
                 {"type": "buckets", "perm": "write"},
                 {"type": "accounts", "perm": "write"},
             ],
-            (True, True, True, True, True, True),
+            (True, True, False, True, False, True),
         ),
         (
             "users=read;accounts=read,write",
@@ -42,7 +42,7 @@ def _endpoint(**overrides) -> StorageEndpoint:
         ),
         (
             {"users": "write", "buckets": "read", "accounts": "read"},
-            (True, True, True, False, True, False),
+            (False, True, True, False, True, False),
         ),
     ],
 )

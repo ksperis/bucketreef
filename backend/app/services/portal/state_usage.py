@@ -120,7 +120,7 @@ class PortalStateUsageMixin:
                 storage_spaces=[],
             )
         try:
-            rgw_admin = self._supervision_admin_for_account(account)
+            rgw_admin = self._admin_ops_for_account(account)
             bucket_payloads = self._admin_bucket_list(account, admin=rgw_admin)
         except (RGWAdminError, RuntimeError) as exc:  # pragma: no cover - defensive path
             logger.warning("Unable to list scoped bucket usage for portal user %s: %s", user.email, exc)
@@ -190,7 +190,7 @@ class PortalStateUsageMixin:
             if bucket_name not in allowed:
                 raise PortalForbiddenError("Accès bucket non autorisé.")
         try:
-            rgw_admin = self._supervision_admin_for_account(account)
+            rgw_admin = self._admin_ops_for_account(account)
         except RGWAdminError as exc:  # pragma: no cover - defensive path
             logger.warning("Unable to initialize RGW admin client for bucket stats: %s", exc)
             raise RuntimeError("Impossible d'initialiser le client RGW.") from exc

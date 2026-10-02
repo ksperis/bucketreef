@@ -12,7 +12,6 @@ from typing import Callable
 from app.models.bucket_listing import BucketListingSummary
 from app.services.bucket_listing_owner_metadata import BucketListingAdminContext
 from app.services.bucket_owner_enrichment import BucketOwnerUsage
-from app.services.rgw_supervision import get_supervision_rgw_client
 from app.utils.cache import prune_expired_lru_cache
 from app.utils.rgw_payloads import extract_bucket_list
 
@@ -111,8 +110,7 @@ def get_cached_rgw_bucket_entries(ctx: BucketListingAdminContext, with_stats: bo
         in_flight.wait()
 
     try:
-        rgw_admin = get_supervision_rgw_client(ctx.endpoint) if with_stats else ctx.rgw_admin
-        payload = rgw_admin.get_all_buckets(with_stats=with_stats)
+        payload = ctx.rgw_admin.get_all_buckets(with_stats=with_stats)
         entries = extract_bucket_list(payload)
         expires_at = monotonic() + BUCKET_LIST_CACHE_TTL_SECONDS
         with _CACHE_LOCK:

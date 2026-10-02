@@ -541,12 +541,6 @@ def test_ceph_admin_users_quota_usage_percent_filter_aggregates_bucket_usage(mon
         user_details=user_details,
         bucket_payloads=bucket_payloads,
     )
-    supervision_admin = FakeRGWAdmin([], {}, bucket_payloads=bucket_payloads)
-    monkeypatch.setattr(
-        user_listing_enrichment,
-        "get_supervision_rgw_client",
-        lambda endpoint: supervision_admin,
-    )
     advanced_filter = json.dumps(
         {
             "match": "all",
@@ -566,8 +560,7 @@ def test_ceph_admin_users_quota_usage_percent_filter_aggregates_bucket_usage(mon
     )
 
     assert [item.uid for item in response.items] == ["alice"]
-    assert supervision_admin.get_all_buckets_calls == 1
-    assert rgw_admin.get_all_buckets_calls == 0
+    assert rgw_admin.get_all_buckets_calls == 1
 
 
 def test_ceph_admin_users_do_not_fetch_usage_without_usage_percent_filter():

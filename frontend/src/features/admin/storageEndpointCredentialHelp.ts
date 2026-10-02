@@ -4,7 +4,7 @@ export const ADMIN_OPS_COMMAND = [
   "radosgw-admin user create \\",
   '  --uid="bkr-admin" \\',
   '  --display-name="BucketReef Admin Ops" \\',
-  '  --caps="users=read,write;accounts=read,write;buckets=write"',
+  '  --caps="users=read,write;accounts=read,write;buckets=read,write"',
 ].join("\n");
 
 export const SUPERVISION_OPS_COMMAND = [

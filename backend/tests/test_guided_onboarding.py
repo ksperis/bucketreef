@@ -90,6 +90,7 @@ def detection(
     permissions = admin_ops_permissions or StorageEndpointAdminOpsPermissions(
         users_read=True,
         users_write=True,
+        buckets_read=True,
         accounts_read=True,
         accounts_write=True,
     )
@@ -414,6 +415,7 @@ def test_onboarding_rejects_admin_ops_without_required_provisioning_caps(
                 users_write=True,
                 accounts_read=True,
                 accounts_write=False,
+                buckets_read=True,
                 buckets_write=True,
             )
         ),

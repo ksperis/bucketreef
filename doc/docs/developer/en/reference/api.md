@@ -82,7 +82,8 @@ Any HTTP response proves endpoint reachability, including an unauthenticated
 `403`; only a connection/request failure is `unavailable`. A successful Admin
 Ops identity lookup also returns `admin_ops_permissions`, resolved from the RGW
 user caps. Guided Manager/Portal provisioning requires `users=read,write` and
-`accounts=read,write`; `buckets=write` is reported separately and remains
+`accounts=read,write`, plus `buckets=read` for live bucket-stat enrichment;
+`buckets=write` is reported separately and remains
 optional for onboarding because it is needed only for delegated bucket quota
 changes. Ceph Admin accepts a dedicated RGW identity with either the `admin` or
 `system` flag.
