@@ -1,0 +1,79 @@
+INHERIT: mkdocs.base.yml
+
+site_name: BucketReef Administration Guide
+site_description: Deploy, configure, secure and operate BucketReef and its storage integrations
+site_url: https://docs.bucketreef.ksperis.com/admin/en/
+docs_dir: docs/admin/en
+site_dir: site/admin/en
+edit_uri: edit/main/doc/docs/admin/en/
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: false
+      enable_git_follow: false
+      strict: false
+
+nav:
+  - Overview: index.md
+  - Getting started:
+      - Start here: getting-started/index.md
+      - Sysadmin onboarding: getting-started/sysadmin-onboarding.md
+      - Common tasks: getting-started/common-tasks.md
+      - Use cases: getting-started/use-cases.md
+      - Storage admin runbook: getting-started/storage-admin-runbook.md
+  - Installation:
+      - Local quickstart: install/quickstart.md
+      - Docker Compose: install/docker-compose.md
+      - Helm: install/helm.md
+      - Production architecture: install/production-architecture.md
+  - Configuration: configuration/index.md
+  - Platform:
+      - Admin workspace: platform/index.md
+      - Effective access audit: platform/access-audit.md
+      - Audit: platform/audit.md
+      - Endpoint status: platform/endpoint-status.md
+      - Billing: platform/billing.md
+      - Usage and metrics: platform/usage-metrics.md
+      - Usage history: platform/usage-history.md
+      - Key rotation: platform/key-rotation.md
+      - Portal delegation: platform/portal-delegation.md
+  - Storage:
+      - Backends:
+          - Compatibility: storage/backends/compatibility.md
+          - Ceph RGW: storage/backends/ceph-rgw.md
+          - Other S3 implementations: storage/backends/other-s3.md
+      - Ceph Admin:
+          - Overview: storage/ceph-admin/index.md
+          - Advanced filter: storage/ceph-admin/advanced-filter.md
+          - UI tags: storage/ceph-admin/ui-tags.md
+      - Storage Ops:
+          - Overview: storage/storage-ops/index.md
+          - UI tags: storage/storage-ops/ui-tags.md
+      - Browser operations: storage/browser-operations.md
+      - Browser versions: storage/browser-versions.md
+      - Bucket purge: storage/bucket-purge.md
+      - Bucket usage: storage/bucket-usage.md
+      - Safe operations: storage/safe-operations.md
+  - Operations:
+      - Healthchecks: operations/healthchecks.md
+      - Billing: operations/billing.md
+      - Quota monitoring: operations/quota-monitoring.md
+      - Webhooks: operations/webhooks.md
+      - Observability: operations/observability.md
+      - Upgrade and compatibility: operations/upgrade-compatibility.md
+      - Upgrade from pre-0.2: operations/upgrade-from-pre-0.2.md
+      - Backup and restore: operations/backup-restore.md
+      - Production readiness: operations/production-readiness.md
+      - Production checks: operations/production-checks.md
+  - Security:
+      - Overview: security/index.md
+      - Authentication: security/authentication.md
+      - API tokens: security/api-tokens.md
+      - Ceph Admin: security/ceph-admin.md
+  - Help:
+      - Feature availability: help/feature-availability.md
+      - Troubleshooting: help/troubleshooting.md
+  - Profile: profile.md
+  - Reference:
+      - Glossary: reference/glossary.md

@@ -72,7 +72,7 @@ def run(
                 result="fail",
                 severity="blocker",
                 message=message,
-                documentation_url="https://docs.bucketreef.ksperis.com/ops/configuration/",
+                documentation_url="https://docs.bucketreef.ksperis.com/admin/en/configuration/",
                 blocks_startup=True,
             )
             for message in _validation_messages(exc)

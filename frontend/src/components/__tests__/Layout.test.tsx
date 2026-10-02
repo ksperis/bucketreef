@@ -34,11 +34,13 @@ vi.mock("../Topbar", () => ({
     onMobileMenuToggle,
     showMobileMenuButton,
     showWorkspaceSwitcher,
+    contextAction,
   }: {
     mobileMenuOpen: boolean;
     onMobileMenuToggle: () => void;
     showMobileMenuButton?: boolean;
     showWorkspaceSwitcher?: boolean;
+    contextAction?: React.ReactNode;
   }) => (
     <div data-testid="layout-topbar" data-show-workspace-switcher={String(showWorkspaceSwitcher)}>
       {showMobileMenuButton ? (
@@ -46,6 +48,7 @@ vi.mock("../Topbar", () => ({
           Menu
         </button>
       ) : null}
+      {contextAction}
     </div>
   ),
 }));
@@ -92,6 +95,23 @@ function getMobileSidebar(container: HTMLElement) {
   return element as HTMLElement;
 }
 
+function renderWorkspaceLayout(pathname: string) {
+  return render(
+    <MemoryRouter initialEntries={[pathname]}>
+      <Routes>
+        <Route
+          path="*"
+          element={
+            <Layout headerTitle="Workspace" hideHeader>
+              <div>Workspace content</div>
+            </Layout>
+          }
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("Layout", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -105,6 +125,15 @@ describe("Layout", () => {
 
     expect(desktopSidebar).toHaveStyle({ width: `${SIDEBAR_DEFAULT_WIDTH}px` });
     expect(within(desktopSidebar).queryByRole("separator", { name: "Resize sidebar" })).not.toBeInTheDocument();
+  });
+
+  it("exposes documentation for the active workspace context", () => {
+    renderWorkspaceLayout("/manager/browser");
+
+    expect(screen.getByRole("link", { name: "Open workspace documentation" })).toHaveAttribute(
+      "href",
+      "https://docs.bucketreef.ksperis.com/manager/en/browser/object-operations/",
+    );
   });
 
   it("lets route content shrink so wide inner lists can scroll horizontally", () => {

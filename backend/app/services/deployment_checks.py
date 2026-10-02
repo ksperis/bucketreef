@@ -34,7 +34,7 @@ CheckLevel = Literal["blocked", "critical", "warning", "manual", "ok"]
 CheckPhase = Literal["pre-database", "full"]
 ReadinessStatus = Literal["blocked", "critical", "warning", "ok"]
 
-DOCS_BASE_URL = "https://docs.bucketreef.ksperis.com/ops/production-checks-reference/"
+DOCS_BASE_URL = "https://docs.bucketreef.ksperis.com/admin/en/operations/production-checks/"
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,53 @@
+INHERIT: mkdocs.base.yml
+
+site_name: Guide Portal BucketReef
+site_description: Guide utilisateur du workspace Portal en libre-service de BucketReef
+site_url: https://docs.bucketreef.ksperis.com/portal/fr/
+docs_dir: docs/portal/fr
+site_dir: site/portal/fr
+edit_uri: edit/main/doc/docs/portal/fr/
+
+theme:
+  language: fr
+
+extra:
+  alternate:
+    - name: English
+      link: /portal/en/
+      lang: en
+    - name: Français
+      link: /portal/fr/
+      lang: fr
+
+plugins:
+  - search:
+      lang: fr
+  - git-revision-date-localized:
+      enable_creation_date: false
+      enable_git_follow: false
+      locale: fr
+      strict: false
+
+nav:
+  - Vue d'ensemble: index.md
+  - Bien démarrer:
+      - Premiers pas: getting-started/index.md
+      - Tâches courantes: getting-started/common-tasks.md
+      - Cas d'usage: getting-started/use-cases.md
+  - Espaces de stockage: spaces/index.md
+  - Fichiers:
+      - Fichiers: files/index.md
+      - Versions: files/versions.md
+      - Suppression sûre: files/safe-deletion.md
+  - Collaboration: collaboration.md
+  - Outils externes: external-tools.md
+  - État du stockage: storage-health.md
+  - Demandes: help-requests.md
+  - Historique: activity.md
+  - Paramètres: settings.md
+  - Aide:
+      - Disponibilité des fonctions: help/feature-availability.md
+      - Dépannage: help/troubleshooting.md
+  - Profil: profile.md
+  - Référence:
+      - Glossaire: reference/glossary.md

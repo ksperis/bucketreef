@@ -85,7 +85,7 @@ bucketreef-quickstart start
 bucketreef-quickstart version
 ```
 
-See the [QuickStart guide](https://docs.bucketreef.ksperis.com/ops/quickstart/)
+See the [QuickStart guide](https://docs.bucketreef.ksperis.com/admin/en/install/quickstart/)
 for explicit versions, script inspection, custom ports and reset backups. This
 evaluation setup does not configure storage; it runs the same backend, frontend
 and scheduler contained in the normal Compose deployment.
@@ -94,10 +94,10 @@ and scheduler contained in the normal Compose deployment.
 
 - **Docker Compose:** download and verify `bucketreef-deploy.tar.gz` from
   [GitHub Releases](https://github.com/ksperis/bucketreef/releases), configure
-  `.env` and follow the [deployment guide](https://docs.bucketreef.ksperis.com/ops/deploy-docker-compose/).
+  `.env` and follow the [deployment guide](https://docs.bucketreef.ksperis.com/admin/en/install/docker-compose/).
 - **Kubernetes:** install `oci://ghcr.io/ksperis/charts/bucketreef` with an explicit
   `--version X.Y.Z` and the required security values and existing Secret from
-  the [Helm guide](https://docs.bucketreef.ksperis.com/ops/deploy-helm/).
+  the [Helm guide](https://docs.bucketreef.ksperis.com/admin/en/install/helm/).
 
 QuickStart automates installation and configuration of the same Docker Compose
 bundle distributed with each release. The Helm chart remains a separate
@@ -109,7 +109,7 @@ backend, frontend and scheduler images to the same version.
 Clone this repository for development, configure your root `.env`, then run
 `docker compose build` and `docker compose up --build`. The root Compose builds
 from the working tree; release deployment files live under `deploy/`.
-See [Local development](https://docs.bucketreef.ksperis.com/developer/local-development/).
+See [Local development](https://docs.bucketreef.ksperis.com/developer/en/contributing/local-development/).
 
 ## Full Documentation
 

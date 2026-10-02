@@ -1,0 +1,32 @@
+INHERIT: mkdocs.base.yml
+
+site_name: BucketReef Browser Guide
+site_description: Standalone S3 object and version operations in BucketReef Browser
+site_url: https://docs.bucketreef.ksperis.com/browser/en/
+docs_dir: docs/browser/en
+site_dir: site/browser/en
+edit_uri: edit/main/doc/docs/browser/en/
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: false
+      enable_git_follow: false
+      strict: false
+
+nav:
+  - Overview: index.md
+  - Getting started:
+      - Start here: getting-started/index.md
+      - Common tasks: getting-started/common-tasks.md
+      - Use cases: getting-started/use-cases.md
+  - Objects:
+      - Operations: objects/operations.md
+      - Versions: objects/versions.md
+  - Help:
+      - Feature availability: help/feature-availability.md
+      - Troubleshooting: help/troubleshooting.md
+  - Profile: profile.md
+  - Reference:
+      - Safe operations: reference/safe-operations.md
+      - Glossary: reference/glossary.md

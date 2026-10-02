@@ -1,0 +1,375 @@
+# Configuration
+
+Configuration is split between backend environment variables and UI settings.
+
+## Configuration checklist
+
+| Priority | Configure | Why |
+|---|---|---|
+| Required | `DATABASE_URL`, JWT secrets, credential encryption key, `CORS_ORIGINS`, frontend API routing | The app must persist data, protect sessions and stored credentials, and accept requests only from the intended UI origin. |
+| Required | `INTERNAL_CRON_TOKEN` when scheduler or CronJobs are enabled | Internal automation endpoints must not be callable without the shared token. |
+| Recommended | OIDC or LDAP provider settings | Enterprise identity is safer and easier to operate than local-only users. |
+| Recommended | Feature flags for Manager, Portal, Browser, Ceph Admin, Storage Ops, billing, endpoint status, usage history, and quota alerts | Users should see only the surfaces that are intentionally launched. |
+| Recommended | Healthcheck, billing, quota, usage-history, and notification-retention schedules | Operational data should be fresh enough to support troubleshooting and notification history should remain bounded. |
+| Recommended | SMTP settings when quota alerts are enabled | Quota alerts need a deliverable notification path. |
+| Optional | Branding color and login logo | Useful for tenant or lab identity, but not required for safe operation. |
+
+## Find the right configuration area
+
+| You need to control... | Primary place | Also check |
+|---|---|---|
+| Login sessions, stored credentials, trusted origins | Backend environment and secret manager | `APP_ENV`, `PUBLIC_ORIGIN`, `CORS_ORIGINS`, `ALLOWED_HOSTS`, UI/API JWT rings, credential encryption, WebAuthn, trusted proxies, and secure cookies. |
+| Which workspaces users can see | Admin app settings and feature force-locks | `FEATURE_*` env locks, user roles, UI groups, account links, Manager tool access. |
+| Schedulers and internal automation | Runtime env, Compose scheduler, or Helm CronJobs | `INTERNAL_CRON_TOKEN`, `healthcheckCronJob`, `billingCronJob`, `quotaMonitorCronJob`, `usageHistoryCronJob`, `notificationRetentionCronJob`. |
+| Health, metrics, billing, quota, and usage history freshness | App settings plus job schedules | Endpoint capability, retention env vars, latest collection logs. |
+| Enterprise authentication | Admin **Settings > Authentication** or env-managed OIDC/LDAP providers | TLS verification, provider priority, write-only secrets, startup warnings. |
+| Portal self-service behavior | Admin Portal settings | Portal account links, Storage Space defaults, access-key policy, IAM group projections. |
+| Browser exposure | Browser app settings and sub-flags | Root Browser, Manager Browser, Portal Browser, Ceph Admin Browser, endpoint capability. |
+| Notifications | Quota notification settings and Admin **Settings > Webhooks** | `SMTP_PASSWORD`, quota user opt-in/global watch policy, and the `WEBHOOK_*` runtime delivery/security settings. |
+
+## Minimum day-one settings
+
+Before onboarding real users, an operator should be able to name:
+
+- where the application database lives and how it is backed up
+- where the credential encryption key and scheduler token are stored
+- which trusted UI origins are allowed
+- which workspaces are enabled by feature flags and app settings
+- which scheduler jobs or CronJobs are enabled or intentionally disabled
+- which endpoint is the first production-like storage backend
+- which support page users should open when reporting failures
+
+## Backend runtime settings
+
+Primary source of truth: `backend/app/core/config.py`.
+
+Key areas:
+
+- Security and auth: `APP_ENV`, mutually distinct `UI_JWT_KEYS`, `API_JWT_KEYS`,
+  and `CREDENTIAL_KEYS`, access/session lifetimes, secure host-only cookie settings,
+  `PUBLIC_ORIGIN`, optional `PUBLIC_ORIGINS`, `ALLOWED_HOSTS`,
+  `TRUSTED_PROXY_CIDRS`, WebAuthn, and
+  OIDC/LDAP environment providers.
+  Production requires a non-empty `TRUSTED_PROXY_CIDRS` list containing the
+  precise ingress or reverse-proxy CIDRs. Forwarded client addresses are
+  ignored for untrusted direct peers.
+- Outbound targets: `USER_SUPPLIED_S3_ENDPOINT_ALLOWED_HOSTS` and
+  `WEBHOOK_ALLOWED_HOSTS`. In production, an empty list blocks
+  the corresponding user-controlled destinations. Entries match only the exact
+  hostname; use an explicit `*.example.com` entry for subdomains. The wildcard
+  does not include the apex hostname. User-supplied S3 endpoints remain HTTPS
+  and public. Webhooks remain HTTPS by default; private HTTP webhooks require
+  both `WEBHOOK_ALLOW_PRIVATE_TARGETS=true` and an explicit host allowlist
+  entry. See [Operations: webhooks](../operations/webhooks.md) for delivery,
+  signing, retries, and compatibility aliases.
+- Database: `DATABASE_URL` (SQLite defaults to `backend/app.db`; relative SQLite paths are normalized against `backend/`). Multi-backend deployments require PostgreSQL.
+- CORS: `CORS_ORIGINS`.
+- Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
+- Runtime job ownership: `SCHEDULED_JOBS_ENABLED`. A split deployment enables it
+  only on the `admin` or `admin-no-ceph-admin` Administration instance.
+- Dedicated Ceph Admin boundary: `CEPH_ADMIN_HIGH_SECURITY_MODE`. When enabled,
+  startup requires Ceph Admin on, every other runtime surface off, and scheduled
+  jobs off. Deployment profiles set these values automatically.
+- Internal scheduler auth: `INTERNAL_CRON_TOKEN`.
+- Runtime deployment identity: `DEPLOYMENT_PROFILE` (`full`, `admin`,
+  `admin-no-ceph-admin`, `user`, or `ceph-admin-high-security`). Compose and Helm
+  profiles set it automatically; set it explicitly for custom deployments so
+  runtime readiness checks evaluate the correct surface contract.
+- Billing, quota monitoring, usage history collection, and healthcheck behavior.
+- Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `BILLING_OPERATION_LEASE_TTL_SECONDS`.
+- Shared history retention: `BILLING_DAILY_RETENTION_DAYS`, `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`, `QUOTA_HISTORY_DAILY_RETENTION_DAYS`.
+- User notification retention: `USER_NOTIFICATIONS_RETENTION_DAYS` (default `90`; `0` disables purge) and the daily `NOTIFICATION_RETENTION_CRON_SCHEDULE` Compose job or `notificationRetentionCronJob` Helm job.
+- Durable webhook delivery: `WEBHOOK_WORKER_ENABLED`,
+  `WEBHOOK_POLL_INTERVAL_SECONDS`, `WEBHOOK_WORKER_LEASE_SECONDS`,
+  `WEBHOOK_TIMEOUT_SECONDS`, `WEBHOOK_WORKERS`, `WEBHOOK_MAX_ATTEMPTS`,
+  `WEBHOOK_RETRY_INITIAL_SECONDS`, `WEBHOOK_RETRY_MAX_SECONDS`, and
+  `WEBHOOK_RETENTION_DAYS`. In split deployments, event publication uses the
+  shared PostgreSQL queue but outbound dispatch runs only on the Admin-capable
+  release; `user` and `ceph-admin-high-security` profiles disable the worker.
+- Quota SMTP secret: `SMTP_PASSWORD`.
+- Interactive storage budgets: `STORAGE_INTERACTIVE_CONNECT_TIMEOUT_SECONDS` (default `2`),
+  `STORAGE_INTERACTIVE_READ_TIMEOUT_SECONDS` (default `5`), and
+  `STORAGE_INTERACTIVE_MAX_ATTEMPTS` (default `2`). These bound UI-facing S3,
+  IAM, SNS, and STS calls. Long-running S3 streams, bulk inventories, and file
+  transfers keep the same connect/retry budget but use
+  `STORAGE_LONG_RUNNING_READ_TIMEOUT_SECONDS` (default `60`) for socket reads.
+- RGW Admin availability probes use `RGW_ADMIN_PROBE_TIMEOUT_SECONDS` (default
+  `3`) while ordinary Admin Ops and bucket-statistics calls keep their separate
+  `RGW_ADMIN_TIMEOUT_SECONDS` and `RGW_ADMIN_BUCKET_LIST_STATS_TIMEOUT_SECONDS`
+  budgets.
+
+Before enabling the production profile, inventory persisted destinations
+without printing URLs or credentials:
+
+```bash
+cd backend
+python -m app.scripts.preflight_outbound_targets
+```
+
+The command reports only uncovered hostnames and exits non-zero while an
+existing user-created S3 connection or global webhook endpoint is outside its
+allowlist. Persisted webhook endpoints are checked regardless of which event
+types they receive. Admin-registered storage endpoints are intentionally
+excluded.
+
+Validate the complete runtime boundary with:
+
+```bash
+python -m app.scripts.check_production_hardening
+# Optional diagnostic override:
+python -m app.scripts.check_production_hardening --profile admin
+```
+
+Without `--profile`, the checker evaluates the runtime `DEPLOYMENT_PROFILE`.
+It also evaluates the production security boundary independently of the current
+`APP_ENV`, so it can be used as a preflight while a staging instance still runs
+with `APP_ENV=development` or `test`. Once `APP_ENV=production`, only findings
+classified as startup security blockers stop the backend; Critical and Warning
+findings remain visible without taking the application offline. See
+[Production checks reference](../operations/production-checks.md).
+
+`PUBLIC_ORIGIN` and `WEBAUTHN_ORIGIN` remain the canonical values.
+`PUBLIC_ORIGINS` and `WEBAUTHN_ORIGINS` are JSON lists of additional trusted
+origins. In production every origin must be HTTPS. For split admin/user
+deployments, configure both origins on each backend and use a shared
+`WEBAUTHN_RP_ID` that is the common DNS parent (or exact host) of every
+WebAuthn origin. `CORS_ORIGINS` and `ALLOWED_HOSTS` must cover the same public
+boundary.
+
+## First-administrator bootstrap
+
+There are no administrator identity or password environment variables. The
+bootstrap is explicitly enabled only by issuing a token after migrations:
+
+```bash
+cd backend
+python -m app.scripts.issue_first_admin_bootstrap
+```
+
+The token is 256 bits, valid for 15 minutes and single-use. Only its SHA-256
+digest, issuance/expiration timestamps and consumption state are persisted. The
+printed URL uses `PUBLIC_ORIGIN` and places the token after `#`, so reverse
+proxies and HTTP access logs do not receive it. The browser removes the fragment
+immediately and does not write it to browser storage.
+
+`POST /api/auth/bootstrap/first-admin` accepts the token only in
+`X-BucketReef-Bootstrap-Token`, requires the exact trusted `Origin`, applies the
+authentication rate limit by client IP and returns a generic unavailable error
+for absent, expired, invalid or consumed tokens. Issuing another token revokes
+the previous one while the database has no users. The web bootstrap route is
+mounted only on an Admin runtime or on the dedicated `ceph-admin-high-security`
+runtime, where it is required to initialize an isolated identity database. It
+is absent from the `user` runtime.
+
+Use `python -m app.scripts.create_first_admin` when a direct console workflow is
+required. Use `reset_last_superadmin_mfa` only to recover the sole existing
+super-administrator. Recovery never reactivates initial bootstrap.
+
+OIDC providers can be configured either from Admin **Settings > Authentication**
+or with nested environment variables:
+
+- UI-managed OIDC providers are persisted in the `oidc_providers` database
+  table. Their `client_secret` value is encrypted with the credential key and
+  is write-only: read APIs return only `has_client_secret`.
+- Environment-managed providers use `OIDC_PROVIDERS__<key>__...` variables.
+  They take priority over any UI provider with the same `provider_id` and appear
+  locked/read-only in Admin **Settings > Authentication**.
+- `OIDC_STATE_TTL_SECONDS` remains a backend runtime setting and is not editable
+  from the UI.
+
+Common environment fields:
+
+- `OIDC_PROVIDERS__<key>__DISPLAY_NAME`
+- `OIDC_PROVIDERS__<key>__DISCOVERY_URL`
+- `OIDC_PROVIDERS__<key>__CLIENT_ID`
+- `OIDC_PROVIDERS__<key>__CLIENT_SECRET`
+- `OIDC_PROVIDERS__<key>__REDIRECT_URI`
+- `OIDC_PROVIDERS__<key>__SCOPES`
+- optional behavior fields: `PROMPT`, `ENABLED`, `ICON_URL`, `USE_PKCE`,
+  `USE_NONCE`, `ALLOWED_ALGORITHMS`, `ALLOWED_HOSTS`, `LINKING_POLICY`, and
+  `TRUSTED_EMAIL_DOMAINS`. `trusted_email` is OIDC-only and requires exact,
+  normalized domains plus the verified-email eligibility rules.
+
+LDAP providers can be configured either from Admin **Settings > Authentication**
+or with nested environment variables:
+
+- UI-managed LDAP providers are persisted in the `ldap_providers` database
+  table. Their `bind_password` value is encrypted with the credential key and
+  is write-only: read APIs return only `has_bind_password`.
+- Environment-managed providers use `LDAP_PROVIDERS__<key>__...` variables.
+  They take priority over any UI provider with the same `provider_id` and appear
+  locked/read-only in Admin **Settings > Authentication**.
+
+Common environment fields:
+
+- `LDAP_PROVIDERS__<key>__DISPLAY_NAME`
+- `LDAP_PROVIDERS__<key>__URL` (`ldaps://...` or `ldap://...` with `START_TLS=true`)
+- optional service credentials: `LDAP_PROVIDERS__<key>__BIND_DN` /
+  `LDAP_PROVIDERS__<key>__BIND_PASSWORD`; configure both together or omit both
+  to search anonymously when directory ACLs permit it
+- `LDAP_PROVIDERS__<key>__USER_BASE_DN`
+- `LDAP_PROVIDERS__<key>__USER_FILTER` containing `{username}`
+- optional attributes: `EMAIL_ATTRIBUTE`, `NAME_ATTRIBUTE`, `SUBJECT_ATTRIBUTE`
+- TLS and safety knobs: `START_TLS`, `TLS_VERIFY`, `TLS_CA_FILE`,
+  `ALLOW_LEGACY_TLS`, `ALLOW_INSECURE`.
+  `ALLOW_LEGACY_TLS=true` enables the OpenSSL `DEFAULT` cipher set for a
+  provider that cannot negotiate the modern client defaults; prefer enabling
+  ECDHE cipher suites on the LDAP server.
+
+Provider keys must match `[a-z0-9_-]+`. `ALLOW_INSECURE=true`,
+`TLS_VERIFY=false`, and `ALLOW_LEGACY_TLS=true` are rejected when
+`APP_ENV=production`. LDAP email collisions are never linked automatically.
+
+LDAP only authenticates the UI identity. First LDAP login creates a user with
+`ui_none`; admins still grant roles and storage access in BucketReef.
+
+## App settings (persisted)
+
+### Guided setup
+
+`ONBOARDING_SOURCE` accepts `standard` (default) or `quickstart`. It only controls
+the evaluation recommendation in **Admin → Getting started**; it has no effect
+on authentication, permissions, enabled features, or the runtime security profile.
+
+Confirmed onboarding can enable the following minimal general settings:
+
+| Path | Required flags |
+|---|---|
+| Browser | `browser_enabled`, `browser_root_enabled` |
+| Manager | `manager_enabled` |
+| Portal | `portal_enabled`, `browser_enabled`, `browser_portal_enabled` |
+| Ceph Admin | `ceph_admin_enabled` |
+
+A forced-on ENV flag already satisfies a prerequisite; forced-off flags block
+configuration before creation or permission changes. Required endpoint
+capabilities are probed explicitly before enabling, and endpoints managed by
+`ENV_STORAGE_ENDPOINTS` are never edited. Independent features and security
+settings remain unchanged. Access assignments are separate explicit changes in
+the confirmation summary. See [guided application setup](../getting-started/sysadmin-onboarding.md#guided-application-setup).
+
+### Persistence and standard settings
+
+Primary model: `backend/app/models/app_settings.py`.
+Persistence source: the `app_settings` database table.
+
+`APP_SETTINGS_PATH` is an optional bootstrap import path. On startup or first
+settings read, a deployment with an empty `app_settings` table imports the JSON
+file once, then live reads and writes go through the database. Runtime database
+errors are not hidden by a file fallback. Environment force-locks such as
+`FEATURE_PORTAL_ENABLED` still override the effective value without changing the
+persisted setting.
+
+Managed from Admin UI:
+
+- General feature toggles (`manager_enabled`, `portal_enabled`, `browser_enabled`, `ceph_admin_enabled`, `storage_ops_enabled`, `billing_enabled`, `endpoint_status_enabled`).
+- RGW Account ID prefix (`rgw_account_id_prefix`): 1 to 3 digits, `80` by default. BucketReef keeps the Ceph RGW `RGW` + 17 digits format by shortening the random suffix accordingly. The setting applies to automatically generated IDs in Admin, guided onboarding, and Ceph Admin; explicitly supplied Ceph Admin IDs are preserved.
+- Authentication settings (`allow_login_access_keys`, endpoint selection for access-key login, custom login endpoints, `require_passkey_for_admins`, `require_passkey_for_users`, `allow_user_profile_name_edit`, and `allow_user_external_identity_unlink`). Fresh installations leave both passkey requirements disabled to simplify onboarding and keep both self-service permissions disabled. Before production, enroll an administrator passkey from **Profile > Security** and enable `require_passkey_for_admins`; Production readiness treats the disabled policy as a Critical publication finding, not a startup blocker. Persisted settings from older releases keep the historical Admin requirement when this field is absent.
+- Quota supervision toggles (`quota_alerts_enabled`, `usage_history_enabled`).
+- Browser sub-flags (`browser_root_enabled`, `browser_manager_enabled`, `browser_portal_enabled`, `browser_ceph_admin_enabled`).
+- Portal settings (`portal`): standalone Browser access (`browser_access_enabled`, enabled by default), IAM key availability, private Storage Space creation, portal user access-key creation, Portal User external sharing (`allow_portal_user_external_sharing`, disabled by default), server access log retention for newly created technical log buckets, max portal user keys, and bucket defaults. When external sharing is enabled, a `portal_user` may create public links and external S3 credentials only for an owned Storage Space; disabling it blocks new creation while existing links and credentials remain manageable. Portal Managers keep their existing behavior independently of this flag. Portal settings can be overridden per account by a super-admin. The per-account `portal_settings_delegated` flag is disabled by default; when enabled, project Portal Managers can edit the same shared override from `/portal/settings`. Disabling delegation keeps the stored override effective but read-only in Portal. `bucket_defaults.noncurrent_version_expiration_days` is the internal key for **Version history retention**; it is a positive integer (90 by default) and applies only when provisioning a new Storage Space with the default lifecycle enabled. Existing buckets are not reconciled automatically.
+- Manager tool flags and behavior: bucket migration, compare, integrity check,
+  purge, usage stats, Ceph S3 User key management, and migration parallelism.
+- Quota notification policy (`quota_notifications`: threshold, SMTP non-secret fields, contact-email option).
+
+On a fresh deployment with no persisted app settings, `Endpoint Status` and
+`Usage history` are enabled by default. `Quota alerts` remains disabled until
+explicitly enabled and configured.
+
+The Browser surface is enabled on root `/browser` and inside Portal storage
+spaces (`/portal/storage-spaces/:spaceId`) by default. Portal projects also
+appear in the root Browser by default through `portal.browser_access_enabled`;
+the global setting or an account override can disable that access. Manager and
+Ceph Admin Browser integrations remain disabled until explicitly enabled.
+
+The Settings tab of an existing Storage Space is separate from project
+defaults. Owners and Portal Managers can read the bucket's Versioning,
+Lifecycle, and version history retention values. Only a project Portal Manager
+can update an active space. These calls use the manager's personal IAM identity
+and manage only the Portal lifecycle rules
+`BucketReefPortalExpireDeleteMarkers` and
+`BucketReefPortalExpireOldVersions`; unrelated lifecycle rules are preserved.
+
+Superadmins manage login behavior and UI-managed OIDC/LDAP providers from Admin
+**Settings > Authentication**. The four access-key login options remain in
+`AppSettings.general` and are persisted in the database; UI-managed OIDC and
+LDAP providers are persisted separately in their own database tables.
+
+`FEATURE_PORTAL_ENABLED` can force the Portal surface on or off. Account access
+uses two independent axes: `manager_role` is `account_administrator` or `null`,
+and `portal_role` is `portal_user`, `portal_manager`, or `null`. At least one
+axis is required. Disabling Portal prevents new Portal selections but does not
+rewrite or remove existing Portal roles; new links default to Manager
+administrator while the feature is off and to Portal user while it is on.
+
+The code-owned `bkr-portal-user` IAM group policy grants only
+`s3:ListAllMyBuckets` and `sts:GetSessionToken`. The code-owned
+`bkr-portal-manager` group adds the explicit Storage Space data-plane actions on
+all buckets in the single RGW Account backing the project. Technical Portal
+buckets add an explicit resource-policy denial for manager IAM principals.
+Storage Space creation and bucket defaults remain backend workflows. Private
+Owner and team Viewer/Editor projections are generated from database state;
+Portal IAM policies are not editable settings.
+
+### BucketReef-managed storage resource names
+
+BucketReef-owned implicit storage resources use an explicit application
+namespace so they can be distinguished from user-created or imported storage
+resources. Current generated names include:
+
+- Portal IAM users: `bkr-portal-<account-id>-<user-id>`;
+- Portal IAM groups and inline policies: `bkr-portal-*`;
+- external Portal IAM users: `bkr-portal-ext-*`;
+- generic Portal Storage Space buckets: `bkr-space-<uuid>`;
+- Portal access-log buckets: `bkr-portal-access-logs-*`;
+- managed private IAM users: `bkr-private-*`;
+- bucket-migration probe buckets: `bkr-mig-precheck-*`;
+- migration probe objects: `__bkr__/migration/...`;
+- guided-onboarding sample accounts: `bkr-sample-*`;
+- generated RGW account-root access-key name: `bkr-account-root`.
+
+Portal-owned lifecycle rule IDs and policy `Sid` values use the `BucketReef`
+namespace. The RGW account-root user name remains `<RGW_ACCOUNT_ID>-admin` as an
+explicit integration contract.
+
+This naming change is a clean cutover. BucketReef does not alias, migrate, or
+adopt the previous implicit resource names at runtime. Existing pre-cutover
+Portal-managed IAM resources must be removed and recreated deliberately before
+using the new contract. Old lifecycle rule IDs and generic Portal policy `Sid`
+values are treated as foreign configuration and are preserved. User-created and
+imported resources are never renamed automatically.
+
+## Frontend runtime settings
+
+- `VITE_API_URL` for API base URL in frontend build/runtime.
+- In container deployments, route `/api` to backend via reverse proxy/ingress.
+- `BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE` controls the Nginx request limit for
+  Browser uploads relayed through the backend. It accepts Nginx size syntax and
+  defaults to `5g`; any outer ingress or proxy must allow the same request size.
+- Browser identity always comes from `/api/auth/session`; UI tokens must never
+  be added to `VITE_*` values or browser storage.
+
+## From user error to configuration area
+
+| User-facing symptom | Check here first |
+|---|---|
+| Login fails for LDAP/OIDC users | Auth provider variables, TLS settings, and startup warnings. |
+| Menu or workspace is missing | App settings feature flags, user role, account links, and entitlements. |
+| Browser or Portal files do not open | Browser sub-flags, selected context access, and endpoint capability. |
+| `AccessDenied` during an S3 action | IAM/S3 policy and selected execution identity before changing UI flags. |
+| Metrics, billing, quota, or history are stale | Scheduler/CronJob settings, `INTERNAL_CRON_TOKEN`, retention, and endpoint capabilities. |
+| Quota emails do not arrive | Quota notification policy, SMTP non-secret fields, `SMTP_PASSWORD`, and user opt-in. |
+
+## Branding
+
+Admin can set:
+
+- primary accent color (`#RRGGBB`)
+- optional login logo URL
+
+## Related pages
+
+- [Operations: security](../security/index.md)
+- [Operations: quota monitoring and history](../operations/quota-monitoring.md)
+- [Production readiness](../operations/production-readiness.md)
+- [Backup and restore](../operations/backup-restore.md)
+- [Developer: identity and execution model](/developer/en/architecture/identity-and-execution/)
