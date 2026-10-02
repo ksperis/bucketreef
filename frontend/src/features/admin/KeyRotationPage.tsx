@@ -47,16 +47,16 @@ type KeyRotationResultRow = KeyRotationResultItem & {
 
 const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
   {
-    value: "endpoint_admin",
-    label: "Endpoint admin keys",
-    description:
-      "Rotate admin credentials configured on each selected endpoint.",
-  },
-  {
     value: "endpoint_supervision",
     label: "Endpoint supervision keys",
     description:
       "Rotate supervision credentials used for usage and metrics collection.",
+  },
+  {
+    value: "endpoint_admin",
+    label: "Endpoint admin keys",
+    description:
+      "Rotate admin credentials configured on each selected endpoint.",
   },
   {
     value: "account",
