@@ -210,7 +210,7 @@ export default function Topbar({
           {inlineContent && <div className="hidden min-w-0 items-center pl-1 xl:flex">{inlineContent}</div>}
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {contextAction && <div className="hidden sm:flex">{contextAction}</div>}
+            {contextAction && <div className="flex">{contextAction}</div>}
 
             <ThemeToggle />
 

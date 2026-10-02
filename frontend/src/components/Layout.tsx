@@ -9,7 +9,10 @@ import { logout as logoutRequest } from "../api/auth";
 import { broadcastSessionEnded } from "../auth/sessionEvents";
 import Header from "./Header";
 import Sidebar, { SidebarLink, SidebarSection, type SidebarBodyRenderArgs } from "./Sidebar";
+import WorkspaceDocumentationLink from "./WorkspaceDocumentationLink";
+import { resolveDocumentationUrl } from "../navigation/documentation";
 import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
+import { useI18n } from "../i18n";
 import { useWorkspaceSwitcherModel } from "./EnvironmentSwitcher";
 import Topbar from "./Topbar";
 import type { TopbarControlDescriptor } from "./topbarControlsLayout";
@@ -75,6 +78,7 @@ export default function Layout({
   children,
 }: LayoutProps) {
   const location = useLocation();
+  const { locale } = useI18n();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCompact, setDesktopSidebarCompact] = useState(
     () => readClientStorage(CLIENT_STORAGE_KEYS.sidebarCompact) === "1",
@@ -99,6 +103,13 @@ export default function Layout({
   }`;
   const rootHeightClass = fullHeight ? "h-[100dvh]" : "h-screen";
   const drawerTopClass = hideTopbar ? "top-0" : "top-14";
+  const documentationUrl = resolveDocumentationUrl(location.pathname, { language: locale });
+  const resolvedTopbarAction = topbarAction || documentationUrl ? (
+    <div className="flex items-center gap-1.5">
+      {topbarAction}
+      {documentationUrl ? <WorkspaceDocumentationLink href={documentationUrl} /> : null}
+    </div>
+  ) : undefined;
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -165,7 +176,7 @@ export default function Layout({
             controlDescriptors={topbarControlDescriptors}
             userEmail={userEmail}
             onLogout={logout}
-            contextAction={topbarAction}
+            contextAction={resolvedTopbarAction}
             showMobileMenuButton={shouldShowSidebar}
             mobileMenuOpen={mobileSidebarOpen}
             onMobileMenuToggle={() => setMobileSidebarOpen((open) => !open)}

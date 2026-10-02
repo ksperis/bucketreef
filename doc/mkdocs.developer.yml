@@ -1,0 +1,54 @@
+INHERIT: mkdocs.base.yml
+
+site_name: BucketReef Developer Guide
+site_description: Architecture, contribution, testing and developer reference for BucketReef
+site_url: https://docs.bucketreef.ksperis.com/developer/en/
+docs_dir: docs/developer/en
+site_dir: site/developer/en
+edit_uri: edit/main/doc/docs/developer/en/
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: false
+      enable_git_follow: false
+      strict: false
+
+nav:
+  - Overview: index.md
+  - Architecture:
+      - Overview: architecture/index.md
+      - Backend: architecture/backend.md
+      - Frontend: architecture/frontend.md
+      - Database: architecture/database.md
+      - Identity and execution: architecture/identity-and-execution.md
+      - Audit boundary: architecture/audit-boundary.md
+      - Workspace surfaces: architecture/workspace-surfaces.md
+      - Principles: architecture/principles.md
+  - Frontend:
+      - Product design: frontend/product-design.md
+      - UI theme: frontend/ui-theme.md
+      - Error pages: frontend/error-pages.md
+  - Contributing:
+      - Overview: contributing/index.md
+      - First contribution: contributing/first-contribution.md
+      - Local development: contributing/local-development.md
+      - CI/CD: contributing/ci-cd.md
+      - Releases: contributing/releases.md
+      - AI assistant guidelines: contributing/ai-assistant-guidelines.md
+  - Testing:
+      - Authenticated UI for AI agents: testing/authenticated-ui-ai-agents.md
+      - Static demo: testing/static-demo.md
+  - Documentation:
+      - Maintenance: documentation/maintenance.md
+      - Reorganization matrix: documentation/reorganization-matrix.md
+      - Screenshots gallery: documentation/screenshots-gallery.md
+  - Reference:
+      - API: reference/api.md
+      - Repository layout: reference/repository-layout.md
+      - Listings feature matrix: reference/listings-feature-matrix.md
+  - Records:
+      - Browser evolution validation: records/browser-evolutions-validation.md
+      - Interface convergence: records/interface-convergence.md
+      - Listing presentation inventory: records/listing-presentation-inventory.md
+      - Settings UI follow-up: records/settings-ui-follow-up.md

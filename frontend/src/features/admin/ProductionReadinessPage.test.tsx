@@ -14,7 +14,7 @@ vi.mock("../../api/productionReadiness", async () => {
   };
 });
 
-const docs = "https://docs.bucketreef.ksperis.com/ops/production-checks-reference/";
+const docs = "https://docs.bucketreef.ksperis.com/admin/en/operations/production-checks/";
 
 const report: ProductionReadinessResponse = {
   environment: "production",

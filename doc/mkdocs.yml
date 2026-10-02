@@ -1,184 +1,26 @@
+INHERIT: mkdocs.base.yml
+
 site_name: BucketReef Documentation
-site_description: BucketReef - S3-compatible object storage management
-site_author: BucketReef contributors
-repo_name: BucketReef
-repo_url: https://github.com/ksperis/bucketreef
-edit_uri: edit/main/doc/docs/
+site_description: BucketReef documentation guide selector and release history
 site_url: https://docs.bucketreef.ksperis.com/
+docs_dir: docs
+site_dir: site
+edit_uri: edit/main/doc/docs/
 
-theme:
-  name: material
-  language: en
-  font: false
-  logo: assets/brand/bucketreef-mark-256.png
-  favicon: assets/brand/bucketreef-mark-256.png
-  features:
-    - navigation.instant
-    - navigation.tracking
-    - navigation.indexes
-    - navigation.top
-    - toc.follow
-    - content.code.copy
-    - content.action.edit
-  palette:
-    - scheme: default
-      toggle:
-        icon: material/weather-night
-        name: Switch to dark mode
-    - scheme: slate
-      toggle:
-        icon: material/weather-sunny
-        name: Switch to light mode
-  icon:
-    repo: fontawesome/brands/github
-
-markdown_extensions:
-  - admonition
-  - attr_list
-  - md_in_html
-  - toc:
-      permalink: true
-  - pymdownx.details
-  - pymdownx.superfences
-  - pymdownx.tabbed:
-      alternate_style: true
-  - pymdownx.highlight:
-      anchor_linenums: true
-  - pymdownx.inlinehilite
-  - pymdownx.snippets
-  - pymdownx.emoji:
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-
+# Global pages are intentionally outside every guide search index.
 plugins:
-  - search
   - git-revision-date-localized:
-      enable_creation_date: true
+      enable_creation_date: false
+      enable_git_follow: false
+      strict: false
 
-extra_css:
-  - assets/stylesheets/docs-theme.css
-  - assets/stylesheets/screenshots-gallery.css
-
-extra_javascript:
-  - assets/javascripts/screenshots-gallery.js
+exclude_docs: |
+  admin/**
+  browser/**
+  developer/**
+  manager/**
+  portal/**
 
 nav:
-  - Home: index.md
+  - Documentation: index.md
   - Releases: releases.md
-  - User Guide:
-      - Overview: user/index.md
-      - Start:
-          - Start here: user/start-here.md
-          - "Common tasks: storage users": user/common-tasks-storage-user.md
-          - "Common tasks: storage administrators": user/common-tasks-storage-admin.md
-          - "Storage admin runbook": user/admin-runbook-storage-admin.md
-          - User profile: user/profile.md
-      - Workspaces:
-          - "Workspace: Admin": user/workspace-admin.md
-          - "Workspace: Manager": user/workspace-manager.md
-          - "Workspace: Portal": user/workspace-portal.md
-          - "Workspace: Browser": user/workspace-browser.md
-          - "Workspace: Ceph Admin": user/workspace-ceph-admin.md
-          - "Workspace: Storage Ops": user/workspace-storage-ops.md
-      - Portal:
-          - "Portal: Storage Spaces": user/portal-storage-spaces.md
-          - "Portal: Files": user/portal-files.md
-          - "Portal: Sharing": user/portal-sharing.md
-          - "Portal: Access Keys": user/portal-access-keys.md
-          - "Portal: Storage Health": user/portal-usage-alerts.md
-          - "Portal: Help Requests": user/portal-requests.md
-          - "Portal: Activity": user/portal-activity.md
-          - "Portal: Settings": user/portal-settings.md
-      - Admin Features:
-          - "Admin: Effective Access Audit": user/admin-access-audit.md
-          - "Admin: Audit": user/admin-audit.md
-          - "Feature: Endpoint Status in Admin": user/feature-endpoint-status-admin.md
-          - "Feature: Billing in Admin": user/feature-billing-admin.md
-          - "Feature: Admin Usage and Metrics": user/feature-admin-metrics.md
-          - "Feature: Usage History in Admin": user/feature-usage-history-admin.md
-          - "Feature: Key Rotation in Admin": user/feature-key-rotation-admin.md
-      - Manager / Browser Features:
-          - "Feature: Buckets": user/feature-buckets.md
-          - "How-to: Configure a bucket from Manager": user/howto-manager-bucket-configuration.md
-          - "Feature: IAM": user/feature-iam.md
-          - "Feature: Ceph access keys in Manager": user/feature-manager-ceph-keys.md
-          - "Feature: Object operations in Browser": user/feature-objects-browser.md
-          - "Feature: Object versions in Browser": user/feature-object-versions-browser.md
-          - "Feature: SNS topics": user/feature-topics.md
-          - "Feature: Bucket compare": user/feature-bucket-compare.md
-          - "Feature: Bucket integrity check": user/feature-bucket-integrity-check.md
-          - "Feature: Bucket purge": user/feature-bucket-purge.md
-          - "Feature: Bucket usage stats": user/feature-bucket-usage-stats.md
-          - "Feature: Bucket migration": user/feature-bucket-migration.md
-      - Ceph / Storage Ops How-tos:
-          - "How-to: Ceph Admin advanced filter": user/howto-ceph-advanced-filter.md
-          - "How-to: Ceph Admin UI tags": user/howto-ceph-ui-tags.md
-          - "How-to: Storage Ops UI tags": user/howto-storage-ops-ui-tags.md
-      - Reference and Help:
-          - Use cases (storage admin): user/use-cases-storage-admin.md
-          - Use cases (storage user): user/use-cases-storage-user.md
-          - Feature availability: user/feature-availability.md
-          - "Screenshots by workspace": user/screenshots-gallery.md
-          - "Safe destructive and bulk operations": user/safe-destructive-operations.md
-          - Troubleshooting: user/troubleshooting.md
-          - Glossary and search tips: user/glossary.md
-  - Ops / Sysadmin Guide:
-      - Overview: ops/index.md
-      - Deployment:
-          - Sysadmin onboarding: ops/sysadmin-onboarding.md
-          - Recommended production architecture: ops/deployment-architecture.md
-          - Local quickstart: ops/quickstart.md
-          - "Upgrade to BucketReef (v0.2.0)": ops/upgrade-to-bucketreef.md
-          - Deploy with Docker Compose: ops/deploy-docker-compose.md
-          - Deploy with Helm: ops/deploy-helm.md
-          - Configuration: ops/configuration.md
-      - Operations:
-          - "Operations: healthchecks": ops/operations-healthchecks.md
-          - "Operations: billing": ops/operations-billing.md
-          - "Operations: quota monitoring and history": ops/operations-quota-monitoring.md
-          - "Operations: webhooks": ops/operations-webhooks.md
-          - "Operations: API tokens": ops/operations-api-tokens.md
-          - "Operations: observability": ops/operations-observability.md
-          - "Operations: upgrade and compatibility": ops/operations-upgrade-compatibility.md
-      - Security and Recovery:
-          - Production readiness: ops/production-readiness.md
-          - Production checks reference: ops/production-checks-reference.md
-          - Ceph Admin high-security deployment: ops/ceph-admin-high-security.md
-          - Authentication security and cutover: ops/authentication-hardening.md
-          - Backup and restore: ops/backup-restore.md
-          - "Operations: security": ops/operations-security.md
-      - Backends:
-          - "Backends: compatibility matrix": ops/backends-compatibility.md
-          - "Backends: Ceph RGW": ops/backends-ceph-rgw.md
-          - "Backends: other S3 implementations": ops/backends-others.md
-  - Developer Guide:
-      - Overview: developer/index.md
-      - Architecture:
-          - Architecture overview: developer/architecture-overview.md
-          - "Architecture: backend": developer/architecture-backend.md
-          - "Architecture: frontend": developer/architecture-frontend.md
-          - "Architecture: database": developer/architecture-database.md
-          - Identity and execution model: developer/identity-and-execution-model.md
-          - Audit boundary: developer/audit-boundary.md
-      - Design and Surface Contracts:
-          - Principles: developer/principles.md
-          - Product design guidelines: developer/product-design-guidelines.md
-          - UI theme guidelines: developer/ui-theme-guidelines.md
-          - Workspace surface separation: developer/workspace-surface-separation.md
-      - Contribution:
-          - Local development: developer/local-development.md
-          - Authenticated UI for AI agents: developer/authenticated-ui-ai-agents.md
-          - First contribution: developer/first-contribution.md
-          - Contributing: developer/contributing.md
-          - CI/CD: developer/ci-cd.md
-          - Static interactive demo: developer/static-demo.md
-          - Release distribution: developer/releases.md
-          - AI assistant guidelines: developer/ai-assistant-guidelines.md
-          - Docs maintenance: developer/docs-maintenance.md
-      - Reference:
-          - Repository layout: developer/repo-layout.md
-          - API reference: developer/api-reference.md
-          - Listings feature matrix: developer/listings-feature-matrix.md
-          - Table presentation inventory: developer/listing-presentation-inventory.md
-          - Interface convergence implementation record: developer/interface-convergence.md
-          - Settings UI implementation record: developer/settings-ui-follow-up.md
-          - Browser simplification validation: developer/browser-evolutions-validation.md

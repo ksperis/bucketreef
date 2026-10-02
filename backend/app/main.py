@@ -120,7 +120,7 @@ def _raise_for_startup_blockers(findings: list[DeploymentCheckFinding]) -> None:
         codes = ", ".join(finding.code for finding in blockers)
         raise RuntimeError(
             "Startup blocked by deployment security checks: "
-            f"{codes}. See https://docs.bucketreef.ksperis.com/ops/production-checks-reference/."
+            f"{codes}. See https://docs.bucketreef.ksperis.com/admin/en/operations/production-checks/."
         )
 
 

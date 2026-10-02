@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-UPGRADE_FILE = Path("doc/docs/ops/upgrade-to-bucketreef.md")
+UPGRADE_FILE = Path("doc/docs/admin/en/operations/upgrade-from-pre-0.2.md")
 HISTORICAL_PREFIXES = (Path("doc/audits"),)
 ORIGINAL_NAME_PATTERNS = (
     re.compile("s3" + r"[-_ ]manager", re.IGNORECASE),

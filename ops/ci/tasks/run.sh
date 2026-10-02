@@ -37,7 +37,7 @@ case "${1:?Validation name required}" in
     export E2E_START_MOTO=true E2E_S3_ENDPOINT=http://127.0.0.1:5000
     export E2E_S3_ACCESS_KEY=minio E2E_S3_SECRET_KEY=minio123 S3_IGNORE_SUBDOMAIN_BUCKETNAME=true
     cd frontend; CI=1 npm run test:e2e:ci ;;
-  docs-build) python3 -m mkdocs build -f doc/mkdocs.yml --strict ;;
+  docs-build) python3 doc/build_docs.py --strict ;;
   docs-screenshots) node frontend/scripts/docs-screenshots/check.mjs ;;
   helm-contract|compose-contract|scheduler-contract) sh "ops/ci/tasks/$1.sh" ;;
   backend-vuln-scan) sh ops/ci/tasks/dependency-scan.sh backend ;;

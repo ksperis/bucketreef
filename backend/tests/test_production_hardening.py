@@ -566,7 +566,13 @@ def test_manual_checks_are_reported_without_affecting_cli_exit_code():
 
 def test_every_reported_check_links_to_an_existing_documentation_anchor(db_session):
     documentation = (
-        Path(__file__).resolve().parents[2] / "doc" / "docs" / "ops" / "production-checks-reference.md"
+        Path(__file__).resolve().parents[2]
+        / "doc"
+        / "docs"
+        / "admin"
+        / "en"
+        / "operations"
+        / "production-checks.md"
     ).read_text(encoding="utf-8")
     anchors: set[str] = set()
     for line in documentation.splitlines():

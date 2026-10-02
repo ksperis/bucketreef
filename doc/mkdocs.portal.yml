@@ -1,0 +1,48 @@
+INHERIT: mkdocs.base.yml
+
+site_name: BucketReef Portal Guide
+site_description: End-user guidance for the BucketReef self-service Portal workspace
+site_url: https://docs.bucketreef.ksperis.com/portal/en/
+docs_dir: docs/portal/en
+site_dir: site/portal/en
+edit_uri: edit/main/doc/docs/portal/en/
+
+extra:
+  alternate:
+    - name: English
+      link: /portal/en/
+      lang: en
+    - name: Français
+      link: /portal/fr/
+      lang: fr
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: false
+      enable_git_follow: false
+      strict: false
+
+nav:
+  - Overview: index.md
+  - Getting started:
+      - Start here: getting-started/index.md
+      - Common tasks: getting-started/common-tasks.md
+      - Use cases: getting-started/use-cases.md
+  - Storage Spaces: spaces/index.md
+  - Files:
+      - Files: files/index.md
+      - Versions: files/versions.md
+      - Safe deletion: files/safe-deletion.md
+  - Collaboration: collaboration.md
+  - External tools: external-tools.md
+  - Storage health: storage-health.md
+  - Help requests: help-requests.md
+  - Activity: activity.md
+  - Settings: settings.md
+  - Help:
+      - Feature availability: help/feature-availability.md
+      - Troubleshooting: help/troubleshooting.md
+  - Profile: profile.md
+  - Reference:
+      - Glossary: reference/glossary.md

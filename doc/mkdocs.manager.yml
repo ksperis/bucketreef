@@ -1,0 +1,45 @@
+INHERIT: mkdocs.base.yml
+
+site_name: BucketReef Manager Guide
+site_description: Account-scoped S3 and IAM administration in the Manager workspace
+site_url: https://docs.bucketreef.ksperis.com/manager/en/
+docs_dir: docs/manager/en
+site_dir: site/manager/en
+edit_uri: edit/main/doc/docs/manager/en/
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: false
+      enable_git_follow: false
+      strict: false
+
+nav:
+  - Overview: index.md
+  - Getting started:
+      - Start here: getting-started/index.md
+      - Common tasks: getting-started/common-tasks.md
+      - Use cases: getting-started/use-cases.md
+  - Buckets:
+      - Overview: buckets/index.md
+      - Configuration: buckets/configuration.md
+      - Usage: buckets/usage.md
+  - IAM:
+      - Overview: iam/index.md
+      - Access keys: iam/access-keys.md
+  - Topics: topics.md
+  - Browser in Manager:
+      - Object operations: browser/object-operations.md
+      - Versions: browser/versions.md
+  - Tools:
+      - Bucket compare: tools/bucket-compare.md
+      - Bucket integrity: tools/bucket-integrity.md
+      - Bucket purge: tools/bucket-purge.md
+      - Bucket migration: tools/bucket-migration.md
+  - Help:
+      - Feature availability: help/feature-availability.md
+      - Troubleshooting: help/troubleshooting.md
+  - Profile: profile.md
+  - Reference:
+      - Safe operations: reference/safe-operations.md
+      - Glossary: reference/glossary.md
