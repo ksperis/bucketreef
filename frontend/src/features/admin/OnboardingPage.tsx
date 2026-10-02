@@ -1046,45 +1046,6 @@ export default function OnboardingPage() {
                   )}
                 </WorkflowSection>
 
-                {draft.supervision && (
-                  <CredentialSection
-                    title={t(copy.supervisionCredentials)}
-                    description={t(copy.supervisionCredentialsHelp)}
-                    accessLabel={t(copy.supervisionAccessKey)}
-                    secretLabel={t(copy.supervisionSecretKey)}
-                    accessKey={supervisionAccessKey}
-                    secretKey={supervisionSecretKey}
-                    required={supervisionCredentialsRequired}
-                    stored={storedSupervisionCredentials}
-                    command={SUPERVISION_OPS_COMMAND}
-                    commandHelp={t(copy.rgwCommandHelp)}
-                    storedLabel={t(copy.storedCredentials)}
-                    onAccessChange={setSupervisionAccessKey}
-                    onSecretChange={setSupervisionSecretKey}
-                    validation={
-                      <>
-                        <CredentialStatusBadge
-                          status={
-                            endpointValidation.status === "loading"
-                              ? "checking"
-                              : supervisionCredentialCheck.status
-                          }
-                          message={supervisionCredentialCheck.message}
-                        />
-                        {endpointValidation.status === "done" &&
-                          supervisionCredentialCheck.status === "valid" && (
-                            <SupervisionValidationBadges
-                              metrics={Boolean(endpointValidation.result?.metrics)}
-                              usage={Boolean(endpointValidation.result?.usage)}
-                              metricsError={endpointValidation.result?.metrics_error}
-                              usageError={endpointValidation.result?.usage_error}
-                            />
-                          )}
-                      </>
-                    }
-                  />
-                )}
-
                 {(draft.manager || draft.portal) && (
                   <CredentialSection
                     title={t(copy.adminCredentials)}
@@ -1127,6 +1088,45 @@ export default function OnboardingPage() {
                                 )}
                               </UiBadge>
                             </>
+                          )}
+                      </>
+                    }
+                  />
+                )}
+
+                {draft.supervision && (
+                  <CredentialSection
+                    title={t(copy.supervisionCredentials)}
+                    description={t(copy.supervisionCredentialsHelp)}
+                    accessLabel={t(copy.supervisionAccessKey)}
+                    secretLabel={t(copy.supervisionSecretKey)}
+                    accessKey={supervisionAccessKey}
+                    secretKey={supervisionSecretKey}
+                    required={supervisionCredentialsRequired}
+                    stored={storedSupervisionCredentials}
+                    command={SUPERVISION_OPS_COMMAND}
+                    commandHelp={t(copy.rgwCommandHelp)}
+                    storedLabel={t(copy.storedCredentials)}
+                    onAccessChange={setSupervisionAccessKey}
+                    onSecretChange={setSupervisionSecretKey}
+                    validation={
+                      <>
+                        <CredentialStatusBadge
+                          status={
+                            endpointValidation.status === "loading"
+                              ? "checking"
+                              : supervisionCredentialCheck.status
+                          }
+                          message={supervisionCredentialCheck.message}
+                        />
+                        {endpointValidation.status === "done" &&
+                          supervisionCredentialCheck.status === "valid" && (
+                            <SupervisionValidationBadges
+                              metrics={Boolean(endpointValidation.result?.metrics)}
+                              usage={Boolean(endpointValidation.result?.usage)}
+                              metricsError={endpointValidation.result?.metrics_error}
+                              usageError={endpointValidation.result?.usage_error}
+                            />
                           )}
                       </>
                     }
@@ -1210,23 +1210,6 @@ export default function OnboardingPage() {
                       checking={endpointValidation.status === "loading"}
                       check={endpointValidation.result?.http_check}
                     />
-                    {draft.supervision && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="ui-caption font-semibold text-[var(--ui-text)]">
-                          {t(copy.supervisionCredentials)}
-                        </span>
-                        <CredentialStatusBadge
-                          status={supervisionCredentialCheck.status}
-                          message={supervisionCredentialCheck.message}
-                        />
-                        <SupervisionValidationBadges
-                          metrics={Boolean(endpointValidation.result?.metrics)}
-                          usage={Boolean(endpointValidation.result?.usage)}
-                          metricsError={endpointValidation.result?.metrics_error}
-                          usageError={endpointValidation.result?.usage_error}
-                        />
-                      </div>
-                    )}
                     {(draft.manager || draft.portal) && (
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="ui-caption font-semibold text-[var(--ui-text)]">
@@ -1243,6 +1226,23 @@ export default function OnboardingPage() {
                           {t(copy.accountApi)} ·{" "}
                           {t(endpointValidation.result?.account ? copy.available : copy.unavailable)}
                         </UiBadge>
+                      </div>
+                    )}
+                    {draft.supervision && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="ui-caption font-semibold text-[var(--ui-text)]">
+                          {t(copy.supervisionCredentials)}
+                        </span>
+                        <CredentialStatusBadge
+                          status={supervisionCredentialCheck.status}
+                          message={supervisionCredentialCheck.message}
+                        />
+                        <SupervisionValidationBadges
+                          metrics={Boolean(endpointValidation.result?.metrics)}
+                          usage={Boolean(endpointValidation.result?.usage)}
+                          metricsError={endpointValidation.result?.metrics_error}
+                          usageError={endpointValidation.result?.usage_error}
+                        />
                       </div>
                     )}
                     {draft.ceph_admin && (
