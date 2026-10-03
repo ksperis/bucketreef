@@ -157,11 +157,13 @@ class BucketsService:
         access_key, secret_key = self._account_credentials(account)
         buckets = s3_client.list_buckets(access_key=access_key, secret_key=secret_key, **self._client_kwargs(account))
         creation_date = None
+        bucket_in_scope = False
         for entry in buckets:
             if not isinstance(entry, dict):
                 continue
             if entry.get("name") != normalized_bucket:
                 continue
+            bucket_in_scope = True
             creation_date = entry.get("creation_date")
             break
 
@@ -170,14 +172,12 @@ class BucketsService:
         quota_size: Optional[int] = None
         quota_objects: Optional[int] = None
 
-        if with_stats:
+        if with_stats and bucket_in_scope:
             account_uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
             if account_uid:
                 try:
                     rgw_admin = self._rgw_admin_for_account(account)
                     stats = rgw_admin.get_bucket_info(normalized_bucket, uid=account_uid, allow_not_found=True)
-                    if stats is None:
-                        stats = rgw_admin.get_bucket_info(normalized_bucket, allow_not_found=True)
                     usage = stats.get("usage") if isinstance(stats, dict) else None
                     usage_bytes, object_count = extract_usage_stats(usage)
                     quota_size, quota_objects = self._extract_quota_from_admin_stats(stats)

@@ -80,6 +80,7 @@ from app.services.portal.exceptions import (
     PortalAccessKeyLimitExceeded,
     PortalAccessKeyManagementDisabled,
     PortalAccessKeyProtected,
+    PortalForbiddenError,
     PortalStorageSpaceNotEmpty,
 )
 from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError
@@ -129,6 +130,64 @@ def _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.valu
             using_root_key=False,
         ),
     )
+
+
+def test_portal_manager_bucket_stats_rejects_out_of_scope_bucket_before_admin(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-manager-stats-scope")
+    manager = User(email="portal-manager-stats@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, manager])
+    db_session.commit()
+    service = PortalService(db_session)
+    access = _portal_access(
+        account,
+        manager,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+    monkeypatch.setattr(
+        service,
+        "_admin_ops_for_account",
+        lambda *_args: pytest.fail("Admin Ops must not be initialized for an unauthorized Portal bucket"),
+    )
+
+    with pytest.raises(PortalForbiddenError, match="Accès bucket non autorisé"):
+        service.get_bucket_stats(manager, access, "foreign-bucket")
+
+
+def test_portal_manager_bucket_stats_allow_archived_storage_space(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-manager-archived-stats")
+    manager = User(email="portal-manager-archived@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, manager])
+    db_session.flush()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="archived-space",
+            visibility="shared",
+            archived_at=utcnow(),
+        )
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    access = _portal_access(
+        account,
+        manager,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+
+    class FakeAdmin:
+        def get_bucket_info(self, bucket_name, **kwargs):  # noqa: ANN001
+            assert bucket_name == "archived-space"
+            assert kwargs == {"allow_not_found": True, "uid": account.rgw_user_uid}
+            return {"usage": {"rgw.main": {"size_actual": 7, "num_objects": 2}}}
+
+    monkeypatch.setattr(service, "_admin_ops_for_account", lambda *_args: FakeAdmin())
+
+    bucket = service.get_bucket_stats(manager, access, "archived-space")
+
+    assert bucket.used_bytes == 7
+    assert bucket.object_count == 2
 
 
 def _usage_history_settings(enabled: bool) -> AppSettings:

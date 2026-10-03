@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from app.db import S3Account
+from app.db import PortalStorageSpaceMetadata, S3Account
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.utils.quota_stats import extract_positive_limit, extract_quota_limits
@@ -87,12 +87,22 @@ class PortalAccountRuntimeMixin:
         bucket_name: str,
         admin: Optional[RGWAdminClient] = None,
     ) -> Optional[dict]:
+        normalized_bucket = (bucket_name or "").strip()
+        if not normalized_bucket:
+            return None
+        in_scope = (
+            self.db.query(PortalStorageSpaceMetadata.id)
+            .filter(
+                PortalStorageSpaceMetadata.account_id == account.id,
+                PortalStorageSpaceMetadata.bucket_name == normalized_bucket,
+            )
+            .first()
+        )
+        if in_scope is None:
+            return None
         rgw_admin = admin or self._admin_ops_for_account(account)
-        bucket_info = rgw_admin.get_bucket_info(
-            bucket_name,
+        return rgw_admin.get_bucket_info(
+            normalized_bucket,
             allow_not_found=True,
             uid=account.rgw_user_uid,
         )
-        if bucket_info is None:
-            bucket_info = rgw_admin.get_bucket_info(bucket_name, allow_not_found=True)
-        return bucket_info
