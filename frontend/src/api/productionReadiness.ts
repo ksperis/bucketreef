@@ -4,7 +4,7 @@
  */
 import client from "./client";
 
-export type DeploymentProfile = "full" | "admin" | "user" | "ceph-admin-high-security";
+export type DeploymentProfile = "full" | "admin" | "user";
 export type AppEnvironment = "development" | "test" | "production";
 type CheckResult = "pass" | "fail" | "manual";
 type CheckSeverity = "blocker" | "critical" | "warning";

@@ -37,7 +37,7 @@ from app.utils.network_targets import validate_outbound_url
 from app.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
-_WEBHOOK_DISPATCH_PROFILES = {"full", "admin", "admin-no-ceph-admin"}
+_WEBHOOK_DISPATCH_PROFILES = {"full", "admin"}
 
 
 @dataclass(frozen=True)
@@ -59,7 +59,7 @@ def webhook_dispatcher_enabled(settings: Settings | None = None) -> bool:
 
     Webhook events may be queued by any backend sharing the application
     database, but outbound delivery belongs to an Admin-capable runtime. This
-    keeps split user and high-security Ceph Admin pools from taking the global
+    keeps user pools and instances with Admin disabled from taking the global
     dispatcher lease or becoming the network egress point for Admin-managed
     integrations.
     """

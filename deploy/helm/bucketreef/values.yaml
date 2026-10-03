@@ -9,9 +9,8 @@ image:
     pullPolicy: IfNotPresent
 
 # Runtime surface profile for this release. Use separate releases with `admin`
-# and `user` when splitting the control plane from end-user surfaces. When Ceph
-# Admin is isolated in its own `ceph-admin-high-security` release, use
-# `admin-no-ceph-admin` for the companion administration release.
+# and `user` when splitting administration from user surfaces. Use `full`
+# with explicit FEATURE_* settings for a dedicated Ceph Admin instance.
 deploymentProfile: full
 
 backend:
@@ -21,7 +20,7 @@ backend:
   trustedProxyCidrs: []
   # Existing Secret is mandatory. It must contain database-url, ui-jwt-keys,
   # api-jwt-keys and credential-keys. internal-cron-token is additionally
-  # required by the full/admin/admin-no-ceph-admin deployment profiles.
+  # required only when scheduled jobs are enabled.
   existingSecret: ""
   secretKeys:
     databaseUrl: database-url

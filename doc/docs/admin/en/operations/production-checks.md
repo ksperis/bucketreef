@@ -15,7 +15,7 @@ Each automated check has a result and a severity. These are intentionally separa
 
 | Display | Meaning | Application startup |
 |---|---|---|
-| **Blocked** | An obvious security problem is present. | Blocks only when `blocks_startup=true`. General security blockers become startup-blocking in `APP_ENV=production`; the explicit Ceph Admin high-security boundary is always enforced. |
+| **Blocked** | An obvious security problem is present. | Blocks only when `blocks_startup=true`. General security blockers become startup-blocking in `APP_ENV=production`. |
 | **Critical** | The deployment should be corrected before publication, but remains available for remediation. | Does not block. |
 | **Warning** | The configuration may be valid depending on topology or operating model. | Does not block. |
 | **Manual** | The property cannot be proven safely from this backend alone. | Does not block. |
@@ -135,7 +135,7 @@ The check is OK when access-key login is disabled, custom endpoint login is disa
 
 Checks: `database`, `sqlite-bucket-migration-worker`.
 
-PostgreSQL is a **Critical** production condition for split profiles, Ceph Admin high-security deployments, and multi-replica backends. A single full-profile SQLite deployment is accepted with a **Warning**.
+PostgreSQL is a **Critical** production condition for split profiles and multi-replica backends. A single full-profile SQLite deployment is accepted with a **Warning**.
 
 Running the long-lived bucket migration worker with SQLite is also a **Warning**.
 
@@ -143,28 +143,19 @@ Database corruption, migration failures, and unmanaged schemas remain technical 
 
 ### `scheduled-job-ownership`
 
-For split profiles, incorrect scheduler ownership is **Critical**. The `admin`
-and `admin-no-ceph-admin` profiles own scheduled jobs; `user` does not.
-
-For `ceph-admin-high-security`, scheduled jobs violate the dedicated security boundary and are **Blocked**.
-
-A full-profile instance with jobs disabled receives a **Warning** because another scheduler owner may be intentional.
+For split profiles, incorrect scheduler ownership is **Critical**. `admin` owns
+scheduled jobs; `user` does not. A `full` instance with jobs disabled receives a
+**Warning** unless Ceph Admin is its sole enabled surface, where disabling jobs
+is intentional.
 
 ### Runtime surfaces
 
 Checks: `surface-admin`, `surface-ceph-admin`, `surface-storage-ops`, `surface-manager`, `surface-portal`, `surface-browser`.
 
-A mismatch with the normal `admin`, `admin-no-ceph-admin`, or `user` profile is
-**Blocked** and prevents startup in production. Outside production it remains
-**Critical** so the same check can be used as a preflight.
-
-A mismatch involving the Ceph Admin high-security contract is **Blocked** and prevents startup because that profile exists specifically to enforce a reduced attack surface.
-
-### `ceph-admin-high-security-boundary`
-
-**Classification:** Blocked.
-
-`CEPH_ADMIN_HIGH_SECURITY_MODE=true` and `DEPLOYMENT_PROFILE=ceph-admin-high-security` must be selected together. The dedicated runtime surface and scheduler contract is enforced as a startup security boundary.
+A mismatch with `admin` or `user` is **Blocked** in production and **Critical**
+outside production. Ceph Admin may be enabled or disabled on `admin`.
+`full` permits explicit surface switches and has no special security-mode
+contract. See [Dedicated Ceph Admin instance](../security/ceph-admin.md).
 
 ### Split deployment contract
 
@@ -246,4 +237,4 @@ For admin/user split deployments, compare both runtimes and confirm the intended
 - [Operations: security](../security/index.md)
 - [Authentication security and cutover](../security/authentication.md)
 - [Backup and restore](backup-restore.md)
-- [Ceph Admin high-security deployment](../security/ceph-admin.md)
+- [Dedicated Ceph Admin instance](../security/ceph-admin.md)

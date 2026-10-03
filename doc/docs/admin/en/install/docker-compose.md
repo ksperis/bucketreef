@@ -165,8 +165,7 @@ History retention / SMTP knobs:
 See [Recommended production architecture](production-architecture.md) for the
 recommended ingress, runtime, PostgreSQL, and Ceph Admin security boundaries.
 
-The release bundle contains `compose.admin.yaml`,
-`compose.admin-no-ceph-admin.yaml`, and `compose.user.yaml`. Use two
+The release bundle contains `compose.admin.yaml` and `compose.user.yaml`. Use two
 distinct Compose project names, different published ports/origins, the same
 PostgreSQL `DATABASE_URL`, and the same UI/API JWT and credential key rings.
 Each backend must trust both public origins so WebAuthn and OIDC can operate
@@ -200,14 +199,11 @@ docker compose --project-name bucketreef-user -f compose.yaml -f compose.user.ya
 Do not use SQLite for this topology. The two projects must point at the same
 PostgreSQL database; only the admin project should start the scheduler.
 
-For a dedicated Ceph Admin security boundary, run the main Administration
-project with `compose.admin-no-ceph-admin.yaml` and run a separate project
-with `compose.ceph-admin-high-security.yaml`. The dedicated project can
-either reuse the shared PostgreSQL/key rings or use a dedicated database and
-distinct key rings through a separate env file. Do not use the normal
-`compose.admin.yaml` for the companion Administration project when the
-goal is to make the Ceph Admin ingress exclusive. See
-[Ceph Admin high-security deployment](../security/ceph-admin.md).
+For a dedicated Ceph Admin instance, keep `compose.admin.yaml` on the main
+Administration project and set `FEATURE_CEPH_ADMIN_ENABLED=false` in its env
+file. Run a separate `full` project with only Ceph Admin enabled, its own database
+and key rings, and no scheduler. See [Dedicated Ceph Admin instance](../security/ceph-admin.md)
+for the complete settings and migration from removed profiles.
 
 LDAP is configured on the backend with `LDAP_PROVIDERS__<key>__...`
 environment variables. Put bind passwords in your local `.env` or secret

@@ -31,3 +31,16 @@ def runtime_surface_enabled(settings: Settings, surface: RuntimeSurface) -> bool
 
     setting_name = RUNTIME_SURFACE_SETTINGS[surface]
     return getattr(settings, setting_name) is not False
+
+
+def ceph_admin_only_runtime(settings: Settings) -> bool:
+    """Identify the dedicated surface configuration without a special profile."""
+    return (
+        settings.deployment_profile == "full"
+        and runtime_surface_enabled(settings, "ceph_admin")
+        and all(
+            not runtime_surface_enabled(settings, surface)
+            for surface in RUNTIME_SURFACE_SETTINGS
+            if surface != "ceph_admin"
+        )
+    )

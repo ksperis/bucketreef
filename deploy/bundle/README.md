@@ -50,10 +50,11 @@ project preserves data and secrets; keep encryption keys with their database.
 
 For split deployments, combine `compose.yaml` with `compose.admin.yaml` or
 `compose.user.yaml`, use distinct project names, and point both stacks at the
-same PostgreSQL database. Start the scheduler only with the admin stack. The
-`compose.ceph-admin-high-security.yaml` and
-`compose.admin-no-ceph-admin.yaml` overrides keep the dedicated Ceph Admin
-deployment isolated.
+same PostgreSQL database. Start the scheduler only with the admin stack.
+For an isolated Ceph Admin instance, use `full` with only Ceph Admin enabled,
+its own database and key rings, and disabled jobs/workers. On the main `admin`
+instance set `FEATURE_CEPH_ADMIN_ENABLED=false`. See the dedicated Ceph Admin
+guide for explicit settings and migration from removed profiles.
 
 See the deployment documentation for TLS, origins, trusted proxies, backups,
 split deployments and hardening. No S3 service or endpoint is created

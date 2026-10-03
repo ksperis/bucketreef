@@ -15,7 +15,7 @@ from sqlalchemy.exc import DatabaseError
 from app.core.config import get_settings
 from app.core.database import SessionLocal, engine, is_sqlite_malformed_database_error
 from app.core.logging_security import configure_secure_logging
-from app.core.runtime_surfaces import runtime_surface_enabled
+from app.core.runtime_surfaces import ceph_admin_only_runtime, runtime_surface_enabled
 from app.services.database_initialization import init_db
 from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
 from app.routers import (
@@ -243,7 +243,7 @@ app.include_router(users.router, prefix=settings.api_v1_prefix)
 app.include_router(public_settings.router, prefix=settings.api_v1_prefix)
 if runtime_surface_enabled(settings, "admin"):
     app.include_router(auth_api_tokens.router, prefix=f"{settings.api_v1_prefix}/auth", tags=["auth"])
-if runtime_surface_enabled(settings, "admin") or settings.ceph_admin_high_security_mode:
+if runtime_surface_enabled(settings, "admin") or ceph_admin_only_runtime(settings):
     app.include_router(auth_local.bootstrap_router, prefix=f"{settings.api_v1_prefix}/auth", tags=["auth"])
 if any(
     runtime_surface_enabled(settings, surface)

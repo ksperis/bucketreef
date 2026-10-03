@@ -183,8 +183,7 @@ SQLite outside Helm safeguards.
 See [Recommended production architecture](production-architecture.md) for the
 recommended ingress, runtime, PostgreSQL, and Ceph Admin security boundaries.
 
-The chart source provides `values-admin.yaml`, `values-admin-no-ceph-admin.yaml`,
-`values-user.yaml`, and `values-ceph-admin-high-security.yaml`. These are profile
+The chart source provides `values-admin.yaml` and `values-user.yaml`. These are profile
 selectors only; they do not contain production hosts, replicas, Secrets, TLS,
 origins, trusted proxies, or NetworkPolicy settings.
 
@@ -216,14 +215,16 @@ sets `SCHEDULED_JOBS_ENABLED=false`, and chart rendering fails if any built-in
 CronJob is enabled on that release. Run the production hardening checker in one
 backend pod from each release before exposing the ingresses.
 
-For a dedicated Ceph Admin boundary, switch the main Administration release to
-`deploymentProfile=admin-no-ceph-admin` and deploy
-`deploymentProfile=ceph-admin-high-security` separately. This ensures the
-normal Admin ingress no longer mounts `/ceph-admin`. The dedicated profile
-mounts Ceph Admin only, disables jobs, and does not consume
-`internal-cron-token`. Point `backend.existingSecret` at the shared Secret or a
-dedicated Secret with an isolated database/key ring. See
-[Ceph Admin high-security deployment](../security/ceph-admin.md).
+For a dedicated Ceph Admin instance, keep `deploymentProfile=admin` on the main
+release and set `backend.env.FEATURE_CEPH_ADMIN_ENABLED: "false"`. The dedicated
+release uses `full` with explicit feature switches and its own database and key
+rings. See [Dedicated Ceph Admin instance](../security/ceph-admin.md).
+
+On `full`, surface and worker switches can be set in `backend.env`. On `admin`,
+only the Ceph Admin switch may override the profile defaults; `user` remains
+fixed. Profile variables are rendered exactly once. Any built-in CronJob requires
+`SCHEDULED_JOBS_ENABLED=true`; the scheduler secret is consumed only when this
+setting is enabled. Use `backend.env` for runtime switches, not `extraEnv`.
 
 ## Container images
 

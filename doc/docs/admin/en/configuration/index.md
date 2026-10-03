@@ -66,15 +66,14 @@ Key areas:
 - CORS: `CORS_ORIGINS`.
 - Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_BILLING_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
 - Runtime job ownership: `SCHEDULED_JOBS_ENABLED`. A split deployment enables it
-  only on the `admin` or `admin-no-ceph-admin` Administration instance.
-- Dedicated Ceph Admin boundary: `CEPH_ADMIN_HIGH_SECURITY_MODE`. When enabled,
-  startup requires Ceph Admin on, every other runtime surface off, and scheduled
-  jobs off. Deployment profiles set these values automatically.
+  only on the `admin` instance. A dedicated Ceph Admin instance disables it.
 - Internal scheduler auth: `INTERNAL_CRON_TOKEN`.
-- Runtime deployment identity: `DEPLOYMENT_PROFILE` (`full`, `admin`,
-  `admin-no-ceph-admin`, `user`, or `ceph-admin-high-security`). Compose and Helm
-  profiles set it automatically; set it explicitly for custom deployments so
-  runtime readiness checks evaluate the correct surface contract.
+- Runtime deployment identity: `DEPLOYMENT_PROFILE` (`full`, `admin`, `user`).
+  `full` allows explicit `FEATURE_*` switches. `admin` enables Admin/Storage Ops
+  and jobs, disables user surfaces, and permits Ceph Admin to be disabled.
+  `user` enables user surfaces and disables administrative surfaces and jobs.
+  See [Dedicated Ceph Admin instance](../security/ceph-admin.md) for an isolated
+  `full` configuration and migration from removed profiles.
 - Billing, quota monitoring, usage history collection, and healthcheck behavior.
 - Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `BILLING_OPERATION_LEASE_TTL_SECONDS`.
 - Shared history retention: `BILLING_DAILY_RETENTION_DAYS`, `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`, `QUOTA_HISTORY_DAILY_RETENTION_DAYS`.
@@ -85,7 +84,7 @@ Key areas:
   `WEBHOOK_RETRY_INITIAL_SECONDS`, `WEBHOOK_RETRY_MAX_SECONDS`, and
   `WEBHOOK_RETENTION_DAYS`. In split deployments, event publication uses the
   shared PostgreSQL queue but outbound dispatch runs only on the Admin-capable
-  release; `user` and `ceph-admin-high-security` profiles disable the worker.
+  release; `user` and any runtime with Admin disabled never dispatch.
 - Quota SMTP secret: `SMTP_PASSWORD`.
 - Interactive storage budgets: `STORAGE_INTERACTIVE_CONNECT_TIMEOUT_SECONDS` (default `2`),
   `STORAGE_INTERACTIVE_READ_TIMEOUT_SECONDS` (default `5`), and
@@ -157,8 +156,7 @@ immediately and does not write it to browser storage.
 authentication rate limit by client IP and returns a generic unavailable error
 for absent, expired, invalid or consumed tokens. Issuing another token revokes
 the previous one while the database has no users. The web bootstrap route is
-mounted only on an Admin runtime or on the dedicated `ceph-admin-high-security`
-runtime, where it is required to initialize an isolated identity database. It
+mounted only on an Admin runtime or on the runtime with only Ceph Admin enabled, where it is required to initialize an isolated identity database. It
 is absent from the `user` runtime.
 
 Use `python -m app.scripts.create_first_admin` when a direct console workflow is

@@ -74,13 +74,13 @@ def test_admin_profile_passes_automated_deployment_checks():
     assert all(finding.level == "ok" for finding in findings)
 
 
-def test_admin_without_ceph_admin_profile_passes_automated_deployment_checks():
+def test_admin_profile_allows_ceph_admin_to_be_disabled():
     settings = _production_settings(
-        deployment_profile="admin-no-ceph-admin",
+        deployment_profile="admin",
         feature_ceph_admin_enabled=False,
     )
 
-    findings = _check(settings, profile="admin-no-ceph-admin")
+    findings = _check(settings, profile="admin")
 
     assert deployment_exit_code(findings) == 0
     assert all(finding.level == "ok" for finding in findings)
@@ -307,10 +307,9 @@ def test_cli_uses_runtime_deployment_profile_when_not_overridden():
     assert "CRITICAL surface-manager" not in output
 
 
-def test_ceph_admin_high_security_profile_passes_with_dedicated_contract():
+def test_ceph_admin_only_full_runtime_passes():
     settings = _production_settings(
-        deployment_profile="ceph-admin-high-security",
-        ceph_admin_high_security_mode=True,
+        deployment_profile="full",
         feature_admin_enabled=False,
         feature_ceph_admin_enabled=True,
         feature_storage_ops_enabled=False,
@@ -328,16 +327,15 @@ def test_ceph_admin_high_security_profile_passes_with_dedicated_contract():
         cors_origins=["https://ceph-admin.example.test"],
     )
 
-    findings = _check(settings, profile="ceph-admin-high-security")
+    findings = _check(settings, profile="full")
 
     assert deployment_exit_code(findings) == 0
     assert all(finding.level == "ok" for finding in findings)
 
 
-def test_ceph_admin_high_security_database_mismatch_is_critical_but_not_boot_blocking():
+def test_single_full_runtime_sqlite_is_warning_not_startup_blocking():
     settings = _production_settings(
-        deployment_profile="ceph-admin-high-security",
-        ceph_admin_high_security_mode=True,
+        deployment_profile="full",
         database_url="sqlite:////tmp/bucketreef.db",
         feature_admin_enabled=False,
         feature_ceph_admin_enabled=True,
@@ -356,44 +354,18 @@ def test_ceph_admin_high_security_database_mismatch_is_critical_but_not_boot_blo
         cors_origins=["https://ceph-admin.example.test"],
     )
 
-    finding = _finding(_check(settings, profile="ceph-admin-high-security"), "database")
+    finding = _finding(_check(settings, profile="full"), "database")
 
-    assert finding.level == "critical"
+    assert finding.level == "warning"
     assert finding.blocks_startup is False
 
 
 @pytest.mark.parametrize(
     "profile",
-    ["full", "admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"],
+    ["full", "admin", "user"],
 )
 def test_admin_passkey_policy_is_critical_not_startup_blocking(profile):
     settings = _production_settings()
-    if profile == "admin-no-ceph-admin":
-        settings = _production_settings(
-            deployment_profile="admin-no-ceph-admin",
-            feature_ceph_admin_enabled=False,
-        )
-    if profile == "ceph-admin-high-security":
-        settings = _production_settings(
-            deployment_profile="ceph-admin-high-security",
-            ceph_admin_high_security_mode=True,
-            feature_admin_enabled=False,
-            feature_ceph_admin_enabled=True,
-            feature_storage_ops_enabled=False,
-            feature_manager_enabled=False,
-            feature_portal_enabled=False,
-            feature_browser_enabled=False,
-            scheduled_jobs_enabled=False,
-            internal_cron_token=None,
-            public_origins=[],
-            webauthn_origins=[],
-            public_origin="https://ceph-admin.example.test",
-            webauthn_origin="https://ceph-admin.example.test",
-            webauthn_rp_id="ceph-admin.example.test",
-            allowed_hosts=["ceph-admin.example.test"],
-            cors_origins=["https://ceph-admin.example.test"],
-        )
-
     finding = _finding(
         _check(settings, profile=profile, admin_passkeys_required=False),
         "admin-passkey-policy",
@@ -476,26 +448,6 @@ def test_persisted_storage_endpoint_security_recommendations(db_session):
     assert "SHARED-PRIVILEGED-KEY" not in identity_finding.message
 
 
-def test_high_security_surface_contract_is_reported_as_startup_blocker_instead_of_settings_parse_failure():
-    settings = _production_settings(
-        deployment_profile="ceph-admin-high-security",
-        ceph_admin_high_security_mode=True,
-        feature_admin_enabled=True,
-        feature_ceph_admin_enabled=True,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=False,
-        feature_portal_enabled=False,
-        feature_browser_enabled=False,
-        scheduled_jobs_enabled=False,
-        internal_cron_token=None,
-    )
-
-    finding = _finding(_check(settings, profile="ceph-admin-high-security"), "surface-admin")
-
-    assert finding.level == "blocked"
-    assert finding.blocks_startup is True
-
-
 def test_user_profile_surface_mismatch_is_startup_blocker_in_production():
     settings = _production_settings(
         deployment_profile="user",
@@ -535,18 +487,6 @@ def test_user_profile_surface_mismatch_remains_preflight_only_outside_production
     assert finding.blocks_startup is False
 
 
-def test_high_security_mode_profile_mismatch_is_startup_blocker():
-    settings = _production_settings(
-        deployment_profile="full",
-        ceph_admin_high_security_mode=True,
-    )
-
-    finding = _finding(_check(settings, profile="full"), "high-security-mode")
-
-    assert finding.level == "blocked"
-    assert finding.blocks_startup is True
-
-
 def test_manual_checks_are_reported_without_affecting_cli_exit_code():
     findings = run_deployment_checks(
         _production_settings(),
@@ -584,13 +524,8 @@ def test_every_reported_check_links_to_an_existing_documentation_anchor(db_sessi
         if anchor:
             anchors.add(anchor)
 
-    for profile in ("full", "admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"):
+    for profile in ("full", "admin", "user"):
         settings = _production_settings()
-        if profile == "admin-no-ceph-admin":
-            settings = _production_settings(
-                deployment_profile="admin-no-ceph-admin",
-                feature_ceph_admin_enabled=False,
-            )
         findings = run_deployment_checks(
             settings,
             app_settings=_app_settings(),

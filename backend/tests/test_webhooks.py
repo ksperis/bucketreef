@@ -292,9 +292,7 @@ def test_webhook_runtime_lease_always_exceeds_http_timeout():
     [
         ("full", None, True, True),
         ("admin", True, True, True),
-        ("admin-no-ceph-admin", True, True, True),
         ("user", False, True, False),
-        ("ceph-admin-high-security", False, True, False),
         ("admin", True, False, False),
         ("full", False, True, False),
     ],

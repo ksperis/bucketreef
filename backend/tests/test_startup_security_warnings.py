@@ -134,22 +134,17 @@ def test_sqlite_bucket_migration_worker_is_warning_only():
     assert finding.blocks_startup is False
 
 
-def test_high_security_profile_contract_blocks_even_before_production_publication():
+def test_admin_profile_surface_contract_blocks_in_production():
     settings = _base_settings(
-        app_env="development",
-        deployment_profile="ceph-admin-high-security",
-        ceph_admin_high_security_mode=True,
+        app_env="production",
+        deployment_profile="admin",
         feature_admin_enabled=True,
-        feature_ceph_admin_enabled=True,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=False,
+        feature_ceph_admin_enabled=False,
+        feature_storage_ops_enabled=True,
+        feature_manager_enabled=True,
         feature_portal_enabled=False,
         feature_browser_enabled=False,
-        scheduled_jobs_enabled=False,
-        internal_cron_token=None,
     )
     findings = _checks(settings)
-
-    blocker = next(finding for finding in startup_blocking_findings(findings) if finding.code == "surface-admin")
-
+    blocker = next(finding for finding in startup_blocking_findings(findings) if finding.code == "surface-manager")
     assert blocker.level == "blocked"

@@ -1,135 +1,137 @@
-# Ceph Admin high-security deployment
+# Dedicated Ceph Admin instance
 
-Use this profile when Ceph RGW administration must be exposed through a
-separate instance with a smaller application and network boundary.
+Use a separate instance when Ceph RGW administration needs its own network and
+secret boundary. BucketReef has only three deployment profiles: `full`, `admin`
+and `user`. A dedicated instance uses `full` with explicit runtime switches;
+there is no separate security mode or implicit isolation guarantee.
 
-To make that boundary exclusive, the normal Administration runtime must use
-`admin-no-ceph-admin` so `/ceph-admin` is not mounted on its ingress. Running a
-normal `admin` profile alongside this dedicated instance leaves Ceph Admin
-available through both paths and is therefore not the high-security topology
-described on this page.
+The recommended isolated deployment has its own PostgreSQL database, UI/API JWT
+and credential key rings, RGW identity, administrator bootstrap, and restricted
+ingress. Sharing the database and credential ring would retain access to the
+same secrets and would provide only surface/network separation.
 
-`ceph-admin-high-security` mounts the authentication/profile APIs and Ceph
-Admin only. Admin governance, Storage Ops, Manager, Portal, Browser, private S3
-connections, execution-context APIs, and scheduled-job endpoints are not
-mounted. The profile also sets `CEPH_ADMIN_HIGH_SECURITY_MODE=true`; startup
-fails if the required surface kill switches or `SCHEDULED_JOBS_ENABLED=false`
-are not present.
+Disable Ceph Admin on the main `admin` instance with
+`FEATURE_CEPH_ADMIN_ENABLED=false` and do not store the dedicated Ceph Admin key
+there. Admin Ops and Supervision remain separate credentials.
 
-## Isolation levels
+## Runtime configuration
 
-Two deployment models are supported.
+```dotenv
+DEPLOYMENT_PROFILE=full
+FEATURE_ADMIN_ENABLED=false
+FEATURE_CEPH_ADMIN_ENABLED=true
+FEATURE_STORAGE_OPS_ENABLED=false
+FEATURE_MANAGER_ENABLED=false
+FEATURE_PORTAL_ENABLED=false
+FEATURE_BROWSER_ENABLED=false
+SCHEDULED_JOBS_ENABLED=false
+WEBHOOK_WORKER_ENABLED=false
+BUCKET_MIGRATION_WORKER_ENABLED=false
+```
 
-### Shared database and application secrets
+All five other surfaces must be explicitly disabled: unset `FEATURE_*` switches
+permit mounting by default. Authentication/profile APIs and first-administrator
+bootstrap remain available. Admin governance, Storage Ops, Manager, Portal,
+Browser, connections, execution-context and internal scheduled-job routes are
+not mounted. The first superadministrator automatically receives Ceph Admin
+access only when Ceph Admin is the sole enabled surface.
 
-Point the high-security instance at the same PostgreSQL database and key rings
-as the main deployment. Existing admin identities, passkeys, endpoint records,
-and Ceph Admin grants remain available. This provides network and runtime
-surface isolation, but compromise of the shared database or credential ring
-still crosses the instance boundary.
-
-When the same passkeys are used on multiple origins, configure every public
-origin in `PUBLIC_ORIGIN`/`PUBLIC_ORIGINS` and
-`WEBAUTHN_ORIGIN`/`WEBAUTHN_ORIGINS`, with a common `WEBAUTHN_RP_ID` that is
-valid for all hosts.
-
-### Isolated database and secrets
-
-Use a dedicated PostgreSQL database and distinct UI JWT, API JWT and credential
-key rings. Bootstrap a separate superadministrator on this database. In
-high-security mode the first bootstrap superadmin receives Ceph Admin access so
-the instance is usable without exposing the general Admin surface.
-
-For the strongest separation, manage Ceph endpoints through
-`ENV_STORAGE_ENDPOINTS` and inject only the Ceph Admin credentials required by
-this instance. Those endpoint rows are synchronized into the isolated database
-at startup and remain environment-managed/read-only. Back up and rotate the
-isolated database and credential ring independently from the main deployment.
+Configure endpoints with `ENV_STORAGE_ENDPOINTS` and inject only the credentials
+required by this instance. They are synchronized into this instance's isolated
+database and remain environment-managed/read-only. Back up the database and its
+credential ring together, independently of the main deployment.
 
 ## Docker Compose
 
-The release bundle contains `compose.ceph-admin-high-security.yaml`.
-Use a dedicated project name and preferably a separate env file:
+Put the runtime switches above, the isolated `DATABASE_URL` and new key rings in
+an operator-owned `.env.ceph-admin`. Also configure its own public origin, hosts,
+WebAuthn origin/RP ID, published port and TLS/reverse-proxy boundary.
 
 ```bash
 docker compose --project-name bucketreef-ceph-admin \
-  --env-file .env.ceph-admin \
-  -f compose.yaml \
-  -f compose.ceph-admin-high-security.yaml \
+  --env-file .env.ceph-admin -f compose.yaml \
   up -d --wait backend frontend
-```
 
-Run the main Administration project with
-`compose.admin-no-ceph-admin.yaml` when this dedicated project is the
-intended Ceph Admin boundary. The standard `compose.admin.yaml` keeps
-Ceph Admin enabled for the simpler shared-Administration model.
-
-To share state, put the main deployment's PostgreSQL `DATABASE_URL` and key
-rings in `.env.ceph-admin`. To isolate state, use a dedicated PostgreSQL URL and
-new values for `UI_JWT_KEYS`, `API_JWT_KEYS`, and `CREDENTIAL_KEYS`. Do not
-start the scheduler service for this isolated Ceph Admin instance.
-
-Validate the running backend:
-
-```bash
 docker compose --project-name bucketreef-ceph-admin \
-  --env-file .env.ceph-admin \
-  -f compose.yaml \
-  -f compose.ceph-admin-high-security.yaml \
-  exec backend python -m app.scripts.check_production_hardening
+  --env-file .env.ceph-admin -f compose.yaml \
+  exec backend python -m app.scripts.issue_first_admin_bootstrap
 ```
+
+Start only backend and frontend; do not start the scheduler. The main
+Administration project still uses `compose.admin.yaml`, with
+`FEATURE_CEPH_ADMIN_ENABLED=false` in its env file.
 
 ## Helm
 
-Use a separate release and the `ceph-admin-high-security` deployment profile:
+Use a separate release with an operator-owned values file containing:
+
+```yaml
+deploymentProfile: full
+backend:
+  databaseType: postgresql
+  persistence:
+    enabled: false
+  existingSecret: bucketreef-ceph-admin-auth
+  env:
+    FEATURE_ADMIN_ENABLED: "false"
+    FEATURE_CEPH_ADMIN_ENABLED: "true"
+    FEATURE_STORAGE_OPS_ENABLED: "false"
+    FEATURE_MANAGER_ENABLED: "false"
+    FEATURE_PORTAL_ENABLED: "false"
+    FEATURE_BROWSER_ENABLED: "false"
+    SCHEDULED_JOBS_ENABLED: "false"
+    WEBHOOK_WORKER_ENABLED: "false"
+    BUCKET_MIGRATION_WORKER_ENABLED: "false"
+billingCronJob:
+  enabled: false
+healthcheckCronJob:
+  enabled: false
+quotaMonitorCronJob:
+  enabled: false
+usageHistoryCronJob:
+  enabled: false
+notificationRetentionCronJob:
+  enabled: false
+```
+
+Complete this file with the instance's ingress/TLS, exact trusted proxy CIDRs,
+origins and strict NetworkPolicy selectors/egress. The dedicated Secret contains
+its isolated `database-url`, `ui-jwt-keys`, `api-jwt-keys` and `credential-keys`.
+With scheduled jobs disabled, `internal-cron-token` is not consumed. Rendering
+fails if a built-in CronJob is enabled while scheduled-job endpoints are off.
 
 ```bash
 helm upgrade --install bucketreef-ceph-admin \
-  oci://ghcr.io/ksperis/charts/bucketreef \
-  --version X.Y.Z \
-  --values production-security-values-ceph-admin.yaml \
-  --set deploymentProfile=ceph-admin-high-security \
-  --set backend.existingSecret=bucketreef-ceph-admin-auth
+  oci://ghcr.io/ksperis/charts/bucketreef --version X.Y.Z \
+  --values production-ceph-admin.yaml
 ```
 
-Switch the companion Administration release to
-`deploymentProfile=admin-no-ceph-admin` (the chart source also includes the
-matching `values-admin-no-ceph-admin.yaml` selector). The operator-owned values
-files for both releases must still configure their real ingress hosts/TLS,
-replicas, trusted proxies, origins, and NetworkPolicy rules.
+On the main `admin` release set
+`backend.env.FEATURE_CEPH_ADMIN_ENABLED: "false"`; other profile-controlled
+switches remain fixed. Configure switches in `backend.env`, not `extraEnv`.
 
-For shared state, `bucketreef-ceph-admin-auth` may reference the same database
-URL and key-ring values as the main release. For isolated state, create a
-dedicated Secret containing its own `database-url`, `ui-jwt-keys`,
-`api-jwt-keys`, and `credential-keys`. This profile does not consume
-`internal-cron-token` and the chart refuses to render built-in CronJobs for it.
+## Verification and migration
 
-Use a dedicated ingress host/TLS secret and narrow NetworkPolicy rules. If the
-database or RGW Admin endpoints are private, add only their exact CIDRs/ports to
-the high-security release's private egress policy.
+Issue the normal bootstrap token against the empty isolated database. After
+login, the only workspace should be Ceph Admin. Enroll a passkey from **Profile
+> Security**, then enable **Require passkeys for administrators**.
 
-## Bootstrap and verification
+Before exposing the ingress, verify the runtime routes, run
+`python -m app.scripts.check_production_hardening`, check the restricted network
+path and ensure the privileged RGW identity is absent from other instances.
+An intentional Ceph Admin-only runtime does not warn about disabled jobs.
 
-With an isolated empty database, issue the normal first-admin token from the
-high-security backend. After login, the only workspace available to that user
-should be Ceph Admin. Enroll the administrator passkey from **Profile >
-Security**, then enable **Require passkeys for administrators** before running
-the production readiness check. The Admin passkey policy is Critical before
-publication but does not block startup; the high-security runtime/profile,
-surface, and scheduler boundary remains startup-blocking.
+The removed profiles and overlays have no compatibility aliases. Before upgrade:
 
-Verify before publication:
-
-1. `/api/ceph-admin/...` is present while `/api/admin`, `/api/manager`,
-   `/api/portal`, `/api/browser`, `/api/storage-ops`, `/api/connections`, and
-   `/api/internal/...` are absent.
-2. The hardening checker exits successfully using the runtime
-   `DEPLOYMENT_PROFILE=ceph-admin-high-security`.
-3. The ingress is reachable only from the intended administrator network.
-4. Only the required Ceph RGW endpoint credentials are present in this
-   instance's secret boundary.
-5. Database backup/restore and credential-key recovery have been tested for
-   the chosen shared or isolated model.
+- Replace `admin-no-ceph-admin` with `admin` and explicitly disable Ceph Admin.
+- Replace `ceph-admin-high-security` with `full` and the switches above; remove
+  `CEPH_ADMIN_HIGH_SECURITY_MODE` and the old Compose/Helm overlay references.
+- Release tooling and external installers that validate an exact bundle file list
+  must accept the remaining base/admin/user Compose files before distributing
+  a new bundle.
+- Preserve the existing database and key rings during this configuration change.
+  Moving a shared-state installation to an isolated database is a separate
+  migration and requires its own administrator bootstrap.
 
 ## Related pages
 
@@ -138,4 +140,3 @@ Verify before publication:
 - [Deploy with Helm](../install/helm.md)
 - [Configuration](../configuration/index.md)
 - [Production readiness](../operations/production-readiness.md)
-- [Operations: security](index.md)

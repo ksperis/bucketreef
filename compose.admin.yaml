@@ -3,7 +3,7 @@ services:
     environment:
       DEPLOYMENT_PROFILE: "admin"
       FEATURE_ADMIN_ENABLED: "true"
-      FEATURE_CEPH_ADMIN_ENABLED: "true"
+      FEATURE_CEPH_ADMIN_ENABLED: "${FEATURE_CEPH_ADMIN_ENABLED:-true}"
       FEATURE_STORAGE_OPS_ENABLED: "true"
       FEATURE_MANAGER_ENABLED: "false"
       FEATURE_PORTAL_ENABLED: "false"

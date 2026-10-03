@@ -37,7 +37,7 @@ public/WebAuthn origin set. Every finding links to the
 `ui_superadmin` users can inspect the same read-only checks from **Admin >
 Settings > Production readiness** when the Admin surface is present. The page evaluates
 only the backend serving that Admin instance. User-only and Ceph Admin
-high-security runtimes must still be checked in their own runtime with the CLI.
+dedicated Ceph Admin runtimes must still be checked in their own runtime with the CLI.
 Cross-instance properties such as using the same PostgreSQL database and
 compatible shared key rings cannot be proven from a single runtime and must be
 compared explicitly.
@@ -49,9 +49,8 @@ compared explicitly.
 - Require WebAuthn for every admin and use the manual superadmin approval queue for OIDC/LDAP email collisions.
 - Restrict admin surface access by network/ingress policy.
 - For a separately exposed RGW control plane, use the
-  [Ceph Admin high-security deployment](ceph-admin.md), switch the
-  companion Administration runtime to `admin-no-ceph-admin`, and choose whether
-  database and credential-key isolation are shared or independent.
+  [Dedicated Ceph Admin instance](ceph-admin.md), disable Ceph Admin on the
+  main `admin` runtime, and use an isolated database and key rings.
 - Use least privilege for UI users and storage credentials.
 
 ## Secret management

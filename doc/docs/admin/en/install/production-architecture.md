@@ -42,51 +42,31 @@ S3/IAM according to the selected execution context. Administration runtimes use
 RGW Admin Ops only for features that require it; do not grant write caps merely
 because the endpoint is registered in BucketReef.
 
-## High-security Ceph Admin alternative
+## Dedicated Ceph Admin alternative
 
-When Ceph RGW administration needs its own network and runtime boundary, replace
-the standard Administration profile with `admin-no-ceph-admin` and run Ceph
-Admin in a separate `ceph-admin-high-security` release or Compose project.
+Keep the main Administration deployment on `admin`, disable Ceph Admin with
+`FEATURE_CEPH_ADMIN_ENABLED=false`, and run a separate `full` instance with only
+Ceph Admin enabled. Disable its scheduled jobs and workers, restrict its ingress,
+and give it its own PostgreSQL database, key rings and RGW identity. Do not store
+that privileged identity on the main instance.
 
 [![BucketReef production topology with dedicated Ceph Admin](/assets/diagrams/deployment-architecture/high-security-topology.svg)](/assets/diagrams/deployment-architecture/high-security-topology.svg)
 
-In this model:
+This isolated database requires a separate administrator bootstrap. The sole
+Ceph Admin surface enables that bootstrap and grants the first administrator
+Ceph Admin access. The User access pool stays unchanged. Sharing a database and
+credential ring would preserve cross-instance access to secrets; surface flags
+alone are not a secret boundary.
 
-- `admin-no-ceph-admin` mounts `/admin` and `/storage-ops`, owns scheduled jobs,
-  and explicitly disables `/ceph-admin`;
-- `ceph-admin-high-security` mounts only `/ceph-admin` plus the small set of
-  authentication/profile routes required by that runtime and never owns
-  scheduled jobs;
-- the dedicated Ceph Admin ingress should have its own restricted network path;
-- the User access pool stays unchanged from the standard topology;
-- the diagram focuses on the Administration/Ceph Admin split and shows the
-  **shared-state** variant, where these runtimes reuse the same PostgreSQL
-  database and application key rings as the User access pool.
-
-The two Ceph Admin placements are alternatives. If the dedicated
-`ceph-admin-high-security` pool is the intended security boundary, do not keep a
-normal `admin` runtime exposing `/ceph-admin` in parallel; use
-`admin-no-ceph-admin` for the main administration release.
-
-For a stronger trust boundary, the dedicated Ceph Admin runtime can instead use
-its own PostgreSQL database and distinct key rings. That model requires a
-separate administrator identity/bootstrap and is covered in
-[Ceph Admin high-security deployment](../security/ceph-admin.md).
-
-When the high-security runtime shares the identity database and passkeys with
-the main deployment, include every browser origin in the trusted public and
-WebAuthn origin sets and use a common WebAuthn RP ID that covers those hosts.
+See [Dedicated Ceph Admin instance](../security/ceph-admin.md) for the complete
+Compose/Helm configuration and upgrade instructions.
 
 ## Helm contract for this topology
 
-The chart ships small profile overlays:
-
-- `values-admin.yaml` selects `deploymentProfile=admin`;
-- `values-admin-no-ceph-admin.yaml` selects
-  `deploymentProfile=admin-no-ceph-admin`;
-- `values-user.yaml` selects `deploymentProfile=user`;
-- `values-ceph-admin-high-security.yaml` selects
-  `deploymentProfile=ceph-admin-high-security`.
+The chart ships `values-admin.yaml` and `values-user.yaml` selectors. The default
+profile is `full`. Admin enables Ceph Admin by default; disable it using
+`backend.env.FEATURE_CEPH_ADMIN_ENABLED: "false"` when required. A dedicated
+Ceph Admin instance uses `full` with an operator-owned values file.
 
 These files select runtime surfaces only. They do **not** configure production
 hosts, replica counts, PostgreSQL, Secrets, TLS, trusted proxies, origins, or
@@ -158,10 +138,9 @@ workflows use that explicit storage execution identity.
 
 - With Helm, deploy the profile appropriate to each pool as separate releases
   with distinct ingress hosts and one shared PostgreSQL/key-ring contract.
-- With Docker Compose, use distinct project names and the matching profile
-  overlays. For the high-security alternative, pair
-  `compose.admin-no-ceph-admin.yaml` with a separate
-  `compose.ceph-admin-high-security.yaml` project.
+- With Docker Compose, use distinct project names and the matching `admin` or
+  `user` overlay. A dedicated Ceph Admin project uses the base Compose file with
+  explicit feature switches in its own env file.
 - Run scheduled jobs from the Administration deployment only.
 - Apply network policy or firewall rules so Administration and dedicated Ceph
   Admin ingresses are reachable only from their intended operator networks.
@@ -173,6 +152,6 @@ workflows use that explicit storage execution identity.
 - [Deploy with Helm](helm.md)
 - [Deploy with Docker Compose](docker-compose.md)
 - [Production readiness](../operations/production-readiness.md)
-- [Ceph Admin high-security deployment](../security/ceph-admin.md)
+- [Dedicated Ceph Admin instance](../security/ceph-admin.md)
 - [Backends: Ceph RGW](../storage/backends/ceph-rgw.md)
 - [Configuration](../configuration/index.md)

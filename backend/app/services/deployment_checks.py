@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import DeploymentProfile, Settings, is_local_origin, is_weak_secret_value
 from app.core.database import is_sqlite_url
-from app.core.runtime_surfaces import RuntimeSurface, runtime_surface_enabled
+from app.core.runtime_surfaces import RuntimeSurface, ceph_admin_only_runtime, runtime_surface_enabled
 from app.db import (
     LdapProvider,
     OidcProvider,
@@ -70,15 +70,6 @@ _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
     "full": {},
     "admin": {
         "admin": True,
-        "ceph_admin": True,
-        "storage_ops": True,
-        "manager": False,
-        "portal": False,
-        "browser": False,
-    },
-    "admin-no-ceph-admin": {
-        "admin": True,
-        "ceph_admin": False,
         "storage_ops": True,
         "manager": False,
         "portal": False,
@@ -91,14 +82,6 @@ _PROFILE_SURFACES: dict[DeploymentProfile, dict[RuntimeSurface, bool]] = {
         "manager": True,
         "portal": True,
         "browser": True,
-    },
-    "ceph-admin-high-security": {
-        "admin": False,
-        "ceph_admin": True,
-        "storage_ops": False,
-        "manager": False,
-        "portal": False,
-        "browser": False,
     },
 }
 
@@ -716,7 +699,7 @@ def run_deployment_checks(
             fail_message=(
                 "SQLite is suitable only for a single full-profile backend; PostgreSQL is recommended for production."
                 if database_severity == "warning"
-                else "Split, high-security, or multi-replica deployments require PostgreSQL."
+                else "Split or multi-replica deployments require PostgreSQL."
             ),
             docs_anchor="database-topology",
         )
@@ -735,10 +718,10 @@ def run_deployment_checks(
         )
     )
 
-    if profile in {"admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"}:
-        expected_jobs = profile in {"admin", "admin-no-ceph-admin"}
+    if profile in {"admin", "user"}:
+        expected_jobs = profile in {"admin"}
         job_ok = settings.scheduled_jobs_enabled is expected_jobs
-        severity = "blocker" if profile == "ceph-admin-high-security" else "critical"
+        severity = "critical"
         findings.append(
             _finding(
                 "job-owner",
@@ -752,7 +735,6 @@ def run_deployment_checks(
                     else "This deployment profile must disable scheduled jobs."
                 ),
                 docs_anchor="scheduled-job-ownership",
-                blocks_startup=profile == "ceph-admin-high-security",
             )
         )
     else:
@@ -760,19 +742,18 @@ def run_deployment_checks(
             _finding(
                 "job-owner",
                 "Scheduled job ownership",
-                passed=settings.scheduled_jobs_enabled,
+                passed=settings.scheduled_jobs_enabled or ceph_admin_only_runtime(settings),
                 severity="warning",
-                pass_message="This full-profile instance owns scheduled jobs.",
+                pass_message="This full-profile instance owns scheduled jobs or intentionally runs only Ceph Admin.",
                 fail_message="Scheduled jobs are disabled on this full-profile instance; verify they are intentionally run elsewhere.",
                 docs_anchor="scheduled-job-ownership",
             )
         )
 
-    high_security_contract = profile == "ceph-admin-high-security" or settings.ceph_admin_high_security_mode
-    split_surface_contract = profile in {"admin", "admin-no-ceph-admin", "user"}
+    split_surface_contract = profile in {"admin", "user"}
     for surface, expected in _PROFILE_SURFACES[profile].items():
         enabled = runtime_surface_enabled(settings, surface)
-        blocks_startup = high_security_contract or (production and split_surface_contract)
+        blocks_startup = production and split_surface_contract
         findings.append(
             _finding(
                 f"surface-{surface.replace('_', '-')}",
@@ -786,24 +767,7 @@ def run_deployment_checks(
             )
         )
 
-    high_security_mode_ok = (
-        (profile != "ceph-admin-high-security" and not settings.ceph_admin_high_security_mode)
-        or (profile == "ceph-admin-high-security" and settings.ceph_admin_high_security_mode)
-    )
-    findings.append(
-        _finding(
-            "high-security-mode",
-            "Ceph Admin high-security mode",
-            passed=high_security_mode_ok,
-            severity="blocker",
-            pass_message="Ceph Admin high-security mode matches the selected deployment profile.",
-            fail_message="CEPH_ADMIN_HIGH_SECURITY_MODE and DEPLOYMENT_PROFILE=ceph-admin-high-security must be enabled together.",
-            docs_anchor="ceph-admin-high-security-boundary",
-            blocks_startup=profile == "ceph-admin-high-security" or settings.ceph_admin_high_security_mode,
-        )
-    )
-
-    if profile in {"admin", "admin-no-ceph-admin", "user"}:
+    if profile in {"admin", "user"}:
         public_origins = settings.effective_public_origins()
         webauthn_origins = settings.effective_webauthn_origins()
         findings.append(
@@ -894,7 +858,7 @@ def run_deployment_checks(
                 ),
             ]
         )
-        if profile in {"admin", "admin-no-ceph-admin", "user"}:
+        if profile in {"admin", "user"}:
             findings.append(
                 _manual(
                     "manual-split-state",
