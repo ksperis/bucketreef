@@ -55,17 +55,22 @@ ceph_ingress: {
 
 admin_pool: {
   class: runtime
-  label: "Administration pool · HA\nprofile: admin-no-ceph-admin\n/admin · /storage-ops"
+  label: "Administration pool · HA\nprofile: admin · Ceph Admin disabled\n/admin · /storage-ops"
 }
 
 ceph_pool: {
   class: isolated
-  label: "Ceph Admin pool · HA\nprofile: ceph-admin-high-security\n/ceph-admin only"
+  label: "Ceph Admin pool · HA\nprofile: full · explicit switches\n/ceph-admin only"
 }
 
 shared_state: {
   class: shared
-  label: "Shared-state variant\nPostgreSQL + common JWT / credential key rings"
+  label: "Main application state\nPostgreSQL + application key rings"
+}
+
+isolated_state: {
+  class: isolated
+  label: "Isolated Ceph Admin state\nOwn PostgreSQL + JWT / credential key rings"
 }
 
 rgw: {
@@ -76,6 +81,6 @@ rgw: {
 admins -> admin_ingress -> admin_pool
 admins -> ceph_ingress -> ceph_pool
 admin_pool -> shared_state
-ceph_pool -> shared_state
+ceph_pool -> isolated_state
 admin_pool -> rgw
 ceph_pool -> rgw

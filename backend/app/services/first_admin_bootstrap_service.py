@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.runtime_surfaces import ceph_admin_only_runtime
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.core.security import get_password_hash
 from app.db import FirstAdminBootstrap, User
@@ -340,5 +341,5 @@ class FirstAdminBootstrapService:
             role=UserRole.UI_SUPERADMIN.value,
             is_active=True,
             auth_version=1,
-            can_access_ceph_admin=self.settings.ceph_admin_high_security_mode,
+            can_access_ceph_admin=ceph_admin_only_runtime(self.settings),
         )

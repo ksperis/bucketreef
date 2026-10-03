@@ -30,9 +30,7 @@ def test_deploy_bundle_is_reproducible_versioned_and_source_free(tmp_path):
                 ".env.example",
                 "compose.yaml",
                 "compose.admin.yaml",
-                "compose.admin-no-ceph-admin.yaml",
                 "compose.user.yaml",
-                "compose.ceph-admin-high-security.yaml",
             }
             expected.add("bucketreef-quickstart")
             assert set(tar.getnames()) == expected

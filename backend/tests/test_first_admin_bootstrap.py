@@ -131,11 +131,15 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
         )
 
 
-def test_high_security_bootstrap_grants_ceph_admin_access(db_session):
+@pytest.mark.parametrize(
+    "profile, extra_surface",
+    [("full", None), ("full", "admin"), ("full", "storage_ops"), ("full", "manager"),
+     ("full", "portal"), ("full", "browser"), ("user", None)],
+)
+def test_ceph_admin_only_bootstrap_grants_ceph_admin_access(db_session, profile, extra_surface):
     settings = Settings(
         _env_file=None,
-        deployment_profile="ceph-admin-high-security",
-        ceph_admin_high_security_mode=True,
+        deployment_profile=profile,
         feature_admin_enabled=False,
         feature_ceph_admin_enabled=True,
         feature_storage_ops_enabled=False,
@@ -144,6 +148,8 @@ def test_high_security_bootstrap_grants_ceph_admin_access(db_session):
         feature_browser_enabled=False,
         scheduled_jobs_enabled=False,
     )
+    if extra_surface is not None:
+        setattr(settings, f"feature_{extra_surface}_enabled", True)
     service = FirstAdminBootstrapService(db_session, settings=settings)
     issued = service.issue_token()
     created = service.create_with_token(
@@ -156,7 +162,7 @@ def test_high_security_bootstrap_grants_ceph_admin_access(db_session):
     user = db_session.get(User, created.user_id)
     assert user is not None
     assert user.role == UserRole.UI_SUPERADMIN.value
-    assert user.can_access_ceph_admin is True
+    assert user.can_access_ceph_admin is (profile == "full" and extra_surface is None)
 
 
 def test_failed_user_insert_rolls_back_token_consumption(db_session, monkeypatch):

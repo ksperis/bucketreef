@@ -114,7 +114,7 @@ URLs or query strings.
 
 | Variable | Default | Purpose |
 |---|---:|---|
-| `WEBHOOK_WORKER_ENABLED` | `true` | Allow the durable delivery worker on an Admin-capable backend. Split `user` and `ceph-admin-high-security` profiles never dispatch. |
+| `WEBHOOK_WORKER_ENABLED` | `true` | Allow the durable delivery worker on an Admin-capable backend. `user` and any runtime with Admin disabled never dispatch. |
 | `WEBHOOK_POLL_INTERVAL_SECONDS` | `1.0` | Delay between durable queue scans. |
 | `WEBHOOK_WORKER_LEASE_SECONDS` | `120` | Global dispatcher lease used to coordinate backend replicas. |
 | `WEBHOOK_TIMEOUT_SECONDS` | `5.0` | HTTP delivery timeout. |
@@ -136,9 +136,8 @@ new `WEBHOOK_*` value is not explicitly configured. New values take precedence.
 ignored because deliveries now use the database-backed queue.
 
 In a multi-backend deployment, every backend may enqueue matching events into
-the shared PostgreSQL queue. Only an Admin-capable runtime (`full`, `admin`, or
-`admin-no-ceph-admin`) may acquire the global dispatcher lease and perform the
-outbound HTTP delivery. The `user` and `ceph-admin-high-security` profiles keep
+the shared PostgreSQL queue. Only an Admin-capable runtime (`full` or `admin`, with Admin enabled) may acquire the global dispatcher lease and perform the
+outbound HTTP delivery. The `user` profile and dedicated Ceph Admin deployments keep
 `WEBHOOK_WORKER_ENABLED=false`; they therefore do not need webhook-target egress
 or `WEBHOOK_ALLOWED_HOSTS` solely for delivery. Configure the webhook allowlist
 and any NetworkPolicy egress on the Admin release that owns dispatch.

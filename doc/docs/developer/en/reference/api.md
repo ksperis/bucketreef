@@ -24,8 +24,7 @@ Use route-level schemas and examples in code as the canonical API contract.
 
 ## First-administrator bootstrap
 
-These routes are mounted only on an Admin runtime or on the dedicated
-`ceph-admin-high-security` runtime. They are absent from the `user` runtime.
+These routes are mounted only on an Admin runtime or on a runtime with only Ceph Admin enabled. They are absent from the `user` runtime.
 
 - `GET /api/auth/bootstrap/first-admin/status` returns only whether an issued,
   unexpired token can currently be consumed.

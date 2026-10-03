@@ -48,7 +48,7 @@ describe("runtime surface routes", () => {
     expect(declaresPath(routes, "browser")).toBe(false);
   });
 
-  it("keeps only Ceph Admin routes for the high-security runtime surface set", () => {
+  it("keeps only Ceph Admin routes for the Ceph Admin-only runtime surface set", () => {
     const routes = createAppRoutes({
       ...DEFAULT_RUNTIME_SURFACES,
       admin: false,

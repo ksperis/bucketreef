@@ -18,7 +18,7 @@ The report separates severity from startup behavior:
 
 | Result | Meaning |
 |---|---|
-| **Blocked** | Obvious security problem. General blockers stop startup only in `APP_ENV=production`; the explicit Ceph Admin high-security boundary is always enforced. |
+| **Blocked** | Obvious security problem. General blockers stop startup only in `APP_ENV=production`. |
 | **Critical** | Must normally be corrected before publication, but does not take the application offline. |
 | **Warning** | May be valid depending on topology or operating model; review explicitly. |
 | **Manual** | Requires operator evidence because the backend cannot prove it alone. |
@@ -26,7 +26,7 @@ The report separates severity from startup behavior:
 
 The CLI exits non-zero for Blocked and Critical findings. Warnings and Manual checks do not change its exit code.
 
-This distinction is intentional: a deployment can remain available so an administrator can correct a Critical finding such as the passkey policy, database topology, scheduler ownership, or a normal profile mismatch.
+This distinction is intentional: a deployment can remain available so an administrator can correct a Critical finding such as the passkey policy, database topology or scheduler ownership. Runtime surface mismatches on split profiles block production startup.
 
 Technical failures are separate. Database corruption, failed Alembic migrations, an unmanaged schema, or structurally invalid settings still stop the backend because the application cannot operate safely.
 
@@ -36,7 +36,7 @@ Startup refusal is deliberately narrow.
 
 In production, BucketReef blocks startup for direct security exposures such as weak/default effective signing or encryption keys, insecure public authentication cookies, globally trusted proxy address space, weak scheduler secrets while scheduler endpoints are active, and insecure OIDC/LDAP authentication transport.
 
-The Ceph Admin high-security profile also blocks startup whenever its reduced-surface contract is violated, including a mismatched profile/mode, an unexpected runtime surface, or enabled scheduled jobs.
+The `admin` and `user` profiles block production startup when their surface contract is violated. Ceph Admin may be disabled on `admin`. The `full` profile permits explicit surface switches; a dedicated Ceph Admin instance uses that profile with isolated state and disabled jobs/workers.
 
 An empty `TRUSTED_PROXY_CIDRS` is not a blocker: without trusted peers BucketReef ignores forwarded client addresses. It appears as a Warning so deployments behind a reverse proxy can correct client attribution without creating an unnecessary outage.
 
@@ -57,7 +57,7 @@ An empty `TRUSTED_PROXY_CIDRS` is not a blocker: without trusted peers BucketRee
 7. In split deployments, compare both runtime reports and complete `manual-split-state`.
 8. Switch the final runtime to `APP_ENV=production` and rerun the checker before publication.
 
-User-only and Ceph Admin high-security runtimes do not expose the Admin page, so the CLI remains the authoritative local view for those instances.
+User-only and Ceph Admin-only runtimes do not expose the Admin page, so the CLI remains the authoritative local view for those instances.
 
 ## Publish gates
 
@@ -85,7 +85,7 @@ The shared engine covers:
 - environment-defined and UI-managed OIDC/LDAP providers
 - administrator passkey policy and application-settings availability
 - database topology, SQLite migration-worker warning, and scheduler ownership
-- runtime surface/profile contract and Ceph Admin high-security boundary
+- runtime surface/profile contract
 - split public/WebAuthn origins
 - persisted user-controlled S3/webhook outbound allowlists
 

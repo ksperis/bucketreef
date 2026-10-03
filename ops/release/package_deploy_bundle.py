@@ -20,13 +20,7 @@ def package_deploy_bundle(version: str, destination: Path) -> list[Path]:
     files = {
         "compose.yaml": (ROOT / "deploy/bundle/compose.yaml").read_bytes(),
         "compose.admin.yaml": (ROOT / "deploy/bundle/compose.admin.yaml").read_bytes(),
-        "compose.admin-no-ceph-admin.yaml": (
-            ROOT / "deploy/bundle/compose.admin-no-ceph-admin.yaml"
-        ).read_bytes(),
         "compose.user.yaml": (ROOT / "deploy/bundle/compose.user.yaml").read_bytes(),
-        "compose.ceph-admin-high-security.yaml": (
-            ROOT / "deploy/bundle/compose.ceph-admin-high-security.yaml"
-        ).read_bytes(),
         ".env.example": re.sub(
             r"(?m)^BUCKETREEF_TAG=.*$", f"BUCKETREEF_TAG={version}",
             (ROOT / "deploy/bundle/.env.example").read_text(),

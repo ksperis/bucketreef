@@ -20,7 +20,7 @@ from app.utils.ldap_validation import (
 )
 
 
-DeploymentProfile = Literal["full", "admin", "admin-no-ceph-admin", "user", "ceph-admin-high-security"]
+DeploymentProfile = Literal["full", "admin", "user"]
 
 
 class OIDCProviderSettings(BaseModel):
@@ -377,11 +377,6 @@ class Settings(BaseSettings):
         "full",
         description="Deployment profile for this backend runtime (DEPLOYMENT_PROFILE)",
     )
-    ceph_admin_high_security_mode: bool = Field(
-        False,
-        description="Run this backend as a dedicated Ceph Admin high-security instance",
-    )
-
     feature_admin_enabled: Optional[bool] = Field(
         None,
         description="Force Admin surface on/off (FEATURE_ADMIN_ENABLED)",
