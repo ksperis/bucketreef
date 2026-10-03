@@ -185,10 +185,14 @@ class PortalStateUsageMixin:
         if not bucket_name:
             raise PortalBadRequestError("Bucket name requis.")
         account = access.account
-        if not access.capabilities.can_manage_buckets:
-            allowed = self.list_existing_user_bucket_access(user, access.account, access.portal_role)
-            if bucket_name not in allowed:
-                raise PortalForbiddenError("Accès bucket non autorisé.")
+        allowed = self.list_existing_user_bucket_access(
+            user,
+            account,
+            access.portal_role,
+            include_archived=True,
+        )
+        if bucket_name not in allowed:
+            raise PortalForbiddenError("Accès bucket non autorisé.")
         try:
             rgw_admin = self._admin_ops_for_account(account)
         except RGWAdminError as exc:  # pragma: no cover - defensive path

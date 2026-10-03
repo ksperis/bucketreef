@@ -192,18 +192,39 @@ class PortalStorageSpaceAccessMixin:
         row = self._portal_account_member_map(account).get(user_id)
         return row[1] if row else None
 
-    def list_existing_user_bucket_access(self, target: User, account: S3Account, portal_role: str) -> list[str]:
+    def list_existing_user_bucket_access(
+        self,
+        target: User,
+        account: S3Account,
+        portal_role: str,
+        *,
+        include_archived: bool = False,
+    ) -> list[str]:
         """Read bucket permissions without provisioning IAM user/key side effects."""
-        return sorted(self.list_existing_user_storage_space_access(target, account, portal_role).keys())
+        return sorted(
+            self.list_existing_user_storage_space_access(
+                target,
+                account,
+                portal_role,
+                include_archived=include_archived,
+            ).keys()
+        )
 
     def list_existing_user_storage_space_access(
         self,
         target: User,
         account: S3Account,
         portal_role: str,
+        *,
+        include_archived: bool = False,
     ) -> dict[str, PortalStorageSpaceRole]:
         """Read active Storage Space permissions from DB without IAM side effects."""
-        return self._storage_space_roles_by_bucket(target, account, portal_role)
+        return self._storage_space_roles_by_bucket(
+            target,
+            account,
+            portal_role,
+            include_archived=include_archived,
+        )
 
     def _sync_user_storage_space_policy_projection(
         self,

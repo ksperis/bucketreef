@@ -126,6 +126,51 @@ def test_list_buckets_fetches_admin_stats_when_enabled(monkeypatch):
     assert buckets[0].quota_max_objects == 10
 
 
+def test_get_bucket_stats_skips_admin_for_bucket_outside_s3_scope(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
+    monkeypatch.setattr(
+        service,
+        "_rgw_admin_for_account",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("Admin Ops must not be used for an out-of-scope bucket")),
+    )
+
+    bucket = service.get_bucket_stats("bucket-b", account, with_stats=True)
+
+    assert bucket.name == "bucket-b"
+    assert bucket.used_bytes is None
+    assert bucket.object_count is None
+
+
+def test_get_bucket_stats_uses_single_scoped_admin_lookup(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
+
+    calls: list[tuple[str, dict]] = []
+
+    class FakeAdmin:
+        def get_bucket_info(self, bucket_name, **kwargs):  # noqa: ANN001
+            calls.append((bucket_name, kwargs))
+            return None
+
+    monkeypatch.setattr(service, "_rgw_admin_for_account", lambda *_args: FakeAdmin())
+
+    bucket = service.get_bucket_stats("bucket-a", account, with_stats=True)
+
+    assert bucket.name == "bucket-a"
+    assert calls == [
+        (
+            "bucket-a",
+            {
+                "uid": "RGW00000000000000001-admin",
+                "allow_not_found": True,
+            },
+        )
+    ]
+
+
 def test_list_buckets_prefers_quota_max_size_bytes_when_both_units_are_present(monkeypatch):
     service = BucketsService()
     account = _build_account()

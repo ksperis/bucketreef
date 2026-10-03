@@ -3,6 +3,7 @@
 
 import pytest
 
+from app.db import PortalStorageSpaceMetadata
 from app.services.portal_service import PortalService
 from tests.s3_account_factory import make_s3_account
 
@@ -35,3 +36,51 @@ def test_account_limits_do_not_repeat_lookup_without_embedded_quota(db_session, 
 
     assert service._account_limits(account) == (None, None, 5)
     assert admin.account_calls == 1
+
+
+def test_admin_bucket_info_skips_admin_outside_portal_account_scope(db_session, monkeypatch) -> None:
+    account = make_s3_account(db_session, name="portal-bucket-scope")
+    db_session.add(account)
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_admin_ops_for_account",
+        lambda *_args: pytest.fail("Admin Ops must not be initialized for an out-of-scope Portal bucket"),
+    )
+
+    assert service._admin_bucket_info(account, "foreign-bucket") is None
+
+
+def test_admin_bucket_info_uses_single_uid_scoped_lookup(db_session, monkeypatch) -> None:
+    account = make_s3_account(db_session, name="portal-bucket-scoped-lookup")
+    db_session.add(account)
+    db_session.flush()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="portal-bucket",
+            visibility="shared",
+        )
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    calls: list[tuple[str, dict]] = []
+
+    class FakeAdmin:
+        def get_bucket_info(self, bucket_name, **kwargs):  # noqa: ANN001
+            calls.append((bucket_name, kwargs))
+            return None
+
+    monkeypatch.setattr(service, "_admin_ops_for_account", lambda *_args: FakeAdmin())
+
+    assert service._admin_bucket_info(account, "portal-bucket") is None
+    assert calls == [
+        (
+            "portal-bucket",
+            {
+                "allow_not_found": True,
+                "uid": account.rgw_user_uid,
+            },
+        )
+    ]
