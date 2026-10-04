@@ -82,7 +82,7 @@ class FakeRGWAdmin:
             result["user_quota"] = dict(quota)
         return result
 
-    def create_access_key(self, uid: str, tenant: Optional[str] = None):
+    def create_access_key(self, uid: str, tenant: Optional[str] = None, *, access_key=None, secret_key=None):
         if tenant is not None:
             raise RGWAdminError("tenant not supported in fake")
         payload = self.remote_users.get(uid)
@@ -90,8 +90,8 @@ class FakeRGWAdmin:
             raise RGWAdminError("user not found")
         idx = len(payload.get("keys", [])) + 1
         key = {
-            "access_key": f"ROT-{uid}-{idx}",
-            "secret_key": f"SEC-{uid}-{idx}",
+            "access_key": access_key or f"ROT-{uid}-{idx}",
+            "secret_key": secret_key or f"SEC-{uid}-{idx}",
             "status": "enabled",
         }
         payload.setdefault("keys", []).append(dict(key))
@@ -532,11 +532,13 @@ def test_rotate_keys_replaces_old_credentials_and_deletes_previous(db_session, m
     created = service.create_user(S3UserCreate(name="Rotate", uid="rotate-me", storage_endpoint_id=endpoint.id))
     previous_key = db_session.query(S3User).filter_by(id=created.id).one().rgw_access_key
 
+    monkeypatch.setattr("app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client", lambda _: fake)
     rotated = service.rotate_keys(created.id)
 
     record = db_session.query(S3User).filter_by(id=created.id).one()
     assert rotated.rgw_user_uid == "rotate-me"
-    assert record.rgw_access_key.startswith("ROT-rotate-me-")
+    assert record.rgw_access_key != previous_key
+    assert any(key["access_key"] == record.rgw_access_key and key["secret_key"] == record.rgw_secret_key for key in fake.remote_users["rotate-me"]["keys"])
     assert previous_key in fake.deleted_keys
 
 

@@ -10,6 +10,7 @@ import {
   defaultFeaturesForProvider,
   normalizeAwsRegion,
   parseCoordinateInput,
+  supervisionRequired,
 } from "./storageEndpointFormModel";
 
 describe("storage endpoint form model", () => {
@@ -92,4 +93,15 @@ describe("storage endpoint form model", () => {
     expect(first.verify_tls).toBe(true);
     expect(second.features.iam.enabled).toBe(true);
   });
+  it("requires Supervision for a signed healthcheck even without Metrics or Usage", () => {
+    const features = defaultFeaturesForProvider("ceph");
+    features.metrics.enabled = false;
+    features.usage.enabled = false;
+    features.healthcheck.enabled = true;
+    features.healthcheck.mode = "s3";
+    expect(supervisionRequired(features)).toBe(true);
+    features.healthcheck.enabled = false;
+    expect(supervisionRequired(features)).toBe(false);
+  });
+
 });

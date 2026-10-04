@@ -523,6 +523,7 @@ def test_sync_env_endpoints_skips_admin_ops_permissions_resolution(db_session, m
                     "name": "ceph-env",
                     "endpoint_url": "https://ceph-env.example.test",
                     "provider": "ceph",
+                    "service_identity_mode": "managed",
                     "force_path_style": True,
                     "admin_access_key": "AKIA-ADMIN",
                     "admin_secret_key": "SECRET-ADMIN",
@@ -578,8 +579,8 @@ def test_environment_storage_endpoint_rejects_unknown_fields(db_session, monkeyp
     with pytest.raises(ValueError, match="Invalid ENV_STORAGE_ENDPOINTS entry at index 0") as exc_info:
         StorageEndpointsService(db_session).sync_env_endpoints()
 
-    assert isinstance(exc_info.value.__cause__, ValidationError)
-    assert "obsolete_field" in str(exc_info.value.__cause__)
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__suppress_context__
 
 
 @pytest.mark.parametrize("runtime", [{}, {"runtime_access_key": "RUNTIME"}, {"runtime_secret_key": "RUNTIME-SECRET"}])
@@ -594,6 +595,7 @@ def test_environment_external_runtime_is_required_before_any_sync(db_session, mo
         {"name": "valid-first", "endpoint_url": "https://first.example.test", "provider": "other"},
         {
             "name": "invalid-second", "endpoint_url": "https://second.example.test", "provider": "ceph",
+                    "service_identity_mode": "managed",
             "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET",
             "service_identity_mode": "external", **runtime,
         },
@@ -636,6 +638,7 @@ def test_environment_storage_endpoint_rejects_noncanonical_features(
                     "name": "ceph-env",
                     "endpoint_url": "https://ceph-env.example.test",
                     "features": features,
+                    "service_identity_mode": "managed",
                 }
             ]
         ),
@@ -655,6 +658,7 @@ def test_sync_env_endpoints_retries_after_concurrent_unique_conflict(db_session,
                     "name": "ceph-env",
                     "endpoint_url": "https://ceph-env.example.test",
                     "provider": "ceph",
+                    "service_identity_mode": "managed",
                     "features_config": "features:\n  admin:\n    enabled: false\n",
                     "is_default": True,
                 }
@@ -708,6 +712,7 @@ def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, 
                     "name": "env-a",
                     "endpoint_url": "https://env-a.example.test/",
                     "provider": "ceph",
+                    "service_identity_mode": "managed",
                     "force_path_style": True,
                     "verify_tls": False,
                     "features_config": "features:\n  admin:\n    enabled: false\n",
@@ -740,22 +745,22 @@ def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, 
     [
         (
             [
-                {"name": "env-a", "endpoint_url": "https://same.example.test"},
-                {"name": "env-b", "endpoint_url": "https://same.example.test/"},
+                {"service_identity_mode": "managed", "name": "env-a", "endpoint_url": "https://same.example.test"},
+                {"service_identity_mode": "managed", "name": "env-b", "endpoint_url": "https://same.example.test/"},
             ],
             "duplicate endpoint_url",
         ),
         (
             [
-                {"name": "same", "endpoint_url": "https://a.example.test"},
-                {"name": "same", "endpoint_url": "https://b.example.test"},
+                {"service_identity_mode": "managed", "name": "same", "endpoint_url": "https://a.example.test"},
+                {"service_identity_mode": "managed", "name": "same", "endpoint_url": "https://b.example.test"},
             ],
             "duplicate name",
         ),
         (
             [
-                {"name": "env-a", "endpoint_url": "https://a.example.test", "is_default": True},
-                {"name": "env-b", "endpoint_url": "https://b.example.test", "is_default": True},
+                {"service_identity_mode": "managed", "name": "env-a", "endpoint_url": "https://a.example.test", "is_default": True},
+                {"service_identity_mode": "managed", "name": "env-b", "endpoint_url": "https://b.example.test", "is_default": True},
             ],
             "only define one default endpoint",
         ),
@@ -1524,3 +1529,16 @@ def test_detect_features_never_reuses_stored_secrets_for_a_changed_target(
     assert result.admin is False
     assert result.credential_checks.admin.status == "incomplete"
     assert result.admin_error == "Admin detection requires both access key and secret key."
+
+
+@pytest.mark.parametrize("invalid", [
+    {"name": "missing-mode", "endpoint_url": "https://bad.example.test", "provider": "ceph"},
+    {"name": "incomplete", "endpoint_url": "https://bad.example.test", "provider": "ceph", "service_identity_mode": "external", "admin_access_key": "ADMIN", "admin_secret_key": "SECRET", "runtime_access_key": "RUNTIME"},
+])
+def test_env_validates_entire_inventory_before_writes(db_session, monkeypatch, invalid):
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([
+        {"name": "valid", "endpoint_url": "https://valid.example.test", "provider": "other"}, invalid,
+    ]))
+    with pytest.raises(ValueError):
+        StorageEndpointsService(db_session).sync_env_endpoints()
+    assert db_session.query(StorageEndpoint).count() == 0

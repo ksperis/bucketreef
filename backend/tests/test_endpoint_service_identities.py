@@ -6,7 +6,7 @@ from copy import deepcopy
 import pytest
 from sqlalchemy import text
 
-from app.db import AuditLog, EndpointServiceIdentity, StorageEndpoint
+from app.db import AuditLog, EndpointServiceIdentity, KeyRotationIntent, StorageEndpoint
 from app.services import endpoint_service_identities as module
 from app.services.endpoint_service_identities import EndpointServiceIdentityService, SERVICE_CAPS
 from app.services.operation_lease_service import OperationLeaseService
@@ -52,9 +52,9 @@ class FakeRGW:
             raise RGWAdminError("request failed")
         self.users.pop(uid, None)
 
-    def create_access_key(self, uid):
+    def create_access_key(self, uid, *, access_key, secret_key):
         self.calls.append(("key_create", uid))
-        self.users[uid]["keys"].append({"access_key": "NEW-KEY", "secret_key": "NEW-SECRET"})
+        self.users[uid]["keys"].append({"access_key": access_key, "secret_key": secret_key})
         return deepcopy(self.users[uid])
 
     @staticmethod
@@ -223,15 +223,15 @@ def test_rotation_persists_validated_new_key_before_retirement_and_retries(ident
     identity = endpoint.service_identity("runtime")
     previous = identity.access_key
     rgw.fail_delete = True
-    with pytest.raises(ValueError, match="retirement"):
+    with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
         service.rotate(endpoint, "runtime")
     db_session.expire_all()
-    assert identity.status == "ready" and identity.access_key == "NEW-KEY" and identity.previous_access_key == previous
+    assert identity.status == "ready" and identity.access_key != previous and service.db.query(KeyRotationIntent).one().old_access_key == previous
     rgw.fail_delete = False
     service.rotate(endpoint, "runtime")
-    assert identity.previous_access_key is None
+    assert service.db.query(KeyRotationIntent).count() == 0
     assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
-    assert rgw.users[identity.rgw_uid]["keys"] == [{"access_key": "NEW-KEY", "secret_key": "NEW-SECRET"}]
+    assert rgw.users[identity.rgw_uid]["keys"] == [{"access_key": identity.access_key, "secret_key": identity.secret_key}]
 
 
 def test_ceph_admin_creation_and_pending_revocation_preserve_allowed(identities, db_session):
@@ -327,7 +327,7 @@ def test_env_sync_preserves_generated_keys_mode_namespace_and_allowed(identities
     db_session.commit()
     original = (identity.access_key, identity.secret_key, endpoint.identity_namespace)
     monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
-        "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "ceph",
+        "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "ceph", "service_identity_mode": "managed",
         "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET", "features": {"admin": {"enabled": True}},
     }]))
     StorageEndpointsService(db_session).sync_env_endpoints()
@@ -499,13 +499,13 @@ def test_pending_rotation_keys_are_nominal_during_reconciliation(identities):
     service.reconcile(endpoint)
     identity = endpoint.service_identity("runtime")
     rgw.fail_delete = True
-    with pytest.raises(ValueError, match="retirement"):
+    with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
         service.rotate(endpoint, "runtime")
     service.reconcile(endpoint)
-    assert identity.status == "ready" and identity.previous_access_key
+    assert identity.status == "ready" and service.db.query(KeyRotationIntent).one().old_access_key
     rgw.fail_delete = False
     service.rotate(endpoint, "runtime")
-    assert identity.previous_access_key is None
+    assert service.db.query(KeyRotationIntent).count() == 0
     assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
 
 
@@ -515,9 +515,9 @@ def test_rotation_requires_confirmed_key_retirement(identities):
     identity = endpoint.service_identity("runtime")
     old = identity.access_key
     rgw.delete_access_key = lambda *_args: None
-    with pytest.raises(ValueError, match="retirement"):
+    with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
         service.rotate(endpoint, "runtime")
-    assert identity.status == "ready" and identity.previous_access_key == old
+    assert identity.status == "ready" and service.db.query(KeyRotationIntent).one().old_access_key == old
     assert len(rgw.users[identity.rgw_uid]["keys"]) == 2
 
 
@@ -573,16 +573,16 @@ def test_key_added_concurrently_during_rotation_is_never_adopted_or_deleted(iden
     original = identity.access_key
     create = rgw.create_access_key
 
-    def create_with_foreign_key(uid):
+    def create_with_foreign_key(uid, **kwargs):
         rgw.users[uid]["keys"].append({"access_key": "FOREIGN", "secret_key": "FOREIGN-SECRET"})
-        return create(uid)
+        return create(uid, **kwargs)
 
     monkeypatch.setattr(rgw, "create_access_key", create_with_foreign_key)
     rgw.calls.clear()
     with pytest.raises(ValueError, match="key drift"):
         service.rotate(endpoint, "runtime")
     assert identity.status == "error" and identity.access_key == original
-    assert {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]} == {original, "FOREIGN", "NEW-KEY"}
+    assert {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]} == {original, "FOREIGN", service.db.query(KeyRotationIntent).one().new_access_key}
     assert not any(call[0] == "key_delete" for call in rgw.calls)
 
 
@@ -608,3 +608,264 @@ def test_external_env_with_complete_keys_is_validated_without_provisioning(ident
     else:
         assert endpoint.service_identity("supervision") is None
     assert not any(call[0] in ("create", "caps", "delete") for call in rgw.calls)
+
+
+@pytest.mark.parametrize("kind", ["runtime", "supervision"])
+@pytest.mark.parametrize("denied", [False, True])
+def test_revalidation_distinguishes_transient_failure_from_denied_key(identities, db_session, monkeypatch, kind, denied):
+    service, endpoint, rgw = identities
+    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    db_session.commit()
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity(kind)
+    functional = service._functional_check
+    def check(ep, row):
+        if row.kind == kind:
+            raise RGWAdminError("temporary or denied", status_code=403 if denied else 503)
+        return functional(ep, row)
+    monkeypatch.setattr(service, "_functional_check", check)
+    service.reconcile(endpoint)
+    assert identity.status == ("error" if denied else "ready")
+    assert identity.last_error
+
+
+@pytest.mark.parametrize("kind", ["runtime", "supervision"])
+def test_invalid_external_revalidation_stops_using_ready_identity(identities, db_session, kind):
+    service, endpoint, rgw = identities
+    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    for usage in ("runtime", "supervision"):
+        access, secret = usage.upper(), usage.upper() + "-SECRET"
+        endpoint.service_identities.append(service_identity(usage, access, secret))
+        rgw.users[usage] = {"user_id": usage, "caps": SERVICE_CAPS[usage], "keys": [{"access_key": access, "secret_key": secret}]}
+    db_session.commit()
+    service.reconcile(endpoint)
+    rgw.users[kind]["admin"] = True
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity(kind)
+    assert identity.status == "error" and identity.last_error
+    assert not any(call[0] in ("create", "delete", "caps") for call in rgw.calls)
+
+
+@pytest.mark.parametrize("status", ["missing", "disabled"])
+def test_empty_or_finished_revocation_never_contacts_rgw(identities, db_session, monkeypatch, status):
+    service, endpoint, rgw = identities
+    endpoint.service_identities.append(EndpointServiceIdentity(kind="runtime", mode="managed", status=status))
+    endpoint.admin_access_key = None
+    db_session.commit()
+    monkeypatch.setattr(service, "admin_permissions", lambda *_: pytest.fail("unnecessary bootstrap"))
+    assert service.revoke(endpoint, "runtime")
+    assert endpoint.service_identity("runtime").status == "disabled"
+
+
+def test_absent_remote_principal_can_be_revoked_without_users_write(identities):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    uid = endpoint.service_identity("runtime").rgw_uid
+    rgw.users.pop(uid)
+    rgw.users["operator"]["caps"] = "users=read;accounts=read"
+    assert service.revoke(endpoint, "runtime")
+    assert not any(call[0] == "delete" for call in rgw.calls)
+
+
+def test_unchanged_external_env_preserves_ready_state_on_user_instance(identities, db_session, monkeypatch):
+    _, endpoint, rgw = identities
+    row = service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET")
+    row.status = "ready"
+    endpoint.service_identities.append(row)
+    db_session.commit()
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_admin_enabled", False)
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_manager_enabled", True)
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
+        "name": "Renamed", "endpoint_url": endpoint.endpoint_url, "provider": "ceph", "service_identity_mode": "external",
+        "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET",
+        "runtime_access_key": "EXTERNAL", "runtime_secret_key": "EXTERNAL-SECRET",
+    }]))
+    StorageEndpointsService(db_session).sync_env_endpoints()
+    assert row.status == "ready" and row.last_error is None and not rgw.calls
+
+
+def test_ready_managed_identity_survives_removing_write_permissions_and_rename(identities, db_session):
+    from app.models.storage_endpoint import StorageEndpointUpdate
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    row = endpoint.service_identity("runtime")
+    old = row.access_key
+    rgw.users["operator"]["caps"] = "users=read;accounts=read"
+    rgw.calls.clear()
+    StorageEndpointsService(db_session).update_endpoint(endpoint.id, StorageEndpointUpdate(name="Renamed"))
+    assert row.mode == "managed" and row.status == "ready" and row.access_key == old
+    assert not any(call[0] in ("create", "delete", "caps") for call in rgw.calls)
+
+
+def test_signed_healthcheck_alone_keeps_supervision_until_disabled(identities, db_session):
+    service, endpoint, rgw = identities
+    endpoint.features_config = "features:\n  healthcheck:\n    enabled: true\n    mode: s3\n"
+    db_session.commit()
+    service.reconcile(endpoint)
+    supervision = endpoint.service_identity("supervision")
+    assert supervision.status == "ready"
+    uid = supervision.rgw_uid
+    service.reconcile(endpoint)
+    assert uid in rgw.users and supervision.status == "ready"
+    endpoint.features_config = "features:\n  healthcheck:\n    enabled: true\n    mode: http\n"
+    db_session.commit()
+    service.reconcile(endpoint)
+    assert supervision.status == "disabled" and uid not in rgw.users
+
+
+@pytest.mark.parametrize("failure", ["lost_response", "activation_commit", "retirement"])
+def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, db_session, monkeypatch, failure):
+    from sqlalchemy.exc import OperationalError
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    old = identity.access_key
+    create, commit = rgw.create_access_key, db_session.commit
+    def fail_creation(uid, **kwargs):
+        # Intent and encrypted secret exist before any remote write.
+        pending = db_session.query(KeyRotationIntent).one()
+        assert pending.phase == "prepared" and pending.new_access_key == kwargs["access_key"]
+        assert pending.new_secret_key == kwargs["secret_key"]
+        assert pending.new_secret_key not in db_session.execute(text("SELECT new_secret_key FROM key_rotation_intents")).scalar_one()
+        result = create(uid, **kwargs)
+        if failure == "lost_response":
+            raise RGWAdminError("response lost", status_code=503)
+        return result
+    def fail_commit():
+        if failure == "activation_commit" and any(isinstance(row, KeyRotationIntent) and row.phase == "activated" for row in db_session.dirty):
+            raise OperationalError("commit", {}, Exception("injected"))
+        return commit()
+    monkeypatch.setattr(rgw, "create_access_key", fail_creation)
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    rgw.fail_delete = failure == "retirement"
+    with pytest.raises((ValueError, RGWAdminError)):
+        service.rotate(endpoint, "runtime")
+    intent = db_session.query(KeyRotationIntent).one()
+    candidate = intent.new_access_key, intent.new_secret_key
+    assert intent.phase == ("activated" if failure == "retirement" else "prepared")
+    assert old in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
+    assert identity.access_key == (candidate[0] if failure == "retirement" else old)
+    monkeypatch.setattr(rgw, "create_access_key", create)
+    monkeypatch.setattr(db_session, "commit", commit)
+    rgw.fail_delete = False
+    service.rotate(endpoint, "runtime")
+    assert (identity.access_key, identity.secret_key) == candidate
+    assert db_session.query(KeyRotationIntent).count() == 0
+    assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
+    assert old not in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
+
+
+def test_resume_revalidates_candidate_before_retiring_old_key(identities):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    old = identity.access_key
+    rgw.fail_delete = True
+    with pytest.raises(RGWAdminError):
+        service.rotate(endpoint, "runtime")
+    rgw.fail_delete = False
+    candidate = next(key for key in rgw.users[identity.rgw_uid]["keys"] if key["access_key"] == identity.access_key)
+    candidate["active"] = False
+    rgw.calls.clear()
+    with pytest.raises(ValueError, match="active replacement"):
+        service.rotate(endpoint, "runtime")
+    assert not any(call[0] == "key_delete" for call in rgw.calls)
+    assert old in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
+
+
+def test_pending_rotation_api_metadata_never_exposes_candidate_credentials(identities, db_session):
+    from app.models.key_rotation import KeyRotationRequest
+    from app.services.key_rotation_service import KeyRotationService
+
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    old_secret = identity.secret_key
+    rgw.fail_delete = True
+    result = KeyRotationService(db_session).rotate_keys(KeyRotationRequest(
+        endpoint_ids=[endpoint.id], key_types=["endpoint_runtime"],
+    ))
+    intent = db_session.query(KeyRotationIntent).one()
+    assert result.summary.failed == 1
+    assert result.results[0].rotation_pending
+    assert result.results[0].rotation_phase == "activated"
+    endpoint_response = StorageEndpointsService(db_session).get_endpoint(
+        endpoint.id, include_admin_ops_permissions=False,
+    )
+    status = next(row for row in endpoint_response.service_identities if row.kind == "runtime")
+    assert status.rotation_pending and status.rotation_phase == "activated"
+    for response in (result.model_dump_json(), endpoint_response.model_dump_json()):
+        assert old_secret not in response
+        assert intent.new_secret_key not in response
+        assert intent.new_access_key not in response
+
+
+def test_delete_keeps_lease_until_commit_and_stale_reconciliation_cannot_recreate(identities, db_session, monkeypatch):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    endpoint_id = endpoint.id
+    release = OperationLeaseService.release
+    def inspect_release(lease, handle):
+        if handle.operation_name == f"endpoint-identities:{endpoint_id}":
+            assert db_session.query(StorageEndpoint).filter_by(id=endpoint_id).first() is None
+        return release(lease, handle)
+    monkeypatch.setattr(OperationLeaseService, "release", inspect_release)
+    StorageEndpointsService(db_session).delete_endpoint(endpoint_id)
+    monkeypatch.setattr(OperationLeaseService, "release", release)
+    creates = sum(call[0] == "create" for call in rgw.calls)
+    with pytest.raises(ValueError, match="no longer exists"):
+        service.reconcile(endpoint)
+    assert sum(call[0] == "create" for call in rgw.calls) == creates
+
+
+def test_startup_reconciles_persisted_endpoints_only_on_controller_instances(identities, db_session, monkeypatch):
+    _, endpoint, rgw = identities
+    service = StorageEndpointsService(db_session)
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_admin_enabled", False)
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_manager_enabled", True)
+    service.reconcile_persisted_identities()
+    assert endpoint.service_identity("runtime") is None and not rgw.calls
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_admin_enabled", True)
+    service.reconcile_persisted_identities()
+    assert endpoint.service_identity("runtime").status == "ready"
+
+
+def test_managed_to_external_conversion_does_not_reuse_revoked_optional_supervision(identities, db_session):
+    from app.models.storage_endpoint import StorageEndpointUpdate
+    service, endpoint, rgw = identities
+    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    db_session.commit()
+    service.reconcile(endpoint)
+    rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}]}
+    StorageEndpointsService(db_session).update_endpoint(endpoint.id, StorageEndpointUpdate(
+        service_identity_mode="external", runtime_access_key="EXTERNAL", runtime_secret_key="EXTERNAL-SECRET",
+        features_config="features:\n  metrics:\n    enabled: false\n"))
+    row = endpoint.service_identity("supervision")
+    assert row.mode == "external" and row.access_key is None and row.secret_key is None
+    assert endpoint.service_identity("runtime").status == "ready"
+
+
+def test_conversion_without_write_keeps_external_credentials(identities, db_session):
+    from app.models.storage_endpoint import StorageEndpointUpdate
+    _, endpoint, rgw = identities
+    endpoint.service_identities.append(service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET"))
+    db_session.commit()
+    rgw.users["operator"]["caps"] = "users=read;accounts=read"
+    with pytest.raises(ValueError, match="users=write"):
+        StorageEndpointsService(db_session).update_endpoint(endpoint.id, StorageEndpointUpdate(service_identity_mode="managed"))
+    row = endpoint.service_identity("runtime")
+    assert row.mode == "external" and row.access_key == "EXTERNAL" and row.secret_key == "EXTERNAL-SECRET"
+    assert not rgw.calls
+
+
+def test_reconcile_retries_pending_revocation_without_reactivating_identity(identities):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    row = endpoint.service_identity("runtime")
+    rgw.fail_delete = True
+    assert not service.revoke(endpoint, "runtime")
+    service.reconcile(endpoint)
+    assert row.status == "revocation_pending"
+    rgw.fail_delete = False
+    service.reconcile(endpoint)
+    assert row.status == "disabled" and row.rgw_uid not in rgw.users

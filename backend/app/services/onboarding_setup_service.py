@@ -34,6 +34,7 @@ from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.storage_endpoint_features import (
     dump_features_config,
     normalize_features_config,
+    supervision_required,
     resolve_feature_flags,
 )
 from app.utils.time import utcnow
@@ -61,8 +62,9 @@ class OnboardingSetupService:
         if access:
             return access, secret, True
         if endpoint is not None:
-            stored_access = getattr(endpoint, f"{kind}_access_key") or ""
-            stored_secret = getattr(endpoint, f"{kind}_secret_key") or ""
+            identity = endpoint if kind == "admin" else endpoint.service_identity(kind)
+            stored_access = (getattr(identity, "admin_access_key" if kind == "admin" else "access_key", None) or "")
+            stored_secret = (getattr(identity, "admin_secret_key" if kind == "admin" else "secret_key", None) or "")
             if stored_access and stored_secret:
                 return stored_access, stored_secret, False
         raise OnboardingError(required_code)
@@ -152,6 +154,8 @@ class OnboardingSetupService:
         needs_supervision = draft.supervision
         needs_ceph_admin = draft.ceph_admin
         needs_ceph = needs_account_api or needs_supervision or needs_ceph_admin
+        if endpoint is not None and needs_ceph:
+            needs_supervision = needs_supervision or supervision_required(normalize_features_config(endpoint.provider, endpoint.features_config, endpoint.region))
         if endpoint is not None and needs_ceph and endpoint.provider != "ceph":
             raise OnboardingError("ceph_endpoint_required")
 
@@ -165,7 +169,7 @@ class OnboardingSetupService:
                 "admin",
                 "endpoint_admin_credentials_required",
             )
-        if payload.service_identity_mode == "external":
+        if needs_ceph and payload.service_identity_mode == "external":
             runtime = self._management_credentials(payload, endpoint, "runtime", "runtime_credentials_required")
         if needs_supervision and payload.service_identity_mode == "external":
             supervision = self._management_credentials(
@@ -221,7 +225,7 @@ class OnboardingSetupService:
                 region=draft.region or None,
                 force_path_style=draft.force_path_style,
                 verify_tls=True,
-                provider="ceph",
+                provider="ceph" if needs_ceph else "other",
                 service_identity_mode=payload.service_identity_mode,
                 runtime_access_key=runtime[0] or None,
                 runtime_secret_key=runtime[1] or None,
@@ -243,9 +247,10 @@ class OnboardingSetupService:
             feature_fields: list[str] = []
             if needs_account_api and not (flags.admin_enabled and flags.account_enabled):
                 feature_fields.extend(["admin", "account"])
-            if needs_supervision:
-                feature_fields.append("metrics")
-                if detection.usage:
+            if draft.supervision:
+                if not flags.metrics_enabled:
+                    feature_fields.append("metrics")
+                if editable and detection.usage and not flags.usage_enabled:
                     feature_fields.append("usage")
             if feature_fields and not editable:
                 raise OnboardingError("endpoint_features_locked")
@@ -253,7 +258,7 @@ class OnboardingSetupService:
             update = {}
             runtime_identity = endpoint.service_identity("runtime")
             current_identity_mode = runtime_identity.mode if runtime_identity is not None else "managed"
-            if payload.service_identity_mode != current_identity_mode:
+            if needs_ceph and payload.service_identity_mode != current_identity_mode:
                 update["service_identity_mode"] = payload.service_identity_mode
             if runtime[2]:
                 update.update(runtime_access_key=runtime[0], runtime_secret_key=runtime[1])

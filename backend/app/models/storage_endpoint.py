@@ -54,6 +54,8 @@ class EndpointServiceIdentityStatus(ApiModel):
     rgw_uid: Optional[str] = None
     status: str
     credentials_configured: bool = False
+    rotation_pending: bool = False
+    rotation_phase: Optional[Literal["prepared", "activated"]] = None
     last_error: Optional[str] = None
     last_reconciled_at: Optional[datetime] = None
 

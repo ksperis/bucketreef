@@ -195,7 +195,7 @@ class OnboardingService:
                     and supervision.secret_key
                 ) and not editable:
                     result.blockers.append("endpoint_credentials_locked")
-                if not (flags.usage_enabled and flags.metrics_enabled):
+                if not flags.metrics_enabled:
                     if editable:
                         result.changes.append("enable_endpoint_supervision_features")
                     else:

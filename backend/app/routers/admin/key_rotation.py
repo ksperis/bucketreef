@@ -26,6 +26,7 @@ def rotate_keys(
     audit: AuditService = Depends(get_audit_service),
 ) -> KeyRotationResponse:
     try:
+        service.actor = current_user
         result = service.rotate_keys(payload)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sanitize_error_detail(str(exc))) from exc

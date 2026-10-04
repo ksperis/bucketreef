@@ -12,6 +12,7 @@ from .enums import (
 )
 from .storage_endpoint import StorageEndpoint
 from .endpoint_service_identity import EndpointServiceIdentity
+from .key_rotation_intent import KeyRotationIntent
 from .s3_account import AccountIAMUser, S3Account, UserS3Account
 from .user import User
 from .browser_favorite import BrowserFavorite

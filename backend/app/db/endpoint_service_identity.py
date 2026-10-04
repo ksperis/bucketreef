@@ -25,7 +25,6 @@ class EndpointServiceIdentity(Base):
     rgw_uid = Column(String(128), nullable=True)
     access_key = Column(String, nullable=True)
     secret_key = Column(EncryptedString, nullable=True)
-    previous_access_key = Column(String, nullable=True)
     provenance = Column(String(128), nullable=True)
     status = Column(String(24), nullable=False, default="missing")
     last_error = Column(String(256), nullable=True)

@@ -3,7 +3,7 @@ import type { StorageEndpointPayload } from "../../api/storageEndpoints";
 import {
   applyFeatureConstraints, awsIamEndpointForRegion, awsS3EndpointForRegion,
   awsStsEndpointForRegion, buildFeaturesYaml, normalizeAwsRegion, parseCoordinateInput,
-  type FormState,
+  type FormState, supervisionRequired,
 } from "./storageEndpointFormModel";
 
 export type EndpointFieldErrors = Partial<Record<keyof FormState, string>>;
@@ -44,8 +44,8 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
     const external = form.service_identity_mode === "external";
     const credentials = [
       { kind: "admin", required: features.admin.enabled, label: "Admin", reason: "admin is enabled" },
-      { kind: "runtime", required: external && Boolean(form.admin_access_key.trim()), label: "Runtime Read Ops", reason: "service identities are external" },
-      { kind: "supervision", required: external && (features.usage.enabled || features.metrics.enabled), label: "Supervision", reason: "usage log or metrics is enabled" },
+      { kind: "runtime", required: external, label: "Runtime Read Ops", reason: "service identities are external" },
+      { kind: "supervision", required: external && supervisionRequired(features), label: "Supervision", reason: "Metrics, Usage or a signed S3 healthcheck is enabled" },
 
     ] as const;
     for (const { kind, required, label, reason } of credentials) {

@@ -219,3 +219,19 @@ Internal scheduler endpoints are not user APIs. They require the shared internal
 notifications older than `USER_NOTIFICATIONS_RETENTION_DAYS`, reports the
 deleted row count, and is protected against concurrent runs by a database
 operation lease. A retention value of `0` disables the purge.
+
+
+### Durable credential lifecycle
+
+Ceph ENV inventories require an explicit `service_identity_mode`; omission is a
+validation error before synchronization writes. API create defaults remain managed.
+Supervision is required when Metrics, Usage or enabled S3 healthchecks consume it.
+Readiness of unchanged external pairs survives metadata updates and identical ENV
+synchronization. Both values are required to replace an external pair.
+
+Key-rotation result items retain `rotated` / `failed` / `skipped` and add safe
+`rotation_pending` and `rotation_phase` (`prepared` / `activated`) metadata. Endpoint
+service identity status includes the same metadata. No generated secret is returned.
+`deactivate_only=true` with Runtime, Supervision or Ceph Admin is rejected during
+request validation, before processing any selected category. A retry resumes the
+persisted pair rather than issuing another key.

@@ -47,6 +47,7 @@ class StorageEndpoint(Base):
     identity_namespace = Column(String(32), nullable=False, default=lambda: uuid4().hex, unique=True)
     ceph_admin_allowed = Column(Boolean, nullable=False, default=False, server_default="0")
     service_identities = relationship("EndpointServiceIdentity", back_populates="endpoint", cascade="all, delete-orphan", lazy="selectin")
+    key_rotation_intents = relationship("KeyRotationIntent", back_populates="endpoint", cascade="all, delete-orphan", lazy="selectin")
     features_config = Column(Text, nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)

@@ -984,3 +984,26 @@ Current behavior after cleanup:
 - [Production readiness](production-readiness.md)
 - [Backup and restore](backup-restore.md)
 - [Developer docs maintenance](/developer/en/documentation/maintenance/)
+
+
+## Durable endpoint identity and rotation boundary
+
+Every Ceph entry in `ENV_STORAGE_ENDPOINTS` must now explicitly declare
+`service_identity_mode` (`managed` or `external`). Add this field to deployment
+inventories before upgrading, including inventories shared with user instances.
+The whole inventory is validated before endpoint writes; missing mode or incomplete
+external credentials prevents synchronization/startup. Generated managed secrets
+stay encrypted in the database and are preserved across unchanged ENV reloads.
+
+Supervision is required for Metrics, Usage **or an enabled signed S3 healthcheck**.
+External mode therefore requires both Supervision keys when any of these is enabled.
+Managed mode provisions Supervision at save/apply and keeps it until all three
+consumers are disabled. Ready managed identities survive removal of `users=write`;
+creating, converting or rotating them requires restoring that permission.
+
+Migration `0141_durable_key_rotation` replaces `previous_access_key` with an encrypted
+rotation journal, including existing pending retirements. Preserve the database and
+credential encryption ring together. Resume pending operations through
+[Key Rotation](../platform/key-rotation.md); finish them before downgrading.
+Administration and dedicated Ceph Admin instances reconcile persisted endpoints on
+startup. User instances never perform those remote mutations.

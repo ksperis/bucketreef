@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from typing import Optional
 
+import pytest
+
+@pytest.fixture(autouse=True)
+def fake_replacement_client(monkeypatch):
+    monkeypatch.setattr("app.services.durable_key_rotation_service.get_rgw_admin_client", lambda **kwargs: _active_registry[0])
+
+_active_registry = [None]
+
 from app.db import S3Account, S3User, StorageEndpoint, StorageProvider
 from app.models.key_rotation import KeyRotationRequest, KeyRotationType
 from app.services.key_rotation_service import KeyRotationService
@@ -62,6 +70,7 @@ class FakeRgwRegistry:
 class FakeRGWAdmin:
     def __init__(self, registry: FakeRgwRegistry) -> None:
         self.registry = registry
+        _active_registry[0] = self
 
     def extract_keys(self, data):  # noqa: ANN001
         return RGWAdminClient.extract_keys(self, data)
@@ -73,6 +82,7 @@ class FakeRGWAdmin:
             "account_id": identity["account_id"],
             "admin": identity["admin"],
             "system": identity["system"],
+            "caps": "users=read,write;accounts=read",
             "keys": [dict(entry) for entry in identity["keys"]],
         }
 
@@ -89,15 +99,15 @@ class FakeRGWAdmin:
             return {"not_found": True}
         return self._serialize_payload(identity)
 
-    def create_access_key(self, uid: str, tenant: Optional[str] = None):
+    def create_access_key(self, uid: str, tenant: Optional[str] = None, *, access_key: str, secret_key: str):
         identity = self.registry.resolve_identity(uid, tenant)
         if not identity:
             raise RGWAdminError("user not found")
         index = self.registry.counter
         self.registry.counter += 1
         entry = {
-            "access_key": f"NEW-{uid}-{index}",
-            "secret_key": f"SEC-{uid}-{index}",
+            "access_key": access_key,
+            "secret_key": secret_key,
             "status": "enabled",
         }
         identity["keys"].append(dict(entry))
@@ -255,8 +265,8 @@ def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_sessio
         return FakeRGWAdmin(registry)
 
     monkeypatch.setattr(
-        "app.services.key_rotation_service.get_endpoint_admin_rgw_client",
-        lambda _endpoint, **kwargs: fake_client_factory(**kwargs),
+        "app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client",
+        lambda _endpoint, **kwargs: fake_client_factory(access_key=_endpoint.admin_access_key, secret_key=_endpoint.admin_secret_key),
     )
 
     service = KeyRotationService(db_session)
@@ -316,8 +326,8 @@ def test_rotate_keys_can_deactivate_old_keys_instead_of_deleting(db_session, mon
         return FakeRGWAdmin(registry)
 
     monkeypatch.setattr(
-        "app.services.key_rotation_service.get_endpoint_admin_rgw_client",
-        lambda _endpoint, **kwargs: fake_client_factory(**kwargs),
+        "app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client",
+        lambda _endpoint, **kwargs: fake_client_factory(access_key=_endpoint.admin_access_key, secret_key=_endpoint.admin_secret_key),
     )
 
     service = KeyRotationService(db_session)
@@ -381,7 +391,7 @@ def test_env_managed_endpoint_credentials_are_skipped_without_rgw_calls(db_sessi
         raise AssertionError("RGW client must not be built for environment-managed endpoint keys")
 
     monkeypatch.setattr(
-        "app.services.key_rotation_service.get_endpoint_admin_rgw_client",
+        "app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client",
         lambda _endpoint, **kwargs: unexpected_client_factory(**kwargs),
     )
 
@@ -452,8 +462,8 @@ def test_env_managed_endpoint_mixed_rotation_still_rotates_accounts_and_s3_users
         return FakeRGWAdmin(registry)
 
     monkeypatch.setattr(
-        "app.services.key_rotation_service.get_endpoint_admin_rgw_client",
-        lambda _endpoint, **kwargs: fake_client_factory(**kwargs),
+        "app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client",
+        lambda _endpoint, **kwargs: fake_client_factory(access_key=_endpoint.admin_access_key, secret_key=_endpoint.admin_secret_key),
     )
 
     service = KeyRotationService(db_session)
@@ -492,7 +502,7 @@ def test_endpoint_identity_rotation_failure_returns_failed_result(db_session, mo
             raise RGWAdminError("identity lookup failed")
 
     monkeypatch.setattr(
-        "app.services.key_rotation_service.get_endpoint_admin_rgw_client",
+        "app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client",
         lambda _endpoint, **kwargs: FailingRGWAdmin(),
     )
 
@@ -527,8 +537,8 @@ def test_rotate_supervision_skips_external_identity(db_session, monkeypatch):
         return SupervisionRestrictedRGWAdmin(registry, access_key=access_key)
 
     monkeypatch.setattr(
-        "app.services.key_rotation_service.get_endpoint_admin_rgw_client",
-        lambda _endpoint, **kwargs: fake_client_factory(**kwargs),
+        "app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client",
+        lambda _endpoint, **kwargs: fake_client_factory(access_key=_endpoint.admin_access_key, secret_key=_endpoint.admin_secret_key),
     )
 
     service = KeyRotationService(db_session)
@@ -577,3 +587,10 @@ def test_rotate_supervision_skips_without_admin_ops_key(db_session):
     assert result.summary.skipped == 1
     assert result.results[0].status == "skipped"
     assert "External service credentials" in (result.results[0].message or "")
+
+
+@pytest.mark.parametrize("technical", [KeyRotationType.ENDPOINT_RUNTIME, KeyRotationType.ENDPOINT_SUPERVISION, KeyRotationType.CEPH_ADMIN])
+def test_disable_only_mixed_request_is_rejected_before_mutation(technical):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="require delete mode"):
+        KeyRotationRequest(endpoint_ids=[1], key_types=[KeyRotationType.ACCOUNT, technical], deactivate_only=True)

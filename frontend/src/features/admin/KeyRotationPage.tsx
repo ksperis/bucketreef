@@ -90,18 +90,18 @@ const KEY_TYPE_LABEL: Record<KeyRotationType, string> = {
   ceph_admin: "Ceph-admin",
 };
 
-const ENV_MANAGED_ENDPOINT_KEY_TYPES: KeyRotationType[] = [
-  "endpoint_admin",
-  "endpoint_runtime",
-  "endpoint_supervision",
-  "ceph_admin",
-];
+const ENV_MANAGED_ENDPOINT_KEY_TYPES: KeyRotationType[] = ["endpoint_admin"];
+const TECHNICAL_TYPES: KeyRotationType[] = ["endpoint_runtime", "endpoint_supervision", "ceph_admin"];
 
-function isEndpointEligible(endpoint: StorageEndpoint): boolean {
+function isEndpointEligible(endpoint: StorageEndpoint, types: KeyRotationType[]): boolean {
   if (endpoint.provider !== "ceph") return false;
-  const adminEnabled =
-    endpoint.capabilities?.admin ?? endpoint.features?.admin?.enabled ?? false;
-  return Boolean(adminEnabled);
+  return types.some(type => {
+    if (TECHNICAL_TYPES.includes(type)) {
+      const kind = type === "endpoint_runtime" ? "runtime" : type === "endpoint_supervision" ? "supervision" : "ceph_admin";
+      return endpoint.service_identities?.some(identity => identity.kind === kind && identity.mode === "managed" && (identity.status === "ready" || identity.rotation_pending)) ?? false;
+    }
+    return Boolean(endpoint.capabilities?.admin ?? endpoint.features?.admin?.enabled);
+  });
 }
 
 function extractError(err: unknown): string {
@@ -148,6 +148,7 @@ const resultTableColumns: Array<DataTableColumn<KeyRotationResultRow>> = [
     render: (item) => (
       <>
         {item.message}
+        {item.rotation_pending && <p>Rotation pending · {item.rotation_phase}. Retry the same category to resume.</p>}
         {item.old_access_key && item.new_access_key ? (
           <details className="text-[var(--ui-text-muted)]">
             <summary className="cursor-pointer">Key identifiers</summary>
@@ -199,7 +200,7 @@ export default function KeyRotationPage() {
         if (!mounted) return;
         setEndpoints(loadedEndpoints);
         const eligibleIds = loadedEndpoints
-          .filter((endpoint) => isEndpointEligible(endpoint))
+          .filter((endpoint) => isEndpointEligible(endpoint, ROTATION_TYPE_OPTIONS.map(option => option.value)))
           .map((endpoint) => endpoint.id);
         setSelectedEndpointIds(eligibleIds);
       } catch (err) {
@@ -216,8 +217,8 @@ export default function KeyRotationPage() {
   }, []);
 
   const eligibleEndpoints = useMemo(
-    () => endpoints.filter((endpoint) => isEndpointEligible(endpoint)),
-    [endpoints],
+    () => endpoints.filter((endpoint) => isEndpointEligible(endpoint, selectedTypes)),
+    [endpoints, selectedTypes],
   );
   const selectedEnvManagedEndpoints = useMemo(
     () =>
@@ -245,8 +246,11 @@ export default function KeyRotationPage() {
     rowCount: resultRows.length,
   });
 
+  const technicalSelected = selectedTypes.some(type => TECHNICAL_TYPES.includes(type));
+  useEffect(() => { if (technicalSelected) setDeactivateOnly(false); }, [technicalSelected]);
+
   const runDisabled =
-    running || selectedEndpointIds.length === 0 || selectedTypes.length === 0;
+    running || !eligibleEndpoints.some(endpoint => selectedEndpointIds.includes(endpoint.id)) || selectedTypes.length === 0;
 
   const toggleEndpoint = (endpointId: number) => {
     setSelectedEndpointIds((prev) =>
@@ -290,7 +294,7 @@ export default function KeyRotationPage() {
     setActionMessage(null);
     try {
       const response = await rotateS3Keys({
-        endpoint_ids: selectedEndpointIds,
+        endpoint_ids: selectedEndpointIds.filter(id => eligibleEndpoints.some(endpoint => endpoint.id === id)),
         key_types: selectedTypes,
         deactivate_only: deactivateOnly,
       });
@@ -311,7 +315,7 @@ export default function KeyRotationPage() {
     } catch (err) {
       if (active.current)
         setError(
-          `${extractError(err)} The outcome may be incomplete. Review the existing keys before starting another rotation.`,
+          `${extractError(err)} The outcome may be incomplete. Retry the same categories to resume their persisted rotations.`,
         );
     } finally {
       pending.current = false;
@@ -343,7 +347,7 @@ export default function KeyRotationPage() {
           <SettingsSection
             presentation="compact"
             title="Endpoints"
-            description="Select Ceph endpoints with the admin API enabled."
+            description="Select endpoints eligible for at least one selected category. Ready managed service identities do not require the Admin feature."
           >
             <div className="flex flex-wrap justify-end gap-2">
               <SettingsButton variant="ghost" onClick={selectAllEndpoints}>
@@ -359,16 +363,16 @@ export default function KeyRotationPage() {
                 title={endpoint.name}
                 description={`${endpoint.endpoint_url} · ${endpoint.provider}`}
                 checked={selectedEndpointIds.includes(endpoint.id)}
-                disabled={!isEndpointEligible(endpoint)}
+                disabled={!isEndpointEligible(endpoint, selectedTypes)}
                 onChange={() => toggleEndpoint(endpoint.id)}
               >
-                {!isEndpointEligible(endpoint) ? (
+                {!isEndpointEligible(endpoint, selectedTypes) ? (
                   <span className="block text-amber-700 dark:text-amber-300">
-                    Unavailable: requires Ceph with the admin API enabled.
+                    Unavailable for the selected categories.
                   </span>
                 ) : endpoint.is_editable === false ? (
                   <span className="block text-[var(--ui-text-muted)]">
-                    Endpoint credentials are managed by ENV_STORAGE_ENDPOINTS.
+                    Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS. Managed service keys remain stored in the database.
                   </span>
                 ) : null}
               </SettingsChoiceRow>
@@ -415,15 +419,18 @@ export default function KeyRotationPage() {
               compact
               title="Disable old keys only"
               description={
-                deactivateOnly
+                technicalSelected
+                  ? "Managed technical identities require deletion of previous keys. Deselect these categories to use disable mode."
+                  : deactivateOnly
                   ? "Keep old keys in an inactive state after replacement."
                   : "Delete old keys after replacement. This cannot be undone."
               }
               action={
                 <SettingsSwitch
                   ariaLabel="Disable old keys only"
+                  disabled={technicalSelected}
                   checked={deactivateOnly}
-                  onChange={setDeactivateOnly}
+                  onChange={value => { if (!technicalSelected) setDeactivateOnly(value); }}
                 />
               }
             />

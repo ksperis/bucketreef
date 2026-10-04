@@ -335,3 +335,11 @@ def features_to_capabilities(features: dict[str, dict[str, Any]]) -> dict[str, b
         "sse": bool(features.get("sse", {}).get("enabled")),
         "replication": bool(features.get("replication", {}).get("enabled")),
     }
+
+
+def supervision_required(features: dict) -> bool:
+    """Signed S3 healthchecks share the collector identity."""
+    healthcheck = features.get("healthcheck", {})
+    return bool(features.get("metrics", {}).get("enabled")
+                or features.get("usage", {}).get("enabled")
+                or (healthcheck.get("enabled") and healthcheck.get("mode") == "s3"))

@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
+import { supervisionRequired } from "./storageEndpointFormModel";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
@@ -350,8 +351,9 @@ export default function OnboardingPage() {
     "runtime",
   );
   const needsCeph = Boolean(isCeph && (draft.manager || draft.portal || draft.supervision || draft.ceph_admin));
+  const needsSupervision = needsCeph && (draft.supervision || supervisionRequired(selectedEndpoint?.features ?? {}));
   const adminCredentialsRequired = needsCeph && !storedAdminCredentials;
-  const supervisionCredentialsRequired = identityMode === "external" && draft.supervision && !storedSupervisionCredentials;
+  const supervisionCredentialsRequired = identityMode === "external" && needsSupervision && !storedSupervisionCredentials;
   const runtimeCredentialsRequired = identityMode === "external" && needsCeph && !storedRuntimeCredentials;
   const selectionCount = selectedOptionCount(draft);
   const hasSelection = selectionCount > 0;
@@ -382,10 +384,10 @@ export default function OnboardingPage() {
                 : null,
             admin_secret_key:
               needsCeph ? adminSecretKey.trim() || null : null,
-            supervision_access_key: identityMode === "external" && draft.supervision
+            supervision_access_key: identityMode === "external" && needsSupervision
               ? supervisionAccessKey.trim() || null
               : null,
-            supervision_secret_key: identityMode === "external" && draft.supervision
+            supervision_secret_key: identityMode === "external" && needsSupervision
               ? supervisionSecretKey.trim() || null
               : null,
             runtime_access_key: identityMode === "external" && needsCeph
@@ -402,7 +404,7 @@ export default function OnboardingPage() {
       identityMode,
       needsCeph,
       draft.endpoint_id,
-      draft.supervision,
+      needsSupervision,
       adminAccessKey,
       endpointConfigured,
       adminSecretKey,
@@ -429,8 +431,8 @@ export default function OnboardingPage() {
   const runtimeCredentialCheck =
     endpointValidation.result?.credential_checks?.runtime ?? EMPTY_CREDENTIAL_CHECK;
   useEffect(() => {
-    if (adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write) setIdentityMode("external");
-  }, [adminCredentialCheck.status, endpointValidation.result?.admin_ops_permissions.users_write]);
+    if (adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !(serviceIdentity(selectedEndpoint, "runtime")?.mode === "managed" && serviceIdentity(selectedEndpoint, "runtime")?.status === "ready")) setIdentityMode("external");
+  }, [adminCredentialCheck.status, endpointValidation.result?.admin_ops_permissions.users_write, selectedEndpoint]);
   const privateValidationPayload = useMemo(() => {
     const accessKey = privateAccessKey.trim();
     const secretKey = privateSecretKey.trim();
@@ -631,7 +633,8 @@ export default function OnboardingPage() {
     } catch (cause) {
       if (isRecentWebAuthnVerificationCancelled(cause)) return;
       setError(failure(cause));
-      const latest = await refreshStatus();
+      const [latest, catalogue] = await Promise.all([refreshStatus(), listStorageEndpoints()]);
+      setEndpoints(catalogue);
       const saved = latest?.journeys.find((item) => item.id === id.current);
       if (saved) store(saved);
       setPreviewNonce((value) => value + 1);
@@ -681,7 +684,7 @@ export default function OnboardingPage() {
       endpointValidation.result?.admin === true &&
       (!(draft.manager || draft.portal) || (endpointValidation.result?.account === true && adminOpsPermissionsReady)));
   const supervisionValidationReady =
-    !draft.supervision || identityMode === "managed" ||
+    !needsSupervision || identityMode === "managed" ||
     (supervisionCredentialCheck.status === "valid" &&
       endpointValidation.result?.metrics === true);
   const cephAdminValidationReady =
@@ -1098,15 +1101,15 @@ export default function OnboardingPage() {
                   />
                 )}
 
-                {needsCeph && <WorkflowSection title="Service identities" description="Runtime is required for live reads. Supervision is created when monitoring is enabled.">
+                {needsCeph && <WorkflowSection title="Service identities" description="Runtime is required for live reads. Supervision is required for monitoring or a signed S3 healthcheck.">
                   <UiSelect label="Identity management" value={identityMode} onChange={event => setIdentityMode(event.target.value as "managed" | "external")}>
-                    <option value="managed" disabled={adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write}>Managed by BucketReef</option>
+                    <option value="managed" disabled={adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !(serviceIdentity(selectedEndpoint, "runtime")?.mode === "managed" && serviceIdentity(selectedEndpoint, "runtime")?.status === "ready")}>Managed by BucketReef</option>
                     <option value="external">Provided externally</option>
                   </UiSelect>
                   {identityMode === "managed" && <UiInlineMessage tone="info">Identities are created and functionally validated when you apply this setup. Generated secrets remain hidden.</UiInlineMessage>}
                   <CredentialHelp command={ADMIN_OPS_OPTIONAL_COMMANDS} />
                 </WorkflowSection>}
-                {draft.supervision && identityMode === "external" && (
+                {needsSupervision && identityMode === "external" && (
                   <CredentialSection
                     title={t(copy.supervisionCredentials)}
                     description={t(copy.supervisionCredentialsHelp)}

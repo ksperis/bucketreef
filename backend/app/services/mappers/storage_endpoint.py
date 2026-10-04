@@ -36,6 +36,8 @@ def storage_endpoint_from_db(
         ceph_admin_active=ceph_admin_identity_active(endpoint, ceph_admin_enabled=ceph_admin_enabled),
         service_identities=[dict(kind=row.kind, mode=row.mode, rgw_uid=row.rgw_uid, status=row.status,
                                  credentials_configured=bool(row.access_key and row.secret_key),
+                                 rotation_pending=any(intent.target_id == row.id and intent.key_type == {"runtime": "endpoint_runtime", "supervision": "endpoint_supervision", "ceph_admin": "ceph_admin"}[row.kind] for intent in endpoint.key_rotation_intents),
+                                 rotation_phase=next((intent.phase for intent in endpoint.key_rotation_intents if intent.target_id == row.id and intent.key_type == {"runtime": "endpoint_runtime", "supervision": "endpoint_supervision", "ceph_admin": "ceph_admin"}[row.kind]), None),
                                  last_error=row.last_error, last_reconciled_at=row.last_reconciled_at)
                             for row in endpoint.service_identities],
         capabilities=capabilities,

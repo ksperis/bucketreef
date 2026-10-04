@@ -141,7 +141,7 @@ describe("KeyRotationPage", () => {
     expect(
       screen.getByText(/Admin Ops keys supplied by ENV_STORAGE_ENDPOINTS/)
     ).toBeInTheDocument();
-    expect(screen.getByText(/Endpoint credentials are managed by ENV_STORAGE_ENDPOINTS/)).toBeInTheDocument();
+    expect(screen.getByText(/Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
     expect(mocks.rotateS3Keys).not.toHaveBeenCalled();
@@ -172,6 +172,9 @@ describe("KeyRotationPage", () => {
   it("prevents duplicate launches and freezes selections while running", async () => {
     mocks.rotateS3Keys.mockImplementationOnce(() => new Promise(() => {}));
     renderPage(); await screen.findByText("Ceph main");
+    for (const label of ["Runtime Read Ops", "Endpoint supervision keys", "Ceph-admin keys"]) {
+      fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(label) }));
+    }
     fireEvent.click(screen.getByRole("switch", { name: "Disable old keys only" }));
     fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Disable after replacement");
@@ -194,6 +197,23 @@ describe("KeyRotationPage", () => {
     expect(screen.getByText("Previous execution summary")).toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(mocks.rotateS3Keys).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows ready managed Runtime without Admin and prevents disable-only technical rotations", async () => {
+    mocks.listStorageEndpoints.mockResolvedValue([{
+      id: 7, name: "Read-only Ceph", endpoint_url: "https://rgw.example.test", provider: "ceph",
+      capabilities: { admin: false }, is_editable: false,
+      service_identities: [{ kind: "runtime", mode: "managed", status: "ready", credentials_configured: true }],
+    }]);
+    renderPage(); await screen.findByText("Read-only Ceph");
+    expect(screen.getByRole("switch", { name: "Disable old keys only" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Clear categories" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Runtime Read Ops/ }));
+    expect(screen.getByRole("button", { name: "Run rotation" })).toBeEnabled();
+    expect(screen.queryByText(/Admin Ops keys supplied by ENV_STORAGE_ENDPOINTS/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm rotation" }));
+    await waitFor(() => expect(mocks.rotateS3Keys).toHaveBeenCalledWith({endpoint_ids: [7], key_types: ["endpoint_runtime"], deactivate_only: false}));
   });
 
 });
