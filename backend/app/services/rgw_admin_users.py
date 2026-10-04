@@ -98,21 +98,28 @@ class RGWAdminUserOperations:
         tenant: Optional[str] = None,
         key_name: Optional[str] = None,
         account_id: Optional[str] = None,
+        access_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
     ) -> Dict[str, Any]:
         if account_id:
             raise RGWAdminError(
                 "account-scoped access key creation is not supported on this RGW cluster"
             )
+        if bool(access_key) != bool(secret_key):
+            raise ValueError("Explicit key creation requires a complete credential pair")
         params: Dict[str, Any] = {
             "uid": uid,
             "key": "true",
-            "generate-key": "true",
+            "generate-key": "false" if access_key else "true",
+            "key-type": "s3",
             "format": "json",
         }
         if tenant:
             params["tenant"] = tenant
         if key_name:
             params["key-name"] = key_name
+        if access_key:
+            params.update({"access-key": access_key, "secret-key": secret_key})
         return self._request(
             "PUT",
             "/admin/user",

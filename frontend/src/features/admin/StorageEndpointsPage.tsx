@@ -236,9 +236,9 @@ export default function StorageEndpointsPage() {
   const detection = endpointValidation.result;
   useEffect(() => {
     if (detection?.credential_checks.admin.status === "valid" && detection.admin_ops_permissions?.users_write === false) {
-      setForm(previous => previous.service_identity_mode === "external" ? previous : { ...previous, service_identity_mode: "external" });
+      setForm(previous => previous.service_identity_mode === "external" || (editingEndpoint?.service_identities?.some(identity => identity.kind === "runtime" && identity.mode === "managed" && identity.status === "ready")) ? previous : { ...previous, service_identity_mode: "external" });
     }
-  }, [detection]);
+  }, [detection, editingEndpoint]);
   const credentialChecks = { ...createEmptyCredentialChecks(), ...detection?.credential_checks };
   const featureDetectWarnings = useMemo(() => {
     if (!detection) return [];
@@ -604,7 +604,7 @@ export default function StorageEndpointsPage() {
         check: credentialChecks.runtime ?? { status: "not_configured" },
         incompleteMessage: "Enter both the Runtime Read Ops access key and secret key.",
       });
-  const hasSupervisionCredentialsForSignedProbe = Boolean(
+  const hasSupervisionCredentialsForSignedProbe = form.service_identity_mode === "managed" || Boolean(
     (form.supervision_access_key.trim() && form.supervision_secret_key.trim()) ||
       (editingId != null &&
         form.has_supervision_secret &&

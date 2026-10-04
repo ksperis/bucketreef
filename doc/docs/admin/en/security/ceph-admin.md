@@ -36,8 +36,30 @@ Browser, connections, execution-context and internal scheduled-job routes are
 not mounted. The first superadministrator automatically receives Ceph Admin
 access only when Ceph Admin is the sole enabled surface.
 
-Configure endpoints with `ENV_STORAGE_ENDPOINTS` and inject only the credentials
-required by this instance. They are synchronized into this instance's isolated
+Configure endpoints with `ENV_STORAGE_ENDPOINTS`. Each Ceph entry must specify
+`service_identity_mode: managed`, `ceph_admin_allowed: true`, and Admin Ops credentials
+with `users=read,write;accounts=read`. BucketReef creates and validates the dedicated
+Ceph Admin identity; never inject a pre-existing privileged key. For example:
+
+```json
+[{
+  "name": "Ceph Admin",
+  "endpoint_url": "https://rgw.example.com",
+  "provider": "ceph",
+  "service_identity_mode": "managed",
+  "ceph_admin_allowed": true,
+  "admin_access_key": "ADMIN_OPS_ACCESS_KEY",
+  "admin_secret_key": "ADMIN_OPS_SECRET_KEY"
+}]
+```
+
+The isolated instance retains its bootstrap Admin Ops secret to manage the technical
+identities. These stored secrets require the same network/database isolation as the
+Ceph Admin identity. Startup reconciles persisted endpoints even if they were not
+changed by ENV synchronization. Disabling the global feature blocks access and
+retries managed revocation without clearing endpoint authorization.
+
+ENV endpoint metadata They are synchronized into this instance's isolated
 database and remain environment-managed/read-only. Back up the database and its
 credential ring together, independently of the main deployment.
 

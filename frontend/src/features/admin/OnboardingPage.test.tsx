@@ -587,6 +587,7 @@ describe("simplified onboarding", () => {
     fireEvent.click(applyButton);
 
     const retryButton = await screen.findByRole("button", { name: "Retry" });
+    await waitFor(() => expect(mocks.listStorageEndpoints).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole("tab", { name: "3. Credentials" }));
     expect(screen.getByLabelText("Admin Ops access key")).toHaveValue("admin-access");
     expect(screen.getByLabelText("Supervision Ops access key")).toHaveValue("supervision-access");
@@ -605,4 +606,31 @@ describe("simplified onboarding", () => {
     await screen.findByRole("tab", { name: "1. Connect storage" });
     expect((await axe(container)).violations).toEqual([]);
   });
+  it("reloads a newly created endpoint after partial apply before rebuilding validation", async () => {
+    mocks.listStorageEndpoints.mockResolvedValueOnce([]).mockResolvedValue([{ ...awsEndpoint, id: 9, name: "Created private endpoint", service_identities: [] }]);
+    mocks.applyOnboardingJourney.mockImplementationOnce(async (current: OnboardingJourney) => {
+      const resumed = { ...current, resources: { endpoint_id: 9 }, draft: { ...current.draft, endpoint_id: 9 } };
+      status = { ...status, journeys: [resumed] };
+      throw new Error("partial failure");
+    });
+    renderPage();
+    fireEvent.change(await screen.findByLabelText("S3 endpoint URL"), {target: {value: "https://created.example.test"}});
+    await continueWhenReady();
+    fireEvent.click(await screen.findByRole("checkbox", {name: /Manager with a sample RGW Account/}));
+    fireEvent.click(screen.getByRole("checkbox", {name: /Enable monitoring/}));
+    fireEvent.click(screen.getByRole("checkbox", {name: /Private S3 connection/}));
+    await continueWhenReady();
+    fireEvent.change(await screen.findByLabelText("Private S3 access key"), {target: {value: "private-access"}});
+    fireEvent.change(screen.getByLabelText("Private S3 secret key"), {target: {value: "private-secret"}});
+    await continueWhenReady();
+    const apply = await screen.findByRole("button", {name: "Apply configuration"});
+    await waitFor(() => expect(apply).toBeEnabled());
+    fireEvent.click(apply);
+    await screen.findByRole("button", {name: "Retry"});
+    await waitFor(() => expect(mocks.listStorageEndpoints).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mocks.detectStorageEndpointFeatures).toHaveBeenCalledWith(expect.objectContaining({endpoint_id: 9})));
+    expect(screen.queryByLabelText("Runtime access key")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", {name: "Apply configuration"})).toBeEnabled());
+  });
+
 });

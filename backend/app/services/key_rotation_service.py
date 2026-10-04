@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, TypeVar
+from typing import Optional, TypeVar
 
 from sqlalchemy.orm import Session
 
@@ -15,11 +15,6 @@ from app.models.key_rotation import (
     KeyRotationType,
 )
 from app.services.key_rotation_rgw import RgwAccessKeyRotator
-from app.services.rgw_admin import RGWAdminClient
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
-from app.utils.normalize import (
-    normalize_optional_string,
-)
 from app.core.sensitive_data import sanitized_error_log_detail
 
 
@@ -41,11 +36,13 @@ class KeyRotationService:
         }
     )
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, *, actor=None) -> None:
         self.db = db
-        self._rgw = RgwAccessKeyRotator(get_endpoint_admin_rgw_client)
+        self.actor = actor
+        self._rgw = RgwAccessKeyRotator()
 
     def rotate_keys(self, payload: KeyRotationRequest) -> KeyRotationResponse:
+        payload.validate_retirement_mode()
         endpoints = (
             self.db.query(StorageEndpoint)
             .filter(StorageEndpoint.id.in_(payload.endpoint_ids))
@@ -93,394 +90,49 @@ class KeyRotationService:
         selected = set(key_types)
         return [entry for entry in self._KEY_TYPE_ORDER if entry in selected]
 
-    def _rotate_by_type(
-        self,
-        *,
-        endpoint: StorageEndpoint,
-        key_type: KeyRotationType,
-        deactivate_only: bool,
-    ) -> tuple[list[KeyRotationResultItem], int, int]:
-        service_kinds = {KeyRotationType.ENDPOINT_RUNTIME: "runtime", KeyRotationType.ENDPOINT_SUPERVISION: "supervision", KeyRotationType.CEPH_ADMIN: "ceph_admin"}
-        if key_type in service_kinds:
-            kind = service_kinds[key_type]
-            identity = endpoint.service_identity(kind)
-            if identity is None or identity.mode == "external":
-                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint", target_id=str(endpoint.id),
-                                           target_label=endpoint.name, status="skipped", message="External service credentials must be rotated by their operator.")], 0, 0)
-            from app.services.endpoint_service_identities import EndpointServiceIdentityService
-            try:
-                old, new, retired = EndpointServiceIdentityService(self.db).rotate(endpoint, kind, deactivate_only=deactivate_only)
-                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint", target_id=str(endpoint.id),
-                                           target_label=endpoint.name, status="rotated", message="Managed service credential rotated.",
-                                           old_access_key=self._rgw.mask_access_key(old), new_access_key=self._rgw.mask_access_key(new))],
-                        int(retired == "deleted"), int(retired == "disabled"))
-            except (ValueError, RuntimeError) as exc:
-                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint", target_id=str(endpoint.id),
-                                           target_label=endpoint.name, status="failed", message=sanitized_error_log_detail(exc))], 0, 0)
+    def _rotate_by_type(self, *, endpoint, key_type, deactivate_only):
+        from app.services.durable_key_rotation_service import DurableKeyRotationService, SERVICE_TYPES, pending_rotation
+        if endpoint.provider != "ceph":
+            return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
+                status="failed", message="Key rotation is only supported for Ceph endpoints.")], 0, 0)
         if key_type in self._ENV_MANAGED_ENDPOINT_KEY_TYPES and not endpoint.is_editable:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="skipped",
-                        message=(
-                            "Endpoint credentials are managed by ENV_STORAGE_ENDPOINTS; "
-                            "rotate this key externally and redeploy with the updated environment values."
-                        ),
-                    )
-                ],
-                0,
-                0,
-            )
-        if key_type == KeyRotationType.ACCOUNT:
-            return self._rotate_account_keys(endpoint, key_type, deactivate_only)
-        if key_type == KeyRotationType.S3_USER:
-            return self._rotate_s3_user_keys(endpoint, key_type, deactivate_only)
-        if key_type == KeyRotationType.ENDPOINT_ADMIN:
-            return self._rotate_endpoint_identity_key(
-                endpoint,
-                key_type,
-                access_key_field="admin_access_key",
-                secret_key_field="admin_secret_key",
-                deactivate_only=deactivate_only,
-            )
-        return (
-            [
-                self._build_result(
-                    endpoint=endpoint,
-                    key_type=key_type,
-                    target_type="endpoint",
-                    target_id=str(endpoint.id),
-                    target_label=endpoint.name,
-                    status="failed",
-                    message=f"Unsupported key type: {key_type.value}",
-                )
-            ],
-            0,
-            0,
-        )
-
-    def _rotate_account_keys(
-        self,
-        endpoint: StorageEndpoint,
-        key_type: KeyRotationType,
-        deactivate_only: bool,
-    ) -> tuple[list[KeyRotationResultItem], int, int]:
-        return self._rotate_persisted_identity_type(
-            endpoint=endpoint,
-            key_type=key_type,
-            deactivate_only=deactivate_only,
-            load_identities=self._list_accounts_for_endpoint,
-            target_type="account",
-            target_label=lambda account: account.name,
-            preferred_tenant=lambda account: account.rgw_account_id,
-            empty_message="No accounts found for this endpoint.",
-            success_message="Account interface key rotated.",
-        )
-
-
-    def _rotate_s3_user_keys(
-        self,
-        endpoint: StorageEndpoint,
-        key_type: KeyRotationType,
-        deactivate_only: bool,
-    ) -> tuple[list[KeyRotationResultItem], int, int]:
-        return self._rotate_persisted_identity_type(
-            endpoint=endpoint,
-            key_type=key_type,
-            deactivate_only=deactivate_only,
-            load_identities=self._list_s3_users_for_endpoint,
-            target_type="s3_user",
-            target_label=lambda s3_user: s3_user.name or s3_user.rgw_user_uid,
-            preferred_tenant=lambda _s3_user: None,
-            empty_message="No S3 users found for this endpoint.",
-            success_message="S3 user interface key rotated.",
-        )
-
-    def _rotate_persisted_identity_type(
-        self,
-        *,
-        endpoint: StorageEndpoint,
-        key_type: KeyRotationType,
-        deactivate_only: bool,
-        load_identities: Callable[
-            [StorageEndpoint], Sequence[S3Account | S3User]
-        ],
-        target_type: str,
-        target_label: Callable[[S3Account | S3User], Optional[str]],
-        preferred_tenant: Callable[[S3Account | S3User], Optional[str]],
-        empty_message: str,
-        success_message: str,
-    ) -> tuple[list[KeyRotationResultItem], int, int]:
-        error = self._rgw.validate_ceph_admin_api(endpoint)
-        if error:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="failed",
-                        message=error,
-                    )
-                ],
-                0,
-                0,
-            )
-
-        try:
-            admin = self._rgw.build_endpoint_admin_client(endpoint)
-        except ValueError as exc:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="failed",
-                        message=sanitized_error_log_detail(exc),
-                    )
-                ],
-                0,
-                0,
-            )
-
-        identities = load_identities(endpoint)
-        if not identities:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type=target_type,
-                        status="skipped",
-                        message=empty_message,
-                    )
-                ],
-                0,
-                0,
-            )
-
-        return self._rotate_persisted_identity_keys(
-            endpoint=endpoint,
-            key_type=key_type,
-            deactivate_only=deactivate_only,
-            admin=admin,
-            identities=identities,
-            target_type=target_type,
-            target_label=target_label,
-            preferred_tenant=preferred_tenant,
-            success_message=success_message,
-        )
-
-    def _rotate_persisted_identity_keys(
-        self,
-        *,
-        endpoint: StorageEndpoint,
-        key_type: KeyRotationType,
-        deactivate_only: bool,
-        admin: RGWAdminClient,
-        identities: Sequence[S3Account | S3User],
-        target_type: str,
-        target_label: Callable[[S3Account | S3User], Optional[str]],
-        preferred_tenant: Callable[[S3Account | S3User], Optional[str]],
-        success_message: str,
-    ) -> tuple[list[KeyRotationResultItem], int, int]:
-        results: list[KeyRotationResultItem] = []
-        deleted_old_keys = 0
-        disabled_old_keys = 0
-
-        for identity in identities:
-            label = target_label(identity)
-            old_access_key = normalize_optional_string(identity.rgw_access_key)
-            new_access_key: Optional[str] = None
-            active_tenant: Optional[str] = None
+            return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
+                status="skipped", message="Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS; rotate them externally and redeploy.")], 0, 0)
+        if key_type.value in SERVICE_TYPES:
+            identity = endpoint.service_identity(SERVICE_TYPES[key_type.value])
+            if identity is None or identity.mode != "managed":
+                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
+                    status="skipped", message="External service credentials must be rotated by their operator.")], 0, 0)
+            targets = [identity]
+            target_type = "endpoint"
+        elif key_type == KeyRotationType.ACCOUNT:
+            targets, target_type = self._list_accounts_for_endpoint(endpoint), "account"
+        elif key_type == KeyRotationType.S3_USER:
+            targets, target_type = self._list_s3_users_for_endpoint(endpoint), "s3_user"
+        else:
+            targets, target_type = [endpoint], "endpoint"
+        if not targets:
+            return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type=target_type,
+                status="skipped", message="No persisted identities found for this endpoint.")], 0, 0)
+        results, deleted, disabled = [], 0, 0
+        rotator = DurableKeyRotationService(self.db, actor=self.actor)
+        for target in targets:
+            label = getattr(target, "name", None) or endpoint.name
             try:
-                active_tenant = self._rgw.detect_user_tenant(
-                    admin,
-                    uid=identity.rgw_user_uid,
-                    preferred_tenant=preferred_tenant(identity),
-                )
-                (
-                    new_access_key,
-                    new_secret_key,
-                    retired_action,
-                    active_tenant,
-                ) = self._rgw.rotate_identity_access_key(
-                    admin,
-                    uid=identity.rgw_user_uid,
-                    tenant=active_tenant,
-                    previous_access_key=old_access_key,
-                    deactivate_only=deactivate_only,
-                )
-                identity.rgw_access_key = new_access_key
-                identity.rgw_secret_key = new_secret_key
-                self.db.add(identity)
-                self.db.commit()
-                self.db.refresh(identity)
-
-                if retired_action == "deleted":
-                    deleted_old_keys += 1
-                elif retired_action == "disabled":
-                    disabled_old_keys += 1
-
-                results.append(
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type=target_type,
-                        target_id=str(identity.id),
-                        target_label=label,
-                        status="rotated",
-                        message=success_message,
-                        old_access_key=self._rgw.mask_access_key(old_access_key),
-                        new_access_key=self._rgw.mask_access_key(new_access_key),
-                    )
-                )
-            except ValueError as exc:
-                self.db.rollback()
-                if new_access_key and new_access_key != old_access_key:
-                    self._rgw.cleanup_new_key(
-                        admin,
-                        uid=identity.rgw_user_uid,
-                        access_key=new_access_key,
-                        tenant=active_tenant,
-                    )
-                results.append(
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type=target_type,
-                        target_id=str(identity.id),
-                        target_label=label,
-                        status="failed",
-                        message=sanitized_error_log_detail(exc),
-                    )
-                )
-
-        return results, deleted_old_keys, disabled_old_keys
-
-    def _rotate_endpoint_identity_key(
-        self,
-        endpoint: StorageEndpoint,
-        key_type: KeyRotationType,
-        *,
-        access_key_field: str,
-        secret_key_field: str,
-        deactivate_only: bool,
-    ) -> tuple[list[KeyRotationResultItem], int, int]:
-        error = self._rgw.validate_ceph_admin_api(endpoint)
-        if error:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="failed",
-                        message=error,
-                    )
-                ],
-                0,
-                0,
-            )
-
-        old_access_key = normalize_optional_string(getattr(endpoint, access_key_field))
-        old_secret_key = normalize_optional_string(getattr(endpoint, secret_key_field))
-        if not old_access_key or not old_secret_key:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="skipped",
-                        message=f"Endpoint field '{access_key_field}' is not configured.",
-                    )
-                ],
-                0,
-                0,
-            )
-
-        try:
-            direct_admin = self._rgw.build_direct_client(
-                endpoint=endpoint,
-                access_key=old_access_key,
-                secret_key=old_secret_key,
-            )
-            uid, tenant = self._rgw.resolve_identity_from_access_key(
-                direct_admin,
-                old_access_key,
-            )
-            (
-                new_access_key,
-                new_secret_key,
-                retired_action,
-                _,
-            ) = self._rgw.rotate_identity_access_key(
-                direct_admin,
-                uid=uid,
-                tenant=tenant,
-                previous_access_key=old_access_key,
-                deactivate_only=deactivate_only,
-            )
-            setattr(endpoint, access_key_field, new_access_key)
-            setattr(endpoint, secret_key_field, new_secret_key)
-            self.db.add(endpoint)
-            self.db.commit()
-            self.db.refresh(endpoint)
-        except ValueError as exc:
-            self.db.rollback()
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="failed",
-                        message=sanitized_error_log_detail(exc),
-                    )
-                ],
-                0,
-                0,
-            )
-
-        deleted_old_keys = 1 if retired_action == "deleted" else 0
-        disabled_old_keys = 1 if retired_action == "disabled" else 0
-        message = f"Endpoint credential '{access_key_field}' rotated."
-        return (
-            [
-                self._build_result(
-                    endpoint=endpoint,
-                    key_type=key_type,
-                    target_type="endpoint",
-                    target_id=str(endpoint.id),
-                    target_label=endpoint.name,
-                    status="rotated",
-                    message=message,
-                    old_access_key=self._rgw.mask_access_key(old_access_key),
-                    new_access_key=self._rgw.mask_access_key(
-                        getattr(endpoint, access_key_field)
-                    ),
-                )
-            ],
-            deleted_old_keys,
-            disabled_old_keys,
-        )
+                old, new, action = rotator.rotate(endpoint, key_type.value, target.id, deactivate_only=deactivate_only)
+                deleted += int(action == "deleted")
+                disabled += int(action == "disabled")
+                results.append(self._build_result(endpoint=endpoint, key_type=key_type, target_type=target_type,
+                    target_id=str(endpoint.id if target_type == "endpoint" else target.id), target_label=label,
+                    status="rotated", message="Credential rotated and previous key retired.",
+                    old_access_key=self._rgw.mask_access_key(old), new_access_key=self._rgw.mask_access_key(new)))
+            except (ValueError, RuntimeError) as exc:
+                pending = pending_rotation(self.db, endpoint.id, key_type.value, target.id)
+                results.append(self._build_result(endpoint=endpoint, key_type=key_type, target_type=target_type,
+                    target_id=str(endpoint.id if target_type == "endpoint" else target.id), target_label=label,
+                    status="failed", message=sanitized_error_log_detail(exc),
+                    rotation_pending=pending is not None, rotation_phase=pending.phase if pending else None))
+        return results, deleted, disabled
 
     def _build_result(
         self,
@@ -494,6 +146,8 @@ class KeyRotationService:
         message: Optional[str] = None,
         old_access_key: Optional[str] = None,
         new_access_key: Optional[str] = None,
+        rotation_pending: bool = False,
+        rotation_phase: Optional[str] = None,
     ) -> KeyRotationResultItem:
         return KeyRotationResultItem(
             endpoint_id=int(endpoint.id),
@@ -506,6 +160,8 @@ class KeyRotationService:
             message=message,
             old_access_key=old_access_key,
             new_access_key=new_access_key,
+            rotation_pending=rotation_pending,
+            rotation_phase=rotation_phase,
         )
 
     def _list_accounts_for_endpoint(self, endpoint: StorageEndpoint) -> list[S3Account]:

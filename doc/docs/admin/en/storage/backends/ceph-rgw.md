@@ -21,7 +21,7 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
   `usage=read;buckets=read`. Neither identity may carry write caps or admin/system flags.
 - BucketReef proposes managed service identities when Admin Ops has `users=write`.
   External mode remains available. Without `users=write`, provide Runtime externally
-  and Supervision when Metrics or Usage is enabled.
+  and Supervision when Metrics, Usage or an enabled signed S3 healthcheck needs it.
 - Give the RGW Admin Ops identity `buckets=write` only when Manager bucket quota
   management is enabled. The per-account or per-user
   `allow_bucket_quota_management` grant authorizes a BucketReef target; it does
@@ -76,7 +76,7 @@ and admin/system flags rather than using Admin Ops as a fallback.
 
 Managed identities have distinct installation/endpoint-based UIDs, encrypted
 secrets, ownership provenance, and resumable states. Saving an endpoint creates
-Runtime; Supervision is created only for Metrics or Usage. Feature detection is
+Runtime; Supervision is created for Metrics, Usage or an enabled signed S3 healthcheck. Feature detection is
 read-only: Admin Ops bootstraps feature inspection, followed by functional service
 identity checks at save/apply. Failures appear in the endpoint's credentials tab;
 use **Retry service identity configuration** after fixing RGW access.
@@ -86,14 +86,19 @@ users. Existing endpoints need Runtime configured before live enrichment resumes
 Selecting managed mode explicitly converts Runtime/Supervision and preserves the
 external users. Generated DB secrets survive ENV synchronization.
 
+Every Ceph entry in `ENV_STORAGE_ENDPOINTS` must explicitly declare
+`service_identity_mode: managed` or `service_identity_mode: external`. Omission is
+a startup error, including on instances without Admin. The API still defaults new
+endpoints to managed mode; this breaking requirement applies to ENV inventories.
+
 `ENV_STORAGE_ENDPOINTS` uses the same credential requirements as the endpoint API.
 For an administered Ceph endpoint in external mode, provide both Runtime keys;
-provide both Supervision keys when Metrics or Usage is enabled. The entire inventory
+provide both Supervision keys when Metrics, Usage or an enabled signed S3 healthcheck needs it. The entire inventory
 is validated before synchronization. An incomplete entry prevents startup, even if
 another replica is already synchronizing endpoints; no earlier entry is applied.
 
-For managed identities, BucketReef accepts only the current S3 key and, during an
-unfinished rotation, the tracked previous key. Any additional S3 key (including a
+For managed identities, BucketReef accepts the current S3 key and the old/new keys recorded in the durable journal
+during an unfinished rotation. Any additional S3 key (including a
 disabled key), Swift key or temporary URL key is key drift. Reconciliation or rotation
 marks the identity `error`, blocks its operational client and records a secret-free
 audit event. Revocation remains `revocation_pending` and does not delete the user.
@@ -110,6 +115,32 @@ endpoint authorization and managed identity readiness all hold. Disabling the gl
 feature preserves endpoint authorizations and immediately blocks access, then removes
 managed users without purging data.
 A failed remote removal stays `revocation_pending` until a confirmed retry succeeds.
+
+## Revalidation and recovery
+
+An unavailable Admin Ops bootstrap preserves previously ready technical identities.
+A temporary failure of their functional checks preserves ready state and displays an
+explicit error. Rejected credentials, invalid capabilities, Runtime key disclosure,
+missing ownership proof and unexpected managed keys block the affected identity.
+There is no fallback to Admin Ops for live reads or monitoring.
+
+Renaming an endpoint or resynchronizing an identical external credential pair keeps
+its validation state. Changing the pair or RGW target requires revalidation. Removing
+`users=write` preserves ready managed identities; restore it to create, convert or
+rotate them. Both fields are required to replace an external service credential pair.
+
+Administration instances and dedicated Ceph Admin instances reconcile all persisted
+Ceph endpoints at startup, including pending revocations and allowed identities that
+are absent. Manager/Portal/Browser instances preserve shared identity state without
+RGW mutations. Revocation of an unprovisioned or already revoked identity needs no
+remote write; confirming an absent principal needs read access, while deleting an
+existing principal requires `users=write`. Endpoint deletion remains locked through
+the database commit.
+
+Use **Retry service identity configuration** for provisioning, validation or pending
+revocation. For a pending rotation use **Key Rotation**, select the same endpoint,
+category and old-key handling, then run it again. See [Key Rotation](../../platform/key-rotation.md)
+for the durable phases and recovery rules.
 
 ## Minimum lab validation
 

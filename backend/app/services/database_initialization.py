@@ -167,6 +167,7 @@ def _init_db_locked(engine, session_factory) -> None:
         storage_service.sync_env_endpoints()
         if not storage_service.env_endpoints_locked():
             storage_service.ensure_default_endpoint()
+        storage_service.reconcile_persisted_identities()
     finally:
         db.close()
 

@@ -44,8 +44,45 @@ Only superadmins can access key rotation. Check role assignment before checking 
     Key rotation can interrupt automation that still depends on an old credential. Validate schedulers, CronJobs, external integrations, and backup access after rotation.
 
 A failed or timed-out request can have a partial outcome. Keep the displayed
-results and verify existing keys before starting another rotation. The page
+results and rerun the same categories to resume their persisted operations. The page
 never automatically repeats an uncertain operation.
+
+### Durable rotation and recovery
+
+Admin Ops, account interface keys, S3 user interface keys and managed technical keys
+use the same endpoint-locked rotation process. The journal stores the intended pair
+encrypted before RGW receives the create request. RGW is asked to create exactly
+that pair (`generate-key=false`, explicit S3 access/secret keys); a lost response
+never generates an additional pair during retry.
+
+- `prepared`: the pair is persisted and may already exist in RGW; the previous key
+  remains operational in the database. Retry inspects or creates the same pair.
+- `activated`: the replacement passed validation and became operational in the
+  database. The previous key may still need retirement. Every retry revalidates the
+  replacement before deleting or disabling the old key.
+
+Runtime checks verify read caps and absence of key material. Supervision checks
+verify bucket and usage access; Ceph Admin checks verify its dedicated admin flag.
+Admin Ops checks verify the required reads and `users=write` needed for rotation.
+Account and S3 user checks confirm the matching pair, principal and active key via
+Admin Ops, without adding new S3 permission requirements.
+
+A failed result exposes only `rotation_pending` and `rotation_phase`, never the
+candidate secret. Retry the same category on the same endpoint and keep the same
+retirement mode. Restore unavailable permissions/connectivity first. If the candidate
+is disabled, restore it externally and retry; the old key will not be retired while
+candidate validation fails. If ownership or unexpected-key drift is reported, inspect
+and remove unexpected keys externally. Do not change the endpoint RGW target or
+replace its tracked credentials while a rotation is pending.
+
+Completion requires confirmation that the old key is absent or inactive, then removes
+the journal. Existing `previous_access_key` retirements migrate into activated journal
+entries with the encrypted current secret intact. Downgrade requires completing all
+pending rotations first. Back up the database and credential ring together.
+
+Ready managed Runtime/Supervision/Ceph Admin identities are eligible even when the
+endpoint's Admin feature is disabled. Creating replacement keys still requires
+Admin Ops `users=write`.
 
 ### Endpoints managed by the environment
 
@@ -58,13 +95,13 @@ and saves the new key before retiring the old one; pending retirement is retaine
 retryable without generating another key.
 
 Managed Runtime, Supervision and Ceph Admin rotations require **delete previous
-keys** mode. Selecting **disable previous keys** returns a failure for these
-identities before creating a replacement; it remains available for operator-owned
+keys** mode. The UI disables **disable previous keys** when a technical category is selected,
+and the API rejects the entire incompatible request before any mutation; it remains available for operator-owned
 Admin Ops, account and S3 user keys. Deleting the tracked old key is confirmed through
 RGW before rotation is reported as complete.
 
 Unexpected keys on a managed identity block rotation and put the identity in `error`.
-Only its current key and the tracked previous key during unfinished rotation are
+Only its current key and the old/new keys tracked in the rotation journal are
 accepted, even when an unexpected key is disabled. Remove unexpected keys externally,
 retry service identity configuration, then retry rotation if retirement is pending.
 Previously disabled keys left by earlier managed rotations must also be removed by

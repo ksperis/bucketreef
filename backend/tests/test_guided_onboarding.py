@@ -742,3 +742,31 @@ def test_required_features_are_minimal_and_supported(guided, db_session):
         settings_service.enable_onboarding_features(
             db_session, ("require_passkey_for_admins",)
         )
+
+
+@pytest.mark.parametrize("provider", ["aws", "other"])
+def test_private_generic_onboarding_requires_no_ceph_credentials(guided, db_session, monkeypatch, provider):
+    user = actor(db_session)
+    ep = endpoint(db_session)
+    ep.provider = provider
+    db_session.commit()
+    monkeypatch.setattr(S3ConnectionsService, "_refresh_detected_capabilities", lambda *_: None)
+    monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_: pytest.fail("private path inspected Ceph"))
+    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, private_connection=True),
+                   service_identity_mode="external", private_access_key="PRIVATE", private_secret_key="PRIVATE-SECRET")
+    assert result.configured and not ep.service_identities
+
+
+@pytest.mark.parametrize("usage", [False, True])
+def test_external_onboarding_reuses_stored_pairs_on_env_endpoint_already_supervised(guided, db_session, monkeypatch, usage):
+    user = actor(db_session)
+    ep = endpoint(db_session, admin_access_key="admin-ak", admin_secret_key="admin-sk",
+                  service_identities=[service_identity("runtime", "runtime-ak", "runtime-sk"), service_identity("supervision", "supervision-ak", "supervision-sk")],
+                  features_config=f"features:\n  metrics:\n    enabled: true\n  usage:\n    enabled: {str(usage).lower()}\n")
+    ep.is_editable = False
+    db_session.commit()
+    monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_: detection())
+    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, supervision=True), service_identity_mode="external")
+    assert result.configured
+    assert all(row.status == "ready" for row in ep.service_identities)
+    assert "runtime-sk" not in result.model_dump_json() and "supervision-sk" not in result.model_dump_json()

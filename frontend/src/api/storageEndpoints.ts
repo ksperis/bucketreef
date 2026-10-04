@@ -62,6 +62,8 @@ export type StorageEndpoint = {
     status: string;
     rgw_uid?: string | null;
     credentials_configured?: boolean;
+    rotation_pending?: boolean;
+    rotation_phase?: "prepared" | "activated" | null;
     last_error?: string | null;
     last_reconciled_at?: string | null;
   }[];

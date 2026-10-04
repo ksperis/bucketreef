@@ -1,11 +1,12 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { UiButtonLink } from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { SettingsButton, SettingsSelect } from "../../components/settings/SettingsControls";
 import type { StorageEndpoint } from "../../api/storageEndpoints";
-import type { FormState } from "./storageEndpointFormModel";
+import { supervisionRequired, type FormState } from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
 import {
   ADMIN_OPS_FULL_COMMAND,
@@ -100,16 +101,18 @@ export default function StorageEndpointCredentialsFields(props: Props) {
             } : {}),
           }));
         }}>
-        <option value="managed" disabled={props.usersWrite === false}>Managed by BucketReef</option>
+        <option value="managed" disabled={props.usersWrite === false && !props.identities?.some(identity => identity.mode === "managed" && identity.status === "ready")}>Managed by BucketReef</option>
         <option value="external">Provided externally</option>
       </SettingsSelect>
-      {props.usersWrite === false && <UiInlineMessage tone="info">Admin Ops has no users=write permission. Provide Runtime and, when monitoring is enabled, Supervision credentials externally.</UiInlineMessage>}
-      {props.form.service_identity_mode === "managed" && <UiInlineMessage tone="info">Saving creates Runtime Read Ops and, if Metrics or Usage is enabled, Supervision Ops. Generated secrets stay encrypted and are never displayed. Converting external identities leaves their RGW users unchanged.</UiInlineMessage>}
+      {props.usersWrite === false && <UiInlineMessage tone="info">Admin Ops has no users=write permission. Ready managed identities remain usable. Creating, converting or rotating identities requires this permission; otherwise supply external credentials.</UiInlineMessage>}
+      {props.form.service_identity_mode === "managed" && <UiInlineMessage tone="info">Saving creates Runtime Read Ops and, if Metrics, Usage or a signed S3 healthcheck is enabled, Supervision Ops. Generated secrets stay encrypted and are never displayed. Converting external identities leaves their RGW users unchanged.</UiInlineMessage>}
       {props.identities?.map(identity => <div key={identity.kind} role="status" className="settings-stack">
         <p>{identity.kind === "runtime" ? "Runtime Read Ops" : identity.kind === "supervision" ? "Supervision Ops" : "Ceph Admin"} · {identity.mode} · {identity.status}</p>
+        {identity.rotation_pending && <UiInlineMessage tone="warning">Rotation pending · {identity.rotation_phase}. Retry this category from S3 key rotation.</UiInlineMessage>}
         {identity.last_error && <UiInlineMessage tone="error">{identity.last_error}</UiInlineMessage>}
       </div>)}
       {props.editing && !props.identities?.some(identity => identity.kind === "runtime" && identity.status === "ready") && <UiInlineMessage tone="warning">Configure Runtime Read Ops to restore live enrichment. Admin Ops is never used as a fallback.</UiInlineMessage>}
+      {props.identities?.some(identity => identity.rotation_pending) && <UiButtonLink to="/admin/key-rotation" variant="secondary" size="sm">Resume key rotation</UiButtonLink>}
       {props.onReconcile && <SettingsButton variant="secondary" disabled={props.reconciling} onClick={props.onReconcile}>Retry service identity configuration</SettingsButton>}
     </SettingsSection>
     {props.form.service_identity_mode === "external" && <SettingsSection title="Live reads (Runtime Read Ops)" description="Read-only accounts, users without keys, and bucket statistics for Manager and Portal." presentation="compact">
@@ -117,7 +120,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       <CommandExample title="Runtime Read Ops">{RUNTIME_READ_OPS_COMMAND}</CommandExample>
     </SettingsSection>}
     {props.form.service_identity_mode === "external" && <SettingsSection title="Monitoring (Supervision Ops)" description="Read-only usage and metrics collection." presentation="compact">
-      <CredentialFields {...props} kind="supervision" label="Supervision" required={props.form.features.usage.enabled || props.form.features.metrics.enabled} />
+      <CredentialFields {...props} kind="supervision" label="Supervision" required={supervisionRequired(props.form.features)} />
       <CommandExample title="Supervision Ops">{SUPERVISION_OPS_COMMAND}</CommandExample>
     </SettingsSection>}
     {props.cephAdminEnabled && <SettingsSection title="Ceph Admin" description="Select authorized endpoints in General settings. BucketReef creates a dedicated managed identity before granting access." presentation="compact">

@@ -517,44 +517,15 @@ class S3UsersService:
             tags=self.tags.get_s3_user_tags(s3_user),
         )
 
-    def rotate_keys(self, user_id: int) -> S3UserSchema:
+    def rotate_keys(self, user_id: int, *, actor=None) -> S3UserSchema:
         s3_user = self._get_s3_user(user_id)
-        previous_access_key = s3_user.rgw_access_key
-        admin = self._admin_for_user(s3_user)
-        try:
-            response = admin.create_access_key(s3_user.rgw_user_uid, tenant=None)
-        except RGWAdminError as exc:
-            raise ValueError(f"Unable to rotate keys: {exc}") from exc
-        access_key, secret_key = RgwUserKeyParser.select_credentials(
-            admin.extract_keys(response),
-            exclude_access_key=previous_access_key,
-        )
-        if not access_key or not secret_key:
-            raise ValueError("RGW did not return new keys")
-        if previous_access_key and previous_access_key != access_key:
-            try:
-                admin.delete_access_key(
-                    s3_user.rgw_user_uid,
-                    previous_access_key,
-                    tenant=None,
-                )
-            except RGWAdminError as exc:
-                # try to delete the newly created key to avoid leaking unused credentials
-                try:
-                    admin.delete_access_key(
-                        s3_user.rgw_user_uid,
-                        access_key,
-                        tenant=None,
-                    )
-                except RGWAdminError:
-                    logger.warning("Unable to clean up new key %s after rotation failure", access_key)
-                raise ValueError(f"Unable to remove previous access key: {exc}") from exc
-        s3_user.rgw_access_key = access_key
-        s3_user.rgw_secret_key = secret_key
-        self.db.add(s3_user)
-        self.db.commit()
-        self.db.refresh(s3_user)
+        from app.services.durable_key_rotation_service import DurableKeyRotationService
         endpoint = self._endpoint_for_user(s3_user)
+        try:
+            DurableKeyRotationService(self.db, actor=actor).rotate(endpoint, "s3_user", s3_user.id)
+        except RGWAdminError as exc:
+            raise ValueError("Rotation is pending; check RGW connectivity and retry.") from exc
+        admin = self._admin_for_user(s3_user)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
         quota_max_size_gb, quota_max_objects = self.get_user_quota(s3_user, admin)
         return s3_user_from_db(

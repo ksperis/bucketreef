@@ -27,6 +27,8 @@ export type KeyRotationResultItem = {
   target_label?: string | null;
   status: "rotated" | "failed" | "skipped";
   message?: string | null;
+  rotation_pending?: boolean;
+  rotation_phase?: "prepared" | "activated" | null;
   old_access_key?: string | null;
   new_access_key?: string | null;
 };

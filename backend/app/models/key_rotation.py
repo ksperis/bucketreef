@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
 
@@ -23,6 +23,14 @@ class KeyRotationRequest(ApiModel):
     endpoint_ids: list[int] = Field(default_factory=list, min_length=1)
     key_types: list[KeyRotationType] = Field(default_factory=list, min_length=1)
     deactivate_only: bool = False
+
+    @model_validator(mode="after")
+    def validate_retirement_mode(self):
+        if self.deactivate_only and any(kind in self.key_types for kind in (
+            KeyRotationType.ENDPOINT_RUNTIME, KeyRotationType.ENDPOINT_SUPERVISION, KeyRotationType.CEPH_ADMIN
+        )):
+            raise ValueError("Managed technical identities require delete mode.")
+        return self
 
     @field_validator("endpoint_ids")
     @classmethod
@@ -55,6 +63,8 @@ class KeyRotationResultItem(ApiModel):
     target_label: Optional[str] = None
     status: Literal["rotated", "failed", "skipped"]
     message: Optional[str] = None
+    rotation_pending: bool = False
+    rotation_phase: Optional[Literal["prepared", "activated"]] = None
     old_access_key: Optional[str] = None
     new_access_key: Optional[str] = None
 

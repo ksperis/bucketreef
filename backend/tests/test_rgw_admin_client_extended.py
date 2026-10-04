@@ -859,3 +859,15 @@ def test_rgw_admin_remaining_small_branches(monkeypatch):
     monkeypatch.setattr(client, "_request", lambda *args, **kwargs: {"conflict": True})
     monkeypatch.setattr(client, "get_account", lambda *args, **kwargs: {"not_found": True})
     assert client.create_account(account_id="RGW1", account_name="Acc") == {"conflict": True}
+
+
+def test_explicit_s3_key_pair_disables_generation_and_is_atomic(monkeypatch):
+    client = _client()
+    captured = []
+    monkeypatch.setattr(client, "_request", lambda method, path, **kwargs: captured.append(kwargs["params"]) or {})
+    client.create_access_key("owned-user", access_key="FIXED-ACCESS", secret_key="FIXED-SECRET")
+    assert captured[0]["generate-key"] == "false" and captured[0]["key-type"] == "s3"
+    assert captured[0]["access-key"] == "FIXED-ACCESS" and captured[0]["secret-key"] == "FIXED-SECRET"
+    with pytest.raises(ValueError):
+        client.create_access_key("owned-user", access_key="INCOMPLETE")
+    assert len(captured) == 1

@@ -164,7 +164,7 @@ def rotate_s3_user_keys(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3User:
     try:
-        updated = service.rotate_keys(user_id)
+        updated = service.rotate_keys(user_id, actor=current_user)
         audit_service.record_action(
             user=current_user,
             scope="admin",
