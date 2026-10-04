@@ -8,8 +8,7 @@ import type { StorageEndpoint } from "../../api/storageEndpoints";
 import type { FormState } from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
 import {
-  ADMIN_OPS_COMMAND,
-  ADMIN_OPS_OPTIONAL_COMMANDS,
+  ADMIN_OPS_FULL_COMMAND,
   RUNTIME_READ_OPS_COMMAND,
   SUPERVISION_OPS_COMMAND,
 } from "./storageEndpointCredentialHelp";
@@ -75,8 +74,10 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       : "This provider does not use dedicated operational credentials in BucketReef."}
   </UiInlineMessage>;
   return <>
-    <SettingsSection title="Administration (Admin Ops)" description="Bootstrap and delegated administration. Required: users=read and accounts=read. Write permissions are optional." presentation="compact">
+    <SettingsSection title="Administration (Admin Ops)" description="Bootstrap and delegated administration." presentation="compact">
       <CredentialFields {...props} kind="admin" label="Admin" required={props.form.features.admin.enabled} />
+      <CommandExample title="Full Admin Ops example">{ADMIN_OPS_FULL_COMMAND}</CommandExample>
+      <p className="settings-description">This command enables all Admin Ops capabilities used by current BucketReef features. See the Ceph RGW backend documentation for a least-privilege setup.</p>
     </SettingsSection>
     <SettingsSection title="Service identities" description="Managed identities are created when you save. External identities are provisioned by your operator." presentation="compact">
       <SettingsSelect label="Identity management" value={props.form.service_identity_mode} disabled={props.readOnly}
@@ -104,23 +105,12 @@ export default function StorageEndpointCredentialsFields(props: Props) {
     </SettingsSection>
     {props.form.service_identity_mode === "external" && <SettingsSection title="Live reads (Runtime Read Ops)" description="Read-only accounts, users without keys, and bucket statistics for Manager and Portal." presentation="compact">
       <CredentialFields {...props} kind="runtime" label="Runtime" required />
+      <CommandExample title="Runtime Read Ops">{RUNTIME_READ_OPS_COMMAND}</CommandExample>
     </SettingsSection>}
     {props.form.service_identity_mode === "external" && <SettingsSection title="Monitoring (Supervision Ops)" description="Read-only usage and metrics collection." presentation="compact">
       <CredentialFields {...props} kind="supervision" label="Supervision" required={props.form.features.usage.enabled || props.form.features.metrics.enabled} />
+      <CommandExample title="Supervision Ops">{SUPERVISION_OPS_COMMAND}</CommandExample>
     </SettingsSection>}
-    <SettingsSection title="Operational permissions" description="Ceph (radosgw-admin) examples" presentation="compact">
-      <div className="settings-stack">
-        <p className="settings-description">
-          Admin Ops write permissions enable provisioning and quota changes. Without users=write and accounts=write, provision your accounts and users externally and import them through the API.
-          Usage is disabled when Admin Ops has no usage=read permission. Optional permissions are never granted automatically.
-        </p>
-        <p className="settings-description">Supervision Ops keys are read-only credentials used for usage logs and metrics collection.</p>
-        <CommandExample title="Admin Ops">{ADMIN_OPS_COMMAND}</CommandExample>
-        <CommandExample title="Optional Admin Ops permissions">{ADMIN_OPS_OPTIONAL_COMMANDS}</CommandExample>
-        <CommandExample title="Runtime Read Ops (external mode)">{RUNTIME_READ_OPS_COMMAND}</CommandExample>
-        <CommandExample title="Supervision Ops">{SUPERVISION_OPS_COMMAND}</CommandExample>
-      </div>
-    </SettingsSection>
     {props.cephAdminEnabled && <SettingsSection title="Ceph Admin" description="Select authorized endpoints in General settings. BucketReef creates a dedicated managed identity before granting access." presentation="compact">
       <p className="settings-description">Endpoint authorization: {props.form.ceph_admin_allowed ? "Allowed" : "Not allowed"}. Disabling access revokes the managed identity without purging data.</p>
     </SettingsSection>}

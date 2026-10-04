@@ -396,11 +396,14 @@ describe("StorageEndpointsPage tags", () => {
     expect(adminAccessKey.compareDocumentPosition(supervisionAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(runtimeAccessKey.compareDocumentPosition(supervisionAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    const opsHelp = screen.getByRole("region", { name: "Operational permissions" });
-    expect(opsHelp).not.toBeNull();
-    expect(within(opsHelp as HTMLElement).getByText(/Admin Ops write permissions enable provisioning/)).toBeVisible();
-    expect(within(opsHelp as HTMLElement).getByText("Ceph (radosgw-admin) examples")).toBeVisible();
-    expect(within(opsHelp as HTMLElement).queryByRole("button", { name: /show|hide/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Operational permissions" })).not.toBeInTheDocument();
+    const adminSection = screen.getByRole("region", { name: "Administration (Admin Ops)" });
+    expect(within(adminSection).getByText("Full Admin Ops example")).toBeVisible();
+    expect(within(adminSection).getByText(/users=read,write;accounts=read,write;buckets=write;usage=read/)).toBeVisible();
+    const runtimeSection = screen.getByRole("region", { name: "Live reads (Runtime Read Ops)" });
+    expect(within(runtimeSection).getByText(/accounts=read;user-info-without-keys=read;buckets=read/)).toBeVisible();
+    const supervisionSection = screen.getByRole("region", { name: "Monitoring (Supervision Ops)" });
+    expect(within(supervisionSection).getByText(/usage=read;buckets=read/)).toBeVisible();
   });
 
   it("validates all operational credential pairs without blocking endpoint updates", async () => {
