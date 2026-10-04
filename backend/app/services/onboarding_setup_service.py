@@ -232,7 +232,7 @@ class OnboardingSetupService:
                 supervision_secret_key=supervision[1] or None,
                 features_config=dump_features_config(features.model_dump()),
             )
-            created = self.endpoints.create_endpoint(endpoint_payload, commit=False)
+            created = self.endpoints.create_endpoint(endpoint_payload)
             self.progress.checkpoint(row, endpoint_id=created.id)
             endpoint = self.db.get(StorageEndpoint, created.id)
             self.progress.audit(

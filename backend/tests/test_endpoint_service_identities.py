@@ -6,7 +6,7 @@ from copy import deepcopy
 import pytest
 from sqlalchemy import text
 
-from app.db import EndpointServiceIdentity, StorageEndpoint
+from app.db import AuditLog, EndpointServiceIdentity, StorageEndpoint
 from app.services import endpoint_service_identities as module
 from app.services.endpoint_service_identities import EndpointServiceIdentityService, SERVICE_CAPS
 from app.services.operation_lease_service import OperationLeaseService
@@ -407,3 +407,204 @@ def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(
     assert not managed_uids.intersection(rgw.users)
     assert all(identity.status == "disabled" for identity in endpoint.service_identities)
     assert endpoint.admin_secret_key is None and endpoint.provider == "other"
+
+
+@pytest.mark.parametrize("kind", ["runtime", "supervision", "ceph_admin"])
+@pytest.mark.parametrize("key_type", ["keys", "disabled_keys", "swift_keys", "temp_url_keys"])
+def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(identities, db_session, kind, key_type):
+    service, endpoint, rgw = identities
+    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.ceph_admin_allowed = True
+    db_session.commit()
+    service.reconcile(endpoint, ceph_admin_enabled=True)
+    identity = endpoint.service_identity(kind)
+    user = rgw.users[identity.rgw_uid]
+    unknown = {"access_key": "UNEXPECTED-KEY", "secret_key": "UNEXPECTED-SECRET"}
+    if key_type in ("keys", "disabled_keys"):
+        if key_type == "disabled_keys":
+            unknown["active"] = False
+        user["keys"].append(unknown)
+    elif key_type == "swift_keys":
+        user["swift_keys"] = [{"user": "foreign", "secret_key": "UNEXPECTED-SECRET"}]
+    else:
+        user["temp_url_keys"] = {"0": "UNEXPECTED-SECRET"}
+    original = deepcopy(user)
+    rgw.calls.clear()
+
+    results = service.reconcile(endpoint, ceph_admin_enabled=True)
+
+    assert {"kind": kind, "status": "error"} in results
+    assert identity.status == "error" and "key drift" in identity.last_error
+    assert rgw.users[identity.rgw_uid] == original
+    assert not any(call[0] in ("create", "caps", "delete", "key_create", "key_delete") and call[1] == identity.rgw_uid for call in rgw.calls)
+    serialized = StorageEndpointsService(db_session).get_endpoint(endpoint.id, include_admin_ops_permissions=False).model_dump_json()
+    audits = db_session.query(AuditLog).filter(AuditLog.action == "endpoint_service_identity.key_drift_detected").all()
+    assert len(audits) == 1
+    assert "UNEXPECTED" not in serialized + (audits[0].metadata_json or "")
+    assert identity.secret_key not in serialized + (audits[0].metadata_json or "")
+
+
+@pytest.mark.parametrize("users_write", [True, False])
+def test_managed_key_drift_recovers_only_after_operator_removes_unknown_key(identities, db_session, users_write):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    if not users_write:
+        rgw.users["operator"]["caps"] = "users=read;accounts=read"
+    user = rgw.users[identity.rgw_uid]
+    user["keys"].append({"access_key": "UNKNOWN", "secret_key": "UNKNOWN-SECRET"})
+    service.reconcile(endpoint)
+    assert identity.status == "error"
+    with pytest.raises(ValueError, match="not ready"):
+        get_endpoint_runtime_rgw_client(endpoint)
+    service.reconcile(endpoint)
+    assert identity.status == "error" and len(user["keys"]) == 2
+    assert db_session.query(AuditLog).filter(AuditLog.action == "endpoint_service_identity.key_drift_detected").count() == 1
+
+    user["keys"].pop()
+    service.reconcile(endpoint)
+    assert identity.status == "ready" and identity.last_error is None
+
+
+@pytest.mark.parametrize("operation", ["rotate", "revoke"])
+@pytest.mark.parametrize("kind", ["runtime", "supervision", "ceph_admin"])
+def test_managed_key_drift_blocks_rotation_and_revocation(identities, db_session, operation, kind):
+    service, endpoint, rgw = identities
+    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.ceph_admin_allowed = True
+    db_session.commit()
+    service.reconcile(endpoint, ceph_admin_enabled=True)
+    identity = endpoint.service_identity(kind)
+    user = rgw.users[identity.rgw_uid]
+    user["keys"].append({"access_key": "UNKNOWN", "secret_key": "UNKNOWN-SECRET"})
+    original = deepcopy(user)
+    rgw.calls.clear()
+    if operation == "rotate":
+        with pytest.raises(ValueError, match="key drift"):
+            service.rotate(endpoint, kind)
+        assert identity.status == "error"
+    else:
+        assert not service.revoke(endpoint, kind)
+        assert identity.status == "revocation_pending"
+    assert "key drift" in identity.last_error
+    assert rgw.users[identity.rgw_uid] == original and not rgw.calls
+    if operation == "revoke":
+        user["keys"].pop()
+        assert service.revoke(endpoint, kind)
+        assert identity.status == "disabled" and identity.rgw_uid not in rgw.users
+
+
+def test_pending_rotation_keys_are_nominal_during_reconciliation(identities):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    rgw.fail_delete = True
+    with pytest.raises(ValueError, match="retirement"):
+        service.rotate(endpoint, "runtime")
+    service.reconcile(endpoint)
+    assert identity.status == "ready" and identity.previous_access_key
+    rgw.fail_delete = False
+    service.rotate(endpoint, "runtime")
+    assert identity.previous_access_key is None
+    assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
+
+
+def test_rotation_requires_confirmed_key_retirement(identities):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    old = identity.access_key
+    rgw.delete_access_key = lambda *_args: None
+    with pytest.raises(ValueError, match="retirement"):
+        service.rotate(endpoint, "runtime")
+    assert identity.status == "ready" and identity.previous_access_key == old
+    assert len(rgw.users[identity.rgw_uid]["keys"]) == 2
+
+
+def test_managed_rotation_rejects_deactivation_without_creating_an_untracked_key(identities):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    old = identity.access_key
+    rgw.calls.clear()
+    with pytest.raises(ValueError, match="require deleting previous keys"):
+        service.rotate(endpoint, "runtime", deactivate_only=True)
+    assert identity.status == "ready" and identity.access_key == old and not rgw.calls
+
+
+def test_external_users_may_have_other_keys_without_managed_drift_rules(identities, db_session):
+    service, endpoint, rgw = identities
+    endpoint.service_identities.append(service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET"))
+    rgw.users["external"] = {
+        "user_id": "external", "caps": SERVICE_CAPS["runtime"],
+        "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}, {"access_key": "OTHER", "secret_key": "OTHER-SECRET"}],
+    }
+    original = deepcopy(rgw.users["external"])
+    db_session.commit()
+    service.reconcile(endpoint)
+    assert endpoint.service_identity("runtime").status == "ready"
+    assert rgw.users["external"] == original
+
+
+def test_endpoint_creation_commits_before_provisioning_and_returns_retryable_failure(identities, db_session):
+    from app.models.storage_endpoint import StorageEndpointCreate
+
+    _, _, rgw = identities
+    rgw.fail_create = True
+    response = StorageEndpointsService(db_session).create_endpoint(StorageEndpointCreate(
+        name="Partial registration", endpoint_url="https://partial.example.test", provider="ceph",
+        admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET",
+        features_config="features:\n  admin:\n    enabled: true\n",
+    ))
+    db_session.rollback()
+    endpoint = db_session.get(StorageEndpoint, response.id)
+    identity = endpoint.service_identity("runtime")
+    assert identity.status == "error" and identity.access_key and identity.provenance
+    key, uid = identity.access_key, identity.rgw_uid
+    rgw.fail_create = False
+    StorageEndpointsService(db_session).reconcile_identities(endpoint.id)
+    assert identity.status == "ready" and (identity.access_key, identity.rgw_uid) == (key, uid)
+
+
+def test_key_added_concurrently_during_rotation_is_never_adopted_or_deleted(identities, monkeypatch):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    original = identity.access_key
+    create = rgw.create_access_key
+
+    def create_with_foreign_key(uid):
+        rgw.users[uid]["keys"].append({"access_key": "FOREIGN", "secret_key": "FOREIGN-SECRET"})
+        return create(uid)
+
+    monkeypatch.setattr(rgw, "create_access_key", create_with_foreign_key)
+    rgw.calls.clear()
+    with pytest.raises(ValueError, match="key drift"):
+        service.rotate(endpoint, "runtime")
+    assert identity.status == "error" and identity.access_key == original
+    assert {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]} == {original, "FOREIGN", "NEW-KEY"}
+    assert not any(call[0] == "key_delete" for call in rgw.calls)
+
+
+@pytest.mark.parametrize("monitoring", [False, True])
+def test_external_env_with_complete_keys_is_validated_without_provisioning(identities, db_session, monkeypatch, monitoring):
+    _, endpoint, rgw = identities
+    rgw.users["operator"]["caps"] = "users=read;accounts=read"
+    credentials = {}
+    for kind in ("runtime", "supervision") if monitoring else ("runtime",):
+        access, secret = kind.upper(), f"{kind.upper()}-SECRET"
+        credentials.update({f"{kind}_access_key": access, f"{kind}_secret_key": secret})
+        rgw.users[kind] = {"user_id": kind, "caps": SERVICE_CAPS[kind], "keys": [{"access_key": access, "secret_key": secret}]}
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
+        "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "ceph",
+        "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET", "service_identity_mode": "external",
+        "features": {"admin": {"enabled": True}, "metrics": {"enabled": monitoring}}, **credentials,
+    }]))
+    StorageEndpointsService(db_session).sync_env_endpoints()
+    assert endpoint.service_identity("runtime").status == "ready" and not endpoint.is_editable
+    assert endpoint.service_identity("runtime").mode == "external"
+    if monitoring:
+        assert endpoint.service_identity("supervision").status == "ready"
+    else:
+        assert endpoint.service_identity("supervision") is None
+    assert not any(call[0] in ("create", "caps", "delete") for call in rgw.calls)

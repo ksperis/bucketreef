@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Validate the complete ENV endpoint inventory before synchronization and use the same external Runtime credential requirements as the endpoint API.
+- Remove the misleading `commit` argument from endpoint creation; registration persists a durable endpoint before reconciling RGW identities.
+- Detect untracked S3, Swift and temporary URL keys on managed endpoint identities, block their mutations, and report auditable drift without exposing key material.
+
+### Upgrade notes
+
+- **Breaking change:** administered Ceph endpoints configured through `ENV_STORAGE_ENDPOINTS` in external mode must supply both Runtime keys. Incomplete inventories now prevent startup.
+- **Breaking change:** managed Runtime, Supervision and Ceph Admin rotation requires deletion of the previous key. Disable-only rotation is refused for these identities. Remove previously disabled or manually added keys externally, then retry identity configuration; pending revocations are never announced as successful while unexpected keys remain.
+
 ## 0.2.13 - 2026-10-01
 
 ### Added
