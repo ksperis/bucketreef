@@ -183,7 +183,7 @@ def test_usage_history_hourly_and_daily_upserts(db_session, monkeypatch):
     monkeypatch.setattr(quota_monitoring_service, "load_app_settings", lambda: _settings(quota_alerts_enabled=False, usage_history_enabled=True))
     monkeypatch.setattr(quota_monitoring_service.DataRetentionService, "purge_all", lambda self: {})
     monkeypatch.setattr(quota_monitoring_service, "get_supervision_rgw_client", lambda endpoint: fake_admin)
-    monkeypatch.setattr(QuotaMonitoringService, "_resolve_admin_client", lambda self, endpoint, cache: fake_admin)
+    monkeypatch.setattr(QuotaMonitoringService, "_resolve_runtime_client", lambda self, endpoint, cache: fake_admin)
     monkeypatch.setattr(
         QuotaAlertRecipientsService,
         "load",
@@ -222,7 +222,7 @@ def test_quota_monitor_mode_does_not_persist_usage_history(db_session, monkeypat
     monkeypatch.setattr(quota_monitoring_service, "load_app_settings", lambda: _settings(quota_alerts_enabled=True, usage_history_enabled=True))
     monkeypatch.setattr(quota_monitoring_service.DataRetentionService, "purge_all", lambda self: {})
     monkeypatch.setattr(quota_monitoring_service, "get_supervision_rgw_client", lambda endpoint: fake_admin)
-    monkeypatch.setattr(QuotaMonitoringService, "_resolve_admin_client", lambda self, endpoint, cache: fake_admin)
+    monkeypatch.setattr(QuotaMonitoringService, "_resolve_runtime_client", lambda self, endpoint, cache: fake_admin)
     monkeypatch.setattr(
         QuotaAlertEmailService,
         "build_mailer",
@@ -258,7 +258,7 @@ def test_usage_history_prefers_supervision_client_and_keeps_quota_optional(db_se
     monkeypatch.setattr(quota_monitoring_service, "load_app_settings", lambda: _settings(quota_alerts_enabled=False, usage_history_enabled=True))
     monkeypatch.setattr(quota_monitoring_service.DataRetentionService, "purge_all", lambda self: {})
     monkeypatch.setattr(quota_monitoring_service, "get_supervision_rgw_client", resolve_supervision)
-    monkeypatch.setattr(QuotaMonitoringService, "_resolve_admin_client", lambda self, endpoint, cache: None)
+    monkeypatch.setattr(QuotaMonitoringService, "_resolve_runtime_client", lambda self, endpoint, cache: None)
 
     service = QuotaMonitoringService(db_session)
     result = service.run_monitor()
@@ -298,10 +298,36 @@ def test_usage_client_does_not_fallback_to_admin_ops(db_session, monkeypatch):
         "get_supervision_rgw_client",
         lambda _endpoint: (_ for _ in ()).throw(ValueError("supervision missing")),
     )
-    monkeypatch.setattr(QuotaMonitoringService, "_resolve_admin_client", unexpected_admin)
+    monkeypatch.setattr(QuotaMonitoringService, "_resolve_runtime_client", unexpected_admin)
 
     service = QuotaMonitoringService(db_session)
     assert service._resolve_usage_client(endpoint, {}) is None
+    assert admin_calls == 0
+
+
+def test_quota_client_uses_runtime_and_does_not_fallback_to_admin_ops(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session, name="runtime-required")
+    admin_calls = 0
+
+    def unexpected_admin(*_args, **_kwargs):
+        nonlocal admin_calls
+        admin_calls += 1
+        return _FakeAdminClient(usage_bytes=1, usage_objects=1, quota_bytes=1, quota_objects=1)
+
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "get_endpoint_runtime_rgw_client",
+        lambda _endpoint: (_ for _ in ()).throw(ValueError("runtime missing")),
+    )
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "get_endpoint_admin_rgw_client",
+        unexpected_admin,
+        raising=False,
+    )
+
+    service = QuotaMonitoringService(db_session)
+    assert service._resolve_runtime_client(endpoint, {}) is None
     assert admin_calls == 0
 
 
@@ -344,7 +370,7 @@ def test_usage_collection_failure_does_not_block_remaining_subjects(
     )
     monkeypatch.setattr(
         QuotaMonitoringService,
-        "_resolve_admin_client",
+        "_resolve_runtime_client",
         lambda self, endpoint, cache: fake_admin,
     )
     monkeypatch.setattr(QuotaMonitoringService, "_collect_usage", collect_usage)
@@ -397,7 +423,7 @@ def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch
     monkeypatch.setattr(quota_monitoring_service, "load_app_settings", lambda: _settings(quota_alerts_enabled=True, usage_history_enabled=False))
     monkeypatch.setattr(quota_monitoring_service.DataRetentionService, "purge_all", lambda self: {})
     monkeypatch.setattr(quota_monitoring_service, "get_supervision_rgw_client", lambda endpoint: fake_admin)
-    monkeypatch.setattr(QuotaMonitoringService, "_resolve_admin_client", lambda self, endpoint, cache: fake_admin)
+    monkeypatch.setattr(QuotaMonitoringService, "_resolve_runtime_client", lambda self, endpoint, cache: fake_admin)
     monkeypatch.setattr(
         QuotaAlertEmailService,
         "build_mailer",
@@ -657,7 +683,7 @@ def test_smtp_incomplete_is_non_blocking(db_session, monkeypatch):
     monkeypatch.setattr(quota_monitoring_service, "load_app_settings", lambda: settings)
     monkeypatch.setattr(quota_monitoring_service.DataRetentionService, "purge_all", lambda self: {})
     monkeypatch.setattr(quota_monitoring_service, "get_supervision_rgw_client", lambda endpoint: fake_admin)
-    monkeypatch.setattr(QuotaMonitoringService, "_resolve_admin_client", lambda self, endpoint, cache: fake_admin)
+    monkeypatch.setattr(QuotaMonitoringService, "_resolve_runtime_client", lambda self, endpoint, cache: fake_admin)
 
     service = QuotaMonitoringService(db_session)
     result = service.run_monitor()
