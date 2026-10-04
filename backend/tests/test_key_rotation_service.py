@@ -240,7 +240,6 @@ def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_sessio
     registry = FakeRgwRegistry()
     registry.add_identity(uid="svc-admin", tenant=None, keys=[("ADM-OLD", "ADM-OLD-SEC")], admin=True)
     registry.add_identity(uid="svc-supervision", tenant=None, keys=[("SUP-OLD", "SUP-OLD-SEC")], admin=True)
-    registry.add_identity(uid="svc-ceph-admin", tenant=None, keys=[("CADM-OLD", "CADM-OLD-SEC")], admin=True)
     registry.add_identity(
         uid="RGW00000000000000001-admin",
         tenant="RGW00000000000000001",
@@ -268,7 +267,6 @@ def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_sessio
                 KeyRotationType.ENDPOINT_SUPERVISION,
                 KeyRotationType.ACCOUNT,
                 KeyRotationType.S3_USER,
-                KeyRotationType.CEPH_ADMIN,
             ],
             deactivate_only=False,
         )
@@ -280,19 +278,17 @@ def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_sessio
 
     assert result.summary.failed == 0
     assert result.summary.rotated == 3
-    assert result.summary.skipped == 2
+    assert result.summary.skipped == 1
     assert result.summary.deleted_old_keys == 3
     assert result.summary.disabled_old_keys == 0
 
     assert endpoint.admin_access_key != "ADM-OLD"
     assert endpoint.supervision_access_key == "SUP-OLD"
-    assert endpoint.ceph_admin_access_key == "CADM-OLD"
     assert account.rgw_access_key != "ACC-OLD"
     assert s3_user.rgw_access_key != "USR-OLD"
 
     assert "ADM-OLD" not in registry.access_index
     assert "SUP-OLD" in registry.access_index
-    assert "CADM-OLD" in registry.access_index
     assert "ACC-OLD" not in registry.access_index
     assert "USR-OLD" not in registry.access_index
 
@@ -395,29 +391,25 @@ def test_env_managed_endpoint_credentials_are_skipped_without_rgw_calls(db_sessi
             key_types=[
                 KeyRotationType.ENDPOINT_ADMIN,
                 KeyRotationType.ENDPOINT_SUPERVISION,
-                KeyRotationType.CEPH_ADMIN,
             ],
             deactivate_only=False,
         )
     )
 
     db_session.refresh(endpoint)
-    assert result.summary.total == 3
+    assert result.summary.total == 2
     assert result.summary.rotated == 0
     assert result.summary.failed == 0
-    assert result.summary.skipped == 3
+    assert result.summary.skipped == 2
     assert {item.key_type for item in result.results} == {
         KeyRotationType.ENDPOINT_ADMIN,
         KeyRotationType.ENDPOINT_SUPERVISION,
-        KeyRotationType.CEPH_ADMIN,
     }
     assert all("ENV_STORAGE_ENDPOINTS" in (item.message or "") or "External service" in (item.message or "") for item in result.results)
     assert endpoint.admin_access_key == "ADM-OLD"
     assert endpoint.admin_secret_key == "ADM-OLD-SEC"
     assert endpoint.supervision_access_key == "SUP-OLD"
     assert endpoint.supervision_secret_key == "SUP-OLD-SEC"
-    assert endpoint.ceph_admin_access_key == "CADM-OLD"
-    assert endpoint.ceph_admin_secret_key == "CADM-OLD-SEC"
 
 
 def test_env_managed_endpoint_mixed_rotation_still_rotates_accounts_and_s3_users(db_session, monkeypatch):

@@ -80,8 +80,6 @@ def _create_ceph_endpoint_with_full_credentials(db_session, name: str = "ceph-fu
         admin_secret_key="SECRET-ADMIN",
         supervision_access_key="AKIA-SUPERVISION",
         supervision_secret_key="SECRET-SUPERVISION",
-        ceph_admin_access_key="AKIA-CEPH-ADMIN",
-        ceph_admin_secret_key="SECRET-CEPH-ADMIN",
         features_config=(
             "features:\n"
             "  admin:\n"
@@ -111,6 +109,21 @@ def test_get_endpoint_uses_typed_not_found_error(db_session):
 
     with pytest.raises(StorageEndpointNotFoundError, match="Endpoint not found"):
         service.get_endpoint(999_999)
+
+
+@pytest.mark.parametrize(
+    "model",
+    (StorageEndpointCreate, StorageEndpointUpdate, StorageEndpointFeatureDetectionRequest),
+)
+def test_ceph_admin_credentials_are_not_public_endpoint_inputs(model):
+    values = {"ceph_admin_access_key": "LEGACY-AK", "ceph_admin_secret_key": "LEGACY-SK"}
+    if model is StorageEndpointCreate:
+        values.update(name="ceph", endpoint_url="https://ceph.example.test")
+    elif model is StorageEndpointFeatureDetectionRequest:
+        values.update(endpoint_url="https://ceph.example.test")
+
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        model(**values)
 
 
 def test_list_endpoints_skips_admin_ops_permissions_by_default(db_session, monkeypatch):
@@ -195,8 +208,6 @@ def test_aws_endpoint_defaults_enable_supported_aws_features_and_clear_ceph_cred
             admin_secret_key="SECRET-ADMIN",
             supervision_access_key="AKIA-SUPERVISION",
             supervision_secret_key="SECRET-SUPERVISION",
-            ceph_admin_access_key="AKIA-CEPH-ADMIN",
-            ceph_admin_secret_key="SECRET-CEPH-ADMIN",
         )
     )
 
@@ -204,7 +215,6 @@ def test_aws_endpoint_defaults_enable_supported_aws_features_and_clear_ceph_cred
     assert created.region == AWS_DEFAULT_REGION
     assert created.admin_access_key is None
     assert created.supervision_access_key is None
-    assert created.ceph_admin_access_key is None
     assert created.capabilities == {
         "admin": False,
         "account": False,
@@ -226,7 +236,6 @@ def test_aws_endpoint_defaults_enable_supported_aws_features_and_clear_ceph_cred
     assert persisted is not None
     assert persisted.admin_secret_key is None
     assert persisted.supervision_secret_key is None
-    assert persisted.ceph_admin_secret_key is None
     assert resolve_iam_endpoint(persisted) == AWS_IAM_ENDPOINT
     flags = resolve_feature_flags(persisted)
     assert flags.iam_enabled is True
@@ -745,7 +754,6 @@ def test_update_endpoint_clearing_access_keys_also_clears_secrets(db_session):
         StorageEndpointUpdate(
             admin_access_key=None,
             supervision_access_key=None,
-            ceph_admin_access_key=None,
             features_config=(
                 "features:\n"
                 "  admin:\n"
@@ -760,7 +768,6 @@ def test_update_endpoint_clearing_access_keys_also_clears_secrets(db_session):
 
     assert updated.admin_access_key is None
     assert updated.supervision_access_key is None
-    assert updated.ceph_admin_access_key is None
 
     persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).first()
     assert persisted is not None
@@ -768,8 +775,6 @@ def test_update_endpoint_clearing_access_keys_also_clears_secrets(db_session):
     assert persisted.admin_secret_key is None
     assert persisted.supervision_access_key is None
     assert persisted.supervision_secret_key is None
-    assert persisted.ceph_admin_access_key is None
-    assert persisted.ceph_admin_secret_key is None
 
 
 def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_session):
@@ -797,11 +802,9 @@ def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_sess
     assert updated.verify_tls is False
     assert updated.admin_access_key == "AKIA-ADMIN"
     assert updated.supervision_access_key == "AKIA-SUPERVISION"
-    assert updated.ceph_admin_access_key == "AKIA-CEPH-ADMIN"
     persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).one()
     assert persisted.admin_secret_key == "SECRET-ADMIN"
     assert persisted.supervision_secret_key == "SECRET-SUPERVISION"
-    assert persisted.ceph_admin_secret_key == "SECRET-CEPH-ADMIN"
 
 
 def test_update_endpoint_tags_normalizes_and_serializes_tags(db_session):
@@ -891,8 +894,6 @@ def test_detect_features_warns_when_usage_log_endpoint_is_unavailable(db_session
             admin_secret_key="SECRET-ADMIN",
             supervision_access_key="AKIA-SUPERVISION",
             supervision_secret_key="SECRET-SUPERVISION",
-            ceph_admin_access_key="AKIA-CEPH-ADMIN",
-            ceph_admin_secret_key="SECRET-CEPH-ADMIN",
         )
     )
 
@@ -908,7 +909,6 @@ def test_detect_features_warns_when_usage_log_endpoint_is_unavailable(db_session
     assert result.admin_ops_permissions.accounts_write is True
     assert result.admin_ops_permissions.buckets_write is False
     assert result.credential_checks.supervision.status == "valid"
-    assert result.credential_checks.ceph_admin.status == "valid"
     assert len(result.warnings) == 1
     assert "Usage logs returned no usable data" in result.warnings[0]
 
@@ -1040,7 +1040,6 @@ def test_detect_features_reports_incomplete_credential_pairs(db_session, monkeyp
             endpoint_url="https://ceph.example.test",
             admin_access_key="AKIA-ADMIN",
             supervision_secret_key="SECRET-SUPERVISION",
-            ceph_admin_access_key="AKIA-CEPH-ADMIN",
         )
     )
 
@@ -1053,7 +1052,6 @@ def test_detect_features_reports_incomplete_credential_pairs(db_session, monkeyp
     assert result.usage_error == result.metrics_error
     assert result.credential_checks.admin.status == "incomplete"
     assert result.credential_checks.supervision.status == "incomplete"
-    assert result.credential_checks.ceph_admin.status == "incomplete"
 
 
 def test_detect_features_classifies_denied_unavailable_and_unprivileged_credentials(db_session, monkeypatch):
@@ -1096,15 +1094,11 @@ def test_detect_features_classifies_denied_unavailable_and_unprivileged_credenti
             admin_secret_key="SECRET-ADMIN",
             supervision_access_key="AKIA-SUPERVISION",
             supervision_secret_key="SECRET-SUPERVISION",
-            ceph_admin_access_key="AKIA-CEPH-ADMIN",
-            ceph_admin_secret_key="SECRET-CEPH-ADMIN",
         )
     )
 
     assert result.credential_checks.admin.status == "denied"
     assert result.credential_checks.supervision.status == "unavailable"
-    assert result.credential_checks.ceph_admin.status == "denied"
-    assert "--admin or --system" in (result.credential_checks.ceph_admin.message or "")
 
 
 def test_detect_features_keeps_account_and_usage_probes_independent(db_session, monkeypatch):
@@ -1368,8 +1362,6 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
 
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = False):
             assert access_key == self.access_key
-            if self.access_key == endpoint.ceph_admin_access_key:
-                return {"admin": True}
             assert self.access_key == endpoint.admin_access_key
             return {"user_id": "admin-user"}
 
@@ -1409,8 +1401,6 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
             assert kwargs["secret_key"] == endpoint.admin_secret_key
         if kwargs["access_key"] == endpoint.supervision_access_key:
             assert kwargs["secret_key"] == endpoint.supervision_secret_key
-        if kwargs["access_key"] == endpoint.ceph_admin_access_key:
-            assert kwargs["secret_key"] == endpoint.ceph_admin_secret_key
         assert kwargs["verify_tls"] is False
         return FakeRGWClient(kwargs["access_key"])
 
@@ -1426,7 +1416,6 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
             endpoint_url=endpoint.endpoint_url,
             admin_access_key=endpoint.admin_access_key,
             supervision_access_key=endpoint.supervision_access_key,
-            ceph_admin_access_key=endpoint.ceph_admin_access_key,
         )
     )
 
@@ -1439,7 +1428,6 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
     assert result.usage_error is None
     assert result.credential_checks.admin.status == "valid"
     assert result.credential_checks.supervision.status == "valid"
-    assert result.credential_checks.ceph_admin.status == "valid"
 
 
 @pytest.mark.parametrize(

@@ -148,10 +148,10 @@ class StorageEndpointsService:
         if config.service_identity_mode is not None:
             endpoint.service_identity_mode = config.service_identity_mode
         elif endpoint.id is None:
-            endpoint.service_identity_mode = "external" if config.supervision_access_key or config.ceph_admin_access_key or config.runtime_access_key else "managed"
+            endpoint.service_identity_mode = "external" if config.supervision_access_key or config.runtime_access_key else "managed"
         if config.ceph_admin_allowed is not None:
             endpoint.ceph_admin_allowed = config.ceph_admin_allowed
-        for kind in ("runtime", "supervision", "ceph_admin"):
+        for kind in ("runtime", "supervision"):
             identity = endpoint.service_identity(kind)
             # ENV and ordinary edits must never overwrite generated credentials.
             if identity is not None and identity.mode == "managed":
@@ -454,8 +454,6 @@ class StorageEndpointsService:
         admin_secret = settings.seed_rgw_admin_secret_key or settings.seed_s3_secret_key
         supervision_access = settings.seed_supervision_access_key
         supervision_secret = settings.seed_supervision_secret_key
-        ceph_admin_access = settings.seed_ceph_admin_access_key
-        ceph_admin_secret = settings.seed_ceph_admin_secret_key
         provider = (
             StorageProvider.CEPH if admin_access and admin_secret else StorageProvider.OTHER
         )
@@ -474,8 +472,6 @@ class StorageEndpointsService:
                 runtime_secret_key=settings.seed_runtime_secret_key,
                 supervision_access_key=supervision_access,
                 supervision_secret_key=supervision_secret,
-                ceph_admin_access_key=ceph_admin_access,
-                ceph_admin_secret_key=ceph_admin_secret,
                 features_config=settings.seed_s3_endpoint_features,
             )
         )

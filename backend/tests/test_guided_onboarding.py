@@ -94,7 +94,6 @@ def detection(
     admin=True,
     account=True,
     supervision="valid",
-    ceph_admin="valid",
     admin_ops_permissions=None,
 ):
     permissions = admin_ops_permissions or StorageEndpointAdminOpsPermissions(
@@ -115,7 +114,6 @@ def detection(
                 status="valid" if admin else "denied"
             ),
             supervision=StorageEndpointCredentialCheck(status=supervision),
-            ceph_admin=StorageEndpointCredentialCheck(status=ceph_admin),
         ),
     )
 
@@ -243,7 +241,7 @@ def test_preview_does_not_block_editable_ceph_choices_when_credentials_are_missi
     assert result.blockers == []
     assert "validate_ceph_account_api" in result.changes
     assert "validate_supervision" in result.changes
-    assert "validate_ceph_admin" in result.changes
+    assert "provision_ceph_admin_identity" in result.changes
 
 
 def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypatch):
@@ -279,9 +277,7 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
     monkeypatch.setattr(
         guided.endpoints,
         "detect_features",
-        lambda *_args, **_kwargs: detection(
-            admin=False, account=False, ceph_admin="not_configured"
-        ),
+        lambda *_args, **_kwargs: detection(admin=False, account=False),
     )
     monkeypatch.setattr(S3ConnectionsService, "_refresh_detected_capabilities", lambda *_: None)
     original_serialize = StorageEndpointsService._serialize
@@ -619,8 +615,6 @@ def test_ceph_admin_requires_valid_dedicated_identity_and_grants_access(
     ep = endpoint(
         db_session,
         admin_access_key="admin-ak", admin_secret_key="admin-sk",
-        ceph_admin_access_key="ceph-ak",
-        ceph_admin_secret_key="ceph-sk",
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
     result = apply(guided, user, save(guided, user, endpoint_id=ep.id, ceph_admin=True))
@@ -633,8 +627,6 @@ def test_ceph_admin_requires_valid_dedicated_identity_and_grants_access(
     denied_endpoint = endpoint(
         db_session,
         admin_access_key="admin-ak", admin_secret_key="admin-sk",
-        ceph_admin_access_key="denied-ak",
-        ceph_admin_secret_key="denied-sk",
     )
     denied = save(guided, denied_user, endpoint_id=denied_endpoint.id, ceph_admin=True)
     monkeypatch.setattr(

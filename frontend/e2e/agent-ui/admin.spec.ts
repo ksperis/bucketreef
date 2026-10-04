@@ -76,7 +76,7 @@ test("shows managed Runtime state and requires explicit external replacements", 
   await page.route("**/api/admin/storage-endpoints/detect-features", route => route.fulfill({ json: {
     admin: true, account: true, metrics: false, usage: false, warnings: [],
     admin_ops_permissions: { users_read: true, users_write: true, accounts_read: true, accounts_write: false },
-    credential_checks: { admin: { status: "valid" }, runtime: { status: "not_configured" }, supervision: { status: "not_configured" }, ceph_admin: { status: "not_configured" } },
+    credential_checks: { admin: { status: "valid" }, runtime: { status: "not_configured" }, supervision: { status: "not_configured" } },
   } }));
   await page.goto("/admin/storage-endpoints/901");
   await page.getByRole("tab", { name: "Credentials", exact: true }).click();

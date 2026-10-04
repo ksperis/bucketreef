@@ -24,7 +24,8 @@
 ### Upgrade notes
 
 - **Breaking change:** previous implicit BucketReef-managed storage resource names are not migrated, aliased, or adopted automatically. Recreate pre-cutover Portal IAM resources deliberately before using the new naming contract. Foreign lifecycle rules and bucket-policy statements remain preserved.
-- Apply the normal Alembic upgrade path. This patch adds no database migration or schema baseline and keeps the unified `bucketreef-deploy` bundle introduced in 0.2.12.
+- **Breaking change:** externally supplied Ceph Admin credentials are no longer supported. Migration `0139_managed_ceph_admin_identity` erases BucketReef's stored copy of legacy external Ceph Admin credentials and marks the identity for managed reprovisioning; the pre-existing external RGW user is left untouched.
+- Apply the normal Alembic upgrade path. This patch adds migration `0139_managed_ceph_admin_identity` and keeps the unified `bucketreef-deploy` bundle introduced in 0.2.12.
 
 ## 0.2.12 - 2026-09-29
 

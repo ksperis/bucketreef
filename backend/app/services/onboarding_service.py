@@ -199,17 +199,12 @@ class OnboardingService:
                     else:
                         result.blockers.append("endpoint_features_locked")
             if draft.ceph_admin:
-                result.changes.append("validate_ceph_admin")
-                if not (
-                    endpoint.ceph_admin_access_key
-                    and endpoint.ceph_admin_secret_key
-                ) and not editable:
-                    result.blockers.append("endpoint_credentials_locked")
+                result.changes.append("provision_ceph_admin_identity")
 
         if endpoint is None and (draft.manager or draft.portal):
             result.changes.append("validate_ceph_account_api")
         if endpoint is None and draft.ceph_admin:
-            result.changes.append("validate_ceph_admin")
+            result.changes.append("provision_ceph_admin_identity")
         if endpoint is None and draft.supervision:
             result.changes.extend(
                 ["validate_supervision", "enable_endpoint_supervision_features"]
@@ -260,8 +255,6 @@ class OnboardingService:
                         endpoint.ceph_admin_allowed,
                         endpoint.supervision_access_key,
                         endpoint.supervision_secret_key,
-                        endpoint.ceph_admin_access_key,
-                        endpoint.ceph_admin_secret_key,
                     )
                 ).encode()
             ).hexdigest()

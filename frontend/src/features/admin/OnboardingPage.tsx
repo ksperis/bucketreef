@@ -1263,11 +1263,13 @@ export default function OnboardingPage() {
                     {draft.ceph_admin && (
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="ui-caption font-semibold text-[var(--ui-text)]">
-                          {t(copy.cephAdminCredentials)}
+                          Managed Ceph Admin identity
                         </span>
                         <CredentialStatusBadge
-                          status={runtimeCredentialCheck.status}
-                          message={runtimeCredentialCheck.message}
+                          status={endpointValidation.result?.admin_ops_permissions.users_write ? "valid" : "denied"}
+                          message={endpointValidation.result?.admin_ops_permissions.users_write
+                            ? "Admin Ops users=write is available for provisioning."
+                            : "Admin Ops users=write is required for provisioning."}
                         />
                       </div>
                     )}

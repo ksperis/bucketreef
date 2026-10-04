@@ -12,7 +12,6 @@ const endpoint = {
   provider: "ceph",
   has_admin_secret: false,
   has_supervision_secret: false,
-  has_ceph_admin_secret: false,
   features: {
     admin: { enabled: false },
     account: { enabled: false },

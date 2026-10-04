@@ -79,8 +79,6 @@ const cephEndpoint = {
   admin_access_key: "admin-key",
   has_admin_secret: true,
   has_supervision_secret: false,
-  ceph_admin_access_key: "ceph-admin-key",
-  has_ceph_admin_secret: true,
   features: {},
   is_default: true,
   is_editable: true,
@@ -97,8 +95,6 @@ const awsEndpoint = {
   provider: "other",
   admin_access_key: null,
   has_admin_secret: false,
-  ceph_admin_access_key: null,
-  has_ceph_admin_secret: false,
 } as StorageEndpoint;
 
 function previewFor(draft: OnboardingDraft): OnboardingPreview {
@@ -153,7 +149,6 @@ function detectionFor(
       runtime: credentialCheck(payload.runtime_access_key),
       admin: credentialCheck(payload.admin_access_key),
       supervision: credentialCheck(payload.supervision_access_key),
-      ceph_admin: credentialCheck(payload.ceph_admin_access_key),
     },
   };
 }

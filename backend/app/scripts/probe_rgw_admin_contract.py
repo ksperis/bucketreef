@@ -97,13 +97,11 @@ def main() -> int:
     access_key = _env_str(
         "CEPH_TEST_RGW_ADMIN_ACCESS_KEY",
         "SEED_RGW_ADMIN_ACCESS_KEY",
-        "SEED_CEPH_ADMIN_ACCESS_KEY",
         "SEED_S3_ACCESS_KEY",
     )
     secret_key = _env_str(
         "CEPH_TEST_RGW_ADMIN_SECRET_KEY",
         "SEED_RGW_ADMIN_SECRET_KEY",
-        "SEED_CEPH_ADMIN_SECRET_KEY",
         "SEED_S3_SECRET_KEY",
     )
     region = _env_str("CEPH_TEST_RGW_REGION", "SEED_S3_REGION")

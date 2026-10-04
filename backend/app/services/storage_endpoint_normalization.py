@@ -30,14 +30,11 @@ _EndpointCredentialValues = tuple[
     Optional[str],
     Optional[str],
     Optional[str],
-    Optional[str],
-    Optional[str],
 ]
 _CREDENTIAL_FIELD_PAIRS = (
     ("admin_access_key", "admin_secret_key"),
     ("runtime_access_key", "runtime_secret_key"),
     ("supervision_access_key", "supervision_secret_key"),
-    ("ceph_admin_access_key", "ceph_admin_secret_key"),
 )
 _PRESERVE_EXISTING_ON_NULL_UPDATE_FIELDS = frozenset(
     {
@@ -64,8 +61,6 @@ class EnvStorageEndpoint(ApiModel):
     ceph_admin_allowed: bool = False
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
-    ceph_admin_access_key: Optional[str] = None
-    ceph_admin_secret_key: Optional[str] = None
     features_config: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -105,8 +100,6 @@ class NormalizedEndpointState:
     ceph_admin_allowed: bool | None
     supervision_access_key: Optional[str]
     supervision_secret_key: Optional[str]
-    ceph_admin_access_key: Optional[str]
-    ceph_admin_secret_key: Optional[str]
     features_config: str
     is_default: bool = False
 
@@ -161,8 +154,6 @@ def _validate_credentials(
     admin_secret_key: Optional[str],
     supervision_access_key: Optional[str],
     supervision_secret_key: Optional[str],
-    ceph_admin_access_key: Optional[str],
-    ceph_admin_secret_key: Optional[str],
     admin_enabled: bool,
     supervision_required: bool,
 ) -> _EndpointCredentialValues:
@@ -177,19 +168,13 @@ def _validate_credentials(
             raise ValueError(
                 "Ceph endpoints with usage or metrics enabled require a supervision access key and secret key."
             )
-        if bool(ceph_admin_access_key) != bool(ceph_admin_secret_key):
-            raise ValueError(
-                "Ceph Admin credentials require both access key and secret key."
-            )
         return (
             admin_access_key,
             admin_secret_key,
             supervision_access_key,
             supervision_secret_key,
-            ceph_admin_access_key,
-            ceph_admin_secret_key,
         )
-    return None, None, None, None, None, None
+    return None, None, None, None
 
 
 def normalize_storage_endpoint_state(
@@ -219,16 +204,12 @@ def normalize_storage_endpoint_state(
         admin_secret_key,
         supervision_access_key,
         supervision_secret_key,
-        ceph_admin_access_key,
-        ceph_admin_secret_key,
     ) = _validate_credentials(
         provider,
         normalize_optional_string(payload.admin_access_key),
         normalize_optional_string(payload.admin_secret_key),
         normalize_optional_string(payload.supervision_access_key),
         normalize_optional_string(payload.supervision_secret_key),
-        normalize_optional_string(payload.ceph_admin_access_key),
-        normalize_optional_string(payload.ceph_admin_secret_key),
         admin_enabled,
         supervision_required and payload.service_identity_mode == "external",
     )
@@ -253,8 +234,6 @@ def normalize_storage_endpoint_state(
         ceph_admin_allowed=payload.ceph_admin_allowed if provider == StorageProvider.CEPH else False,
         supervision_access_key=supervision_access_key,
         supervision_secret_key=supervision_secret_key,
-        ceph_admin_access_key=ceph_admin_access_key,
-        ceph_admin_secret_key=ceph_admin_secret_key,
         features_config=features_config,
     )
 
@@ -373,8 +352,6 @@ def normalize_env_storage_endpoint_states(
                 ceph_admin_allowed=entry.ceph_admin_allowed,
                 supervision_access_key=entry.supervision_access_key,
                 supervision_secret_key=entry.supervision_secret_key,
-                ceph_admin_access_key=entry.ceph_admin_access_key,
-                ceph_admin_secret_key=entry.ceph_admin_secret_key,
                 features_config=raw_features,
                 latitude=entry.latitude,
                 longitude=entry.longitude,

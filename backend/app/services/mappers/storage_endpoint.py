@@ -41,7 +41,6 @@ def storage_endpoint_from_db(
                                  last_error=row.last_error, last_reconciled_at=row.last_reconciled_at)
                             for row in endpoint.service_identities],
         supervision_access_key=endpoint.supervision_access_key,
-        ceph_admin_access_key=endpoint.ceph_admin_access_key,
         capabilities=capabilities,
         admin_ops_permissions=admin_ops_permissions,
         is_default=bool(endpoint.is_default),
@@ -51,7 +50,6 @@ def storage_endpoint_from_db(
         tags=tags or [],
         has_admin_secret=bool(endpoint.admin_secret_key),
         has_supervision_secret=bool(endpoint.supervision_secret_key),
-        has_ceph_admin_secret=bool(endpoint.ceph_admin_secret_key),
         features_config=endpoint.features_config,
         features=features,
     )

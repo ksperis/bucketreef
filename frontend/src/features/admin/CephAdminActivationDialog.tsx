@@ -55,9 +55,7 @@ export default function CephAdminActivationDialog({ enabled, onApplied, onClose 
       {enabled && endpoints?.map(endpoint => <SettingsChoiceRow key={endpoint.id} title={endpoint.name} ariaLabel={endpoint.name}
         checked={selected.includes(endpoint.id)} disabled={busy || !endpoint.admin_ops_permissions?.users_write}
         onChange={checked => setSelected(current => checked ? [...current, endpoint.id] : current.filter(id => id !== endpoint.id))}
-        description={!endpoint.admin_ops_permissions?.users_write ? "Admin Ops users=write required." : undefined}>
-        {endpoint.service_identities?.some(row => row.kind === "ceph_admin" && row.mode === "external") && <span className="block settings-description">Selecting this endpoint replaces the external credentials with a managed identity. Its existing RGW user is preserved.</span>}
-      </SettingsChoiceRow>)}
+        description={!endpoint.admin_ops_permissions?.users_write ? "Admin Ops users=write required." : undefined} />)}
       {enabled && <SettingsChoiceRow title="Grant me access to the Ceph Admin workspace" ariaLabel="Grant me access to the Ceph Admin workspace" checked={grant} disabled={busy} onChange={setGrant} />}
       {result?.endpoints.map(row => <div key={row.endpoint_id} role="status">
         <p>{endpoints?.find(endpoint => endpoint.id === row.endpoint_id)?.name ?? row.endpoint_id} · {row.active ? "Active" : row.status}</p>

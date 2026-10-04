@@ -73,7 +73,6 @@ const createEmptyCredentialChecks = (): StorageEndpointCredentialChecks => ({
   runtime: { status: "not_configured" },
   admin: { status: "not_configured" },
   supervision: { status: "not_configured" },
-  ceph_admin: { status: "not_configured" },
 });
 const configurationSignature = (form: FormState) => stableSignature({ ...form, tags: [] });
 function extractError(err: unknown): string {
@@ -358,8 +357,6 @@ export default function StorageEndpointsPage() {
         admin_secret_key: provider === "ceph" ? prev.admin_secret_key : "",
         supervision_access_key: provider === "ceph" ? prev.supervision_access_key : "",
         supervision_secret_key: provider === "ceph" ? prev.supervision_secret_key : "",
-        ceph_admin_access_key: provider === "ceph" ? prev.ceph_admin_access_key : "",
-        ceph_admin_secret_key: provider === "ceph" ? prev.ceph_admin_secret_key : "",
         features: constrained,
       };
     });

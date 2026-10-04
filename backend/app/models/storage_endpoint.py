@@ -72,8 +72,6 @@ class StorageEndpointCreate(ApiModel):
     ceph_admin_allowed: bool = False
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
-    ceph_admin_access_key: Optional[str] = None
-    ceph_admin_secret_key: Optional[str] = None
     features_config: Optional[str] = None
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)
@@ -116,8 +114,6 @@ class StorageEndpointUpdate(ApiModel):
     ceph_admin_allowed: Optional[bool] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
-    ceph_admin_access_key: Optional[str] = None
-    ceph_admin_secret_key: Optional[str] = None
     features_config: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -156,7 +152,6 @@ class StorageEndpoint(StorageEndpointCreate):
     service_identities: list[EndpointServiceIdentityStatus] = Field(default_factory=list)
     ceph_admin_active: bool = False
     has_supervision_secret: bool = False
-    has_ceph_admin_secret: bool = False
     capabilities: dict[str, bool] = Field(default_factory=dict)
     admin_ops_permissions: StorageEndpointAdminOpsPermissions = Field(
         default_factory=StorageEndpointAdminOpsPermissions
@@ -167,7 +162,6 @@ class StorageEndpoint(StorageEndpointCreate):
     admin_secret_key: Optional[str] = Field(default=None, exclude=True)
     runtime_secret_key: Optional[str] = Field(default=None, exclude=True)
     supervision_secret_key: Optional[str] = Field(default=None, exclude=True)
-    ceph_admin_secret_key: Optional[str] = Field(default=None, exclude=True)
 
 
 class StorageEndpointPublic(ApiModel):
@@ -200,8 +194,6 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
     runtime_secret_key: Optional[str] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
-    ceph_admin_access_key: Optional[str] = None
-    ceph_admin_secret_key: Optional[str] = None
 
     normalize_string_fields = field_validator(
         "endpoint_url",
@@ -213,8 +205,6 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
         "runtime_secret_key",
         "supervision_access_key",
         "supervision_secret_key",
-        "ceph_admin_access_key",
-        "ceph_admin_secret_key",
         mode="before",
     )(normalize_optional_string_field)
 
@@ -236,9 +226,6 @@ class StorageEndpointCredentialChecks(ApiModel):
         default_factory=StorageEndpointCredentialCheck
     )
     supervision: StorageEndpointCredentialCheck = Field(
-        default_factory=StorageEndpointCredentialCheck
-    )
-    ceph_admin: StorageEndpointCredentialCheck = Field(
         default_factory=StorageEndpointCredentialCheck
     )
 

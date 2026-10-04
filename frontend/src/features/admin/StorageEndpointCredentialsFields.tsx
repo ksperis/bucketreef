@@ -13,7 +13,7 @@ import {
   SUPERVISION_OPS_COMMAND,
 } from "./storageEndpointCredentialHelp";
 
-type CredentialKind = "admin" | "runtime" | "supervision" | "ceph_admin";
+type CredentialKind = "admin" | "runtime" | "supervision";
 type Props = {
   form: FormState;
   setForm: Dispatch<SetStateAction<FormState>>;

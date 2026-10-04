@@ -19,7 +19,6 @@ from app.models.storage_endpoint import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import (
     classify_rgw_credential_failure,
-    extract_ceph_admin_flags,
 )
 from app.services.storage_endpoint_admin_permissions import (
     admin_ops_permissions_from_caps,
@@ -55,7 +54,6 @@ class _FeatureDetectionContext:
     admin_credentials: _FeatureDetectionCredentials
     runtime_credentials: _FeatureDetectionCredentials
     supervision_credentials: _FeatureDetectionCredentials
-    ceph_admin_credentials: _FeatureDetectionCredentials
 
 
 class StorageEndpointFeatureDetector:
@@ -176,20 +174,6 @@ class StorageEndpointFeatureDetector:
                 else None
             ),
         )
-        ceph_admin_credentials = self._credentials(
-            payload.ceph_admin_access_key,
-            payload.ceph_admin_secret_key,
-            stored_access_key=(
-                stored_endpoint.ceph_admin_access_key
-                if stored_endpoint and allow_stored_secret_reuse
-                else None
-            ),
-            stored_secret_key=(
-                stored_endpoint.ceph_admin_secret_key
-                if stored_endpoint and allow_stored_secret_reuse
-                else None
-            ),
-        )
         return _FeatureDetectionContext(
             endpoint_url=endpoint_url,
             admin_endpoint=admin_endpoint,
@@ -202,7 +186,6 @@ class StorageEndpointFeatureDetector:
                 stored_secret_key=stored_endpoint.runtime_secret_key if stored_endpoint and allow_stored_secret_reuse else None,
             ),
             supervision_credentials=supervision_credentials,
-            ceph_admin_credentials=ceph_admin_credentials,
         )
 
     @staticmethod
@@ -396,59 +379,6 @@ class StorageEndpointFeatureDetector:
                 return True
         return False
 
-    def _detect_ceph_admin_credentials(
-        self,
-        context: _FeatureDetectionContext,
-        result: StorageEndpointFeatureDetectionResult,
-    ) -> None:
-        credentials = context.ceph_admin_credentials
-        if credentials.partial:
-            result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
-                status="incomplete",
-                message="Enter both the Ceph Admin access key and secret key.",
-            )
-            return
-        if not credentials.complete:
-            return
-
-        try:
-            client = self._client(context, credentials)
-            user_payload = client.get_user_by_access_key(
-                credentials.access_key,
-                allow_not_found=True,
-            )
-        except RGWAdminError as exc:
-            result.credential_checks.ceph_admin = self._failed_check(
-                exc,
-                denied_message="Ceph Admin credentials were denied by RGW.",
-                unavailable_message=(
-                    "Ceph Admin access could not be checked because the RGW "
-                    "endpoint is unavailable."
-                ),
-            )
-            return
-
-        if not isinstance(user_payload, dict) or not user_payload:
-            result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
-                status="denied",
-                message="Ceph Admin access key does not map to an RGW user.",
-            )
-            return
-        is_admin, is_system = extract_ceph_admin_flags(user_payload)
-        if not is_admin and not is_system:
-            result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
-                status="denied",
-                message=(
-                    "Ceph Admin access requires an RGW user created with --admin "
-                    "or --system."
-                ),
-            )
-            return
-        result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
-            status="valid",
-            message="Ceph Admin access and privileges were validated by RGW.",
-        )
-
     def _detect_runtime_credentials(self, context, result):
         credentials = context.runtime_credentials
         if credentials.partial:
@@ -498,8 +428,6 @@ class StorageEndpointFeatureDetector:
             self._detect_supervision_features(context, result)
         if not result.admin_ops_permissions.usage_read:
             result.usage = False
-        self._detect_ceph_admin_credentials(context, result)
-
         if result.metrics and not result.usage:
             result.warnings.append(
                 "Usage logs returned no usable data; verify rgw_enable_usage_log is enabled and that RGW has recorded traffic."

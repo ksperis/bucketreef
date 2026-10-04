@@ -117,7 +117,6 @@ function makeEndpoint(overrides?: Partial<Record<string, unknown>>) {
     has_runtime_secret: true,
     has_admin_secret: false,
     has_supervision_secret: false,
-    has_ceph_admin_secret: false,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -328,8 +327,6 @@ describe("StorageEndpointsPage tags", () => {
         has_admin_secret: true,
         supervision_access_key: "supervision-key",
         has_supervision_secret: true,
-        ceph_admin_access_key: "ceph-admin-key",
-        has_ceph_admin_secret: true,
         features: {
           admin: { enabled: true, endpoint: "https://admin.ceph.example.test" },
           account: { enabled: true },
@@ -414,8 +411,6 @@ describe("StorageEndpointsPage tags", () => {
         has_admin_secret: true,
         supervision_access_key: "supervision-key",
         has_supervision_secret: true,
-        ceph_admin_access_key: "ceph-admin-key",
-        has_ceph_admin_secret: true,
       }),
     ]);
 
@@ -453,8 +448,6 @@ describe("StorageEndpointsPage tags", () => {
         has_admin_secret: true,
         supervision_access_key: "supervision-key",
         has_supervision_secret: true,
-        ceph_admin_access_key: "ceph-admin-key",
-        has_ceph_admin_secret: true,
       }),
     ]);
     detectStorageEndpointFeaturesMock.mockResolvedValueOnce({
@@ -492,8 +485,6 @@ describe("StorageEndpointsPage tags", () => {
         has_admin_secret: true,
         supervision_access_key: "supervision-key",
         has_supervision_secret: true,
-        ceph_admin_access_key: "ceph-admin-key",
-        has_ceph_admin_secret: true,
       }),
     ]);
     let resolveStaleRequest: ((value: unknown) => void) | undefined;
