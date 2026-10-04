@@ -32,7 +32,7 @@ from app.services.quota_alert_state_service import (
     QuotaAlertStateService,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
+from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.quota_subject import SubjectContext
 from app.services.quota_usage_history_service import QuotaUsageHistoryService
@@ -40,7 +40,6 @@ from app.services.user_notifications_service import UserNotificationsService
 from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
 from app.services.webhook_service import WebhookEventPublisher
 from app.utils.rgw_payloads import extract_bucket_list
-from app.utils.storage_endpoint_features import resolve_admin_endpoint
 from app.utils.time import utcnow
 from app.utils.usage_stats import extract_usage_stats
 
@@ -66,7 +65,7 @@ class _QuotaMonitorRun:
     summary: dict[str, Any]
     endpoint_map: dict[int, StorageEndpoint]
     usage_clients: dict[int, RGWAdminClient | None]
-    admin_clients: dict[int, RGWAdminClient | None]
+    runtime_clients: dict[int, RGWAdminClient | None]
     notifications: UserNotificationsService
     history: QuotaUsageHistoryService
     alert_states: QuotaAlertStateService
@@ -194,7 +193,7 @@ class QuotaMonitoringService:
             summary=summary,
             endpoint_map=endpoint_map,
             usage_clients={},
-            admin_clients={},
+            runtime_clients={},
             notifications=UserNotificationsService(self.db),
             history=QuotaUsageHistoryService(self.db),
             alert_states=alert_states,
@@ -286,8 +285,8 @@ class QuotaMonitoringService:
         endpoint: StorageEndpoint,
         run: _QuotaMonitorRun,
     ) -> tuple[int | None, int | None]:
-        admin_client = self._resolve_admin_client(endpoint, run.admin_clients)
-        if admin_client is None:
+        runtime_client = self._resolve_runtime_client(endpoint, run.runtime_clients)
+        if runtime_client is None:
             run.summary["warnings"].append(
                 self._subject_issue(
                     subject,
@@ -297,7 +296,7 @@ class QuotaMonitoringService:
             )
             return None, None
         try:
-            return self._collect_quota(admin_client, subject)
+            return self._collect_quota(runtime_client, subject)
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning(
                 "Quota monitor quota collection failed for %s:%s: %s",
@@ -528,7 +527,7 @@ class QuotaMonitoringService:
             )
         return subjects
 
-    def _resolve_admin_client(
+    def _resolve_runtime_client(
         self,
         endpoint: StorageEndpoint,
         cache: dict[int, RGWAdminClient | None],
@@ -539,12 +538,8 @@ class QuotaMonitoringService:
         if endpoint.provider != StorageProvider.CEPH.value:
             cache[endpoint.id] = None
             return None
-        admin_endpoint = resolve_admin_endpoint(endpoint)
-        if not admin_endpoint or not endpoint.admin_access_key or not endpoint.admin_secret_key:
-            cache[endpoint.id] = None
-            return None
         try:
-            client = get_endpoint_admin_rgw_client(endpoint)
+            client = get_endpoint_runtime_rgw_client(endpoint)
         except Exception:
             client = None
         cache[endpoint.id] = client
@@ -590,16 +585,16 @@ class QuotaMonitoringService:
 
     def _collect_quota(
         self,
-        admin: RGWAdminClient,
+        client: RGWAdminClient,
         subject: SubjectContext,
     ) -> tuple[int | None, int | None]:
         if subject.subject_type == "account":
             if not subject.quota_account_id:
                 return None, None
-            return admin.get_account_quota(subject.quota_account_id)
+            return client.get_account_quota(subject.quota_account_id)
         if not subject.quota_user_uid:
             return None, None
-        return admin.get_user_quota(subject.quota_user_uid)
+        return client.get_user_quota(subject.quota_user_uid)
 
     def _compute_usage_ratio(
         self,
