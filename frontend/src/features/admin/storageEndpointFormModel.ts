@@ -359,6 +359,12 @@ export function resolveFeatureState(
 }
 
 export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
+  const runtimeIdentity = endpoint.service_identities?.find(
+    (identity) => identity.kind === "runtime",
+  );
+  const supervisionIdentity = endpoint.service_identities?.find(
+    (identity) => identity.kind === "supervision",
+  );
   return {
     name: endpoint.name ?? "",
     endpoint_url: endpoint.endpoint_url ?? "",
@@ -369,17 +375,17 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     longitude: formatCoordinateInput(endpoint.longitude),
     provider: endpoint.provider,
     tags: normalizeUiTags(endpoint.tags),
-    service_identity_mode: endpoint.service_identity_mode ?? "external",
-    runtime_access_key: endpoint.runtime_access_key ?? "",
+    service_identity_mode: runtimeIdentity?.mode ?? "external",
+    runtime_access_key: "",
     runtime_secret_key: "",
-    has_runtime_secret: Boolean(endpoint.has_runtime_secret),
+    has_runtime_secret: Boolean(runtimeIdentity?.credentials_configured),
     ceph_admin_allowed: Boolean(endpoint.ceph_admin_allowed),
     admin_access_key: endpoint.admin_access_key ?? "",
     admin_secret_key: "",
-    supervision_access_key: endpoint.supervision_access_key ?? "",
+    supervision_access_key: "",
     supervision_secret_key: "",
     has_admin_secret: Boolean(endpoint.has_admin_secret),
-    has_supervision_secret: Boolean(endpoint.has_supervision_secret),
+    has_supervision_secret: Boolean(supervisionIdentity?.credentials_configured),
     features: resolveFeatureState(endpoint, endpoint.provider),
   };
 }

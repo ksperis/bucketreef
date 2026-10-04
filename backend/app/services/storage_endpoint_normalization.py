@@ -5,12 +5,13 @@ from dataclasses import dataclass, replace
 from typing import Literal, Optional
 
 import yaml
-from pydantic import ValidationError, field_validator
+from pydantic import SecretStr, ValidationError, field_validator
 
 from app.db import StorageEndpoint, StorageProvider
 from app.models.base import ApiModel
 from app.models.storage_endpoint import (
     StorageEndpointCreate,
+    StorageEndpointMetadata,
     StorageEndpointUpdate,
 )
 from app.utils.normalize import (
@@ -74,12 +75,12 @@ class EnvStorageEndpoint(ApiModel):
     @field_validator("latitude")
     @classmethod
     def validate_latitude(_cls, value: Optional[float]) -> Optional[float]:
-        return StorageEndpointCreate.validate_latitude(value)
+        return StorageEndpointMetadata.validate_latitude(value)
 
     @field_validator("longitude")
     @classmethod
     def validate_longitude(_cls, value: Optional[float]) -> Optional[float]:
-        return StorageEndpointCreate.validate_longitude(value)
+        return StorageEndpointMetadata.validate_longitude(value)
 
 
 @dataclass(frozen=True)
@@ -136,6 +137,10 @@ def parse_env_storage_endpoints(raw: str | None) -> list[EnvStorageEndpoint]:
 def _normalize_name(value: Optional[str], fallback: str = "Endpoint") -> str:
     normalized = (value or fallback).strip()
     return normalized or fallback
+
+
+def _secret_value(value: SecretStr | str | None) -> str | None:
+    return value.get_secret_value() if isinstance(value, SecretStr) else value
 
 
 def _normalize_region(
@@ -207,14 +212,14 @@ def normalize_storage_endpoint_state(
     ) = _validate_credentials(
         provider,
         normalize_optional_string(payload.admin_access_key),
-        normalize_optional_string(payload.admin_secret_key),
+        normalize_optional_string(_secret_value(payload.admin_secret_key)),
         normalize_optional_string(payload.supervision_access_key),
-        normalize_optional_string(payload.supervision_secret_key),
+        normalize_optional_string(_secret_value(payload.supervision_secret_key)),
         admin_enabled,
         supervision_required and payload.service_identity_mode == "external",
     )
     runtime_access = normalize_optional_string(payload.runtime_access_key) if provider == StorageProvider.CEPH else None
-    runtime_secret = normalize_optional_string(payload.runtime_secret_key) if provider == StorageProvider.CEPH else None
+    runtime_secret = normalize_optional_string(_secret_value(payload.runtime_secret_key)) if provider == StorageProvider.CEPH else None
     if require_external_runtime and provider == StorageProvider.CEPH and payload.service_identity_mode == "external" and admin_access_key and (not runtime_access or not runtime_secret):
         raise ValueError("External service identities require Runtime access key and secret key.")
     return NormalizedEndpointState(
@@ -247,10 +252,15 @@ def normalize_storage_endpoint_update(
     supervision = endpoint.service_identity("supervision")
     current_identity_mode = runtime.mode if runtime is not None else "managed"
     if current_identity_mode == "managed" and payload.service_identity_mode == "external":
-        if not payload.runtime_access_key or not payload.runtime_secret_key:
+        if not normalize_optional_string(payload.runtime_access_key) or not normalize_optional_string(_secret_value(payload.runtime_secret_key)):
             raise ValueError("Switching to external mode requires replacement Runtime credentials.")
         features = normalize_features_config(endpoint.provider, payload.features_config or endpoint.features_config, endpoint.region)
-        if (features["metrics"]["enabled"] or features["usage"]["enabled"]) and (not payload.supervision_access_key or not payload.supervision_secret_key):
+        if (
+            features["metrics"]["enabled"] or features["usage"]["enabled"]
+        ) and (
+            not normalize_optional_string(payload.supervision_access_key)
+            or not normalize_optional_string(_secret_value(payload.supervision_secret_key))
+        ):
             raise ValueError("Switching to external mode requires replacement Supervision credentials.")
     merged = StorageEndpointCreate(
         name=endpoint.name,

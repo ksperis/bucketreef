@@ -21,8 +21,6 @@ def storage_endpoint_from_db(
     tags: list[TagDefinitionSummary] | None = None,
     ceph_admin_enabled: bool = False,
 ) -> StorageEndpoint:
-    runtime = endpoint.service_identity("runtime")
-    supervision = endpoint.service_identity("supervision")
     return StorageEndpoint(
         id=endpoint.id,
         name=endpoint.name,
@@ -34,15 +32,12 @@ def storage_endpoint_from_db(
         longitude=endpoint.longitude,
         provider=provider,
         admin_access_key=endpoint.admin_access_key,
-        service_identity_mode=runtime.mode if runtime is not None else "managed",
-        runtime_access_key=runtime.access_key if runtime is not None else None,
-        has_runtime_secret=bool(runtime and runtime.secret_key),
         ceph_admin_allowed=endpoint.ceph_admin_allowed,
         ceph_admin_active=ceph_admin_identity_active(endpoint, ceph_admin_enabled=ceph_admin_enabled),
         service_identities=[dict(kind=row.kind, mode=row.mode, rgw_uid=row.rgw_uid, status=row.status,
+                                 credentials_configured=bool(row.access_key and row.secret_key),
                                  last_error=row.last_error, last_reconciled_at=row.last_reconciled_at)
                             for row in endpoint.service_identities],
-        supervision_access_key=supervision.access_key if supervision is not None else None,
         capabilities=capabilities,
         admin_ops_permissions=admin_ops_permissions,
         is_default=bool(endpoint.is_default),
@@ -51,7 +46,6 @@ def storage_endpoint_from_db(
         updated_at=endpoint.updated_at,
         tags=tags or [],
         has_admin_secret=bool(endpoint.admin_secret_key),
-        has_supervision_secret=bool(supervision and supervision.secret_key),
         features_config=endpoint.features_config,
         features=features,
     )

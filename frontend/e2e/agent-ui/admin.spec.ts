@@ -20,7 +20,7 @@ test("validates controlled Ceph Admin activation and pending revocation", async 
     const rows = await response.json();
     const endpoint = rows[0];
     await route.fulfill({ response, json: [
-      { ...endpoint, id: 901, name: "Ceph managed candidate", provider: "ceph", ceph_admin_allowed: enabled, service_identity_mode: "external", service_identities: [{ kind: "ceph_admin", mode: "external", status: "ready" }], admin_ops_permissions: { users_read: true, users_write: true, accounts_read: true, accounts_write: false } },
+      { ...endpoint, id: 901, name: "Ceph managed candidate", provider: "ceph", ceph_admin_allowed: enabled, service_identities: [{ kind: "ceph_admin", mode: "external", status: "ready" }], admin_ops_permissions: { users_read: true, users_write: true, accounts_read: true, accounts_write: false } },
       { ...endpoint, id: 902, name: "Ceph read-only operator", provider: "ceph", admin_ops_permissions: { users_read: true, users_write: false, accounts_read: true, accounts_write: false } },
     ] });
   });
@@ -65,11 +65,10 @@ test("shows managed Runtime state and requires explicit external replacements", 
     const response = await route.fetch();
     const rows = await response.json();
     await route.fulfill({ response, json: [{ ...rows[0], id: 901, name: "Ceph Runtime identity", provider: "ceph", is_editable: true,
-      admin_access_key: "OPERATOR", has_admin_secret: true, service_identity_mode: "managed",
-      runtime_access_key: "GENERATED-KEY", has_runtime_secret: true,
+      admin_access_key: "OPERATOR", has_admin_secret: true,
       capabilities: { admin: true, account: true, metrics: false, usage: false },
       features: { ...rows[0].features, admin: { enabled: true }, account: { enabled: true }, metrics: { enabled: false }, usage: { enabled: false } },
-      service_identities: [{ kind: "runtime", mode: "managed", status: "ready" }],
+      service_identities: [{ kind: "runtime", mode: "managed", status: "ready", credentials_configured: true }],
       admin_ops_permissions: { users_read: true, users_write: true, accounts_read: true, accounts_write: false },
     }] });
   });

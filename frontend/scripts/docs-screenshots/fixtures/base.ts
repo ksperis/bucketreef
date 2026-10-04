@@ -76,8 +76,10 @@ const ADMIN_STORAGE_ENDPOINTS = [
     provider: "ceph",
     admin_access_key: "KLOADMINDEFAULT",
     has_admin_secret: true,
-    supervision_access_key: "KLOSUPDEFAULT",
-    has_supervision_secret: true,
+    service_identities: [
+      { kind: "runtime", mode: "managed", status: "ready", credentials_configured: true },
+      { kind: "supervision", mode: "managed", status: "ready", credentials_configured: true },
+    ],
     capabilities: {
       admin: true,
       account: true,
@@ -122,8 +124,6 @@ const ADMIN_STORAGE_ENDPOINTS = [
     provider: "other",
     admin_access_key: null,
     has_admin_secret: false,
-    supervision_access_key: null,
-    has_supervision_secret: false,
     capabilities: {
       admin: false,
       account: false,

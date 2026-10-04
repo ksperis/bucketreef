@@ -22,6 +22,21 @@ const makeTag = (id: number, label: string, color_key = "neutral", scope = "stan
   scope,
 });
 
+const externalServiceIdentities = (supervisionConfigured = false) => [
+  {
+    kind: "runtime",
+    mode: "external",
+    status: "ready",
+    credentials_configured: true,
+  },
+  {
+    kind: "supervision",
+    mode: "external",
+    status: "ready",
+    credentials_configured: supervisionConfigured,
+  },
+];
+
 function expectBefore(first: Element, second: Element) {
   expect(Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
 }
@@ -112,11 +127,8 @@ function makeEndpoint(overrides?: Partial<Record<string, unknown>>) {
       replication: { enabled: false },
       healthcheck: { enabled: true, mode: "http" },
     },
-    service_identity_mode: "external",
-    runtime_access_key: "runtime-key",
-    has_runtime_secret: true,
+    service_identities: externalServiceIdentities(),
     has_admin_secret: false,
-    has_supervision_secret: false,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -325,8 +337,7 @@ describe("StorageEndpointsPage tags", () => {
         longitude: 1.4442,
         admin_access_key: "admin-key",
         has_admin_secret: true,
-        supervision_access_key: "supervision-key",
-        has_supervision_secret: true,
+        service_identities: externalServiceIdentities(true),
         features: {
           admin: { enabled: true, endpoint: "https://admin.ceph.example.test" },
           account: { enabled: true },
@@ -409,8 +420,7 @@ describe("StorageEndpointsPage tags", () => {
       makeEndpoint({
         admin_access_key: "admin-key",
         has_admin_secret: true,
-        supervision_access_key: "supervision-key",
-        has_supervision_secret: true,
+        service_identities: externalServiceIdentities(true),
       }),
     ]);
 
@@ -428,9 +438,9 @@ describe("StorageEndpointsPage tags", () => {
       expect.objectContaining({
         admin_access_key: "admin-key",
         admin_secret_key: null,
-        supervision_access_key: "supervision-key",
+        supervision_access_key: null,
         supervision_secret_key: null,
-        runtime_access_key: "runtime-key",
+        runtime_access_key: null,
         runtime_secret_key: null,
       })
     );
@@ -446,8 +456,7 @@ describe("StorageEndpointsPage tags", () => {
       makeEndpoint({
         admin_access_key: "admin-key",
         has_admin_secret: true,
-        supervision_access_key: "supervision-key",
-        has_supervision_secret: true,
+        service_identities: externalServiceIdentities(true),
       }),
     ]);
     detectStorageEndpointFeaturesMock.mockResolvedValueOnce({
@@ -483,8 +492,7 @@ describe("StorageEndpointsPage tags", () => {
       makeEndpoint({
         admin_access_key: "admin-key",
         has_admin_secret: true,
-        supervision_access_key: "supervision-key",
-        has_supervision_secret: true,
+        service_identities: externalServiceIdentities(true),
       }),
     ]);
     let resolveStaleRequest: ((value: unknown) => void) | undefined;
@@ -560,8 +568,7 @@ describe("StorageEndpointsPage tags", () => {
       makeEndpoint({
         admin_access_key: "admin-key",
         has_admin_secret: true,
-        supervision_access_key: "supervision-key",
-        has_supervision_secret: true,
+        service_identities: externalServiceIdentities(true),
       }),
     ]);
 
@@ -580,9 +587,11 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     expect(screen.getByLabelText("Admin access key")).toHaveAttribute("readonly");
     expect(screen.getByLabelText("Admin access key")).toBeEnabled();
-    expect(screen.getAllByText("Stored — value hidden", { selector: "div" })).toHaveLength(3);
+    expect(screen.getAllByText("Stored — value hidden", { selector: "div" })).toHaveLength(1);
+    expect(screen.getAllByText("Configured — values hidden", { selector: "div" })).toHaveLength(2);
     expect(screen.queryByLabelText("Admin secret key")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Supervision access key")).toHaveAttribute("readonly");
+    expect(screen.queryByLabelText("Supervision access key")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Runtime access key")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Capabilities & health" }));
     expect(screen.getByLabelText("SNS topics enabled")).toBeDisabled();
@@ -871,8 +880,7 @@ describe("StorageEndpointsPage tags", () => {
       force_path_style: true,
       admin_access_key: "admin-key",
       has_admin_secret: true,
-      supervision_access_key: "supervision-key",
-      has_supervision_secret: true,
+      service_identities: externalServiceIdentities(true),
     })]);
 
     renderPage();
@@ -894,6 +902,11 @@ describe("StorageEndpointsPage tags", () => {
         })
       );
     });
+    const submittedPayload = updateStorageEndpointMock.mock.calls[0]?.[1];
+    expect(submittedPayload).not.toHaveProperty("runtime_access_key");
+    expect(submittedPayload).not.toHaveProperty("runtime_secret_key");
+    expect(submittedPayload).not.toHaveProperty("supervision_access_key");
+    expect(submittedPayload).not.toHaveProperty("supervision_secret_key");
   });
 
   it("preloads and clears GPS coordinates when editing an endpoint", async () => {
@@ -904,8 +917,7 @@ describe("StorageEndpointsPage tags", () => {
         longitude: 1.4442,
         admin_access_key: "admin-key",
         has_admin_secret: true,
-        supervision_access_key: "supervision-key",
-        has_supervision_secret: true,
+        service_identities: externalServiceIdentities(true),
       }),
     ]);
 

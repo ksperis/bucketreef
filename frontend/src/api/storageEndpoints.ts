@@ -55,15 +55,17 @@ export type StorageEndpoint = {
   provider: StorageProvider;
   admin_access_key?: string | null;
   has_admin_secret: boolean;
-  has_runtime_secret?: boolean;
   ceph_admin_active?: boolean;
-  service_identities?: { kind: "runtime" | "supervision" | "ceph_admin"; mode: "managed" | "external"; status: string; rgw_uid?: string | null; last_error?: string | null }[];
-  service_identity_mode?: "managed" | "external";
-  runtime_access_key?: string | null;
+  service_identities?: {
+    kind: "runtime" | "supervision" | "ceph_admin";
+    mode: "managed" | "external";
+    status: string;
+    rgw_uid?: string | null;
+    credentials_configured?: boolean;
+    last_error?: string | null;
+    last_reconciled_at?: string | null;
+  }[];
   ceph_admin_allowed?: boolean;
-
-  supervision_access_key?: string | null;
-  has_supervision_secret: boolean;
   capabilities?: Record<string, boolean> | null;
   admin_ops_permissions?: StorageEndpointAdminOpsPermissions | null;
   features_config?: string | null;

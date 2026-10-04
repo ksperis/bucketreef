@@ -75,16 +75,26 @@ const cephEndpoint = {
   force_path_style: true,
   verify_tls: true,
   provider: "ceph",
-  service_identity_mode: "managed",
+  service_identities: [
+    { kind: "runtime", mode: "managed", status: "ready", credentials_configured: true },
+    { kind: "supervision", mode: "managed", status: "ready", credentials_configured: false },
+  ],
   admin_access_key: "admin-key",
   has_admin_secret: true,
-  has_supervision_secret: false,
   features: {},
   is_default: true,
   is_editable: true,
   tags: [],
   created_at: createdAt,
   updated_at: createdAt,
+} as StorageEndpoint;
+
+const cephEndpointWithExternalIdentities = {
+  ...cephEndpoint,
+  service_identities: [
+    { kind: "runtime", mode: "external", status: "pending", credentials_configured: false },
+    { kind: "supervision", mode: "external", status: "pending", credentials_configured: false },
+  ],
 } as StorageEndpoint;
 
 const awsEndpoint = {
@@ -364,6 +374,7 @@ describe("simplified onboarding", () => {
   });
 
   it("validates external Runtime and Supervision while allowing missing usage data", async () => {
+    mocks.listStorageEndpoints.mockResolvedValue([cephEndpointWithExternalIdentities, awsEndpoint]);
     let usageHasData = false;
     mocks.detectStorageEndpointFeatures.mockImplementation(
       async (payload: StorageEndpointFeatureDetectionPayload) => {
@@ -539,11 +550,9 @@ describe("simplified onboarding", () => {
     mocks.applyOnboardingJourney.mockRejectedValueOnce(new Error("apply failed"));
     mocks.listStorageEndpoints.mockResolvedValue([
       {
-        ...cephEndpoint,
+        ...cephEndpointWithExternalIdentities,
         admin_access_key: null,
         has_admin_secret: false,
-        supervision_access_key: null,
-        has_supervision_secret: false,
       },
     ]);
 

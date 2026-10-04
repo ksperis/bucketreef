@@ -4,7 +4,7 @@ import math
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, SecretStr, field_validator
 
 from app.models.base import ApiModel
 from app.db import StorageProvider
@@ -53,25 +53,19 @@ class EndpointServiceIdentityStatus(ApiModel):
     mode: Literal["managed", "external"]
     rgw_uid: Optional[str] = None
     status: str
+    credentials_configured: bool = False
     last_error: Optional[str] = None
     last_reconciled_at: Optional[datetime] = None
 
 
-class StorageEndpointCreate(ApiModel):
+class StorageEndpointMetadata(ApiModel):
     name: str
     endpoint_url: str
     region: Optional[str] = None
     force_path_style: bool = False
     verify_tls: bool = True
     provider: StorageProvider = Field(default=StorageProvider.CEPH)
-    admin_access_key: Optional[str] = None
-    admin_secret_key: Optional[str] = None
-    service_identity_mode: Literal["managed", "external"] = "managed"
-    runtime_access_key: Optional[str] = None
-    runtime_secret_key: Optional[str] = None
     ceph_admin_allowed: bool = False
-    supervision_access_key: Optional[str] = None
-    supervision_secret_key: Optional[str] = None
     features_config: Optional[str] = None
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)
@@ -99,6 +93,16 @@ class StorageEndpointCreate(ApiModel):
         return value
 
 
+class StorageEndpointCreate(StorageEndpointMetadata):
+    admin_access_key: Optional[str] = None
+    admin_secret_key: Optional[SecretStr] = None
+    service_identity_mode: Literal["managed", "external"] = "managed"
+    runtime_access_key: Optional[str] = None
+    runtime_secret_key: Optional[SecretStr] = None
+    supervision_access_key: Optional[str] = None
+    supervision_secret_key: Optional[SecretStr] = None
+
+
 class StorageEndpointUpdate(ApiModel):
     name: Optional[str] = None
     endpoint_url: Optional[str] = None
@@ -107,13 +111,13 @@ class StorageEndpointUpdate(ApiModel):
     verify_tls: Optional[bool] = None
     provider: Optional[StorageProvider] = None
     admin_access_key: Optional[str] = None
-    admin_secret_key: Optional[str] = None
+    admin_secret_key: Optional[SecretStr] = None
     service_identity_mode: Optional[Literal["managed", "external"]] = None
     runtime_access_key: Optional[str] = None
-    runtime_secret_key: Optional[str] = None
+    runtime_secret_key: Optional[SecretStr] = None
     ceph_admin_allowed: Optional[bool] = None
     supervision_access_key: Optional[str] = None
-    supervision_secret_key: Optional[str] = None
+    supervision_secret_key: Optional[SecretStr] = None
     features_config: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -125,19 +129,19 @@ class StorageEndpointUpdate(ApiModel):
     @field_validator("latitude")
     @classmethod
     def validate_optional_latitude(cls, value: Optional[float]) -> Optional[float]:
-        return StorageEndpointCreate.validate_latitude(value)
+        return StorageEndpointMetadata.validate_latitude(value)
 
     @field_validator("longitude")
     @classmethod
     def validate_optional_longitude(cls, value: Optional[float]) -> Optional[float]:
-        return StorageEndpointCreate.validate_longitude(value)
+        return StorageEndpointMetadata.validate_longitude(value)
 
 
 class StorageEndpointTagsUpdate(ApiModel):
     tags: RequiredTagDefinitionList = Field(default_factory=list)
 
 
-class StorageEndpoint(StorageEndpointCreate):
+class StorageEndpoint(StorageEndpointMetadata):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -147,21 +151,16 @@ class StorageEndpoint(StorageEndpointCreate):
     created_at: datetime
     updated_at: datetime
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
+    admin_access_key: Optional[str] = None
     has_admin_secret: bool = False
-    has_runtime_secret: bool = False
     service_identities: list[EndpointServiceIdentityStatus] = Field(default_factory=list)
     ceph_admin_active: bool = False
-    has_supervision_secret: bool = False
     capabilities: dict[str, bool] = Field(default_factory=dict)
     admin_ops_permissions: StorageEndpointAdminOpsPermissions = Field(
         default_factory=StorageEndpointAdminOpsPermissions
     )
     features_config: Optional[str] = None
     features: StorageEndpointFeatures = Field(default_factory=StorageEndpointFeatures)
-
-    admin_secret_key: Optional[str] = Field(default=None, exclude=True)
-    runtime_secret_key: Optional[str] = Field(default=None, exclude=True)
-    supervision_secret_key: Optional[str] = Field(default=None, exclude=True)
 
 
 class StorageEndpointPublic(ApiModel):
@@ -189,11 +188,11 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
     verify_tls: Optional[bool] = None
     check_http: bool = False
     admin_access_key: Optional[str] = None
-    admin_secret_key: Optional[str] = None
+    admin_secret_key: Optional[SecretStr] = None
     runtime_access_key: Optional[str] = None
-    runtime_secret_key: Optional[str] = None
+    runtime_secret_key: Optional[SecretStr] = None
     supervision_access_key: Optional[str] = None
-    supervision_secret_key: Optional[str] = None
+    supervision_secret_key: Optional[SecretStr] = None
 
     normalize_string_fields = field_validator(
         "endpoint_url",

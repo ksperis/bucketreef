@@ -161,6 +161,7 @@ export function resolveCredentialCheckView({
   secretKey,
   storedAccessKey,
   hasStoredSecret,
+  reuseStoredCredentials = false,
   endpointReady,
   checking,
   check,
@@ -170,6 +171,7 @@ export function resolveCredentialCheckView({
   secretKey: string;
   storedAccessKey?: string | null;
   hasStoredSecret: boolean;
+  reuseStoredCredentials?: boolean;
   endpointReady: boolean;
   checking: boolean;
   check: StorageEndpointCredentialCheck;
@@ -177,14 +179,17 @@ export function resolveCredentialCheckView({
 }): { status: CredentialCheckViewStatus; message?: string | null } | null {
   const normalizedAccessKey = accessKey.trim();
   const normalizedSecretKey = secretKey.trim();
-  if (!normalizedAccessKey && !normalizedSecretKey) return null;
+  if (!normalizedAccessKey && !normalizedSecretKey && !reuseStoredCredentials) return null;
 
   const canReuseStoredSecret = Boolean(
     hasStoredSecret &&
       normalizedAccessKey &&
       normalizedAccessKey === (storedAccessKey ?? "").trim(),
   );
-  if (!normalizedAccessKey || (!normalizedSecretKey && !canReuseStoredSecret)) {
+  const canReuseStoredPair = Boolean(
+    reuseStoredCredentials && hasStoredSecret && !normalizedAccessKey && !normalizedSecretKey,
+  );
+  if (!canReuseStoredPair && (!normalizedAccessKey || (!normalizedSecretKey && !canReuseStoredSecret))) {
     return { status: "incomplete", message: incompleteMessage };
   }
   if (!endpointReady) {

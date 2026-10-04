@@ -11,7 +11,6 @@ const endpoint = {
   verify_tls: true,
   provider: "ceph",
   has_admin_secret: false,
-  has_supervision_secret: false,
   features: {
     admin: { enabled: false },
     account: { enabled: false },
