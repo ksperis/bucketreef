@@ -262,7 +262,7 @@ class EndpointServiceIdentityService:
             except (ValueError, RGWAdminError):
                 for kind in ("runtime", "supervision", "ceph_admin"):
                     identity = endpoint.service_identity(kind)
-                    if identity is not None and identity.status != "revocation_pending":
+                    if identity is not None and identity.status not in ("ready", "revocation_pending"):
                         identity.status = "error"
                         identity.last_error = "Admin Ops validation failed; check its required read permissions and RGW connectivity."
                 self.db.commit()
