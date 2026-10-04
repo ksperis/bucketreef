@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from botocore.exceptions import EndpointConnectionError
 from sqlalchemy.orm import sessionmaker
 
 from app.db import EndpointHealthLatest, StorageEndpoint, User, UserRole
@@ -221,6 +222,72 @@ def test_settings_only_trigger_initial_check_on_effective_activation(
 
     assert response.status_code == 200, response.text
     assert len(runs) == expected_runs
+
+
+def test_settings_skip_portal_logging_reconcile_when_toggle_is_unchanged(
+    client, db_session, monkeypatch, scheduled_settings,
+):
+    _allow_superadmin(client, db_session)
+    current = AppSettings()
+    requested = current.model_copy(deep=True)
+    requested.general.bucket_usage_stats_enabled = not current.general.bucket_usage_stats_enabled
+    monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
+    monkeypatch.setattr(admin_settings, "save_app_settings", lambda payload: requested)
+    monkeypatch.setattr(admin_settings, "get_portal_service", _forbid_call)
+
+    response = client.put("/api/admin/settings", json=requested.model_dump(mode="json"))
+
+    assert response.status_code == 200, response.text
+
+
+def test_settings_reconcile_portal_logging_when_toggle_changes(
+    client, db_session, monkeypatch, scheduled_settings,
+):
+    _allow_superadmin(client, db_session)
+    current = AppSettings()
+    requested = current.model_copy(deep=True)
+    requested.portal.server_access_logging_enabled = not current.portal.server_access_logging_enabled
+    calls = []
+    monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
+    monkeypatch.setattr(admin_settings, "save_app_settings", lambda payload: requested)
+    monkeypatch.setattr(
+        admin_settings,
+        "get_portal_service",
+        lambda db: SimpleNamespace(
+            reconcile_all_portal_server_access_logging=lambda settings: calls.append(
+                settings.server_access_logging_enabled
+            ) or {"accounts": 1, "enabled": 0, "disabled": 1, "skipped": 0},
+        ),
+    )
+
+    response = client.put("/api/admin/settings", json=requested.model_dump(mode="json"))
+
+    assert response.status_code == 200, response.text
+    assert calls == [requested.portal.server_access_logging_enabled]
+
+
+def test_settings_portal_logging_reconcile_maps_endpoint_failure_to_service_unavailable(
+    client, db_session, monkeypatch, scheduled_settings,
+):
+    _allow_superadmin(client, db_session)
+    current = AppSettings()
+    requested = current.model_copy(deep=True)
+    requested.portal.server_access_logging_enabled = not current.portal.server_access_logging_enabled
+    failure = RuntimeError("Unable to reconcile Portal Server Access Logging for 1 account: demo")
+    failure.__cause__ = EndpointConnectionError(endpoint_url="https://storage.invalid")
+    monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
+    monkeypatch.setattr(
+        admin_settings,
+        "get_portal_service",
+        lambda db: SimpleNamespace(
+            reconcile_all_portal_server_access_logging=Mock(side_effect=failure),
+        ),
+    )
+
+    response = client.put("/api/admin/settings", json=requested.model_dump(mode="json"))
+
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"] == "Unable to reconcile Portal Server Access Logging for 1 account: demo"
 
 
 def test_environment_lock_prevents_initial_check_on_requested_activation(

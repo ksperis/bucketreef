@@ -13,7 +13,7 @@ import pytest
 import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.response import StreamingBody
 from fastapi import HTTPException
 
@@ -3921,6 +3921,68 @@ def test_reconcile_portal_server_access_logging_enables_and_disables_managed_buc
     assert sorted(enabled_calls) == [("space-a", "technical-logs"), ("space-b", "technical-logs")]
     assert disabled == {"enabled": 0, "disabled": 2, "skipped": 0}
     assert sorted(disabled_calls) == ["space-a", "space-b"]
+
+
+def test_portal_server_access_log_probe_uses_interactive_request_profile(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-log-probe",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    service = PortalService(db_session)
+    captured = {}
+    monkeypatch.setattr(service, "_s3_client_kwargs", lambda _account: {"endpoint": "https://s3.example.test"})
+
+    def fake_get_s3_client(access_key, secret_key, **kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("app.services.portal.server_access_logging.get_s3_client", fake_get_s3_client)
+
+    service._portal_server_access_client(account)
+
+    assert captured["request_profile"] == "interactive"
+
+
+def test_reconcile_all_portal_server_access_logging_compacts_failures_and_preserves_cause(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="offline-project",
+        rgw_account_id="rgw-offline-project",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    db_session.add(account)
+    db_session.commit()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="offline-space",
+            display_name="Offline Space",
+            visibility="shared",
+        )
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    transport_error = EndpointConnectionError(endpoint_url="https://private.example.test")
+    account_error = RuntimeError("Unable to inspect Portal access log bucket 'technical-logs'")
+    account_error.__cause__ = transport_error
+    monkeypatch.setattr(
+        service,
+        "reconcile_portal_server_access_logging",
+        Mock(side_effect=account_error),
+    )
+
+    with pytest.raises(RuntimeError) as raised:
+        service.reconcile_all_portal_server_access_logging(PortalSettings())
+
+    assert str(raised.value) == (
+        "Unable to reconcile Portal Server Access Logging for 1 account: offline-project. "
+        "Check S3 endpoint availability and permissions, then retry."
+    )
+    assert raised.value.__cause__ is account_error
+    assert "private.example.test" not in str(raised.value)
 
 
 def test_portal_object_client_uses_existing_portal_credentials(monkeypatch, db_session):
