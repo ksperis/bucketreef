@@ -125,6 +125,39 @@ def test_partial_remote_failure_resumes_persisted_key(identities):
     assert identity.status == "ready" and identity.access_key == access
 
 
+def test_admin_failure_preserves_ready_runtime_and_supervision(identities, db_session):
+    service, endpoint, rgw = identities
+    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    db_session.commit()
+    service.reconcile(endpoint)
+    runtime = endpoint.service_identity("runtime")
+    supervision = endpoint.service_identity("supervision")
+    assert runtime.status == "ready"
+    assert supervision.status == "ready"
+
+    rgw.users.pop("operator")
+    result = service.reconcile(endpoint)
+
+    assert result == [{"kind": "admin", "status": "error"}]
+    assert runtime.status == "ready" and runtime.last_error is None
+    assert supervision.status == "ready" and supervision.last_error is None
+    assert get_endpoint_runtime_rgw_client(endpoint) is not None
+
+
+def test_admin_failure_marks_unfinished_identity_error(identities):
+    service, endpoint, rgw = identities
+    rgw.fail_create = True
+    service.reconcile(endpoint)
+    runtime = endpoint.service_identity("runtime")
+    assert runtime.status == "error"
+
+    rgw.users.pop("operator")
+    service.reconcile(endpoint)
+
+    assert runtime.status == "error"
+    assert runtime.last_error == "Admin Ops validation failed; check its required read permissions and RGW connectivity."
+
+
 def test_uid_collision_never_adopts_or_mutates_foreign_user(identities):
     service, endpoint, rgw = identities
     rgw.fail_create = True
