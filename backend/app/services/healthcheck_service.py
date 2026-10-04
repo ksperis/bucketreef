@@ -20,7 +20,6 @@ from app.db import (
     StorageEndpoint,
 )
 from app.services.app_settings_service import load_app_settings
-from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
 from app.services.healthcheck_common import (
     EndpointCheckTarget,
     HealthCheckProfile,
@@ -123,6 +122,8 @@ class HealthCheckService:
 
     @staticmethod
     def _to_check_target(endpoint: StorageEndpoint) -> EndpointCheckTarget:
+        supervision = endpoint.service_identity("supervision")
+        ready = supervision is not None and supervision.status == "ready"
         return EndpointCheckTarget(
             endpoint_id=endpoint.id,
             name=endpoint.name,
@@ -130,10 +131,10 @@ class HealthCheckService:
             force_path_style=endpoint.force_path_style,
             verify_tls=endpoint.verify_tls,
             region=endpoint.region,
-            supervision_access_key=endpoint.supervision_access_key,
-            supervision_secret_key=endpoint.supervision_secret_key,
-            admin_access_key=endpoint.admin_access_key,
-            admin_secret_key=endpoint.admin_secret_key,
+            supervision_access_key=endpoint.supervision_access_key if ready else None,
+            supervision_secret_key=endpoint.supervision_secret_key if ready else None,
+            admin_access_key=None,
+            admin_secret_key=None,
         )
 
     def _load_latency_baseline(
@@ -191,9 +192,9 @@ class HealthCheckService:
             return None, sanitized_error_log_detail(exc)
 
     def _s3_probe(self, target: EndpointCheckTarget, url: str) -> tuple[Optional[int], Optional[str]]:
-        credentials = resolve_endpoint_read_credentials(target)
+        credentials = (target.supervision_access_key, target.supervision_secret_key) if target.supervision_access_key and target.supervision_secret_key else None
         if credentials is None:
-            return None, "S3 healthcheck mode requires supervision/admin credentials."
+            return None, "S3 healthcheck mode requires a ready Supervision Ops identity."
         access_key, secret_key = credentials
 
         try:

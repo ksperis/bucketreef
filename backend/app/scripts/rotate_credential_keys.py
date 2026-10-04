@@ -23,6 +23,7 @@ from app.db.s3_connection import S3Connection
 from app.db.s3_user import S3User
 from app.db.session import S3Session
 from app.db.storage_endpoint import StorageEndpoint
+from app.db.endpoint_service_identity import EndpointServiceIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +69,9 @@ def rotate_credentials(*, new_key: str) -> int:
         updated += _rotate_encrypted_fields(
             session,
             StorageEndpoint,
-            ["admin_secret_key", "supervision_secret_key", "ceph_admin_secret_key"],
+            ["admin_secret_key"],
         )
+        updated += _rotate_encrypted_fields(session, EndpointServiceIdentity, ["secret_key"])
         updated += _rotate_encrypted_fields(session, S3Account, ["rgw_secret_key"])
         updated += _rotate_encrypted_fields(session, AccountIAMUser, ["active_secret_key"])
         updated += _rotate_encrypted_fields(session, S3User, ["rgw_secret_key"])

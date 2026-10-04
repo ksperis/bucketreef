@@ -19,6 +19,7 @@ def storage_endpoint_from_db(
     capabilities: dict[str, bool],
     admin_ops_permissions: StorageEndpointAdminOpsPermissions,
     tags: list[TagDefinitionSummary] | None = None,
+    ceph_admin_enabled: bool = False,
 ) -> StorageEndpoint:
     return StorageEndpoint(
         id=endpoint.id,
@@ -31,6 +32,14 @@ def storage_endpoint_from_db(
         longitude=endpoint.longitude,
         provider=provider,
         admin_access_key=endpoint.admin_access_key,
+        service_identity_mode=endpoint.service_identity_mode,
+        runtime_access_key=endpoint.runtime_access_key,
+        has_runtime_secret=bool(endpoint.runtime_secret_key),
+        ceph_admin_allowed=endpoint.ceph_admin_allowed,
+        ceph_admin_active=ceph_admin_identity_active(endpoint, ceph_admin_enabled=ceph_admin_enabled),
+        service_identities=[dict(kind=row.kind, mode=row.mode, rgw_uid=row.rgw_uid, status=row.status,
+                                 last_error=row.last_error, last_reconciled_at=row.last_reconciled_at)
+                            for row in endpoint.service_identities],
         supervision_access_key=endpoint.supervision_access_key,
         ceph_admin_access_key=endpoint.ceph_admin_access_key,
         capabilities=capabilities,
@@ -46,3 +55,10 @@ def storage_endpoint_from_db(
         features_config=endpoint.features_config,
         features=features,
     )
+
+
+def ceph_admin_identity_active(endpoint, *, ceph_admin_enabled):
+    identity = endpoint.service_identity("ceph_admin")
+    return bool(endpoint.ceph_admin_allowed and identity and identity.mode == "managed"
+                and identity.status == "ready" and identity.access_key and identity.secret_key
+                and ceph_admin_enabled)

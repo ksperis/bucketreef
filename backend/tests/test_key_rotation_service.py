@@ -279,19 +279,20 @@ def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_sessio
     db_session.refresh(s3_user)
 
     assert result.summary.failed == 0
-    assert result.summary.rotated == 5
-    assert result.summary.deleted_old_keys == 5
+    assert result.summary.rotated == 3
+    assert result.summary.skipped == 2
+    assert result.summary.deleted_old_keys == 3
     assert result.summary.disabled_old_keys == 0
 
     assert endpoint.admin_access_key != "ADM-OLD"
-    assert endpoint.supervision_access_key != "SUP-OLD"
-    assert endpoint.ceph_admin_access_key != "CADM-OLD"
+    assert endpoint.supervision_access_key == "SUP-OLD"
+    assert endpoint.ceph_admin_access_key == "CADM-OLD"
     assert account.rgw_access_key != "ACC-OLD"
     assert s3_user.rgw_access_key != "USR-OLD"
 
     assert "ADM-OLD" not in registry.access_index
-    assert "SUP-OLD" not in registry.access_index
-    assert "CADM-OLD" not in registry.access_index
+    assert "SUP-OLD" in registry.access_index
+    assert "CADM-OLD" in registry.access_index
     assert "ACC-OLD" not in registry.access_index
     assert "USR-OLD" not in registry.access_index
 
@@ -410,7 +411,7 @@ def test_env_managed_endpoint_credentials_are_skipped_without_rgw_calls(db_sessi
         KeyRotationType.ENDPOINT_SUPERVISION,
         KeyRotationType.CEPH_ADMIN,
     }
-    assert all("ENV_STORAGE_ENDPOINTS" in (item.message or "") for item in result.results)
+    assert all("ENV_STORAGE_ENDPOINTS" in (item.message or "") or "External service" in (item.message or "") for item in result.results)
     assert endpoint.admin_access_key == "ADM-OLD"
     assert endpoint.admin_secret_key == "ADM-OLD-SEC"
     assert endpoint.supervision_access_key == "SUP-OLD"
@@ -521,7 +522,7 @@ def test_endpoint_identity_rotation_failure_returns_failed_result(db_session, mo
     assert endpoint.admin_secret_key == "ADM-OLD-SEC"
 
 
-def test_rotate_supervision_uses_admin_ops_identity(db_session, monkeypatch):
+def test_rotate_supervision_skips_external_identity(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="ceph-main-supervision-via-admin")
     registry = FakeRgwRegistry()
     registry.add_identity(uid="svc-admin", tenant=None, keys=[("ADM-OLD", "ADM-OLD-SEC")], admin=True)
@@ -548,8 +549,9 @@ def test_rotate_supervision_uses_admin_ops_identity(db_session, monkeypatch):
 
     db_session.refresh(endpoint)
     assert result.summary.failed == 0
-    assert result.summary.rotated == 1
-    assert endpoint.supervision_access_key != "SUP-OLD"
+    assert result.summary.rotated == 0
+    assert result.summary.skipped == 1
+    assert endpoint.supervision_access_key == "SUP-OLD"
 
 
 def test_rotate_supervision_skips_without_admin_ops_key(db_session):
@@ -582,4 +584,4 @@ def test_rotate_supervision_skips_without_admin_ops_key(db_session):
     assert result.summary.failed == 0
     assert result.summary.skipped == 1
     assert result.results[0].status == "skipped"
-    assert "Admin Ops credentials are missing" in (result.results[0].message or "")
+    assert "External service credentials" in (result.results[0].message or "")

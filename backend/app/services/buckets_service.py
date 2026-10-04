@@ -16,7 +16,7 @@ from app.services import (
     s3_deletion,
 )
 from app.services.rgw_admin import RGWAdminError
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
+from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.models.bucket import Bucket
 from app.utils.rgw_identifiers import resolve_admin_uid
 from app.utils.rgw_payloads import extract_bucket_list
@@ -29,12 +29,12 @@ class BucketsService:
     def __init__(self, configuration: BucketConfigurationService | None = None) -> None:
         self.configuration = configuration or BucketConfigurationService()
 
-    def _rgw_admin_for_account(self, account: S3ExecutionTarget):
+    def _rgw_runtime_for_account(self, account: S3ExecutionTarget):
         endpoint = account.storage_endpoint
         if endpoint is None:
-            raise RuntimeError("Admin Ops credentials are not configured for this endpoint")
+            raise RuntimeError("Runtime Read Ops credentials are not configured for this endpoint")
         try:
-            return get_endpoint_admin_rgw_client(endpoint)
+            return get_endpoint_runtime_rgw_client(endpoint)
         except ValueError as exc:
             raise RuntimeError(sanitized_error_log_detail(exc)) from exc
         except RGWAdminError as exc:
@@ -46,7 +46,7 @@ class BucketsService:
         uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
         if not uid:
             return []
-        rgw_admin = self._rgw_admin_for_account(account)
+        rgw_admin = self._rgw_runtime_for_account(account)
         try:
             payload = rgw_admin.get_all_buckets(uid=uid, with_stats=with_stats)
         except RGWAdminError as exc:
@@ -176,7 +176,7 @@ class BucketsService:
             account_uid = resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
             if account_uid:
                 try:
-                    rgw_admin = self._rgw_admin_for_account(account)
+                    rgw_admin = self._rgw_runtime_for_account(account)
                     stats = rgw_admin.get_bucket_info(normalized_bucket, uid=account_uid, allow_not_found=True)
                     usage = stats.get("usage") if isinstance(stats, dict) else None
                     usage_bytes, object_count = extract_usage_stats(usage)

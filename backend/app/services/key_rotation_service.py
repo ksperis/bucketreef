@@ -30,6 +30,7 @@ class KeyRotationService:
     _KEY_TYPE_ORDER: tuple[KeyRotationType, ...] = (
         KeyRotationType.ACCOUNT,
         KeyRotationType.S3_USER,
+        KeyRotationType.ENDPOINT_RUNTIME,
         KeyRotationType.ENDPOINT_SUPERVISION,
         KeyRotationType.CEPH_ADMIN,
         KeyRotationType.ENDPOINT_ADMIN,
@@ -37,8 +38,6 @@ class KeyRotationService:
     _ENV_MANAGED_ENDPOINT_KEY_TYPES: frozenset[KeyRotationType] = frozenset(
         {
             KeyRotationType.ENDPOINT_ADMIN,
-            KeyRotationType.ENDPOINT_SUPERVISION,
-            KeyRotationType.CEPH_ADMIN,
         }
     )
 
@@ -101,6 +100,23 @@ class KeyRotationService:
         key_type: KeyRotationType,
         deactivate_only: bool,
     ) -> tuple[list[KeyRotationResultItem], int, int]:
+        service_kinds = {KeyRotationType.ENDPOINT_RUNTIME: "runtime", KeyRotationType.ENDPOINT_SUPERVISION: "supervision", KeyRotationType.CEPH_ADMIN: "ceph_admin"}
+        if key_type in service_kinds:
+            kind = service_kinds[key_type]
+            identity = endpoint.service_identity(kind)
+            if identity is None or identity.mode == "external":
+                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint", target_id=str(endpoint.id),
+                                           target_label=endpoint.name, status="skipped", message="External service credentials must be rotated by their operator.")], 0, 0)
+            from app.services.endpoint_service_identities import EndpointServiceIdentityService
+            try:
+                old, new, retired = EndpointServiceIdentityService(self.db).rotate(endpoint, kind, deactivate_only=deactivate_only)
+                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint", target_id=str(endpoint.id),
+                                           target_label=endpoint.name, status="rotated", message="Managed service credential rotated.",
+                                           old_access_key=self._rgw.mask_access_key(old), new_access_key=self._rgw.mask_access_key(new))],
+                        int(retired == "deleted"), int(retired == "disabled"))
+            except (ValueError, RuntimeError) as exc:
+                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint", target_id=str(endpoint.id),
+                                           target_label=endpoint.name, status="failed", message=sanitized_error_log_detail(exc))], 0, 0)
         if key_type in self._ENV_MANAGED_ENDPOINT_KEY_TYPES and not endpoint.is_editable:
             return (
                 [
@@ -130,16 +146,6 @@ class KeyRotationService:
                 key_type,
                 access_key_field="admin_access_key",
                 secret_key_field="admin_secret_key",
-                deactivate_only=deactivate_only,
-            )
-        if key_type == KeyRotationType.ENDPOINT_SUPERVISION:
-            return self._rotate_endpoint_supervision_key(endpoint, key_type, deactivate_only)
-        if key_type == KeyRotationType.CEPH_ADMIN:
-            return self._rotate_endpoint_identity_key(
-                endpoint,
-                key_type,
-                access_key_field="ceph_admin_access_key",
-                secret_key_field="ceph_admin_secret_key",
                 deactivate_only=deactivate_only,
             )
         return (
@@ -176,134 +182,6 @@ class KeyRotationService:
             success_message="Account interface key rotated.",
         )
 
-    def _rotate_endpoint_supervision_key(
-        self,
-        endpoint: StorageEndpoint,
-        key_type: KeyRotationType,
-        deactivate_only: bool,
-    ) -> tuple[list[KeyRotationResultItem], int, int]:
-        error = self._rgw.validate_ceph_admin_api(endpoint)
-        if error:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="failed",
-                        message=error,
-                    )
-                ],
-                0,
-                0,
-            )
-
-        old_access_key = normalize_optional_string(endpoint.supervision_access_key)
-        old_secret_key = normalize_optional_string(endpoint.supervision_secret_key)
-        if not old_access_key or not old_secret_key:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="skipped",
-                        message="Endpoint field 'supervision_access_key' is not configured.",
-                    )
-                ],
-                0,
-                0,
-            )
-
-        admin_access_key = normalize_optional_string(endpoint.admin_access_key)
-        admin_secret_key = normalize_optional_string(endpoint.admin_secret_key)
-        if not admin_access_key or not admin_secret_key:
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="skipped",
-                        message="Admin Ops credentials are missing; supervision key rotation skipped.",
-                    )
-                ],
-                0,
-                0,
-            )
-
-        try:
-            admin_client = self._rgw.build_direct_client(
-                endpoint=endpoint,
-                access_key=admin_access_key,
-                secret_key=admin_secret_key,
-            )
-            uid, tenant = self._rgw.resolve_identity_from_access_key(
-                admin_client,
-                old_access_key,
-            )
-            (
-                new_access_key,
-                new_secret_key,
-                retired_action,
-                _,
-            ) = self._rgw.rotate_identity_access_key(
-                admin_client,
-                uid=uid,
-                tenant=tenant,
-                previous_access_key=old_access_key,
-                deactivate_only=deactivate_only,
-            )
-            endpoint.supervision_access_key = new_access_key
-            endpoint.supervision_secret_key = new_secret_key
-            self.db.add(endpoint)
-            self.db.commit()
-            self.db.refresh(endpoint)
-        except ValueError as exc:
-            self.db.rollback()
-            return (
-                [
-                    self._build_result(
-                        endpoint=endpoint,
-                        key_type=key_type,
-                        target_type="endpoint",
-                        target_id=str(endpoint.id),
-                        target_label=endpoint.name,
-                        status="failed",
-                        message=sanitized_error_log_detail(exc),
-                    )
-                ],
-                0,
-                0,
-            )
-
-        deleted_old_keys = 1 if retired_action == "deleted" else 0
-        disabled_old_keys = 1 if retired_action == "disabled" else 0
-        return (
-            [
-                self._build_result(
-                    endpoint=endpoint,
-                    key_type=key_type,
-                    target_type="endpoint",
-                    target_id=str(endpoint.id),
-                    target_label=endpoint.name,
-                    status="rotated",
-                    message="Endpoint supervision credential rotated via Admin Ops identity.",
-                    old_access_key=self._rgw.mask_access_key(old_access_key),
-                    new_access_key=self._rgw.mask_access_key(
-                        endpoint.supervision_access_key
-                    ),
-                )
-            ],
-            deleted_old_keys,
-            disabled_old_keys,
-        )
 
     def _rotate_s3_user_keys(
         self,

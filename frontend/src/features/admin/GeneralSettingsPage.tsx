@@ -23,6 +23,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
 import AdminSettingsFrame from "./settings/AdminSettingsFrame";
 import BrandingPreview from "./settings/BrandingPreview";
+import CephAdminActivationDialog from "./CephAdminActivationDialog";
 import {
   AppSettingsNumber,
   AppSettingsToggle,
@@ -138,6 +139,7 @@ export default function GeneralSettingsPage() {
     (saved) => applyBranding(saved.branding.primary_color),
     (defaults, current) => ({
       ...defaults,
+      "general.ceph_admin_enabled": current["general.ceph_admin_enabled"],
       ...Object.fromEntries(
         featureFields
           .filter((field) => !locks || locks[field]?.forced)
@@ -153,6 +155,7 @@ export default function GeneralSettingsPage() {
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [cephDialog, setCephDialog] = useState<boolean | null>(null);
   useEffect(() => {
     let active = true;
     fetchGeneralFeatureLocks()
@@ -256,7 +259,9 @@ export default function GeneralSettingsPage() {
       form={form}
       dialogDirty={dialogDirty}
       dialogs={
-        smtpOpen && (
+        <>
+        {cephDialog !== null && <CephAdminActivationDialog enabled={cephDialog} onApplied={form.refresh} onClose={() => setCephDialog(null)} />}
+        {smtpOpen && (
           <SettingsDraftDialog
             title="Email delivery"
             maxWidthClass="max-w-xl"
@@ -335,7 +340,8 @@ export default function GeneralSettingsPage() {
               </>
             )}
           </SettingsDraftDialog>
-        )
+        )}
+        </>
       }
     >
       {lockError && <UiInlineMessage tone="error">{lockError}</UiInlineMessage>}
@@ -408,11 +414,12 @@ export default function GeneralSettingsPage() {
           "Self-service Storage Spaces, governed by project roles.",
           true,
         )}
-        {feature(
-          "ceph_admin_enabled",
-          "Ceph Admin",
-          "Advanced cluster-wide operations. Avoid enabling this surface on an instance exposed to end users.",
-        )}
+        <SettingsItem compact title="Ceph Admin" description="Advanced operations on explicitly authorized Ceph endpoints. Identity creation and revocation apply immediately."
+          action={<div className="flex items-center gap-3">
+            {form.settings?.general.ceph_admin_enabled && <SettingsButton variant="secondary" disabled={!locks} onClick={() => setCephDialog(true)}>Manage endpoints</SettingsButton>}
+            <SettingsSwitch ariaLabel="Ceph Admin feature" checked={Boolean(form.settings?.general.ceph_admin_enabled)} disabled={!form.settings || !locks || locks.ceph_admin_enabled?.forced}
+              onChange={value => setCephDialog(value)} />
+          </div>} />
         {feature(
           "storage_ops_enabled",
           "Storage Ops",

@@ -53,6 +53,11 @@ const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
       "Rotate admin credentials configured on each selected endpoint.",
   },
   {
+    value: "endpoint_runtime",
+    label: "Runtime Read Ops",
+    description: "Rotate managed credentials used for live read enrichment.",
+  },
+  {
     value: "endpoint_supervision",
     label: "Endpoint supervision keys",
     description:
@@ -78,6 +83,7 @@ const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
 
 const KEY_TYPE_LABEL: Record<KeyRotationType, string> = {
   endpoint_admin: "Endpoint admin",
+  endpoint_runtime: "Runtime Read Ops",
   endpoint_supervision: "Endpoint supervision",
   account: "Account",
   s3_user: "S3 user",
@@ -86,6 +92,7 @@ const KEY_TYPE_LABEL: Record<KeyRotationType, string> = {
 
 const ENV_MANAGED_ENDPOINT_KEY_TYPES: KeyRotationType[] = [
   "endpoint_admin",
+  "endpoint_runtime",
   "endpoint_supervision",
   "ceph_admin",
 ];
@@ -164,7 +171,8 @@ export default function KeyRotationPage() {
   const [selectedEndpointIds, setSelectedEndpointIds] = useState<number[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<KeyRotationType[]>([
     "endpoint_admin",
-    "endpoint_supervision",
+    "endpoint_runtime",
+  "endpoint_supervision",
     "account",
     "s3_user",
     "ceph_admin",
@@ -428,10 +436,9 @@ export default function KeyRotationPage() {
         >
           {hasSelectedEnvManagedEndpointKeys && (
             <PageBanner tone="warning">
-              Endpoint admin, supervision, and Ceph-admin keys managed by
-              ENV_STORAGE_ENDPOINTS will be skipped. Rotate them externally and
-              redeploy with the updated environment values. Account and S3 user
-              keys remain eligible.
+              Admin Ops keys supplied by ENV_STORAGE_ENDPOINTS will be skipped.
+              Rotate them externally and update the environment values. Managed service identities,
+              account keys and S3 user keys remain eligible. External service identities are rotated by their operator.
             </PageBanner>
           )}
           <SettingsItem
@@ -525,7 +532,7 @@ export default function KeyRotationPage() {
           ]}
           warning={
             hasSelectedEnvManagedEndpointKeys
-              ? "Environment-managed endpoint credentials will be skipped. Account and S3 user keys remain eligible."
+              ? "ENV Admin Ops and external service identities will be skipped. Managed service identities, account and S3 user keys remain eligible."
               : undefined
           }
         />

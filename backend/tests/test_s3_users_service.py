@@ -37,6 +37,9 @@ from app.services.s3_users_service import S3UsersService
 
 
 class FakeRGWAdmin:
+    def get_user_by_access_key(self, access_key, **kwargs):
+        return {"caps": "users=read,write;accounts=read,write"}
+
     def __init__(self) -> None:
         self.remote_users: dict[str, dict] = {}
         self.deleted_users: list[str] = []
@@ -168,6 +171,8 @@ def _build_service(db_session, monkeypatch, fake_admin: FakeRGWAdmin) -> S3Users
         "app.services.s3_users_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_admin,
     )
+    monkeypatch.setattr("app.services.s3_users_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_admin)
+    monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_admin)
     return S3UsersService(db_session)
 
 
@@ -282,7 +287,7 @@ def test_get_user_usage_aggregates_live_bucket_stats(db_session, monkeypatch):
     ]
 
 
-def test_get_user_usage_uses_admin_ops_when_monitoring_is_disabled(db_session, monkeypatch):
+def test_get_user_usage_uses_runtime_when_monitoring_is_disabled(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     s3_user = _seed_local_user(db_session, name="No Metrics User", uid="no-metrics-user", endpoint_id=endpoint.id)
     fake = FakeRGWAdmin()

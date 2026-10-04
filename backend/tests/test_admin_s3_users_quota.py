@@ -8,6 +8,9 @@ from app.db import StorageEndpoint
 
 
 class FakeRGWAdmin:
+    def get_user_by_access_key(self, access_key, **kwargs):
+        return {"caps": "users=read,write;accounts=read,write"}
+
     def __init__(self):
         self.created_users: list[str] = []
         self.quota_calls: list[dict] = []
@@ -118,6 +121,9 @@ def test_admin_create_s3_user_with_quota_unit(monkeypatch, client: TestClient, d
         lambda _endpoint: fake_rgw,
     )
 
+    monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_rgw)
+    monkeypatch.setattr("app.services.s3_users_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_rgw)
+
     payload = {
         "name": "quota-user",
         "email": "quota-user@example.com",
@@ -150,6 +156,9 @@ def test_admin_update_s3_user_quota(monkeypatch, client: TestClient, db_session)
         "app.services.s3_users_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_rgw,
     )
+
+    monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_rgw)
+    monkeypatch.setattr("app.services.s3_users_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_rgw)
 
     create = client.post(
         "/api/admin/s3-users",

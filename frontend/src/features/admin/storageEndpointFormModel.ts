@@ -41,6 +41,11 @@ export type FormState = {
   longitude: string;
   provider: StorageProvider;
   tags: UiTagDefinition[];
+  service_identity_mode: "managed" | "external";
+  runtime_access_key: string;
+  runtime_secret_key: string;
+  has_runtime_secret: boolean;
+  ceph_admin_allowed: boolean;
   admin_access_key: string;
   admin_secret_key: string;
   supervision_access_key: string;
@@ -298,6 +303,11 @@ export function createEmptyForm(): FormState {
     longitude: "",
     provider: "ceph",
     tags: [],
+    service_identity_mode: "managed",
+    runtime_access_key: "",
+    runtime_secret_key: "",
+    has_runtime_secret: false,
+    ceph_admin_allowed: false,
     admin_access_key: "",
     admin_secret_key: "",
     supervision_access_key: "",
@@ -365,6 +375,11 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     longitude: formatCoordinateInput(endpoint.longitude),
     provider: endpoint.provider,
     tags: normalizeUiTags(endpoint.tags),
+    service_identity_mode: endpoint.service_identity_mode ?? "external",
+    runtime_access_key: endpoint.runtime_access_key ?? "",
+    runtime_secret_key: "",
+    has_runtime_secret: Boolean(endpoint.has_runtime_secret),
+    ceph_admin_allowed: Boolean(endpoint.ceph_admin_allowed),
     admin_access_key: endpoint.admin_access_key ?? "",
     admin_secret_key: "",
     supervision_access_key: endpoint.supervision_access_key ?? "",

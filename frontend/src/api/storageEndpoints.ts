@@ -39,6 +39,8 @@ export type StorageEndpointAdminOpsPermissions = {
   buckets_write: boolean;
   accounts_read: boolean;
   accounts_write: boolean;
+  usage_read?: boolean;
+  usage_write?: boolean;
 };
 
 export type StorageEndpoint = {
@@ -53,6 +55,13 @@ export type StorageEndpoint = {
   provider: StorageProvider;
   admin_access_key?: string | null;
   has_admin_secret: boolean;
+  has_runtime_secret?: boolean;
+  ceph_admin_active?: boolean;
+  service_identities?: { kind: "runtime" | "supervision" | "ceph_admin"; mode: "managed" | "external"; status: string; rgw_uid?: string | null; last_error?: string | null }[];
+  service_identity_mode?: "managed" | "external";
+  runtime_access_key?: string | null;
+  ceph_admin_allowed?: boolean;
+
   supervision_access_key?: string | null;
   has_supervision_secret: boolean;
   ceph_admin_access_key?: string | null;
@@ -87,6 +96,11 @@ export type StorageEndpointPayload = {
   provider?: StorageProvider;
   admin_access_key?: string | null;
   admin_secret_key?: string | null;
+  service_identity_mode?: "managed" | "external";
+  runtime_access_key?: string | null;
+  runtime_secret_key?: string | null;
+  ceph_admin_allowed?: boolean;
+
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
   ceph_admin_access_key?: string | null;
@@ -103,6 +117,11 @@ export type StorageEndpointFeatureDetectionPayload = {
   check_http?: boolean;
   admin_access_key?: string | null;
   admin_secret_key?: string | null;
+  service_identity_mode?: "managed" | "external";
+  runtime_access_key?: string | null;
+  runtime_secret_key?: string | null;
+  ceph_admin_allowed?: boolean;
+
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
   ceph_admin_access_key?: string | null;
@@ -122,6 +141,7 @@ export type StorageEndpointCredentialCheck = {
 };
 
 export type StorageEndpointCredentialChecks = {
+  runtime?: StorageEndpointCredentialCheck;
   admin: StorageEndpointCredentialCheck;
   supervision: StorageEndpointCredentialCheck;
   ceph_admin: StorageEndpointCredentialCheck;
@@ -209,4 +229,14 @@ export async function setDefaultStorageEndpoint(id: number): Promise<StorageEndp
 
 export async function deleteStorageEndpoint(id: number): Promise<void> {
   await client.delete(`/admin/storage-endpoints/${id}`);
+}
+
+export async function reconcileEndpointIdentities(id: number): Promise<StorageEndpoint> {
+  const { data } = await client.post<StorageEndpoint>(`/admin/storage-endpoints/${id}/service-identities/reconcile`);
+  return data;
+}
+export type CephAdminActivationResult = { enabled: boolean; endpoints: { endpoint_id: number; active: boolean; status: string; error?: string | null }[] };
+export async function configureCephAdmin(payload: { enabled: boolean; endpoint_ids: number[]; grant_current_user: boolean }): Promise<CephAdminActivationResult> {
+  const { data } = await client.post<CephAdminActivationResult>("/admin/settings/ceph-admin", payload, { timeout: 300000 });
+  return data;
 }

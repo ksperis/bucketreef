@@ -260,7 +260,8 @@ class ConnectionIdentityService:
 
         supervision_access_key = endpoint.supervision_access_key
         supervision_secret_key = endpoint.supervision_secret_key
-        if not supervision_access_key or not supervision_secret_key:
+        supervision = endpoint.service_identity("supervision")
+        if supervision is None or supervision.status != "ready" or not supervision_access_key or not supervision_secret_key:
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
                 rgw_account_id=None,
@@ -301,8 +302,9 @@ class ConnectionIdentityService:
                 endpoint.features_config,
                 endpoint.supervision_access_key,
                 endpoint.supervision_secret_key,
-                endpoint.admin_access_key,
-                endpoint.admin_secret_key,
+                endpoint.runtime_access_key,
+                endpoint.runtime_secret_key,
+                endpoint.service_identity("runtime").status if endpoint.service_identity("runtime") else None,
             ]
         payload = json.dumps([
             connection.id,

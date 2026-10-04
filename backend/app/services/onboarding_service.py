@@ -254,6 +254,10 @@ class OnboardingService:
                     for value in (
                         endpoint.admin_access_key,
                         endpoint.admin_secret_key,
+                        endpoint.runtime_access_key,
+                        endpoint.runtime_secret_key,
+                        endpoint.service_identity_mode,
+                        endpoint.ceph_admin_allowed,
                         endpoint.supervision_access_key,
                         endpoint.supervision_secret_key,
                         endpoint.ceph_admin_access_key,

@@ -6,6 +6,7 @@ import client, { timeoutForRequestProfile } from "./client";
 
 export type KeyRotationType =
   | "endpoint_admin"
+  | "endpoint_runtime"
   | "endpoint_supervision"
   | "account"
   | "s3_user"

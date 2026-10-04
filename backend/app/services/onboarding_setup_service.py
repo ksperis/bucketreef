@@ -75,6 +75,7 @@ class OnboardingSetupService:
 
     def configure(self, actor, row, payload, preview):
         draft = self.progress.draft(row)
+        self.endpoints.actor = actor
         endpoint = self._prepare_endpoint(actor, row, draft, payload)
         draft = self.progress.draft(row)
 
@@ -157,32 +158,28 @@ class OnboardingSetupService:
             raise OnboardingError("ceph_endpoint_required")
 
         admin = ("", "", False)
+        runtime = ("", "", False)
         supervision = ("", "", False)
         ceph_admin = ("", "", False)
-        if needs_account_api:
+        if needs_ceph:
             admin = self._management_credentials(
                 payload,
                 endpoint,
                 "admin",
                 "endpoint_admin_credentials_required",
             )
-        if needs_supervision:
+        if payload.service_identity_mode == "external":
+            runtime = self._management_credentials(payload, endpoint, "runtime", "runtime_credentials_required")
+        if needs_supervision and payload.service_identity_mode == "external":
             supervision = self._management_credentials(
                 payload,
                 endpoint,
                 "supervision",
                 "supervision_credentials_required",
             )
-        if needs_ceph_admin:
-            ceph_admin = self._management_credentials(
-                payload,
-                endpoint,
-                "ceph_admin",
-                "ceph_admin_credentials_required",
-            )
 
         supplied_management_credentials = any(
-            item[2] for item in (admin, supervision, ceph_admin)
+            item[2] for item in (admin, runtime, supervision)
         )
         editable = endpoint is None or (
             endpoint.is_editable and not self.endpoints.env_endpoints_locked()
@@ -202,21 +199,19 @@ class OnboardingSetupService:
                 raise OnboardingError("admin_ops_permissions_insufficient")
             if not detection.account:
                 raise OnboardingError("account_api_unavailable")
-        if needs_supervision and (
+        if needs_supervision and payload.service_identity_mode == "external" and (
             detection.credential_checks.supervision.status != "valid"
             or not detection.metrics
         ):
             raise OnboardingError("supervision_credentials_invalid")
-        if needs_supervision and not detection.usage:
-            raise OnboardingError("usage_log_unavailable")
-        if needs_ceph_admin and detection.credential_checks.ceph_admin.status != "valid":
-            raise OnboardingError("ceph_identity_denied")
+        if needs_ceph_admin and not detection.admin_ops_permissions.users_write:
+            raise OnboardingError("admin_ops_permissions_insufficient")
 
         if endpoint is None:
             features = StorageEndpointFeatures()
             features.admin.enabled = needs_account_api
             features.account.enabled = needs_account_api
-            features.usage.enabled = needs_supervision
+            features.usage.enabled = needs_supervision and detection.usage
             features.metrics.enabled = needs_supervision
             endpoint_name = resources.get("endpoint_name") or self._unique_endpoint_name(
                 draft.endpoint_url
@@ -230,6 +225,10 @@ class OnboardingSetupService:
                 force_path_style=draft.force_path_style,
                 verify_tls=True,
                 provider="ceph",
+                service_identity_mode=payload.service_identity_mode,
+                runtime_access_key=runtime[0] or None,
+                runtime_secret_key=runtime[1] or None,
+                ceph_admin_allowed=needs_ceph_admin,
                 admin_access_key=admin[0] or None,
                 admin_secret_key=admin[1] or None,
                 supervision_access_key=supervision[0] or None,
@@ -249,12 +248,20 @@ class OnboardingSetupService:
             feature_fields: list[str] = []
             if needs_account_api and not (flags.admin_enabled and flags.account_enabled):
                 feature_fields.extend(["admin", "account"])
-            if needs_supervision and not (flags.usage_enabled and flags.metrics_enabled):
-                feature_fields.extend(["usage", "metrics"])
+            if needs_supervision:
+                feature_fields.append("metrics")
+                if detection.usage:
+                    feature_fields.append("usage")
             if feature_fields and not editable:
                 raise OnboardingError("endpoint_features_locked")
 
             update = {}
+            if payload.service_identity_mode != endpoint.service_identity_mode:
+                update["service_identity_mode"] = payload.service_identity_mode
+            if runtime[2]:
+                update.update(runtime_access_key=runtime[0], runtime_secret_key=runtime[1])
+            if needs_ceph_admin and not endpoint.ceph_admin_allowed:
+                update["ceph_admin_allowed"] = True
             credential_kinds: list[str] = []
             if admin[2]:
                 update.update(
@@ -305,6 +312,23 @@ class OnboardingSetupService:
                     features=feature_fields,
                 )
 
+        if needs_ceph:
+            self.endpoints.reconcile_identities(endpoint.id)
+        if needs_ceph_admin:
+            from app.services.ceph_admin_activation_service import CephAdminActivationService
+            selected = [ep.id for ep in self.db.query(StorageEndpoint).filter(StorageEndpoint.ceph_admin_allowed.is_(True)).all()]
+            CephAdminActivationService(self.db, actor).apply(enabled=True, endpoint_ids=selected)
+            ceph_identity = endpoint.service_identity("ceph_admin")
+            if ceph_identity is None or ceph_identity.mode != "managed" or ceph_identity.status != "ready":
+                raise OnboardingError("ceph_identity_denied")
+        if needs_ceph:
+            runtime_identity = endpoint.service_identity("runtime")
+            if runtime_identity is None or runtime_identity.status != "ready":
+                raise OnboardingError("runtime_credentials_invalid")
+            if needs_supervision:
+                supervision_identity = endpoint.service_identity("supervision")
+                if supervision_identity is None or supervision_identity.status != "ready":
+                    raise OnboardingError("supervision_credentials_invalid")
         return endpoint
 
     def _enable_endpoint_features(self, endpoint, *fields):

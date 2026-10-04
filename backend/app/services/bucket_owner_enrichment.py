@@ -12,14 +12,12 @@ from typing import Callable, Literal, Optional
 from app.db import StorageEndpoint, StorageProvider
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_listing import BucketListingSummary
-from app.services.rgw_admin import RGWAdminClient, RGWAdminError, get_rgw_admin_client
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
+from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.utils.cache import prune_expired_lru_cache
 from app.utils.normalize import normalize_optional_string
 from app.utils.quota_stats import extract_quota_limits
-from app.services.rgw_supervision import get_supervision_credentials
 from app.utils.rgw_identifiers import is_rgw_account_id
-from app.utils.storage_endpoint_features import resolve_admin_endpoint, resolve_rgw_admin_api_endpoint
 
 OWNER_DETAILS_CACHE_TTL_SECONDS = 30.0
 OWNER_ACCOUNT_LIST_CACHE_MAX_ENTRIES = 32
@@ -532,36 +530,8 @@ class BucketOwnerMetadataService:
         if endpoint.provider != StorageProvider.CEPH.value:
             return None
 
-        supervision_access_key = endpoint.supervision_access_key
-        supervision_secret_key = endpoint.supervision_secret_key
-        supervision_creds = None
-        if self.account is not None:
-            supervision_creds = get_supervision_credentials(self.account)
-        elif supervision_access_key and supervision_secret_key:
-            supervision_creds = (supervision_access_key, supervision_secret_key)
-        if supervision_creds:
-            access_key, secret_key = supervision_creds
-            admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
-            if admin_endpoint:
-                try:
-                    self.rgw_admin = get_rgw_admin_client(
-                        access_key=access_key,
-                        secret_key=secret_key,
-                        endpoint=admin_endpoint,
-                        region=endpoint.region,
-                        verify_tls=endpoint.verify_tls,
-                    )
-                    return self.rgw_admin
-                except RGWAdminError:
-                    pass
-
-        admin_endpoint = resolve_admin_endpoint(endpoint)
-        access_key = endpoint.admin_access_key
-        secret_key = endpoint.admin_secret_key
-        if not admin_endpoint or not access_key or not secret_key:
-            return None
         try:
-            self.rgw_admin = get_endpoint_admin_rgw_client(endpoint)
-        except RGWAdminError:
+            self.rgw_admin = get_endpoint_runtime_rgw_client(endpoint)
+        except (RGWAdminError, ValueError):
             self.rgw_admin = None
         return self.rgw_admin

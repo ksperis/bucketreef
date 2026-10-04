@@ -246,6 +246,7 @@ def test_ceph_admin_endpoint_selector_hides_administrative_tags(client: TestClie
     db_session.add(admin)
     db_session.commit()
     endpoint = _endpoint(db_session, name="ceph-selector-endpoint")
+    endpoint.ceph_admin_allowed = True
     service = TagsService(db_session)
     service.replace_storage_endpoint_tags(
         endpoint,

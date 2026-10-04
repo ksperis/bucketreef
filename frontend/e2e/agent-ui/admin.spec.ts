@@ -1,6 +1,94 @@
 import { expect, test } from "@playwright/test";
 
+import { E2E_ADMIN_STORAGE_STATE_PATH } from "../helpers/config";
+
 import { collectApplicationErrors } from "../helpers/application-errors";
+
+test("validates controlled Ceph Admin activation and pending revocation", async ({ page }, testInfo) => {
+  const errors = collectApplicationErrors(page);
+  let enabled = false;
+  let activationAttempts = 0;
+  const requests: { enabled: boolean; endpoint_ids: number[]; grant_current_user: boolean }[] = [];
+  await page.route("**/api/admin/settings", async route => {
+    const response = await route.fetch();
+    const settings = await response.json();
+    settings.general.ceph_admin_enabled = enabled;
+    await route.fulfill({ response, json: settings });
+  });
+  await page.route(/\/api\/admin\/storage-endpoints(?:\?.*)?$/, async route => {
+    const response = await route.fetch();
+    const rows = await response.json();
+    const endpoint = rows[0];
+    await route.fulfill({ response, json: [
+      { ...endpoint, id: 901, name: "Ceph managed candidate", provider: "ceph", ceph_admin_allowed: enabled, service_identity_mode: "external", service_identities: [{ kind: "ceph_admin", mode: "external", status: "ready" }], admin_ops_permissions: { users_read: true, users_write: true, accounts_read: true, accounts_write: false } },
+      { ...endpoint, id: 902, name: "Ceph read-only operator", provider: "ceph", admin_ops_permissions: { users_read: true, users_write: false, accounts_read: true, accounts_write: false } },
+    ] });
+  });
+  await page.route("**/api/admin/settings/ceph-admin", async route => {
+    const payload = route.request().postDataJSON();
+    requests.push(payload);
+    enabled = payload.enabled;
+    activationAttempts += 1;
+    const pending = activationAttempts === 1 || !enabled;
+    await route.fulfill({ json: { enabled, endpoints: [{ endpoint_id: 901, active: enabled && !pending, status: pending ? enabled ? "error" : "revocation_pending" : "ready", error: pending ? "RGW operation pending; retry." : null }] } });
+  });
+  await page.goto("/admin/general-settings");
+  await page.getByRole("switch", { name: "Ceph Admin feature" }).click();
+  const dialog = page.getByRole("dialog", { name: "Authorize Ceph Admin endpoints" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: /Ceph read-only operator/ })).toBeDisabled();
+  const grant = dialog.getByRole("checkbox", { name: "Grant me access to the Ceph Admin workspace" });
+  await expect(grant).not.toBeChecked();
+  await dialog.getByRole("checkbox", { name: /Ceph managed candidate/ }).check();
+  await dialog.getByRole("button", { name: "Activate Ceph Admin", exact: true }).click();
+  await expect(dialog.getByText("RGW operation pending; retry.")).toBeVisible();
+  expect(requests[0]).toEqual({ enabled: true, endpoint_ids: [901], grant_current_user: false });
+  await grant.check();
+  await dialog.getByRole("button", { name: "Retry pending operations" }).click();
+  await expect(dialog.getByText("Ceph managed candidate · Active")).toBeVisible();
+  expect(requests[1].grant_current_user).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("ceph-admin-activation.png") });
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("switch", { name: "Ceph Admin feature" }).click();
+  const revoke = page.getByRole("dialog", { name: "Disable Ceph Admin", exact: true });
+  await revoke.getByRole("button", { name: "Disable and revoke identities" }).click();
+  await expect(revoke.getByText(/revocation_pending/)).toBeVisible();
+  await expect(revoke.getByRole("button", { name: "Retry pending operations" })).toBeEnabled();
+  await page.screenshot({ path: testInfo.outputPath("ceph-admin-revocation-pending.png") });
+  expect(errors).toEqual([]);
+  await page.context().storageState({ path: E2E_ADMIN_STORAGE_STATE_PATH });
+});
+
+test("shows managed Runtime state and requires explicit external replacements", async ({ page }, testInfo) => {
+  const errors = collectApplicationErrors(page);
+  await page.route(/\/api\/admin\/storage-endpoints(?:\?.*)?$/, async route => {
+    const response = await route.fetch();
+    const rows = await response.json();
+    await route.fulfill({ response, json: [{ ...rows[0], id: 901, name: "Ceph Runtime identity", provider: "ceph", is_editable: true,
+      admin_access_key: "OPERATOR", has_admin_secret: true, service_identity_mode: "managed",
+      runtime_access_key: "GENERATED-KEY", has_runtime_secret: true,
+      capabilities: { admin: true, account: true, metrics: false, usage: false },
+      features: { ...rows[0].features, admin: { enabled: true }, account: { enabled: true }, metrics: { enabled: false }, usage: { enabled: false } },
+      service_identities: [{ kind: "runtime", mode: "managed", status: "ready" }],
+      admin_ops_permissions: { users_read: true, users_write: true, accounts_read: true, accounts_write: false },
+    }] });
+  });
+  await page.route("**/api/admin/storage-endpoints/detect-features", route => route.fulfill({ json: {
+    admin: true, account: true, metrics: false, usage: false, warnings: [],
+    admin_ops_permissions: { users_read: true, users_write: true, accounts_read: true, accounts_write: false },
+    credential_checks: { admin: { status: "valid" }, runtime: { status: "not_configured" }, supervision: { status: "not_configured" }, ceph_admin: { status: "not_configured" } },
+  } }));
+  await page.goto("/admin/storage-endpoints/901");
+  await page.getByRole("tab", { name: "Credentials", exact: true }).click();
+  await expect(page.getByText("Runtime Read Ops · managed · ready", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Runtime access key", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Identity management").selectOption("external");
+  await expect(page.getByLabel("Runtime access key", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Runtime secret key", { exact: true })).toHaveValue("");
+  await page.screenshot({ path: testInfo.outputPath("runtime-external-replacement.png") });
+  expect(errors).toEqual([]);
+  await page.context().storageState({ path: E2E_ADMIN_STORAGE_STATE_PATH });
+});
 
 test("keeps the compact endpoint inventory authenticated and preserves filters through its editor", async ({ page }, testInfo) => {
   const errors = collectApplicationErrors(page);

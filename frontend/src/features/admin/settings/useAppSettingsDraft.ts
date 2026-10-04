@@ -157,6 +157,16 @@ export function useAppSettingsDraft(
       setBusy(false);
     }
   };
+  const refresh = async () => {
+    const latest = await fetchAppSettings();
+    const oldValues = settings ? selectSettings(settings, paths) : {};
+    const pendingChanges = Object.fromEntries(Object.entries(form.draft).filter(([key, value]) => value !== oldValues[key as SettingsPath]));
+    const next = selectSettings(latest, paths);
+    setSettings(latest);
+    accept(next);
+    setDraft({ ...next, ...pendingChanges });
+    setGeneralSettings(latest.general);
+  };
   return {
     ...form,
     settings,
@@ -168,6 +178,7 @@ export function useAppSettingsDraft(
     save,
     cancel,
     loadDefaults,
+    refresh,
     verificationDialog,
   };
 }

@@ -8,8 +8,9 @@ from app.db import User
 from app.models.app_settings import AppSettings, GeneralFeatureLocks, QuotaNotificationSettings
 from app.models.ldap import LDAPProviderAdminItem, LDAPProviderAdminPayload
 from app.models.oidc import OIDCProviderAdminItem, OIDCProviderAdminPayload
+from app.models.storage_endpoint import CephAdminActivationRequest
 from app.routers.dependencies import get_audit_service, get_current_ui_superadmin
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import raise_http_exception_from_exception, raise_http_error_from_value_error
 from app.services.audit_service import AuditService
 from app.services.app_settings_service import (
     get_general_feature_locks,
@@ -44,6 +45,7 @@ from app.services.portal_service import get_portal_service
 router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 
 _SENSITIVE_GENERAL_SETTINGS = (
+    "ceph_admin_enabled",
     "allow_login_access_keys",
     "allow_login_endpoint_list",
     "allow_login_custom_endpoint",
@@ -85,6 +87,8 @@ def update_settings(
     audit: AuditService = Depends(get_audit_service),
 ) -> AppSettings:
     current_settings = load_app_settings_for_db(db)
+    if payload.general.ceph_admin_enabled and not current_settings.general.ceph_admin_enabled:
+        raise HTTPException(status_code=400, detail="Use the Ceph Admin activation workflow to select endpoints.")
     if _authentication_settings_changed(current_settings, payload):
         require_admin_sensitive_action(request, db, current_user)
     try:
@@ -92,6 +96,9 @@ def update_settings(
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     saved = save_app_settings(payload)
+    if current_settings.general.ceph_admin_enabled and not saved.general.ceph_admin_enabled:
+        from app.services.ceph_admin_activation_service import CephAdminActivationService
+        CephAdminActivationService(db, current_user).apply(enabled=False, endpoint_ids=[])
     audit.record_action(
         user=current_user,
         scope="admin",
@@ -106,6 +113,25 @@ def update_settings(
     if saved.general.endpoint_status_enabled and not current_settings.general.endpoint_status_enabled:
         background_tasks.add_task(run_initial_healthchecks)
     return saved
+
+
+@router.post("/ceph-admin")
+def configure_ceph_admin(
+    request: Request, payload: CephAdminActivationRequest,
+    current_user: User = Depends(get_current_ui_superadmin), db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+):
+    require_admin_sensitive_action(request, db, current_user)
+    from app.services.ceph_admin_activation_service import CephAdminActivationService
+    try:
+        result = CephAdminActivationService(db, current_user).apply(**payload.model_dump())
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail="Ceph Admin configuration failed; check RGW connectivity and Admin Ops permissions.") from exc
+    audit.record_action(user=current_user, scope="admin", action="ceph_admin.activation",
+                        entity_type="app_settings", entity_id="global", metadata=payload.model_dump())
+    return result
 
 
 @router.get("/oidc/providers", response_model=list[OIDCProviderAdminItem])

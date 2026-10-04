@@ -39,18 +39,23 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
     latitude, longitude, provider: form.provider, features_config: buildFeaturesYaml(features),
   };
   if (form.provider === "ceph") {
+    payload.service_identity_mode = form.service_identity_mode;
+    payload.ceph_admin_allowed = form.ceph_admin_allowed;
+    const external = form.service_identity_mode === "external";
     const credentials = [
       { kind: "admin", required: features.admin.enabled, label: "Admin", reason: "admin is enabled" },
-      { kind: "supervision", required: features.usage.enabled || features.metrics.enabled, label: "Supervision", reason: "usage log or metrics is enabled" },
-      { kind: "ceph_admin", required: false, label: "Ceph Admin", reason: "" },
+      { kind: "runtime", required: external && Boolean(form.admin_access_key.trim()), label: "Runtime Read Ops", reason: "service identities are external" },
+      { kind: "supervision", required: external && (features.usage.enabled || features.metrics.enabled), label: "Supervision", reason: "usage log or metrics is enabled" },
+
     ] as const;
     for (const { kind, required, label, reason } of credentials) {
+      if (!external && kind !== "admin") continue;
       const accessField = `${kind}_access_key` as const;
       const secretField = `${kind}_secret_key` as const;
       const access = form[accessField].trim();
       const secret = form[secretField].trim();
       if (required && !access) errors[accessField] = `${label} access key is required when ${reason}.`;
-      if (required && !editing && !secret) errors[secretField] = `${label} secret key is required when ${reason}.`;
+      if (required && (!editing || !form[`has_${kind}_secret`]) && !secret) errors[secretField] = `${label} secret key is required when ${reason}.`;
       payload[accessField] = access || null;
       // An empty secret on edit keeps the stored value; clearing access clears both.
       if (!editing || !access || secret) payload[secretField] = secret || null;

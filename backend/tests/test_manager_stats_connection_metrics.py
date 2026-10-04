@@ -28,10 +28,11 @@ def _request(path: str):
 
 
 def _ceph_endpoint(name: str) -> StorageEndpoint:
-    return StorageEndpoint(
+    endpoint = StorageEndpoint(
         name=name,
         endpoint_url=f"https://{name}.example.test",
         provider="ceph",
+        runtime_access_key="RUNTIME-AK", runtime_secret_key="RUNTIME-SK",
         supervision_access_key="SUP-AK",
         supervision_secret_key="SUP-SK",
         features_config=(
@@ -44,6 +45,10 @@ def _ceph_endpoint(name: str) -> StorageEndpoint:
             "    enabled: true\n"
         ),
     )
+
+    endpoint.service_identity("runtime").status = "ready"
+    endpoint.service_identity("supervision").status = "ready"
+    return endpoint
 
 
 def _usage_history_settings(enabled: bool) -> AppSettings:

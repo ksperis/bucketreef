@@ -103,3 +103,14 @@ def reset_bucket_migration_workers():
     finally:
         reset_bucket_migration_worker_for_tests()
         reset_webhook_delivery_worker_for_tests()
+
+
+@pytest.fixture
+def public_s3_endpoint_dns(monkeypatch):
+    """Keep workspace authorization fixtures independent of process-wide DNS stubs."""
+    import ipaddress
+    from app.utils import network_targets
+    original = network_targets.resolve_hostname_ips
+    monkeypatch.setattr(network_targets, "resolve_hostname_ips", lambda host: {
+        ipaddress.ip_address("93.184.216.34")
+    } if host == "93.184.216.34" else original(host))

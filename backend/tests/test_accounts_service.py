@@ -69,6 +69,8 @@ def _build_service(db_session, monkeypatch, fake_admin) -> S3AccountsService:
         "app.services.s3_accounts_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_admin,
     )
+    monkeypatch.setattr("app.services.s3_accounts_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_admin)
+    monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_admin)
     return S3AccountsService(db_session)
 
 
@@ -80,6 +82,9 @@ def test_get_account_detail_uses_typed_not_found_error(db_session):
 
 
 class FakeRGWAdmin:
+    def get_user_by_access_key(self, access_key, **kwargs):
+        return {"caps": "users=read,write;accounts=read,write"}
+
     def __init__(self, account_payload: Optional[dict[str, object]] = None):
         self.created_accounts: list[tuple[str, str]] = []
         self.created_users: list[str] = []
@@ -141,7 +146,7 @@ class FakeRGWAdmin:
         return {"id": account_id, "user_list": []}
 
 
-def test_get_account_usage_uses_admin_ops_without_monitoring_feature(db_session, monkeypatch):
+def test_get_account_usage_uses_runtime_without_monitoring_feature(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=False)
     account = S3Account(
         name="Usage Account",
@@ -171,7 +176,7 @@ def test_get_account_usage_uses_admin_ops_without_monitoring_feature(db_session,
 
     assert service.get_account_usage(account) == (96, 5, 2)
     assert admin_calls == [
-        {"account_id": None, "uid": "usage-account-admin", "with_stats": True}
+        {"account_id": None, "uid": "RGW00000000000000009", "with_stats": True}
     ]
 
 def test_create_account_with_root(db_session, monkeypatch):

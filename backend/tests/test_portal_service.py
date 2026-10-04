@@ -146,7 +146,7 @@ def test_portal_manager_bucket_stats_rejects_out_of_scope_bucket_before_admin(mo
     )
     monkeypatch.setattr(
         service,
-        "_admin_ops_for_account",
+        "_runtime_read_for_account",
         lambda *_args: pytest.fail("Admin Ops must not be initialized for an unauthorized Portal bucket"),
     )
 
@@ -182,7 +182,7 @@ def test_portal_manager_bucket_stats_allow_archived_storage_space(monkeypatch, d
             assert kwargs == {"allow_not_found": True, "uid": account.rgw_user_uid}
             return {"usage": {"rgw.main": {"size_actual": 7, "num_objects": 2}}}
 
-    monkeypatch.setattr(service, "_admin_ops_for_account", lambda *_args: FakeAdmin())
+    monkeypatch.setattr(service, "_runtime_read_for_account", lambda *_args: FakeAdmin())
 
     bucket = service.get_bucket_stats(manager, access, "archived-space")
 
@@ -923,7 +923,7 @@ def test_get_state_does_not_load_dynamic_quota_limits(monkeypatch, db_session):
 
     monkeypatch.setattr(
         service,
-        "_quota_admin_for_account",
+        "_runtime_for_account",
         lambda acc: pytest.fail("PortalState must not initialize RGW Admin"),
     )
     monkeypatch.setattr(service, "_get_iam_service", lambda *_args, **_kwargs: pytest.fail("IAM should not initialize without a portal link"))
@@ -5775,7 +5775,7 @@ def test_portal_usage_exposes_quota_and_real_storage_space_breakdown(monkeypatch
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 
     monkeypatch.setattr(service, "_account_limits", lambda _account: (1_000, 100, 12))
-    monkeypatch.setattr(service, "_admin_ops_for_account", lambda _account: object())
+    monkeypatch.setattr(service, "_runtime_read_for_account", lambda _account: object())
     monkeypatch.setattr(
         service,
         "_admin_bucket_list",
@@ -5837,7 +5837,7 @@ def test_portal_user_usage_aggregates_hidden_storage_as_other(monkeypatch, db_se
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False)
 
     monkeypatch.setattr(service, "_account_limits", lambda _account: (2_000, 200, 20))
-    monkeypatch.setattr(service, "_admin_ops_for_account", lambda _account: object())
+    monkeypatch.setattr(service, "_runtime_read_for_account", lambda _account: object())
     monkeypatch.setattr(
         service,
         "_admin_bucket_list",
@@ -5886,7 +5886,7 @@ def test_portal_user_usage_omits_other_when_all_usage_is_visible(monkeypatch, db
     service = PortalService(db_session)
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False)
 
-    monkeypatch.setattr(service, "_admin_ops_for_account", lambda _account: object())
+    monkeypatch.setattr(service, "_runtime_read_for_account", lambda _account: object())
     monkeypatch.setattr(
         service,
         "_admin_bucket_list",

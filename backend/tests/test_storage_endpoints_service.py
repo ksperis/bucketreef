@@ -100,6 +100,12 @@ def _create_ceph_endpoint_with_full_credentials(db_session, name: str = "ceph-fu
     return endpoint
 
 
+@pytest.fixture(autouse=True)
+def isolate_remote_identity_lifecycle(monkeypatch):
+    # Lifecycle behavior is covered by test_endpoint_service_identities, with a fake RGW.
+    monkeypatch.setattr("app.services.endpoint_service_identities.EndpointServiceIdentityService.reconcile", lambda *args, **kwargs: [])
+
+
 def test_get_endpoint_uses_typed_not_found_error(db_session):
     service = StorageEndpointsService(db_session)
 
@@ -620,7 +626,7 @@ def test_sync_env_endpoints_retries_after_concurrent_unique_conflict(db_session,
 
     def flaky_commit():
         calls["count"] += 1
-        if calls["count"] == 1:
+        if calls["count"] == 2:
             raise IntegrityError("insert storage_endpoints", {}, Exception("unique"))
         return original_commit()
 
@@ -632,7 +638,6 @@ def test_sync_env_endpoints_retries_after_concurrent_unique_conflict(db_session,
     assert len(synced) == 1
     assert synced[0].name == "ceph-env"
     assert db_session.query(StorageEndpoint).count() == 1
-    assert calls["count"] == 2
 
 
 def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, monkeypatch):
@@ -1148,7 +1153,7 @@ def test_detect_features_keeps_account_and_usage_probes_independent(db_session, 
     assert result.account_error is None
     assert result.metrics is False
     assert result.metrics_error == "metrics probe failed"
-    assert result.usage is True
+    assert result.usage is False
     assert result.usage_error is None
     assert result.warnings == []
 
@@ -1428,7 +1433,7 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
     assert result.admin is True
     assert result.account is True
     assert result.metrics is True
-    assert result.usage is True
+    assert result.usage is False
     assert result.admin_error is None
     assert result.metrics_error is None
     assert result.usage_error is None

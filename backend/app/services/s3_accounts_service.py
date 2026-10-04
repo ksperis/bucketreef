@@ -42,7 +42,7 @@ from app.services.rgw_account_topics_resolver import (
     RgwAccountTopicsResolver,
     normalize_account_key,
 )
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
+from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
 from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_account_associations_service import S3AccountAssociationsService
@@ -125,6 +125,14 @@ class S3AccountsService:
         endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
         return self._admin_for_endpoint(endpoint, allow_missing=allow_missing)
 
+    def _runtime_for_account(self, account, allow_missing=False):
+        try:
+            return get_endpoint_runtime_rgw_client(account.storage_endpoint)
+        except (ValueError, RGWAdminError):
+            if allow_missing:
+                return None
+            raise
+
     def _apply_account_quota(
         self,
         account: S3Account,
@@ -132,6 +140,8 @@ class S3AccountsService:
         max_objects: Optional[int],
         max_size_unit: Optional[str] = None,
     ) -> None:
+        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
+        require_endpoint_permissions(account.storage_endpoint, "accounts_write")
         admin = self._admin_for_account(account)
         try:
             max_size_bytes = size_to_bytes(max_size_gb, max_size_unit)
@@ -153,11 +163,14 @@ class S3AccountsService:
             raise ValueError("RGW account quota update is not supported on this cluster.")
 
     def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
-        admin = self._admin_for_account(account, allow_missing=True)
+        admin = self._runtime_for_account(account, allow_missing=True)
         if not admin:
             return None, None, None
         try:
-            payload = admin.get_all_buckets(uid=account.rgw_user_uid, with_stats=True)
+            uid = account.rgw_account_id or account.rgw_user_uid
+            if not uid:
+                return None, None, None
+            payload = admin.get_all_buckets(uid=uid, with_stats=True)
         except RGWAdminError as exc:
             logger.warning("Unable to list buckets for account %s: %s", account.rgw_account_id, exc)
             return None, None, None
@@ -168,7 +181,7 @@ class S3AccountsService:
         account: S3Account,
         admin: Optional[RGWAdminClient] = None,
     ) -> tuple[Optional[float], Optional[int]]:
-        rgw_admin = admin or self._admin_for_account(account, allow_missing=True)
+        rgw_admin = admin or self._runtime_for_account(account, allow_missing=True)
         if not rgw_admin:
             return None, None
         try:
@@ -182,7 +195,7 @@ class S3AccountsService:
         self,
         account: S3Account,
     ) -> tuple[Optional[float], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int]]:
-        rgw_admin = self._admin_for_account(account, allow_missing=True)
+        rgw_admin = self._runtime_for_account(account, allow_missing=True)
         if not rgw_admin:
             return None, None, None, None, None, None
         try:
@@ -666,6 +679,8 @@ class S3AccountsService:
         admin = self._admin_for_endpoint(endpoint, allow_missing=False)
         if admin is None:
             raise ValueError("RGW administrative credentials are required")
+        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
+        require_endpoint_permissions(endpoint, "users_write", "accounts_write", client=admin)
         remote = admin.get_account(rgw_account_id, allow_not_found=True)
         resume = bool(remote and not remote.get("not_found"))
         if not remote or remote.get("not_found"):
@@ -709,6 +724,8 @@ class S3AccountsService:
         admin = self._admin_for_endpoint(endpoint)
         if not admin:
             raise ValueError("Unable to create account: RGW credentials are missing for the selected endpoint.")
+        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
+        require_endpoint_permissions(endpoint, "users_write", "accounts_write", client=admin)
 
         rgw_account_id = self._generate_account_id()
         # Create account in RGW

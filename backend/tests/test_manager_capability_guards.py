@@ -34,7 +34,7 @@ def enabled_settings(monkeypatch):
 
 
 def _context(kind="account"):
-    return S3ExecutionContext(
+    context = S3ExecutionContext(
         context_id=f"{kind}:selected", context_kind=kind, name="Selected",
         access_key="TEST-AK", secret_key="TEST-SK", rgw_user_uid="selected-user",
         manager_capabilities=AccountCapabilities(can_manage_buckets=True, can_manage_iam=True),
@@ -44,6 +44,9 @@ def _context(kind="account"):
             features_config="features:\n  iam:\n    enabled: true\n  sns:\n    enabled: true\n  metrics:\n    enabled: true\n  usage:\n    enabled: true\n",
         ),
     )
+
+    context.storage_endpoint.service_identity("supervision").status = "ready"
+    return context
 
 
 def _actor(kind="account", *, traffic=True):

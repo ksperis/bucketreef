@@ -72,12 +72,12 @@ passkey policy. Secure the Admin identity separately before production:
    a private S3 connection for Browser + Manager, monitoring/metrics, and/or
    Ceph Admin. Ceph-specific choices remain available for a Ceph RGW endpoint
    even when its management credentials have not been configured yet.
-3. **Provide credentials.** BucketReef asks only for credentials required by
-   the selected choices and not already configured on the endpoint. Admin Ops,
-   Supervision Ops and Ceph Admin use distinct RGW identities. The private S3
-   connection also uses its own S3 identity. The UI includes the corresponding
-   `radosgw-admin user create` examples for Ceph RGW. Credentials and their
-   required RGW capabilities are validated live before the next step is enabled.
+3. **Provide credentials.** Supply Admin Ops for Ceph bootstrap. Its mandatory caps
+   are `users=read;accounts=read`; the UI shows optional writes and available features.
+   Managed mode needs `users=write` and creates Runtime plus Supervision when
+   monitoring is selected. In external mode, provide Runtime and, when needed,
+   Supervision keys. The private S3 connection keeps its own identity. Creation
+   commands include mandatory caps and explicit optional permission additions.
 4. **Review and apply.** Inspect the exact feature activations, resource
    creations and access assignments, then explicitly apply the reviewed
    configuration. **Apply configuration** is available only in this final step.
@@ -85,27 +85,17 @@ passkey policy. Secure the Admin identity separately before production:
 The second step adapts to the endpoint provider: generic S3 endpoints can use a
 private Browser/Manager connection, while Ceph-specific setup requires Ceph
 RGW. Manager and Portal share one sample RGW Account when both are selected,
-while their membership roles remain independent. Monitoring enables the
-endpoint usage and metrics capabilities after validating its dedicated
-read-only Supervision Ops identity. Ceph Admin requires a distinct validated
-RGW admin/system identity.
+while their membership roles remain independent. Provisioning the sample account
+and its root identity requires both `accounts=write` and `users=write`. Endpoint
+registration through the API also accepts read-only Admin Ops and external Runtime,
+so operators can provision accounts/users outside BucketReef.
 
-The live checks distinguish endpoint reachability, credential access and the
-capability needed by each selected path. Manager/Portal validates Admin Ops and
-the RGW Account API, plus the Admin Ops `users=read,write` and
-`accounts=read,write` caps needed to provision the sample account and identities,
-and `buckets=read` for live bucket-stat enrichment in Manager and Portal.
-`buckets=write` is displayed separately and does not block onboarding; it is
-needed only for delegated Manager bucket quota changes. Monitoring validates
-Supervision Ops by retrieving bucket statistics and RGW usage data. The usage
-check must contain actual values; an empty result blocks the monitoring choice
-and asks the operator to verify `rgw_enable_usage_log` and that RGW has already
-recorded traffic. Ceph Admin validates a dedicated RGW identity carrying either the
-`admin` or `system` flag. A private Browser/Manager connection validates its S3
-credentials independently. Required features are enabled only for selected
-options and remain subject to deployment ENV locks. Advanced policies, quotas,
-identity providers and group assignments stay in the standard administration
-pages.
+Initial checks use Admin Ops without creating resources. Applying creates managed
+identities and validates Runtime reads without keys and Supervision collection.
+No Runtime or monitoring read falls back to Admin Ops. Usage is disabled if Admin
+Ops lacks `usage=read`; empty usage data does not prevent metrics setup. Ceph Admin
+requires `users=write` and creates a dedicated managed admin identity for the selected
+endpoint. The private S3 connection is validated independently. ENV locks still apply.
 
 Only a platform superadministrator can apply configuration changes, and apply
 uses the normal Admin sensitive-action guard. Recent WebAuthn is required when

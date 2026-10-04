@@ -153,14 +153,22 @@ keys. Endpoint or credential changes therefore do not reuse an older resolution
 even when updates occur within one second. Identical concurrent lookups share a
 single result or error, and pending coordination is released on completion.
 
-Connection RGW identity lookups, endpoint S3 healthchecks, and Portal access-log
-requester enrichment share the endpoint read-credential selector. It chooses a
-complete supervision key pair first, then a complete administrator pair only
-when supervision credentials are incomplete. It never combines keys from
-different pairs or retries with administrator credentials after a provider
-denial. Without a complete pair, the existing unavailable result is preserved.
-Metrics and usage eligibility still require complete supervision credentials;
-this selector does not change native S3 execution identities or permissions.
+Connection identity lookup, Portal requester enrichment, live account/user quotas
+and scoped bucket stats use a ready Runtime Read Ops identity exclusively. Its
+caps are `accounts=read;user-info-without-keys=read;buckets=read`, without keys in
+user responses. S3 healthchecks and collectors use ready Supervision Ops identities.
+Unavailable service identities produce explicit degraded states; neither reader
+nor collector may fall back to Admin Ops. S3 scope is proven before bucket metadata
+queries, and bucket retries never drop UID scope.
+
+Admin Ops remains operator-supplied. Service identity rows store encrypted secrets,
+mode, UID, durable ownership provenance, lifecycle state, and pending rotation.
+Provisioning persists the intended key before RGW mutations; endpoint operation
+leases serialize reconciliation and rotation. A UID collision is never adopted.
+Revocation blocks local access before deleting an owned RGW user without purge.
+Ceph Admin requires global activation, persistent endpoint `allowed`, and a ready
+managed admin identity. Existing external Ceph Admin users are preserved during
+explicit conversion. ENV synchronization preserves generated DB credentials.
 
 Usage-history subjects are local RGW accounts or S3 users, scoped to their
 storage endpoint. Trend filters use the explicit execution kind and the

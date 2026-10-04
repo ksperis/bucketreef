@@ -348,6 +348,9 @@ class Settings(BaseSettings):
             "(RGW_ADMIN_BUCKET_LIST_STATS_TIMEOUT_SECONDS)"
         ),
     )
+    seed_service_identity_mode: str = Field(default="managed", description="Endpoint service identities: managed or external")
+    seed_runtime_access_key: Optional[str] = None
+    seed_runtime_secret_key: Optional[str] = None
     seed_supervision_access_key: Optional[str] = Field(
         None,
         description="Seed access key dedicated to supervision usage stats",

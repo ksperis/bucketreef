@@ -32,7 +32,7 @@ def test_account_limits_do_not_repeat_lookup_without_embedded_quota(db_session, 
     account = make_s3_account(db_session, name="portal-limits")
     service = PortalService(db_session)
     admin = _AccountLimitsAdmin()
-    monkeypatch.setattr(service, "_quota_admin_for_account", lambda _account: admin)
+    monkeypatch.setattr(service, "_runtime_for_account", lambda _account: admin)
 
     assert service._account_limits(account) == (None, None, 5)
     assert admin.account_calls == 1
@@ -45,7 +45,7 @@ def test_admin_bucket_info_skips_admin_outside_portal_account_scope(db_session, 
     service = PortalService(db_session)
     monkeypatch.setattr(
         service,
-        "_admin_ops_for_account",
+        "_runtime_read_for_account",
         lambda *_args: pytest.fail("Admin Ops must not be initialized for an out-of-scope Portal bucket"),
     )
 
@@ -72,7 +72,7 @@ def test_admin_bucket_info_uses_single_uid_scoped_lookup(db_session, monkeypatch
             calls.append((bucket_name, kwargs))
             return None
 
-    monkeypatch.setattr(service, "_admin_ops_for_account", lambda *_args: FakeAdmin())
+    monkeypatch.setattr(service, "_runtime_read_for_account", lambda *_args: FakeAdmin())
 
     assert service._admin_bucket_info(account, "portal-bucket") is None
     assert calls == [
