@@ -60,11 +60,24 @@ in full. The version-2 draft contains only endpoint selection/options and the
 five preparation booleans (`manager`, `portal`, `private_connection`,
 `ceph_admin`, `supervision`). The strict draft stores no credential fields.
 Apply accepts separate write-only `admin_access_key` / `admin_secret_key`,
-Supervision Ops, Ceph Admin and private-S3 credentials. Existing complete
+`service_identity_mode` (`managed` or `external`), Runtime/Supervision in external mode and private-S3 credentials. Ceph Admin is provisioned as managed. Existing complete
 endpoint credentials are reused; newly submitted credentials are validated
 before they enter the existing encrypted credential store. The onboarding API
 no longer exposes the legacy `endpoint_access_key` / `endpoint_secret_key`
 fields from the former first-step endpoint credential flow.
+
+Endpoint create/update accepts `service_identity_mode`, external `runtime_access_key`
+and write-only `runtime_secret_key`, and `ceph_admin_allowed`. Admin Ops requires
+`users=read;accounts=read`; writes are optional. Without `users=write`, use external
+mode and supply Runtime, plus Supervision only when Metrics/Usage is enabled.
+Responses include `has_runtime_secret`, secret-free `service_identities` lifecycle
+states, `ceph_admin_allowed` and computed `ceph_admin_active`.
+`POST /api/admin/storage-endpoints/{id}/service-identities/reconcile` retries pending
+configuration/revocation. `POST /api/admin/settings/ceph-admin` accepts `enabled`,
+`endpoint_ids`, and default-false `grant_current_user`, returning per-endpoint results.
+A false-to-true global toggle through generic settings PUT is rejected. Existing
+external Ceph Admin identities require explicit conversion through activation.
+
 
 The onboarding and endpoint editor share
 `POST /api/admin/storage-endpoints/detect-features` for live Ceph endpoint
@@ -81,7 +94,7 @@ Any HTTP response proves endpoint reachability, including an unauthenticated
 `403`; only a connection/request failure is `unavailable`. A successful Admin
 Ops identity lookup also returns `admin_ops_permissions`, resolved from the RGW
 user caps. Guided Manager/Portal provisioning requires `users=read,write` and
-`accounts=read,write`, plus `buckets=read` for live bucket-stat enrichment;
+`accounts=read,write`; live reads use the separate Runtime identity;
 `buckets=write` is reported separately and remains
 optional for onboarding because it is needed only for delegated bucket quota
 changes. Ceph Admin accepts a dedicated RGW identity with either the `admin` or

@@ -42,7 +42,7 @@ from app.models.s3_user import (
     S3UserUpdate,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
+from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services import s3_client
 from app.utils.rgw_payloads import extract_bucket_list, extract_rgw_user_payload
@@ -119,7 +119,7 @@ class S3UsersService:
     def get_user_usage(self, s3_user: S3UserModel) -> tuple[Optional[int], Optional[int], Optional[int]]:
         try:
             endpoint = self._endpoint_for_user(s3_user)
-            admin = self._admin_for_endpoint(endpoint)
+            admin = get_endpoint_runtime_rgw_client(endpoint)
             payload = admin.get_all_buckets(uid=s3_user.rgw_user_uid, with_stats=True)
         except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to list buckets with stats for user %s: %s", s3_user.rgw_user_uid, exc)
@@ -132,7 +132,7 @@ class S3UsersService:
         admin: Optional[RGWAdminClient] = None,
     ) -> tuple[Optional[float], Optional[int]]:
         try:
-            rgw_admin = admin or self._admin_for_user(s3_user)
+            rgw_admin = admin or get_endpoint_runtime_rgw_client(self._endpoint_for_user(s3_user))
         except ValueError as exc:
             logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None
@@ -145,7 +145,7 @@ class S3UsersService:
 
     def get_user_limits(self, s3_user: S3UserModel) -> tuple[Optional[float], Optional[int], Optional[int]]:
         try:
-            rgw_admin = self._admin_for_user(s3_user)
+            rgw_admin = get_endpoint_runtime_rgw_client(self._endpoint_for_user(s3_user))
         except ValueError as exc:
             logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None, None
@@ -164,6 +164,8 @@ class S3UsersService:
         max_objects: Optional[int],
         max_size_unit: Optional[str] = None,
     ) -> None:
+        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
+        require_endpoint_permissions(s3_user.storage_endpoint, "users_write")
         admin = self._admin_for_user(s3_user)
         try:
             max_size_bytes = size_to_bytes(max_size_gb, max_size_unit)
@@ -355,6 +357,8 @@ class S3UsersService:
         if existing:
             raise ValueError("An S3 user with this UID already exists")
         endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
+        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
+        require_endpoint_permissions(endpoint, "users_write")
         admin = self._admin_for_endpoint(endpoint)
         try:
             response = admin.create_user(

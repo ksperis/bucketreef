@@ -49,12 +49,12 @@ never automatically repeats an uncertain operation.
 
 ### Endpoints managed by the environment
 
-When an endpoint is configured through `ENV_STORAGE_ENDPOINTS`, the environment
-remains the source of truth for its Admin Ops, supervision, and Ceph Admin
-credentials. The Admin key rotation page skips those three key types rather
-than creating a key that would be lost or overwritten on the next backend
-restart. Account and standalone S3 user keys remain eligible because they are
-stored in the database.
+Admin Ops and externally supplied credentials remain operator-managed when an
+endpoint is configured through `ENV_STORAGE_ENDPOINTS`. External service identities
+are never rotated automatically. Managed Runtime, Supervision and Ceph Admin keys
+are stored in DB and remain eligible even on an ENV-configured endpoint. Rotation
+validates and saves the new key before retiring the old one; pending retirement is
+retained and retryable without generating another key.
 
 Rotate environment-managed endpoint credentials without interruption:
 

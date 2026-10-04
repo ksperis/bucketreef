@@ -31,7 +31,7 @@ def clean_identity_cache():
 
 def _endpoint(present):
     supervision_access, supervision_secret, admin_access, admin_secret = present
-    return StorageEndpoint(
+    endpoint = StorageEndpoint(
         id=17,
         name="credential-pair-endpoint",
         endpoint_url="https://s3.example.test",
@@ -45,6 +45,12 @@ def _endpoint(present):
         admin_access_key="ADMIN-AK" if admin_access else None,
         admin_secret_key="ADMIN-SK" if admin_secret else None,
     )
+    endpoint.runtime_access_key = "RUNTIME-AK" if supervision_access else None
+    endpoint.runtime_secret_key = "RUNTIME-SK" if supervision_secret else None
+    for identity in endpoint.service_identities:
+        identity.status = "ready"
+    return endpoint
+
 
 
 def _connection(endpoint):
@@ -89,9 +95,7 @@ def test_readers_select_one_complete_credential_pair(monkeypatch, consumer, pres
         available = result is not None
 
     if present[0] and present[1]:
-        expected = ("SUPERVISION-AK", "SUPERVISION-SK")
-    elif present[2] and present[3]:
-        expected = ("ADMIN-AK", "ADMIN-SK")
+        expected = ("SUPERVISION-AK", "SUPERVISION-SK") if consumer == "healthcheck" else ("RUNTIME-AK", "RUNTIME-SK")
     else:
         expected = None
     assert available is (expected is not None)
@@ -109,7 +113,7 @@ def test_readers_select_one_complete_credential_pair(monkeypatch, consumer, pres
 
 @pytest.mark.parametrize("consumer", ["identity", "healthcheck", "portal"])
 @pytest.mark.parametrize("failure_stage", ["client", "request"])
-def test_readers_do_not_retry_with_admin_after_supervision_denial(
+def test_readers_do_not_retry_with_admin_after_service_identity_denial(
     monkeypatch, db_session, consumer, failure_stage,
 ):
     endpoint = _endpoint((True, True, True, True))
@@ -168,7 +172,7 @@ def test_readers_do_not_retry_with_admin_after_supervision_denial(
         assert entry.requester_identity.resolved is False
 
     assert len(calls) == 1
-    assert (calls[0]["access_key"], calls[0]["secret_key"]) == ("SUPERVISION-AK", "SUPERVISION-SK")
+    assert (calls[0]["access_key"], calls[0]["secret_key"]) == (("SUPERVISION-AK", "SUPERVISION-SK") if consumer == "healthcheck" else ("RUNTIME-AK", "RUNTIME-SK"))
     assert len(requests) == (1 if failure_stage == "request" else 0)
 
 
@@ -188,30 +192,8 @@ def test_metrics_still_require_complete_supervision_credentials(monkeypatch, sup
     assert "supervision credentials are not configured" in result.reason
 
 
-@pytest.mark.parametrize("supervision", [(True, False), (False, True)])
-def test_accepted_endpoint_config_with_partial_supervision_uses_complete_admin_pair(supervision):
-    endpoint = _endpoint((*supervision, True, True))
-    config = normalize_storage_endpoint_state(StorageEndpointCreate(
-        name=endpoint.name,
-        endpoint_url=endpoint.endpoint_url,
-        provider=endpoint.provider,
-        admin_access_key=endpoint.admin_access_key,
-        admin_secret_key=endpoint.admin_secret_key,
-        supervision_access_key=endpoint.supervision_access_key,
-        supervision_secret_key=endpoint.supervision_secret_key,
-        features_config=endpoint.features_config,
-    ))
-
-    assert config.supervision_access_key == endpoint.supervision_access_key
-    assert config.supervision_secret_key == endpoint.supervision_secret_key
-    assert resolve_endpoint_read_credentials(config) == ("ADMIN-AK", "ADMIN-SK")
-
-
-@pytest.mark.parametrize("access_key", ["", "  ", " SUPERVISION-AK "])
-def test_read_credentials_normalize_access_key_without_altering_secret(access_key):
+@pytest.mark.parametrize("status", ["missing", "error", "provisioning", "revocation_pending", "disabled"])
+def test_unavailable_runtime_never_falls_back_to_other_identities(status):
     endpoint = _endpoint((True, True, True, True))
-    endpoint.supervision_access_key = access_key
-    endpoint.supervision_secret_key = " secret with spaces "
-
-    expected = ("SUPERVISION-AK", " secret with spaces ") if access_key.strip() else ("ADMIN-AK", "ADMIN-SK")
-    assert resolve_endpoint_read_credentials(endpoint) == expected
+    endpoint.service_identity("runtime").status = status
+    assert resolve_endpoint_read_credentials(endpoint) is None

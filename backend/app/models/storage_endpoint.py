@@ -44,6 +44,17 @@ class StorageEndpointAdminOpsPermissions(ApiModel):
     buckets_write: bool = False
     accounts_read: bool = False
     accounts_write: bool = False
+    usage_read: bool = False
+    usage_write: bool = False
+
+
+class EndpointServiceIdentityStatus(ApiModel):
+    kind: Literal["runtime", "supervision", "ceph_admin"]
+    mode: Literal["managed", "external"]
+    rgw_uid: Optional[str] = None
+    status: str
+    last_error: Optional[str] = None
+    last_reconciled_at: Optional[datetime] = None
 
 
 class StorageEndpointCreate(ApiModel):
@@ -55,6 +66,10 @@ class StorageEndpointCreate(ApiModel):
     provider: StorageProvider = Field(default=StorageProvider.CEPH)
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[str] = None
+    service_identity_mode: Literal["managed", "external"] = "managed"
+    runtime_access_key: Optional[str] = None
+    runtime_secret_key: Optional[str] = None
+    ceph_admin_allowed: bool = False
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
     ceph_admin_access_key: Optional[str] = None
@@ -95,6 +110,10 @@ class StorageEndpointUpdate(ApiModel):
     provider: Optional[StorageProvider] = None
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[str] = None
+    service_identity_mode: Optional[Literal["managed", "external"]] = None
+    runtime_access_key: Optional[str] = None
+    runtime_secret_key: Optional[str] = None
+    ceph_admin_allowed: Optional[bool] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
     ceph_admin_access_key: Optional[str] = None
@@ -133,6 +152,9 @@ class StorageEndpoint(StorageEndpointCreate):
     updated_at: datetime
     tags: list[TagDefinitionSummary] = Field(default_factory=list)
     has_admin_secret: bool = False
+    has_runtime_secret: bool = False
+    service_identities: list[EndpointServiceIdentityStatus] = Field(default_factory=list)
+    ceph_admin_active: bool = False
     has_supervision_secret: bool = False
     has_ceph_admin_secret: bool = False
     capabilities: dict[str, bool] = Field(default_factory=dict)
@@ -143,6 +165,7 @@ class StorageEndpoint(StorageEndpointCreate):
     features: StorageEndpointFeatures = Field(default_factory=StorageEndpointFeatures)
 
     admin_secret_key: Optional[str] = Field(default=None, exclude=True)
+    runtime_secret_key: Optional[str] = Field(default=None, exclude=True)
     supervision_secret_key: Optional[str] = Field(default=None, exclude=True)
     ceph_admin_secret_key: Optional[str] = Field(default=None, exclude=True)
 
@@ -158,6 +181,12 @@ class StorageEndpointMeta(ApiModel):
     managed_by_env: bool = False
 
 
+class CephAdminActivationRequest(ApiModel):
+    enabled: bool
+    endpoint_ids: list[int] = Field(default_factory=list)
+    grant_current_user: bool = False
+
+
 class StorageEndpointFeatureDetectionRequest(ApiModel):
     endpoint_id: Optional[int] = None
     endpoint_url: str
@@ -167,6 +196,8 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
     check_http: bool = False
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[str] = None
+    runtime_access_key: Optional[str] = None
+    runtime_secret_key: Optional[str] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
     ceph_admin_access_key: Optional[str] = None
@@ -178,6 +209,8 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
         "region",
         "admin_access_key",
         "admin_secret_key",
+        "runtime_access_key",
+        "runtime_secret_key",
         "supervision_access_key",
         "supervision_secret_key",
         "ceph_admin_access_key",
@@ -198,6 +231,7 @@ class StorageEndpointCredentialCheck(ApiModel):
 
 
 class StorageEndpointCredentialChecks(ApiModel):
+    runtime: StorageEndpointCredentialCheck = Field(default_factory=StorageEndpointCredentialCheck)
     admin: StorageEndpointCredentialCheck = Field(
         default_factory=StorageEndpointCredentialCheck
     )

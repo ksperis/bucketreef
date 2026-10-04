@@ -85,7 +85,7 @@ describe("KeyRotationPage", () => {
     await waitFor(() =>
       expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
         endpoint_ids: [7],
-        key_types: ["endpoint_admin", "endpoint_supervision", "account", "s3_user", "ceph_admin"],
+        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "account", "s3_user", "ceph_admin"],
         deactivate_only: false,
       })
     );
@@ -139,7 +139,7 @@ describe("KeyRotationPage", () => {
 
     expect(await screen.findByText("Ceph env")).toBeInTheDocument();
     expect(
-      screen.getByText(/Endpoint admin, supervision, and Ceph-admin keys managed by ENV_STORAGE_ENDPOINTS/)
+      screen.getByText(/Admin Ops keys supplied by ENV_STORAGE_ENDPOINTS/)
     ).toBeInTheDocument();
     expect(screen.getByText(/Endpoint credentials are managed by ENV_STORAGE_ENDPOINTS/)).toBeInTheDocument();
 
@@ -150,7 +150,7 @@ describe("KeyRotationPage", () => {
     await waitFor(() =>
       expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
         endpoint_ids: [7],
-        key_types: ["endpoint_admin", "endpoint_supervision", "account", "s3_user", "ceph_admin"],
+        key_types: ["endpoint_admin", "endpoint_runtime", "endpoint_supervision", "account", "s3_user", "ceph_admin"],
         deactivate_only: false,
       })
     );

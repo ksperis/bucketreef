@@ -61,6 +61,8 @@ def _build_endpoint(
         features_config=features_yaml,
         supervision_access_key="METRICS-AK" if has_supervision_credentials else None,
         supervision_secret_key="METRICS-SK" if has_supervision_credentials else None,
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         ceph_admin_access_key="ADMIN-AK",
         ceph_admin_secret_key="ADMIN-SK",
         tag_links=[

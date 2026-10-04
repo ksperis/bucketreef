@@ -149,3 +149,20 @@ explicitly skipped. It must differ from the suite's primary endpoint. Worker pro
 loss, stale lease fencing and interrupted active-test restoration are also covered
 by deterministic backend tests; the pause/resume live scenario does not simulate a
 machine crash. These tests create and delete only their generated test resources.
+
+## Managed service identity qualification
+
+On an isolated RGW, set `CEPH_TEST_SERVICE_IDENTITIES=1` and supply the existing
+`CEPH_TEST_RGW_ADMIN_ENDPOINT`, `CEPH_TEST_RGW_ADMIN_ACCESS_KEY`,
+`CEPH_TEST_RGW_ADMIN_SECRET_KEY` and functional-test configuration. Run:
+
+```sh
+CEPH_TEST_SERVICE_IDENTITIES=1 .venv/bin/python -m pytest -m ceph_functional tests_ceph_functional/test_endpoint_service_identity_lifecycle.py
+```
+
+This creates a temporary operator restricted to `users=read,write;accounts=read`,
+then qualifies managed Runtime, Supervision and Ceph Admin creation, Runtime user
+responses without keys, and confirmed Ceph Admin deletion through that operator.
+Cleanup never purges data. If remote revocation fails, it reports the UIDs and
+preserves the operator for retry. This scenario is skipped unless explicitly
+selected; ordinary fixture tests do not qualify a real RGW release.

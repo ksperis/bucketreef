@@ -11,6 +11,9 @@ from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 def _supervision_credentials_from_endpoint(endpoint: StorageEndpoint | None) -> tuple[str, str] | None:
     if endpoint is None:
         return None
+    identity = endpoint.service_identity("supervision")
+    if identity is None or identity.status != "ready":
+        return None
     access_key = endpoint.supervision_access_key
     secret_key = endpoint.supervision_secret_key
     if not access_key or not secret_key:

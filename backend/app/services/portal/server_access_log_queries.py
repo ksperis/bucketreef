@@ -36,7 +36,7 @@ from app.services.portal.server_access_log_records import (
 )
 from app.services.rgw_admin import RGWAdminClient, get_rgw_admin_client
 from app.utils.aws_errors import aws_error_code
-from app.utils.storage_endpoint_features import resolve_admin_endpoint
+from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
 if TYPE_CHECKING:
     from app.models.access_context import AccountAccess
@@ -140,7 +140,7 @@ class PortalServerAccessLogQueriesMixin:
         endpoint = getattr(account, "storage_endpoint", None)
         if endpoint is None:
             return None
-        admin_endpoint = resolve_admin_endpoint(endpoint)
+        admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
         if not admin_endpoint:
             return None
         credentials = resolve_endpoint_read_credentials(endpoint)

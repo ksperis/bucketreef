@@ -92,6 +92,8 @@ def admin_ops_permissions_from_caps(raw_caps: object) -> StorageEndpointAdminOps
         buckets_write=buckets_write,
         accounts_read=_allows(accounts_permissions, "read"),
         accounts_write=accounts_write,
+        usage_read=_allows(parsed_caps.get("usage", set()), "read"),
+        usage_write=_allows(parsed_caps.get("usage", set()), "write"),
     )
 
 
@@ -102,12 +104,13 @@ def resolve_storage_endpoint_admin_ops_permissions(
     capabilities: Mapping[str, bool],
     client_factory: RGWAdminClientFactory,
 ) -> StorageEndpointAdminOpsPermissions:
-    if provider != StorageProvider.CEPH or not capabilities.get("admin"):
+    if provider != StorageProvider.CEPH:
         return _empty_permissions()
     if not endpoint.admin_access_key or not endpoint.admin_secret_key:
         return _empty_permissions()
 
-    admin_endpoint = resolve_admin_endpoint(endpoint)
+    from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
+    admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
     if not admin_endpoint:
         return _empty_permissions()
 
@@ -145,5 +148,14 @@ def has_account_provisioning_permissions(
         and permissions.users_write
         and permissions.accounts_read
         and permissions.accounts_write
-        and permissions.buckets_read
     )
+
+
+def require_endpoint_permissions(endpoint, *required, client=None):
+    from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
+    admin = client or get_endpoint_admin_rgw_client(endpoint)
+    payload = admin.get_user_by_access_key(endpoint.admin_access_key, allow_not_found=True)
+    permissions = admin_ops_permissions_from_caps(payload.get("caps") if isinstance(payload, dict) else None)
+    missing = [permission for permission in required if not getattr(permissions, permission)]
+    if missing:
+        raise ValueError("Admin Ops is missing required permissions: " + ", ".join(missing))

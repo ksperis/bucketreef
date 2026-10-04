@@ -57,8 +57,9 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 class StorageEndpointsService:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, *, actor=None) -> None:
         self.db = db
+        self.actor = actor
         self.tags = TagsService(db)
 
     def env_endpoints_locked(self) -> bool:
@@ -99,7 +100,12 @@ class StorageEndpointsService:
             capabilities=capabilities,
             admin_ops_permissions=admin_ops_permissions,
             tags=self.tags.get_storage_endpoint_tags(endpoint),
+            ceph_admin_enabled=self._ceph_admin_enabled(),
         )
+
+    def _ceph_admin_enabled(self):
+        from app.services.app_settings_service import load_app_settings_for_db_readonly
+        return load_app_settings_for_db_readonly(self.db).general.ceph_admin_enabled
 
     def _ensure_unique_name(self, name: str, exclude_id: Optional[int] = None) -> None:
         query = self.db.query(StorageEndpoint).filter(StorageEndpoint.name == name)
@@ -139,10 +145,21 @@ class StorageEndpointsService:
         endpoint.provider = config.provider.value
         endpoint.admin_access_key = config.admin_access_key
         endpoint.admin_secret_key = config.admin_secret_key
-        endpoint.supervision_access_key = config.supervision_access_key
-        endpoint.supervision_secret_key = config.supervision_secret_key
-        endpoint.ceph_admin_access_key = config.ceph_admin_access_key
-        endpoint.ceph_admin_secret_key = config.ceph_admin_secret_key
+        if config.service_identity_mode is not None:
+            endpoint.service_identity_mode = config.service_identity_mode
+        elif endpoint.id is None:
+            endpoint.service_identity_mode = "external" if config.supervision_access_key or config.ceph_admin_access_key or config.runtime_access_key else "managed"
+        if config.ceph_admin_allowed is not None:
+            endpoint.ceph_admin_allowed = config.ceph_admin_allowed
+        for kind in ("runtime", "supervision", "ceph_admin"):
+            identity = endpoint.service_identity(kind)
+            # ENV and ordinary edits must never overwrite generated credentials.
+            if identity is not None and identity.mode == "managed":
+                continue
+            for suffix in ("access_key", "secret_key"):
+                value = getattr(config, f"{kind}_{suffix}")
+                if value is not None or identity is not None:
+                    setattr(endpoint, f"{kind}_{suffix}", value)
         endpoint.features_config = config.features_config
 
     @classmethod
@@ -168,8 +185,32 @@ class StorageEndpointsService:
             self._ensure_unique_endpoint(config.endpoint_url)
             endpoint = StorageEndpoint(name=config.name, endpoint_url=config.endpoint_url)
             existing_by_url[config.endpoint_url] = endpoint
-        self._apply_env_endpoint(endpoint, config)
-        self.db.add(endpoint)
+        from app.services.endpoint_service_identities import EndpointServiceIdentityService
+        from app.core.runtime_surfaces import runtime_surface_enabled
+        identities = EndpointServiceIdentityService(self.db, actor=self.actor)
+        lease, handle = identities._lease(endpoint) if endpoint.id is not None else (None, None)
+        try:
+            if endpoint.id is not None and config.provider != StorageProvider.CEPH and runtime_surface_enabled(settings, "admin"):
+                for kind in ("runtime", "supervision", "ceph_admin"):
+                    if not identities.revoke(endpoint, kind):
+                        raise ValueError("Managed identity revocation is pending; retry before changing the ENV provider.")
+            elif endpoint.id is not None and config.service_identity_mode == "external":
+                for kind in ("runtime", "supervision"):
+                    identity = endpoint.service_identity(kind)
+                    if identity is not None and identity.mode == "managed":
+                        if not getattr(config, f"{kind}_access_key") or not getattr(config, f"{kind}_secret_key"):
+                            raise ValueError("ENV conversion to external mode requires replacement service credentials.")
+                        if not identities.revoke(endpoint, kind):
+                            raise ValueError("Managed identity revocation is pending; retry ENV synchronization.")
+                        identity.mode = "external"
+            self._apply_env_endpoint(endpoint, config)
+            self.db.add(endpoint)
+            self.db.commit()
+            if runtime_surface_enabled(settings, "admin") and endpoint.admin_access_key and endpoint.admin_secret_key:
+                identities.reconcile(endpoint, locked=handle is not None)
+        finally:
+            if lease is not None:
+                lease.release(handle)
         return endpoint
 
     def _clear_other_default_endpoints(self, default_url: str) -> None:
@@ -201,6 +242,17 @@ class StorageEndpointsService:
         return synced
 
     def sync_env_endpoints(self, *, _retry_on_integrity: bool = True) -> list[StorageEndpointSchema]:
+        from app.services.operation_lease_service import OperationLeaseService
+        lease = OperationLeaseService(self.db)
+        handle = lease.acquire("endpoints:env-sync", ttl_seconds=7200)
+        if handle is None:
+            return self.list_endpoints()
+        try:
+            return self._sync_env_endpoints(_retry_on_integrity=_retry_on_integrity)
+        finally:
+            lease.release(handle)
+
+    def _sync_env_endpoints(self, *, _retry_on_integrity=True):
         env_endpoints = parse_env_storage_endpoints(settings.env_storage_endpoints)
         if not env_endpoints:
             return []
@@ -210,19 +262,18 @@ class StorageEndpointsService:
             for endpoint in self.db.query(StorageEndpoint).all()
         }
 
-        for config in configs:
-            self._upsert_env_endpoint(config, existing_by_url)
-        default_config = next(config for config in configs if config.is_default)
-        self._clear_other_default_endpoints(default_config.endpoint_url)
-
         try:
+            for config in configs:
+                self._upsert_env_endpoint(config, existing_by_url)
+            default_config = next(config for config in configs if config.is_default)
+            self._clear_other_default_endpoints(default_config.endpoint_url)
             self.db.commit()
         except IntegrityError:
             self.db.rollback()
             if not _retry_on_integrity:
                 raise
             logger.info("ENV_STORAGE_ENDPOINTS sync hit a concurrent insert; reloading existing endpoints.")
-            return self.sync_env_endpoints(_retry_on_integrity=False)
+            return self._sync_env_endpoints(_retry_on_integrity=False)
         return self._serialize_env_endpoints(configs)
 
     def list_endpoints(self, *, include_admin_ops_permissions: bool = False) -> list[StorageEndpointSchema]:
@@ -276,7 +327,11 @@ class StorageEndpointsService:
         self._apply_endpoint_state(endpoint, state)
         endpoint.is_default = False
         endpoint.is_editable = True
-        return self._persist_endpoint(endpoint, commit=commit)
+        # Durable endpoint IDs are required for resumable remote provisioning.
+        self._persist_endpoint(endpoint, commit=True)
+        if commit and endpoint.provider == "ceph" and endpoint.admin_access_key:
+            self.reconcile_identities(endpoint.id)
+        return self._serialize(endpoint)
 
     def update_endpoint(self, endpoint_id: int, payload: StorageEndpointUpdate) -> StorageEndpointSchema:
         self._ensure_env_editable()
@@ -288,8 +343,34 @@ class StorageEndpointsService:
         state = normalize_storage_endpoint_update(endpoint, payload)
         self._ensure_unique_name(state.name, exclude_id=endpoint.id)
         self._ensure_unique_endpoint(state.endpoint_url, exclude_id=endpoint.id)
-        self._apply_endpoint_state(endpoint, state)
-        return self._persist_endpoint(endpoint)
+        from app.services.endpoint_service_identities import EndpointServiceIdentityService
+        identities = EndpointServiceIdentityService(self.db, actor=self.actor)
+        lease, handle = identities._lease(endpoint)
+        try:
+            if state.service_identity_mode == "external" or state.provider != StorageProvider.CEPH:
+                for kind in ("runtime", "supervision"):
+                    identity = endpoint.service_identity(kind)
+                    if identity is not None and identity.mode == "managed":
+                        if not identities.revoke(endpoint, kind):
+                            raise ValueError("Managed identity revocation is pending; retry before changing identity mode.")
+                        identity.mode = "external"
+            if state.provider != StorageProvider.CEPH and not identities.revoke(endpoint, "ceph_admin"):
+                raise ValueError("Ceph Admin revocation is pending; retry before changing provider.")
+            self._apply_endpoint_state(endpoint, state)
+            self._persist_endpoint(endpoint)
+            if endpoint.provider == "ceph":
+                identities.reconcile(endpoint, locked=True)
+        finally:
+            lease.release(handle)
+        return self._serialize(endpoint)
+
+    def reconcile_identities(self, endpoint_id):
+        from app.services.endpoint_service_identities import EndpointServiceIdentityService
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
+        if endpoint is None:
+            raise StorageEndpointNotFoundError("Endpoint not found.")
+        EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(endpoint)
+        return self._serialize(endpoint)
 
     def delete_endpoint(self, endpoint_id: int) -> None:
         self._ensure_env_editable()
@@ -314,6 +395,15 @@ class StorageEndpointsService:
                 "Unable to delete this endpoint: "
                 f"accounts={linked_accounts}, users={linked_users}, connections={linked_connections}."
             )
+        from app.services.endpoint_service_identities import EndpointServiceIdentityService
+        identities = EndpointServiceIdentityService(self.db, actor=self.actor)
+        lease, handle = identities._lease(endpoint)
+        try:
+            for kind in ("runtime", "supervision", "ceph_admin"):
+                if not identities.revoke(endpoint, kind):
+                    raise ValueError("Managed identity revocation is pending; retry before deleting the endpoint.")
+        finally:
+            lease.release(handle)
         ResourceDeletionPurgeService(self.db).purge_endpoint_derived_data(endpoint.id)
         self.db.delete(endpoint)
         self.db.flush()
@@ -379,6 +469,9 @@ class StorageEndpointsService:
                 provider=provider,
                 admin_access_key=admin_access,
                 admin_secret_key=admin_secret,
+                service_identity_mode=settings.seed_service_identity_mode,
+                runtime_access_key=settings.seed_runtime_access_key,
+                runtime_secret_key=settings.seed_runtime_secret_key,
                 supervision_access_key=supervision_access,
                 supervision_secret_key=supervision_secret,
                 ceph_admin_access_key=ceph_admin_access,
@@ -396,6 +489,9 @@ class StorageEndpointsService:
         self.db.add(entry)
         self.db.commit()
         self.db.refresh(entry)
+        from app.core.runtime_surfaces import runtime_surface_enabled
+        if runtime_surface_enabled(settings, "admin") and entry.admin_access_key and entry.admin_secret_key:
+            self.reconcile_identities(entry.id)
         return self._serialize(entry)
 
 

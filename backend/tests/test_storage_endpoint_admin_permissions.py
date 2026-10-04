@@ -93,7 +93,7 @@ def test_resolves_supported_rgw_caps_payloads(raw_caps, expected):
     ("endpoint", "provider", "capabilities"),
     [
         (_endpoint(), StorageProvider.AWS, {"admin": True}),
-        (_endpoint(), StorageProvider.CEPH, {"admin": False}),
+
         (
             _endpoint(admin_access_key=None),
             StorageProvider.CEPH,

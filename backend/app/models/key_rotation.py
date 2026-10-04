@@ -13,6 +13,7 @@ from app.models.base import ApiModel
 class KeyRotationType(str, Enum):
     ENDPOINT_ADMIN = "endpoint_admin"
     ENDPOINT_SUPERVISION = "endpoint_supervision"
+    ENDPOINT_RUNTIME = "endpoint_runtime"
     ACCOUNT = "account"
     S3_USER = "s3_user"
     CEPH_ADMIN = "ceph_admin"

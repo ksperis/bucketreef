@@ -56,17 +56,17 @@ def test_live_stats_client_uses_admin_ops_without_monitoring_feature(monkeypatch
     expected_client = object()
     captured: dict[str, StorageEndpoint] = {}
 
-    def fake_get_endpoint_admin_rgw_client(resolved_endpoint):
+    def fake_get_endpoint_runtime_rgw_client(resolved_endpoint):
         captured["endpoint"] = resolved_endpoint
         return expected_client
 
     monkeypatch.setattr(
         buckets_service_module,
-        "get_endpoint_admin_rgw_client",
-        fake_get_endpoint_admin_rgw_client,
+        "get_endpoint_runtime_rgw_client",
+        fake_get_endpoint_runtime_rgw_client,
     )
 
-    client = BucketsService()._rgw_admin_for_account(account)
+    client = BucketsService()._rgw_runtime_for_account(account)
 
     assert client is expected_client
     assert captured["endpoint"] is endpoint
@@ -132,7 +132,7 @@ def test_get_bucket_stats_skips_admin_for_bucket_outside_s3_scope(monkeypatch):
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
     monkeypatch.setattr(
         service,
-        "_rgw_admin_for_account",
+        "_rgw_runtime_for_account",
         lambda *_args: (_ for _ in ()).throw(AssertionError("Admin Ops must not be used for an out-of-scope bucket")),
     )
 
@@ -155,7 +155,7 @@ def test_get_bucket_stats_uses_single_scoped_admin_lookup(monkeypatch):
             calls.append((bucket_name, kwargs))
             return None
 
-    monkeypatch.setattr(service, "_rgw_admin_for_account", lambda *_args: FakeAdmin())
+    monkeypatch.setattr(service, "_rgw_runtime_for_account", lambda *_args: FakeAdmin())
 
     bucket = service.get_bucket_stats("bucket-a", account, with_stats=True)
 
@@ -440,7 +440,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
             captured["quota"] = kwargs
             return {"ok": True}
 
-    def fake_get_endpoint_admin_rgw_client(endpoint):
+    def fake_get_endpoint_runtime_rgw_client(endpoint):
         captured["client"] = {
             "access_key": endpoint.admin_access_key,
             "secret_key": endpoint.admin_secret_key,
@@ -449,7 +449,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
 
     monkeypatch.setattr(
         "app.services.bucket_configuration_service.get_endpoint_admin_rgw_client",
-        fake_get_endpoint_admin_rgw_client,
+        fake_get_endpoint_runtime_rgw_client,
     )
 
     service.set_bucket_quota(

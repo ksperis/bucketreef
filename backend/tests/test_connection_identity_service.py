@@ -32,12 +32,14 @@ def _ceph_endpoint(
     metrics_enabled: bool = True,
     usage_enabled: bool = True,
 ) -> StorageEndpoint:
-    return StorageEndpoint(
+    endpoint = StorageEndpoint(
         id=1,
         name=name,
         endpoint_url=f"https://{name}.example.test",
         provider="ceph",
         region="eu-west-1",
+        runtime_access_key="RUNTIME-AK",
+        runtime_secret_key="RUNTIME-SK",
         supervision_access_key="SUP-AK",
         supervision_secret_key="SUP-SK",
         features_config=(
@@ -48,6 +50,10 @@ def _ceph_endpoint(
             f"  usage:\n    enabled: {'true' if usage_enabled else 'false'}\n"
         ),
     )
+    for identity in endpoint.service_identities:
+        identity.status = "ready"
+    return endpoint
+
 
 
 def _connection(
@@ -79,8 +85,8 @@ def _connection(
     ("endpoint", "verify_tls", False),
     ("endpoint", "supervision_access_key", "NEW-SUP-AK"),
     ("endpoint", "supervision_secret_key", "NEW-SUP-SK"),
-    ("endpoint", "admin_access_key", "NEW-ADMIN-AK"),
-    ("endpoint", "admin_secret_key", "NEW-ADMIN-SK"),
+    ("endpoint", "runtime_access_key", "NEW-RUNTIME-AK"),
+    ("endpoint", "runtime_secret_key", "NEW-RUNTIME-SK"),
 ])
 def test_identity_cache_rechecks_configuration_changes(monkeypatch, scope, target, field, value):
     endpoint = _ceph_endpoint()
@@ -99,6 +105,8 @@ def test_identity_cache_rechecks_configuration_changes(monkeypatch, scope, targe
     resolve = service.resolve_metrics_identity if scope == "metrics" else service.resolve_rgw_identity
     assert resolve(connection).iam_identity == "user-1"
     setattr(connection if target == "connection" else endpoint, field, value)
+    for identity in endpoint.service_identities:
+        identity.status = "ready"
 
     assert resolve(connection).iam_identity == "user-2"
     assert len(calls) == 2
@@ -333,7 +341,7 @@ def test_resolve_metrics_identity_uses_owner_metadata_first():
     assert resolved.reason is None
 
 
-def test_resolve_metrics_identity_uses_admin_lookup_and_caches(monkeypatch):
+def test_resolve_metrics_identity_uses_runtime_lookup_and_caches(monkeypatch):
     endpoint = _ceph_endpoint(name="ceph-cache")
     connection = _connection(endpoint, owner_type=None, owner_identifier=None)
     calls = {"count": 0}

@@ -54,7 +54,7 @@ def _custom_endpoint(name: str) -> str:
 def _ceph_metrics_endpoint(*, name: str, provider: str = "ceph") -> StorageEndpoint:
     metrics_enabled = provider == "ceph"
     usage_enabled = provider == "ceph"
-    return StorageEndpoint(
+    endpoint = StorageEndpoint(
         name=name,
         endpoint_url=f"https://{name}.example.com",
         provider=provider,
@@ -70,6 +70,9 @@ def _ceph_metrics_endpoint(*, name: str, provider: str = "ceph") -> StorageEndpo
             f"    enabled: {'true' if usage_enabled else 'false'}\n"
         ),
     )
+
+    endpoint.service_identity("supervision").status = "ready"
+    return endpoint
 
 
 def _ceph_s3_user_management_endpoint(
@@ -430,7 +433,7 @@ def test_manager_context_ignores_legacy_access_mode_header(db_session):
     assert "can_switch_access" not in payload.model_dump()
 
 
-def test_manager_workspace_accepts_non_iam_connection_when_access_manager_enabled(db_session):
+def test_manager_workspace_accepts_non_iam_connection_when_access_manager_enabled(db_session, public_s3_endpoint_dns):
     user = User(
         email="manager-connection-check@example.com",
         hashed_password="x",
@@ -467,7 +470,7 @@ def test_manager_workspace_accepts_non_iam_connection_when_access_manager_enable
     assert caps.can_manage_iam is False
 
 
-def test_manager_workspace_touch_connection_last_used_timestamp(db_session):
+def test_manager_workspace_touch_connection_last_used_timestamp(db_session, public_s3_endpoint_dns):
     user = User(
         email="manager-connection-touch@example.com",
         hashed_password="x",
@@ -500,7 +503,7 @@ def test_manager_workspace_touch_connection_last_used_timestamp(db_session):
     assert connection.last_used_at is not None
 
 
-def test_storage_ops_workspace_does_not_touch_connection_last_used_timestamp(db_session):
+def test_storage_ops_workspace_does_not_touch_connection_last_used_timestamp(db_session, public_s3_endpoint_dns):
     user = User(
         email="storage-ops-connection-no-touch@example.com",
         hashed_password="x",
@@ -625,7 +628,7 @@ def test_workspace_rejects_legacy_account_selectors(db_session, account_ref: str
     assert "Invalid account identifier" in str(exc.value.detail)
 
 
-def test_manager_context_exposes_browser_access_flag_for_connection(db_session):
+def test_manager_context_exposes_browser_access_flag_for_connection(db_session, public_s3_endpoint_dns):
     user = User(
         email="manager-context-connection-browser-flag@example.com",
         hashed_password="x",

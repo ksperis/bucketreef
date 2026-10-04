@@ -25,7 +25,10 @@ def test_rgw_credential_failure_classification_uses_structured_error_metadata():
 
 
 def test_probe_ceph_admin_service_identity_classifies_unavailable(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         id=1,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH,
@@ -57,7 +60,10 @@ features:
 
 
 def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         id=2,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH,
@@ -86,7 +92,10 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
 
 
 def test_validate_ceph_admin_service_identity_allows_admin_user_when_admin_feature_disabled(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         id=2,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH,
@@ -132,9 +141,15 @@ class _FakeSession:
         return _FakeQuery(self._endpoint)
 
 
-def test_resolve_ceph_admin_workspace_endpoint_does_not_require_admin_feature_enabled():
+def test_resolve_ceph_admin_workspace_endpoint_does_not_require_admin_feature_enabled(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         id=9,
+        name="Ceph",
+        ceph_admin_access_key="CEPH-AK",
+        ceph_admin_secret_key="CEPH-SK",
         provider=StorageProvider.CEPH.value,
         features_config="""
 features:
@@ -148,7 +163,10 @@ features:
 
 
 def test_get_ceph_admin_context_uses_rgw_admin_endpoint_when_admin_feature_disabled(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         id=10,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH.value,
@@ -188,8 +206,11 @@ features:
     assert captured == ["https://rgw-admin.example.test"]
 
 
-def test_build_ceph_admin_endpoint_payload_exposes_admin_endpoint_when_admin_feature_disabled():
+def test_build_ceph_admin_endpoint_payload_exposes_admin_endpoint_when_admin_feature_disabled(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         id=11,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH.value,

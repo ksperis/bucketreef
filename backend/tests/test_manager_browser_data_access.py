@@ -205,7 +205,7 @@ def test_rgw_user_permission_aggregates_direct_and_group_and_revokes(db_session)
     assert exc.value.status_code == 403
 
 
-def test_private_connection_requires_both_flags_and_shared_is_always_denied(db_session):
+def test_private_connection_requires_both_flags_and_shared_is_always_denied(db_session, public_s3_endpoint_dns):
     user = _user("manager-browser-connection@example.test")
     private = S3Connection(
         created_by=user,

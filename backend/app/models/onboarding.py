@@ -71,6 +71,9 @@ class OnboardingApply(ApiModel):
     confirmed: Literal[True]
     review_token: str = Field(min_length=64, max_length=64)
     # Write-only credentials. They are never copied into draft/progress/audit data.
+    service_identity_mode: Literal["managed", "external"] = "managed"
+    runtime_access_key: SecretStr | None = None
+    runtime_secret_key: SecretStr | None = None
     admin_access_key: SecretStr | None = None
     admin_secret_key: SecretStr | None = None
     supervision_access_key: SecretStr | None = None

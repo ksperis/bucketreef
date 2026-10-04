@@ -56,6 +56,9 @@ export type OnboardingJourney = {
 };
 
 type OnboardingApplyCredentials = {
+  service_identity_mode?: "managed" | "external";
+  runtime_access_key?: string;
+  runtime_secret_key?: string;
   admin_access_key?: string;
   admin_secret_key?: string;
   supervision_access_key?: string;

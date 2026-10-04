@@ -16,8 +16,7 @@ export function hasAccountProvisioningPermissions(
     permissions?.users_read &&
       permissions.users_write &&
       permissions.accounts_read &&
-      permissions.accounts_write &&
-      permissions.buckets_read,
+      permissions.accounts_write,
   );
 }
 
@@ -37,9 +36,7 @@ export function AdminOpsPermissionsBadges({
       <UiBadge tone={accountsReady ? "success" : "danger"} role="status">
         {accountsReady ? "✓ Accounts cap · read/write" : "× Accounts cap · missing read/write"}
       </UiBadge>
-      <UiBadge tone={permissions.buckets_read ? "success" : "danger"} role="status">
-        {permissions.buckets_read ? "✓ Bucket stats · read" : "× Bucket stats · missing read"}
-      </UiBadge>
+      <UiBadge tone={permissions.usage_read ? "success" : "neutral"} role="status">{permissions.usage_read ? "Usage · read" : "Usage · optional cap not granted"}</UiBadge>
       <UiBadge
         tone={permissions.buckets_write ? "success" : "neutral"}
         role="status"

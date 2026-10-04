@@ -97,6 +97,7 @@ def test_get_supervision_rgw_client_uses_endpoint_url_when_admin_feature_disable
         features_config="features:\n  admin:\n    enabled: false\n",
     )
 
+    endpoint.service_identity("supervision").status = "ready"
     client = get_supervision_rgw_client(endpoint)
     assert client == "client"
     assert captured["access_key"] == "SUP-AK"

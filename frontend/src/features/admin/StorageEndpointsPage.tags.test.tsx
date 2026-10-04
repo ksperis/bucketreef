@@ -112,6 +112,9 @@ function makeEndpoint(overrides?: Partial<Record<string, unknown>>) {
       replication: { enabled: false },
       healthcheck: { enabled: true, mode: "http" },
     },
+    service_identity_mode: "external",
+    runtime_access_key: "runtime-key",
+    has_runtime_secret: true,
     has_admin_secret: false,
     has_supervision_secret: false,
     has_ceph_admin_secret: false,
@@ -148,7 +151,7 @@ describe("StorageEndpointsPage tags", () => {
       credential_checks: {
         admin: { status: "valid", message: "Admin Ops access was validated by RGW." },
         supervision: { status: "valid", message: "Supervision Ops access was validated by RGW." },
-        ceph_admin: { status: "valid", message: "Ceph Admin access and privileges were validated by RGW." },
+        runtime: { status: "valid", message: "Ceph Admin access and privileges were validated by RGW." },
       },
     });
     listStorageEndpointsMock.mockResolvedValue([makeEndpoint()]);
@@ -389,13 +392,13 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     const adminAccessKey = screen.getByLabelText("Admin access key");
     const supervisionAccessKey = screen.getByLabelText("Supervision access key");
-    const cephAdminAccessKey = screen.getByLabelText("Ceph Admin access key");
+    const runtimeAccessKey = screen.getByLabelText("Runtime access key");
     expect(adminAccessKey.compareDocumentPosition(supervisionAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(supervisionAccessKey.compareDocumentPosition(cephAdminAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(runtimeAccessKey.compareDocumentPosition(supervisionAccessKey) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    const opsHelp = screen.getByRole("region", { name: "What are Admin Ops and Supervision Ops?" });
+    const opsHelp = screen.getByRole("region", { name: "Operational permissions" });
     expect(opsHelp).not.toBeNull();
-    expect(within(opsHelp as HTMLElement).getByText(/keys let BucketReef create RGW accounts and S3 users/)).toBeVisible();
+    expect(within(opsHelp as HTMLElement).getByText(/Admin Ops write permissions enable provisioning/)).toBeVisible();
     expect(within(opsHelp as HTMLElement).getByText("Ceph (radosgw-admin) examples")).toBeVisible();
     expect(within(opsHelp as HTMLElement).queryByRole("button", { name: /show|hide/i })).not.toBeInTheDocument();
   });
@@ -429,8 +432,8 @@ describe("StorageEndpointsPage tags", () => {
         admin_secret_key: null,
         supervision_access_key: "supervision-key",
         supervision_secret_key: null,
-        ceph_admin_access_key: "ceph-admin-key",
-        ceph_admin_secret_key: null,
+        runtime_access_key: "runtime-key",
+        runtime_secret_key: null,
       })
     );
 
@@ -466,7 +469,7 @@ describe("StorageEndpointsPage tags", () => {
           status: "unavailable",
           message: "Supervision Ops access could not be checked because the RGW endpoint is unavailable.",
         },
-        ceph_admin: { status: "denied", message: "Ceph Admin access requires an RGW user created with --admin or --system." },
+        runtime: { status: "denied", message: "Ceph Admin access requires an RGW user created with --admin or --system." },
       },
     });
 
@@ -503,7 +506,7 @@ describe("StorageEndpointsPage tags", () => {
       credential_checks: {
         admin: { status: "valid" },
         supervision: { status: "valid" },
-        ceph_admin: { status: "valid" },
+        runtime: { status: "valid" },
       },
     });
 
@@ -524,7 +527,7 @@ describe("StorageEndpointsPage tags", () => {
       credential_checks: {
         admin: { status: "denied" },
         supervision: { status: "denied" },
-        ceph_admin: { status: "denied" },
+        runtime: { status: "denied" },
       },
     });
     await act(async () => Promise.resolve());
@@ -583,7 +586,7 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     expect(screen.getByLabelText("Admin access key")).toHaveAttribute("readonly");
     expect(screen.getByLabelText("Admin access key")).toBeEnabled();
-    expect(screen.getAllByText("Stored — value hidden", { selector: "div" })).toHaveLength(2);
+    expect(screen.getAllByText("Stored — value hidden", { selector: "div" })).toHaveLength(3);
     expect(screen.queryByLabelText("Admin secret key")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Supervision access key")).toHaveAttribute("readonly");
 

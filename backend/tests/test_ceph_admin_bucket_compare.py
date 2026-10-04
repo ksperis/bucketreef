@@ -19,6 +19,9 @@ from app.services.bucket_comparison_service import BucketComparisonService
 def _build_ctx(endpoint_id: int = 1):
     endpoint = SimpleNamespace(
         id=endpoint_id,
+        name="Ceph",
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         provider="ceph",
         endpoint_url="https://source.example.test",
         region="",
@@ -37,6 +40,9 @@ def _build_ctx(endpoint_id: int = 1):
 def _build_target_endpoint(endpoint_id: int = 2):
     return SimpleNamespace(
         id=endpoint_id,
+        name="Ceph",
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
         provider="ceph",
         endpoint_url="https://target.example.test",
         region="",

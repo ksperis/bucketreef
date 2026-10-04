@@ -105,6 +105,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str] = {
         "settings.py",
         RECENT_WEBAUTHN,
         "update_settings",
+        "configure_ceph_admin",
         "create_oidc_provider_settings",
         "update_oidc_provider_settings",
         "delete_oidc_provider_settings",
@@ -119,6 +120,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str] = {
         RECENT_WEBAUTHN,
         "create_storage_endpoint",
         "update_storage_endpoint",
+        "reconcile_service_identities",
     ),
     **_entries(
         "storage_endpoints.py",

@@ -95,6 +95,9 @@ def validate_ceph_admin_service_identity(endpoint: StorageEndpoint) -> Optional[
 
 def validate_ceph_admin_service_configuration(endpoint: StorageEndpoint) -> Optional[str]:
     endpoint_label = endpoint.name or f"#{endpoint.id}"
+    identity = endpoint.service_identity("ceph_admin")
+    if not endpoint.ceph_admin_allowed or identity is None or identity.mode != "managed" or identity.status != "ready":
+        return f"Ceph Admin is not active for endpoint '{endpoint_label}'; configure its managed identity."
     if not endpoint.ceph_admin_access_key or not endpoint.ceph_admin_secret_key:
         return (
             f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': dedicated Ceph Admin credentials "
@@ -121,6 +124,9 @@ def _resolve_ceph_admin_workspace_endpoint(db: Session, endpoint_id: int) -> Sto
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
     if endpoint.provider != StorageProvider.CEPH.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
+    from app.services.app_settings_service import load_app_settings_for_db_readonly
+    if not load_app_settings_for_db_readonly(db).general.ceph_admin_enabled or validate_ceph_admin_service_configuration(endpoint):
+        raise HTTPException(status_code=403, detail="Ceph Admin is not active on this endpoint")
     return endpoint
 
 

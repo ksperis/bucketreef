@@ -15,9 +15,13 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
 - Validate feature support per Ceph release.
 - Consider multisite implications in production.
 - Document cluster-specific limits for your organization.
-- Keep the RGW Admin Ops credential restricted to documented Manager/Portal and
-  administrative flows. Live Manager/Portal bucket-stat enrichment requires
-  `buckets=read`; background monitoring uses the separate Supervision Ops identity.
+- Separate Admin Ops (bootstrap and mutations), Runtime Read Ops (Manager/Portal live
+  reads), and Supervision Ops (monitoring and collection). Runtime has
+  `accounts=read;user-info-without-keys=read;buckets=read`; Supervision has
+  `usage=read;buckets=read`. Neither identity may carry write caps or admin/system flags.
+- BucketReef proposes managed service identities when Admin Ops has `users=write`.
+  External mode remains available. Without `users=write`, provide Runtime externally
+  and Supervision when Metrics or Usage is enabled.
 - Give the RGW Admin Ops identity `buckets=write` only when Manager bucket quota
   management is enabled. The per-account or per-user
   `allow_bucket_quota_management` grant authorizes a BucketReef target; it does
@@ -38,34 +42,58 @@ the Admin Ops identity signing that request to have `buckets=write`.
 `accounts=write` authorizes account-level quota operations, but it does not
 authorize an individual bucket quota update.
 
-Create a new BucketReef Admin Ops identity with the complete expected capability
-set:
+Create Admin Ops with the mandatory read permissions:
 
 ```bash
-radosgw-admin user create \
-  --uid="bkr-admin" \
-  --display-name="BucketReef Admin Ops" \
-  --caps="users=read,write;accounts=read,write;buckets=read,write"
-```
+radosgw-admin user create --uid="bkr-admin" --display-name="BucketReef Admin Ops" \
+  --caps="users=read;accounts=read"
 
-For an existing identity, `buckets=read` is required for Manager/Portal live
-bucket statistics. Add the missing read capability while keeping the existing
-access keys:
-
-```bash
-radosgw-admin caps add --uid="bkr-admin" --caps="buckets=read"
-```
-
-If delegated Manager bucket quota updates are enabled, add `buckets=write` too:
-
-```bash
+# Optional: managed service identities, user provisioning and user quotas
+radosgw-admin caps add --uid="bkr-admin" --caps="users=write"
+# Optional: RGW Account provisioning and account quotas (root creation also needs users=write)
+radosgw-admin caps add --uid="bkr-admin" --caps="accounts=write"
+# Optional: delegated individual bucket quota changes
 radosgw-admin caps add --uid="bkr-admin" --caps="buckets=write"
+# Optional: enable the Usage feature (absence disables it)
+radosgw-admin caps add --uid="bkr-admin" --caps="usage=read"
+# Optional: future usage administration; never required by the collectors
+radosgw-admin caps add --uid="bkr-admin" --caps="usage=write"
 ```
 
-Confirm the returned `caps` include `buckets=read`. When bucket quota management
-is delegated, confirm `buckets=write` as well. BucketReef detects the write
-capability before allowing the `Bucket quota management` target grant and
-revalidates it when Manager exposes or executes the action.
+For externally provisioned service identities:
+
+```bash
+radosgw-admin user create --uid="bkr-runtime-read" --display-name="BucketReef Runtime Read Ops" \
+  --caps="accounts=read;user-info-without-keys=read;buckets=read" --max-buckets=0
+radosgw-admin user create --uid="bkr-supervision" --display-name="BucketReef Supervision Ops" \
+  --caps="usage=read;buckets=read" --max-buckets=0
+```
+
+The [Ceph capability reference](https://docs.ceph.com/en/latest/radosgw/admin/)
+includes `user-info-without-keys`. Qualify it on your Ceph release: Runtime user
+lookups must return no S3, Swift or temporary keys. BucketReef rejects broad caps
+and admin/system flags rather than using Admin Ops as a fallback.
+
+Managed identities have distinct installation/endpoint-based UIDs, encrypted
+secrets, ownership provenance, and resumable states. Saving an endpoint creates
+Runtime; Supervision is created only for Metrics or Usage. Feature detection is
+read-only: Admin Ops bootstraps feature inspection, followed by functional service
+identity checks at save/apply. Failures appear in the endpoint's credentials tab;
+use **Retry service identity configuration** after fixing RGW access.
+
+Existing Supervision and Ceph Admin credentials migrate as external without
+changing their RGW users. Existing endpoints need Runtime configured before live
+enrichment resumes. Selecting managed mode explicitly converts Runtime/Supervision
+and preserves the external users. Generated DB secrets survive ENV synchronization.
+
+Enable Ceph Admin through **General settings → Ceph Admin** and select the allowed
+Ceph endpoints. `users=write` is required. The optional workspace grant to the
+current user is unchecked by default. Activation converts legacy external Ceph
+Admin credentials to a new managed `admin=true`, `system=false` identity. Access is
+active only when the global feature, endpoint authorization and identity readiness
+all hold. Disabling the global feature preserves endpoint authorizations and
+immediately blocks access, then removes managed users without purging data.
+A failed remote removal stays `revocation_pending` until a confirmed retry succeeds.
 
 ## Minimum lab validation
 

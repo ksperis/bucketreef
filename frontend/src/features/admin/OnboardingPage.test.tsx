@@ -75,6 +75,7 @@ const cephEndpoint = {
   force_path_style: true,
   verify_tls: true,
   provider: "ceph",
+  service_identity_mode: "managed",
   admin_access_key: "admin-key",
   has_admin_secret: true,
   has_supervision_secret: false,
@@ -149,6 +150,7 @@ function detectionFor(
       message: "Endpoint responded over HTTP (200).",
     },
     credential_checks: {
+      runtime: credentialCheck(payload.runtime_access_key),
       admin: credentialCheck(payload.admin_access_key),
       supervision: credentialCheck(payload.supervision_access_key),
       ceph_admin: credentialCheck(payload.ceph_admin_access_key),
@@ -300,16 +302,16 @@ describe("simplified onboarding", () => {
 
     expect(await screen.findByRole("tab", { name: "3. Credentials" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Admin Ops access key")).toBeRequired();
-    expect(screen.getByLabelText("Supervision Ops access key")).toBeRequired();
-    expect(screen.getByLabelText("Ceph Admin access key")).toBeRequired();
+    expect(screen.queryByLabelText("Supervision Ops access key")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ceph Admin access key")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Private S3 access key")).toBeRequired();
     expect(screen.getAllByText("Keys are never stored in onboarding progress.")).toHaveLength(1);
     expect(
       screen.getAllByText("Show the Ceph RGW command to create this identity"),
-    ).toHaveLength(4);
-    expect(screen.getByText(/users=read,write;accounts=read,write;buckets=read,write/)).toBeInTheDocument();
-    expect(screen.getByText(/usage=read;buckets=read/)).toBeInTheDocument();
-    expect(screen.getByText(/--admin/)).toBeInTheDocument();
+    ).toHaveLength(2);
+    expect(screen.getByText(/users=read;accounts=read/)).toBeInTheDocument();
+    expect(screen.getByText(/Identities are created and functionally validated/)).toBeInTheDocument();
+    expect(screen.getByText(/dedicated managed Ceph Admin identity/)).toBeInTheDocument();
     expect(screen.getByText(/BucketReef private S3 user/)).toBeInTheDocument();
   });
 
@@ -343,7 +345,7 @@ describe("simplified onboarding", () => {
     });
 
     expect(await screen.findByText("× Accounts cap · missing read/write")).toBeInTheDocument();
-    expect(screen.getByText("× Bucket stats · missing read")).toBeInTheDocument();
+    expect(screen.queryByText("× Bucket stats · missing read")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
 
     accountsWrite = true;
@@ -352,8 +354,8 @@ describe("simplified onboarding", () => {
     });
 
     expect(await screen.findByText("✓ Accounts cap · read/write")).toBeInTheDocument();
-    expect(screen.getByText("× Bucket stats · missing read")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(screen.queryByText("× Bucket stats · missing read")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
 
     bucketsRead = true;
     fireEvent.change(screen.getByLabelText("Admin Ops secret key"), {
@@ -362,11 +364,11 @@ describe("simplified onboarding", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
     expect(screen.getByText("✓ Accounts cap · read/write")).toBeInTheDocument();
-    expect(screen.getByText("✓ Bucket stats · read")).toBeInTheDocument();
+    expect(screen.queryByText("✓ Bucket stats · read")).not.toBeInTheDocument();
     expect(screen.getByText("Bucket quotas · optional cap not granted")).toBeInTheDocument();
   });
 
-  it("requires bucket stats and non-empty usage data for supervision", async () => {
+  it("validates external Runtime and Supervision while allowing missing usage data", async () => {
     let usageHasData = false;
     mocks.detectStorageEndpointFeatures.mockImplementation(
       async (payload: StorageEndpointFeatureDetectionPayload) => {
@@ -389,6 +391,9 @@ describe("simplified onboarding", () => {
     fireEvent.click(await screen.findByRole("checkbox", { name: /Manager with a sample RGW Account/ }));
     await continueWhenReady();
 
+    fireEvent.change(await screen.findByRole("combobox", { name: "Identity management" }), { target: { value: "external" } });
+    fireEvent.change(screen.getByLabelText("Runtime access key"), { target: { value: "runtime-access" } });
+    fireEvent.change(screen.getByLabelText("Runtime secret key"), { target: { value: "runtime-secret" } });
     fireEvent.change(await screen.findByLabelText("Supervision Ops access key"), {
       target: { value: "supervision-access" },
     });
@@ -398,7 +403,7 @@ describe("simplified onboarding", () => {
 
     expect(await screen.findByText("✓ Bucket stats · available")).toBeInTheDocument();
     expect(screen.getByText("! Usage data · no values")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
 
     usageHasData = true;
     fireEvent.change(screen.getByLabelText("Supervision Ops secret key"), {
@@ -406,7 +411,7 @@ describe("simplified onboarding", () => {
     });
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled());
-    expect(screen.getByText("✓ Usage data · available")).toBeInTheDocument();
+    expect(await screen.findByText("✓ Usage data · available")).toBeInTheDocument();
   });
 
   it("reuses complete stored endpoint credentials instead of asking for them again", async () => {
@@ -421,7 +426,7 @@ describe("simplified onboarding", () => {
       await screen.findAllByText(
         "Credentials are already configured on this endpoint and will be reused.",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(screen.queryByLabelText("Admin Ops access key")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Ceph Admin access key")).not.toBeInTheDocument();
   });
@@ -562,6 +567,9 @@ describe("simplified onboarding", () => {
     fireEvent.change(screen.getByLabelText("Admin Ops secret key"), {
       target: { value: "admin-secret" },
     });
+    fireEvent.change(await screen.findByRole("combobox", { name: "Identity management" }), { target: { value: "external" } });
+    fireEvent.change(screen.getByLabelText("Runtime access key"), { target: { value: "runtime-access" } });
+    fireEvent.change(screen.getByLabelText("Runtime secret key"), { target: { value: "runtime-secret" } });
     fireEvent.change(screen.getByLabelText("Supervision Ops access key"), {
       target: { value: "supervision-access" },
     });

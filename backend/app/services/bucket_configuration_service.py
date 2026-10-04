@@ -38,7 +38,6 @@ from app.models.bucket import (
     BucketWebsiteRedirectAllRequestsTo,
     LifecycleRule,
 )
-from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
 from app.utils.rgw_identifiers import (
     resolve_account_scope,
     resolve_admin_uid,
@@ -90,20 +89,7 @@ class BucketConfigurationService:
         if root_uid:
             return account_id, tenant, root_uid
 
-        try:
-            bucket_info = client.get_bucket_info(name, stats=False, allow_not_found=True)
-        except RGWAdminError as exc:
-            raise RuntimeError(f"Unable to resolve bucket owner for quota update: {exc}") from exc
-        if not bucket_info:
-            raise RuntimeError("Unable to set bucket quota: bucket not found")
-
-        owner_account_id, owner_uid = resolve_bucket_owner_identity(bucket_info)
-        account_id, tenant = resolve_account_scope(owner_account_id)
-        root_identifier = account_id or tenant
-        root_uid = resolve_admin_uid(root_identifier, owner_uid)
-        if not root_uid:
-            raise RuntimeError("Unable to set bucket quota: bucket owner uid is missing")
-        return account_id, tenant, root_uid
+        raise RuntimeError("Unable to set bucket quota: authorized owner scope is missing")
 
     def get_bucket_tags(self, name: str, account: S3ExecutionTarget) -> list[BucketTag]:
         access_key, secret_key = self._account_credentials(account)

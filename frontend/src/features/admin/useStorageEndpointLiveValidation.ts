@@ -24,10 +24,12 @@ export function useStorageEndpointLiveValidation({
   enabled,
   payload,
   debounceMs = 450,
+  retryKey = 0,
 }: {
   enabled: boolean;
   payload: StorageEndpointFeatureDetectionPayload | null;
   debounceMs?: number;
+  retryKey?: number;
 }): StorageEndpointLiveValidationState {
   const [state, setState] = useState<StorageEndpointLiveValidationState>(IDLE_STATE);
   const requestIdRef = useRef(0);
@@ -62,7 +64,7 @@ export function useStorageEndpointLiveValidation({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [debounceMs, enabled, payload]);
+  }, [debounceMs, enabled, payload, retryKey]);
 
   return state;
 }

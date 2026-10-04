@@ -3,15 +3,18 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import { SettingsButton, SettingsSelect } from "../../components/settings/SettingsControls";
+import type { StorageEndpoint } from "../../api/storageEndpoints";
 import type { FormState } from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
 import {
   ADMIN_OPS_COMMAND,
-  CEPH_ADMIN_COMMAND,
+  ADMIN_OPS_OPTIONAL_COMMANDS,
+  RUNTIME_READ_OPS_COMMAND,
   SUPERVISION_OPS_COMMAND,
 } from "./storageEndpointCredentialHelp";
 
-type CredentialKind = "admin" | "supervision" | "ceph_admin";
+type CredentialKind = "admin" | "runtime" | "supervision" | "ceph_admin";
 type Props = {
   form: FormState;
   setForm: Dispatch<SetStateAction<FormState>>;
@@ -19,11 +22,15 @@ type Props = {
   editing: boolean;
   cephAdminEnabled: boolean;
   errors: EndpointFieldErrors;
-  statuses: Record<CredentialKind, ReactNode>;
+  statuses: Partial<Record<CredentialKind, ReactNode>>;
   invalidateChecks: () => void;
+  identities?: StorageEndpoint["service_identities"];
+  usersWrite?: boolean;
+  onReconcile?: () => void;
+  reconciling?: boolean;
 };
 
-/** The three purposes share fields and stored-secret presentation, never credentials. */
+/** Each operational identity has its own credentials and validation. */
 function CredentialFields({ kind, label, required = false, form, setForm, readOnly, editing, errors, statuses, invalidateChecks }: Props & {
   kind: CredentialKind;
   label: string;
@@ -68,34 +75,54 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       : "This provider does not use dedicated operational credentials in BucketReef."}
   </UiInlineMessage>;
   return <>
-    <SettingsSection title="Administration (Admin Ops)" description="Credentials for platform provisioning, Manager/Portal RGW reads, and explicitly delegated bucket quotas." presentation="compact">
+    <SettingsSection title="Administration (Admin Ops)" description="Bootstrap and delegated administration. Required: users=read and accounts=read. Write permissions are optional." presentation="compact">
       <CredentialFields {...props} kind="admin" label="Admin" required={props.form.features.admin.enabled} />
     </SettingsSection>
-    <SettingsSection title="Monitoring (Supervision Ops)" description="Use these keys for read-only monitoring actions." presentation="compact">
-      <CredentialFields {...props} kind="supervision" label="Supervision" required={props.form.features.usage.enabled || props.form.features.metrics.enabled} />
+    <SettingsSection title="Service identities" description="Managed identities are created when you save. External identities are provisioned by your operator." presentation="compact">
+      <SettingsSelect label="Identity management" value={props.form.service_identity_mode} disabled={props.readOnly}
+        onChange={event => {
+          const mode = event.target.value as FormState["service_identity_mode"];
+          props.invalidateChecks();
+          props.setForm(previous => ({ ...previous, service_identity_mode: mode,
+            ...(mode === "external" && previous.service_identity_mode === "managed" ? {
+              runtime_access_key: "", runtime_secret_key: "", has_runtime_secret: false,
+              supervision_access_key: "", supervision_secret_key: "", has_supervision_secret: false,
+            } : {}),
+          }));
+        }}>
+        <option value="managed" disabled={props.usersWrite === false}>Managed by BucketReef</option>
+        <option value="external">Provided externally</option>
+      </SettingsSelect>
+      {props.usersWrite === false && <UiInlineMessage tone="info">Admin Ops has no users=write permission. Provide Runtime and, when monitoring is enabled, Supervision credentials externally.</UiInlineMessage>}
+      {props.form.service_identity_mode === "managed" && <UiInlineMessage tone="info">Saving creates Runtime Read Ops and, if Metrics or Usage is enabled, Supervision Ops. Generated secrets stay encrypted and are never displayed. Converting external identities leaves their RGW users unchanged.</UiInlineMessage>}
+      {props.identities?.map(identity => <div key={identity.kind} role="status" className="settings-stack">
+        <p>{identity.kind === "runtime" ? "Runtime Read Ops" : identity.kind === "supervision" ? "Supervision Ops" : "Ceph Admin"} · {identity.mode} · {identity.status}</p>
+        {identity.last_error && <UiInlineMessage tone="error">{identity.last_error}</UiInlineMessage>}
+      </div>)}
+      {props.editing && !props.identities?.some(identity => identity.kind === "runtime" && identity.status === "ready") && <UiInlineMessage tone="warning">Configure Runtime Read Ops to restore live enrichment. Admin Ops is never used as a fallback.</UiInlineMessage>}
+      {props.onReconcile && <SettingsButton variant="secondary" disabled={props.reconciling} onClick={props.onReconcile}>Retry service identity configuration</SettingsButton>}
     </SettingsSection>
-    <SettingsSection title="What are Admin Ops and Supervision Ops?" description="Ceph (radosgw-admin) examples" presentation="compact">
+    {props.form.service_identity_mode === "external" && <SettingsSection title="Live reads (Runtime Read Ops)" description="Read-only accounts, users without keys, and bucket statistics for Manager and Portal." presentation="compact">
+      <CredentialFields {...props} kind="runtime" label="Runtime" required />
+    </SettingsSection>}
+    {props.form.service_identity_mode === "external" && <SettingsSection title="Monitoring (Supervision Ops)" description="Read-only usage and metrics collection." presentation="compact">
+      <CredentialFields {...props} kind="supervision" label="Supervision" required={props.form.features.usage.enabled || props.form.features.metrics.enabled} />
+    </SettingsSection>}
+    <SettingsSection title="Operational permissions" description="Ceph (radosgw-admin) examples" presentation="compact">
       <div className="settings-stack">
         <p className="settings-description">
-          Admin Ops keys let BucketReef create RGW accounts and S3 users, enrich Manager/Portal views with live RGW bucket statistics, and apply explicitly delegated Manager bucket quota changes.
-          Live bucket statistics require <code>buckets=read</code>; individual bucket quota changes additionally require <code>buckets=write</code>.
-          If you do not provide Admin Ops keys, you must create accounts/users outside of BucketReef and import them manually (or via the API).
+          Admin Ops write permissions enable provisioning and quota changes. Without users=write and accounts=write, provision your accounts and users externally and import them through the API.
+          Usage is disabled when Admin Ops has no usage=read permission. Optional permissions are never granted automatically.
         </p>
         <p className="settings-description">Supervision Ops keys are read-only credentials used for usage logs and metrics collection.</p>
         <CommandExample title="Admin Ops">{ADMIN_OPS_COMMAND}</CommandExample>
+        <CommandExample title="Optional Admin Ops permissions">{ADMIN_OPS_OPTIONAL_COMMANDS}</CommandExample>
+        <CommandExample title="Runtime Read Ops (external mode)">{RUNTIME_READ_OPS_COMMAND}</CommandExample>
         <CommandExample title="Supervision Ops">{SUPERVISION_OPS_COMMAND}</CommandExample>
       </div>
     </SettingsSection>
-    {props.cephAdminEnabled && <SettingsSection title="Ceph Admin dedicated credentials"
-      description="A separate identity for advanced cluster-wide operations." presentation="compact">
-      <div className="settings-stack">
-        <UiInlineMessage tone="warning">
-          These credentials are used only by the Ceph Admin workspace, independently of Admin Ops and its enabled feature flag.
-          Keep this account dedicated to Ceph Admin.
-        </UiInlineMessage>
-        <CredentialFields {...props} kind="ceph_admin" label="Ceph Admin" />
-        <CommandExample title="Ceph (radosgw-admin) example">{CEPH_ADMIN_COMMAND}</CommandExample>
-      </div>
+    {props.cephAdminEnabled && <SettingsSection title="Ceph Admin" description="Select authorized endpoints in General settings. BucketReef creates a dedicated managed identity before granting access." presentation="compact">
+      <p className="settings-description">Endpoint authorization: {props.form.ceph_admin_allowed ? "Allowed" : "Not allowed"}. Disabling access revokes the managed identity without purging data.</p>
     </SettingsSection>}
   </>;
 }

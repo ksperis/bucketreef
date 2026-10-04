@@ -75,6 +75,7 @@ _AUDIT_SENSITIVE_EXACT_KEYS = {
     "security_token",
     "session_token",
     "supervision_secret_key",
+    "runtime_secret_key",
     "token",
 }
 _AUDIT_SENSITIVE_KEY_FRAGMENTS = (

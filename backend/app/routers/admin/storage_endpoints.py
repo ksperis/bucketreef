@@ -89,6 +89,7 @@ def create_storage_endpoint(
     current_user: User = Depends(get_current_ui_superadmin),
 ) -> StorageEndpoint:
     require_admin_sensitive_action(request, service.db, current_user)
+    service.actor = current_user
     try:
         created = service.create_endpoint(payload)
         audit_service.record_action(
@@ -121,6 +122,7 @@ def update_storage_endpoint(
     current_user: User = Depends(get_current_ui_superadmin),
 ) -> StorageEndpoint:
     require_admin_sensitive_action(request, service.db, current_user)
+    service.actor = current_user
     try:
         updated = service.update_endpoint(endpoint_id, payload)
         audit_service.record_action(
@@ -198,6 +200,7 @@ def delete_storage_endpoint(
     current_user: User = Depends(get_current_ui_superadmin),
 ) -> None:
     try:
+        service.actor = current_user
         service.delete_endpoint(endpoint_id)
         audit_service.record_action(
             user=current_user,
@@ -206,5 +209,24 @@ def delete_storage_endpoint(
             entity_type="storage_endpoint",
             entity_id=str(endpoint_id),
         )
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
+
+
+@router.post("/{endpoint_id}/service-identities/reconcile", response_model=StorageEndpoint)
+def reconcile_service_identities(
+    endpoint_id: int, request: Request,
+    service: StorageEndpointsService = Depends(get_service),
+    current_user: User = Depends(get_current_ui_superadmin),
+    audit_service: AuditService = Depends(get_audit_service),
+):
+    require_admin_sensitive_action(request, service.db, current_user)
+    service.actor = current_user
+    try:
+        result = service.reconcile_identities(endpoint_id)
+        audit_service.record_action(user=current_user, scope="admin", action="endpoint_service_identity.reconcile",
+                                    entity_type="storage_endpoint", entity_id=str(endpoint_id),
+                                    metadata={"endpoint_id": endpoint_id})
+        return result
     except ValueError as exc:
         raise_http_error_from_value_error(exc)

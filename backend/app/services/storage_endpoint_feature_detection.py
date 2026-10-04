@@ -53,6 +53,7 @@ class _FeatureDetectionContext:
     region: Optional[str]
     verify_tls: bool
     admin_credentials: _FeatureDetectionCredentials
+    runtime_credentials: _FeatureDetectionCredentials
     supervision_credentials: _FeatureDetectionCredentials
     ceph_admin_credentials: _FeatureDetectionCredentials
 
@@ -195,6 +196,11 @@ class StorageEndpointFeatureDetector:
             region=region,
             verify_tls=verify_tls,
             admin_credentials=admin_credentials,
+            runtime_credentials=self._credentials(
+                payload.runtime_access_key, payload.runtime_secret_key,
+                stored_access_key=stored_endpoint.runtime_access_key if stored_endpoint and allow_stored_secret_reuse else None,
+                stored_secret_key=stored_endpoint.runtime_secret_key if stored_endpoint and allow_stored_secret_reuse else None,
+            ),
             supervision_credentials=supervision_credentials,
             ceph_admin_credentials=ceph_admin_credentials,
         )
@@ -443,6 +449,25 @@ class StorageEndpointFeatureDetector:
             message="Ceph Admin access and privileges were validated by RGW.",
         )
 
+    def _detect_runtime_credentials(self, context, result):
+        credentials = context.runtime_credentials
+        if credentials.partial:
+            result.credential_checks.runtime = StorageEndpointCredentialCheck(status="incomplete", message="Enter both Runtime Read Ops keys.")
+        elif credentials.complete:
+            try:
+                client = self._client(context, credentials)
+                payload = client.get_user_by_access_key(credentials.access_key, allow_not_found=True)
+                from app.services.endpoint_service_identities import EndpointServiceIdentityService
+                EndpointServiceIdentityService.validate_payload("runtime", payload)
+                uid = payload.get("user_id") or payload.get("uid")
+                if not uid or payload.get("keys") or payload.get("swift_keys") or payload.get("temp_url_keys"):
+                    raise ValueError("Runtime user lookup must identify its user without returning keys.")
+                client.get_account("RGW00000000000000000", allow_not_found=True)
+                client.get_all_buckets(uid=uid, with_stats=True)
+                result.credential_checks.runtime = StorageEndpointCredentialCheck(status="valid", message="Runtime Read Ops was validated without user keys.")
+            except (ValueError, RGWAdminError):
+                result.credential_checks.runtime = StorageEndpointCredentialCheck(status="denied", message="Runtime Read Ops credentials or permissions could not be validated.")
+
     def detect(
         self,
         payload: StorageEndpointFeatureDetectionRequest,
@@ -453,7 +478,26 @@ class StorageEndpointFeatureDetector:
             self._detect_http_endpoint(context, result)
         admin_client = self._detect_admin_features(context, result)
         self._detect_account_feature(admin_client, result)
-        self._detect_supervision_features(context, result)
+        # Initial capability discovery is signed by Admin Ops; final identity
+        # checks happen independently and provisioning never happens in detect().
+        if admin_client is not None and result.admin:
+            result.metrics = result.admin_ops_permissions.users_write
+            if result.admin_ops_permissions.buckets_read:
+                try:
+                    admin_client.get_all_buckets(with_stats=True)
+                    result.metrics = True
+                except RGWAdminError:
+                    result.metrics = False
+            if result.admin_ops_permissions.usage_read:
+                try:
+                    result.usage = self._usage_payload_has_values(admin_client.get_usage(show_entries=False, show_summary=True))
+                except RGWAdminError:
+                    result.usage = False
+        self._detect_runtime_credentials(context, result)
+        if context.supervision_credentials.complete or context.supervision_credentials.partial:
+            self._detect_supervision_features(context, result)
+        if not result.admin_ops_permissions.usage_read:
+            result.usage = False
         self._detect_ceph_admin_credentials(context, result)
 
         if result.metrics and not result.usage:
