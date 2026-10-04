@@ -90,8 +90,9 @@ def compare_bucket_pair(
     target_error = validate_ceph_admin_service_configuration(target_endpoint)
     if target_error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=target_error)
-    target_access_key = getattr(target_endpoint, "ceph_admin_access_key", None)
-    target_secret_key = getattr(target_endpoint, "ceph_admin_secret_key", None)
+    target_identity = target_endpoint.service_identity("ceph_admin")
+    target_access_key = target_identity.access_key if target_identity is not None else None
+    target_secret_key = target_identity.secret_key if target_identity is not None else None
     if not target_access_key or not target_secret_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

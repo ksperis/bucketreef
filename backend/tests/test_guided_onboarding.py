@@ -33,6 +33,7 @@ from app.services import users_service as users_module
 from app.services.managed_resource_naming import onboarding_sample_account_name
 from app.services.onboarding_service import OnboardingError, OnboardingService, REQUIRED_FEATURES
 from app.services.s3_connections_service import S3ConnectionsService
+from tests.service_identity_helpers import service_identity
 from app.services.storage_endpoints_service import StorageEndpointsService
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
@@ -384,8 +385,7 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     db_session.refresh(ep)
     assert ep.admin_access_key == "admin-ak"
     assert ep.admin_secret_key == "admin-sk"
-    assert ep.ceph_admin_access_key is None
-    assert ep.ceph_admin_secret_key is None
+    assert ep.service_identity("ceph_admin") is None
     assert db_session.query(S3Account).count() == 1
     account = db_session.get(S3Account, result.resources["account_id"])
     assert account.rgw_account_id == "RGW70000000000000042"
@@ -523,10 +523,11 @@ def test_supervision_credentials_are_validated_stored_and_enable_endpoint_featur
 
     assert result.configured
     db_session.refresh(ep)
-    assert ep.supervision_access_key == "supervision-ak"
-    assert ep.supervision_secret_key == "supervision-sk"
+    supervision = ep.service_identity("supervision")
+    assert supervision.access_key == "supervision-ak"
+    assert supervision.secret_key == "supervision-sk"
     assert ep.admin_access_key == "admin-ak"
-    assert ep.ceph_admin_access_key is None
+    assert ep.service_identity("ceph_admin") is None
     flags = resolve_feature_flags(ep)
     assert flags.usage_enabled is True
     assert flags.metrics_enabled is True
@@ -558,9 +559,10 @@ def test_new_endpoint_keeps_ceph_admin_credentials_separate_from_admin_ops(
     assert result.configured
     assert ep.admin_access_key == "admin-ak"
     assert ep.admin_secret_key == "admin-sk"
-    assert ep.ceph_admin_access_key != ep.admin_access_key
-    assert ep.service_identity("ceph_admin").mode == "managed"
-    assert ep.ceph_admin_secret_key
+    ceph_admin = ep.service_identity("ceph_admin")
+    assert ceph_admin.access_key != ep.admin_access_key
+    assert ceph_admin.mode == "managed"
+    assert ceph_admin.secret_key
     db_session.refresh(user)
     assert user.can_access_ceph_admin is True
 
@@ -590,11 +592,15 @@ def test_onboarding_allows_metrics_without_usage_data_for_supervision(
     guided, db_session, monkeypatch
 ):
     user = actor(db_session)
-    ep = endpoint(
-        db_session,
-        supervision_access_key="supervision-ak",
-        supervision_secret_key="supervision-sk",
+    ep = endpoint(db_session)
+    ep.service_identities.append(
+        service_identity(
+            "supervision",
+            "supervision-ak",
+            "supervision-sk",
+        )
     )
+    db_session.commit()
     monkeypatch.setattr(
         guided.endpoints,
         "detect_features",

@@ -188,9 +188,11 @@ class OnboardingService:
                     result.blockers.append("endpoint_features_locked")
             if draft.supervision:
                 result.changes.append("validate_supervision")
+                supervision = endpoint.service_identity("supervision")
                 if not (
-                    endpoint.supervision_access_key
-                    and endpoint.supervision_secret_key
+                    supervision
+                    and supervision.access_key
+                    and supervision.secret_key
                 ) and not editable:
                     result.blockers.append("endpoint_credentials_locked")
                 if not (flags.usage_enabled and flags.metrics_enabled):
@@ -243,18 +245,20 @@ class OnboardingService:
         )
         endpoint_state = None
         if endpoint is not None:
+            runtime = endpoint.service_identity("runtime")
+            supervision = endpoint.service_identity("supervision")
             credential_digest = sha256(
                 "\0".join(
                     str(value or "")
                     for value in (
                         endpoint.admin_access_key,
                         endpoint.admin_secret_key,
-                        endpoint.runtime_access_key,
-                        endpoint.runtime_secret_key,
-                        endpoint.service_identity_mode,
+                        runtime.access_key if runtime else None,
+                        runtime.secret_key if runtime else None,
+                        runtime.mode if runtime else None,
                         endpoint.ceph_admin_allowed,
-                        endpoint.supervision_access_key,
-                        endpoint.supervision_secret_key,
+                        supervision.access_key if supervision else None,
+                        supervision.secret_key if supervision else None,
                     )
                 ).encode()
             ).hexdigest()

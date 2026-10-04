@@ -54,7 +54,13 @@ def _resolve_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
     if require_usage_logs and not features["usage"]["enabled"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage logs are disabled for this endpoint")
-    if not endpoint.supervision_access_key or not endpoint.supervision_secret_key:
+    supervision = endpoint.service_identity("supervision")
+    if (
+        supervision is None
+        or supervision.status != "ready"
+        or not supervision.access_key
+        or not supervision.secret_key
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Supervision credentials are not configured for this endpoint.",

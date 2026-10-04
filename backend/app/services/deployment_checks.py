@@ -372,12 +372,14 @@ def _persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
     unverified_tls = sum(1 for endpoint in endpoints if not endpoint.verify_tls)
     reused_privileged_identity = 0
     for endpoint in endpoints:
+        supervision = endpoint.service_identity("supervision")
+        ceph_admin = endpoint.service_identity("ceph_admin")
         privileged_access_keys = [
             value.strip()
             for value in (
                 endpoint.admin_access_key,
-                endpoint.supervision_access_key,
-                endpoint.ceph_admin_access_key,
+                supervision.access_key if supervision else None,
+                ceph_admin.access_key if ceph_admin else None,
             )
             if value and value.strip()
         ]

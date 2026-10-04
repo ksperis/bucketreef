@@ -50,8 +50,10 @@ def probe_ceph_admin_service_identity(endpoint: StorageEndpoint) -> CephAdminIde
         return CephAdminIdentityProbe(status="misconfigured", warning=configuration_error)
     endpoint_label = endpoint.name or f"#{endpoint.id}"
     admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
-    access_key = endpoint.ceph_admin_access_key
-    secret_key = endpoint.ceph_admin_secret_key
+    identity = endpoint.service_identity("ceph_admin")
+    assert identity is not None
+    access_key = identity.access_key
+    secret_key = identity.secret_key
     try:
         rgw_admin = get_rgw_admin_client(
             access_key=access_key,
@@ -98,7 +100,7 @@ def validate_ceph_admin_service_configuration(endpoint: StorageEndpoint) -> Opti
     identity = endpoint.service_identity("ceph_admin")
     if not endpoint.ceph_admin_allowed or identity is None or identity.mode != "managed" or identity.status != "ready":
         return f"Ceph Admin is not active for endpoint '{endpoint_label}'; configure its managed identity."
-    if not endpoint.ceph_admin_access_key or not endpoint.ceph_admin_secret_key:
+    if not identity.access_key or not identity.secret_key:
         return (
             f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': dedicated Ceph Admin credentials "
             "are not configured."
@@ -108,8 +110,9 @@ def validate_ceph_admin_service_configuration(endpoint: StorageEndpoint) -> Opti
 
 def _resolve_storage_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
     endpoint = _resolve_ceph_admin_workspace_endpoint(db, endpoint_id)
-    access_key = endpoint.ceph_admin_access_key
-    secret_key = endpoint.ceph_admin_secret_key
+    identity = endpoint.service_identity("ceph_admin")
+    access_key = identity.access_key if identity is not None else None
+    secret_key = identity.secret_key if identity is not None else None
     if not access_key or not secret_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -137,8 +140,10 @@ def get_ceph_admin_context(
 ) -> CephAdminContext:
     endpoint = _resolve_storage_endpoint(db, endpoint_id)
     admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
-    access_key = endpoint.ceph_admin_access_key
-    secret_key = endpoint.ceph_admin_secret_key
+    identity = endpoint.service_identity("ceph_admin")
+    assert identity is not None and identity.access_key and identity.secret_key
+    access_key = identity.access_key
+    secret_key = identity.secret_key
     region = endpoint.region
     rgw_admin = get_rgw_admin_client(
         access_key=access_key,

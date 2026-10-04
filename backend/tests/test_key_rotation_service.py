@@ -8,6 +8,7 @@ from app.db import S3Account, S3User, StorageEndpoint, StorageProvider
 from app.models.key_rotation import KeyRotationRequest, KeyRotationType
 from app.services.key_rotation_service import KeyRotationService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from tests.service_identity_helpers import service_identity
 
 
 class FakeRgwRegistry:
@@ -145,10 +146,10 @@ def _seed_endpoint(db_session, *, name: str) -> StorageEndpoint:
         provider=StorageProvider.CEPH.value,
         admin_access_key="ADM-OLD",
         admin_secret_key="ADM-OLD-SEC",
-        supervision_access_key="SUP-OLD",
-        supervision_secret_key="SUP-OLD-SEC",
-        ceph_admin_access_key="CADM-OLD",
-        ceph_admin_secret_key="CADM-OLD-SEC",
+        service_identities=[
+            service_identity("supervision", "SUP-OLD", "SUP-OLD-SEC"),
+            service_identity("ceph_admin", "CADM-OLD", "CADM-OLD-SEC"),
+        ],
         features_config="features:\n  admin:\n    enabled: true\n",
         is_default=True,
         is_editable=True,
@@ -283,7 +284,7 @@ def test_rotate_keys_across_endpoint_account_and_user_deletes_old_keys(db_sessio
     assert result.summary.disabled_old_keys == 0
 
     assert endpoint.admin_access_key != "ADM-OLD"
-    assert endpoint.supervision_access_key == "SUP-OLD"
+    assert endpoint.service_identity("supervision").access_key == "SUP-OLD"
     assert account.rgw_access_key != "ACC-OLD"
     assert s3_user.rgw_access_key != "USR-OLD"
 
@@ -408,8 +409,8 @@ def test_env_managed_endpoint_credentials_are_skipped_without_rgw_calls(db_sessi
     assert all("ENV_STORAGE_ENDPOINTS" in (item.message or "") or "External service" in (item.message or "") for item in result.results)
     assert endpoint.admin_access_key == "ADM-OLD"
     assert endpoint.admin_secret_key == "ADM-OLD-SEC"
-    assert endpoint.supervision_access_key == "SUP-OLD"
-    assert endpoint.supervision_secret_key == "SUP-OLD-SEC"
+    assert endpoint.service_identity("supervision").access_key == "SUP-OLD"
+    assert endpoint.service_identity("supervision").secret_key == "SUP-OLD-SEC"
 
 
 def test_env_managed_endpoint_mixed_rotation_still_rotates_accounts_and_s3_users(db_session, monkeypatch):
@@ -543,7 +544,7 @@ def test_rotate_supervision_skips_external_identity(db_session, monkeypatch):
     assert result.summary.failed == 0
     assert result.summary.rotated == 0
     assert result.summary.skipped == 1
-    assert endpoint.supervision_access_key == "SUP-OLD"
+    assert endpoint.service_identity("supervision").access_key == "SUP-OLD"
 
 
 def test_rotate_supervision_skips_without_admin_ops_key(db_session):
@@ -553,8 +554,7 @@ def test_rotate_supervision_skips_without_admin_ops_key(db_session):
         provider=StorageProvider.CEPH.value,
         admin_access_key=None,
         admin_secret_key=None,
-        supervision_access_key="SUP-OLD",
-        supervision_secret_key="SUP-OLD-SEC",
+        service_identities=[service_identity("supervision", "SUP-OLD", "SUP-OLD-SEC")],
         features_config="features:\n  admin:\n    enabled: true\n",
         is_default=True,
         is_editable=True,

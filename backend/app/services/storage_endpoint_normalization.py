@@ -243,15 +243,33 @@ def normalize_storage_endpoint_update(
     payload: StorageEndpointUpdate,
 ) -> NormalizedEndpointState:
     fields_set = payload.model_fields_set
-    if endpoint.service_identity_mode == "managed" and payload.service_identity_mode == "external":
+    runtime = endpoint.service_identity("runtime")
+    supervision = endpoint.service_identity("supervision")
+    current_identity_mode = runtime.mode if runtime is not None else "managed"
+    if current_identity_mode == "managed" and payload.service_identity_mode == "external":
         if not payload.runtime_access_key or not payload.runtime_secret_key:
             raise ValueError("Switching to external mode requires replacement Runtime credentials.")
         features = normalize_features_config(endpoint.provider, payload.features_config or endpoint.features_config, endpoint.region)
         if (features["metrics"]["enabled"] or features["usage"]["enabled"]) and (not payload.supervision_access_key or not payload.supervision_secret_key):
             raise ValueError("Switching to external mode requires replacement Supervision credentials.")
-    merged = StorageEndpointCreate.model_validate(
-        endpoint,
-        from_attributes=True,
+    merged = StorageEndpointCreate(
+        name=endpoint.name,
+        endpoint_url=endpoint.endpoint_url,
+        region=endpoint.region,
+        force_path_style=endpoint.force_path_style,
+        verify_tls=endpoint.verify_tls,
+        provider=StorageProvider(endpoint.provider),
+        admin_access_key=endpoint.admin_access_key,
+        admin_secret_key=endpoint.admin_secret_key,
+        service_identity_mode=current_identity_mode,
+        runtime_access_key=runtime.access_key if runtime is not None else None,
+        runtime_secret_key=runtime.secret_key if runtime is not None else None,
+        ceph_admin_allowed=endpoint.ceph_admin_allowed,
+        supervision_access_key=supervision.access_key if supervision is not None else None,
+        supervision_secret_key=supervision.secret_key if supervision is not None else None,
+        features_config=endpoint.features_config,
+        latitude=endpoint.latitude,
+        longitude=endpoint.longitude,
     ).model_dump()
     for field in fields_set:
         value = getattr(payload, field)

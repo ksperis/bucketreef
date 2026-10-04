@@ -258,10 +258,13 @@ class ConnectionIdentityService:
                 reason="Metrics are unavailable: storage metrics and usage logs are disabled for this endpoint.",
             )
 
-        supervision_access_key = endpoint.supervision_access_key
-        supervision_secret_key = endpoint.supervision_secret_key
         supervision = endpoint.service_identity("supervision")
-        if supervision is None or supervision.status != "ready" or not supervision_access_key or not supervision_secret_key:
+        if (
+            supervision is None
+            or supervision.status != "ready"
+            or not supervision.access_key
+            or not supervision.secret_key
+        ):
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
                 rgw_account_id=None,
@@ -292,6 +295,8 @@ class ConnectionIdentityService:
         endpoint = connection.storage_endpoint
         endpoint_configuration = None
         if endpoint is not None:
+            supervision = endpoint.service_identity("supervision")
+            runtime = endpoint.service_identity("runtime")
             endpoint_configuration = [
                 endpoint.id,
                 endpoint.updated_at.isoformat() if endpoint.updated_at is not None else None,
@@ -300,11 +305,11 @@ class ConnectionIdentityService:
                 endpoint.region,
                 endpoint.verify_tls,
                 endpoint.features_config,
-                endpoint.supervision_access_key,
-                endpoint.supervision_secret_key,
-                endpoint.runtime_access_key,
-                endpoint.runtime_secret_key,
-                endpoint.service_identity("runtime").status if endpoint.service_identity("runtime") else None,
+                supervision.access_key if supervision else None,
+                supervision.secret_key if supervision else None,
+                runtime.access_key if runtime else None,
+                runtime.secret_key if runtime else None,
+                runtime.status if runtime else None,
             ]
         payload = json.dumps([
             connection.id,

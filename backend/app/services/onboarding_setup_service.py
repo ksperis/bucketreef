@@ -251,7 +251,9 @@ class OnboardingSetupService:
                 raise OnboardingError("endpoint_features_locked")
 
             update = {}
-            if payload.service_identity_mode != endpoint.service_identity_mode:
+            runtime_identity = endpoint.service_identity("runtime")
+            current_identity_mode = runtime_identity.mode if runtime_identity is not None else "managed"
+            if payload.service_identity_mode != current_identity_mode:
                 update["service_identity_mode"] = payload.service_identity_mode
             if runtime[2]:
                 update.update(runtime_access_key=runtime[0], runtime_secret_key=runtime[1])

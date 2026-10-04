@@ -41,6 +41,18 @@ def _build_endpoint(
     metrics_enabled: bool = True,
     has_supervision_credentials: bool = True,
 ):
+    supervision = SimpleNamespace(
+        mode="managed",
+        status="ready" if has_supervision_credentials else "missing",
+        access_key="METRICS-AK" if has_supervision_credentials else None,
+        secret_key="METRICS-SK" if has_supervision_credentials else None,
+    )
+    ceph_admin = SimpleNamespace(
+        mode="managed",
+        status="ready",
+        access_key="ADMIN-AK",
+        secret_key="ADMIN-SK",
+    )
     features_yaml = (
         "features:\n"
         "  admin:\n"
@@ -59,12 +71,8 @@ def _build_endpoint(
         verify_tls=True,
         is_default=False,
         features_config=features_yaml,
-        supervision_access_key="METRICS-AK" if has_supervision_credentials else None,
-        supervision_secret_key="METRICS-SK" if has_supervision_credentials else None,
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
-        ceph_admin_access_key="ADMIN-AK",
-        ceph_admin_secret_key="ADMIN-SK",
+        service_identity=lambda kind: ceph_admin if kind == "ceph_admin" else supervision,
         tag_links=[
             SimpleNamespace(
                 id=1,
