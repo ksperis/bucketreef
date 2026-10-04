@@ -14,8 +14,8 @@ def _supervision_credentials_from_endpoint(endpoint: StorageEndpoint | None) -> 
     identity = endpoint.service_identity("supervision")
     if identity is None or identity.status != "ready":
         return None
-    access_key = endpoint.supervision_access_key
-    secret_key = endpoint.supervision_secret_key
+    access_key = identity.access_key
+    secret_key = identity.secret_key
     if not access_key or not secret_key:
         return None
     return access_key, secret_key

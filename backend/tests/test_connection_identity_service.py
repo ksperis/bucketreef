@@ -17,6 +17,7 @@ from app.services.connection_identity_service import (
     ConnectionIdentityService,
     reset_connection_identity_cache_for_tests,
 )
+from tests.service_identity_helpers import service_identity
 
 
 @pytest.fixture(autouse=True)
@@ -38,10 +39,10 @@ def _ceph_endpoint(
         endpoint_url=f"https://{name}.example.test",
         provider="ceph",
         region="eu-west-1",
-        runtime_access_key="RUNTIME-AK",
-        runtime_secret_key="RUNTIME-SK",
-        supervision_access_key="SUP-AK",
-        supervision_secret_key="SUP-SK",
+        service_identities=[
+            service_identity("runtime", "RUNTIME-AK", "RUNTIME-SK"),
+            service_identity("supervision", "SUP-AK", "SUP-SK"),
+        ],
         features_config=(
             "features:\n"
             "  admin:\n"
@@ -50,8 +51,6 @@ def _ceph_endpoint(
             f"  usage:\n    enabled: {'true' if usage_enabled else 'false'}\n"
         ),
     )
-    for identity in endpoint.service_identities:
-        identity.status = "ready"
     return endpoint
 
 
@@ -83,10 +82,10 @@ def _connection(
     ("endpoint", "endpoint_url", "https://new-rgw.example.test"),
     ("endpoint", "region", "new-region"),
     ("endpoint", "verify_tls", False),
-    ("endpoint", "supervision_access_key", "NEW-SUP-AK"),
-    ("endpoint", "supervision_secret_key", "NEW-SUP-SK"),
-    ("endpoint", "runtime_access_key", "NEW-RUNTIME-AK"),
-    ("endpoint", "runtime_secret_key", "NEW-RUNTIME-SK"),
+    ("supervision", "access_key", "NEW-SUP-AK"),
+    ("supervision", "secret_key", "NEW-SUP-SK"),
+    ("runtime", "access_key", "NEW-RUNTIME-AK"),
+    ("runtime", "secret_key", "NEW-RUNTIME-SK"),
 ])
 def test_identity_cache_rechecks_configuration_changes(monkeypatch, scope, target, field, value):
     endpoint = _ceph_endpoint()
@@ -104,9 +103,12 @@ def test_identity_cache_rechecks_configuration_changes(monkeypatch, scope, targe
     service = ConnectionIdentityService()
     resolve = service.resolve_metrics_identity if scope == "metrics" else service.resolve_rgw_identity
     assert resolve(connection).iam_identity == "user-1"
-    setattr(connection if target == "connection" else endpoint, field, value)
-    for identity in endpoint.service_identities:
-        identity.status = "ready"
+    if target == "connection":
+        setattr(connection, field, value)
+    elif target in ("runtime", "supervision"):
+        setattr(endpoint.service_identity(target), field, value)
+    else:
+        setattr(endpoint, field, value)
 
     assert resolve(connection).iam_identity == "user-2"
     assert len(calls) == 2
@@ -185,9 +187,10 @@ def test_identity_cache_keys_do_not_retain_credentials():
     connection = _connection(endpoint, owner_type="s3_user", owner_identifier="owner")
     ConnectionIdentityService().resolve_metrics_identity(connection)
     keys = repr(list(identity_service._CACHE))
+    supervision = endpoint.service_identity("supervision")
     for secret in (
         connection.access_key_id, connection.secret_access_key,
-        endpoint.supervision_access_key, endpoint.supervision_secret_key,
+        supervision.access_key, supervision.secret_key,
         endpoint.admin_access_key, endpoint.admin_secret_key,
     ):
         assert secret not in keys

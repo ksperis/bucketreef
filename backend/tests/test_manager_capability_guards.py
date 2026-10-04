@@ -17,6 +17,7 @@ from app.routers.manager import integrity, purge, stats
 from app.routers.manager.access import require_bucket_management_context
 from app.services.connection_identity_service import ConnectionIdentityResolution
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.service_identity_helpers import service_identity
 
 
 GATES = [
@@ -40,12 +41,11 @@ def _context(kind="account"):
         manager_capabilities=AccountCapabilities(can_manage_buckets=True, can_manage_iam=True),
         storage_endpoint=StorageEndpoint(
             id=1, name="Ceph", endpoint_url="https://ceph.example.test", provider="ceph",
-            supervision_access_key="SUP-AK", supervision_secret_key="SUP-SK",
+            service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
             features_config="features:\n  iam:\n    enabled: true\n  sns:\n    enabled: true\n  metrics:\n    enabled: true\n  usage:\n    enabled: true\n",
         ),
     )
 
-    context.storage_endpoint.service_identity("supervision").status = "ready"
     return context
 
 

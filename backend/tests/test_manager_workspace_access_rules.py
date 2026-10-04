@@ -29,6 +29,7 @@ from app.routers.manager import context as manager_context_router
 from app.services.connection_identity_service import ConnectionIdentityResolution
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.s3_account_factory import make_s3_account
+from tests.service_identity_helpers import service_identity
 
 
 def _request(path: str, headers: dict | None = None, method: str = "GET"):
@@ -58,8 +59,11 @@ def _ceph_metrics_endpoint(*, name: str, provider: str = "ceph") -> StorageEndpo
         name=name,
         endpoint_url=f"https://{name}.example.com",
         provider=provider,
-        supervision_access_key="SUP-AK",
-        supervision_secret_key="SUP-SK",
+        service_identities=(
+            [service_identity("supervision", "SUP-AK", "SUP-SK")]
+            if provider == "ceph"
+            else []
+        ),
         features_config=(
             "features:\n"
             "  admin:\n"
@@ -71,7 +75,6 @@ def _ceph_metrics_endpoint(*, name: str, provider: str = "ceph") -> StorageEndpo
         ),
     )
 
-    endpoint.service_identity("supervision").status = "ready"
     return endpoint
 
 
@@ -1163,8 +1166,7 @@ def test_browser_workspace_accepts_ceph_admin_selector_for_authorized_user(db_se
         name="ceph-endpoint-a",
         endpoint_url="https://rgw-a.example.com",
         provider="ceph",
-        ceph_admin_access_key="AK-CEPH-ADMIN",
-        ceph_admin_secret_key="SK-CEPH-ADMIN",
+        service_identities=[service_identity("ceph_admin", "AK-CEPH-ADMIN", "SK-CEPH-ADMIN")],
         features_config="features:\n  admin:\n    enabled: false\n",
     )
     db_session.add_all([user, endpoint])
@@ -1206,8 +1208,7 @@ def test_browser_workspace_rejects_ceph_admin_selector_for_invalid_ceph_admin_id
         name="ceph-endpoint-invalid",
         endpoint_url="https://rgw-invalid.example.com",
         provider="ceph",
-        ceph_admin_access_key="AK-CEPH-INVALID",
-        ceph_admin_secret_key="SK-CEPH-INVALID",
+        service_identities=[service_identity("ceph_admin", "AK-CEPH-INVALID", "SK-CEPH-INVALID")],
         features_config="features:\n  admin:\n    enabled: false\n",
     )
     db_session.add_all([user, endpoint])
@@ -1250,8 +1251,7 @@ def test_browser_workspace_rejects_ceph_admin_selector_for_non_admin_user(db_ses
         name="ceph-endpoint-b",
         endpoint_url="https://rgw-b.example.com",
         provider="ceph",
-        ceph_admin_access_key="AK-CEPH-ADMIN-B",
-        ceph_admin_secret_key="SK-CEPH-ADMIN-B",
+        service_identities=[service_identity("ceph_admin", "AK-CEPH-ADMIN-B", "SK-CEPH-ADMIN-B")],
         features_config="features:\n  admin:\n    enabled: true\n",
     )
     db_session.add_all([user, endpoint])

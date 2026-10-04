@@ -13,10 +13,16 @@ from app.services.storage_endpoints_service import get_storage_endpoints_service
 
 
 def _build_ceph_admin_browser_context(endpoint: StorageEndpoint) -> S3ExecutionContext:
+    identity = endpoint.service_identity("ceph_admin")
+    if identity is None or not identity.access_key or not identity.secret_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ceph Admin credentials are not configured for this storage endpoint",
+        )
     return S3ExecutionContext.from_ceph_admin_endpoint(
         endpoint,
-        access_key=endpoint.ceph_admin_access_key,
-        secret_key=endpoint.ceph_admin_secret_key,
+        access_key=identity.access_key,
+        secret_key=identity.secret_key,
         manager_capabilities=AccountCapabilities(
             can_manage_buckets=True,
             can_manage_iam=False,
@@ -50,8 +56,9 @@ def _resolve_ceph_admin_browser_context(
     if endpoint.provider != StorageProvider.CEPH.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
 
-    access_key = endpoint.ceph_admin_access_key
-    secret_key = endpoint.ceph_admin_secret_key
+    identity = endpoint.service_identity("ceph_admin")
+    access_key = identity.access_key if identity is not None else None
+    secret_key = identity.secret_key if identity is not None else None
     if not access_key or not secret_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

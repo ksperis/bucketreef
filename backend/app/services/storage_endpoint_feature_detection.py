@@ -145,6 +145,8 @@ class StorageEndpointFeatureDetector:
             region=region,
             verify_tls=verify_tls,
         )
+        stored_runtime = stored_endpoint.service_identity("runtime") if stored_endpoint else None
+        stored_supervision = stored_endpoint.service_identity("supervision") if stored_endpoint else None
 
         admin_credentials = self._credentials(
             payload.admin_access_key,
@@ -164,13 +166,13 @@ class StorageEndpointFeatureDetector:
             payload.supervision_access_key,
             payload.supervision_secret_key,
             stored_access_key=(
-                stored_endpoint.supervision_access_key
-                if stored_endpoint and allow_stored_secret_reuse
+                stored_supervision.access_key
+                if stored_supervision and allow_stored_secret_reuse
                 else None
             ),
             stored_secret_key=(
-                stored_endpoint.supervision_secret_key
-                if stored_endpoint and allow_stored_secret_reuse
+                stored_supervision.secret_key
+                if stored_supervision and allow_stored_secret_reuse
                 else None
             ),
         )
@@ -182,8 +184,8 @@ class StorageEndpointFeatureDetector:
             admin_credentials=admin_credentials,
             runtime_credentials=self._credentials(
                 payload.runtime_access_key, payload.runtime_secret_key,
-                stored_access_key=stored_endpoint.runtime_access_key if stored_endpoint and allow_stored_secret_reuse else None,
-                stored_secret_key=stored_endpoint.runtime_secret_key if stored_endpoint and allow_stored_secret_reuse else None,
+                stored_access_key=stored_runtime.access_key if stored_runtime and allow_stored_secret_reuse else None,
+                stored_secret_key=stored_runtime.secret_key if stored_runtime and allow_stored_secret_reuse else None,
             ),
             supervision_credentials=supervision_credentials,
         )

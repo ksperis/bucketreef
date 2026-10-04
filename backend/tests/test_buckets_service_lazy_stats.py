@@ -6,6 +6,7 @@ from app.services import s3_client
 from app.services import buckets_service as buckets_service_module
 from app.services.buckets_service import BucketsService
 from app.services.bucket_configuration_service import BucketConfigurationService
+from tests.service_identity_helpers import service_identity
 
 
 def _build_account() -> S3Account:
@@ -429,8 +430,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
         provider="ceph",
         admin_access_key="endpoint-admin-ak",
         admin_secret_key="endpoint-admin-sk",
-        ceph_admin_access_key="ceph-admin-ak",
-        ceph_admin_secret_key="ceph-admin-sk",
+        service_identities=[service_identity("ceph_admin", "ceph-admin-ak", "ceph-admin-sk")],
         features_config='{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}',
     )
     captured: dict = {}

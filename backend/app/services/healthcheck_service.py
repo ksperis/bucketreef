@@ -131,8 +131,8 @@ class HealthCheckService:
             force_path_style=endpoint.force_path_style,
             verify_tls=endpoint.verify_tls,
             region=endpoint.region,
-            supervision_access_key=endpoint.supervision_access_key if ready else None,
-            supervision_secret_key=endpoint.supervision_secret_key if ready else None,
+            supervision_access_key=supervision.access_key if ready else None,
+            supervision_secret_key=supervision.secret_key if ready else None,
             admin_access_key=None,
             admin_secret_key=None,
         )

@@ -13,6 +13,7 @@ from app.db import StorageEndpoint, User, UserRole, WebAuthnCredential
 from app.models.app_settings import AppSettings
 from app.scripts.check_production_hardening import run
 from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
+from tests.service_identity_helpers import service_identity
 
 
 def _production_settings(**overrides) -> Settings:
@@ -425,7 +426,13 @@ def test_persisted_storage_endpoint_security_recommendations(db_session):
             provider="ceph",
             verify_tls=False,
             admin_access_key="SHARED-PRIVILEGED-KEY",
-            supervision_access_key="SHARED-PRIVILEGED-KEY",
+            service_identities=[
+                service_identity(
+                    "supervision",
+                    "SHARED-PRIVILEGED-KEY",
+                    "SHARED-PRIVILEGED-SECRET",
+                )
+            ],
         )
     )
     db_session.flush()

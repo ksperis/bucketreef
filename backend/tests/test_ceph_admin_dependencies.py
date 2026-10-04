@@ -28,7 +28,9 @@ def test_probe_ceph_admin_service_identity_classifies_unavailable(monkeypatch):
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
+        service_identity=lambda kind: SimpleNamespace(
+            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+        ),
         id=1,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH,
@@ -41,8 +43,6 @@ features:
     endpoint: https://rgw-admin.example.test
 """,
         endpoint_url="https://s3.example.test",
-        ceph_admin_access_key="AKIA-ADMIN",
-        ceph_admin_secret_key="SECRET-ADMIN",
     )
 
     class FakeRGWClient:
@@ -63,7 +63,9 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
+        service_identity=lambda kind: SimpleNamespace(
+            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+        ),
         id=2,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH,
@@ -71,8 +73,6 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
         verify_tls=True,
         features_config="features:\n  admin:\n    endpoint: https://rgw-admin.example.test\n",
         endpoint_url="https://s3.example.test",
-        ceph_admin_access_key="AKIA-ADMIN",
-        ceph_admin_secret_key="SECRET-ADMIN",
     )
 
     class FakeRGWClient:
@@ -95,7 +95,9 @@ def test_validate_ceph_admin_service_identity_allows_admin_user_when_admin_featu
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
+        service_identity=lambda kind: SimpleNamespace(
+            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+        ),
         id=2,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH,
@@ -105,8 +107,6 @@ features:
     enabled: false
 """,
         endpoint_url="https://s3.example.test",
-        ceph_admin_access_key="AKIA-ADMIN",
-        ceph_admin_secret_key="SECRET-ADMIN",
         region="us-east-1",
         verify_tls=True,
     )
@@ -145,11 +145,11 @@ def test_resolve_ceph_admin_workspace_endpoint_does_not_require_admin_feature_en
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
+        service_identity=lambda kind: SimpleNamespace(
+            mode="managed", status="ready", access_key="CEPH-AK", secret_key="CEPH-SK"
+        ),
         id=9,
         name="Ceph",
-        ceph_admin_access_key="CEPH-AK",
-        ceph_admin_secret_key="CEPH-SK",
         provider=StorageProvider.CEPH.value,
         features_config="""
 features:
@@ -166,7 +166,9 @@ def test_get_ceph_admin_context_uses_rgw_admin_endpoint_when_admin_feature_disab
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
+        service_identity=lambda kind: SimpleNamespace(
+            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+        ),
         id=10,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH.value,
@@ -177,8 +179,6 @@ features:
     endpoint: https://rgw-admin.example.test
 """,
         endpoint_url="https://s3.example.test",
-        ceph_admin_access_key="AKIA-ADMIN",
-        ceph_admin_secret_key="SECRET-ADMIN",
         region="us-east-1",
         verify_tls=True,
     )

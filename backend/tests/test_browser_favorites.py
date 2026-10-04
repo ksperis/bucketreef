@@ -143,4 +143,4 @@ def test_full_alembic_chain_upgrades_empty_database_and_round_trips(tmp_path):
         assert "browser_presets" in inspect(connection).get_table_names()
         command.upgrade(config, "head")
         assert "browser_presets" not in inspect(connection).get_table_names()
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0138_endpoint_service_identities"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0140_runtime_identity_mode_source"

@@ -5,6 +5,7 @@ import pytest
 from app.db import StorageEndpoint, StorageProvider
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_supervision import get_supervision_rgw_client
+from tests.service_identity_helpers import service_identity
 from app.utils.rgw_identifiers import (
     is_rgw_account_id,
     resolve_account_scope,
@@ -92,12 +93,10 @@ def test_get_supervision_rgw_client_uses_endpoint_url_when_admin_feature_disable
         endpoint_url="https://rgw.example.test",
         provider=StorageProvider.CEPH.value,
         verify_tls=False,
-        supervision_access_key="SUP-AK",
-        supervision_secret_key="SUP-SK",
+        service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
         features_config="features:\n  admin:\n    enabled: false\n",
     )
 
-    endpoint.service_identity("supervision").status = "ready"
     client = get_supervision_rgw_client(endpoint)
     assert client == "client"
     assert captured["access_key"] == "SUP-AK"

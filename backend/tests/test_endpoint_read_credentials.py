@@ -20,6 +20,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.storage_endpoint_normalization import normalize_storage_endpoint_state
 from app.utils.time import utcnow
 from tests.s3_account_factory import make_s3_account
+from tests.service_identity_helpers import service_identity
 
 
 @pytest.fixture(autouse=True)
@@ -40,15 +41,23 @@ def _endpoint(present):
         verify_tls=False,
         force_path_style=True,
         features_config="features:\n  admin:\n    enabled: true\n",
-        supervision_access_key="SUPERVISION-AK" if supervision_access else None,
-        supervision_secret_key="SUPERVISION-SK" if supervision_secret else None,
         admin_access_key="ADMIN-AK" if admin_access else None,
         admin_secret_key="ADMIN-SK" if admin_secret else None,
+        service_identities=[
+            service_identity(
+                "runtime",
+                "RUNTIME-AK" if supervision_access else None,
+                "RUNTIME-SK" if supervision_secret else None,
+                status="ready",
+            ),
+            service_identity(
+                "supervision",
+                "SUPERVISION-AK" if supervision_access else None,
+                "SUPERVISION-SK" if supervision_secret else None,
+                status="ready",
+            ),
+        ],
     )
-    endpoint.runtime_access_key = "RUNTIME-AK" if supervision_access else None
-    endpoint.runtime_secret_key = "RUNTIME-SK" if supervision_secret else None
-    for identity in endpoint.service_identities:
-        identity.status = "ready"
     return endpoint
 
 

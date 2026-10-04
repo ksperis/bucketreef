@@ -13,6 +13,7 @@ from app.services.operation_lease_service import OperationLeaseService
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.storage_endpoints_service import StorageEndpointsService
+from tests.service_identity_helpers import service_identity, set_service_identity_credentials
 
 
 class FakeRGW:
@@ -177,8 +178,9 @@ def test_uid_collision_never_adopts_or_mutates_foreign_user(identities):
 def test_minimal_admin_and_external_runtime_need_no_write_caps(identities, db_session):
     service, endpoint, rgw = identities
     rgw.users["operator"]["caps"] = "users=read;accounts=read"
-    endpoint.service_identity_mode = "external"
-    endpoint.runtime_access_key, endpoint.runtime_secret_key = "EXTERNAL", "EXTERNAL-SECRET"
+    endpoint.service_identities.append(
+        service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET")
+    )
     rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}]}
     endpoint.features_config = "features:\n  usage:\n    enabled: true\n"
     db_session.commit()
@@ -248,12 +250,18 @@ def test_ceph_admin_creation_and_pending_revocation_preserve_allowed(identities,
 
 
 def test_explicit_conversion_preserves_external_user(identities, db_session):
+    from app.models.storage_endpoint import StorageEndpointUpdate
     service, endpoint, rgw = identities
-    endpoint.runtime_access_key, endpoint.runtime_secret_key = "FOREIGN", "FOREIGN-SECRET"
+    endpoint.service_identities.append(
+        service_identity("runtime", "FOREIGN", "FOREIGN-SECRET")
+    )
     rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "FOREIGN", "secret_key": "FOREIGN-SECRET"}]}
     original = deepcopy(rgw.users["external"])
     db_session.commit()
-    service.reconcile(endpoint)
+    StorageEndpointsService(db_session).update_endpoint(
+        endpoint.id,
+        StorageEndpointUpdate(service_identity_mode="managed"),
+    )
     assert endpoint.service_identity("runtime").mode == "managed"
     assert rgw.users["external"] == original
 
@@ -323,7 +331,7 @@ def test_env_sync_preserves_generated_keys_mode_namespace_and_allowed(identities
         "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET", "features": {"admin": {"enabled": True}},
     }]))
     StorageEndpointsService(db_session).sync_env_endpoints()
-    assert endpoint.ceph_admin_allowed and endpoint.service_identity_mode == "managed"
+    assert endpoint.ceph_admin_allowed and identity.mode == "managed"
     assert original == (identity.access_key, identity.secret_key, endpoint.identity_namespace)
     assert identity.status == "ready" and not endpoint.is_editable
 
@@ -332,10 +340,10 @@ def test_external_conversion_requires_replacement_before_revocation(identities, 
     from app.models.storage_endpoint import StorageEndpointUpdate
     service, endpoint, rgw = identities
     service.reconcile(endpoint)
-    old = endpoint.runtime_access_key
+    old = endpoint.service_identity("runtime").access_key
     with pytest.raises(ValueError, match="replacement Runtime"):
         StorageEndpointsService(db_session).update_endpoint(endpoint.id, StorageEndpointUpdate(service_identity_mode="external"))
-    assert endpoint.runtime_access_key == old and not any(call[0] == "delete" for call in rgw.calls)
+    assert endpoint.service_identity("runtime").access_key == old and not any(call[0] == "delete" for call in rgw.calls)
 
 
 def test_rotation_requires_installation_provenance(identities, db_session):

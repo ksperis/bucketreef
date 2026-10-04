@@ -114,6 +114,9 @@ class EndpointServiceIdentityService:
         identity = endpoint.service_identity(kind)
         if managed:
             if not permissions.users_write:
+                if identity is not None and identity.mode == "managed" and identity.status == "ready":
+                    self._functional_check(endpoint, identity)
+                    return identity
                 raise ValueError("Managed service identities require Admin Ops users=write.")
             if identity is not None and identity.mode == "external":
                 # Conversion detaches external credentials, never mutates the external principal.
@@ -267,9 +270,6 @@ class EndpointServiceIdentityService:
                         identity.last_error = "Admin Ops validation failed; check its required read permissions and RGW connectivity."
                 self.db.commit()
                 return [{"kind": "admin", "status": "error"}]
-            if not permissions.users_write and endpoint.service_identity_mode == "managed":
-                endpoint.service_identity_mode = "external"
-                self.db.commit()
             features = normalize_features_config(endpoint.provider, endpoint.features_config, endpoint.region)
             if features["usage"]["enabled"] and not permissions.usage_read:
                 features["usage"]["enabled"] = False
@@ -282,21 +282,41 @@ class EndpointServiceIdentityService:
                 self.revoke(endpoint, "supervision")
             if desired_ceph:
                 desired.append("ceph_admin")
+            runtime = endpoint.service_identity("runtime")
+            if runtime is None:
+                runtime = EndpointServiceIdentity(
+                    kind="runtime",
+                    mode="managed",
+                    status="missing",
+                )
+                endpoint.service_identities.append(runtime)
+                self.db.commit()
             for kind in desired:
                 try:
+                    identity = endpoint.service_identity(kind)
+                    mode = (
+                        "managed"
+                        if kind == "ceph_admin"
+                        else identity.mode if identity is not None else runtime.mode
+                    )
                     identity = self._ensure(endpoint, kind, admin, permissions,
-                                            managed=kind == "ceph_admin" or endpoint.service_identity_mode == "managed")
+                                            managed=mode == "managed")
                     results.append({"kind": kind, "status": identity.status})
                 except (ValueError, RGWAdminError):
                     self.db.rollback()
                     identity = endpoint.service_identity(kind)
                     if identity is None:
-                        identity = EndpointServiceIdentity(kind=kind, mode="managed" if kind == "ceph_admin" else endpoint.service_identity_mode, status="error")
+                        identity = EndpointServiceIdentity(
+                            kind=kind,
+                            mode="managed" if kind == "ceph_admin" else runtime.mode,
+                            status="error",
+                        )
                         endpoint.service_identities.append(identity)
-                    identity.status = "error"
-                    identity.last_error = f"Unable to configure {kind}; check credentials, required caps and RGW connectivity."
+                    if identity.status not in ("ready", "revocation_pending"):
+                        identity.status = "error"
+                        identity.last_error = f"Unable to configure {kind}; check credentials, required caps and RGW connectivity."
                     self.db.commit()
-                    results.append({"kind": kind, "status": "error"})
+                    results.append({"kind": kind, "status": identity.status})
             return results
         finally:
             if lease is not None:

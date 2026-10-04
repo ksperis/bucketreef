@@ -17,17 +17,21 @@ from app.services.bucket_comparison_service import BucketComparisonService
 
 
 def _build_ctx(endpoint_id: int = 1):
+    identity = SimpleNamespace(
+        mode="managed",
+        status="ready",
+        access_key="AKIA_SOURCE",
+        secret_key="SOURCE_SECRET",
+    )
     endpoint = SimpleNamespace(
         id=endpoint_id,
         name="Ceph",
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
+        service_identity=lambda kind: identity,
         provider="ceph",
         endpoint_url="https://source.example.test",
         region="",
         features_config="features:\n  admin:\n    enabled: true\n",
-        ceph_admin_access_key="AKIA_SOURCE",
-        ceph_admin_secret_key="SOURCE_SECRET",
     )
     return SimpleNamespace(
         endpoint=endpoint,
@@ -38,17 +42,21 @@ def _build_ctx(endpoint_id: int = 1):
 
 
 def _build_target_endpoint(endpoint_id: int = 2):
+    identity = SimpleNamespace(
+        mode="managed",
+        status="ready",
+        access_key="AKIA_TARGET",
+        secret_key="TARGET_SECRET",
+    )
     return SimpleNamespace(
         id=endpoint_id,
         name="Ceph",
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
+        service_identity=lambda kind: identity,
         provider="ceph",
         endpoint_url="https://target.example.test",
         region="",
         features_config="features:\n  admin:\n    enabled: true\n",
-        ceph_admin_access_key="AKIA_TARGET",
-        ceph_admin_secret_key="TARGET_SECRET",
     )
 
 

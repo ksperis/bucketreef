@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import (
+    EndpointServiceIdentity,
     S3Account,
     S3Connection,
     S3User,
@@ -131,7 +132,22 @@ class StorageEndpointsService:
         ).detect(payload)
 
     @staticmethod
+    def _set_service_identity_mode(identity: EndpointServiceIdentity, mode: str) -> None:
+        if identity.mode == mode:
+            return
+        identity.mode = mode
+        identity.rgw_uid = None
+        identity.access_key = None
+        identity.secret_key = None
+        identity.previous_access_key = None
+        identity.provenance = None
+        identity.status = "missing"
+        identity.last_error = None
+        identity.last_reconciled_at = None
+
+    @classmethod
     def _apply_endpoint_state(
+        cls,
         endpoint: StorageEndpoint,
         config: NormalizedEndpointState,
     ) -> None:
@@ -145,21 +161,42 @@ class StorageEndpointsService:
         endpoint.provider = config.provider.value
         endpoint.admin_access_key = config.admin_access_key
         endpoint.admin_secret_key = config.admin_secret_key
-        if config.service_identity_mode is not None:
-            endpoint.service_identity_mode = config.service_identity_mode
-        elif endpoint.id is None:
-            endpoint.service_identity_mode = "external" if config.supervision_access_key or config.runtime_access_key else "managed"
         if config.ceph_admin_allowed is not None:
             endpoint.ceph_admin_allowed = config.ceph_admin_allowed
-        for kind in ("runtime", "supervision"):
-            identity = endpoint.service_identity(kind)
-            # ENV and ordinary edits must never overwrite generated credentials.
-            if identity is not None and identity.mode == "managed":
-                continue
-            for suffix in ("access_key", "secret_key"):
-                value = getattr(config, f"{kind}_{suffix}")
-                if value is not None or identity is not None:
-                    setattr(endpoint, f"{kind}_{suffix}", value)
+        if config.provider == StorageProvider.CEPH:
+            runtime = endpoint.service_identity("runtime")
+            identity_mode = config.service_identity_mode or (
+                runtime.mode if runtime is not None else "managed"
+            )
+            if runtime is None:
+                runtime = EndpointServiceIdentity(
+                    kind="runtime",
+                    mode=identity_mode,
+                    status="missing",
+                )
+                endpoint.service_identities.append(runtime)
+            else:
+                cls._set_service_identity_mode(runtime, identity_mode)
+            if runtime.mode == "external":
+                runtime.access_key = config.runtime_access_key
+                runtime.secret_key = config.runtime_secret_key
+                runtime.status = "missing"
+
+            supervision = endpoint.service_identity("supervision")
+            if supervision is not None:
+                cls._set_service_identity_mode(supervision, runtime.mode)
+            if config.supervision_access_key is not None or config.supervision_secret_key is not None:
+                if supervision is None:
+                    supervision = EndpointServiceIdentity(
+                        kind="supervision",
+                        mode=runtime.mode,
+                        status="missing",
+                    )
+                    endpoint.service_identities.append(supervision)
+            if supervision is not None and supervision.mode == "external":
+                supervision.access_key = config.supervision_access_key
+                supervision.secret_key = config.supervision_secret_key
+                supervision.status = "missing"
         endpoint.features_config = config.features_config
 
     @classmethod

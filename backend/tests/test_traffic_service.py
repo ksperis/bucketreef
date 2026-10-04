@@ -8,6 +8,7 @@ from app.db import S3Account, StorageEndpoint
 from app.services import traffic_service as traffic_service_module
 from app.services.rgw_admin import RGWAdminError
 from app.services.traffic_service import TrafficService, TrafficWindow, aggregate_usage
+from tests.service_identity_helpers import service_identity
 
 
 class FakeRGWClient:
@@ -186,8 +187,7 @@ def test_usage_client_uses_supervision_endpoint_when_admin_is_disabled(monkeypat
         name="Ceph usage",
         endpoint_url="https://rgw.example.test",
         provider="ceph",
-        supervision_access_key="SUP-AK",
-        supervision_secret_key="SUP-SK",
+        service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
         features_config=(
             "features:\n"
             "  admin:\n"

@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.db import S3Account, S3User, StorageEndpoint
 from app.routers.admin import stats as admin_stats_router
 from app.services.rgw_admin import RGWAdminError
+from tests.service_identity_helpers import service_identity
 
 
 def _ceph_endpoint(name: str) -> StorageEndpoint:
@@ -15,8 +16,7 @@ def _ceph_endpoint(name: str) -> StorageEndpoint:
         name=name,
         endpoint_url=f"https://{name}.example.test",
         provider="ceph",
-        supervision_access_key="SUP-AK",
-        supervision_secret_key="SUP-SK",
+        service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
         features_config=(
             "features:\n"
             "  metrics:\n"

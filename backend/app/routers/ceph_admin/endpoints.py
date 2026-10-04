@@ -54,7 +54,14 @@ def get_ceph_admin_endpoint_access(
     endpoint: DbStorageEndpoint = Depends(get_ceph_admin_workspace_endpoint),
     probe: bool = False,
 ) -> CephAdminEndpointAccess:
-    has_supervision_credentials = bool(endpoint.supervision_access_key and endpoint.supervision_secret_key)
+    supervision = endpoint.service_identity("supervision")
+    has_supervision_credentials = bool(
+        supervision
+        and supervision.status == "ready"
+        and supervision.access_key
+        and supervision.secret_key
+    )
+    ceph_admin_identity = endpoint.service_identity("ceph_admin")
     admin_warning = validate_ceph_admin_service_configuration(endpoint)
     accounts_warning = None
     can_admin = admin_warning is None
@@ -71,12 +78,17 @@ def get_ceph_admin_endpoint_access(
         if identity_probe.status != "available":
             can_admin = False
             can_accounts = False
-        if admin_warning is None and endpoint.ceph_admin_access_key and endpoint.ceph_admin_secret_key:
+        if (
+            admin_warning is None
+            and ceph_admin_identity is not None
+            and ceph_admin_identity.access_key
+            and ceph_admin_identity.secret_key
+        ):
             admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
             try:
                 admin_client = get_rgw_admin_client(
-                    access_key=endpoint.ceph_admin_access_key,
-                    secret_key=endpoint.ceph_admin_secret_key,
+                    access_key=ceph_admin_identity.access_key,
+                    secret_key=ceph_admin_identity.secret_key,
                     endpoint=admin_endpoint,
                     region=endpoint.region,
                     verify_tls=endpoint.verify_tls,

@@ -50,9 +50,14 @@ class PortalAccountRuntimeMixin:
         if not endpoint:
             return None
         admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
-        access_key = endpoint.runtime_access_key
-        secret_key = endpoint.runtime_secret_key
-        if not admin_endpoint or not access_key or not secret_key:
+        runtime = endpoint.service_identity("runtime")
+        if (
+            not admin_endpoint
+            or runtime is None
+            or runtime.status != "ready"
+            or not runtime.access_key
+            or not runtime.secret_key
+        ):
             return None
         try:
             return get_endpoint_runtime_rgw_client(endpoint)

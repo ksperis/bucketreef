@@ -21,6 +21,7 @@ from app.services import app_settings_service, usage_history_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficWindow
 from tests.execution_context_factory import make_s3_execution_context
+from tests.service_identity_helpers import service_identity
 
 
 def _request(path: str):
@@ -32,9 +33,10 @@ def _ceph_endpoint(name: str) -> StorageEndpoint:
         name=name,
         endpoint_url=f"https://{name}.example.test",
         provider="ceph",
-        runtime_access_key="RUNTIME-AK", runtime_secret_key="RUNTIME-SK",
-        supervision_access_key="SUP-AK",
-        supervision_secret_key="SUP-SK",
+        service_identities=[
+            service_identity("runtime", "RUNTIME-AK", "RUNTIME-SK"),
+            service_identity("supervision", "SUP-AK", "SUP-SK"),
+        ],
         features_config=(
             "features:\n"
             "  admin:\n"
@@ -46,8 +48,6 @@ def _ceph_endpoint(name: str) -> StorageEndpoint:
         ),
     )
 
-    endpoint.service_identity("runtime").status = "ready"
-    endpoint.service_identity("supervision").status = "ready"
     return endpoint
 
 
