@@ -16,6 +16,11 @@ The frontend theme is anchored by the shared shell and UI tokens in
   token with white text.
 - Use `shell-*` tokens only for the app shell, topbar, sidebar, and their
   controls.
+- Topbar Documentation, Theme and Notifications use `shell-utility-button`:
+  identical icon-only controls with a muted background, 36px desktop geometry
+  and 44px mobile/coarse-pointer targets. Keep their order before the account
+  menu. `TopbarUtilityHint` provides hover and keyboard-focus labels, dismissible
+  with Escape; notifications suppress the hint while their menu is open.
 - Use `ui-*` tokens for workspace content, cards, panels, forms, tables,
   dialogs, toolbars, and inline states.
 - Prefer `--ui-surface`, `--ui-surface-muted`, `--ui-border`,

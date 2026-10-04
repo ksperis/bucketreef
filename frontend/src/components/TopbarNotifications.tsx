@@ -14,6 +14,7 @@ import {
 import { BellIcon } from "./topbarIcons";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
+import TopbarUtilityHint from "./TopbarUtilityHint";
 
 type TopbarNotificationsProps = {
   enabled: boolean;
@@ -288,25 +289,25 @@ export default function TopbarNotifications({ enabled }: TopbarNotificationsProp
 
   return (
     <div ref={rootRef} className="relative">
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-label="Notifications"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        className={`shell-control relative inline-flex h-9 w-9 items-center justify-center rounded-lg border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
-          open ? "shell-control-active" : ""
-        }`}
-      >
-        <BellIcon className="h-4 w-4" />
-        {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        )}
-      </button>
+      <TopbarUtilityHint label="Notifications" disabled={open}>
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          aria-label="Notifications"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          className="shell-utility-button"
+        >
+          <BellIcon aria-hidden="true" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </button>
+      </TopbarUtilityHint>
 
       {open && (
         <AnchoredPortalMenu

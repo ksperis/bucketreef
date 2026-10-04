@@ -3,21 +3,28 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useTheme } from "./theme";
+import { useI18n } from "../i18n";
+import TopbarUtilityHint from "./TopbarUtilityHint";
 
 export default function ThemeToggle() {
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
+  const { t } = useI18n();
+  const label = isDark
+    ? t({ en: "Switch to light theme", fr: "Passer au thème clair", de: "Zum hellen Design wechseln", zh: "切换到浅色主题" })
+    : t({ en: "Switch to dark theme", fr: "Passer au thème sombre", de: "Zum dunklen Design wechseln", zh: "切换到深色主题" });
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      className="shell-icon-button inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent bg-transparent transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
-      aria-label="Toggle theme"
-      title="Toggle theme"
-    >
-      {isDark ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
-    </button>
+    <TopbarUtilityHint label={label}>
+      <button
+        type="button"
+        onClick={toggle}
+        className="shell-utility-button"
+        aria-label={label}
+      >
+        {isDark ? <SunIcon aria-hidden="true" /> : <MoonIcon aria-hidden="true" />}
+      </button>
+    </TopbarUtilityHint>
   );
 }
 
