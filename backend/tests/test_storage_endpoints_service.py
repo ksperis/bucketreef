@@ -582,6 +582,33 @@ def test_environment_storage_endpoint_rejects_unknown_fields(db_session, monkeyp
     assert "obsolete_field" in str(exc_info.value.__cause__)
 
 
+@pytest.mark.parametrize("runtime", [{}, {"runtime_access_key": "RUNTIME"}, {"runtime_secret_key": "RUNTIME-SECRET"}])
+@pytest.mark.parametrize("locked", [False, True])
+def test_environment_external_runtime_is_required_before_any_sync(db_session, monkeypatch, runtime, locked):
+    from app.services.operation_lease_service import OperationLeaseService
+
+    service = StorageEndpointsService(db_session)
+    leases = OperationLeaseService(db_session)
+    handle = leases.acquire("endpoints:env-sync", ttl_seconds=7200) if locked else None
+    entries = [
+        {"name": "valid-first", "endpoint_url": "https://first.example.test", "provider": "other"},
+        {
+            "name": "invalid-second", "endpoint_url": "https://second.example.test", "provider": "ceph",
+            "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET",
+            "service_identity_mode": "external", **runtime,
+        },
+    ]
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps(entries))
+    monkeypatch.setattr(service, "_upsert_env_endpoint", lambda *_args: pytest.fail("Invalid inventory must not be applied"))
+    try:
+        with pytest.raises(ValueError, match="External service identities require Runtime"):
+            service.sync_env_endpoints()
+        assert db_session.query(StorageEndpoint).count() == 0
+    finally:
+        if handle is not None:
+            leases.release(handle)
+
+
 @pytest.mark.parametrize(
     ("features", "message"),
     [

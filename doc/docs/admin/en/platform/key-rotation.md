@@ -57,6 +57,19 @@ stored in DB and remain eligible even on an ENV-configured endpoint. Rotation va
 and saves the new key before retiring the old one; pending retirement is retained and
 retryable without generating another key.
 
+Managed Runtime, Supervision and Ceph Admin rotations require **delete previous
+keys** mode. Selecting **disable previous keys** returns a failure for these
+identities before creating a replacement; it remains available for operator-owned
+Admin Ops, account and S3 user keys. Deleting the tracked old key is confirmed through
+RGW before rotation is reported as complete.
+
+Unexpected keys on a managed identity block rotation and put the identity in `error`.
+Only its current key and the tracked previous key during unfinished rotation are
+accepted, even when an unexpected key is disabled. Remove unexpected keys externally,
+retry service identity configuration, then retry rotation if retirement is pending.
+Previously disabled keys left by earlier managed rotations must also be removed by
+the operator before the identity can be reconciled or rotated again.
+
 Rotate environment-managed endpoint credentials without interruption:
 
 1. Create a second key for the same RGW identity and keep the old key active.

@@ -279,21 +279,24 @@ class StorageEndpointsService:
         return synced
 
     def sync_env_endpoints(self, *, _retry_on_integrity: bool = True) -> list[StorageEndpointSchema]:
+        # Validate the whole inventory before any write, even when another instance
+        # currently holds the synchronization lease.
+        configs = normalize_env_storage_endpoint_states(
+            parse_env_storage_endpoints(settings.env_storage_endpoints)
+        )
+        if not configs:
+            return []
         from app.services.operation_lease_service import OperationLeaseService
         lease = OperationLeaseService(self.db)
         handle = lease.acquire("endpoints:env-sync", ttl_seconds=7200)
         if handle is None:
             return self.list_endpoints()
         try:
-            return self._sync_env_endpoints(_retry_on_integrity=_retry_on_integrity)
+            return self._sync_env_endpoints(configs, _retry_on_integrity=_retry_on_integrity)
         finally:
             lease.release(handle)
 
-    def _sync_env_endpoints(self, *, _retry_on_integrity=True):
-        env_endpoints = parse_env_storage_endpoints(settings.env_storage_endpoints)
-        if not env_endpoints:
-            return []
-        configs = normalize_env_storage_endpoint_states(env_endpoints)
+    def _sync_env_endpoints(self, configs, *, _retry_on_integrity=True):
         existing_by_url = {
             endpoint.endpoint_url: endpoint
             for endpoint in self.db.query(StorageEndpoint).all()
@@ -310,7 +313,7 @@ class StorageEndpointsService:
             if not _retry_on_integrity:
                 raise
             logger.info("ENV_STORAGE_ENDPOINTS sync hit a concurrent insert; reloading existing endpoints.")
-            return self._sync_env_endpoints(_retry_on_integrity=False)
+            return self._sync_env_endpoints(configs, _retry_on_integrity=False)
         return self._serialize_env_endpoints(configs)
 
     def list_endpoints(self, *, include_admin_ops_permissions: bool = False) -> list[StorageEndpointSchema]:
@@ -355,7 +358,7 @@ class StorageEndpointsService:
             self.db.flush()
         return self._serialize(endpoint)
 
-    def create_endpoint(self, payload: StorageEndpointCreate, *, commit: bool = True) -> StorageEndpointSchema:
+    def create_endpoint(self, payload: StorageEndpointCreate) -> StorageEndpointSchema:
         self._ensure_env_editable()
         state = normalize_storage_endpoint_state(payload)
         self._ensure_unique_name(state.name)
@@ -366,7 +369,7 @@ class StorageEndpointsService:
         endpoint.is_editable = True
         # Durable endpoint IDs are required for resumable remote provisioning.
         self._persist_endpoint(endpoint, commit=True)
-        if commit and endpoint.provider == "ceph" and endpoint.admin_access_key:
+        if endpoint.provider == "ceph" and endpoint.admin_access_key:
             self.reconcile_identities(endpoint.id)
         return self._serialize(endpoint)
 

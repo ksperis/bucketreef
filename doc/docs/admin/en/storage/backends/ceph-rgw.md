@@ -86,6 +86,21 @@ users. Existing endpoints need Runtime configured before live enrichment resumes
 Selecting managed mode explicitly converts Runtime/Supervision and preserves the
 external users. Generated DB secrets survive ENV synchronization.
 
+`ENV_STORAGE_ENDPOINTS` uses the same credential requirements as the endpoint API.
+For an administered Ceph endpoint in external mode, provide both Runtime keys;
+provide both Supervision keys when Metrics or Usage is enabled. The entire inventory
+is validated before synchronization. An incomplete entry prevents startup, even if
+another replica is already synchronizing endpoints; no earlier entry is applied.
+
+For managed identities, BucketReef accepts only the current S3 key and, during an
+unfinished rotation, the tracked previous key. Any additional S3 key (including a
+disabled key), Swift key or temporary URL key is key drift. Reconciliation or rotation
+marks the identity `error`, blocks its operational client and records a secret-free
+audit event. Revocation remains `revocation_pending` and does not delete the user.
+BucketReef never adopts or removes unexpected keys automatically. Inspect the RGW
+user, remove the unexpected keys externally, then retry service identity configuration
+or pending revocation. These ownership rules do not restrict external identities.
+
 Enable Ceph Admin through **General settings → Ceph Admin** and select the allowed
 Ceph endpoints. `users=write` is required. Ceph Admin identities are always managed
 by BucketReef and cannot be supplied through the endpoint API, onboarding,

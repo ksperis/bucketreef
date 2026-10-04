@@ -184,7 +184,6 @@ def _validate_credentials(
 
 def normalize_storage_endpoint_state(
     payload: StorageEndpointCreate,
-    *, require_external_runtime: bool = True,
 ) -> NormalizedEndpointState:
     name = _normalize_name(payload.name)
     endpoint_url = normalize_s3_endpoint(payload.endpoint_url)
@@ -220,7 +219,7 @@ def normalize_storage_endpoint_state(
     )
     runtime_access = normalize_optional_string(payload.runtime_access_key) if provider == StorageProvider.CEPH else None
     runtime_secret = normalize_optional_string(_secret_value(payload.runtime_secret_key)) if provider == StorageProvider.CEPH else None
-    if require_external_runtime and provider == StorageProvider.CEPH and payload.service_identity_mode == "external" and admin_access_key and (not runtime_access or not runtime_secret):
+    if provider == StorageProvider.CEPH and payload.service_identity_mode == "external" and admin_access_key and (not runtime_access or not runtime_secret):
         raise ValueError("External service identities require Runtime access key and secret key.")
     return NormalizedEndpointState(
         name=name,
@@ -383,7 +382,7 @@ def normalize_env_storage_endpoint_states(
                 features_config=raw_features,
                 latitude=entry.latitude,
                 longitude=entry.longitude,
-            ), require_external_runtime=False,
+            ),
         )
         states.append(replace(
             state, is_default=identity.is_default,

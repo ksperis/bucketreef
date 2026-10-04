@@ -26,6 +26,16 @@ SERVICE_CAPS = {
 INSTALLATION_KEY = "endpoint-service-identity-installation"
 
 
+class ManagedIdentityKeyDriftError(ValueError):
+    """Remote keys differ from the keys tracked by BucketReef."""
+
+    def __init__(self):
+        super().__init__(
+            "Managed service identity key drift detected. Remove unexpected RGW keys "
+            "externally, then retry service identity configuration."
+        )
+
+
 class EndpointServiceIdentityService:
     def __init__(self, db, *, actor=None, client_factory=None):
         self.db = db
@@ -55,10 +65,40 @@ class EndpointServiceIdentityService:
 
     @staticmethod
     def _owns(identity, payload):
-        return bool(isinstance(payload, dict) and identity.access_key and any(
+        return bool(isinstance(payload, dict) and isinstance(payload.get("keys"), list) and identity.access_key and any(
             key.get("access_key") == identity.access_key
             for key in payload.get("keys", []) if isinstance(key, dict)
         ))
+
+    @staticmethod
+    def _validate_managed_keys(identity, payload):
+        if not isinstance(payload, dict):
+            raise ManagedIdentityKeyDriftError()
+        allowed = {key for key in (identity.access_key, identity.previous_access_key) if key}
+        keys = payload.get("keys")
+        if (
+            not isinstance(keys, list)
+            or any(
+                not isinstance(key, dict)
+                or not isinstance(key.get("access_key"), str)
+                or key["access_key"] not in allowed
+                for key in keys
+            )
+            or not any(key["access_key"] == identity.access_key for key in keys)
+            or payload.get("swift_keys")
+            or payload.get("temp_url_keys")
+        ):
+            raise ManagedIdentityKeyDriftError()
+
+    def _record_key_drift(self, endpoint, identity, error):
+        changed = identity.last_error != str(error)
+        if identity.status != "revocation_pending":
+            identity.status = "error"
+        identity.last_error = str(error)
+        identity.last_reconciled_at = utcnow()
+        self.db.commit()
+        if changed:
+            self._audit(endpoint, identity, "key_drift_detected")
 
     def _lease(self, endpoint):
         # The bound exceeds the configured RGW timeouts for this workflow.
@@ -156,45 +196,55 @@ class EndpointServiceIdentityService:
         identity = endpoint.service_identity(kind)
         if managed:
             if not permissions.users_write:
-                if identity is not None and identity.mode == "managed" and identity.status == "ready":
-                    self._functional_check(endpoint, identity)
-                    return identity
-                raise ValueError("Managed service identities require Admin Ops users=write.")
-            if identity is not None and identity.mode == "external":
-                # Conversion detaches external credentials, never mutates the external principal.
-                identity.access_key = identity.secret_key = identity.rgw_uid = None
-                identity.status = "missing"
-            if identity is None:
-                identity = EndpointServiceIdentity(kind=kind, mode="managed", status="missing")
-                endpoint.service_identities.append(identity)
-            identity.mode = "managed"
-            installation = self._installation_id()
-            provenance = f"{installation}:{endpoint.identity_namespace}"
-            if identity.provenance not in (None, provenance):
-                raise ValueError("Service identity ownership does not match this installation.")
-            identity.provenance = provenance
-            identity.rgw_uid = f"bkr-{installation[:12]}-{endpoint.identity_namespace[:12]}-{kind.replace('_', '-')}"
-            if not identity.access_key:
-                identity.access_key = secrets.token_hex(10).upper()
-                identity.secret_key = secrets.token_urlsafe(32)
-            identity.status = "provisioning"
-            self.db.commit()  # Persist key/provenance before creating anything remotely.
-            payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
-            if payload is not None and not self._owns(identity, payload):
-                raise ValueError("RGW service UID collision; the existing user will not be modified.")
-            if payload is None:
-                payload = admin.create_user(
-                    identity.rgw_uid, display_name=f"BucketReef {kind} service",
-                    generate_key=False, extra_params={"access-key": identity.access_key, "secret-key": identity.secret_key,
-                                                      "max-buckets": 0},
-                )
-                if not self._owns(identity, payload):
-                    raise ValueError("RGW did not confirm ownership of the new service identity.")
-                self._audit(endpoint, identity, "created")
-            if kind == "ceph_admin":
-                admin.update_user(identity.rgw_uid, admin=True, system=False)
+                if identity is not None and identity.mode == "managed" and identity.status in ("ready", "error"):
+                    provenance = f"{self._installation_id()}:{endpoint.identity_namespace}"
+                    if identity.provenance != provenance:
+                        raise ValueError("Cannot validate a managed identity without ownership proof.")
+                    payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
+                    if not self._owns(identity, payload):
+                        raise ValueError("Cannot validate a managed identity without ownership proof.")
+                    self._validate_managed_keys(identity, payload)
+                else:
+                    raise ValueError("Managed service identities require Admin Ops users=write.")
             else:
-                admin.set_user_caps(identity.rgw_uid, SERVICE_CAPS[kind])
+                if identity is not None and identity.mode == "external":
+                    # Conversion detaches external credentials, never mutates the external principal.
+                    identity.access_key = identity.secret_key = identity.rgw_uid = None
+                    identity.status = "missing"
+                if identity is None:
+                    identity = EndpointServiceIdentity(kind=kind, mode="managed", status="missing")
+                    endpoint.service_identities.append(identity)
+                identity.mode = "managed"
+                installation = self._installation_id()
+                provenance = f"{installation}:{endpoint.identity_namespace}"
+                if identity.provenance not in (None, provenance):
+                    raise ValueError("Service identity ownership does not match this installation.")
+                identity.provenance = provenance
+                identity.rgw_uid = f"bkr-{installation[:12]}-{endpoint.identity_namespace[:12]}-{kind.replace('_', '-')}"
+                if not identity.access_key:
+                    identity.access_key = secrets.token_hex(10).upper()
+                    identity.secret_key = secrets.token_urlsafe(32)
+                identity.status = "provisioning"
+                self.db.commit()  # Persist key/provenance before creating anything remotely.
+                payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
+                if payload is not None and not self._owns(identity, payload):
+                    raise ValueError("RGW service UID collision; the existing user will not be modified.")
+                if payload is not None:
+                    self._validate_managed_keys(identity, payload)
+                if payload is None:
+                    payload = admin.create_user(
+                        identity.rgw_uid, display_name=f"BucketReef {kind} service",
+                        generate_key=False, extra_params={"access-key": identity.access_key, "secret-key": identity.secret_key,
+                                                          "max-buckets": 0},
+                    )
+                    if not self._owns(identity, payload):
+                        raise ValueError("RGW did not confirm ownership of the new service identity.")
+                    self._validate_managed_keys(identity, payload)
+                    self._audit(endpoint, identity, "created")
+                if kind == "ceph_admin":
+                    admin.update_user(identity.rgw_uid, admin=True, system=False)
+                else:
+                    admin.set_user_caps(identity.rgw_uid, SERVICE_CAPS[kind])
         else:
             if identity is None or not identity.access_key or not identity.secret_key:
                 raise ValueError(f"Externally managed endpoints require complete {kind} credentials.")
@@ -202,6 +252,8 @@ class EndpointServiceIdentityService:
                 raise ValueError("Revoke the managed identity before supplying an external replacement.")
         payload = admin.get_user_by_access_key(identity.access_key, allow_not_found=True)
         self.validate_payload(kind, payload)
+        if managed:
+            self._validate_managed_keys(identity, payload)
         identity.rgw_uid = str(payload.get("user_id") or payload.get("uid") or identity.rgw_uid or "")
         self._functional_check(endpoint, identity)
         identity.status, identity.last_error = "ready", None
@@ -225,6 +277,7 @@ class EndpointServiceIdentityService:
             if identity.provenance != provenance or (payload is not None and not self._owns(identity, payload)):
                 raise ValueError("Cannot revoke an RGW identity without ownership proof.")
             if payload is not None:
+                self._validate_managed_keys(identity, payload)
                 admin.delete_user(identity.rgw_uid)  # Never purge buckets or objects.
                 if admin.get_user(identity.rgw_uid, allow_not_found=True) is not None:
                     raise ValueError("RGW did not confirm service identity revocation.")
@@ -235,6 +288,10 @@ class EndpointServiceIdentityService:
             self.db.commit()
             self._audit(endpoint, identity, "revoked")
             return True
+        except ManagedIdentityKeyDriftError as exc:
+            self.db.rollback()
+            self._record_key_drift(endpoint, identity, exc)
+            return False
         except (ValueError, RGWAdminError):
             self.db.rollback()
             identity.status = "revocation_pending"
@@ -248,6 +305,8 @@ class EndpointServiceIdentityService:
             identity = endpoint.service_identity(kind)
             if identity is None or identity.mode != "managed" or identity.status != "ready":
                 raise ValueError("Only ready managed service identities can be rotated.")
+            if deactivate_only:
+                raise ValueError("Managed service identities require deleting previous keys; select delete mode.")
             admin, permissions = self.admin_permissions(endpoint)
             if not permissions.users_write:
                 raise ValueError("Managed key rotation requires Admin Ops users=write.")
@@ -255,28 +314,40 @@ class EndpointServiceIdentityService:
             provenance = f"{self._installation_id()}:{endpoint.identity_namespace}"
             if identity.provenance != provenance or not self._owns(identity, payload):
                 raise ValueError("Cannot rotate an identity without ownership proof.")
+            self._validate_managed_keys(identity, payload)
             old_access = identity.previous_access_key or identity.access_key
             if not identity.previous_access_key:
                 from app.services.rgw_user_key_parser import RgwUserKeyParser
                 response = admin.create_access_key(identity.rgw_uid)
-                access, secret = RgwUserKeyParser.select_credentials(admin.extract_keys(response), exclude_access_key=old_access)
+                entries = admin.extract_keys(response)
+                if len(RgwUserKeyParser.access_key_ids(entries) - {old_access}) > 1:
+                    # The returned new key is ambiguous. Never guess which foreign
+                    # key to adopt or remove during compensation.
+                    raise ManagedIdentityKeyDriftError()
+                access, secret = RgwUserKeyParser.select_credentials(entries, exclude_access_key=old_access)
                 if not access or not secret or access == old_access:
                     raise ValueError("RGW did not return a new service key.")
                 identity.access_key, identity.secret_key = access, secret
                 try:
-                    self._functional_check(endpoint, identity)
                     identity.previous_access_key = old_access
+                    self._validate_managed_keys(identity, admin.get_user(identity.rgw_uid))
+                    self._functional_check(endpoint, identity)
                     self.db.commit()
                 except Exception:
                     self.db.rollback()
                     admin.delete_access_key(identity.rgw_uid, access)
                     raise
             try:
-                if deactivate_only:
-                    admin.set_access_key_status(identity.rgw_uid, old_access, enabled=False)
-                else:
-                    admin.delete_access_key(identity.rgw_uid, old_access)
-            except RGWAdminError as exc:
+                admin.delete_access_key(identity.rgw_uid, old_access)
+                payload = admin.get_user(identity.rgw_uid)
+                self._validate_managed_keys(identity, payload)
+                if not self._owns(identity, payload) or any(
+                    key.get("access_key") == old_access for key in payload["keys"]
+                ):
+                    raise ValueError("RGW did not confirm retirement of the previous service key.")
+            except (RGWAdminError, ValueError) as exc:
+                if isinstance(exc, ManagedIdentityKeyDriftError):
+                    raise
                 identity.last_error = "New key is active; retirement of the previous key is pending. Retry rotation."
                 self.db.commit()
                 raise ValueError(identity.last_error) from exc
@@ -284,7 +355,11 @@ class EndpointServiceIdentityService:
             identity.last_reconciled_at = utcnow()
             self.db.commit()
             self._audit(endpoint, identity, "rotated")
-            return old_access, identity.access_key, "disabled" if deactivate_only else "deleted"
+            return old_access, identity.access_key, "deleted"
+        except ManagedIdentityKeyDriftError as exc:
+            self.db.rollback()
+            self._record_key_drift(endpoint, identity, exc)
+            raise
         finally:
             lease.release(handle)
 
@@ -343,6 +418,11 @@ class EndpointServiceIdentityService:
                     )
                     identity = self._ensure(endpoint, kind, admin, permissions,
                                             managed=mode == "managed")
+                    results.append({"kind": kind, "status": identity.status})
+                except ManagedIdentityKeyDriftError as exc:
+                    self.db.rollback()
+                    identity = endpoint.service_identity(kind)
+                    self._record_key_drift(endpoint, identity, exc)
                     results.append({"kind": kind, "status": identity.status})
                 except (ValueError, RGWAdminError):
                     self.db.rollback()
