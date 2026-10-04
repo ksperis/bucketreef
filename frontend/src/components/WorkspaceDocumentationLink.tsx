@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useI18n } from "../i18n";
+import TopbarUtilityHint from "./TopbarUtilityHint";
 
 export default function WorkspaceDocumentationLink({ href }: { href: string }) {
   const { t } = useI18n();
@@ -20,17 +21,17 @@ export default function WorkspaceDocumentationLink({ href }: { href: string }) {
   });
 
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={title}
-      title={title}
-      className="shell-control inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-2.5 ui-caption font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
-    >
-      <DocumentationIcon className="h-4 w-4 shrink-0" />
-      <span className="hidden lg:inline">{label}</span>
-    </a>
+    <TopbarUtilityHint label={label}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={title}
+        className="shell-utility-button"
+      >
+        <DocumentationIcon />
+      </a>
+    </TopbarUtilityHint>
   );
 }
 

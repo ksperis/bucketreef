@@ -248,6 +248,67 @@ body {
     color: var(--shell-selected-text);
   }
 
+  .shell-utility-button {
+    @apply relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition;
+    border: 0;
+    background: var(--shell-muted-bg);
+    color: var(--shell-text);
+    box-shadow: none;
+  }
+
+  .shell-utility-button:hover,
+  .shell-utility-button[aria-expanded="true"] {
+    background: var(--shell-hover);
+  }
+
+  .shell-utility-button:focus-visible {
+    outline: 2px solid var(--shell-text);
+    outline-offset: 2px;
+  }
+
+  .shell-utility-button > svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .shell-utility-hint {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .shell-utility-tooltip {
+    @apply absolute left-1/2 top-full z-10 whitespace-nowrap rounded-md px-2.5 py-1.5 ui-caption;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    background: var(--shell-text);
+    color: var(--shell-topbar-bg);
+  }
+
+  .shell-utility-tooltip::before {
+    content: "";
+    position: absolute;
+    inset: -8px 0 auto;
+    height: 8px;
+  }
+
+  .shell-utility-tooltip::after {
+    content: "";
+    position: absolute;
+    top: -4px;
+    left: calc(50% - 4px);
+    width: 8px;
+    height: 8px;
+    transform: rotate(45deg);
+    background: inherit;
+  }
+
+  @media (max-width: 1023px), (pointer: coarse) {
+    .shell-utility-button {
+      width: 44px;
+      height: 44px;
+    }
+  }
+
   .shell-menu {
     border-color: var(--shell-border);
     background: var(--shell-menu-bg);
@@ -561,11 +622,11 @@ body {
   }
 }
 
-a:not(.ui-button-base):not(.ui-list-action):not(.shell-sidebar-item):not(.shell-sidebar-item-active) {
+a:not(.ui-button-base):not(.ui-list-action):not(.shell-sidebar-item):not(.shell-sidebar-item-active):not(.shell-utility-button) {
   @apply text-primary-700 transition-colors dark:text-primary-200;
 }
 
-a:not(.ui-button-base):not(.ui-list-action):not(.shell-sidebar-item):not(.shell-sidebar-item-active):hover {
+a:not(.ui-button-base):not(.ui-list-action):not(.shell-sidebar-item):not(.shell-sidebar-item-active):not(.shell-utility-button):hover {
   @apply text-primary-600 dark:text-primary-100;
 }
 
