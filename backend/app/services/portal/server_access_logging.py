@@ -29,6 +29,19 @@ logger = logging.getLogger(__name__)
 SERVER_ACCESS_LOGGING_PREFIX_ROOT = "portal-server-access/"
 
 
+class PortalServerAccessLoggingReconcileError(RuntimeError):
+    def __init__(self, failures: list[tuple[str, Exception]]) -> None:
+        self.failures = failures
+        count = len(failures)
+        noun = "account" if count == 1 else "accounts"
+        sample = ", ".join(account_name for account_name, _exc in failures[:3])
+        extra = f" (+{count - 3} more)" if count > 3 else ""
+        super().__init__(
+            f"Unable to reconcile Portal Server Access Logging for {count} {noun}: "
+            f"{sample}{extra}. Check S3 endpoint availability and permissions, then retry."
+        )
+
+
 class PortalServerAccessLoggingMixin:
     def _portal_server_access_log_bucket_name(self, account: S3Account) -> str:
         return portal_access_log_bucket_name(
@@ -48,7 +61,7 @@ class PortalServerAccessLoggingMixin:
         return get_s3_client(
             access_key,
             secret_key,
-            request_profile="long_running",
+            request_profile="interactive",
             **self._s3_client_kwargs(account),
         )
 
@@ -295,20 +308,18 @@ class PortalServerAccessLoggingMixin:
         if not account_ids:
             return summary
         accounts = self.db.query(S3Account).filter(S3Account.id.in_(account_ids)).all()
-        errors: list[str] = []
+        failures: list[tuple[str, Exception]] = []
         for account in accounts:
             effective = self._effective_portal_settings(account, base_settings=base_settings)
             try:
                 result = self.reconcile_portal_server_access_logging(account, portal_settings=effective)
             except Exception as exc:
-                errors.append(f"{account.name or account.id}: {exc}")
+                failures.append((str(account.name or account.id), exc))
                 continue
             summary["accounts"] += 1
             summary["enabled"] += result["enabled"]
             summary["disabled"] += result["disabled"]
             summary["skipped"] += result["skipped"]
-        if errors:
-            sample = "; ".join(errors[:3])
-            extra = f" (+{len(errors) - 3} more)" if len(errors) > 3 else ""
-            raise RuntimeError(f"Unable to reconcile Portal Server Access Logging: {sample}{extra}")
+        if failures:
+            raise PortalServerAccessLoggingReconcileError(failures) from failures[0][1]
         return summary

@@ -10,7 +10,11 @@ from app.models.ldap import LDAPProviderAdminItem, LDAPProviderAdminPayload
 from app.models.oidc import OIDCProviderAdminItem, OIDCProviderAdminPayload
 from app.models.storage_endpoint import CephAdminActivationRequest
 from app.routers.dependencies import get_audit_service, get_current_ui_superadmin
-from app.utils.http_errors import raise_http_exception_from_exception, raise_http_error_from_value_error
+from app.utils.http_errors import (
+    raise_bad_gateway_from_runtime,
+    raise_http_exception_from_exception,
+    raise_http_error_from_value_error,
+)
 from app.services.audit_service import AuditService
 from app.services.app_settings_service import (
     get_general_feature_locks,
@@ -62,6 +66,13 @@ def _authentication_settings_changed(current: AppSettings, requested: AppSetting
     )
 
 
+def _portal_server_access_logging_changed(current: AppSettings, requested: AppSettings) -> bool:
+    return (
+        current.portal.server_access_logging_enabled
+        != requested.portal.server_access_logging_enabled
+    )
+
+
 @router.get("", response_model=AppSettings)
 def get_settings(_: User = Depends(get_current_ui_superadmin)) -> AppSettings:
     return load_app_settings()
@@ -91,10 +102,12 @@ def update_settings(
         raise HTTPException(status_code=400, detail="Use the Ceph Admin activation workflow to select endpoints.")
     if _authentication_settings_changed(current_settings, payload):
         require_admin_sensitive_action(request, db, current_user)
-    try:
-        server_access_logging_summary = get_portal_service(db).reconcile_all_portal_server_access_logging(payload.portal)
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    server_access_logging_summary = {"accounts": 0, "enabled": 0, "disabled": 0, "skipped": 0}
+    if _portal_server_access_logging_changed(current_settings, payload):
+        try:
+            server_access_logging_summary = get_portal_service(db).reconcile_all_portal_server_access_logging(payload.portal)
+        except RuntimeError as exc:
+            raise_bad_gateway_from_runtime(exc)
     saved = save_app_settings(payload)
     if current_settings.general.ceph_admin_enabled and not saved.general.ceph_admin_enabled:
         from app.services.ceph_admin_activation_service import CephAdminActivationService
