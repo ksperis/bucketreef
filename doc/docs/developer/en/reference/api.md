@@ -66,12 +66,20 @@ before they enter the existing encrypted credential store. The onboarding API
 no longer exposes the legacy `endpoint_access_key` / `endpoint_secret_key`
 fields from the former first-step endpoint credential flow.
 
-Endpoint create/update accepts `service_identity_mode`, external `runtime_access_key`
-and write-only `runtime_secret_key`, and `ceph_admin_allowed`. Admin Ops requires
-`users=read;accounts=read`; writes are optional. Without `users=write`, use external
-mode and supply Runtime, plus Supervision only when Metrics/Usage is enabled.
-Responses include `has_runtime_secret`, secret-free `service_identities` lifecycle
-states, `ceph_admin_allowed` and computed `ceph_admin_active`.
+Endpoint create/update uses a write contract that accepts `service_identity_mode`,
+external Runtime/Supervision access-key IDs and write-only secret keys, plus
+`ceph_admin_allowed`. Feature detection uses the same write-only credential rule.
+Admin Ops requires `users=read;accounts=read`; writes are optional. Without
+`users=write`, use external mode and supply Runtime, plus Supervision only when
+Metrics/Usage is enabled.
+
+Endpoint read responses use a separate contract. They keep the Admin Ops access-key
+ID and `has_admin_secret` for the administrator edit flow, but never return Runtime
+or Supervision access-key IDs or secret-presence fields. Instead,
+`service_identities[]` exposes only lifecycle metadata such as `kind`, `mode`,
+`status`, `rgw_uid`, `credentials_configured`, reconciliation timestamps and errors.
+Secret keys are never present in read responses. Responses also include
+`ceph_admin_allowed` and computed `ceph_admin_active`.
 `POST /api/admin/storage-endpoints/{id}/service-identities/reconcile` retries pending
 configuration/revocation. `POST /api/admin/settings/ceph-admin` accepts `enabled`,
 `endpoint_ids`, and default-false `grant_current_user`, returning per-endpoint results.

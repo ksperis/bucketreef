@@ -225,12 +225,22 @@ function CredentialSection({
   );
 }
 
-function hasStoredCredentials(
+function hasStoredAdminCredentials(endpoint: StorageEndpoint | null): boolean {
+  return Boolean(endpoint?.admin_access_key && endpoint.has_admin_secret);
+}
+
+function serviceIdentity(
   endpoint: StorageEndpoint | null,
-  accessField: "admin_access_key" | "supervision_access_key" | "runtime_access_key",
-  secretField: "has_admin_secret" | "has_supervision_secret" | "has_runtime_secret",
+  kind: "runtime" | "supervision",
+) {
+  return endpoint?.service_identities?.find((identity) => identity.kind === kind);
+}
+
+function hasStoredServiceCredentials(
+  endpoint: StorageEndpoint | null,
+  kind: "runtime" | "supervision",
 ): boolean {
-  return Boolean(endpoint?.[accessField] && endpoint?.[secretField]);
+  return Boolean(serviceIdentity(endpoint, kind)?.credentials_configured);
 }
 
 function selectedOptionCount(draft: OnboardingDraft): number {
@@ -321,25 +331,23 @@ export default function OnboardingPage() {
     () => endpoints.find((endpoint) => endpoint.id === draft.endpoint_id) ?? null,
     [draft.endpoint_id, endpoints],
   );
-  useEffect(() => { if (selectedEndpoint) setIdentityMode(selectedEndpoint.service_identity_mode ?? "external"); }, [selectedEndpoint]);
+  useEffect(() => {
+    if (selectedEndpoint) {
+      setIdentityMode(serviceIdentity(selectedEndpoint, "runtime")?.mode ?? "external");
+    }
+  }, [selectedEndpoint]);
   const isCeph = draft.endpoint_id ? selectedEndpoint?.provider === "ceph" : true;
   const endpointConfigured = Boolean(
     draft.endpoint_id || (draft.endpoint_url && validEndpointUrl(draft.endpoint_url)),
   );
-  const storedAdminCredentials = hasStoredCredentials(
+  const storedAdminCredentials = hasStoredAdminCredentials(selectedEndpoint);
+  const storedSupervisionCredentials = hasStoredServiceCredentials(
     selectedEndpoint,
-    "admin_access_key",
-    "has_admin_secret",
+    "supervision",
   );
-  const storedSupervisionCredentials = hasStoredCredentials(
+  const storedRuntimeCredentials = hasStoredServiceCredentials(
     selectedEndpoint,
-    "supervision_access_key",
-    "has_supervision_secret",
-  );
-  const storedRuntimeCredentials = hasStoredCredentials(
-    selectedEndpoint,
-    "runtime_access_key",
-    "has_runtime_secret",
+    "runtime",
   );
   const needsCeph = Boolean(isCeph && (draft.manager || draft.portal || draft.supervision || draft.ceph_admin));
   const adminCredentialsRequired = needsCeph && !storedAdminCredentials;
@@ -375,19 +383,13 @@ export default function OnboardingPage() {
             admin_secret_key:
               needsCeph ? adminSecretKey.trim() || null : null,
             supervision_access_key: identityMode === "external" && draft.supervision
-              ? supervisionAccessKey.trim() ||
-                (storedSupervisionCredentials
-                  ? selectedEndpoint?.supervision_access_key ?? null
-                  : null)
+              ? supervisionAccessKey.trim() || null
               : null,
             supervision_secret_key: identityMode === "external" && draft.supervision
               ? supervisionSecretKey.trim() || null
               : null,
             runtime_access_key: identityMode === "external" && needsCeph
-              ? runtimeAccessKey.trim() ||
-                (storedRuntimeCredentials
-                  ? selectedEndpoint?.runtime_access_key ?? null
-                  : null)
+              ? runtimeAccessKey.trim() || null
               : null,
             runtime_secret_key: identityMode === "external" && needsCeph
               ? runtimeSecretKey.trim() || null
@@ -405,11 +407,7 @@ export default function OnboardingPage() {
       endpointConfigured,
       adminSecretKey,
       selectedEndpoint?.admin_access_key,
-      selectedEndpoint?.runtime_access_key,
-      selectedEndpoint?.supervision_access_key,
       storedAdminCredentials,
-      storedRuntimeCredentials,
-      storedSupervisionCredentials,
       supervisionAccessKey,
       supervisionSecretKey,
       validationEndpointUrl,

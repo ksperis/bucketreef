@@ -179,10 +179,11 @@ export default function StorageEndpointsPage() {
         (form.has_admin_secret && adminAccessKey === (editingEndpoint?.admin_access_key ?? "").trim()))
   );
   const hasSupervisionCredentials = Boolean(
-    supervisionAccessKey &&
-      (supervisionSecretKey ||
-        (form.has_supervision_secret &&
-          supervisionAccessKey === (editingEndpoint?.supervision_access_key ?? "").trim()))
+    (supervisionAccessKey && supervisionSecretKey) ||
+      (editingId != null &&
+        form.has_supervision_secret &&
+        !supervisionAccessKey &&
+        !supervisionSecretKey)
   );
   const endpointValidationPayload = useMemo(
     () =>
@@ -584,8 +585,8 @@ export default function StorageEndpointsPage() {
     : resolveCredentialCheckView({
         accessKey: form.supervision_access_key,
         secretKey: form.supervision_secret_key,
-        storedAccessKey: editingEndpoint?.supervision_access_key,
         hasStoredSecret: form.has_supervision_secret,
+        reuseStoredCredentials: editingId != null,
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.supervision,
@@ -596,18 +597,19 @@ export default function StorageEndpointsPage() {
     : resolveCredentialCheckView({
         accessKey: form.runtime_access_key,
         secretKey: form.runtime_secret_key,
-        storedAccessKey: editingEndpoint?.runtime_access_key,
         hasStoredSecret: form.has_runtime_secret,
+        reuseStoredCredentials: editingId != null,
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.runtime ?? { status: "not_configured" },
         incompleteMessage: "Enter both the Runtime Read Ops access key and secret key.",
       });
   const hasSupervisionCredentialsForSignedProbe = Boolean(
-    form.supervision_access_key.trim() &&
-      (form.supervision_secret_key.trim() ||
-        (form.has_supervision_secret &&
-          form.supervision_access_key.trim() === (editingEndpoint?.supervision_access_key ?? "").trim()))
+    (form.supervision_access_key.trim() && form.supervision_secret_key.trim()) ||
+      (editingId != null &&
+        form.has_supervision_secret &&
+        !form.supervision_access_key.trim() &&
+        !form.supervision_secret_key.trim())
   );
   const editorTabs = [
     { id: "general", label: "Connection" },

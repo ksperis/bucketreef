@@ -38,23 +38,32 @@ function CredentialFields({ kind, label, required = false, form, setForm, readOn
   const access = `${kind}_access_key` as const;
   const secret = `${kind}_secret_key` as const;
   const stored = `has_${kind}_secret` as const;
+  const storedServicePair = kind !== "admin" && editing && form[stored];
+  const replacementHint = storedServicePair
+    ? "Stored credentials are configured. Leave both fields empty to keep them, or enter both values to replace the pair."
+    : undefined;
   const change = (field: typeof access | typeof secret, value: string) => {
     invalidateChecks();
     setForm(previous => ({ ...previous, [field]: value }));
   };
   return <div className="settings-fields">
     {statuses[kind] && <div>{statuses[kind]}</div>}
+    {readOnly && kind !== "admin" ? <div className="settings-stack">
+      <p className="settings-label">{label} credentials</p>
+      <div className="settings-readonly">{form[stored] ? "Configured — values hidden" : "Not configured"}</div>
+    </div> :
     <div className="settings-fields sm:grid-cols-2">
-      <UiInput label={`${label} access key`} value={form[access]} readOnly={readOnly} required={required}
+      <UiInput label={`${label} access key`} value={form[access]} readOnly={readOnly} required={required && !storedServicePair}
+        hint={replacementHint}
         error={errors[access]} onChange={event => change(access, event.target.value)} />
       {readOnly ? <div className="settings-stack">
         <p className="settings-label">{label} secret key</p>
         <div className="settings-readonly">{form[stored] ? "Stored — value hidden" : "Not configured"}</div>
       </div> : <UiInput label={`${label} secret key`} type="password" autoComplete="new-password"
         value={form[secret]} required={!editing && required} error={errors[secret]}
-        hint={editing ? "Leave the secret key empty to keep the current one." : required ? "Required for the enabled service." : undefined}
+        hint={replacementHint ?? (editing ? "Leave the secret key empty to keep the current one." : required ? "Required for the enabled service." : undefined)}
         onChange={event => change(secret, event.target.value)} />}
-    </div>
+    </div>}
   </div>;
 }
 

@@ -54,11 +54,21 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
       const secretField = `${kind}_secret_key` as const;
       const access = form[accessField].trim();
       const secret = form[secretField].trim();
+      const storedCredentials = editing && form[`has_${kind}_secret`];
+      if (kind !== "admin" && storedCredentials && !access && !secret) {
+        continue;
+      }
+      if (kind !== "admin" && editing && storedCredentials && Boolean(access) !== Boolean(secret)) {
+        if (!access) errors[accessField] = `${label} access key is required when replacing stored credentials.`;
+        if (!secret) errors[secretField] = `${label} secret key is required when replacing stored credentials.`;
+        continue;
+      }
       if (required && !access) errors[accessField] = `${label} access key is required when ${reason}.`;
       if (required && (!editing || !form[`has_${kind}_secret`]) && !secret) errors[secretField] = `${label} secret key is required when ${reason}.`;
       payload[accessField] = access || null;
-      // An empty secret on edit keeps the stored value; clearing access clears both.
-      if (!editing || !access || secret) payload[secretField] = secret || null;
+      // Admin Ops keeps its historical access-key-visible edit contract. Service
+      // identities replace their write-only credential pair atomically.
+      if (kind !== "admin" || !editing || !access || secret) payload[secretField] = secret || null;
     }
   }
   return Object.keys(errors).length ? { errors } : { payload };

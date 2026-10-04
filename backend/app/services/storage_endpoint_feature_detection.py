@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import requests
+from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -68,13 +69,26 @@ class StorageEndpointFeatureDetector:
     @staticmethod
     def _credentials(
         access_key: Optional[str],
-        secret_key: Optional[str],
+        secret_key: SecretStr | str | None,
         *,
         stored_access_key: Optional[str] = None,
         stored_secret_key: Optional[str] = None,
     ) -> _FeatureDetectionCredentials:
         normalized_access_key = normalize_optional_string(access_key)
-        normalized_secret_key = normalize_optional_string(secret_key)
+        secret_value = (
+            secret_key.get_secret_value()
+            if isinstance(secret_key, SecretStr)
+            else secret_key
+        )
+        normalized_secret_key = normalize_optional_string(secret_value)
+        if (
+            not normalized_access_key
+            and not normalized_secret_key
+            and stored_access_key
+            and stored_secret_key
+        ):
+            normalized_access_key = stored_access_key
+            normalized_secret_key = stored_secret_key
         if (
             normalized_access_key
             and not normalized_secret_key

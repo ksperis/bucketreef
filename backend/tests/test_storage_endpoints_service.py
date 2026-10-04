@@ -217,7 +217,9 @@ def test_aws_endpoint_defaults_enable_supported_aws_features_and_clear_ceph_cred
     assert created.provider == StorageProvider.AWS
     assert created.region == AWS_DEFAULT_REGION
     assert created.admin_access_key is None
-    assert created.supervision_access_key is None
+    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == created.id).one()
+    supervision = persisted.service_identity("supervision")
+    assert supervision is None or supervision.access_key is None
     assert created.capabilities == {
         "admin": False,
         "account": False,
@@ -770,7 +772,6 @@ def test_update_endpoint_clearing_access_keys_also_clears_secrets(db_session):
     )
 
     assert updated.admin_access_key is None
-    assert updated.supervision_access_key is None
 
     persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).first()
     assert persisted is not None
@@ -806,9 +807,9 @@ def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_sess
     assert updated.force_path_style is True
     assert updated.verify_tls is False
     assert updated.admin_access_key == "AKIA-ADMIN"
-    assert updated.supervision_access_key == "AKIA-SUPERVISION"
     persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).one()
     assert persisted.admin_secret_key == "SECRET-ADMIN"
+    assert persisted.service_identity("supervision").access_key == "AKIA-SUPERVISION"
     assert persisted.service_identity("supervision").secret_key == "SECRET-SUPERVISION"
 
 
@@ -1355,6 +1356,7 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
 
 def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypatch):
     endpoint = _create_ceph_endpoint_with_full_credentials(db_session, name="ceph-edit-detect")
+    runtime = endpoint.service_identity("runtime")
     supervision = endpoint.service_identity("supervision")
     endpoint.verify_tls = False
     db_session.add(endpoint)
@@ -1368,12 +1370,20 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
 
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = False):
             assert access_key == self.access_key
-            assert self.access_key == endpoint.admin_access_key
-            return {"user_id": "admin-user"}
+            if self.access_key == endpoint.admin_access_key:
+                return {"user_id": "admin-user"}
+            assert self.access_key == runtime.access_key
+            return {
+                "user_id": "runtime-user",
+                "caps": "accounts=read;buckets=read;user-info-without-keys=read",
+            }
 
-        def get_all_buckets(self, with_stats: bool = False):
-            assert self.access_key == supervision.access_key
+        def get_all_buckets(self, uid: str | None = None, with_stats: bool = False):
             assert with_stats is True
+            if self.access_key == runtime.access_key:
+                assert uid == "runtime-user"
+            else:
+                assert self.access_key == supervision.access_key
             return []
 
         def get_usage(self, show_entries: bool = False, show_summary: bool = False):
@@ -1395,16 +1405,21 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
             allow_not_found: bool = False,
             allow_not_implemented: bool = False,
         ):
-            assert self.access_key == endpoint.admin_access_key
             assert account_id == "RGW00000000000000000"
             assert allow_not_found is True
-            assert allow_not_implemented is True
-            self.account_api_supported = True
+            if self.access_key == endpoint.admin_access_key:
+                assert allow_not_implemented is True
+                self.account_api_supported = True
+            else:
+                assert self.access_key == runtime.access_key
+                assert allow_not_implemented is False
             return {"id": "RGW00000000000000001"}
 
     def _fake_get_rgw_admin_client(**kwargs):
         if kwargs["access_key"] == endpoint.admin_access_key:
             assert kwargs["secret_key"] == endpoint.admin_secret_key
+        if kwargs["access_key"] == runtime.access_key:
+            assert kwargs["secret_key"] == runtime.secret_key
         if kwargs["access_key"] == supervision.access_key:
             assert kwargs["secret_key"] == supervision.secret_key
         assert kwargs["verify_tls"] is False
@@ -1421,7 +1436,6 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
             endpoint_id=endpoint.id,
             endpoint_url=endpoint.endpoint_url,
             admin_access_key=endpoint.admin_access_key,
-            supervision_access_key=supervision.access_key,
         )
     )
 
@@ -1433,6 +1447,7 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
     assert result.metrics_error is None
     assert result.usage_error is None
     assert result.credential_checks.admin.status == "valid"
+    assert result.credential_checks.runtime.status == "valid"
     assert result.credential_checks.supervision.status == "valid"
 
 
