@@ -391,6 +391,7 @@ def test_read_only_runtime_detection_never_lists_without_scope_or_accepts_keys(i
     )
     assert result.credential_checks.runtime.status == "denied"
     assert not any(call[0] == "list" for call in rgw.calls)
+    assert db_session.query(EndpointServiceIdentity).count() == 0
 
 
 def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(identities, db_session, monkeypatch):

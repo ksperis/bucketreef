@@ -17,6 +17,7 @@ from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionResult,
     StorageEndpointHttpCheck,
 )
+from app.services.endpoint_service_identities import EndpointServiceIdentityService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import (
     classify_rgw_credential_failure,
@@ -345,7 +346,11 @@ class StorageEndpointFeatureDetector:
         supervision_client = None
         try:
             supervision_client = self._client(context, credentials)
-            supervision_client.get_all_buckets(with_stats=True)
+            EndpointServiceIdentityService.validate_functional_access(
+                "supervision",
+                supervision_client,
+                check_usage=False,
+            )
             result.metrics = True
             result.credential_checks.supervision = StorageEndpointCredentialCheck(
                 status="valid",
@@ -365,9 +370,10 @@ class StorageEndpointFeatureDetector:
         if supervision_client is None:
             return
         try:
-            usage_payload = supervision_client.get_usage(
-                show_entries=False,
-                show_summary=True,
+            usage_payload = EndpointServiceIdentityService.validate_functional_access(
+                "supervision",
+                supervision_client,
+                check_buckets=False,
             )
             if isinstance(usage_payload, dict) and usage_payload.get("not_found"):
                 result.usage_error = "RGW usage logs endpoint is unavailable."
@@ -402,14 +408,11 @@ class StorageEndpointFeatureDetector:
         elif credentials.complete:
             try:
                 client = self._client(context, credentials)
-                payload = client.get_user_by_access_key(credentials.access_key, allow_not_found=True)
-                from app.services.endpoint_service_identities import EndpointServiceIdentityService
-                EndpointServiceIdentityService.validate_payload("runtime", payload)
-                uid = payload.get("user_id") or payload.get("uid")
-                if not uid or payload.get("keys") or payload.get("swift_keys") or payload.get("temp_url_keys"):
-                    raise ValueError("Runtime user lookup must identify its user without returning keys.")
-                client.get_account("RGW00000000000000000", allow_not_found=True)
-                client.get_all_buckets(uid=uid, with_stats=True)
+                EndpointServiceIdentityService.validate_functional_access(
+                    "runtime",
+                    client,
+                    access_key=credentials.access_key,
+                )
                 result.credential_checks.runtime = StorageEndpointCredentialCheck(status="valid", message="Runtime Read Ops was validated without user keys.")
             except (ValueError, RGWAdminError):
                 result.credential_checks.runtime = StorageEndpointCredentialCheck(status="denied", message="Runtime Read Ops credentials or permissions could not be validated.")
