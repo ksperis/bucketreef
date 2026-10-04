@@ -426,7 +426,6 @@ def test_persisted_storage_endpoint_security_recommendations(db_session):
             verify_tls=False,
             admin_access_key="SHARED-PRIVILEGED-KEY",
             supervision_access_key="SHARED-PRIVILEGED-KEY",
-            ceph_admin_access_key="CEPH-ADMIN-KEY",
         )
     )
     db_session.flush()

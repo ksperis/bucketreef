@@ -138,8 +138,6 @@ def _prepare_environment(backend_root: Path) -> dict[str, str]:
     env["SEED_RGW_ADMIN_SECRET_KEY"] = ""
     env["SEED_SUPERVISION_ACCESS_KEY"] = ""
     env["SEED_SUPERVISION_SECRET_KEY"] = ""
-    env["SEED_CEPH_ADMIN_ACCESS_KEY"] = ""
-    env["SEED_CEPH_ADMIN_SECRET_KEY"] = ""
     env["OIDC_PROVIDERS"] = "{}"
     env["LDAP_PROVIDERS"] = "{}"
     env["CORS_ORIGINS"] = json.dumps(frontend_origins)

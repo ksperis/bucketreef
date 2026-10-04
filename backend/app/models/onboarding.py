@@ -78,8 +78,6 @@ class OnboardingApply(ApiModel):
     admin_secret_key: SecretStr | None = None
     supervision_access_key: SecretStr | None = None
     supervision_secret_key: SecretStr | None = None
-    ceph_admin_access_key: SecretStr | None = None
-    ceph_admin_secret_key: SecretStr | None = None
     private_access_key: SecretStr | None = None
     private_secret_key: SecretStr | None = None
 

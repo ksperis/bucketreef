@@ -64,8 +64,6 @@ export type StorageEndpoint = {
 
   supervision_access_key?: string | null;
   has_supervision_secret: boolean;
-  ceph_admin_access_key?: string | null;
-  has_ceph_admin_secret: boolean;
   capabilities?: Record<string, boolean> | null;
   admin_ops_permissions?: StorageEndpointAdminOpsPermissions | null;
   features_config?: string | null;
@@ -103,8 +101,6 @@ export type StorageEndpointPayload = {
 
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
-  ceph_admin_access_key?: string | null;
-  ceph_admin_secret_key?: string | null;
   features_config?: string | null;
 };
 
@@ -124,8 +120,6 @@ export type StorageEndpointFeatureDetectionPayload = {
 
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
-  ceph_admin_access_key?: string | null;
-  ceph_admin_secret_key?: string | null;
 };
 
 export type StorageEndpointCredentialCheckStatus =
@@ -144,7 +138,6 @@ export type StorageEndpointCredentialChecks = {
   runtime?: StorageEndpointCredentialCheck;
   admin: StorageEndpointCredentialCheck;
   supervision: StorageEndpointCredentialCheck;
-  ceph_admin: StorageEndpointCredentialCheck;
 };
 
 export type StorageEndpointHttpCheck = {

@@ -129,7 +129,7 @@ class OnboardingSetupService:
             options=list(draft.selected_options),
         )
 
-    def _detect(self, draft, endpoint, admin, supervision, ceph_admin):
+    def _detect(self, draft, endpoint, admin, supervision):
         payload = StorageEndpointFeatureDetectionRequest(
             endpoint_id=endpoint.id if endpoint else None,
             endpoint_url=endpoint.endpoint_url if endpoint else draft.endpoint_url,
@@ -139,8 +139,6 @@ class OnboardingSetupService:
             admin_secret_key=admin[1] or None,
             supervision_access_key=supervision[0] or None,
             supervision_secret_key=supervision[1] or None,
-            ceph_admin_access_key=ceph_admin[0] or None,
-            ceph_admin_secret_key=ceph_admin[1] or None,
         )
         return self.endpoints.detect_features(payload)
 
@@ -160,7 +158,6 @@ class OnboardingSetupService:
         admin = ("", "", False)
         runtime = ("", "", False)
         supervision = ("", "", False)
-        ceph_admin = ("", "", False)
         if needs_ceph:
             admin = self._management_credentials(
                 payload,
@@ -189,7 +186,7 @@ class OnboardingSetupService:
 
         detection = None
         if needs_ceph:
-            detection = self._detect(draft, endpoint, admin, supervision, ceph_admin)
+            detection = self._detect(draft, endpoint, admin, supervision)
         if needs_account_api:
             if detection.credential_checks.admin.status != "valid" or not detection.admin:
                 raise OnboardingError("endpoint_credentials_invalid")
@@ -233,8 +230,6 @@ class OnboardingSetupService:
                 admin_secret_key=admin[1] or None,
                 supervision_access_key=supervision[0] or None,
                 supervision_secret_key=supervision[1] or None,
-                ceph_admin_access_key=ceph_admin[0] or None,
-                ceph_admin_secret_key=ceph_admin[1] or None,
                 features_config=dump_features_config(features.model_dump()),
             )
             created = self.endpoints.create_endpoint(endpoint_payload, commit=False)
@@ -275,12 +270,6 @@ class OnboardingSetupService:
                     supervision_secret_key=supervision[1],
                 )
                 credential_kinds.append("supervision")
-            if ceph_admin[2]:
-                update.update(
-                    ceph_admin_access_key=ceph_admin[0],
-                    ceph_admin_secret_key=ceph_admin[1],
-                )
-                credential_kinds.append("ceph_admin")
             if feature_fields:
                 features = normalize_features_config(
                     endpoint.provider, endpoint.features_config, endpoint.region

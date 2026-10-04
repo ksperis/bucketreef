@@ -78,8 +78,6 @@ const ADMIN_STORAGE_ENDPOINTS = [
     has_admin_secret: true,
     supervision_access_key: "KLOSUPDEFAULT",
     has_supervision_secret: true,
-    ceph_admin_access_key: "KLOCEPHDEFAULT",
-    has_ceph_admin_secret: true,
     capabilities: {
       admin: true,
       account: true,
@@ -126,8 +124,6 @@ const ADMIN_STORAGE_ENDPOINTS = [
     has_admin_secret: false,
     supervision_access_key: null,
     has_supervision_secret: false,
-    ceph_admin_access_key: null,
-    has_ceph_admin_secret: false,
     capabilities: {
       admin: false,
       account: false,

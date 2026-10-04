@@ -20,8 +20,6 @@ def _seed_required_endpoint_env(monkeypatch):
     monkeypatch.setenv("CEPH_TEST_RGW_ADMIN_SECRET_KEY", "admin-sk")
     monkeypatch.setenv("CEPH_TEST_SUPERVISION_ACCESS_KEY", "supervision-ak")
     monkeypatch.setenv("CEPH_TEST_SUPERVISION_SECRET_KEY", "supervision-sk")
-    monkeypatch.setenv("CEPH_TEST_CEPH_ADMIN_ACCESS_KEY", "ceph-admin-ak")
-    monkeypatch.setenv("CEPH_TEST_CEPH_ADMIN_SECRET_KEY", "ceph-admin-sk")
 
 
 def test_ci_endpoint_payload_enables_replication(monkeypatch):
@@ -88,7 +86,6 @@ def test_ci_endpoint_payload_can_seed_two_lab_zones(monkeypatch):
         "https://s3-z2.example.test",
     ]
     assert payload[0]["admin_access_key"] == payload[1]["admin_access_key"] == "admin-ak"
-    assert payload[0]["ceph_admin_secret_key"] == payload[1]["ceph_admin_secret_key"] == "ceph-admin-sk"
 
 
 def test_ci_endpoint_payload_can_use_env_storage_endpoints():
@@ -108,8 +105,6 @@ def test_ci_endpoint_payload_can_use_env_storage_endpoints():
             "admin_secret_key": "admin-sk",
             "supervision_access_key": "supervision-ak",
             "supervision_secret_key": "supervision-sk",
-            "ceph_admin_access_key": "ceph-admin-ak",
-            "ceph_admin_secret_key": "ceph-admin-sk",
             "is_default": True,
         }
     ]
@@ -123,7 +118,6 @@ def test_ci_endpoint_payload_can_use_env_storage_endpoints():
     assert env["CEPH_TEST_RGW_ADMIN_ENDPOINT"] == "https://admin-z1.example.test"
     assert env["CEPH_TEST_RGW_ADMIN_ACCESS_KEY"] == "admin-ak"
     assert env["CEPH_TEST_SUPERVISION_SECRET_KEY"] == "supervision-sk"
-    assert env["CEPH_TEST_CEPH_ADMIN_ACCESS_KEY"] == "ceph-admin-ak"
     assert env["CEPH_TEST_RGW_VERIFY_TLS"] == "true"
 
 

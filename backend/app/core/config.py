@@ -359,14 +359,6 @@ class Settings(BaseSettings):
         None,
         description="Seed secret key dedicated to supervision usage stats",
     )
-    seed_ceph_admin_access_key: Optional[str] = Field(
-        None,
-        description="Seed access key dedicated to Ceph Admin advanced operations",
-    )
-    seed_ceph_admin_secret_key: Optional[str] = Field(
-        None,
-        description="Seed secret key dedicated to Ceph Admin advanced operations",
-    )
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     oidc_providers: dict[str, OIDCProviderSettings] = Field(default_factory=dict)

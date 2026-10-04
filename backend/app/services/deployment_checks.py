@@ -582,7 +582,6 @@ def run_deployment_checks(
         "SEED_S3_SECRET_KEY": settings.seed_s3_secret_key if seed_endpoint_configured else None,
         "SEED_RGW_ADMIN_SECRET_KEY": settings.seed_rgw_admin_secret_key,
         "SEED_SUPERVISION_SECRET_KEY": settings.seed_supervision_secret_key,
-        "SEED_CEPH_ADMIN_SECRET_KEY": settings.seed_ceph_admin_secret_key,
     }
     for name, value in seed_secrets.items():
         if value is not None and is_weak_secret_value(value):

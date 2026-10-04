@@ -71,7 +71,11 @@ class StorageEndpoint(Base):
         if identity is None:
             if value is None:
                 return
-            identity = EndpointServiceIdentity(kind=kind, mode="external", status="missing")
+            identity = EndpointServiceIdentity(
+                kind=kind,
+                mode="managed" if kind == "ceph_admin" else "external",
+                status="missing",
+            )
             self.service_identities.append(identity)
         setattr(identity, field, value)
         if identity.mode == "external":

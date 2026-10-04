@@ -49,20 +49,22 @@ never automatically repeats an uncertain operation.
 
 ### Endpoints managed by the environment
 
-Admin Ops and externally supplied credentials remain operator-managed when an
-endpoint is configured through `ENV_STORAGE_ENDPOINTS`. External service identities
-are never rotated automatically. Managed Runtime, Supervision and Ceph Admin keys
-are stored in DB and remain eligible even on an ENV-configured endpoint. Rotation
-validates and saves the new key before retiring the old one; pending retirement is
-retained and retryable without generating another key.
+Admin Ops and externally supplied Runtime/Supervision credentials remain
+operator-managed when an endpoint is configured through `ENV_STORAGE_ENDPOINTS`.
+External service identities are never rotated automatically. Ceph Admin is always a
+BucketReef-managed identity; managed Runtime, Supervision and Ceph Admin keys are
+stored in DB and remain eligible even on an ENV-configured endpoint. Rotation validates
+and saves the new key before retiring the old one; pending retirement is retained and
+retryable without generating another key.
 
 Rotate environment-managed endpoint credentials without interruption:
 
 1. Create a second key for the same RGW identity and keep the old key active.
 2. Replace the access key and secret together in the deployment secret or
    configuration that supplies `ENV_STORAGE_ENDPOINTS`.
-3. Redeploy every backend replica, then validate Admin Ops, Ceph Admin, and
-   supervision or metrics access as applicable.
+3. Redeploy every backend replica, then validate Admin Ops and supervision or
+   metrics access as applicable. Ceph Admin is reconciled separately as a managed
+   identity.
 4. Disable or delete the old key only after every replica is using the new
    environment values and the validation checks pass.
 

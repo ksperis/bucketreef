@@ -348,6 +348,25 @@ def test_rotation_requires_installation_provenance(identities, db_session):
     assert not any(call[0] == "key_create" for call in rgw.calls)
 
 
+def test_managed_ceph_admin_identity_can_rotate(identities, db_session):
+    service, endpoint, rgw = identities
+    endpoint.ceph_admin_allowed = True
+    db_session.commit()
+    service.reconcile(endpoint, ceph_admin_enabled=True)
+    identity = endpoint.service_identity("ceph_admin")
+    assert identity is not None and identity.status == "ready"
+    old_access = identity.access_key
+
+    old, new, retired = service.rotate(endpoint, "ceph_admin")
+
+    assert old == old_access
+    assert new == identity.access_key and new != old_access
+    assert retired == "deleted"
+    assert old_access not in {
+        key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]
+    }
+
+
 @pytest.mark.parametrize("invalid_field", ["missing_uid", "temp_url_keys"])
 def test_read_only_runtime_detection_never_lists_without_scope_or_accepts_keys(identities, db_session, invalid_field):
     from app.models.storage_endpoint import StorageEndpointFeatureDetectionRequest

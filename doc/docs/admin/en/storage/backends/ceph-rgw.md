@@ -81,18 +81,19 @@ read-only: Admin Ops bootstraps feature inspection, followed by functional servi
 identity checks at save/apply. Failures appear in the endpoint's credentials tab;
 use **Retry service identity configuration** after fixing RGW access.
 
-Existing Supervision and Ceph Admin credentials migrate as external without
-changing their RGW users. Existing endpoints need Runtime configured before live
-enrichment resumes. Selecting managed mode explicitly converts Runtime/Supervision
-and preserves the external users. Generated DB secrets survive ENV synchronization.
+Existing Supervision credentials migrate as external without changing their RGW
+users. Existing endpoints need Runtime configured before live enrichment resumes.
+Selecting managed mode explicitly converts Runtime/Supervision and preserves the
+external users. Generated DB secrets survive ENV synchronization.
 
 Enable Ceph Admin through **General settings → Ceph Admin** and select the allowed
-Ceph endpoints. `users=write` is required. The optional workspace grant to the
-current user is unchecked by default. Activation converts legacy external Ceph
-Admin credentials to a new managed `admin=true`, `system=false` identity. Access is
-active only when the global feature, endpoint authorization and identity readiness
-all hold. Disabling the global feature preserves endpoint authorizations and
-immediately blocks access, then removes managed users without purging data.
+Ceph endpoints. `users=write` is required. Ceph Admin identities are always managed
+by BucketReef and cannot be supplied through the endpoint API, onboarding,
+`ENV_STORAGE_ENDPOINTS`, or seed variables. The optional workspace grant to the
+current user is unchecked by default. Access is active only when the global feature,
+endpoint authorization and managed identity readiness all hold. Disabling the global
+feature preserves endpoint authorizations and immediately blocks access, then removes
+managed users without purging data.
 A failed remote removal stays `revocation_pending` until a confirmed retry succeeds.
 
 ## Minimum lab validation
