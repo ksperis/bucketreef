@@ -274,7 +274,7 @@ function StorageOverviewCard({
         percentageLabel={usagePercent == null ? "" : formatPercentage(usagePercent)}
         chart={{ points: chartPoints }}
         growth={{ label: growthLabel, value: formatWorkspaceSignedBytesDelta(growthDelta), className: growthToneClass }}
-        projection={{ label: "Projected full", value: projectedFull, adornment: <InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /> }}
+        projection={{ label: "Projected full", value: projectedFull }}
       />
     </DashboardUnavailable>
   );

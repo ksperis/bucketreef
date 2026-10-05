@@ -44,7 +44,6 @@ import {
   BucketIcon,
   FileIcon,
   HistoryIcon,
-  InfoIcon,
   LinkIcon,
   OpenIcon,
   TransferIcon,
@@ -244,7 +243,7 @@ function StorageOverviewCard({
         chartLabel: t({ en: "Storage evolution chart", fr: "Graphique d'évolution du stockage", de: "Diagramm zur Speicherentwicklung", zh: "存储变化趋势图" }),
       }}
       growth={{ label: growthLabel, value: formatWorkspaceSignedBytesDelta(growthDelta), className: growthToneClass }}
-      projection={{ label: t({ en: "Projected full", fr: "Saturation estimée", de: "Voraussichtlich voll", zh: "预计用满时间" }), value: projectedFull, adornment: <InfoIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" /> }}
+      projection={{ label: t({ en: "Projected full", fr: "Saturation estimée", de: "Voraussichtlich voll", zh: "预计用满时间" }), value: projectedFull }}
     />
   );
 }
