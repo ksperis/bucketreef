@@ -263,7 +263,7 @@ describe("PortalDashboard storage workspace UX", () => {
     expect(screen.queryByText(/requests/i)).not.toBeInTheDocument();
   });
 
-  it("limits the top storage spaces card to the four largest spaces", () => {
+  it("limits the top storage spaces card to the six largest spaces without role badges", () => {
     const baseSpace = mocks.hookResult.workspace.spaces[0];
     mocks.hookResult.workspace.spaces = [
       { ...baseSpace, id: "research-data", name: "Research Data", internalName: "research-data", usedBytes: 512, objectCount: 12 },
@@ -271,6 +271,8 @@ describe("PortalDashboard storage workspace UX", () => {
       { ...baseSpace, id: "telemetry-lake", name: "Telemetry Lake", internalName: "telemetry-lake", usedBytes: 1536, objectCount: 35 },
       { ...baseSpace, id: "lab-notes", name: "Lab Notes", internalName: "lab-notes", usedBytes: 1024, objectCount: 28 },
       { ...baseSpace, id: "cold-vault", name: "Cold Vault", internalName: "cold-vault", usedBytes: 256, objectCount: 8 },
+      { ...baseSpace, id: "field-data", name: "Field Data", internalName: "field-data", usedBytes: 384, objectCount: 10 },
+      { ...baseSpace, id: "old-snapshots", name: "Old Snapshots", internalName: "old-snapshots", usedBytes: 128, objectCount: 4 },
     ];
 
     render(
@@ -285,7 +287,10 @@ describe("PortalDashboard storage workspace UX", () => {
     expect(within(topStorageSpaces!).getByText("Telemetry Lake")).toBeInTheDocument();
     expect(within(topStorageSpaces!).getByText("Lab Notes")).toBeInTheDocument();
     expect(within(topStorageSpaces!).getByText("Research Data")).toBeInTheDocument();
-    expect(within(topStorageSpaces!).queryByText("Cold Vault")).not.toBeInTheDocument();
+    expect(within(topStorageSpaces!).getByText("Field Data")).toBeInTheDocument();
+    expect(within(topStorageSpaces!).getByText("Cold Vault")).toBeInTheDocument();
+    expect(within(topStorageSpaces!).queryByText("Old Snapshots")).not.toBeInTheDocument();
+    expect(within(topStorageSpaces!).queryByText("Manager")).not.toBeInTheDocument();
   });
 
   it("shows anonymized Other usage without exposing a Storage Space link or badges", () => {
@@ -295,6 +300,8 @@ describe("PortalDashboard storage workspace UX", () => {
       { ...baseSpace, id: "genomics-archive", name: "Genomics Archive", internalName: "genomics-archive", usedBytes: 2048, objectCount: 40 },
       { ...baseSpace, id: "telemetry-lake", name: "Telemetry Lake", internalName: "telemetry-lake", usedBytes: 1536, objectCount: 35 },
       { ...baseSpace, id: "lab-notes", name: "Lab Notes", internalName: "lab-notes", usedBytes: 1024, objectCount: 28 },
+      { ...baseSpace, id: "field-data", name: "Field Data", internalName: "field-data", usedBytes: 768, objectCount: 18 },
+      { ...baseSpace, id: "cold-vault", name: "Cold Vault", internalName: "cold-vault", usedBytes: 256, objectCount: 8 },
     ];
     mocks.hookResult.usage = {
       other_storage_space: {
@@ -315,8 +322,9 @@ describe("PortalDashboard storage workspace UX", () => {
     expect(topStorageSpaces).not.toBeNull();
     expect(within(topStorageSpaces!).getByText("Other")).toBeInTheDocument();
     expect(within(topStorageSpaces!).queryByRole("link", { name: "Other" })).not.toBeInTheDocument();
-    expect(within(topStorageSpaces!).queryByText("Research Data")).not.toBeInTheDocument();
-    expect(within(topStorageSpaces!).getAllByText("Manager")).toHaveLength(3);
+    expect(within(topStorageSpaces!).getByText("Research Data")).toBeInTheDocument();
+    expect(within(topStorageSpaces!).queryByText("Cold Vault")).not.toBeInTheDocument();
+    expect(within(topStorageSpaces!).queryByText("Manager")).not.toBeInTheDocument();
     expect(within(topStorageSpaces!).queryByText("Active")).not.toBeInTheDocument();
   });
 
