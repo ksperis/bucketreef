@@ -23,6 +23,6 @@
     "alpine/helm:3.18.6": "alpine/helm:3.18.6@sha256:c6d8088ddb279625a2e1ca3b08b22c18c946d1f65c8b810f28f1597435a1134c",
     "mcr.microsoft.com/playwright:v1.58.2-noble": "mcr.microsoft.com/playwright:v1.58.2-noble@sha256:6446946a1d9fd62d9ae501312a2d76a43ee688542b21622056a372959b65d63d",
     "moby/buildkit:v0.20.2": "moby/buildkit:v0.20.2@sha256:c457984bd29f04d6acc90c8d9e717afe3922ae14665f3187e0096976fe37b1c8",
-    "registry.gitlab.com/security-products/secrets:7": "registry.gitlab.com/security-products/secrets:7@sha256:77ac5c87f73b709cad2e4bfb2b255caba7e63fb3c832314b3fb88aaa3c129af7"
+    "registry.gitlab.com/security-products/secrets:7": "registry.gitlab.com/security-products/secrets:7@sha256:17b94c35f59ebf58d976ae380580da198b6a0ea07e266307b6bac587bad067a2"
   }
 }
