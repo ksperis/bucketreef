@@ -121,7 +121,8 @@ def test_dependency_edit_is_not_necessarily_a_version_bump():
 
 def test_secret_scan_history_is_explicit_and_normal_scans_require_a_baseline():
     base, sha = "a" * 40, "b" * 40
-    assert secret_scan_options({"profile": "qualify", "base_sha": base, "sha": sha}) == (f"{sha} ^{base}", "false")
+    for profile in ("qualify", "regression", "security"):
+        assert secret_scan_options({"profile": profile, "base_sha": base, "sha": sha}) == (f"{sha} ^{base}", "false")
     assert secret_scan_options({"profile": "secrets-history", "base_sha": None, "sha": sha}) == ("--all", "true")
     with pytest.raises(ValueError):
         secret_scan_options({"profile": "qualify", "base_sha": None, "sha": sha})

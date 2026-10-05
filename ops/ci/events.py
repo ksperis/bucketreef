@@ -38,7 +38,7 @@ def gitlab_plan(env, api=None):
     if git("rev-parse", "HEAD") != sha:
         raise ValueError("Checkout differs from GitLab revision")
     base = None
-    if profile in {"integration", "qualify", "prepare-release"}:
+    if profile in {"integration", "qualify", "prepare-release", "regression", "security"}:
         from gitlab_api import GitLabAPI, latest_baseline
         base = latest_baseline(api or GitLabAPI(), ref)
         if base is None:

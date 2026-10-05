@@ -36,6 +36,14 @@ def resume_env():
     }
 
 
+def scheduled_env(mode):
+    return {
+        **qualify_env(),
+        "CI_PIPELINE_SOURCE": "schedule",
+        "CI_MODE": mode,
+    }
+
+
 def test_manual_qualify_uses_latest_baseline(monkeypatch):
     baseline = "c" * 40
     monkeypatch.setattr(gitlab_api, "latest_baseline", lambda api, ref: baseline)
@@ -64,6 +72,19 @@ def test_manual_qualify_falls_back_to_parent_when_no_baseline_exists(monkeypatch
     plan = events.gitlab_plan(qualify_env(), api=object())
 
     assert plan["base_sha"] == PARENT
+
+
+@pytest.mark.parametrize("mode", ["regression", "security"])
+def test_scheduled_secret_scan_profiles_use_latest_baseline(monkeypatch, mode):
+    baseline = "c" * 40
+    monkeypatch.setattr(gitlab_api, "latest_baseline", lambda api, ref: baseline)
+    monkeypatch.setattr(events, "git", lambda *args: SHA if args == ("rev-parse", "HEAD") else (_ for _ in ()).throw(AssertionError(args)))
+    monkeypatch.setattr(events, "changes", lambda base, head: [] if (base, head) == (baseline, SHA) else None)
+
+    plan = events.gitlab_plan(scheduled_env(mode), api=object())
+
+    assert plan["profile"] == mode
+    assert plan["base_sha"] == baseline
 
 
 def test_resume_release_carries_strict_recovery_inputs(monkeypatch):
