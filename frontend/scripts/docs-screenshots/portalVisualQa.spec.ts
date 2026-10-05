@@ -156,7 +156,7 @@ const connectToolLabels = {
   en: {
     configure: "Configure a tool",
     dialog: "Connect a tool",
-    advanced: "Advanced tools and manual setup",
+    manualSetup: "Manual S3 configuration",
     close: "Close modal",
     manual: "Other S3-compatible application",
     directConnect: "Connect Myself",
@@ -164,7 +164,7 @@ const connectToolLabels = {
   fr: {
     configure: "Configurer un outil",
     dialog: "Connecter un outil",
-    advanced: "Outils avancés et configuration manuelle",
+    manualSetup: "Configuration S3 manuelle",
     close: "Fermer la fenêtre",
     manual: "Autre application compatible S3",
     directConnect: "Connecter Moi-même",
@@ -172,14 +172,14 @@ const connectToolLabels = {
   de: {
     configure: "Werkzeug konfigurieren",
     dialog: "Werkzeug verbinden",
-    advanced: "Erweiterte Werkzeuge und manuelle Einrichtung",
+    manualSetup: "Manuelle S3-Konfiguration",
     close: "Dialog schließen",
     manual: "Andere S3-kompatible Anwendung",
     directConnect: "Verbinden Ich selbst",
   },
 } satisfies Record<
   PortalVisualLocale,
-  { configure: string; dialog: string; advanced: string; close: string; manual: string; directConnect: string }
+  { configure: string; dialog: string; manualSetup: string; close: string; manual: string; directConnect: string }
 >;
 
 function buildPortalUser(language: PortalVisualLocale) {
@@ -271,12 +271,12 @@ test.describe("Portal visual QA", () => {
               await expect(dialog.getByText("Cyberduck / Mountain Duck", { exact: true })).toBeVisible();
               await expect(dialog.getByText("WinSCP", { exact: true })).toBeVisible();
               await expect(dialog.locator("details")).not.toHaveAttribute("open", "");
-              await expect(dialog.getByText(labels.advanced, { exact: true })).toBeVisible();
+              await expect(dialog.getByText(labels.manualSetup, { exact: true })).toBeVisible();
               await expect(dialog.getByRole("button", { name: labels.close })).toBeVisible();
               await page.screenshot({ path: testInfo.outputPath("02-configurator.png"), fullPage: true });
-              await dialog.getByText(labels.advanced, { exact: true }).click();
+              await dialog.getByText(labels.manualSetup, { exact: true }).click();
               await expect(dialog.locator("details")).toHaveAttribute("open", "");
-              await expect(dialog.getByText("rclone", { exact: true })).toBeVisible();
+              await expect(dialog.getByText(/rclone/i)).toHaveCount(0);
               await expect(dialog.getByRole("heading", { name: labels.manual })).toBeVisible();
               await page.keyboard.press("Escape");
               await expect(dialog).toBeHidden();

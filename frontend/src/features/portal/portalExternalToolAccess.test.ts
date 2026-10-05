@@ -5,13 +5,10 @@ import type { PortalAccessKey } from "../../api/portalAccessKeys";
 import {
   buildCyberduckBookmark,
   buildGenericConnectionSheet,
-  buildRcloneConfig,
   buildWinScpProfile,
   bucketNameForPortalExternalTool,
   parsePortalExternalToolEndpoint,
   portalExternalToolPermissionLabel,
-  portalExternalToolRcloneRemoteName,
-  portalExternalToolRcloneSecretEnvironmentVariable,
   type PortalExternalToolConnection,
 } from "./portalExternalToolAccess";
 
@@ -122,36 +119,11 @@ describe("portalExternalToolAccess", () => {
     expect(profile).not.toContain("SK-EXT");
   });
 
-  it.each([
-    { endpoint: "https://s3.example.test:9443", forcePathStyle: true, expectedEndpoint: "https://s3.example.test:9443" },
-    { endpoint: "http://s3.example.test", forcePathStyle: false, expectedEndpoint: "http://s3.example.test" },
-  ])("builds a secret-free rclone Ceph remote for $endpoint", ({ endpoint, forcePathStyle, expectedEndpoint }) => {
-    const config = buildRcloneConfig(connection({
-      endpoint: parsePortalExternalToolEndpoint(endpoint)!,
-      forcePathStyle,
-      storageSpaceName: "Research & Data",
-    }));
-
-    expect(portalExternalToolRcloneRemoteName(connection())).toBe("research_data_research_data_bucket");
-    expect(portalExternalToolRcloneSecretEnvironmentVariable(connection())).toBe(
-      "RCLONE_CONFIG_RESEARCH_DATA_RESEARCH_DATA_BUCKET_SECRET_ACCESS_KEY"
-    );
-    expect(config).toContain("[research_data_research_data_bucket]");
-    expect(config).toContain("type = s3");
-    expect(config).toContain("provider = Ceph");
-    expect(config).toContain("access_key_id = AK-EXT");
-    expect(config).toContain(`endpoint = ${expectedEndpoint}`);
-    expect(config).toContain(`force_path_style = ${forcePathStyle}`);
-    expect(config).toContain("rclone lsd research_data_research_data_bucket:research-data-bucket");
-    expect(config).not.toContain("SK-EXT");
-  });
-
   it("rejects every generated profile when the endpoint is invalid", () => {
     const invalidConnection = connection({ endpoint: null });
 
     expect(() => buildCyberduckBookmark(invalidConnection)).toThrow();
     expect(() => buildWinScpProfile(invalidConnection)).toThrow();
-    expect(() => buildRcloneConfig(invalidConnection)).toThrow();
   });
 
   it("builds generic connection sheets without a secret", () => {

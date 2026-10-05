@@ -2,7 +2,7 @@
 
 Utilisez **Portal > Outils externes** lorsque vous devez accéder à un espace de
 stockage depuis une application compatible S3 comme Cyberduck, Mountain Duck,
-WinSCP, rclone ou un script.
+WinSCP ou un script.
 
 Si l'autre personne peut se connecter à Portal, privilégiez la collaboration
 normale dans Portal. Créez un accès pour outil externe uniquement lorsqu'un
@@ -28,7 +28,6 @@ client S3 direct est réellement nécessaire.
 7. Choisissez l'application :
    - **Cyberduck / Mountain Duck** télécharge un signet ;
    - **WinSCP** télécharge une configuration de session S3 ;
-   - **rclone** est disponible dans la configuration avancée/manuelle ;
    - une autre application S3 peut utiliser l'endpoint, le nom technique du
      bucket, l'identifiant d'accès et les informations d'adressage affichés par Portal.
 8. Importez la configuration téléchargée et saisissez le secret lorsque le client le demande.
