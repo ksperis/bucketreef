@@ -155,6 +155,54 @@ export type StorageTotals = {
 export type AdminTrafficStats = ManagerTrafficStats;
 export type AdminStorageStats = AdminStats;
 
+export type AdminDashboardScope = {
+  endpoints: { endpoint_id: number; name: string; storage_enabled: boolean; traffic_enabled: boolean }[];
+};
+
+export type AdminDashboardCoverage = {
+  eligible_count: number;
+  contributing_count: number;
+  complete_count: number;
+  issues: { endpoint_id: number; name: string; reason: string }[];
+};
+
+export type AdminDashboardCache = { hit: boolean; expires_at: string };
+
+export type AdminDashboardStorage = {
+  cache: AdminDashboardCache;
+  generated_at: string;
+  storage_totals: Pick<StorageTotals, "bucket_count" | "object_count" | "used_bytes">;
+  coverage: AdminDashboardCoverage;
+  measurements: Record<"bucket_count" | "object_count" | "used_bytes", { contributing_count: number; complete_count: number }>;
+};
+
+export type AdminDashboardTraffic = {
+  cache: AdminDashboardCache;
+  window: string;
+  start: string;
+  end: string;
+  resolution: string;
+  data_points: number;
+  series: TrafficSeriesPoint[];
+  totals: { [K in keyof TrafficTotals]: TrafficTotals[K] | null };
+  coverage: AdminDashboardCoverage;
+};
+
+export async function fetchAdminDashboardScope(): Promise<AdminDashboardScope> {
+  const { data } = await client.get<AdminDashboardScope>("/admin/stats/dashboard/scope");
+  return data;
+}
+
+export async function fetchAdminDashboardStorage(): Promise<AdminDashboardStorage> {
+  const { data } = await client.get<AdminDashboardStorage>("/admin/stats/dashboard/storage");
+  return data;
+}
+
+export async function fetchAdminDashboardTraffic(): Promise<AdminDashboardTraffic> {
+  const { data } = await client.get<AdminDashboardTraffic>("/admin/stats/dashboard/traffic");
+  return data;
+}
+
 export type AdminSummary = {
   total_accounts: number;
   total_users: number;

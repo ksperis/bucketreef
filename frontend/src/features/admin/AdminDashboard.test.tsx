@@ -9,8 +9,9 @@ import { setSessionUserCache, type SessionUser } from "../../utils/workspaces";
 const mocks = vi.hoisted(() => ({
   dismissOnboarding: vi.fn(),
   fetchAdminSummary: vi.fn(),
-  fetchAdminStorage: vi.fn(),
-  fetchAdminTraffic: vi.fn(),
+  fetchAdminDashboardScope: vi.fn(),
+  fetchAdminDashboardStorage: vi.fn(),
+  fetchAdminDashboardTraffic: vi.fn(),
   fetchHealthOverview: vi.fn(),
   fetchHealthSummary: vi.fn(),
   fetchHealthWorkspaceOverview: vi.fn(),
@@ -42,8 +43,9 @@ vi.mock("../../api/storageEndpoints", () => ({
 
 vi.mock("../../api/stats", () => ({
   fetchAdminSummary: mocks.fetchAdminSummary,
-  fetchAdminStorage: mocks.fetchAdminStorage,
-  fetchAdminTraffic: mocks.fetchAdminTraffic,
+  fetchAdminDashboardScope: mocks.fetchAdminDashboardScope,
+  fetchAdminDashboardStorage: mocks.fetchAdminDashboardStorage,
+  fetchAdminDashboardTraffic: mocks.fetchAdminDashboardTraffic,
 }));
 
 vi.mock("../../components/GeneralSettingsContext", () => ({
@@ -122,7 +124,14 @@ describe("AdminDashboard feature summary", () => {
       unassigned_accounts: 0,
       unassigned_s3_users: 0,
     });
-    mocks.fetchAdminStorage.mockResolvedValue({
+    mocks.fetchAdminDashboardScope.mockResolvedValue({ endpoints: [
+      { endpoint_id: 1, name: "INRAE-eprod-debug", storage_enabled: true, traffic_enabled: true },
+      { endpoint_id: 2, name: "INRAE-eprod-idf", storage_enabled: true, traffic_enabled: true },
+    ] });
+    mocks.fetchAdminDashboardStorage.mockResolvedValue({
+      cache: { hit: true, expires_at: "2026-06-05T11:46:46Z" },
+      coverage: { eligible_count: 2, contributing_count: 2, complete_count: 2, issues: [] },
+      measurements: Object.fromEntries(["bucket_count", "object_count", "used_bytes"].map((key) => [key, { contributing_count: 2, complete_count: 2 }])) ,
       total_accounts: 12,
       total_users: 0,
       total_admins: 1,
@@ -138,7 +147,9 @@ describe("AdminDashboard feature summary", () => {
       account_usage: [],
       s3_user_usage: [],
     });
-    mocks.fetchAdminTraffic.mockResolvedValue({
+    mocks.fetchAdminDashboardTraffic.mockResolvedValue({
+      cache: { hit: true, expires_at: "2026-06-05T11:46:46Z" },
+      coverage: { eligible_count: 2, contributing_count: 2, complete_count: 2, issues: [] },
       window: "day",
       start: "2026-06-04T11:16:46Z",
       end: "2026-06-05T11:16:46Z",
@@ -408,12 +419,12 @@ describe("AdminDashboard feature summary", () => {
     });
   });
 
-  it("does not request storage metrics before the first endpoint is configured", async () => {
+  it("loads aggregate metrics independently of summary endpoint counters", async () => {
     await renderDashboard();
 
     await waitFor(() => expect(mocks.fetchAdminSummary).toHaveBeenCalledTimes(1));
-    expect(mocks.fetchAdminStorage).not.toHaveBeenCalled();
-    expect(mocks.fetchAdminTraffic).not.toHaveBeenCalled();
+    expect(mocks.fetchAdminDashboardStorage).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchAdminDashboardTraffic).toHaveBeenCalledTimes(1);
   });
 
   it("renders the redesigned dashboard sections with real health, metrics, and activity data", async () => {
@@ -476,7 +487,7 @@ describe("AdminDashboard feature summary", () => {
     expect(within(platformSummary!).getByText("98%")).toBeInTheDocument();
     expect(screen.getByText("User admin@example.com logged in")).toBeInTheDocument();
     expect(mocks.listAuditLogs).toHaveBeenCalledWith({ limit: 3 });
-    expect(mocks.fetchAdminTraffic).toHaveBeenCalledWith("day");
+    expect(mocks.fetchAdminDashboardTraffic).toHaveBeenCalledWith();
     expect(mocks.fetchHealthOverview).toHaveBeenCalledWith("week");
     expect(mocks.fetchHealthWorkspaceOverview).toHaveBeenCalledWith(undefined, 10080);
     expect(mocks.listStorageEndpoints).toHaveBeenCalled();
@@ -605,8 +616,8 @@ describe("AdminDashboard feature summary", () => {
   it("explains partial metric failures locally without inventing values", async () => {
     const summary = await mocks.fetchAdminSummary();
     mocks.fetchAdminSummary.mockResolvedValue({ ...summary, total_endpoints: 1 });
-    mocks.fetchAdminStorage.mockRejectedValue(new Error("metrics disabled"));
-    mocks.fetchAdminTraffic.mockRejectedValue(new Error("usage disabled"));
+    mocks.fetchAdminDashboardStorage.mockRejectedValue(new Error("metrics disabled"));
+    mocks.fetchAdminDashboardTraffic.mockRejectedValue(new Error("usage disabled"));
 
     await renderDashboard();
 
@@ -651,8 +662,8 @@ describe("AdminDashboard feature summary", () => {
     mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
     mocks.fetchAdminSummary.mockResolvedValue({ ...await mocks.fetchAdminSummary(), total_endpoints: 1 });
     let resolveStorage!: (value: unknown) => void;
-    const result = await mocks.fetchAdminStorage();
-    mocks.fetchAdminStorage.mockReturnValue(new Promise((resolve) => { resolveStorage = resolve; }));
+    const result = await mocks.fetchAdminDashboardStorage();
+    mocks.fetchAdminDashboardStorage.mockReturnValue(new Promise((resolve) => { resolveStorage = resolve; }));
     await renderDashboard();
     expect(await screen.findByText("INRAE-eprod-debug")).toBeInTheDocument();
     expect(await screen.findByText("User admin@example.com logged in")).toBeInTheDocument();
@@ -680,8 +691,8 @@ describe("AdminDashboard feature summary", () => {
 
   it("keeps real zero storage measurements when traffic fails", async () => {
     mocks.fetchAdminSummary.mockResolvedValue({ ...await mocks.fetchAdminSummary(), total_endpoints: 1 });
-    mocks.fetchAdminStorage.mockResolvedValue({ total_buckets: 0, storage_totals: { bucket_count: 0, object_count: 0, used_bytes: 0 } });
-    mocks.fetchAdminTraffic.mockRejectedValue(new Error("Traffic unavailable"));
+    mocks.fetchAdminDashboardStorage.mockResolvedValue({ total_buckets: 0, storage_totals: { bucket_count: 0, object_count: 0, used_bytes: 0 } });
+    mocks.fetchAdminDashboardTraffic.mockRejectedValue(new Error("Traffic unavailable"));
     await renderDashboard();
     const summary = screen.getByRole("region", { name: "Storage & traffic" });
     expect(await within(summary).findByText("Traffic: Traffic unavailable")).toBeInTheDocument();
@@ -722,12 +733,85 @@ describe("AdminDashboard feature summary", () => {
 
   it("does not turn absent request samples into a zero-valued trend", async () => {
     mocks.fetchAdminSummary.mockResolvedValue({ ...await mocks.fetchAdminSummary(), total_endpoints: 1 });
-    mocks.fetchAdminTraffic.mockResolvedValue({ totals: { ops: null }, series: [{ ops: null }, {}] });
+    mocks.fetchAdminDashboardTraffic.mockResolvedValue({ totals: { ops: null }, series: [{ ops: null }, {}] });
     await renderDashboard();
     await waitFor(() => expect(screen.getByRole("button", { name: "Refresh admin dashboard" })).toBeEnabled());
     const summary = screen.getByRole("region", { name: "Storage & traffic" });
     expect(within(summary).queryByRole("img", { name: "Trend line" })).not.toBeInTheDocument();
     expect(within(summary).getAllByText("—").length).toBeGreaterThan(0);
+  });
+
+  it("shows scope, partial totals and separate coverage while filtering availability", async () => {
+    mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
+    const storage = await mocks.fetchAdminDashboardStorage();
+    mocks.fetchAdminDashboardStorage.mockResolvedValue({ ...storage, coverage: {
+      eligible_count: 2, contributing_count: 1, complete_count: 1,
+      issues: [{ endpoint_id: 2, name: "Ceph Production", reason: "RGW unavailable" }],
+    }, measurements: Object.fromEntries(["bucket_count", "object_count", "used_bytes"].map((key) => [key, { contributing_count: 1, complete_count: 1 }])) });
+    mocks.fetchAdminDashboardScope.mockResolvedValue({ endpoints: [
+      { endpoint_id: 1, name: "Ceph Archive", storage_enabled: true, traffic_enabled: true },
+      { endpoint_id: 3, name: "Ceph Production", storage_enabled: true, traffic_enabled: true },
+    ] });
+    await renderDashboard();
+    const card = screen.getByRole("region", { name: "Storage & traffic" });
+    expect(await within(card).findByText(/Aggregated across managed and supervised Ceph endpoints/)).toBeInTheDocument();
+    expect(await within(card).findByText("Storage: 1/2 endpoints · Traffic: 2/2 endpoints · Availability: 1/2 endpoints")).toBeInTheDocument();
+    expect(within(card).getByText("100%")).toBeInTheDocument();
+    expect(within(card).getByText(/Storage: Partial data.*Ceph Production: RGW unavailable/)).toBeInTheDocument();
+    expect(within(card).getByText(/Availability: 7-day measurements unavailable: Ceph Production/)).toBeInTheDocument();
+    expect(within(card).getByText("1.9k")).toBeInTheDocument();
+  });
+
+  it("explains an empty supervised scope and keeps absent measurements unavailable", async () => {
+    mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
+    mocks.fetchAdminDashboardScope.mockResolvedValue({ endpoints: [] });
+    mocks.fetchAdminDashboardStorage.mockResolvedValue({ storage_totals: { bucket_count: null, object_count: null, used_bytes: null }, coverage: { eligible_count: 0, contributing_count: 0, complete_count: 0, issues: [] }, measurements: {} });
+    mocks.fetchAdminDashboardTraffic.mockResolvedValue({ totals: { ops: null }, series: [], coverage: { eligible_count: 0, contributing_count: 0, complete_count: 0, issues: [] } });
+    await renderDashboard();
+    const card = screen.getByRole("region", { name: "Storage & traffic" });
+    expect(await within(card).findByText(/Storage: No managed Ceph endpoint.*Metrics enabled/)).toBeInTheDocument();
+    expect(within(card).getByText(/Traffic: No managed Ceph endpoint.*Usage enabled/)).toBeInTheDocument();
+    expect(within(card).getAllByText("—")).toHaveLength(5);
+  });
+
+  it("shows measurement dates and keeps them on a cache-respecting refresh", async () => {
+    await renderDashboard();
+    const card = screen.getByRole("region", { name: "Storage & traffic" });
+    expect(within(card).getByText("Storage and traffic are cached for up to 30 minutes.")).toBeInTheDocument();
+    const measurementTimes = () => Array.from(card.querySelectorAll("time")).map(time => time.dateTime);
+    expect(measurementTimes()).toEqual(["2026-06-05T11:16:46Z", "2026-06-05T11:16:46Z"]);
+    const refresh = screen.getByRole("button", { name: "Refresh admin dashboard" });
+    expect(refresh).toHaveAttribute("title", "Refresh dashboard; storage and traffic respect the cache for up to 30 minutes.");
+    await waitFor(() => expect(refresh).toBeEnabled());
+    fireEvent.click(refresh);
+    await waitFor(() => expect(mocks.fetchAdminDashboardStorage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(refresh).toBeEnabled());
+    expect(measurementTimes()).toEqual(["2026-06-05T11:16:46Z", "2026-06-05T11:16:46Z"]);
+    expect(mocks.fetchAdminDashboardTraffic).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps availability and traffic usable when storage fails and reloads scope on refresh", async () => {
+    mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
+    mocks.fetchAdminDashboardStorage.mockRejectedValue(new Error("Storage unavailable"));
+    await renderDashboard();
+    const card = screen.getByRole("region", { name: "Storage & traffic" });
+    expect(await within(card).findByText("98%")).toBeInTheDocument();
+    expect(within(card).getByText("12.4M")).toBeInTheDocument();
+    const refresh = screen.getByRole("button", { name: "Refresh admin dashboard" });
+    await waitFor(() => expect(refresh).toBeEnabled());
+    fireEvent.click(refresh);
+    await waitFor(() => expect(mocks.fetchAdminDashboardScope).toHaveBeenCalledTimes(2));
+    expect(mocks.fetchAdminDashboardTraffic).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fall back to global availability when supervised scope fails", async () => {
+    mocks.generalSettings = buildGeneralSettings({ endpoint_status_enabled: true });
+    mocks.fetchAdminDashboardScope.mockRejectedValue(new Error("Scope unavailable"));
+    await renderDashboard();
+    const card = screen.getByRole("region", { name: "Storage & traffic" });
+    expect(await within(card).findByText("Scope unavailable")).toBeInTheDocument();
+    expect(within(card).queryByText("98%")).not.toBeInTheDocument();
+    expect(within(card).getByText("12.4M")).toBeInTheDocument();
   });
 
 });

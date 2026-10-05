@@ -9,6 +9,8 @@ from typing import Dict, Iterable, Optional, Tuple
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.sensitive_data import sanitized_error_log_detail
+
 from app.db import (
     S3Account,
     S3Connection,
@@ -295,8 +297,77 @@ class AdminMetricsService:
         snapshot["generated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         return snapshot
 
-    def traffic(self, window: TrafficWindow) -> dict:
-        return self._traffic(window=window)
+    def traffic(self, window: TrafficWindow, *, now: datetime | None = None) -> dict:
+        return self._traffic(window=window, now=now)
+
+    def dashboard_storage(self) -> dict:
+        """Collect scoped bucket measurements with explicit completeness.
+
+        The dashboard never interprets an unsuccessful listing as an empty
+        endpoint, and never falls back to account operations outside the
+        Supervision identity's buckets/usage capabilities.
+        """
+        accounts, users, allowed = self._load_scope_targets()
+
+        def fetch_buckets(uid: str | None = None) -> list[dict]:
+            kwargs = {"with_stats": True}
+            if uid is not None:
+                kwargs["uid"] = uid
+            payload = self.rgw_admin.get_all_buckets(**kwargs)
+            if not isinstance(payload, list) and not (
+                isinstance(payload, dict) and isinstance(payload.get("buckets"), list)
+            ):
+                raise RGWAdminError("Bucket measurements are unavailable: invalid listing response.")
+            buckets = extract_bucket_list(payload)
+            if any(not (bucket.get("bucket") or bucket.get("name")) for bucket in buckets):
+                raise RGWAdminError("Bucket listing contains an unnamed bucket.")
+            return buckets
+
+        failures: list[str] = []
+        successful_listings = 0
+        if not allowed:
+            buckets = []
+            successful_listings = 1
+        else:
+            try:
+                buckets = self._filter_buckets(fetch_buckets(), allowed)
+                successful_listings = 1
+            except RGWAdminError:
+                # Account roots and registered users can overlap. List each
+                # principal once and count each returned bucket only once.
+                identifiers = {
+                    resolve_admin_uid(account.rgw_account_id, account.rgw_user_uid)
+                    for account in accounts
+                } | {user.rgw_user_uid for user in users}
+                unique_buckets: dict[tuple, dict] = {}
+                for uid in sorted(value for value in identifiers if value):
+                    try:
+                        principal_buckets = fetch_buckets(uid)
+                        successful_listings += 1
+                        for bucket in principal_buckets:
+                            name = bucket.get("bucket") or bucket.get("name")
+                            key = (bucket.get("tenant") or "", name)
+                            unique_buckets[key] = bucket
+                    except RGWAdminError as exc:
+                        failures.append(sanitized_error_log_detail(exc))
+                buckets = list(unique_buckets.values())
+
+        totals = _BucketUsageIndex.build(buckets).totals
+        fields = {
+            "bucket_count": totals.total_buckets if successful_listings else None,
+            "used_bytes": totals.used_bytes if totals.has_bytes else (0 if not buckets and successful_listings else None),
+            "object_count": totals.object_count if totals.has_objects else (0 if not buckets and successful_listings else None),
+        }
+        complete = {
+            "bucket_count": bool(successful_listings) and not failures,
+            "used_bytes": bool(successful_listings) and not failures and all(extract_usage_stats(b.get("usage"))[0] is not None for b in buckets),
+            "object_count": bool(successful_listings) and not failures and all(extract_usage_stats(b.get("usage"))[1] is not None for b in buckets),
+        }
+        missing = [key for key, value in complete.items() if not value]
+        reason = "; ".join(dict.fromkeys(failures))
+        if missing and not reason:
+            reason = "Some bucket measurements are unavailable."
+        return {"storage_totals": fields, "complete": complete, "reason": reason or None}
 
     def _storage_snapshot(self) -> dict:
         summary = self.build_summary_payload(self.db, endpoint_id=self.endpoint_id)
@@ -462,10 +533,10 @@ class AdminMetricsService:
         s3_user_usage.sort(key=lambda entry: entry.get("used_bytes") or 0, reverse=True)
         return s3_user_usage
 
-    def _traffic(self, window: TrafficWindow) -> dict:
+    def _traffic(self, window: TrafficWindow, *, now: datetime | None = None) -> dict:
         if window not in WINDOW_DELTAS:
             raise ValueError(f"Unsupported window '{window}'.")
-        reference = datetime.now(timezone.utc).replace(microsecond=0)
+        reference = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).replace(microsecond=0)
         start = window_start(reference, window)
         payload = self._fetch_usage(start=start, end=reference)
         entries = flatten_usage_entries(payload)
