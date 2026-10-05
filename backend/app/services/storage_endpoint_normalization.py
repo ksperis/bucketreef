@@ -24,7 +24,6 @@ from app.utils.storage_endpoint_features import (
     AWS_DEFAULT_REGION,
     dump_features_config,
     normalize_features_config,
-    supervision_required as needs_supervision,
 )
 
 _EndpointCredentialValues = tuple[
@@ -178,7 +177,7 @@ def _validate_credentials(
             not supervision_access_key or not supervision_secret_key
         ):
             raise ValueError(
-                "Metrics, Usage or signed S3 healthchecks require Supervision credentials in external mode."
+                "External service identities require Supervision access key and secret key."
             )
         return (
             admin_access_key,
@@ -207,7 +206,6 @@ def normalize_storage_endpoint_state(
     admin_enabled = bool(features.get("admin", {}).get("enabled")) or bool(
         features.get("account", {}).get("enabled")
     )
-    supervision_required = needs_supervision(features)
     (
         admin_access_key,
         admin_secret_key,
@@ -220,7 +218,7 @@ def normalize_storage_endpoint_state(
         normalize_optional_string(payload.supervision_access_key),
         normalize_optional_string(_secret_value(payload.supervision_secret_key)),
         admin_enabled,
-        supervision_required and payload.service_identity_mode == "external",
+        payload.service_identity_mode == "external",
     )
     runtime_access = normalize_optional_string(payload.runtime_access_key) if provider == StorageProvider.CEPH else None
     runtime_secret = normalize_optional_string(_secret_value(payload.runtime_secret_key)) if provider == StorageProvider.CEPH else None
@@ -263,10 +261,7 @@ def normalize_storage_endpoint_update(
     if current_identity_mode == "managed" and payload.service_identity_mode == "external":
         if not normalize_optional_string(payload.runtime_access_key) or not normalize_optional_string(_secret_value(payload.runtime_secret_key)):
             raise ValueError("Switching to external mode requires replacement Runtime credentials.")
-        features = normalize_features_config(endpoint.provider, payload.features_config or endpoint.features_config, endpoint.region)
         if (
-            needs_supervision(features)
-        ) and (
             not normalize_optional_string(payload.supervision_access_key)
             or not normalize_optional_string(_secret_value(payload.supervision_secret_key))
         ):

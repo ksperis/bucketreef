@@ -59,7 +59,7 @@ test("validates controlled Ceph Admin activation and pending revocation", async 
   await page.context().storageState({ path: E2E_ADMIN_STORAGE_STATE_PATH });
 });
 
-test("shows managed Runtime state and requires explicit external replacements", async ({ page }, testInfo) => {
+test("keeps Runtime and Supervision permanent and requires explicit external replacements", async ({ page }, testInfo) => {
   const errors = collectApplicationErrors(page);
   await page.route(/\/api\/admin\/storage-endpoints(?:\?.*)?$/, async route => {
     const response = await route.fetch();
@@ -68,7 +68,10 @@ test("shows managed Runtime state and requires explicit external replacements", 
       admin_access_key: "OPERATOR", has_admin_secret: true,
       capabilities: { admin: true, account: true, metrics: false, usage: false },
       features: { ...rows[0].features, admin: { enabled: true }, account: { enabled: true }, metrics: { enabled: false }, usage: { enabled: false } },
-      service_identities: [{ kind: "runtime", mode: "managed", status: "ready", credentials_configured: true }],
+      service_identities: [
+        { kind: "runtime", mode: "managed", status: "ready", credentials_configured: true },
+        { kind: "supervision", mode: "managed", status: "ready", credentials_configured: true },
+      ],
       admin_ops_permissions: { users_read: true, users_write: true, accounts_read: true, accounts_write: false },
     }] });
   });
@@ -80,10 +83,19 @@ test("shows managed Runtime state and requires explicit external replacements", 
   await page.goto("/admin/storage-endpoints/901");
   await page.getByRole("tab", { name: "Credentials", exact: true }).click();
   await expect(page.getByText("Runtime Read Ops · managed · ready", { exact: true })).toBeVisible();
+  await expect(page.getByText("Supervision Ops · managed · ready", { exact: true })).toBeVisible();
+  await expect(page.getByText("Recommended Admin Ops", { exact: true })).toBeVisible();
+  await expect(page.getByText("Advanced: restrict Admin Ops permissions", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Runtime access key", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Supervision access key", { exact: true })).toHaveCount(0);
   await page.getByLabel("Identity management").selectOption("external");
   await expect(page.getByLabel("Runtime access key", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Runtime secret key", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Supervision access key", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Supervision secret key", { exact: true })).toHaveValue("");
+  for (const label of ["Runtime access key", "Runtime secret key", "Supervision access key", "Supervision secret key"]) {
+    await expect(page.getByLabel(label, { exact: true })).toHaveAttribute("required", "");
+  }
   await page.screenshot({ path: testInfo.outputPath("runtime-external-replacement.png") });
   expect(errors).toEqual([]);
   await page.context().storageState({ path: E2E_ADMIN_STORAGE_STATE_PATH });

@@ -597,7 +597,8 @@ def test_environment_external_runtime_is_required_before_any_sync(db_session, mo
             "name": "invalid-second", "endpoint_url": "https://second.example.test", "provider": "ceph",
                     "service_identity_mode": "managed",
             "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET",
-            "service_identity_mode": "external", **runtime,
+            "service_identity_mode": "external", "supervision_access_key": "SUPERVISION",
+            "supervision_secret_key": "SUPERVISION-SECRET", **runtime,
         },
     ]
     monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps(entries))
@@ -782,7 +783,7 @@ def test_sync_env_endpoints_rejects_ambiguous_inventory(
         StorageEndpointsService(db_session).sync_env_endpoints()
 
 
-def test_update_endpoint_clearing_access_keys_also_clears_secrets(db_session):
+def test_update_endpoint_clearing_admin_access_key_also_clears_secret(db_session):
     endpoint = _create_ceph_endpoint_with_full_credentials(db_session)
     service = StorageEndpointsService(db_session)
 
@@ -790,7 +791,6 @@ def test_update_endpoint_clearing_access_keys_also_clears_secrets(db_session):
         endpoint.id,
         StorageEndpointUpdate(
             admin_access_key=None,
-            supervision_access_key=None,
             features_config=(
                 "features:\n"
                 "  admin:\n"
@@ -811,8 +811,8 @@ def test_update_endpoint_clearing_access_keys_also_clears_secrets(db_session):
     assert persisted.admin_secret_key is None
     supervision = persisted.service_identity("supervision")
     assert supervision is not None
-    assert supervision.access_key is None
-    assert supervision.secret_key is None
+    assert supervision.access_key == "AKIA-SUPERVISION"
+    assert supervision.secret_key == "SECRET-SUPERVISION"
 
 
 def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_session):
@@ -1185,7 +1185,7 @@ def test_detect_features_keeps_account_and_usage_probes_independent(db_session, 
     assert result.account_error is None
     assert result.metrics is False
     assert result.metrics_error == "metrics probe failed"
-    assert result.usage is False
+    assert result.usage is True
     assert result.usage_error is None
     assert result.warnings == []
 
@@ -1474,7 +1474,7 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
     assert result.admin is True
     assert result.account is True
     assert result.metrics is True
-    assert result.usage is False
+    assert result.usage is True
     assert result.admin_error is None
     assert result.metrics_error is None
     assert result.usage_error is None
@@ -1542,3 +1542,35 @@ def test_env_validates_entire_inventory_before_writes(db_session, monkeypatch, i
     with pytest.raises(ValueError):
         StorageEndpointsService(db_session).sync_env_endpoints()
     assert db_session.query(StorageEndpoint).count() == 0
+
+
+@pytest.mark.parametrize("mode", ["api", "env"])
+@pytest.mark.parametrize("pair", [{}, {"supervision_access_key": "SUPERVISION"}, {"supervision_secret_key": "SUPERVISION-SECRET"}])
+def test_external_supervision_is_required_without_monitoring_before_any_write(db_session, monkeypatch, mode, pair):
+    service = StorageEndpointsService(db_session)
+    entry = dict(name="ceph", endpoint_url="https://ceph.example.test", provider="ceph", service_identity_mode="external",
+                 runtime_access_key="RUNTIME", runtime_secret_key="RUNTIME-SECRET", **pair)
+    with pytest.raises(ValueError, match="require Supervision"):
+        if mode == "api":
+            service.create_endpoint(StorageEndpointCreate(**entry))
+        else:
+            entries = [{"name": "first", "endpoint_url": "https://first.example.test", "provider": "other"}, entry]
+            monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps(entries))
+            service.sync_env_endpoints()
+    assert db_session.query(StorageEndpoint).count() == 0
+
+
+def test_admin_usage_caps_do_not_probe_or_enable_usage_without_supervision(db_session, monkeypatch):
+    class BootstrapOnly:
+        account_api_supported = True
+        def get_user_by_access_key(self, *_args, **_kwargs):
+            return {"user_id": "admin", "caps": "users=read,write;accounts=read;usage=read"}
+        def get_account(self, *_args, **_kwargs):
+            return None
+        def get_usage(self, **_kwargs):
+            pytest.fail("Usage discovery must never use Admin Ops")
+    monkeypatch.setattr("app.services.storage_endpoints_service.get_rgw_admin_client", lambda **_kwargs: BootstrapOnly())
+    result = StorageEndpointsService(db_session).detect_features(StorageEndpointFeatureDetectionRequest(
+        endpoint_url="https://ceph.example.test", admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET"))
+    assert result.admin and result.admin_ops_permissions.usage_read
+    assert not result.usage and result.usage_error is None and not result.warnings

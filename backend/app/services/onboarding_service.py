@@ -162,6 +162,8 @@ class OnboardingService:
             return result
 
         needs_ceph = draft.manager or draft.portal or draft.ceph_admin or draft.supervision
+        if needs_ceph:
+            result.changes.append("configure_endpoint_service_identities")
         if endpoint is None:
             if not draft.endpoint_url:
                 result.blockers.append("endpoint_required")

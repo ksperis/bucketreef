@@ -16,7 +16,6 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_admin_identity import extract_ceph_admin_flags, classify_rgw_credential_failure
 from app.services.rgw_endpoint_clients import get_endpoint_bootstrap_rgw_client
 from app.services.storage_endpoint_admin_permissions import _parse_caps_payload, admin_ops_permissions_from_caps
-from app.utils.storage_endpoint_features import dump_features_config, normalize_features_config, supervision_required
 from app.utils.time import utcnow
 
 SERVICE_CAPS = {
@@ -333,9 +332,6 @@ class EndpointServiceIdentityService:
                 self.revoke(endpoint, "ceph_admin")
             if not endpoint.admin_access_key or not endpoint.admin_secret_key:
                 return results
-            features = normalize_features_config(endpoint.provider, endpoint.features_config, endpoint.region)
-            if not supervision_required(features):
-                self.revoke(endpoint, "supervision")
             try:
                 admin, permissions = self.admin_permissions(endpoint)
             except (ValueError, RGWAdminError):
@@ -346,16 +342,8 @@ class EndpointServiceIdentityService:
                         identity.last_error = "Admin Ops validation failed; check its required read permissions and RGW connectivity."
                 self.db.commit()
                 return [{"kind": "admin", "status": "error"}]
-            features = normalize_features_config(endpoint.provider, endpoint.features_config, endpoint.region)
-            if features["usage"]["enabled"] and not permissions.usage_read:
-                features["usage"]["enabled"] = False
-                endpoint.features_config = dump_features_config(features)
-                self.db.commit()
-            desired = ["runtime"]
-            if supervision_required(features):
-                desired.append("supervision")
-            else:
-                self.revoke(endpoint, "supervision")
+            # Baseline endpoint identities persist independently of feature activation.
+            desired = ["runtime", "supervision"]
             if desired_ceph:
                 desired.append("ceph_admin")
             runtime = endpoint.service_identity("runtime")

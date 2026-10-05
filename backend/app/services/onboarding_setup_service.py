@@ -34,7 +34,6 @@ from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.storage_endpoint_features import (
     dump_features_config,
     normalize_features_config,
-    supervision_required,
     resolve_feature_flags,
 )
 from app.utils.time import utcnow
@@ -151,11 +150,8 @@ class OnboardingSetupService:
         if endpoint_id and endpoint is None:
             raise OnboardingError("endpoint_unavailable")
         needs_account_api = draft.manager or draft.portal
-        needs_supervision = draft.supervision
         needs_ceph_admin = draft.ceph_admin
-        needs_ceph = needs_account_api or needs_supervision or needs_ceph_admin
-        if endpoint is not None and needs_ceph:
-            needs_supervision = needs_supervision or supervision_required(normalize_features_config(endpoint.provider, endpoint.features_config, endpoint.region))
+        needs_ceph = needs_account_api or draft.supervision or needs_ceph_admin
         if endpoint is not None and needs_ceph and endpoint.provider != "ceph":
             raise OnboardingError("ceph_endpoint_required")
 
@@ -171,7 +167,7 @@ class OnboardingSetupService:
             )
         if needs_ceph and payload.service_identity_mode == "external":
             runtime = self._management_credentials(payload, endpoint, "runtime", "runtime_credentials_required")
-        if needs_supervision and payload.service_identity_mode == "external":
+        if needs_ceph and payload.service_identity_mode == "external":
             supervision = self._management_credentials(
                 payload,
                 endpoint,
@@ -200,7 +196,7 @@ class OnboardingSetupService:
                 raise OnboardingError("admin_ops_permissions_insufficient")
             if not detection.account:
                 raise OnboardingError("account_api_unavailable")
-        if needs_supervision and payload.service_identity_mode == "external" and (
+        if needs_ceph and payload.service_identity_mode == "external" and (
             detection.credential_checks.supervision.status != "valid"
             or not detection.metrics
         ):
@@ -212,8 +208,8 @@ class OnboardingSetupService:
             features = StorageEndpointFeatures()
             features.admin.enabled = needs_account_api
             features.account.enabled = needs_account_api
-            features.usage.enabled = needs_supervision and detection.usage
-            features.metrics.enabled = needs_supervision
+            features.usage.enabled = draft.supervision and detection.usage if detection else False
+            features.metrics.enabled = draft.supervision
             endpoint_name = resources.get("endpoint_name") or self._unique_endpoint_name(
                 draft.endpoint_url
             )
@@ -321,10 +317,17 @@ class OnboardingSetupService:
             runtime_identity = endpoint.service_identity("runtime")
             if runtime_identity is None or runtime_identity.status != "ready":
                 raise OnboardingError("runtime_credentials_invalid")
-            if needs_supervision:
-                supervision_identity = endpoint.service_identity("supervision")
-                if supervision_identity is None or supervision_identity.status != "ready":
-                    raise OnboardingError("supervision_credentials_invalid")
+            supervision_identity = endpoint.service_identity("supervision")
+            if supervision_identity is None or supervision_identity.status != "ready":
+                raise OnboardingError("supervision_credentials_invalid")
+            # Managed Supervision only exists after provisioning. Discover Usage
+            # with that identity before enabling the selected monitoring workflow.
+            if draft.supervision and editable and not resolve_feature_flags(endpoint).usage_enabled:
+                detection = self._detect(draft, endpoint, admin, ("", "", False))
+                if detection.usage:
+                    self._enable_endpoint_features(endpoint, "usage")
+                    self.progress.audit(actor, "endpoint_features_enabled", row.id,
+                                        endpoint_id=endpoint.id, features=["usage"])
         return endpoint
 
     def _enable_endpoint_features(self, endpoint, *fields):

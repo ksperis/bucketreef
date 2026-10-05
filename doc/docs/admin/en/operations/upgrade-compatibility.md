@@ -995,10 +995,14 @@ The whole inventory is validated before endpoint writes; missing mode or incompl
 external credentials prevents synchronization/startup. Generated managed secrets
 stay encrypted in the database and are preserved across unchanged ENV reloads.
 
-Supervision is required for Metrics, Usage **or an enabled signed S3 healthcheck**.
-External mode therefore requires both Supervision keys when any of these is enabled.
-Managed mode provisions Supervision at save/apply and keeps it until all three
-consumers are disabled. Ready managed identities survive removal of `users=write`;
+Runtime and Supervision are permanent baseline identities for every Ceph endpoint.
+External mode now requires complete pairs for both, even when Metrics, Usage and
+signed S3 healthchecks are disabled. Add missing Supervision keys to ENV inventories
+before upgrading; incomplete inventories prevent startup. Managed mode provisions
+both at save/apply or administration startup; disabling features keeps them intact.
+Existing managed endpoints without Supervision need Admin Ops `users=write` once
+to provision it. Usage availability is determined by Supervision and no longer
+requires Admin Ops `usage=read`. Ready managed identities survive removal of `users=write`;
 creating, converting or rotating them requires restoring that permission.
 
 Migration `0141_durable_key_rotation` replaces `previous_access_key` with an encrypted

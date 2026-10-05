@@ -4,11 +4,17 @@
 
 ### Changed
 
+- Make Runtime and Supervision permanent service identities for every Ceph endpoint; feature toggles only control their use.
+- Detect Usage exclusively with Supervision, including after managed onboarding provisioning, without requiring Usage capabilities on Admin Ops.
+- Recommend complete provisioning/quota Admin Ops permissions for normal setup and place reduced permissions under advanced hardening guidance.
+
 - Validate the complete ENV endpoint inventory before synchronization and use the same external Runtime credential requirements as the endpoint API.
 - Remove the misleading `commit` argument from endpoint creation; registration persists a durable endpoint before reconciling RGW identities.
 - Detect untracked S3, Swift and temporary URL keys on managed endpoint identities, block their mutations, and report auditable drift without exposing key material.
 
 ### Upgrade notes
+
+- **Breaking change:** external Ceph endpoints now require both Runtime and Supervision credential pairs, even with monitoring disabled. Supply missing Supervision keys before startup. Existing managed endpoints provision missing Supervision at administration startup or reconciliation and need Admin Ops `users=write` for that provisioning.
 
 - **Breaking change:** administered Ceph endpoints configured through `ENV_STORAGE_ENDPOINTS` in external mode must supply both Runtime keys. Incomplete inventories now prevent startup.
 - **Breaking change:** managed Runtime, Supervision and Ceph Admin rotation requires deletion of the previous key. Disable-only rotation is refused for these identities. Remove previously disabled or manually added keys externally, then retry identity configuration; pending revocations are never announced as successful while unexpected keys remain.

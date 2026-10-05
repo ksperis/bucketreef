@@ -18,11 +18,12 @@ from tests.service_identity_helpers import service_identity, set_service_identit
 
 class FakeRGW:
     def __init__(self):
-        self.users = {"operator": {"user_id": "operator", "caps": "users=read,write;accounts=read;usage=read", "keys": [{"access_key": "ADMIN", "secret_key": "ADMIN-SECRET"}]}}
+        self.users = {"operator": {"user_id": "operator", "caps": "users=read,write;accounts=read", "keys": [{"access_key": "ADMIN", "secret_key": "ADMIN-SECRET"}]}}
         self.calls = []
         self.fail_delete = False
         self.fail_create = False
         self.leak_keys = False
+        self.usage_payload = {"entries": [], "summary": []}
 
     def get_user_by_access_key(self, access_key, **kwargs):
         return next((deepcopy(user) for user in self.users.values() if any(key["access_key"] == access_key for key in user["keys"])), None)
@@ -76,12 +77,14 @@ class FakeRGW:
                     payload.pop("keys")
                 return payload
             def get_account(self, account_id, **kwargs):
+                self.account_api_supported = True
                 return None
             def get_all_buckets(self, **kwargs):
                 rgw.calls.append(("list", access, kwargs))
                 return []
             def get_usage(self, **kwargs):
-                return {"entries": [], "summary": []}
+                rgw.calls.append(("usage", access, kwargs))
+                return deepcopy(rgw.usage_payload)
         return Signed()
 
 
@@ -103,15 +106,17 @@ def test_managed_runtime_is_idempotent_encrypted_and_scoped(identities, db_sessi
     assert identity.status == "ready" and identity.mode == "managed"
     assert rgw.users[identity.rgw_uid]["caps"] == SERVICE_CAPS["runtime"]
     assert ("list", identity.access_key, {"uid": identity.rgw_uid, "with_stats": True}) in rgw.calls
-    stored = db_session.execute(text("SELECT secret_key FROM endpoint_service_identities")).scalar_one()
+    stored = db_session.execute(text("SELECT secret_key FROM endpoint_service_identities WHERE kind = 'runtime'")).scalar_one()
     assert identity.secret_key not in stored
     response = StorageEndpointsService(db_session).get_endpoint(endpoint.id, include_admin_ops_permissions=False).model_dump_json()
     assert identity.secret_key not in response and "secret_key" not in response
     first_key = identity.access_key
     service.reconcile(endpoint)
     assert identity.access_key == first_key
-    assert len([call for call in rgw.calls if call[0] == "create"]) == 1
-    assert endpoint.service_identity("supervision") is None
+    assert len([call for call in rgw.calls if call[0] == "create"]) == 2
+    supervision = endpoint.service_identity("supervision")
+    assert supervision.status == "ready"
+    assert rgw.users[supervision.rgw_uid]["caps"] == SERVICE_CAPS["supervision"]
 
 
 def test_partial_remote_failure_resumes_persisted_key(identities):
@@ -170,23 +175,27 @@ def test_uid_collision_never_adopts_or_mutates_foreign_user(identities):
     before = len(rgw.calls)
     service.reconcile(endpoint)
     assert identity.status == "error" and rgw.users[identity.rgw_uid] == foreign
-    assert len(rgw.calls) == before
+    assert not any(call[1] == identity.rgw_uid for call in rgw.calls[before:])
+    assert endpoint.service_identity("supervision").status == "ready"
     assert not service.revoke(endpoint, "runtime")
     assert rgw.users[identity.rgw_uid] == foreign
 
 
-def test_minimal_admin_and_external_runtime_need_no_write_caps(identities, db_session):
+def test_minimal_admin_and_external_identities_preserve_usage_without_write_caps(identities, db_session):
     service, endpoint, rgw = identities
     rgw.users["operator"]["caps"] = "users=read;accounts=read"
     endpoint.service_identities.append(
         service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET")
     )
     rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}]}
+    endpoint.service_identities.append(service_identity("supervision", "SUPERVISION", "SUPERVISION-SECRET"))
+    rgw.users["supervision"] = {"user_id": "supervision", "caps": SERVICE_CAPS["supervision"], "keys": [{"access_key": "SUPERVISION", "secret_key": "SUPERVISION-SECRET"}]}
     endpoint.features_config = "features:\n  usage:\n    enabled: true\n"
     db_session.commit()
     service.reconcile(endpoint)
     assert endpoint.service_identity("runtime").status == "ready"
-    assert not json.loads(StorageEndpointsService(db_session).get_endpoint(endpoint.id, include_admin_ops_permissions=False).model_dump_json())["features"]["usage"]["enabled"]
+    assert endpoint.service_identity("supervision").status == "ready"
+    assert json.loads(StorageEndpointsService(db_session).get_endpoint(endpoint.id, include_admin_ops_permissions=False).model_dump_json())["features"]["usage"]["enabled"]
     assert not any(call[0] in ("create", "caps", "delete") for call in rgw.calls)
     assert service.revoke(endpoint, "runtime")
     assert "external" in rgw.users
@@ -271,10 +280,12 @@ def test_read_only_admin_registration_and_external_mode(identities, db_session):
     service, endpoint, rgw = identities
     rgw.users["operator"]["caps"] = "users=read;accounts=read"
     rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}]}
+    rgw.users["supervision"] = {"user_id": "supervision", "caps": SERVICE_CAPS["supervision"], "keys": [{"access_key": "SUPERVISION", "secret_key": "SUPERVISION-SECRET"}]}
     result = StorageEndpointsService(db_session).create_endpoint(StorageEndpointCreate(
         name="Read-only operator", endpoint_url="https://second.example.test", provider="ceph",
         admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET", service_identity_mode="external",
         runtime_access_key="EXTERNAL", runtime_secret_key="EXTERNAL-SECRET",
+        supervision_access_key="SUPERVISION", supervision_secret_key="SUPERVISION-SECRET",
         features_config="features:\n  admin:\n    enabled: true\n",
     ))
     assert result.service_identities[0].status == "ready"
@@ -591,7 +602,7 @@ def test_external_env_with_complete_keys_is_validated_without_provisioning(ident
     _, endpoint, rgw = identities
     rgw.users["operator"]["caps"] = "users=read;accounts=read"
     credentials = {}
-    for kind in ("runtime", "supervision") if monitoring else ("runtime",):
+    for kind in ("runtime", "supervision"):
         access, secret = kind.upper(), f"{kind.upper()}-SECRET"
         credentials.update({f"{kind}_access_key": access, f"{kind}_secret_key": secret})
         rgw.users[kind] = {"user_id": kind, "caps": SERVICE_CAPS[kind], "keys": [{"access_key": access, "secret_key": secret}]}
@@ -603,10 +614,7 @@ def test_external_env_with_complete_keys_is_validated_without_provisioning(ident
     StorageEndpointsService(db_session).sync_env_endpoints()
     assert endpoint.service_identity("runtime").status == "ready" and not endpoint.is_editable
     assert endpoint.service_identity("runtime").mode == "external"
-    if monitoring:
-        assert endpoint.service_identity("supervision").status == "ready"
-    else:
-        assert endpoint.service_identity("supervision") is None
+    assert endpoint.service_identity("supervision").status == "ready"
     assert not any(call[0] in ("create", "caps", "delete") for call in rgw.calls)
 
 
@@ -679,6 +687,7 @@ def test_unchanged_external_env_preserves_ready_state_on_user_instance(identitie
         "name": "Renamed", "endpoint_url": endpoint.endpoint_url, "provider": "ceph", "service_identity_mode": "external",
         "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET",
         "runtime_access_key": "EXTERNAL", "runtime_secret_key": "EXTERNAL-SECRET",
+        "supervision_access_key": "SUPERVISION", "supervision_secret_key": "SUPERVISION-SECRET",
     }]))
     StorageEndpointsService(db_session).sync_env_endpoints()
     assert row.status == "ready" and row.last_error is None and not rgw.calls
@@ -697,7 +706,7 @@ def test_ready_managed_identity_survives_removing_write_permissions_and_rename(i
     assert not any(call[0] in ("create", "delete", "caps") for call in rgw.calls)
 
 
-def test_signed_healthcheck_alone_keeps_supervision_until_disabled(identities, db_session):
+def test_supervision_survives_disabling_all_collectors(identities, db_session):
     service, endpoint, rgw = identities
     endpoint.features_config = "features:\n  healthcheck:\n    enabled: true\n    mode: s3\n"
     db_session.commit()
@@ -710,7 +719,7 @@ def test_signed_healthcheck_alone_keeps_supervision_until_disabled(identities, d
     endpoint.features_config = "features:\n  healthcheck:\n    enabled: true\n    mode: http\n"
     db_session.commit()
     service.reconcile(endpoint)
-    assert supervision.status == "disabled" and uid not in rgw.users
+    assert supervision.status == "ready" and uid in rgw.users
 
 
 @pytest.mark.parametrize("failure", ["lost_response", "activation_commit", "retirement"])
@@ -830,19 +839,32 @@ def test_startup_reconciles_persisted_endpoints_only_on_controller_instances(ide
     assert endpoint.service_identity("runtime").status == "ready"
 
 
-def test_managed_to_external_conversion_does_not_reuse_revoked_optional_supervision(identities, db_session):
+def test_managed_to_external_conversion_requires_supervision_before_revoking(identities, db_session):
     from app.models.storage_endpoint import StorageEndpointUpdate
     service, endpoint, rgw = identities
     endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
     db_session.commit()
     service.reconcile(endpoint)
     rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}]}
+    runtime = endpoint.service_identity("runtime")
+    supervision = endpoint.service_identity("supervision")
+    before = len(rgw.calls)
+    with pytest.raises(ValueError, match="replacement Supervision credentials"):
+        StorageEndpointsService(db_session).update_endpoint(endpoint.id, StorageEndpointUpdate(
+            service_identity_mode="external", runtime_access_key="EXTERNAL", runtime_secret_key="EXTERNAL-SECRET",
+            features_config="features:\n  metrics:\n    enabled: false\n"))
+    assert runtime.mode == supervision.mode == "managed"
+    assert runtime.status == supervision.status == "ready"
+    assert len(rgw.calls) == before
+
+    rgw.users["external-supervision"] = {"user_id": "external-supervision", "caps": SERVICE_CAPS["supervision"], "keys": [{"access_key": "SUPERVISION", "secret_key": "SUPERVISION-SECRET"}]}
     StorageEndpointsService(db_session).update_endpoint(endpoint.id, StorageEndpointUpdate(
         service_identity_mode="external", runtime_access_key="EXTERNAL", runtime_secret_key="EXTERNAL-SECRET",
+        supervision_access_key="SUPERVISION", supervision_secret_key="SUPERVISION-SECRET",
         features_config="features:\n  metrics:\n    enabled: false\n"))
-    row = endpoint.service_identity("supervision")
-    assert row.mode == "external" and row.access_key is None and row.secret_key is None
-    assert endpoint.service_identity("runtime").status == "ready"
+    assert runtime.mode == supervision.mode == "external"
+    assert runtime.status == supervision.status == "ready"
+    assert supervision.access_key == "SUPERVISION"
 
 
 def test_conversion_without_write_keeps_external_credentials(identities, db_session):
