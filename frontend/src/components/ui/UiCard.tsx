@@ -35,7 +35,7 @@ export default function UiCard({
     <section className={cx(muted ? uiCardMutedClass : uiCardClass, className)}>
       {(title || description || actions) && (
         <header className={cx("flex flex-wrap items-start justify-between gap-3", uiSectionHeaderClass)}>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-[1_1_20rem]">
             {title && <h3 className={cx("ui-subtitle", uiTitleTextClass)}>{title}</h3>}
             {description && <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>{description}</p>}
           </div>
