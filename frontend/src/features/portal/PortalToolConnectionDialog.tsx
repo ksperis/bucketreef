@@ -12,9 +12,9 @@ import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { keyConnectionLabel } from "./portalAccessKeyLabels";
 import {
-  buildCyberduckBookmark, buildGenericConnectionSheet, buildRcloneConfig, buildWinScpProfile,
+  buildCyberduckBookmark, buildGenericConnectionSheet, buildWinScpProfile,
   bucketNameForPortalExternalTool, parsePortalExternalToolEndpoint, portalExternalToolBaseFilename,
-  portalExternalToolPermissionLabel, portalExternalToolRcloneRemoteName, portalExternalToolRcloneSecretEnvironmentVariable,
+  portalExternalToolPermissionLabel,
   storageSpaceNameForPortalExternalTool, triggerPortalExternalToolDownload, type PortalExternalToolConnection,
 } from "./portalExternalToolAccess";
 
@@ -80,10 +80,6 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
     !connectionSpacesLoading &&
     !connectionSpacesError &&
     connectionSpaces.length === 0;
-  const rcloneRemoteName = selectedConnection ? portalExternalToolRcloneRemoteName(selectedConnection) : "remote";
-  const rcloneSecretEnvironmentVariable = selectedConnection
-    ? portalExternalToolRcloneSecretEnvironmentVariable(selectedConnection)
-    : "RCLONE_CONFIG_REMOTE_SECRET_ACCESS_KEY";
 
   const handleDownloadCyberduckBookmark = () => {
     if (!selectedConnection) return;
@@ -101,13 +97,6 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
     const filename = `${portalExternalToolBaseFilename(selectedConnection)}-winscp.ini`;
     triggerPortalExternalToolDownload(filename, buildWinScpProfile(selectedConnection), "text/plain;charset=utf-8");
     setMessage(t({ en: "WinSCP profile downloaded.", fr: "Profil WinSCP téléchargé.", de: "WinSCP-Profil heruntergeladen.", zh: "已下载 WinSCP 配置。" }));
-  };
-
-  const handleDownloadRcloneConfig = () => {
-    if (!selectedConnection?.endpoint) return;
-    const filename = `${portalExternalToolBaseFilename(selectedConnection)}-rclone.conf`;
-    triggerPortalExternalToolDownload(filename, buildRcloneConfig(selectedConnection), "text/plain;charset=utf-8");
-    setMessage(t({ en: "rclone configuration downloaded.", fr: "Configuration rclone téléchargée.", de: "rclone-Konfiguration heruntergeladen.", zh: "已下载 rclone 配置。" }));
   };
 
   const handleDownloadConnectionSheet = () => {
@@ -343,49 +332,10 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
 
                     <details className="group border-t border-[var(--ui-border-soft)] pt-3">
                       <summary className={cx("cursor-pointer ui-body font-semibold", uiTitleTextClass)}>
-                        {t({ en: "Advanced tools and manual setup", fr: "Outils avancés et configuration manuelle", de: "Erweiterte Werkzeuge und manuelle Einrichtung", zh: "高级工具和手动配置" })}
+                        {t({ en: "Manual S3 configuration", fr: "Configuration S3 manuelle", de: "Manuelle S3-Konfiguration", zh: "手动 S3 配置" })}
                       </summary>
                       <div className="settings-stack mt-3">
-                        <section className="space-y-3" aria-labelledby="portal-rclone-setup">
-                          <div>
-                            <h4 id="portal-rclone-setup" className={cx("ui-body font-semibold", uiTitleTextClass)}>rclone</h4>
-                            <p className={cx("mt-1 ui-caption", uiMutedTextClass)}>
-                              {t({ en: "Command line and automation.", fr: "Ligne de commande et automatisation.", de: "Kommandozeile und Automatisierung.", zh: "命令行与自动化。" })}
-                              {" "}
-                              <a
-                                className="font-semibold text-primary hover:underline dark:text-primary-200"
-                                href="https://rclone.org/downloads/"
-                                target="_blank"
-                                rel="noreferrer"
-                                aria-label={t({ en: "Install rclone from the official site (opens in a new tab)", fr: "Installer rclone depuis le site officiel (s'ouvre dans un nouvel onglet)", de: "rclone von der offiziellen Website installieren (öffnet einen neuen Tab)", zh: "从官方网站安装 rclone（在新标签页中打开）" })}
-                              >
-                                {t({ en: "Install rclone", fr: "Installer rclone", de: "rclone installieren", zh: "安装 rclone" })}
-                              </a>
-                            </p>
-                          </div>
-                          <div className="grid gap-2 ui-caption">
-                            <div>
-                              <span className={uiMutedTextClass}>{t({ en: "Secret environment variable", fr: "Variable d'environnement du secret", de: "Umgebungsvariable für das Secret", zh: "私有密钥环境变量" })}</span>
-                              <code className={cx("mt-1 block break-all rounded-md px-2 py-1", uiTitleTextClass)}>{rcloneSecretEnvironmentVariable}</code>
-                            </div>
-                            <div>
-                              <span className={uiMutedTextClass}>{t({ en: "Example command", fr: "Commande d'exemple", de: "Beispielbefehl", zh: "命令示例" })}</span>
-                              <code className={cx("mt-1 block break-all rounded-md px-2 py-1", uiTitleTextClass)}>rclone lsd {rcloneRemoteName}:{selectedConnection.bucketName}</code>
-                            </div>
-                          </div>
-                          <UiButton
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            onClick={handleDownloadRcloneConfig}
-                            disabled={setupFileUnavailable}
-                            aria-label={`${t({ en: "Download rclone configuration (.conf) for", fr: "Télécharger la configuration rclone (.conf) pour", de: "rclone-Konfiguration (.conf) herunterladen für", zh: "下载 rclone 配置（.conf），适用于" })} ${selectedConnection.storageSpaceName}`}
-                          >
-                            {t({ en: "Download rclone configuration (.conf)", fr: "Télécharger la configuration rclone (.conf)", de: "rclone-Konfiguration herunterladen (.conf)", zh: "下载 rclone 配置（.conf）" })}
-                          </UiButton>
-                        </section>
-
-                        <section className="space-y-3 border-t border-[var(--ui-border-soft)] pt-3" aria-labelledby="portal-manual-s3-setup">
+                        <section className="space-y-3" aria-labelledby="portal-manual-s3-setup">
                           <div>
                             <h4 id="portal-manual-s3-setup" className={cx("ui-body font-semibold", uiTitleTextClass)}>
                               {t({ en: "Other S3-compatible application", fr: "Autre application compatible S3", de: "Andere S3-kompatible Anwendung", zh: "其他兼容 S3 的应用" })}

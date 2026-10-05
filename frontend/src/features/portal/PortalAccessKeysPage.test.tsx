@@ -156,8 +156,8 @@ describe("PortalAccessKeysPage", () => {
     expect(within(setupDialog).getByRole("combobox", { name: "Access used" })).toHaveDisplayValue(
       "Myself · created June 10 · …USER"
     );
-    const advanced = within(setupDialog).getByText("Advanced tools and manual setup").closest("details");
-    expect(advanced).not.toHaveAttribute("open");
+    const manualSetup = within(setupDialog).getByText("Manual S3 configuration").closest("details");
+    expect(manualSetup).not.toHaveAttribute("open");
     expect(await axe(setupDialog)).toHaveNoViolations();
     await user.click(within(setupDialog).getByRole("button", { name: "Close modal" }));
 
@@ -341,17 +341,14 @@ describe("PortalAccessKeysPage", () => {
     expect(winScpProfile).toContain("RemoteDirectory=/research-data-internal");
     expect(winScpProfile).not.toMatch(/password/i);
 
-    await user.click(within(setupDialog).getByText("Advanced tools and manual setup"));
-    const rcloneLink = within(setupDialog).getByRole("link", { name: /Install rclone from the official site/ });
-    expect(rcloneLink).toHaveAttribute("href", "https://rclone.org/downloads/");
-    expect(within(setupDialog).getByText("RCLONE_CONFIG_RESEARCH_DATA_RESEARCH_DATA_INTERNAL_SECRET_ACCESS_KEY")).toBeInTheDocument();
-    expect(within(setupDialog).getByText("rclone lsd research_data_research_data_internal:research-data-internal")).toBeInTheDocument();
+    await user.click(within(setupDialog).getByText("Manual S3 configuration"));
+    expect(within(setupDialog).queryByText(/rclone/i)).not.toBeInTheDocument();
+    expect(within(setupDialog).getByText("Other S3-compatible application")).toBeInTheDocument();
+    expect(within(setupDialog).getByText("S3 endpoint")).toBeInTheDocument();
+    expect(within(setupDialog).getByText("Bucket")).toBeInTheDocument();
+    expect(within(setupDialog).getByText("Access ID")).toBeInTheDocument();
+    expect(within(setupDialog).getByText("Addressing mode")).toBeInTheDocument();
     expect(within(setupDialog).getByRole("button", { name: "Copy Access ID: AK-USER" })).toBeInTheDocument();
-    await user.click(within(setupDialog).getByRole("button", { name: /Download rclone configuration.*Research Data/i }));
-    const rcloneConfig = await readDownloadedBlobText(downloadedBlobs.at(-1));
-    expect(rcloneConfig).toContain("type = s3");
-    expect(rcloneConfig).toContain("provider = Ceph");
-    expect(rcloneConfig).not.toContain("SK-NEW");
 
     await user.click(within(setupDialog).getByRole("button", { name: /Download connection details.*Research Data/i }));
     const details = await readDownloadedBlobText(downloadedBlobs.at(-1));
@@ -384,8 +381,8 @@ describe("PortalAccessKeysPage", () => {
     expect(within(setupDialog).getByRole("button", { name: /Download Cyberduck or Mountain Duck configuration/i })).toBeDisabled();
     expect(within(setupDialog).getByRole("button", { name: /Download WinSCP profile/i })).toBeDisabled();
     expect(within(setupDialog).getByText(/Configuration downloads are unavailable/i)).toBeInTheDocument();
-    await userEvent.click(within(setupDialog).getByText("Advanced tools and manual setup"));
-    expect(within(setupDialog).getByRole("button", { name: /Download rclone configuration/i })).toBeDisabled();
+    await userEvent.click(within(setupDialog).getByText("Manual S3 configuration"));
+    expect(within(setupDialog).queryByText(/rclone/i)).not.toBeInTheDocument();
     expect(within(setupDialog).getByRole("button", { name: /Download connection details/i })).toBeEnabled();
   });
 
@@ -691,7 +688,7 @@ describe("PortalAccessKeysPage", () => {
     await act(async () => finish([{ id: "old-space", name: "Old space", role: "Owner" }]));
     expect(within(dialog).queryByRole("option", { name: "Old space" })).not.toBeInTheDocument();
     await user.selectOptions(within(dialog).getByRole("combobox", { name: "Space" }), "shared-readonly");
-    await user.click(within(dialog).getByText("Advanced tools and manual setup"));
+    await user.click(within(dialog).getByText("Manual S3 configuration"));
     vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(new Error("Permission denied"));
     await user.click(within(dialog).getByRole("button", { name: "Copy Access ID: AK-USER" }));
     expect(await within(dialog).findByRole("status")).toHaveTextContent("Unable to copy this value.");

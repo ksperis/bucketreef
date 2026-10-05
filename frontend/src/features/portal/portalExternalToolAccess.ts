@@ -41,15 +41,6 @@ function safeFilePart(value: string): string {
   return normalized || "storage-space";
 }
 
-function normalizedEndpointUrl(endpoint: PortalExternalToolEndpoint): string {
-  const defaultPort = endpoint.protocol === "https" ? 443 : 80;
-  const hostname = endpoint.hostname.includes(":") && !endpoint.hostname.startsWith("[")
-    ? `[${endpoint.hostname}]`
-    : endpoint.hostname;
-  const port = endpoint.port === defaultPort ? "" : `:${endpoint.port}`;
-  return `${endpoint.protocol}://${hostname}${port}`;
-}
-
 export function parsePortalExternalToolEndpoint(endpoint?: string | null): PortalExternalToolEndpoint | null {
   const raw = (endpoint ?? "").trim();
   if (!raw) return null;
@@ -139,36 +130,6 @@ FSProtocol=7
 Ftps=${connection.endpoint.protocol === "https" ? 1 : 0}
 RemoteDirectory=/${connection.bucketName}
 S3UrlStyle=${connection.forcePathStyle ? 1 : 0}
-`;
-}
-
-export function portalExternalToolRcloneRemoteName(
-  connection: Pick<PortalExternalToolConnection, "storageSpaceName" | "bucketName">
-): string {
-  return portalExternalToolBaseFilename(connection).replace(/[.-]/g, "_");
-}
-
-export function portalExternalToolRcloneSecretEnvironmentVariable(
-  connection: Pick<PortalExternalToolConnection, "storageSpaceName" | "bucketName">
-): string {
-  return `RCLONE_CONFIG_${portalExternalToolRcloneRemoteName(connection).toUpperCase()}_SECRET_ACCESS_KEY`;
-}
-
-export function buildRcloneConfig(connection: PortalExternalToolConnection): string {
-  if (!connection.endpoint) {
-    throw new Error("A valid endpoint is required for rclone configurations.");
-  }
-  const remoteName = portalExternalToolRcloneRemoteName(connection);
-  const secretEnvironmentVariable = portalExternalToolRcloneSecretEnvironmentVariable(connection);
-  return `# Set ${secretEnvironmentVariable} in your environment before using this remote.
-# Example: rclone lsd ${remoteName}:${connection.bucketName}
-[${remoteName}]
-type = s3
-provider = Ceph
-env_auth = false
-access_key_id = ${connection.key.access_key_id}
-endpoint = ${normalizedEndpointUrl(connection.endpoint)}
-force_path_style = ${connection.forcePathStyle ? "true" : "false"}
 `;
 }
 
