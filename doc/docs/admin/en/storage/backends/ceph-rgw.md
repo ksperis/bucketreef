@@ -58,6 +58,11 @@ capabilities. Ceph Admin remains separately authorized and managed.
 
 ### Advanced: restrict Admin Ops permissions
 
+Reduced-permission profiles are documented here rather than offered in the
+Credentials tab or setup assistant. The interface keeps the recommended command
+and the managed/external identity choice. Creation commands are folded away when
+credentials are already configured.
+
 For externally provisioned resources, start with the mandatory read permissions
 and add only the administration capabilities required by your workflows:
 

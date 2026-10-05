@@ -4,6 +4,9 @@
 
 ### Changed
 
+- Simplify endpoint Credentials: keep Admin Ops hardening in documentation, fold creation commands for configured identities, and distinguish saved identity state from mode changes.
+- Show service identity retries only when needed, block retries of unsaved endpoint configuration, and report retry failures inside the editor.
+
 - Make Runtime and Supervision permanent service identities for every Ceph endpoint; feature toggles only control their use.
 - Detect Usage exclusively with Supervision, including after managed onboarding provisioning, without requiring Usage capabilities on Admin Ops.
 - Recommend complete provisioning/quota Admin Ops permissions for normal setup and place reduced permissions under advanced hardening guidance.

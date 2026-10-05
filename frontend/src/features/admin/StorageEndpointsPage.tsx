@@ -715,11 +715,16 @@ export default function StorageEndpointsPage() {
             {activeTab === "credentials" && <StorageEndpointCredentialsFields form={form} setForm={setForm}
               readOnly={configurationReadOnly} editing={editingId !== null} cephAdminEnabled={cephAdminConfigEnabled}
               usersWrite={detection?.credential_checks.admin.status === "valid" ? detection.admin_ops_permissions?.users_write : editingEndpoint?.admin_ops_permissions?.users_write}
-              identities={editingEndpoint?.service_identities} reconciling={saving}
+              identities={editingEndpoint?.service_identities} reconciling={saving} configurationDirty={hasConfigurationChanges}
+              storedAdminAccessKey={editingEndpoint?.admin_access_key}
               onReconcile={editingId !== null && canEditEndpoints ? () => {
+                if (hasConfigurationChanges || mutationPending.current) return;
+                mutationPending.current = true;
+                setFormError(null);
                 setSaving(true);
                 void runWithStepUp(() => reconcileEndpointIdentities(editingId)).then(async () => { await loadEndpoints(); })
-                  .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setError(extractError(cause)); }).finally(() => setSaving(false));
+                  .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setFormError(extractError(cause)); })
+                  .finally(() => { mutationPending.current = false; setSaving(false); });
               } : undefined}
               errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} statuses={{
                 runtime: runtimeCredentialCheck && <CredentialStatusBadge {...runtimeCredentialCheck} />,
