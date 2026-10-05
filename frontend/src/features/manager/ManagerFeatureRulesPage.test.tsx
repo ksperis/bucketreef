@@ -77,7 +77,7 @@ describe("ManagerFeatureRulesPage", () => {
     expect(screen.getByLabelText("Search")).toHaveAttribute("type", "search");
     expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", "Bucket, rule, tag");
     expect(screen.getByRole("combobox", { name: "Feature" })).toHaveValue("lifecycle");
-    expect(screen.getByText("logs-prod")).toBeInTheDocument();
+    expect(await screen.findByText("logs-prod")).toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveClass("ui-data-table");
     expect(screen.getByRole("columnheader", { name: "JSON" })).toHaveClass("text-right");
     expect(screen.getByText("expire-logs")).toBeInTheDocument();
