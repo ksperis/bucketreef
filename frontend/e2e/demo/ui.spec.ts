@@ -31,7 +31,7 @@ test("files UI: folder, upload, preview, download and multiple deletion", async 
 
 test("portal primary listing links keep button contrast in dark mode", async ({ page }) => {
   await open(page, "/portal/shares?demoPersona=project-manager");
-  await page.getByRole("button", { name: "Toggle theme", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   const requestMember = page.getByRole("button", { name: "Request member", exact: true });
@@ -72,7 +72,7 @@ test("sidebar labels keep neutral shell colors in both themes", async ({ page })
   };
 
   await expectNeutralSidebarColors();
-  await page.getByRole("button", { name: "Toggle theme", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expectNeutralSidebarColors();
 });
@@ -82,7 +82,7 @@ test("demo coverage stays readable in both themes and viewport sizes", async ({ 
   await open(page, "/manager");
   for (const theme of ["light", "dark"]) {
     if (theme === "dark") {
-      await page.getByRole("button", { name: "Toggle theme", exact: true }).click();
+      await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
       await expect(page.locator("html")).toHaveClass(/dark/);
     }
     for (const width of [1440, 390]) {
@@ -130,10 +130,10 @@ test("workspaces UI: profiles, keyboard, mobile and both themes", async ({ page 
   await expect(page.getByRole("dialog", { name: "Demo coverage" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Demo coverage" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Toggle theme", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to dark theme", exact: true }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.screenshot({ path: info.outputPath("manager-desktop-dark.png"), fullPage: true, animations: "disabled" });
-  await page.getByRole("button", { name: "Toggle theme", exact: true }).click();
+  await page.getByRole("button", { name: "Switch to light theme", exact: true }).click();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
   for (const profile of ["admin", "ceph-admin", "member", "manager"]) {
     await page.getByLabel("Demo profile", { exact: true }).selectOption(profile);

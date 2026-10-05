@@ -153,7 +153,7 @@ export type StorageTotals = {
 };
 
 export type AdminTrafficStats = ManagerTrafficStats;
-export type AdminStorageStats = AdminStats;
+type AdminStorageStats = AdminStats;
 
 export type AdminDashboardScope = {
   endpoints: { endpoint_id: number; name: string; storage_enabled: boolean; traffic_enabled: boolean }[];
