@@ -46,12 +46,15 @@ describe("ceph-admin shell pages", () => {
     vi.clearAllMocks();
     capturedWorkbenchProps.length = 0;
     useCephAdminEndpointMock.mockReturnValue({
+      endpoints: [],
       loading: false,
+      error: null,
       selectedEndpointId: null,
       selectedEndpoint: null,
       selectedEndpointAccess: null,
       selectedEndpointAccessLoading: false,
       selectedEndpointAccessError: null,
+      retryEndpoints: vi.fn(),
     });
   });
 
@@ -62,7 +65,9 @@ describe("ceph-admin shell pages", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Select a Ceph endpoint before using Ceph Admin")).toBeInTheDocument();
+    expect(screen.getByText("No Ceph endpoint available")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open buckets" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Next step")).not.toBeInTheDocument();
     expect(screen.queryByText("Endpoint context")).not.toBeInTheDocument();
   });
 
@@ -85,7 +90,15 @@ describe("ceph-admin shell pages", () => {
 
   it("adds the selected bucket to the ceph-admin browser breadcrumb", () => {
     useCephAdminEndpointMock.mockReturnValue({
+      endpoints: [
+        {
+          id: 1,
+          name: "Lab RGW",
+          capabilities: {},
+        },
+      ],
       loading: false,
+      error: null,
       selectedEndpointId: 1,
       selectedEndpoint: {
         id: 1,
@@ -95,6 +108,7 @@ describe("ceph-admin shell pages", () => {
       selectedEndpointAccess: null,
       selectedEndpointAccessLoading: false,
       selectedEndpointAccessError: null,
+      retryEndpoints: vi.fn(),
     });
 
     render(

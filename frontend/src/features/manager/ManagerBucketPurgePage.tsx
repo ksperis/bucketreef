@@ -54,7 +54,7 @@ export default function ManagerBucketPurgePage() {
         <PageEmptyState
           title="Select a context before purging buckets"
           description="Choose a manager execution context to load its buckets and launch a purge."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : (

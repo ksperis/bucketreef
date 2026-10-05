@@ -219,7 +219,7 @@ export default function ManagerMetricsPage() {
         <PageEmptyState
           title="Select an account to view usage and metrics"
           description="Usage composition and Manager metrics depend on an execution context. Choose an account to load bucket usage, storage, and traffic analytics."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : showFullPageMetricsUnavailable ? (

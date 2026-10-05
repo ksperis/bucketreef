@@ -282,7 +282,7 @@ export default function ManagerCephKeysPage() {
         <PageEmptyState
           title="Select an account before managing Ceph access keys"
           description="Ceph access keys are scoped to the active execution context. Choose a managed S3 user context before opening key inventory."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : !isS3UserContext ? (

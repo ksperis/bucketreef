@@ -160,14 +160,14 @@ export default function PoliciesPage() {
         <PageEmptyState
           title="Select an account before managing IAM policies"
           description="Policies are created inside an execution context. Choose an account to list, create, and attach managed IAM policies."
-          primaryAction={{ label: "Open users", to: "/manager/users" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : isS3User ? (
         <PageEmptyState
           title="IAM policies are unavailable for managed S3 user contexts"
           description="Switch to an RGW account or S3 connection context to manage reusable IAM policies."
-          primaryAction={{ label: "Open users", to: "/manager/users" }}
+          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (
