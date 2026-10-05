@@ -560,7 +560,7 @@ export function WorkspaceDashboardStorageOverview({
   quotaFallback?: ReactNode;
   chart: ComponentProps<typeof WorkspaceDashboardStorageEvolutionChart>;
   growth: { label: string; value: string; className: string };
-  projection: { label: string; value: string; adornment?: ReactNode };
+  projection: { label: string; value: string };
 }) {
   return (
     <WorkspaceDashboardCard title={title} action={action} presentation="compact" wrapHeading>
@@ -579,9 +579,7 @@ export function WorkspaceDashboardStorageOverview({
           <p className={cx("ui-dashboard-outlook-value", growth.className)}>{growth.value}</p>
         </div>
         <div className="ui-dashboard-inset">
-          <div className="flex items-center justify-between gap-2">
-            <p className="ui-dashboard-note">{projection.label}</p>{projection.adornment}
-          </div>
+          <p className="ui-dashboard-note">{projection.label}</p>
           <p className="ui-dashboard-outlook-value">{projection.value}</p>
         </div>
       </div>
