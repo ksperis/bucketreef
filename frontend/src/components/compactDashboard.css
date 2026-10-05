@@ -106,7 +106,7 @@
 .ui-dashboard-activity-row { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 2px 12px; }
 .ui-dashboard-activity-row > :first-child { flex: 1 1 180px; min-width: 0; }
 .ui-dashboard-text-link { font-size: 12px; line-height: 18px; font-weight: 400; display: inline-flex; min-height: 28px; align-items: center; border-radius: 6px; }
-.ui-dashboard-quota-row { display: grid; grid-template-columns: minmax(76px, 1fr) minmax(0, 1.2fr) auto; align-items: center; gap: 8px; }
+.ui-dashboard-quota-row { display: grid; grid-template-columns: minmax(76px, 1fr) minmax(0, 1.2fr) 52px; align-items: center; gap: 8px; }
 .ui-dashboard-health-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; border-top: 1px solid var(--ui-border-soft); padding: 6px 0; }
 .ui-dashboard-health-row > :first-child { flex: 1 1 200px; min-width: 0; }
 .ui-dashboard-nav-grid { display: grid; gap: 12px; }
