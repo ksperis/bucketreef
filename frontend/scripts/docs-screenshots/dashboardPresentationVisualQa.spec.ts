@@ -6,7 +6,7 @@ import { seedUiPreferences } from "./uiPreferences";
 import type { MockRule } from "./types";
 
 const surfaces = [
-  { workspace: "manager", scenarioId: "workspace-manager", kpis: 4, headings: ["Storage overview", "Top buckets by storage", "Data types", "Quota status", "Quick actions", "Access management", "Storage backend health", "Recent activity", "Ongoing / Recent incidents"] },
+  { workspace: "manager", scenarioId: "workspace-manager", kpis: 4, headings: ["Storage overview", "Top buckets by storage", "Data types", "Quota status", "Access management", "Storage backend health", "Recent activity", "Ongoing / Recent incidents"] },
   { workspace: "portal", scenarioId: "workspace-portal", kpis: 5, headings: ["Storage overview", "Top storage spaces", "Recent activity", "Alerts & service status", "Quick links"] },
   { workspace: "ceph-admin", scenarioId: "workspace-ceph-admin", kpis: 0, headings: ["Endpoint Health", "Ongoing / Recent Incidents", "Usage & Metrics", "RGW Accounts", "RGW Users", "Buckets"] },
   { workspace: "storage-ops", scenarioId: "gallery-storage-ops-dashboard", kpis: 0, headings: [] },
@@ -41,7 +41,7 @@ function expectedRows(workspace: "manager" | "portal", width: number, dataTypes 
   const kpis = workspace === "manager" ? 4 : 5;
   const kpiRows = width >= 1280 ? [kpis] : width >= 768 ? (kpis === 4 ? [2, 2] : [2, 2, 1]) : Array<number>(kpis).fill(1);
   if (workspace === "portal") return [kpiRows, width >= 1024 ? [2] : [1, 1], width >= 1536 ? [3] : width >= 1024 ? [2, 1] : [1, 1, 1]];
-  return [kpiRows, dataTypes ? (width >= 1280 ? [3] : width >= 1024 ? [2, 1] : [1, 1, 1]) : width >= 1024 ? [2] : [1, 1], width >= 1536 ? [4] : width >= 1024 ? [2, 2] : [1, 1, 1, 1], width >= 1280 ? [2] : [1, 1]];
+  return [kpiRows, dataTypes ? (width >= 1280 ? [3] : width >= 1024 ? [2, 1] : [1, 1, 1]) : width >= 1024 ? [2] : [1, 1], width >= 1536 ? [3] : width >= 1024 ? [2, 1] : [1, 1, 1], width >= 1280 ? [2] : [1, 1]];
 }
 
 async function panelContentGeometry(page: Page) {
@@ -131,7 +131,6 @@ for (const surface of surfaces) {
           // Recharts animates the donut; capture the chart only after its sectors exist.
           await waitForStableDashboardDonut(page);
           await expect(page.locator("[data-quota-status-row]")).toHaveCount(6);
-          await expect(page.getByTestId("manager-dashboard-quick-actions-list").getByRole("link")).toHaveCount(2);
         } else if (surface.workspace === "portal") {
           await expect(page.getByText("genomics-2026", { exact: true }).first()).toBeVisible();
           await expect(page.locator("main [role=meter]").first()).toBeVisible();

@@ -37,7 +37,6 @@ import {
   WorkspaceDashboardStorageOverview,
   WorkspaceDashboardAction,
   WorkspaceDashboardActionLink,
-  WorkspaceDashboardLinkRow,
   WorkspaceDashboardUnavailableFrame as DashboardUnavailable,
   WorkspaceStatusDot,
   type WorkspaceDashboardTone as DashboardTone,
@@ -65,7 +64,6 @@ import {
   BucketCollectionIcon,
   BucketIcon,
   FileIcon,
-  FolderPlusIcon,
   GroupIcon,
   HistoryIcon,
   InfoIcon,
@@ -97,14 +95,6 @@ type ActivityRow = {
   time: string;
   tone: DashboardTone;
   icon: ReactNode;
-};
-
-type QuickAction = {
-  label: string;
-  to: string;
-  icon: ReactNode;
-  tone: DashboardTone;
-  unavailableReason?: string | null;
 };
 
 function percent(used?: number | null, quota?: number | null): number | null {
@@ -512,30 +502,6 @@ function QuotaStatusCard({
     <DashboardUnavailable reason={unavailableReason} className="ui-dashboard-equal-cell">
       {content}
     </DashboardUnavailable>
-  );
-}
-
-function QuickActionsCard({ actions }: { actions: QuickAction[] }) {
-  return (
-    <section className={cx(uiCardClass, "ui-dashboard-panel")}>
-      <h2 className="ui-dashboard-title">Quick actions</h2>
-      <div className="mt-3 grid grid-cols-1 gap-2" data-testid="manager-dashboard-quick-actions-list">
-        {actions.map((action) => {
-          const content = <>
-            <span className="flex min-w-0 items-center gap-2">
-              <IconBubble tone={action.tone} className="h-6 w-6 rounded-md">{action.icon}</IconBubble>
-              <span>{action.label}</span>
-            </span>
-            <OpenIcon className="h-3.5 w-3.5 shrink-0 text-[var(--ui-text-muted)]" />
-          </>;
-          return action.unavailableReason ? (
-            <span key={action.label} className="ui-dashboard-link-row" aria-disabled="true" title={action.unavailableReason}>{content}</span>
-          ) : (
-            <WorkspaceDashboardLinkRow key={action.label} to={action.to}>{content}</WorkspaceDashboardLinkRow>
-          );
-        })}
-      </div>
-    </section>
   );
 }
 
@@ -1114,22 +1080,6 @@ export default function ManagerDashboard() {
       unavailableReason: trafficUnavailableReason,
     },
   });
-  const quickActions: QuickAction[] = [
-    {
-      label: "Create bucket",
-      to: "/manager/buckets",
-      tone: "blue",
-      icon: <FolderPlusIcon className="h-4 w-4" />,
-      unavailableReason: noContextReason,
-    },
-    {
-      label: "Create user",
-      to: "/manager/users",
-      tone: "blue",
-      icon: <UserIcon className="h-4 w-4" />,
-      unavailableReason: noContextReason || (!canManageIam ? "IAM is disabled for this context." : null),
-    },
-  ];
   const refreshing =
     loading ||
     iamLoading ||
@@ -1201,7 +1151,7 @@ export default function ManagerDashboard() {
       </div>
 
       <div
-        className="grid ui-dashboard-equal-row gap-3 lg:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)] 2xl:grid-cols-[minmax(0,1.44fr)_minmax(0,0.72fr)_minmax(0,0.9fr)_minmax(280px,1fr)]"
+        className="grid ui-dashboard-equal-row gap-3 lg:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)] 2xl:grid-cols-[minmax(0,1.44fr)_minmax(0,0.9fr)_minmax(280px,1fr)]"
         data-testid="manager-dashboard-resource-grid"
       >
         <QuotaStatusCard
@@ -1221,7 +1171,6 @@ export default function ManagerDashboard() {
           bucketUnavailableReason={bucketUnavailableReason}
           iamUnavailableReason={iamUnavailableReason}
         />
-        <QuickActionsCard actions={quickActions} />
         <AccessManagementCard counts={accessCounts} unavailableReason={iamUnavailableReason} />
         <BackendHealthCard endpoint={healthEndpoint} unavailableReason={endpointUnavailableReason} />
       </div>
