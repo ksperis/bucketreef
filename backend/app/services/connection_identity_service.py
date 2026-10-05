@@ -307,6 +307,7 @@ class ConnectionIdentityService:
                 endpoint.features_config,
                 supervision.access_key if supervision else None,
                 supervision.secret_key if supervision else None,
+                supervision.status if supervision else None,
                 runtime.access_key if runtime else None,
                 runtime.secret_key if runtime else None,
                 runtime.status if runtime else None,

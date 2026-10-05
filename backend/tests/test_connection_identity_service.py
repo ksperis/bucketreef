@@ -371,6 +371,34 @@ def test_resolve_metrics_identity_uses_runtime_lookup_and_caches(monkeypatch):
     assert calls["count"] == 1
 
 
+def test_metrics_identity_cache_rechecks_when_supervision_leaves_ready(monkeypatch):
+    endpoint = _ceph_endpoint(name="ceph-supervision-state")
+    connection = _connection(endpoint, owner_type=None, owner_identifier=None)
+    calls = {"count": 0}
+
+    class _FakeAdmin:
+        def get_user_by_access_key(self, access_key: str, allow_not_found: bool = False):
+            assert access_key == "AKIA-CONN-TEST"
+            assert allow_not_found is True
+            calls["count"] += 1
+            return {"uid": "RGW12345678901234567$analytics", "account_id": "RGW12345678901234567"}
+
+    monkeypatch.setattr(
+        "app.services.connection_identity_service.get_rgw_admin_client",
+        lambda **kwargs: _FakeAdmin(),
+    )
+
+    service = ConnectionIdentityService()
+    first = service.resolve_metrics_identity(connection)
+    endpoint.service_identity("supervision").status = "error"
+    second = service.resolve_metrics_identity(connection)
+
+    assert first.eligible is True
+    assert second.eligible is False
+    assert second.reason == "Metrics are unavailable: supervision credentials are not configured for this endpoint."
+    assert calls["count"] == 1
+
+
 def test_resolve_metrics_identity_returns_reason_when_identity_missing(monkeypatch):
     endpoint = _ceph_endpoint(name="ceph-missing-id")
     connection = _connection(endpoint, owner_type="account_user", owner_identifier="RGW00000000000000099")

@@ -414,8 +414,17 @@ class StorageEndpointFeatureDetector:
                     access_key=credentials.access_key,
                 )
                 result.credential_checks.runtime = StorageEndpointCredentialCheck(status="valid", message="Runtime Read Ops was validated without user keys.")
-            except (ValueError, RGWAdminError):
+            except ValueError:
                 result.credential_checks.runtime = StorageEndpointCredentialCheck(status="denied", message="Runtime Read Ops credentials or permissions could not be validated.")
+            except RGWAdminError as exc:
+                result.credential_checks.runtime = self._failed_check(
+                    exc,
+                    denied_message="Runtime Read Ops credentials were denied by RGW.",
+                    unavailable_message=(
+                        "Runtime Read Ops access could not be checked because the RGW "
+                        "endpoint is unavailable."
+                    ),
+                )
 
     def detect(
         self,
