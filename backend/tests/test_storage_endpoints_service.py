@@ -1139,6 +1139,53 @@ def test_detect_features_classifies_denied_unavailable_and_unprivileged_credenti
     assert result.credential_checks.supervision.status == "unavailable"
 
 
+@pytest.mark.parametrize(
+    "error,expected_status,expected_message",
+    [
+        (
+            RGWAdminError(
+                "RGW admin request was denied",
+                status_code=403,
+                error_code="AccessDenied",
+            ),
+            "denied",
+            "Runtime Read Ops credentials were denied by RGW.",
+        ),
+        (
+            RGWAdminError("connect timeout"),
+            "unavailable",
+            "Runtime Read Ops access could not be checked because the RGW endpoint is unavailable.",
+        ),
+    ],
+)
+def test_detect_features_classifies_runtime_credential_failures(
+    db_session,
+    monkeypatch,
+    error,
+    expected_status,
+    expected_message,
+):
+    class FakeRGWClient:
+        def get_user_by_access_key(self, *_args, **_kwargs):
+            raise error
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **_kwargs: FakeRGWClient(),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            runtime_access_key="AKIA-RUNTIME",
+            runtime_secret_key="SECRET-RUNTIME",
+        )
+    )
+
+    assert result.credential_checks.runtime.status == expected_status
+    assert result.credential_checks.runtime.message == expected_message
+
+
 def test_detect_features_keeps_account_and_usage_probes_independent(db_session, monkeypatch):
     class FakeRGWClient:
         def __init__(self, access_key: str):
