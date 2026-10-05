@@ -871,7 +871,6 @@ export default function BucketsPage() {
           title="Select an account before managing buckets"
           description="The bucket list, quota details, and destructive actions stay disabled until a manager execution context is selected."
           primaryAction={{ label: "Open dashboard", to: "/manager" }}
-          secondaryAction={{ label: "Open browser", to: "/manager/browser" }}
           tone="warning"
         />
       ) : (

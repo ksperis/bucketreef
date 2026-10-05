@@ -162,7 +162,7 @@ export default function TopicsPage() {
         <PageEmptyState
           title="Select an account before managing SNS topics"
           description="SNS topics are created within an execution context. Choose an account to list topics and update notification settings."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : !snsFeatureEnabled ? (

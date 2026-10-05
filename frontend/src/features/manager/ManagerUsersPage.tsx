@@ -504,7 +504,7 @@ export default function ManagerUsersPage() {
         <PageEmptyState
           title="Select an account before managing IAM users"
           description="Users are created within an execution context. Choose an account to list identities, generate keys, and attach policies."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : isS3User ? (

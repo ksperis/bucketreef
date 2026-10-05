@@ -301,14 +301,14 @@ export default function ManagerGroupsPage() {
         <PageEmptyState
           title="Select an account before managing IAM groups"
           description="Groups are scoped to an execution context. Choose an account to list membership containers and attach shared policies."
-          primaryAction={{ label: "Open users", to: "/manager/users" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : isS3User ? (
         <PageEmptyState
           title="IAM groups are unavailable for managed S3 user contexts"
           description="Switch to an RGW account or S3 connection context to manage account-level IAM groups."
-          primaryAction={{ label: "Open users", to: "/manager/users" }}
+          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (

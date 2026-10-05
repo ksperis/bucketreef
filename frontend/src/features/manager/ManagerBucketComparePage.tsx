@@ -68,7 +68,7 @@ export default function ManagerBucketComparePage() {
         <PageEmptyState
           title="Select a source context before comparing buckets"
           description="Choose a manager execution context to load its buckets, filter the source inventory, and compare selected buckets against other targets."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : (

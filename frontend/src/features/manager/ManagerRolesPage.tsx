@@ -344,14 +344,14 @@ export default function ManagerRolesPage() {
         <PageEmptyState
           title="Select an account before managing IAM roles"
           description="Roles are defined per execution context. Choose an account to list trust relationships and attached policies."
-          primaryAction={{ label: "Open users", to: "/manager/users" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : isS3User ? (
         <PageEmptyState
           title="IAM roles are unavailable for managed S3 user contexts"
           description="Switch to an RGW account or S3 connection context to manage role trust policies and attached permissions."
-          primaryAction={{ label: "Open users", to: "/manager/users" }}
+          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (

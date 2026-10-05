@@ -21,7 +21,7 @@ const ENDPOINTS = [
 ];
 
 function Probe() {
-  const { selectedEndpointId, setSelectedEndpointId } = useCephAdminEndpoint();
+  const { selectedEndpointId, setSelectedEndpointId, retryEndpoints } = useCephAdminEndpoint();
   const location = useLocation();
   const navigate = useNavigate();
   return (
@@ -31,6 +31,7 @@ function Probe() {
       <button type="button" onClick={() => navigate("/ceph-admin/buckets?ep=2")}>Open endpoint 2</button>
       <button type="button" onClick={() => navigate("/ceph-admin/users")}>Navigate without endpoint</button>
       <button type="button" onClick={() => setSelectedEndpointId(2)}>Select endpoint 2</button>
+      <button type="button" onClick={() => { void retryEndpoints(); }}>Retry endpoints</button>
     </>
   );
 }
@@ -88,6 +89,22 @@ describe("CephAdminEndpointProvider", () => {
     await user.click(screen.getByRole("button", { name: "Open endpoint 2" }));
 
     await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("2"));
+  });
+
+  it("retries endpoint discovery after a list failure", async () => {
+    const user = userEvent.setup();
+    listCephAdminEndpointsMock
+      .mockRejectedValueOnce(new Error("Endpoint catalogue unavailable"))
+      .mockResolvedValueOnce(ENDPOINTS);
+    renderProvider("/ceph-admin");
+
+    await waitFor(() => expect(listCephAdminEndpointsMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("selected")).toHaveTextContent("null");
+
+    await user.click(screen.getByRole("button", { name: "Retry endpoints" }));
+
+    await waitFor(() => expect(listCephAdminEndpointsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("1"));
   });
 
   it("keeps the executor and stored endpoint unchanged until navigation is accepted", async () => {

@@ -40,6 +40,7 @@ function CephAdminShell() {
     selectedEndpointAccessLoading,
     selectedEndpointAccessError,
     retrySelectedEndpointAccess,
+    retryEndpoints,
     loading,
     error,
   } = useCephAdminEndpoint();
@@ -258,8 +259,35 @@ function CephAdminShell() {
       topbarControlDescriptors={topbarControlDescriptors}
     >
       <>
-        {error && <PageBanner tone="warning" className="mb-4">{error}</PageBanner>}
-        {endpointDependentRoute && selectedEndpointAccessError ? (
+        {endpointDependentRoute && error ? (
+          <ErrorState
+            kind="unavailable"
+            error={error}
+            title="Unable to load Ceph endpoints"
+            description={error}
+            onRetry={retryEndpoints}
+            secondaryAction={{ label: "Back to dashboard", to: "/ceph-admin" }}
+          />
+        ) : endpointDependentRoute && loading ? (
+          <PageEmptyState
+            eyebrow="Loading"
+            title="Loading Ceph endpoints"
+            description="Ceph Admin operations will open as soon as the available endpoints are loaded."
+          />
+        ) : endpointDependentRoute && endpoints.length === 0 ? (
+          <PageEmptyState
+            eyebrow="Unavailable"
+            title="No Ceph endpoint available"
+            description="Ceph Admin requires at least one Ceph endpoint before cluster-level administration can be used."
+            tone="warning"
+          />
+        ) : endpointDependentRoute && !endpointSelected ? (
+          <PageEmptyState
+            eyebrow="Loading"
+            title="Selecting Ceph endpoint"
+            description="Ceph Admin is selecting the endpoint to use for this operation."
+          />
+        ) : endpointDependentRoute && selectedEndpointAccessError ? (
           <ErrorState
             kind="unavailable"
             title="Endpoint availability could not be checked"
@@ -267,7 +295,7 @@ function CephAdminShell() {
             primaryAction={{ label: "Retry", onClick: retrySelectedEndpointAccess }}
             secondaryAction={{ label: "Back to dashboard", to: "/ceph-admin" }}
           />
-        ) : endpointDependentRoute && (loading || !endpointSelected || selectedEndpointAccessLoading) ? (
+        ) : endpointDependentRoute && selectedEndpointAccessLoading ? (
           <PageEmptyState
             eyebrow="Checking"
             title="Checking endpoint availability"

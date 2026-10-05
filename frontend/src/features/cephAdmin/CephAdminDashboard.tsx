@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { fetchHealthWorkspaceOverview, WorkspaceEndpointHealthOverviewResponse } from "../../api/healthchecks";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import ErrorState from "../../components/errors/ErrorState";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageShell from "../../components/PageShell";
 import WorkspaceNavCards from "../../components/WorkspaceNavCards";
@@ -28,7 +29,7 @@ const cards: CardLink[] = [
 
 export default function CephAdminDashboard() {
   const { generalSettings } = useGeneralSettings();
-  const { selectedEndpoint } = useCephAdminEndpoint();
+  const { endpoints, selectedEndpoint, loading, error, retryEndpoints } = useCephAdminEndpoint();
   const [workspaceHealth, setWorkspaceHealth] = useState<WorkspaceEndpointHealthOverviewResponse | null>(null);
   const [workspaceHealthLoading, setWorkspaceHealthLoading] = useState(false);
   const [workspaceHealthError, setWorkspaceHealthError] = useState<string | null>(null);
@@ -70,12 +71,32 @@ export default function CephAdminDashboard() {
       breadcrumbs={cephAdminPageBreadcrumbs("dashboard")}
     >
       <div className="ui-dashboard-compact">
-        {!selectedEndpoint?.id ? (
+        {loading ? (
           <PageEmptyState
-            title="Select a Ceph endpoint before using Ceph Admin"
-            description="Cluster-level workflows stay visible, but bucket, account, user, and metrics actions remain unavailable until an endpoint is selected."
-            primaryAction={{ label: "Open buckets", to: "/ceph-admin/buckets" }}
+            eyebrow="Loading"
+            title="Loading Ceph endpoints"
+            description="Ceph Admin will open as soon as the available endpoints are loaded."
+          />
+        ) : error ? (
+          <ErrorState
+            kind="unavailable"
+            error={error}
+            title="Unable to load Ceph endpoints"
+            description={error}
+            onRetry={retryEndpoints}
+          />
+        ) : endpoints.length === 0 ? (
+          <PageEmptyState
+            eyebrow="Unavailable"
+            title="No Ceph endpoint available"
+            description="Ceph Admin requires at least one Ceph endpoint before cluster-level administration can be used."
             tone="warning"
+          />
+        ) : !selectedEndpoint?.id ? (
+          <PageEmptyState
+            eyebrow="Loading"
+            title="Selecting Ceph endpoint"
+            description="Ceph Admin is selecting the endpoint to use for cluster-level administration."
           />
         ) : null}
         {generalSettings.endpoint_status_enabled && selectedEndpoint?.id && (

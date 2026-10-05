@@ -54,7 +54,7 @@ export default function ManagerBucketIntegrityPage() {
         <PageEmptyState
           title="Select a context before checking buckets"
           description="Choose a manager execution context to load its buckets and launch an integrity check."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : (

@@ -82,7 +82,7 @@ export default function ManagerMigrationsListPage() {
         <PageEmptyState
           title="Select a source context before opening bucket migrations"
           description="Choose an execution context to list migration runs that originate from it and to start a new migration."
-          primaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
+          primaryAction={{ label: "Open dashboard", to: "/manager" }}
           tone="warning"
         />
       ) : (

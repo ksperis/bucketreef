@@ -26,6 +26,7 @@ type CephAdminEndpointContextValue = {
   selectedEndpointAccessLoading: boolean;
   selectedEndpointAccessError: string | null;
   retrySelectedEndpointAccess: () => void;
+  retryEndpoints: () => Promise<void>;
   loading: boolean;
   error: string | null;
 };
@@ -39,6 +40,7 @@ const CephAdminEndpointContext = createContext<CephAdminEndpointContextValue>({
   selectedEndpointAccessLoading: false,
   selectedEndpointAccessError: null,
   retrySelectedEndpointAccess: () => {},
+  retryEndpoints: async () => {},
   loading: false,
   error: null,
 });
@@ -50,7 +52,11 @@ function parseEndpointId(value: string | null): number | null {
   return parsed;
 }
 
-function extractError(err: unknown): string {
+function extractEndpointListError(err: unknown): string {
+  return extractApiError(err, "Unable to load Ceph Admin endpoints.");
+}
+
+function extractAccessError(err: unknown): string {
   return extractApiError(err, "Unable to load Ceph Admin endpoint access.");
 }
 
@@ -58,7 +64,7 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
   const location = useLocation();
   const [endpoints, setEndpoints] = useState<CephAdminEndpoint[]>([]);
   const [selectedEndpointId, setSelectedEndpointIdState] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEndpointAccess, setSelectedEndpointAccess] = useState<CephAdminEndpointAccess | null>(null);
   const [selectedEndpointAccessLoading, setSelectedEndpointAccessLoading] = useState(false);
@@ -74,7 +80,7 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
       setEndpoints(data);
     } catch (err) {
       setEndpoints([]);
-      setError(extractError(err));
+      setError(extractEndpointListError(err));
     } finally {
       setLoading(false);
     }
@@ -159,7 +165,7 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
       } catch (err) {
         if (!controller.signal.aborted) {
           setSelectedEndpointAccess(null);
-          setSelectedEndpointAccessError(extractError(err));
+          setSelectedEndpointAccessError(extractAccessError(err));
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -187,6 +193,7 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
       selectedEndpointAccessLoading,
       selectedEndpointAccessError,
       retrySelectedEndpointAccess,
+      retryEndpoints: refresh,
       loading,
       error,
     }),
@@ -199,6 +206,7 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
       selectedEndpointAccessLoading,
       selectedEndpointAccessError,
       retrySelectedEndpointAccess,
+      refresh,
       loading,
       error,
     ]

@@ -157,7 +157,6 @@ export default function ManagerFeatureRulesPage() {
           title="Select an account before inventorying feature rules"
           description="The rule inventory uses the selected manager execution context to read bucket configuration."
           primaryAction={{ label: "Open dashboard", to: "/manager" }}
-          secondaryAction={{ label: "Open buckets", to: "/manager/buckets" }}
           tone="warning"
         />
       ) : (

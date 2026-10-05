@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,9 +28,11 @@ vi.mock("../../components/Layout", () => ({
   default: ({
     navSections,
     topbarControlDescriptors,
+    children,
   }: {
     navSections?: SidebarSection[];
     topbarControlDescriptors?: Array<{ id: string; renderControl: (mode: "icon" | "icon_label") => ReactNode }>;
+    children?: ReactNode;
   }) => {
     capturedNavSections = navSections ?? [];
     return (
@@ -38,6 +40,7 @@ vi.mock("../../components/Layout", () => ({
         {topbarControlDescriptors?.map((descriptor) => (
           <div key={descriptor.id}>{descriptor.renderControl("icon_label")}</div>
         ))}
+        {children}
       </div>
     );
   },
@@ -80,6 +83,8 @@ function buildEndpointContext(overrides?: Record<string, unknown>) {
     },
     selectedEndpointAccessLoading: false,
     selectedEndpointAccessError: null,
+    retrySelectedEndpointAccess: vi.fn(),
+    retryEndpoints: vi.fn(async () => {}),
     loading: false,
     error: null,
     ...overrides,
@@ -129,6 +134,27 @@ describe("CephAdminLayout", () => {
       expect(link?.disabled).toBe(true);
       expect(link?.disabledHint).toBe("Select a Ceph endpoint first.");
     }
+  });
+
+  it("shows a terminal empty state when no Ceph endpoint is available", () => {
+    useCephAdminEndpointMock.mockReturnValue(
+      buildEndpointContext({
+        endpoints: [],
+        selectedEndpointId: null,
+        selectedEndpoint: null,
+        selectedEndpointAccess: null,
+      })
+    );
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(
+      <MemoryRouter initialEntries={["/ceph-admin/buckets"]}>
+        <CephAdminLayout />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("No Ceph endpoint available")).toBeInTheDocument();
+    expect(screen.queryByText("Checking endpoint availability")).not.toBeInTheDocument();
   });
 
   it("uses loading hint while endpoint access is loading", () => {
