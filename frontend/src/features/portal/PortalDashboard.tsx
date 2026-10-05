@@ -51,12 +51,10 @@ import {
 } from "../browser/browserIcons";
 import { storageSpacePath, type PortalWorkspaceSpace } from "./portalWorkspaceModel";
 import {
-  portalRoleTone,
   resolvePortalWorkspacePageState,
 } from "./portalUi";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 import {
-  portalRoleLabel,
   portalTrendPeriodLabel,
 } from "./portalI18n";
 
@@ -66,7 +64,6 @@ type StorageSpaceRow = {
   usedBytes?: number | null;
   objectCount?: number | null;
   quotaBytes?: number | null;
-  role?: PortalWorkspaceSpace["role"];
   status?: PortalWorkspaceSpace["status"];
   space?: PortalWorkspaceSpace;
   isOther?: boolean;
@@ -90,7 +87,7 @@ type QuickLink = {
   icon: ReactNode;
 };
 
-const TOP_STORAGE_SPACES_LIMIT = 4;
+const TOP_STORAGE_SPACES_LIMIT = 6;
 
 function percent(used?: number | null, quota?: number | null): number | null {
   if (used == null || quota == null || quota <= 0) return null;
@@ -158,7 +155,6 @@ function buildStorageRows(spaces: PortalWorkspaceSpace[], other?: PortalUsageSto
       usedBytes: space.usedBytes,
       objectCount: space.objectCount,
       quotaBytes: space.quotaBytes,
-      role: space.role,
       status: space.status,
       space,
     }));
@@ -279,26 +275,17 @@ function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
               key={row.id}
               className="ui-dashboard-ranking-row"
             >
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-2">
-                  <IconBubble tone="emerald" className="h-7 w-7 rounded-md">
-                    <BucketIcon className="h-4 w-4" />
-                  </IconBubble>
-                  {row.space && !row.isOther ? (
-                    <Link to={storageSpacePath(row.space)} className="ui-dashboard-text-link ui-dashboard-label hover:text-primary">
-                      {row.name}
-                    </Link>
-                  ) : (
-                    <span className="ui-dashboard-label">{row.name}</span>
-                  )}
-                </div>
-                {row.space && row.role ? (
-                  <div className="mt-1 flex flex-wrap gap-1.5 pl-9">
-                    <UiBadge tone={portalRoleTone(row.role)} className="ui-dashboard-badge">
-                      {portalRoleLabel(row.role, t)}
-                    </UiBadge>
-                  </div>
-                ) : null}
+              <div className="flex min-w-0 items-center gap-2">
+                <IconBubble tone="emerald" className="h-7 w-7 rounded-md">
+                  <BucketIcon className="h-4 w-4" />
+                </IconBubble>
+                {row.space && !row.isOther ? (
+                  <Link to={storageSpacePath(row.space)} className="ui-dashboard-text-link ui-dashboard-label hover:text-primary">
+                    {row.name}
+                  </Link>
+                ) : (
+                  <span className="ui-dashboard-label">{row.name}</span>
+                )}
               </div>
               <div className="ui-dashboard-ranking-storage">
                 <span className="ui-dashboard-label">{formatBytes(row.usedBytes)}</span>
