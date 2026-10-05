@@ -62,10 +62,8 @@ import {
   SupervisionValidationBadges,
 } from "./StorageEndpointValidationStatus";
 import {
-  ADMIN_OPS_COMMAND,
   ADMIN_OPS_FULL_COMMAND,
   RUNTIME_READ_OPS_COMMAND,
-  ADMIN_OPS_OPTIONAL_COMMANDS,
   PRIVATE_S3_USER_COMMAND,
   SUPERVISION_OPS_COMMAND,
 } from "./storageEndpointCredentialHelp";
@@ -1107,7 +1105,6 @@ export default function OnboardingPage() {
                     <option value="external">Provided externally</option>
                   </UiSelect>
                   {identityMode === "managed" && <UiInlineMessage tone="info">Runtime Read Ops and Supervision Ops are created and functionally validated when you apply this setup. Generated secrets remain hidden. Usage is checked with Supervision after provisioning.</UiInlineMessage>}
-                  <CredentialHelp command={`${ADMIN_OPS_COMMAND}\n\n${ADMIN_OPS_OPTIONAL_COMMANDS}`} note="Advanced: restrict Admin Ops permissions" />
                 </WorkflowSection>}
                 {needsSupervision && identityMode === "external" && (
                   <CredentialSection

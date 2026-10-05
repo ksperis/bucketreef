@@ -13,6 +13,7 @@ const updateStorageEndpointMock = vi.fn();
 const updateStorageEndpointTagsMock = vi.fn();
 const setDefaultStorageEndpointMock = vi.fn();
 const deleteStorageEndpointMock = vi.fn();
+const reconcileEndpointIdentitiesMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
 
 const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
@@ -82,6 +83,7 @@ vi.mock("../../api/storageEndpoints", () => ({
   getStorageEndpoint: vi.fn(),
   setDefaultStorageEndpoint: (id: number) => setDefaultStorageEndpointMock(id),
   updateStorageEndpoint: (id: number, payload: unknown) => updateStorageEndpointMock(id, payload),
+  reconcileEndpointIdentities: (id: number) => reconcileEndpointIdentitiesMock(id),
 }));
 
 vi.mock("../../api/tags", () => ({
@@ -406,11 +408,15 @@ describe("StorageEndpointsPage tags", () => {
 
     expect(screen.queryByRole("region", { name: "Operational permissions" })).not.toBeInTheDocument();
     const adminSection = screen.getByRole("region", { name: "Administration (Admin Ops)" });
+    expect(screen.queryByText("Advanced: restrict Admin Ops permissions")).not.toBeInTheDocument();
     expect(within(adminSection).getByText("Recommended Admin Ops")).toBeVisible();
+    fireEvent.click(within(adminSection).getByText("Recommended Admin Ops"));
     expect(within(adminSection).getByText(/users=read,write;accounts=read,write;buckets=write/)).toBeVisible();
     const runtimeSection = screen.getByRole("region", { name: "Live reads (Runtime Read Ops)" });
+    fireEvent.click(within(runtimeSection).getByText("Create Runtime Read Ops"));
     expect(within(runtimeSection).getByText(/accounts=read;user-info-without-keys=read;buckets=read/)).toBeVisible();
     const supervisionSection = screen.getByRole("region", { name: "Monitoring (Supervision Ops)" });
+    fireEvent.click(within(supervisionSection).getByText("Create Supervision Ops"));
     expect(within(supervisionSection).getByText(/usage=read;buckets=read/)).toBeVisible();
   });
 
@@ -434,6 +440,8 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByText("Bucket quotas · optional cap not granted")).toBeInTheDocument();
     expect(screen.getByText("✓ Bucket stats · available")).toBeInTheDocument();
     expect(screen.getByText("! Usage data · no values")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry service identity configuration" })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Stored credentials are configured/)).toHaveLength(2);
     expect(detectStorageEndpointFeaturesMock).toHaveBeenCalledWith(
       expect.objectContaining({
         admin_access_key: "admin-key",
@@ -447,7 +455,51 @@ describe("StorageEndpointsPage tags", () => {
 
     fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-admin-key" } });
     expect(screen.getByText("Complete both keys")).toBeInTheDocument();
+    expect(screen.getByLabelText("Admin secret key")).toBeRequired();
+    expect(screen.getByText("Enter the secret key for this identity.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Update endpoint" })).toBeEnabled();
+  });
+
+  it("shows retry errors in the editor and blocks retrying an unsaved configuration", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({
+      admin_access_key: "admin-key", has_admin_secret: true,
+      service_identities: externalServiceIdentities(true).map(identity => ({
+        ...identity, status: identity.kind === "supervision" ? "error" : "ready",
+      })),
+    })]);
+    reconcileEndpointIdentitiesMock.mockRejectedValue(new Error("RGW retry failed"));
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    const retry = screen.getByRole("button", { name: "Retry service identity configuration" });
+    fireEvent.click(retry);
+    expect(await screen.findByText("RGW retry failed")).toBeVisible();
+    expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(7);
+    fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-admin" } });
+    expect(retry).toBeDisabled();
+    fireEvent.click(retry);
+    expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Save or discard endpoint changes before retrying/)).toBeVisible();
+  });
+
+  it("distinguishes a draft conversion from the saved managed configuration", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({
+      admin_access_key: "admin-key", has_admin_secret: true,
+      service_identities: externalServiceIdentities(true).map(identity => ({ ...identity, mode: "managed" })),
+    })]);
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    expect(screen.getByText("Recommended Admin Ops").closest("details")).not.toHaveAttribute("open");
+    fireEvent.change(screen.getByLabelText("Identity management"), { target: { value: "external" } });
+    expect(screen.getByText("Saved configuration")).toBeVisible();
+    expect(screen.getByText("Runtime Read Ops · Managed · Ready")).toBeVisible();
+    expect(screen.getByText(/Saving replaces and revokes the current managed identities/)).toBeVisible();
+    expect(screen.getAllByText("Enter the secret key for this identity.")).toHaveLength(2);
+    expect(screen.getByLabelText("Runtime secret key")).toBeRequired();
+    expect(screen.getByLabelText("Supervision secret key")).toBeRequired();
   });
 
   it("distinguishes rejected credentials from an unavailable validation endpoint", async () => {
