@@ -10,6 +10,7 @@ from app.db import S3Account, S3User, StorageEndpoint, StorageProvider, User
 from app.routers.dependencies import get_current_super_admin
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.admin_metrics_service import AdminMetricsService
+from app.services.admin_dashboard_metrics_service import AdminDashboardMetricsService
 from app.services.auth_session_service import AuthSessionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.traffic_service import TrafficWindow
@@ -19,6 +20,30 @@ from app.utils.storage_endpoint_features import normalize_features_config
 from app.utils.usage_stats import build_bucket_overview, summarize_bucket_usage
 
 router = APIRouter(prefix="/admin/stats", tags=["admin-stats"])
+
+
+@router.get("/dashboard/scope")
+def dashboard_scope(
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    return AdminDashboardMetricsService(db).scope()
+
+
+@router.get("/dashboard/storage")
+def dashboard_storage(
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    return AdminDashboardMetricsService(db).storage()
+
+
+@router.get("/dashboard/traffic")
+def dashboard_traffic(
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    return AdminDashboardMetricsService(db).traffic()
 
 
 def _resolve_endpoint(

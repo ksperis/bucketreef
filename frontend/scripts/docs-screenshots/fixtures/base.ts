@@ -1667,6 +1667,28 @@ export function buildBaseRules(): MockRule[] {
       },
     },
     {
+      id: "admin-dashboard-scope",
+      path: /^\/admin\/stats\/dashboard\/scope$/,
+      body: { endpoints: [
+        { endpoint_id: 11, name: "Ceph Production", storage_enabled: true, traffic_enabled: true },
+        { endpoint_id: 12, name: "Ceph Archive", storage_enabled: true, traffic_enabled: true },
+      ] },
+    },
+    {
+      id: "admin-dashboard-storage",
+      path: /^\/admin\/stats\/dashboard\/storage$/,
+      body: { ...ADMIN_STORAGE_STATS,
+        cache: { hit: true, expires_at: new Date(Date.parse(NOW) + 1800000).toISOString() },
+        coverage: { eligible_count: 2, contributing_count: 2, complete_count: 2, issues: [] },
+        measurements: Object.fromEntries(["bucket_count", "object_count", "used_bytes"].map((key) => [key, { contributing_count: 2, complete_count: 2 }])),
+      },
+    },
+    {
+      id: "admin-dashboard-traffic",
+      path: /^\/admin\/stats\/dashboard\/traffic$/,
+      body: { ...managerTrafficPayload("day"), cache: { hit: true, expires_at: new Date(Date.parse(NOW) + 1800000).toISOString() }, coverage: { eligible_count: 2, contributing_count: 2, complete_count: 2, issues: [] } },
+    },
+    {
       id: "admin-storage-stats",
       path: /^\/admin\/stats\/storage$/,
       body: ADMIN_STORAGE_STATS,

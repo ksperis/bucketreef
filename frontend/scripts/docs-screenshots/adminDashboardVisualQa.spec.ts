@@ -47,8 +47,8 @@ async function checkGeometry(page: Page, touch: boolean) {
   expect(geometry.titles.every((size) => size === "14px")).toBe(true);
   await page.getByRole("button", { name: "Refresh admin dashboard" }).focus();
   await page.keyboard.press("Tab");
-  const review = page.getByRole("button", { name: "Review", exact: true });
-  const nextAction = await review.count() ? review : page.getByRole("link", { name: "Open Endpoint Status" });
+  const startSetup = page.getByRole("link", { name: "Start setup", exact: true });
+  const nextAction = await startSetup.count() ? startSetup : page.getByRole("link", { name: "Open Endpoint Status" });
   await expect(nextAction).toBeFocused();
   const focus = await nextAction.evaluate((element) => getComputedStyle(element).outlineStyle);
   expect(focus).not.toBe("none");
@@ -110,7 +110,7 @@ for (const state of ["disabled", "partial-errors", "onboarding"] as const) {
       { id: "disabled-health", path: /^\/settings\/general$/, body: { ...(base.find((rule) => rule.id === "settings-general")!.body as object), endpoint_status_enabled: false } },
     ] : state === "partial-errors" ? [
       { id: "failed-health", path: /^\/admin\/health\/workspace-overview$/, status: 503, body: { detail: "Endpoint health temporarily unavailable" } },
-      { id: "failed-storage", path: /^\/admin\/stats\/storage$/, status: 503, body: { detail: "Storage temporarily unavailable" } },
+      { id: "failed-storage", path: /^\/admin\/stats\/dashboard\/storage$/, status: 503, body: { detail: "Storage temporarily unavailable" } },
       { id: "failed-audit", path: /^\/admin\/audit\/logs$/, status: 503, body: { detail: "Audit temporarily unavailable" } },
     ] : [
       { id: "setup", path: /^\/admin\/onboarding$/, body: { dismissed: false, complete: false, endpoint_configured: false, storage_access_configured: false } },
@@ -126,13 +126,43 @@ for (const state of ["disabled", "partial-errors", "onboarding"] as const) {
       await expect(page.getByRole("region", { name: "Storage & traffic" }).getByText("97%")).toBeVisible();
       await expect(page.getByText("Audit temporarily unavailable")).toBeVisible();
     } else {
-      await expect(page.getByRole("link", { name: "Configure endpoints", exact: true })).toBeVisible();
-      await expect(page.getByRole("link", { name: "Configure S3 accounts", exact: true })).toHaveAttribute("href", "/admin/s3-accounts");
-      await page.getByRole("button", { name: "Collapse checklist" }).click();
-      await expect(page.getByRole("button", { name: "Review" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Start setup", exact: true })).toHaveAttribute("href", "/admin/onboarding");
+      await expect(page.getByRole("button", { name: "Hide setup", exact: true })).toBeVisible();
     }
     await checkGeometry(page, true);
     await page.screenshot({ path: testInfo.outputPath(`${state}.png`) });
+    registry.assertNoUnmatched();
+    expect(errors).toEqual([]);
+  });
+}
+
+for (const partial of [false, true]) {
+  test(`Admin dashboard supervised aggregation ${partial ? "partial" : "complete"}`, async ({ page }, testInfo) => {
+    const base = buildBaseRules();
+    const storage = base.find(rule => rule.id === "admin-dashboard-storage")!.body as Record<string, unknown>;
+    const overrides: MockRule[] = [
+      { id: "aggregate-storage", path: /^\/admin\/stats\/dashboard\/storage$/, body: {
+        ...storage,
+        storage_totals: { bucket_count: 17, object_count: 240, used_bytes: 4096 },
+        coverage: { eligible_count: 2, contributing_count: partial ? 1 : 2, complete_count: partial ? 1 : 2,
+          issues: partial ? [{ endpoint_id: 12, name: "Ceph Archive", reason: "RGW temporarily unavailable" }] : [] },
+        measurements: Object.fromEntries(["bucket_count", "object_count", "used_bytes"].map(key => [key, { contributing_count: partial ? 1 : 2, complete_count: partial ? 1 : 2 }])),
+      } },
+    ];
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const { registry, errors } = await openDashboard(page, "light", false, overrides);
+    const card = page.getByRole("region", { name: "Storage & traffic" });
+    await expect(card.getByText("Aggregated across managed and supervised Ceph endpoints. Includes Accounts and S3 Users registered in BucketReef.")).toBeVisible();
+    await expect(card.getByText(`Storage: ${partial ? 1 : 2}/2 endpoints · Traffic: 2/2 endpoints · Availability: 2/2 endpoints`)).toBeVisible();
+    await expect(card.getByText("17", { exact: true })).toBeVisible();
+    await expect(card.getByText("240", { exact: true })).toBeVisible();
+    await expect(card.getByText("4.0 KB", { exact: true })).toBeVisible();
+    if (partial) await expect(card.getByText(/Storage: Partial data.*Ceph Archive: RGW temporarily unavailable/)).toBeVisible();
+    await page.getByRole("button", { name: "Refresh admin dashboard" }).click();
+    await expect(page.getByRole("button", { name: "Refresh admin dashboard" })).toBeEnabled();
+    await expect(card.getByText("17", { exact: true })).toBeVisible();
+    await checkGeometry(page, false);
+    await page.screenshot({ path: testInfo.outputPath("aggregation.png") });
     registry.assertNoUnmatched();
     expect(errors).toEqual([]);
   });

@@ -17,12 +17,15 @@ import {
 import { dismissOnboarding, type OnboardingStatus } from "../../api/onboarding";
 import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
 import {
-  type AdminStorageStats,
+  type AdminDashboardStorage,
+  type AdminDashboardScope,
+  type AdminDashboardCoverage,
   type AdminSummary,
-  type AdminTrafficStats,
-  fetchAdminStorage,
+  type AdminDashboardTraffic,
+  fetchAdminDashboardScope,
+  fetchAdminDashboardStorage,
   fetchAdminSummary,
-  fetchAdminTraffic,
+  fetchAdminDashboardTraffic,
 } from "../../api/stats";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import PageBanner from "../../components/PageBanner";
@@ -113,9 +116,11 @@ function formatCheckMode(mode?: string | null): string {
   return (mode || "http").toUpperCase();
 }
 
-function computeMeanAvailability(data?: EndpointHealthOverviewResponse | null): number | null {
+function computeMeanAvailability(data: EndpointHealthOverviewResponse | null, scope: AdminDashboardScope | null): number | null {
+  const ids = new Set(scope?.endpoints.map((endpoint) => endpoint.endpoint_id));
   const availabilityValues =
     data?.endpoints
+      .filter((endpoint) => ids.has(endpoint.endpoint_id))
       .map((endpoint) => endpoint.availability_pct)
       .filter((value): value is number => value != null && Number.isFinite(value)) ?? [];
   if (availabilityValues.length === 0) return null;
@@ -132,7 +137,7 @@ function formatAuditAction(log: AuditLogEntry): string {
   return action.charAt(0).toUpperCase() + action.slice(1);
 }
 
-function trafficOpsSeries(traffic: AdminTrafficStats | null): number[] {
+function trafficOpsSeries(traffic: AdminDashboardTraffic | null): number[] {
   return (traffic?.series ?? []).map((point) => point.ops).filter((value): value is number => value != null && Number.isFinite(value));
 }
 
@@ -236,6 +241,18 @@ function EndpointRow({ endpoint }: { endpoint: WorkspaceEndpointHealthEntry }) {
   );
 }
 
+function coverageLabel(coverage?: AdminDashboardCoverage): string {
+  return coverage ? `${coverage.complete_count}/${coverage.eligible_count} endpoints` : "—";
+}
+
+function coverageNote(coverage?: AdminDashboardCoverage): string | null {
+  if (!coverage || coverage.eligible_count === 0) return null;
+  if (coverage.complete_count === coverage.eligible_count) return null;
+  const details = coverage.issues.map((issue) => `${issue.name}: ${issue.reason}`).join("; ");
+  const prefix = coverage.contributing_count > 0 ? "Partial data" : "Data unavailable";
+  return `${prefix} — ${coverage.complete_count}/${coverage.eligible_count} endpoints fully measured.${details ? ` ${details}` : ""}`;
+}
+
 function StorageTrafficSummary({
   storage,
   storageLoading,
@@ -246,39 +263,47 @@ function StorageTrafficSummary({
   healthScore,
   healthScoreLoading,
   healthScoreUnavailableReason,
+  availabilityCoverage,
+  availabilityNote,
 }: {
-  storage: AdminStorageStats | null;
+  storage: AdminDashboardStorage | null;
   storageLoading: boolean;
   storageError: string | null;
-  traffic: AdminTrafficStats | null;
+  traffic: AdminDashboardTraffic | null;
   trafficLoading: boolean;
   trafficError: string | null;
   healthScore: number | null;
   healthScoreLoading: boolean;
   healthScoreUnavailableReason?: string | null;
+  availabilityCoverage: string;
+  availabilityNote: string | null;
 }) {
   const storageTotals = storage?.storage_totals;
   const requestsSeries = trafficOpsSeries(traffic);
-  const storageReason = storageError || (!storageLoading && !storage ? "Storage metrics are not available." : undefined);
-  const trafficReason = trafficError || (!trafficLoading && !traffic ? "Usage logs are not available." : undefined);
+  const storageReason = storageError || (!storageLoading && !storage ? "Storage metrics are not available." : storage?.coverage?.eligible_count === 0 ? "No managed Ceph endpoint has ready Supervision credentials and Metrics enabled." : undefined);
+  const trafficReason = trafficError || (!trafficLoading && !traffic ? "Usage logs are not available." : traffic?.coverage?.eligible_count === 0 ? "No managed Ceph endpoint has ready Supervision credentials and Usage enabled." : undefined);
+  const partialMeasurement = (field: "bucket_count" | "object_count" | "used_bytes") => {
+    const completeCount = storage?.measurements?.[field]?.complete_count;
+    return storageTotals?.[field] != null && completeCount != null && storage?.coverage && completeCount < storage.coverage.eligible_count ? "Partial data" : undefined;
+  };
   const metrics: WorkspacePlatformMetric[] = [
     {
       label: "Buckets",
-      value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.bucket_count ?? storage?.total_buckets ?? null),
+      value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.bucket_count ?? null),
       tone: "blue",
-
+      delta: partialMeasurement("bucket_count"),
     },
     {
       label: "Objects",
       value: storageLoading ? "..." : formatOptionalCompactNumber(storageReason ? null : storageTotals?.object_count ?? null),
       tone: "violet",
-
+      delta: partialMeasurement("object_count"),
     },
     {
       label: "Stored data",
       value: storageLoading ? "..." : formatOptionalBytes(storageReason ? null : storageTotals?.used_bytes ?? null),
       tone: "emerald",
-
+      delta: partialMeasurement("used_bytes"),
     },
     {
       label: "Requests (24h)",
@@ -292,12 +317,22 @@ function StorageTrafficSummary({
 
   return (
     <WorkspaceDashboardCard title="Storage & traffic" presentation="compact">
+      <p className="ui-dashboard-note">Aggregated across managed and supervised Ceph endpoints. Includes Accounts and S3 Users registered in BucketReef.</p>
+      <p className="ui-dashboard-note mt-1">Storage: {storageLoading ? "Loading…" : coverageLabel(storage?.coverage)} · Traffic: {trafficLoading ? "Loading…" : coverageLabel(traffic?.coverage)} · Availability: {availabilityCoverage}</p>
+      <p className="ui-dashboard-note mt-1">Storage and traffic are cached for up to 30 minutes.</p>
+      <p className="ui-dashboard-note mt-1">
+        Storage data: {storage?.generated_at ? <time dateTime={storage.generated_at}>{formatLocalDateTime(storage.generated_at)}</time> : "—"}
+        {" · "}Traffic through: {traffic?.end ? <time dateTime={traffic.end}>{formatLocalDateTime(traffic.end)}</time> : "—"}
+      </p>
       <div className="ui-dashboard-metrics">
         {metrics.map((metric) => <WorkspacePlatformMetricCard key={metric.label} metric={metric} />)}
         <WorkspaceAvailabilityMetric score={healthScore} loading={healthScoreLoading} unavailableReason={healthScoreUnavailableReason} />
       </div>
       {storageReason && <p role="status" className="ui-dashboard-note mt-2">Storage: {storageReason}</p>}
       {trafficReason && <p role="status" className="ui-dashboard-note mt-2">Traffic: {trafficReason}</p>}
+      {!storageReason && coverageNote(storage?.coverage) && <p role="status" className="ui-dashboard-note mt-2">Storage: {coverageNote(storage?.coverage)}</p>}
+      {!trafficReason && coverageNote(traffic?.coverage) && <p role="status" className="ui-dashboard-note mt-2">Traffic: {coverageNote(traffic?.coverage)}</p>}
+      {availabilityNote && <p role="status" className="ui-dashboard-note mt-2">Availability: {availabilityNote}</p>}
     </WorkspaceDashboardCard>
   );
 }
@@ -341,10 +376,13 @@ export default function AdminDashboard() {
   const [healthOverview, setHealthOverview] = useState<EndpointHealthOverviewResponse | null>(null);
   const [healthOverviewLoading, setHealthOverviewLoading] = useState(false);
   const [healthOverviewError, setHealthOverviewError] = useState<string | null>(null);
-  const [storage, setStorage] = useState<AdminStorageStats | null>(null);
+  const [dashboardScope, setDashboardScope] = useState<AdminDashboardScope | null>(null);
+  const [scopeLoading, setScopeLoading] = useState(true);
+  const [scopeError, setScopeError] = useState<string | null>(null);
+  const [storage, setStorage] = useState<AdminDashboardStorage | null>(null);
   const [storageLoading, setStorageLoading] = useState(true);
   const [storageError, setStorageError] = useState<string | null>(null);
-  const [traffic, setTraffic] = useState<AdminTrafficStats | null>(null);
+  const [traffic, setTraffic] = useState<AdminDashboardTraffic | null>(null);
   const [trafficLoading, setTrafficLoading] = useState(true);
   const [trafficError, setTrafficError] = useState<string | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -384,17 +422,22 @@ export default function AdminDashboard() {
   }, [refreshNonce]);
 
   useEffect(() => {
-    if (summaryLoading) return;
-    if (!summary || summary.total_endpoints === 0) {
-      setStorage(null);
-      setStorageError(null);
-      setStorageLoading(false);
-      return;
-    }
+    let cancelled = false;
+    setScopeLoading(true);
+    setScopeError(null);
+    setDashboardScope(null);
+    fetchAdminDashboardScope()
+      .then((data) => { if (!cancelled) setDashboardScope(data); })
+      .catch((err) => { if (!cancelled) setScopeError(extractApiError(err, "Unable to load supervised endpoint scope.")); })
+      .finally(() => { if (!cancelled) setScopeLoading(false); });
+    return () => { cancelled = true; };
+  }, [refreshNonce]);
+
+  useEffect(() => {
     let cancelled = false;
     setStorageLoading(true);
     setStorageError(null);
-    fetchAdminStorage()
+    fetchAdminDashboardStorage()
       .then((data) => {
         if (cancelled) return;
         setStorage(data);
@@ -411,20 +454,13 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [refreshNonce, summary, summaryLoading]);
+  }, [refreshNonce]);
 
   useEffect(() => {
-    if (summaryLoading) return;
-    if (!summary || summary.total_endpoints === 0) {
-      setTraffic(null);
-      setTrafficError(null);
-      setTrafficLoading(false);
-      return;
-    }
     let cancelled = false;
     setTrafficLoading(true);
     setTrafficError(null);
-    fetchAdminTraffic("day")
+    fetchAdminDashboardTraffic()
       .then((data) => {
         if (cancelled) return;
         setTraffic(data);
@@ -441,7 +477,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [refreshNonce, summary, summaryLoading]);
+  }, [refreshNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -722,13 +758,23 @@ export default function AdminDashboard() {
       : !workspaceHealthLoading && workspaceHealth && workspaceHealth.endpoint_count === 0
         ? "Endpoint Status has no endpoint data yet."
         : null;
-  const healthScore = computeMeanAvailability(healthOverview);
+  const healthScore = computeMeanAvailability(healthOverview, dashboardScope);
+  const measuredIds = new Set(healthOverview?.endpoints.filter((endpoint) => endpoint.availability_pct != null && Number.isFinite(endpoint.availability_pct)).map((endpoint) => endpoint.endpoint_id));
+  const missingHealth = dashboardScope?.endpoints.filter((endpoint) => !measuredIds.has(endpoint.endpoint_id)) ?? [];
+  const availabilityLoading = scopeLoading || healthOverviewLoading;
+  const availabilityCoverage = availabilityLoading ? "Loading…" : dashboardScope && generalSettings.endpoint_status_enabled && !healthOverviewError
+    ? `${dashboardScope.endpoints.length - missingHealth.length}/${dashboardScope.endpoints.length} endpoints` : "—";
+  const availabilityNote = !availabilityLoading && generalSettings.endpoint_status_enabled && !healthOverviewError && missingHealth.length > 0
+    ? `7-day measurements unavailable: ${missingHealth.map((endpoint) => endpoint.name).join(", ")}.` : null;
   const healthScoreUnavailableReason =
     (!generalSettings.endpoint_status_enabled ? "Endpoint Status feature is disabled." : null) ||
+    scopeError ||
     healthOverviewError ||
+    (dashboardScope?.endpoints.length === 0 ? "No managed and supervised Ceph endpoint has Metrics or Usage enabled." : null) ||
     (healthScore == null && !healthOverviewLoading ? "7-day endpoint health history is not available." : null);
   const refreshing =
     summaryLoading ||
+    scopeLoading ||
     storageLoading ||
     trafficLoading ||
     auditLoading ||
@@ -744,14 +790,14 @@ export default function AdminDashboard() {
         breadcrumbs={adminPageBreadcrumbs("dashboard")}
         rightContent={
           <div className="flex items-center gap-3">
-            <span title="Last data update; healthcheck samples retain their own timestamps." className={cx("hidden ui-caption sm:inline", uiMutedTextClass)}>
+            <span title="Last dashboard retrieval; metrics and healthcheck samples retain their own timestamps." className={cx("hidden ui-caption sm:inline", uiMutedTextClass)}>
               Updated {lastUpdated ? formatLocalDateTime(lastUpdated) : "-"}
             </span>
             <WorkspaceDashboardAction
               type="button"
               onClick={() => setRefreshNonce((current) => current + 1)}
               aria-label="Refresh admin dashboard"
-              title="Refresh"
+              title="Refresh dashboard; storage and traffic respect the cache for up to 30 minutes."
               variant="secondary"
               className="ui-dashboard-action-icon"
               disabled={refreshing}
@@ -785,8 +831,10 @@ export default function AdminDashboard() {
         trafficLoading={trafficLoading}
         trafficError={trafficError}
         healthScore={healthScore}
-        healthScoreLoading={healthOverviewLoading}
+        healthScoreLoading={availabilityLoading}
         healthScoreUnavailableReason={healthScoreUnavailableReason}
+        availabilityCoverage={availabilityCoverage}
+        availabilityNote={availabilityNote}
       />
       <WorkspaceDashboardSummary items={administrationItems} loading={summaryLoading} unavailableReason={summaryError} />
       <div className="ui-dashboard-secondary-grid">

@@ -352,3 +352,74 @@ test("keeps branding preview local and applies a custom accent only after a succ
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("status")).toContainText("Settings saved.");
 });
+
+test("renders supervised dashboard totals and partial failures with a real admin session", async ({ page }, testInfo) => {
+  const errors = collectApplicationErrors(page);
+  for (const kind of ["scope", "storage", "traffic"]) {
+    const response = await page.request.get(`/api/admin/stats/dashboard/${kind}`);
+    expect(response.status()).toBe(200);
+    if (kind !== "scope") {
+      const first = await response.json();
+      const cached = await (await page.request.get(`/api/admin/stats/dashboard/${kind}`)).json();
+      expect(cached.cache.hit).toBe(true);
+      expect(cached.cache.expires_at).toBe(first.cache.expires_at);
+      expect(cached[kind === "storage" ? "generated_at" : "end"]).toBe(first[kind === "storage" ? "generated_at" : "end"]);
+    }
+  }
+  const collectedAt = new Date(Date.now() - 5 * 60000).toISOString();
+  const cache = { hit: true, expires_at: new Date(Date.now() + 25 * 60000).toISOString() };
+  let partial = false;
+  const endpoints = [
+    { endpoint_id: 901, name: "Ceph Production", storage_enabled: true, traffic_enabled: true },
+    { endpoint_id: 902, name: "Ceph Archive", storage_enabled: true, traffic_enabled: true },
+  ];
+  await page.route("**/api/settings/general", async route => {
+    const response = await route.fetch();
+    await route.fulfill({ json: { ...await response.json(), endpoint_status_enabled: true } });
+  });
+  await page.route("**/api/admin/health/overview?**", route => route.fulfill({ json: {
+    endpoints: [
+      { endpoint_id: 901, availability_pct: 100 },
+      { endpoint_id: 902, availability_pct: 90 },
+      { endpoint_id: 903, availability_pct: 0 },
+    ],
+  } }));
+  await page.route("**/api/admin/stats/dashboard/scope", route => route.fulfill({ json: { endpoints } }));
+  await page.route("**/api/admin/stats/dashboard/storage", route => route.fulfill({ json: {
+    generated_at: collectedAt, cache,
+    storage_totals: { bucket_count: partial ? 7 : 17, object_count: 240, used_bytes: 4096 },
+    coverage: { eligible_count: 2, contributing_count: partial ? 1 : 2, complete_count: partial ? 1 : 2,
+      issues: partial ? [{ endpoint_id: 902, name: "Ceph Archive", reason: "RGW temporarily unavailable" }] : [] },
+    measurements: Object.fromEntries(["bucket_count", "object_count", "used_bytes"].map(key => [key, { contributing_count: partial ? 1 : 2, complete_count: partial ? 1 : 2 }])),
+  } }));
+  await page.route("**/api/admin/stats/dashboard/traffic", route => route.fulfill({ json: {
+    window: "day", end: collectedAt, cache, series: [{ timestamp: collectedAt, ops: 30 }],
+    totals: { ops: 30, success_ops: 27, success_rate: .9 },
+    coverage: { eligible_count: 2, contributing_count: 2, complete_count: 2, issues: [] },
+  } }));
+  await page.goto("/admin");
+  const card = page.getByRole("region", { name: "Storage & traffic" });
+  await expect(card.getByText("Storage: 2/2 endpoints · Traffic: 2/2 endpoints · Availability: 2/2 endpoints")).toBeVisible();
+  await expect(card.getByText("17", { exact: true })).toBeVisible();
+  await expect(card.getByText("95%", { exact: true })).toBeVisible();
+  await expect(card.getByText("Storage and traffic are cached for up to 30 minutes.")).toBeVisible();
+  await expect(card.locator("time")).toHaveCount(2);
+  await expect(card.locator("time").first()).toHaveAttribute("datetime", collectedAt);
+  await expect(card.locator("time").last()).toHaveAttribute("datetime", collectedAt);
+  await expect(page.getByRole("button", { name: "Refresh admin dashboard" })).toHaveAttribute("title", /respect the cache for up to 30 minutes/);
+  await page.screenshot({ path: testInfo.outputPath("dashboard-supervised-complete.png") });
+  partial = true;
+  await page.getByRole("button", { name: "Refresh admin dashboard" }).click();
+  await expect(card.getByText("Storage: 1/2 endpoints · Traffic: 2/2 endpoints · Availability: 2/2 endpoints")).toBeVisible();
+  await expect(card.getByText(/Storage: Partial data.*Ceph Archive: RGW temporarily unavailable/)).toBeVisible();
+  await expect(card.getByText("7", { exact: true })).toBeVisible();
+  await expect(card.getByText("30", { exact: true })).toBeVisible();
+  await expect(card.getByText("95%", { exact: true })).toBeVisible();
+  await expect(card.locator("time").first()).toHaveAttribute("datetime", collectedAt);
+  await expect(card.locator("time").last()).toHaveAttribute("datetime", collectedAt);
+  await page.screenshot({ path: testInfo.outputPath("dashboard-supervised-partial.png") });
+  await page.reload();
+  await expect(card.getByText("7", { exact: true })).toBeVisible();
+  expect((await page.request.get("/api/auth/session")).ok()).toBe(true);
+  expect(errors).toEqual([]);
+});

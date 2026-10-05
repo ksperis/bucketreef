@@ -39,13 +39,44 @@ incidents** lead to the detailed monitoring page. Warnings describe missing or
 old healthcheck samples: refreshing the dashboard retrieves stored data and
 does not run a new healthcheck.
 
-**Storage & traffic** groups bucket and object counts, stored data, requests
-for the last 24 hours and average endpoint availability over seven days.
-Availability is the mean across endpoints with measurements; it is not a live
-health score. Only requests have a trend line, and only when samples exist.
-Storage, traffic and health load independently. A dash means no measurement is
-available, while a real zero remains zero. Failures are explained in the
-relevant section; use the header refresh button to retry after loading ends.
+**Storage & traffic** aggregates the Ceph endpoints managed and supervised by
+BucketReef. An endpoint is included when its Supervision identity is ready with
+complete credentials and Metrics or Usage is enabled. Both managed and externally
+provisioned Supervision identities are included; the default endpoint has no
+special role. Measurements cover only the Accounts and S3 Users registered in
+BucketReef on each endpoint, not every tenant on the Ceph cluster.
+
+Bucket and object counts and stored data use endpoints with Metrics enabled.
+Requests for the last 24 hours use endpoints with Usage enabled; the success rate
+is calculated from the combined successful and total requests. Only requests have
+a trend line, and only when samples exist. Seven-day availability is the mean
+across endpoints in the union of those two groups with healthcheck measurements;
+it is not a live health score. Endpoint Health, incidents and the infrastructure
+map continue to cover the global endpoint inventory.
+
+The card shows separate endpoint coverage for Storage, Traffic and Availability.
+Storage coverage counts endpoints with all three measurements complete. Available
+partial totals stay visible and are explicitly marked; notes identify endpoints
+with missing measurements or failed collection. Missing values appear as a dash,
+while a measured zero stays zero. An empty eligible group explains the required
+Supervision credentials and feature configuration. Storage, traffic and health
+load independently.
+
+Storage and Traffic results are cached for up to **30 minutes** in memory in each
+backend process. Opening the dashboard or pressing **Refresh** reuses these results
+without contacting RGW again. The first request after expiry collects new data;
+concurrent requests share that collection. The card displays the Storage collection
+date and the end of the Traffic window, while the header's **Updated** date is the
+last dashboard retrieval. Cached reads preserve the original 24-hour window.
+
+Complete results, partial results with at least one contributing endpoint, and an
+empty eligible group are kept for 30 minutes. A completely unavailable collection
+is kept for only 60 seconds to allow a faster retry. The current endpoint and tenant
+scope is checked in the database on every request; changes to eligibility, RGW
+configuration, Supervision credentials or registered Accounts/S3 Users invalidate
+the corresponding cached result. Each process has its own cache, lost on restart;
+no credentials are stored in cache keys or values. Endpoint scope, health and the
+**Usage & Metrics** page retain their existing retrieval behavior.
 
 The **Administration** band keeps six shortcuts and their aggregate counts,
 including the UI/S3 session split. **Recent activity** and the infrastructure

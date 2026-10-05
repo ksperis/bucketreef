@@ -10,6 +10,7 @@ from app.db import Base, User, UserRole
 from app.main import app
 from app.routers import dependencies
 from app.services.bucket_listing_cache import invalidate_bucket_listing_cache
+from app.services.admin_dashboard_metrics_cache import reset_dashboard_metrics_cache
 from app.services.bucket_migration.worker import reset_bucket_migration_worker_for_tests
 from app.services.webhook_worker import reset_webhook_delivery_worker_for_tests
 
@@ -22,6 +23,15 @@ def test_engine():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
+
+@pytest.fixture
+def dashboard_test_engine(tmp_path):
+    # Dashboard workers need distinct DB connections. StaticPool shares one
+    # SQLite connection across threads and can crash the native sqlite driver.
+    engine = create_engine(f"sqlite:///{tmp_path / 'dashboard.db'}", connect_args={"check_same_thread": False})
+    yield engine
+    engine.dispose()
 
 
 @pytest.fixture
@@ -74,6 +84,13 @@ def client(db_session, monkeypatch):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides = {}
+
+
+@pytest.fixture(autouse=True)
+def reset_admin_dashboard_metrics_cache():
+    reset_dashboard_metrics_cache()
+    yield
+    reset_dashboard_metrics_cache()
 
 
 @pytest.fixture(autouse=True)
