@@ -36,7 +36,6 @@ export function AdminOpsPermissionsBadges({
       <UiBadge tone={accountsReady ? "success" : "danger"} role="status">
         {accountsReady ? "✓ Accounts cap · read/write" : "× Accounts cap · missing read/write"}
       </UiBadge>
-      <UiBadge tone={permissions.usage_read ? "success" : "neutral"} role="status">{permissions.usage_read ? "Usage · read" : "Usage · optional cap not granted"}</UiBadge>
       <UiBadge
         tone={permissions.buckets_write ? "success" : "neutral"}
         role="status"

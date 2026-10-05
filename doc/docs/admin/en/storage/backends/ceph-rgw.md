@@ -19,11 +19,14 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
   reads), and Supervision Ops (monitoring and collection). Runtime has
   `accounts=read;user-info-without-keys=read;buckets=read`; Supervision has
   `usage=read;buckets=read`. Neither identity may carry write caps or admin/system flags.
-- BucketReef proposes managed service identities when Admin Ops has `users=write`.
-  External mode remains available. Without `users=write`, provide Runtime externally
-  and Supervision when Metrics, Usage or an enabled signed S3 healthcheck needs it.
-- Give the RGW Admin Ops identity `buckets=write` only when Manager bucket quota
-  management is enabled. The per-account or per-user
+- Every Ceph endpoint has Runtime and Supervision identities, independently of
+  enabled features. The recommended setup uses managed identities and Admin Ops
+  with provisioning and quota permissions. External identities and reduced Admin
+  Ops permissions are an advanced hardening choice.
+- Without `users=write`, provide both Runtime and Supervision externally. Disabling
+  Metrics, Usage or signed S3 healthchecks stops their use, without revoking identities.
+- In the advanced restricted profile, give Admin Ops `buckets=write` only when
+  Manager bucket quota management is enabled. The per-account or per-user
   `allow_bucket_quota_management` grant authorizes a BucketReef target; it does
   not add capabilities to the RGW service identity.
 - If the S3 endpoint URL is not the RGW Admin Ops URL, configure the dedicated
@@ -42,7 +45,21 @@ the Admin Ops identity signing that request to have `buckets=write`.
 `accounts=write` authorizes account-level quota operations, but it does not
 authorize an individual bucket quota update.
 
-Create Admin Ops with the mandatory read permissions:
+For evaluation and normal operation, create the recommended Admin Ops identity:
+
+```bash
+radosgw-admin user create --uid="bkr-admin" --display-name="BucketReef Admin Ops" \
+  --caps="users=read,write;accounts=read,write;buckets=write"
+```
+
+This enables provisioning, quotas and managed technical identities. Runtime reads
+and monitoring use separate restricted identities. Admin Ops does not need Usage
+capabilities. Ceph Admin remains separately authorized and managed.
+
+### Advanced: restrict Admin Ops permissions
+
+For externally provisioned resources, start with the mandatory read permissions
+and add only the administration capabilities required by your workflows:
 
 ```bash
 radosgw-admin user create --uid="bkr-admin" --display-name="BucketReef Admin Ops" \
@@ -54,10 +71,6 @@ radosgw-admin caps add --uid="bkr-admin" --caps="users=write"
 radosgw-admin caps add --uid="bkr-admin" --caps="accounts=write"
 # Optional: delegated individual bucket quota changes
 radosgw-admin caps add --uid="bkr-admin" --caps="buckets=write"
-# Optional: enable the Usage feature (absence disables it)
-radosgw-admin caps add --uid="bkr-admin" --caps="usage=read"
-# Optional: future usage administration; never required by the collectors
-radosgw-admin caps add --uid="bkr-admin" --caps="usage=write"
 ```
 
 For externally provisioned service identities:
@@ -75,10 +88,13 @@ lookups must return no S3, Swift or temporary keys. BucketReef rejects broad cap
 and admin/system flags rather than using Admin Ops as a fallback.
 
 Managed identities have distinct installation/endpoint-based UIDs, encrypted
-secrets, ownership provenance, and resumable states. Saving an endpoint creates
-Runtime; Supervision is created for Metrics, Usage or an enabled signed S3 healthcheck. Feature detection is
-read-only: Admin Ops bootstraps feature inspection, followed by functional service
-identity checks at save/apply. Failures appear in the endpoint's credentials tab;
+secrets, ownership provenance, and resumable states. Saving a Ceph endpoint provisions
+both Runtime and Supervision. Feature detection is read-only: Admin Ops inspects
+administration and Account support and predicts managed metrics availability;
+Supervision verifies Metrics and is the sole identity used to probe Usage.
+Managed identities receive functional checks at save/apply. The setup assistant
+checks Usage after managed Supervision is ready. Empty usage data does not block
+identity readiness, but Usage availability needs recorded traffic. Failures appear in the endpoint's credentials tab;
 use **Retry service identity configuration** after fixing RGW access.
 
 Existing Supervision credentials migrate as external without changing their RGW
@@ -92,8 +108,8 @@ a startup error, including on instances without Admin. The API still defaults ne
 endpoints to managed mode; this breaking requirement applies to ENV inventories.
 
 `ENV_STORAGE_ENDPOINTS` uses the same credential requirements as the endpoint API.
-For an administered Ceph endpoint in external mode, provide both Runtime keys;
-provide both Supervision keys when Metrics, Usage or an enabled signed S3 healthcheck needs it. The entire inventory
+For every Ceph endpoint in external mode, provide complete Runtime and Supervision
+pairs, even when monitoring features are disabled. The entire inventory
 is validated before synchronization. An incomplete entry prevents startup, even if
 another replica is already synchronizing endpoints; no earlier entry is applied.
 

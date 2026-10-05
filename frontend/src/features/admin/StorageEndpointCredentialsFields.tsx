@@ -6,10 +6,12 @@ import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { SettingsButton, SettingsSelect } from "../../components/settings/SettingsControls";
 import type { StorageEndpoint } from "../../api/storageEndpoints";
-import { supervisionRequired, type FormState } from "./storageEndpointFormModel";
+import { type FormState } from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
 import {
   ADMIN_OPS_FULL_COMMAND,
+  ADMIN_OPS_COMMAND,
+  ADMIN_OPS_OPTIONAL_COMMANDS,
   RUNTIME_READ_OPS_COMMAND,
   SUPERVISION_OPS_COMMAND,
 } from "./storageEndpointCredentialHelp";
@@ -61,7 +63,7 @@ function CredentialFields({ kind, label, required = false, form, setForm, readOn
         <p className="settings-label">{label} secret key</p>
         <div className="settings-readonly">{form[stored] ? "Stored — value hidden" : "Not configured"}</div>
       </div> : <UiInput label={`${label} secret key`} type="password" autoComplete="new-password"
-        value={form[secret]} required={!editing && required} error={errors[secret]}
+        value={form[secret]} required={required && !storedServicePair && (!editing || !form[stored])} error={errors[secret]}
         hint={replacementHint ?? (editing ? "Leave the secret key empty to keep the current one." : required ? "Required for the enabled service." : undefined)}
         onChange={event => change(secret, event.target.value)} />}
     </div>}
@@ -86,8 +88,14 @@ export default function StorageEndpointCredentialsFields(props: Props) {
   return <>
     <SettingsSection title="Administration (Admin Ops)" description="Bootstrap and delegated administration." presentation="compact">
       <CredentialFields {...props} kind="admin" label="Admin" required={props.form.features.admin.enabled} />
-      <CommandExample title="Full Admin Ops example">{ADMIN_OPS_FULL_COMMAND}</CommandExample>
-      <p className="settings-description">This command enables all Admin Ops capabilities used by current BucketReef features. See the Ceph RGW backend documentation for a least-privilege setup.</p>
+      <CommandExample title="Recommended Admin Ops">{ADMIN_OPS_FULL_COMMAND}</CommandExample>
+      <p className="settings-description">Enables provisioning, quotas and managed service identities. Runtime reads and monitoring use separate restricted identities.</p>
+      <details className="settings-stack">
+        <summary className="settings-label">Advanced: restrict Admin Ops permissions</summary>
+        <p className="settings-description">Use this profile when resources are provisioned externally. Add only the permissions needed for selected administration features.</p>
+        <CommandExample title="Read-only Admin Ops">{ADMIN_OPS_COMMAND}</CommandExample>
+        <CommandExample title="Optional administration permissions">{ADMIN_OPS_OPTIONAL_COMMANDS}</CommandExample>
+      </details>
     </SettingsSection>
     <SettingsSection title="Service identities" description="Managed identities are created when you save. External identities are provisioned by your operator." presentation="compact">
       <SettingsSelect label="Identity management" value={props.form.service_identity_mode} disabled={props.readOnly}
@@ -105,7 +113,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
         <option value="external">Provided externally</option>
       </SettingsSelect>
       {props.usersWrite === false && <UiInlineMessage tone="info">Admin Ops has no users=write permission. Ready managed identities remain usable. Creating, converting or rotating identities requires this permission; otherwise supply external credentials.</UiInlineMessage>}
-      {props.form.service_identity_mode === "managed" && <UiInlineMessage tone="info">Saving creates Runtime Read Ops and, if Metrics, Usage or a signed S3 healthcheck is enabled, Supervision Ops. Generated secrets stay encrypted and are never displayed. Converting external identities leaves their RGW users unchanged.</UiInlineMessage>}
+      {props.form.service_identity_mode === "managed" && <UiInlineMessage tone="info">Saving creates Runtime Read Ops and Supervision Ops for every Ceph endpoint. Feature settings control their use, not their lifecycle. Generated secrets stay encrypted and are never displayed. Converting external identities leaves their RGW users unchanged.</UiInlineMessage>}
       {props.identities?.map(identity => <div key={identity.kind} role="status" className="settings-stack">
         <p>{identity.kind === "runtime" ? "Runtime Read Ops" : identity.kind === "supervision" ? "Supervision Ops" : "Ceph Admin"} · {identity.mode} · {identity.status}</p>
         {identity.rotation_pending && <UiInlineMessage tone="warning">Rotation pending · {identity.rotation_phase}. Retry this category from S3 key rotation.</UiInlineMessage>}
@@ -120,7 +128,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       <CommandExample title="Runtime Read Ops">{RUNTIME_READ_OPS_COMMAND}</CommandExample>
     </SettingsSection>}
     {props.form.service_identity_mode === "external" && <SettingsSection title="Monitoring (Supervision Ops)" description="Read-only usage and metrics collection." presentation="compact">
-      <CredentialFields {...props} kind="supervision" label="Supervision" required={supervisionRequired(props.form.features)} />
+      <CredentialFields {...props} kind="supervision" label="Supervision" required />
       <CommandExample title="Supervision Ops">{SUPERVISION_OPS_COMMAND}</CommandExample>
     </SettingsSection>}
     {props.cephAdminEnabled && <SettingsSection title="Ceph Admin" description="Select authorized endpoints in General settings. BucketReef creates a dedicated managed identity before granting access." presentation="compact">

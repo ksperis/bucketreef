@@ -38,6 +38,7 @@ def test_ci_endpoint_payload_enables_replication(monkeypatch):
         parse_env_storage_endpoints(json.dumps(payload))
     )
     assert len(states) == 1
+    assert states[0].service_identity_mode == "managed"
 
 
 def test_ci_app_settings_payload_enables_portal_features():

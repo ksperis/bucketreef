@@ -1,5 +1,4 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
-import { supervisionRequired } from "./storageEndpointFormModel";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
@@ -64,6 +63,7 @@ import {
 } from "./StorageEndpointValidationStatus";
 import {
   ADMIN_OPS_COMMAND,
+  ADMIN_OPS_FULL_COMMAND,
   RUNTIME_READ_OPS_COMMAND,
   ADMIN_OPS_OPTIONAL_COMMANDS,
   PRIVATE_S3_USER_COMMAND,
@@ -351,7 +351,7 @@ export default function OnboardingPage() {
     "runtime",
   );
   const needsCeph = Boolean(isCeph && (draft.manager || draft.portal || draft.supervision || draft.ceph_admin));
-  const needsSupervision = needsCeph && (draft.supervision || supervisionRequired(selectedEndpoint?.features ?? {}));
+  const needsSupervision = needsCeph;
   const adminCredentialsRequired = needsCeph && !storedAdminCredentials;
   const supervisionCredentialsRequired = identityMode === "external" && needsSupervision && !storedSupervisionCredentials;
   const runtimeCredentialsRequired = identityMode === "external" && needsCeph && !storedRuntimeCredentials;
@@ -1063,7 +1063,7 @@ export default function OnboardingPage() {
                     secretKey={adminSecretKey}
                     required={adminCredentialsRequired}
                     stored={storedAdminCredentials}
-                    command={ADMIN_OPS_COMMAND}
+                    command={ADMIN_OPS_FULL_COMMAND}
                     commandHelp={t(copy.rgwCommandHelp)}
                     storedLabel={t(copy.storedCredentials)}
                     onAccessChange={setAdminAccessKey}
@@ -1101,13 +1101,13 @@ export default function OnboardingPage() {
                   />
                 )}
 
-                {needsCeph && <WorkflowSection title="Service identities" description="Runtime is required for live reads. Supervision is required for monitoring or a signed S3 healthcheck.">
+                {needsCeph && <WorkflowSection title="Service identities" description="Every Ceph endpoint has Runtime Read Ops and Supervision Ops. Feature settings control their use.">
                   <UiSelect label="Identity management" value={identityMode} onChange={event => setIdentityMode(event.target.value as "managed" | "external")}>
                     <option value="managed" disabled={adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !(serviceIdentity(selectedEndpoint, "runtime")?.mode === "managed" && serviceIdentity(selectedEndpoint, "runtime")?.status === "ready")}>Managed by BucketReef</option>
                     <option value="external">Provided externally</option>
                   </UiSelect>
-                  {identityMode === "managed" && <UiInlineMessage tone="info">Identities are created and functionally validated when you apply this setup. Generated secrets remain hidden.</UiInlineMessage>}
-                  <CredentialHelp command={ADMIN_OPS_OPTIONAL_COMMANDS} />
+                  {identityMode === "managed" && <UiInlineMessage tone="info">Runtime Read Ops and Supervision Ops are created and functionally validated when you apply this setup. Generated secrets remain hidden. Usage is checked with Supervision after provisioning.</UiInlineMessage>}
+                  <CredentialHelp command={`${ADMIN_OPS_COMMAND}\n\n${ADMIN_OPS_OPTIONAL_COMMANDS}`} note="Advanced: restrict Admin Ops permissions" />
                 </WorkflowSection>}
                 {needsSupervision && identityMode === "external" && (
                   <CredentialSection

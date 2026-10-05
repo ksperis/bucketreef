@@ -51,7 +51,7 @@ def guided(db_session, monkeypatch):
         sessionmaker(bind=db_session.get_bind()),
     )
     rgw = FakeRGW()
-    rgw.users["operator"]["caps"] = "users=read,write;accounts=read,write;usage=read"
+    rgw.users["operator"]["caps"] = "users=read,write;accounts=read,write"
     original_lookup = rgw.get_user_by_access_key
     rgw.get_user_by_access_key = lambda key, **kwargs: rgw.users["operator"] if key == "admin-ak" else original_lookup(key, **kwargs)
     for kind, access, secret in [("runtime", "runtime-ak", "runtime-sk"), ("supervision", "supervision-ak", "supervision-sk")]:
@@ -770,3 +770,39 @@ def test_external_onboarding_reuses_stored_pairs_on_env_endpoint_already_supervi
     assert result.configured
     assert all(row.status == "ready" for row in ep.service_identities)
     assert "runtime-sk" not in result.model_dump_json() and "supervision-sk" not in result.model_dump_json()
+
+
+@pytest.mark.parametrize("usage_data", [False, True])
+def test_managed_onboarding_detects_usage_after_provisioning_without_admin_usage_caps(
+    guided, db_session, monkeypatch, usage_data,
+):
+    user = actor(db_session)
+    rgw = FakeRGW()
+    rgw.users["operator"]["caps"] = "users=read,write;accounts=read,write;buckets=write"
+    if usage_data:
+        rgw.usage_payload = {"summary": [{"user": "pilot", "categories": [{"ops": 1}]}]}
+    monkeypatch.setattr("app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client", lambda _: rgw)
+    monkeypatch.setattr("app.services.storage_endpoints_service.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
+    monkeypatch.setattr("app.services.rgw_admin.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
+
+    result = apply(guided, user, save(guided, user, endpoint_url="https://new.example.test", supervision=True),
+                   admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET")
+
+    assert result.configured
+    ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
+    assert {identity.kind for identity in ep.service_identities} == {"runtime", "supervision"}
+    assert all(identity.status == "ready" for identity in ep.service_identities)
+    assert resolve_feature_flags(ep).metrics_enabled
+    assert resolve_feature_flags(ep).usage_enabled is usage_data
+    usages = [call for call in rgw.calls if call[0] == "usage"]
+    assert usages and all(call[1] == ep.service_identity("supervision").access_key for call in usages)
+
+
+def test_external_ceph_admin_setup_requires_supervision_even_without_collectors(guided, db_session, monkeypatch):
+    user = actor(db_session)
+    monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_: detection())
+    with pytest.raises(OnboardingError, match="supervision_credentials_required"):
+        apply(guided, user, save(guided, user, endpoint_url="https://ceph-only.example.test", ceph_admin=True),
+              admin_access_key="admin-ak", admin_secret_key="admin-sk", service_identity_mode="external",
+              runtime_access_key="runtime-ak", runtime_secret_key="runtime-sk")
+    assert db_session.query(StorageEndpoint).count() == 0

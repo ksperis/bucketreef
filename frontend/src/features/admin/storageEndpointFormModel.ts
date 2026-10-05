@@ -389,10 +389,3 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     features: resolveFeatureState(endpoint, endpoint.provider),
   };
 }
-
-
-/** Keep provisioning and signed-healthcheck requirements aligned. */
-export function supervisionRequired(features: {metrics?: {enabled?: boolean}; usage?: {enabled?: boolean}; healthcheck?: {enabled?: boolean; mode?: string}}): boolean {
-  return Boolean(features.metrics?.enabled || features.usage?.enabled ||
-    (features.healthcheck?.enabled && features.healthcheck.mode === "s3"));
-}

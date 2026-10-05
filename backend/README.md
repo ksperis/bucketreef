@@ -118,7 +118,9 @@ Environment variables (or `.env` file) supported via `pydantic`:
 - `SEED_S3_ACCESS_KEY` / `SEED_S3_SECRET_KEY`
 - `SEED_S3_REGION` (default: `us-east-1`)
 - `SEED_RGW_ADMIN_ACCESS_KEY` / `SEED_RGW_ADMIN_SECRET_KEY` (optional override for the default endpoint admin credentials)
-- `SEED_SUPERVISION_ACCESS_KEY` / `SEED_SUPERVISION_SECRET_KEY` (optional read-only credentials for usage/metrics)
+- `SEED_SERVICE_IDENTITY_MODE` (`managed` by default; `external` requires both Runtime and Supervision pairs for Ceph endpoints)
+- `SEED_RUNTIME_ACCESS_KEY` / `SEED_RUNTIME_SECRET_KEY` (required in external mode)
+- `SEED_SUPERVISION_ACCESS_KEY` / `SEED_SUPERVISION_SECRET_KEY` (required in external mode; read-only usage/metrics identity)
 - `CORS_ORIGINS` (default: `["http://localhost:5173"]`)
 - `OIDC_STATE_TTL_SECONDS` (default: `600`, validity of login `state`)
 - `OIDC_PROVIDERS__<key>__*` to configure OpenID Connect providers (see below)

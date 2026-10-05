@@ -315,7 +315,7 @@ describe("simplified onboarding", () => {
       screen.getAllByText("Show the Ceph RGW command to create this identity"),
     ).toHaveLength(2);
     expect(screen.getByText(/users=read;accounts=read/)).toBeInTheDocument();
-    expect(screen.getByText(/Identities are created and functionally validated/)).toBeInTheDocument();
+    expect(screen.getByText(/Runtime Read Ops and Supervision Ops are created and functionally validated/)).toBeInTheDocument();
     expect(screen.getByText(/dedicated managed Ceph Admin identity/)).toBeInTheDocument();
     expect(screen.getByText(/BucketReef private S3 user/)).toBeInTheDocument();
   });

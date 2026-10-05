@@ -72,12 +72,12 @@ passkey policy. Secure the Admin identity separately before production:
    a private S3 connection for Browser + Manager, monitoring/metrics, and/or
    Ceph Admin. Ceph-specific choices remain available for a Ceph RGW endpoint
    even when its management credentials have not been configured yet.
-3. **Provide credentials.** Supply Admin Ops for Ceph bootstrap. Its mandatory caps
-   are `users=read;accounts=read`; the UI shows optional writes and available features.
-   Managed mode needs `users=write` and creates Runtime plus Supervision when
-   monitoring is selected. In external mode, provide Runtime and, when needed,
-   Supervision keys. The private S3 connection keeps its own identity. Creation
-   commands include mandatory caps and explicit optional permission additions.
+3. **Provide credentials.** Use the recommended Admin Ops command with
+   `users=read,write;accounts=read,write;buckets=write` for provisioning, quotas and
+   managed service identities. Managed mode creates Runtime and Supervision for
+   every Ceph endpoint. Advanced hardening can restrict Admin Ops permissions and
+   provide both Runtime and Supervision externally. The private S3 connection
+   keeps its own identity. Feature choices control which workflows run.
 4. **Review and apply.** Inspect the exact feature activations, resource
    creations and access assignments, then explicitly apply the reviewed
    configuration. **Apply configuration** is available only in this final step.
@@ -92,8 +92,9 @@ so operators can provision accounts/users outside BucketReef.
 
 Initial checks use Admin Ops without creating resources. Applying creates managed
 identities and validates Runtime reads without keys and Supervision collection.
-No Runtime or monitoring read falls back to Admin Ops. Usage is disabled if Admin
-Ops lacks `usage=read`; empty usage data does not prevent metrics setup. Ceph Admin
+No Runtime or monitoring read falls back to Admin Ops. Usage is checked only with
+Supervision, after provisioning in managed mode, and does not require Admin Ops
+`usage=read`. Empty usage data does not prevent metrics or service identity setup. Ceph Admin
 requires `users=write` and creates a dedicated managed admin identity for the selected
 endpoint. The private S3 connection is validated independently. ENV locks still apply.
 

@@ -196,8 +196,6 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
     common_credentials = {
         "admin_access_key": _require_env("CEPH_TEST_RGW_ADMIN_ACCESS_KEY", source=env),
         "admin_secret_key": _require_env("CEPH_TEST_RGW_ADMIN_SECRET_KEY", source=env),
-        "supervision_access_key": _require_env("CEPH_TEST_SUPERVISION_ACCESS_KEY", source=env),
-        "supervision_secret_key": _require_env("CEPH_TEST_SUPERVISION_SECRET_KEY", source=env),
     }
 
     def _entry(name: str, endpoint_url: str, *, is_default: bool) -> dict[str, object]:
@@ -207,6 +205,7 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
             "region": region,
             "verify_tls": verify_tls,
             "provider": "ceph",
+            "service_identity_mode": "managed",
             **common_credentials,
             "features": {
                 "admin": {"enabled": True, "endpoint": admin_endpoint},

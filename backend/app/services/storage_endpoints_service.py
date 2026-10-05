@@ -53,7 +53,6 @@ from app.utils.storage_endpoint_features import (
     features_to_capabilities,
     normalize_features_config,
     resolve_rgw_admin_api_endpoint,
-    supervision_required,
 )
 
 logger = logging.getLogger(__name__)
@@ -185,14 +184,13 @@ class StorageEndpointsService:
             supervision = endpoint.service_identity("supervision")
             if supervision is not None:
                 cls._set_service_identity_mode(supervision, runtime.mode)
-            if config.supervision_access_key is not None or config.supervision_secret_key is not None:
-                if supervision is None:
-                    supervision = EndpointServiceIdentity(
-                        kind="supervision",
-                        mode=runtime.mode,
-                        status="missing",
-                    )
-                    endpoint.service_identities.append(supervision)
+            if supervision is None:
+                supervision = EndpointServiceIdentity(
+                    kind="supervision",
+                    mode=runtime.mode,
+                    status="missing",
+                )
+                endpoint.service_identities.append(supervision)
             if supervision is not None and supervision.mode == "external":
                 cls._apply_external_credentials(supervision, config.supervision_access_key, config.supervision_secret_key)
         endpoint.features_config = config.features_config
@@ -254,8 +252,7 @@ class StorageEndpointsService:
                 for kind in ("runtime", "supervision"):
                     identity = endpoint.service_identity(kind)
                     if identity is not None and identity.mode == "managed":
-                        required = kind == "runtime" or supervision_required(normalize_features_config(config.provider, config.features_config, config.region))
-                        if required and (not getattr(config, f"{kind}_access_key") or not getattr(config, f"{kind}_secret_key")):
+                        if not getattr(config, f"{kind}_access_key") or not getattr(config, f"{kind}_secret_key"):
                             raise ValueError("ENV conversion to external mode requires replacement service credentials.")
                         if not endpoint_identity_management_enabled(settings):
                             raise ValueError("ENV identity conversion requires an administration instance.")

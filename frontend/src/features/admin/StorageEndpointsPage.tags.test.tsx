@@ -406,8 +406,8 @@ describe("StorageEndpointsPage tags", () => {
 
     expect(screen.queryByRole("region", { name: "Operational permissions" })).not.toBeInTheDocument();
     const adminSection = screen.getByRole("region", { name: "Administration (Admin Ops)" });
-    expect(within(adminSection).getByText("Full Admin Ops example")).toBeVisible();
-    expect(within(adminSection).getByText(/users=read,write;accounts=read,write;buckets=write;usage=read/)).toBeVisible();
+    expect(within(adminSection).getByText("Recommended Admin Ops")).toBeVisible();
+    expect(within(adminSection).getByText(/users=read,write;accounts=read,write;buckets=write/)).toBeVisible();
     const runtimeSection = screen.getByRole("region", { name: "Live reads (Runtime Read Ops)" });
     expect(within(runtimeSection).getByText(/accounts=read;user-info-without-keys=read;buckets=read/)).toBeVisible();
     const supervisionSection = screen.getByRole("region", { name: "Monitoring (Supervision Ops)" });

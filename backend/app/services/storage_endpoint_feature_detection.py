@@ -437,17 +437,10 @@ class StorageEndpointFeatureDetector:
                     result.metrics = True
                 except RGWAdminError:
                     result.metrics = False
-            if result.admin_ops_permissions.usage_read:
-                try:
-                    result.usage = self._usage_payload_has_values(admin_client.get_usage(show_entries=False, show_summary=True))
-                except RGWAdminError:
-                    result.usage = False
         self._detect_runtime_credentials(context, result)
         if context.supervision_credentials.complete or context.supervision_credentials.partial:
             self._detect_supervision_features(context, result)
-        if not result.admin_ops_permissions.usage_read:
-            result.usage = False
-        if result.metrics and not result.usage:
+        if result.usage_error:
             result.warnings.append(
                 "Usage logs returned no usable data; verify rgw_enable_usage_log is enabled and that RGW has recorded traffic."
             )
