@@ -23,6 +23,7 @@ SERVICE_CAPS = {
     "supervision": "usage=read;buckets=read",
 }
 INSTALLATION_KEY = "endpoint-service-identity-installation"
+STARTUP_RECOVERY_KEY_TYPES = frozenset({"endpoint_runtime", "endpoint_supervision", "ceph_admin"})
 
 
 class ManagedIdentityKeyDriftError(ValueError):
@@ -317,6 +318,40 @@ class EndpointServiceIdentityService:
         key_type = "ceph_admin" if kind == "ceph_admin" else f"endpoint_{kind}"
         return DurableKeyRotationService(self.db, actor=self.actor, identity_service=self).rotate(
             endpoint, key_type, identity.id, deactivate_only=deactivate_only)
+
+    @staticmethod
+    def _identity_is_locally_ready(identity) -> bool:
+        if (
+            identity is None
+            or identity.status != "ready"
+            or not identity.rgw_uid
+            or not identity.access_key
+            or not identity.secret_key
+        ):
+            return False
+        return identity.mode != "managed" or bool(identity.provenance)
+
+    def needs_startup_reconciliation(self, endpoint, *, ceph_admin_enabled: bool) -> bool:
+        """Return whether persisted local state requires an RGW recovery pass."""
+        if endpoint.provider != "ceph":
+            return False
+
+        for kind in ("runtime", "supervision"):
+            if not self._identity_is_locally_ready(endpoint.service_identity(kind)):
+                return True
+
+        ceph_admin = endpoint.service_identity("ceph_admin")
+        ceph_admin_desired = bool(ceph_admin_enabled and endpoint.ceph_admin_allowed)
+        if ceph_admin_desired:
+            if not self._identity_is_locally_ready(ceph_admin):
+                return True
+        elif ceph_admin is not None and ceph_admin.status != "disabled":
+            return True
+
+        return any(
+            intent.key_type in STARTUP_RECOVERY_KEY_TYPES
+            for intent in endpoint.key_rotation_intents
+        )
 
     def reconcile(self, endpoint, *, ceph_admin_enabled=None, locked=False):
         if endpoint.provider != "ceph":
