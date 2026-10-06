@@ -8,7 +8,7 @@ import { awsIamEndpointForRegion, awsStsEndpointForRegion, type FeaturesState, t
 
 export default function StorageEndpointCapabilitiesFields({
   features, provider, region, readOnly, updateFeatures, invalidateChecks,
-  detecting, detectionError, warnings, usageUnavailable, signedProbeBlockedReason,
+  detecting, detectionError, warnings, usageUnavailable, signedProbeBlockedReason, detectedCapabilities,
 }: {
   features: FeaturesState;
   provider: StorageProvider;
@@ -21,16 +21,17 @@ export default function StorageEndpointCapabilitiesFields({
   warnings: string[];
   usageUnavailable: boolean;
   signedProbeBlockedReason: string | null;
+  detectedCapabilities: { account: boolean; usage: boolean; metrics: boolean } | null;
 }) {
   const ceph = provider === "ceph";
   const aws = provider === "aws";
-  const toggle = (key: FeatureKey, title: string, detected = false) =>
+  const toggle = (key: FeatureKey, title: string, locked = false, available = true) =>
     <SettingsItem key={key} title={title} compact action={<SettingsSwitch ariaLabel={title}
-      checked={features[key].enabled} disabled={readOnly || detected}
+      checked={features[key].enabled} disabled={readOnly || locked || !available}
       onChange={enabled => updateFeatures(current => ({ ...current, [key]: { ...current[key], enabled } }))} />} />;
   return <>
     {ceph && <SettingsSection title="Ceph services"
-      description="Admin, account API, usage log, and metrics are auto-detected from credentials. Usage log/metrics require supervision credentials."
+      description="Availability is auto-detected from credentials. Detected account, usage log, and metrics services can be disabled for this endpoint. Usage log/metrics require supervision credentials."
       presentation="compact">
       <div className="settings-fields">
         {detecting && <UiInlineMessage tone="info" role="status">Feature detection in progress from entered credentials.</UiInlineMessage>}
@@ -41,9 +42,9 @@ export default function StorageEndpointCapabilitiesFields({
         </UiInlineMessage>}
         <div>
           {toggle("admin", "Admin enabled", true)}
-          {toggle("account", "Accounts enabled", true)}
-          {toggle("usage", "Usage Log enabled", true)}
-          {toggle("metrics", "Metrics enabled", true)}
+          {toggle("account", "Accounts enabled", false, detectedCapabilities?.account === true)}
+          {toggle("usage", "Usage Log enabled", false, detectedCapabilities?.usage === true)}
+          {toggle("metrics", "Metrics enabled", false, detectedCapabilities?.metrics === true)}
           {toggle("sns", "SNS topics enabled")}
           {toggle("replication", "Bucket replication enabled")}
         </div>

@@ -1038,6 +1038,118 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.queryByText(/Admin Ops has no users=write permission/)).not.toBeInTheDocument();
   });
 
+  it("lets detected Ceph services be disabled while unavailable services stay locked", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    const endpoint = makeEndpoint({
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: externalServiceIdentities(true),
+      features: {
+        ...makeEndpoint().features,
+        account: { enabled: true },
+        usage: { enabled: false },
+        metrics: { enabled: true },
+      },
+    });
+    listStorageEndpointsMock.mockResolvedValue([endpoint]);
+    getStorageEndpointMock.mockResolvedValue(endpoint);
+    detectStorageEndpointFeaturesMock.mockResolvedValue({
+      admin: true,
+      account: true,
+      usage: false,
+      metrics: true,
+      warnings: [],
+      admin_ops_permissions: {
+        users_read: true,
+        users_write: true,
+        buckets_read: false,
+        buckets_write: false,
+        accounts_read: true,
+        accounts_write: true,
+      },
+      credential_checks: {
+        admin: { status: "valid" },
+        supervision: { status: "valid" },
+        runtime: { status: "valid" },
+      },
+    });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Capabilities & health" }));
+
+    const accounts = screen.getByRole("switch", { name: "Accounts enabled" });
+    const usage = screen.getByRole("switch", { name: "Usage Log enabled" });
+    const metrics = screen.getByRole("switch", { name: "Metrics enabled" });
+    await waitFor(() => expect(accounts).toBeEnabled());
+    expect(accounts).toBeChecked();
+    expect(metrics).toBeEnabled();
+    expect(metrics).toBeChecked();
+    expect(usage).toBeDisabled();
+    expect(usage).not.toBeChecked();
+
+    fireEvent.click(accounts);
+    fireEvent.click(metrics);
+    expect(accounts).not.toBeChecked();
+    expect(metrics).not.toBeChecked();
+
+    const updateButton = screen.getByRole("button", { name: "Update endpoint" });
+    await waitFor(() => expect(updateButton).toBeEnabled());
+    fireEvent.click(updateButton);
+    await waitFor(() => expect(updateStorageEndpointMock).toHaveBeenCalledOnce());
+    const payload = updateStorageEndpointMock.mock.calls[0]?.[1] as { features_config?: string };
+    expect(payload.features_config).toContain("account:\n    enabled: false");
+    expect(payload.features_config).toContain("usage:\n    enabled: false");
+    expect(payload.features_config).toContain("metrics:\n    enabled: false");
+  });
+
+  it("preserves disabled Ceph service choices when detection reports them available", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    const endpoint = makeEndpoint({
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: externalServiceIdentities(true),
+      features: {
+        ...makeEndpoint().features,
+        account: { enabled: false },
+        usage: { enabled: false },
+        metrics: { enabled: false },
+      },
+    });
+    listStorageEndpointsMock.mockResolvedValue([endpoint]);
+    getStorageEndpointMock.mockResolvedValue(endpoint);
+    detectStorageEndpointFeaturesMock.mockResolvedValue({
+      admin: true,
+      account: true,
+      usage: true,
+      metrics: true,
+      warnings: [],
+      admin_ops_permissions: {
+        users_read: true,
+        users_write: true,
+        buckets_read: false,
+        buckets_write: false,
+        accounts_read: true,
+        accounts_write: true,
+      },
+      credential_checks: {
+        admin: { status: "valid" },
+        supervision: { status: "valid" },
+        runtime: { status: "valid" },
+      },
+    });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Capabilities & health" }));
+
+    for (const name of ["Accounts enabled", "Usage Log enabled", "Metrics enabled"]) {
+      const feature = screen.getByRole("switch", { name });
+      await waitFor(() => expect(feature).toBeEnabled());
+      expect(feature).not.toBeChecked();
+    }
+  });
+
   it("keeps tags read-only for a non-superadmin on the endpoint page", async () => {
     setSessionUserCache({ id: 2, role: "ui_admin" });
     fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: true });
