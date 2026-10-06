@@ -16,6 +16,10 @@ deploymentProfile: full
 backend:
   replicas: 1
   databaseType: postgresql
+  startupProbe:
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 120
   # Exact ingress/reverse-proxy pod CIDRs. Required by the production profile.
   trustedProxyCidrs: []
   # Existing Secret is mandatory. It must contain database-url, ui-jwt-keys,

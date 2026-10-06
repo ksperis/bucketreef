@@ -112,6 +112,18 @@ def test_helm_workloads_apply_least_privilege_contract():
         assert container["capabilities"]["drop"] == ["ALL"]
 
 
+def test_helm_backend_startup_probe_covers_slow_database_and_identity_reconciliation():
+    template = _read("deploy/helm/bucketreef/templates/backend-deployment.yaml")
+    values = yaml.safe_load(_read("deploy/helm/bucketreef/values.yaml"))
+
+    startup_probe = values["backend"]["startupProbe"]
+    assert startup_probe["periodSeconds"] * startup_probe["failureThreshold"] >= 600
+    assert "startupProbe:" in template
+    assert ".Values.backend.startupProbe.periodSeconds" in template
+    assert ".Values.backend.startupProbe.timeoutSeconds" in template
+    assert ".Values.backend.startupProbe.failureThreshold" in template
+
+
 def test_strict_network_policies_are_fail_closed_and_cover_all_workloads():
     values = yaml.safe_load(_read("deploy/helm/bucketreef/values.yaml"))
     network = values["networkPolicy"]
