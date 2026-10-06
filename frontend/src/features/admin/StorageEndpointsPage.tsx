@@ -95,6 +95,7 @@ export default function StorageEndpointsPage() {
   const [envManaged, setEnvManaged] = useState(false);
   const [metadataReady, setMetadataReady] = useState(false);
   const mutationPending = useRef(false);
+  const detectedFeatureDefaultsApplied = useRef({ account: false, usage: false, metrics: false });
   const closingEndpointId = useRef<number | null>(null);
   const [listFilters, setListFilters] = useState<EndpointListFilters>({ query: "", mode: "contains", provider: "all" });
   const [loading, setLoading] = useState(true);
@@ -124,6 +125,7 @@ export default function StorageEndpointsPage() {
   const invalidateCredentialChecks = useCallback(() => undefined, []);
 
   const resetForm = useCallback(() => {
+    detectedFeatureDefaultsApplied.current = { account: false, usage: false, metrics: false };
     setForm(createEmptyForm());
     setActiveTab("general");
     setFormBaseline(null);
@@ -317,6 +319,12 @@ export default function StorageEndpointsPage() {
 
   useEffect(() => {
     if (!detection || mutationPending.current) return;
+    const defaultAccount = hasAdminCredentials && detection.account && !detectedFeatureDefaultsApplied.current.account;
+    const defaultUsage = hasSupervisionCredentials && detection.usage && !detectedFeatureDefaultsApplied.current.usage;
+    const defaultMetrics = hasSupervisionCredentials && detection.metrics && !detectedFeatureDefaultsApplied.current.metrics;
+    if (defaultAccount) detectedFeatureDefaultsApplied.current.account = true;
+    if (defaultUsage) detectedFeatureDefaultsApplied.current.usage = true;
+    if (defaultMetrics) detectedFeatureDefaultsApplied.current.metrics = true;
     setForm((prev) => {
       if (prev.provider !== "ceph") return prev;
       const next = applyFeatureConstraints(
@@ -325,15 +333,9 @@ export default function StorageEndpointsPage() {
           admin: hasAdminCredentials
             ? { ...prev.features.admin, enabled: Boolean(detection.admin) }
             : prev.features.admin,
-          account: hasAdminCredentials
-            ? { ...prev.features.account, enabled: Boolean(detection.account) }
-            : prev.features.account,
-          usage: hasSupervisionCredentials
-            ? { ...prev.features.usage, enabled: Boolean(detection.usage) }
-            : prev.features.usage,
-          metrics: hasSupervisionCredentials
-            ? { ...prev.features.metrics, enabled: Boolean(detection.metrics) }
-            : prev.features.metrics,
+          account: defaultAccount ? { ...prev.features.account, enabled: true } : prev.features.account,
+          usage: defaultUsage ? { ...prev.features.usage, enabled: true } : prev.features.usage,
+          metrics: defaultMetrics ? { ...prev.features.metrics, enabled: true } : prev.features.metrics,
         },
         prev.provider,
       );
@@ -418,6 +420,7 @@ export default function StorageEndpointsPage() {
 
   const startCreate = () => {
     if (!metadataReady || envManaged || !canEditEndpoints) return;
+    detectedFeatureDefaultsApplied.current = { account: false, usage: false, metrics: false };
     const nextForm = createEmptyForm();
     setForm(nextForm);
     setActiveTab("general");
@@ -430,6 +433,7 @@ export default function StorageEndpointsPage() {
 
   const openEndpointPage = useCallback((endpoint: StorageEndpoint) => {
     closingEndpointId.current = null;
+    detectedFeatureDefaultsApplied.current = { account: true, usage: true, metrics: true };
     const nextForm = createFormFromEndpoint(endpoint);
     setEditingId(endpoint.id);
     setActiveTab("general");
@@ -852,7 +856,8 @@ export default function StorageEndpointsPage() {
             {activeTab === "capabilities" && <StorageEndpointCapabilitiesFields features={form.features} provider={form.provider}
               region={form.region} readOnly={configurationReadOnly} updateFeatures={updateFeatures}
               invalidateChecks={invalidateCredentialChecks} detecting={featureDetectBusy} detectionError={featureDetectError}
-              warnings={featureDetectWarnings} usageUnavailable={showUsageLogUnavailableWarning} signedProbeBlockedReason={signedProbeBlockedReason} />}
+              warnings={featureDetectWarnings} usageUnavailable={showUsageLogUnavailableWarning} signedProbeBlockedReason={signedProbeBlockedReason}
+              detectedCapabilities={detection ? { account: detection.account, usage: detection.usage, metrics: detection.metrics } : null} />}
           </div>
         </StorageEndpointEditor>
       )}

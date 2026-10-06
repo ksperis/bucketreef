@@ -26,6 +26,9 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
   reduced Admin Ops permissions are an advanced hardening choice.
 - Without `users=write`, provide both Runtime and Supervision externally. Disabling
   Metrics, Usage or signed S3 healthchecks stops their use, without revoking identities.
+- Account, Usage Log, and Metrics availability is detected from RGW credentials. A
+  detected service can still be disabled in the endpoint configuration; a service that
+  is not detected as available remains read-only in the UI.
 - In the advanced restricted profile, give Admin Ops `buckets=write` only when
   Manager bucket quota management is enabled. The per-account or per-user
   `allow_bucket_quota_management` grant authorizes a BucketReef target; it does
