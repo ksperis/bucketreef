@@ -172,9 +172,10 @@ changes the RGW user. Rotate it externally and supply the replacement pair.
 Migration `0143_external_ceph_admin_credentials` preserves complete Ceph Admin pairs
 from `0.2.13` while removing managed-only UIDs, provenance, validation state and
 pending rotations. The preserved pair is revalidated after upgrade; re-enter it only
-when it is incomplete or invalid. Endpoint authorizations and RGW users remain
-untouched; inspect and clean up obsolete users and keys manually, without purging
-buckets or data.
+when it is incomplete or invalid. Migration intentionally resets per-endpoint Ceph
+Admin authorization to disabled, so explicitly re-enable it after validating the
+preserved credentials. Existing RGW users remain untouched; inspect and clean up
+obsolete users and keys manually, without purging buckets or data.
 
 ## Revalidation and recovery
 
