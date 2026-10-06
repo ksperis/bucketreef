@@ -96,11 +96,30 @@ def test_manual_pair_replacement_and_empty_update_preservation(identities, db_se
     assert rgw.users["manual-admin"] == before["manual-admin"]
 
 
-def test_ceph_admin_rotation_is_operator_owned(identities, db_session):
+def test_ceph_admin_rotation_uses_admin_ops_and_updates_external_pair(identities, db_session, monkeypatch):
     service, endpoint, rgw = identities
     configure(db_session, endpoint, rgw)
-    result = KeyRotationService(db_session).rotate_keys(KeyRotationRequest(endpoint_ids=[endpoint.id], key_types=["ceph_admin"]))
-    assert result.summary.skipped == 1 and not rgw.calls
+    endpoint.features_config = "features:\n  admin:\n    enabled: false\n"
+    db_session.commit()
+    service.validate_ceph_admin(endpoint)
+    monkeypatch.setattr(
+        "app.services.durable_key_rotation_service.get_rgw_admin_client",
+        lambda **kwargs: rgw.signed(kwargs["access_key"]),
+    )
+    result = KeyRotationService(db_session).rotate_keys(
+        KeyRotationRequest(endpoint_ids=[endpoint.id], key_types=["ceph_admin"])
+    )
+    identity = endpoint.service_identity("ceph_admin")
+    assert result.summary.rotated == 1 and result.summary.skipped == 0
+    assert identity.mode == "external" and identity.status == "ready"
+    assert identity.access_key != "CEPH-AK"
+    assert identity.secret_key != "CEPH-SK"
+    assert "CEPH-AK" not in {key["access_key"] for key in rgw.users["manual-admin"]["keys"]}
+    assert db_session.query(KeyRotationIntent).filter_by(
+        endpoint_id=endpoint.id,
+        key_type="ceph_admin",
+        target_id=identity.id,
+    ).first() is None
     with pytest.raises(ValueError, match="managed"):
         service.rotate(endpoint, "ceph_admin")
 
