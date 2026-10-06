@@ -561,6 +561,38 @@ def test_sync_env_endpoints_skips_admin_ops_permissions_resolution(db_session, m
     assert calls["count"] == 0
 
 
+def test_sync_env_endpoints_releases_endpoint_lock_when_env_inventory_is_removed(db_session, monkeypatch):
+    endpoint = StorageEndpoint(
+        name="former-env",
+        endpoint_url="https://former-env.example.test",
+        provider=StorageProvider.CEPH.value,
+        is_default=True,
+        is_editable=False,
+    )
+    editable_endpoint = StorageEndpoint(
+        name="database-managed",
+        endpoint_url="https://database-managed.example.test",
+        provider=StorageProvider.OTHER.value,
+        is_default=False,
+        is_editable=True,
+    )
+    db_session.add_all([endpoint, editable_endpoint])
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        "",
+        raising=False,
+    )
+
+    synced = StorageEndpointsService(db_session).sync_env_endpoints()
+
+    assert synced == []
+    db_session.refresh(endpoint)
+    db_session.refresh(editable_endpoint)
+    assert endpoint.is_editable is True
+    assert editable_endpoint.is_editable is True
+
+
 def test_environment_storage_endpoint_rejects_unknown_fields(db_session, monkeypatch):
     monkeypatch.setattr(
         "app.services.storage_endpoints_service.settings.env_storage_endpoints",

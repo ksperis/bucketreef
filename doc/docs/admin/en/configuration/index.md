@@ -245,6 +245,11 @@ capabilities are probed explicitly before enabling, and endpoints managed by
 settings remain unchanged. Access assignments are separate explicit changes in
 the confirmation summary. See [guided application setup](../getting-started/sysadmin-onboarding.md#guided-application-setup).
 
+When `ENV_STORAGE_ENDPOINTS` is removed, endpoints previously synchronized from
+that inventory remain persisted and become editable through the Admin UI/API on
+the next backend startup. Their stored endpoint configuration and service
+identities are preserved.
+
 ### Persistence and standard settings
 
 Primary model: `backend/app/models/app_settings.py`.
