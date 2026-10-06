@@ -74,7 +74,7 @@ def probe_ceph_admin_service_identity(endpoint: StorageEndpoint) -> CephAdminIde
         if failure == "misconfigured":
             return CephAdminIdentityProbe(
                 status="misconfigured",
-                warning=str(exc),
+                warning="Ceph Admin endpoint configuration is invalid; check the RGW Admin Ops URL and redirects.",
             )
         return CephAdminIdentityProbe(
             status="unavailable",
@@ -86,12 +86,12 @@ def probe_ceph_admin_service_identity(endpoint: StorageEndpoint) -> CephAdminIde
             warning=f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': access key does not map to an RGW user.",
         )
     is_admin, is_system = extract_ceph_admin_flags(user_payload)
-    if not is_admin and not is_system:
+    if not is_admin or is_system:
         return CephAdminIdentityProbe(
             status="denied",
             warning=(
                 f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': the dedicated access key must belong "
-                "to an RGW user created with --admin or --system."
+                "to an RGW user configured with admin=true and system=false."
             ),
         )
     return CephAdminIdentityProbe(status="available", user_payload=user_payload)
@@ -104,8 +104,8 @@ def validate_ceph_admin_service_identity(endpoint: StorageEndpoint) -> Optional[
 def validate_ceph_admin_service_configuration(endpoint: StorageEndpoint) -> Optional[str]:
     endpoint_label = endpoint.name or f"#{endpoint.id}"
     identity = endpoint.service_identity("ceph_admin")
-    if not endpoint.ceph_admin_allowed or identity is None or identity.mode != "managed" or identity.status != "ready":
-        return f"Ceph Admin is not active for endpoint '{endpoint_label}'; configure its managed identity."
+    if not endpoint.ceph_admin_allowed or identity is None or identity.mode != "external" or identity.status != "ready":
+        return f"Ceph Admin is not active for endpoint '{endpoint_label}'; configure and validate its manually supplied credentials."
     if not identity.access_key or not identity.secret_key:
         return (
             f"Ceph Admin workspace is unavailable for endpoint '{endpoint_label}': dedicated Ceph Admin credentials "

@@ -103,6 +103,8 @@ export type StorageEndpointPayload = {
   runtime_secret_key?: string | null;
   ceph_admin_allowed?: boolean;
 
+  ceph_admin_access_key?: string | null;
+  ceph_admin_secret_key?: string | null;
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
   features_config?: string | null;
@@ -122,6 +124,8 @@ export type StorageEndpointFeatureDetectionPayload = {
   runtime_secret_key?: string | null;
   ceph_admin_allowed?: boolean;
 
+  ceph_admin_access_key?: string | null;
+  ceph_admin_secret_key?: string | null;
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
 };
@@ -140,6 +144,7 @@ export type StorageEndpointCredentialCheck = {
 };
 
 export type StorageEndpointCredentialChecks = {
+  ceph_admin?: StorageEndpointCredentialCheck;
   runtime?: StorageEndpointCredentialCheck;
   admin: StorageEndpointCredentialCheck;
   supervision: StorageEndpointCredentialCheck;
@@ -231,10 +236,5 @@ export async function deleteStorageEndpoint(id: number): Promise<void> {
 
 export async function reconcileEndpointIdentities(id: number): Promise<StorageEndpoint> {
   const { data } = await client.post<StorageEndpoint>(`/admin/storage-endpoints/${id}/service-identities/reconcile`);
-  return data;
-}
-export type CephAdminActivationResult = { enabled: boolean; endpoints: { endpoint_id: number; active: boolean; status: string; error?: string | null }[] };
-export async function configureCephAdmin(payload: { enabled: boolean; endpoint_ids: number[]; grant_current_user: boolean }): Promise<CephAdminActivationResult> {
-  const { data } = await client.post<CephAdminActivationResult>("/admin/settings/ceph-admin", payload, { timeout: 300000 });
   return data;
 }

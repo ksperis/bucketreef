@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useId, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { SettingsSection, SettingsSwitch, SettingsItem } from "../../components/settings/SettingsLayout";
 import { UiButtonLink } from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -11,17 +11,19 @@ import { type FormState } from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
 import {
   ADMIN_OPS_FULL_COMMAND,
+  CEPH_ADMIN_COMMAND,
   RUNTIME_READ_OPS_COMMAND,
   SUPERVISION_OPS_COMMAND,
 } from "./storageEndpointCredentialHelp";
 
-type CredentialKind = "admin" | "runtime" | "supervision";
+type CredentialKind = "admin" | "runtime" | "supervision" | "ceph_admin";
 type Props = {
   form: FormState;
   setForm: Dispatch<SetStateAction<FormState>>;
   readOnly: boolean;
   editing: boolean;
   cephAdminEnabled: boolean;
+  cephAdminActive?: boolean;
   errors: EndpointFieldErrors;
   statuses: Partial<Record<CredentialKind, ReactNode>>;
   invalidateChecks: () => void;
@@ -103,7 +105,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       identity.status === "not_provisioned"
     )
   );
-  const needsReconciliation = ["runtime", "supervision", ...(props.cephAdminEnabled && props.form.ceph_admin_allowed ? ["ceph_admin"] : [])]
+  const needsReconciliation = ["runtime", "supervision"]
     .some(kind => {
       const identity = props.identities?.find(candidate => candidate.kind === kind);
       if (identity?.mode === "managed" && identity.status === "not_provisioned") return false;
@@ -148,7 +150,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
         ? "Enter both Runtime and Supervision pairs. Saving replaces and revokes the current managed identities."
         : "Saving prepares managed Runtime and Supervision identities. Create them explicitly after saving; existing external RGW users are left unchanged."}</UiInlineMessage>}
       {Boolean(props.identities?.length) && <p className="settings-label">Saved configuration</p>}
-      {props.identities?.map(identity => <div key={identity.kind} role="status" className="settings-stack">
+      {props.identities?.filter(identity => identity.kind !== "ceph_admin").map(identity => <div key={identity.kind} role="status" className="settings-stack">
         <p>{identity.kind === "runtime" ? "Runtime Read Ops" : identity.kind === "supervision" ? "Supervision Ops" : "Ceph Admin"} · {identity.mode === "managed" ? "Managed" : "External"} · {identity.status === "ready" ? "Ready" : identity.status.replaceAll("_", " ")}</p>
         {identity.rotation_pending && <UiInlineMessage tone="warning">Rotation pending · {identity.rotation_phase}. Retry this category from S3 key rotation.</UiInlineMessage>}
         {identity.last_error && <UiInlineMessage tone="error">{identity.last_error}</UiInlineMessage>}
@@ -170,8 +172,19 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       <CredentialFields {...props} kind="supervision" label="Supervision" required />
       {!props.readOnly && <CommandExample title="Create Supervision Ops" defaultOpen={!props.form.has_supervision_secret}>{SUPERVISION_OPS_COMMAND}</CommandExample>}
     </SettingsSection>}
-    {props.cephAdminEnabled && <SettingsSection title="Ceph Admin" description="Select authorized endpoints in General settings. BucketReef creates a dedicated managed identity before granting access." presentation="compact">
-      <p className="settings-description">Endpoint authorization: {props.form.ceph_admin_allowed ? "Allowed" : "Not allowed"}. Disabling access revokes the managed identity without purging data.</p>
-    </SettingsSection>}
+    <SettingsSection title="Ceph Admin" description="Use keys from an RGW user configured externally with admin=true and system=false." presentation="compact">
+      <SettingsItem compact title="Allow Ceph Admin on this endpoint" description="Access also requires global enablement and validated credentials."
+        action={<SettingsSwitch ariaLabel="Allow Ceph Admin on this endpoint" checked={props.form.ceph_admin_allowed}
+          disabled={props.readOnly} onChange={value => props.setForm(previous => ({ ...previous, ceph_admin_allowed: value }))} />} />
+      <CredentialFields {...props} kind="ceph_admin" label="Ceph Admin" required={props.form.ceph_admin_allowed} />
+      <p role="status" className="settings-description">Endpoint authorization: {props.form.ceph_admin_allowed ? "Allowed" : "Not allowed"}. Workspace access: {props.cephAdminActive ? "Active" : "Inactive"}.</p>
+      {!props.cephAdminEnabled && <p className="settings-description">Ceph Admin is disabled in General settings. You can prepare its credentials here.</p>}
+      {props.identities?.filter(identity => identity.kind === "ceph_admin").map(identity => <div key={identity.kind} role="status">
+        <p className="settings-description">Saved validation: {identity.status === "ready" ? "Ready" : identity.status.replaceAll("_", " ")}</p>
+        {identity.last_error && <UiInlineMessage tone="error">{identity.last_error}</UiInlineMessage>}
+      </div>)}
+      {!props.readOnly && <CommandExample title="Create Ceph Admin externally" defaultOpen={!props.form.has_ceph_admin_secret}>{CEPH_ADMIN_COMMAND}</CommandExample>}
+      <p className="settings-description">Disabling access preserves the configured keys. Manage the RGW user and rotate its keys externally, then enter the replacement pair here.</p>
+    </SettingsSection>
   </>;
 }

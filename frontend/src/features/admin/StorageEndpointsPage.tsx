@@ -72,6 +72,7 @@ import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValida
 type EndpointEditorTab = "general" | "credentials" | "capabilities";
 
 const createEmptyCredentialChecks = (): StorageEndpointCredentialChecks => ({
+  ceph_admin: { status: "not_configured" },
   runtime: { status: "not_configured" },
   admin: { status: "not_configured" },
   supervision: { status: "not_configured" },
@@ -191,6 +192,8 @@ export default function StorageEndpointsPage() {
   const endpointUrl = form.endpoint_url.trim();
   const adminAccessKey = form.admin_access_key.trim();
   const adminSecretKey = form.admin_secret_key.trim();
+  const cephAdminAccessKey = form.ceph_admin_access_key.trim();
+  const cephAdminSecretKey = form.ceph_admin_secret_key.trim();
   const runtimeAccessKey = form.runtime_access_key.trim();
   const runtimeSecretKey = form.runtime_secret_key.trim();
   const supervisionAccessKey = form.supervision_access_key.trim();
@@ -224,6 +227,8 @@ export default function StorageEndpointsPage() {
             check_http: true,
             admin_access_key: adminAccessKey || null,
             admin_secret_key: adminSecretKey || null,
+            ceph_admin_access_key: cephAdminAccessKey || null,
+            ceph_admin_secret_key: cephAdminSecretKey || null,
             runtime_access_key: form.service_identity_mode === "external" ? runtimeAccessKey || null : null,
             runtime_secret_key: form.service_identity_mode === "external" ? runtimeSecretKey || null : null,
             supervision_access_key: form.service_identity_mode === "external" ? supervisionAccessKey || null : null,
@@ -233,6 +238,8 @@ export default function StorageEndpointsPage() {
     [
       adminAccessKey,
       adminSecretKey,
+      cephAdminAccessKey,
+      cephAdminSecretKey,
       runtimeAccessKey,
       runtimeSecretKey,
       form.service_identity_mode,
@@ -630,6 +637,13 @@ export default function StorageEndpointsPage() {
         check: credentialChecks.supervision,
         incompleteMessage: "Enter both the Supervision Ops access key and secret key.",
       });
+  const cephAdminCredentialCheck = configurationReadOnly ? null : resolveCredentialCheckView({
+    accessKey: form.ceph_admin_access_key, secretKey: form.ceph_admin_secret_key,
+    hasStoredSecret: form.has_ceph_admin_secret, reuseStoredCredentials: editingId != null,
+    endpointReady: endpointReadyForCredentialCheck, checking: featureDetectBusy,
+    check: credentialChecks.ceph_admin ?? { status: "not_configured" },
+    incompleteMessage: "Enter both the Ceph Admin access key and secret key.",
+  });
   const runtimeCredentialCheck = configurationReadOnly
     ? null
     : resolveCredentialCheckView({
@@ -758,7 +772,7 @@ export default function StorageEndpointsPage() {
                 <EndpointHttpStatusBadge checking={featureDetectBusy} check={detection?.http_check} />
               ) : undefined} />}
             {activeTab === "credentials" && <StorageEndpointCredentialsFields form={form} setForm={setForm}
-              readOnly={configurationReadOnly} editing={editingId !== null} cephAdminEnabled={cephAdminConfigEnabled}
+              readOnly={configurationReadOnly} editing={editingId !== null} cephAdminEnabled={cephAdminConfigEnabled} cephAdminActive={editingEndpoint?.ceph_admin_active}
               usersWrite={detection?.credential_checks.admin.status === "valid"
                 ? detection.admin_ops_permissions?.users_write
                 : configurationReadOnly && readOnlyEndpointDetail?.id === editingId
@@ -783,6 +797,7 @@ export default function StorageEndpointsPage() {
                   .finally(() => { mutationPending.current = false; setSaving(false); });
               } : undefined}
               errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} statuses={{
+                ceph_admin: cephAdminCredentialCheck && <CredentialStatusBadge {...cephAdminCredentialCheck} />,
                 runtime: runtimeCredentialCheck && <CredentialStatusBadge {...runtimeCredentialCheck} />,
                 admin: adminCredentialCheck && <>
                   <CredentialStatusBadge {...adminCredentialCheck} />

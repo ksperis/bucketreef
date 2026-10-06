@@ -761,6 +761,46 @@ def test_authentication_setting_change_is_guarded_before_side_effects(auth_clien
     assert load_app_settings_for_db(db_session).general.require_passkey_for_admins is True
 
 
+@pytest.mark.parametrize("role,verified,expected", [
+    (UserRole.UI_USER.value, True, 403),
+    (UserRole.UI_ADMIN.value, True, 403),
+    (UserRole.UI_SUPERADMIN.value, False, 403),
+    (UserRole.UI_SUPERADMIN.value, True, 200),
+])
+@pytest.mark.parametrize("initial", [False, True])
+def test_ceph_admin_global_toggle_requires_superadmin_and_recent_mfa(
+    auth_client, db_session, monkeypatch, role, verified, expected, initial,
+):
+    @contextmanager
+    def settings_session():
+        yield db_session
+
+    monkeypatch.setattr(app_settings_service, "_open_settings_session", settings_session)
+    _set_admin_passkey_policy(db_session, True)
+    current = load_app_settings_for_db(db_session)
+    current.general.ceph_admin_enabled = initial
+    app_settings_service.save_app_settings(current)
+    actor = _user(db_session, email="ceph-settings-guard@example.com", role=role)
+    credentials = authenticate_ui_client(auth_client, db_session, actor, mfa_verified=verified)
+
+    def unexpected_rgw(**kwargs):
+        raise AssertionError("Changing global enablement must not contact RGW")
+
+    monkeypatch.setattr("app.services.rgw_admin.get_rgw_admin_client", unexpected_rgw)
+    requested = current.model_copy(deep=True)
+    requested.general.ceph_admin_enabled = not initial
+    response = auth_client.put(
+        "/api/admin/settings", json=requested.model_dump(mode="json"),
+        headers=trusted_origin_headers(csrf_token=credentials.csrf_token),
+    )
+    assert response.status_code == expected
+    assert load_app_settings_for_db(db_session).general.ceph_admin_enabled is (not initial if expected == 200 else initial)
+
+
+def test_ceph_admin_activation_route_is_removed(auth_client):
+    assert "/api/admin/settings/ceph-admin" not in app.openapi()["paths"]
+
+
 def test_bearer_token_is_denied_on_direct_identity_routes(auth_client, db_session):
     admin = _user(db_session, email="automation-exception@example.com", role=UserRole.UI_SUPERADMIN.value)
     api_token, _ = ApiTokenService(db_session).create_for_user(

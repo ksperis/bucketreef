@@ -109,6 +109,8 @@ class StorageEndpointCreate(StorageEndpointMetadata):
     service_identity_mode: Literal["managed", "external"] = "managed"
     runtime_access_key: Optional[str] = None
     runtime_secret_key: Optional[SecretStr] = None
+    ceph_admin_access_key: Optional[str] = None
+    ceph_admin_secret_key: Optional[SecretStr] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[SecretStr] = None
 
@@ -126,6 +128,8 @@ class StorageEndpointUpdate(ApiModel):
     runtime_access_key: Optional[str] = None
     runtime_secret_key: Optional[SecretStr] = None
     ceph_admin_allowed: Optional[bool] = None
+    ceph_admin_access_key: Optional[str] = None
+    ceph_admin_secret_key: Optional[SecretStr] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[SecretStr] = None
     features_config: Optional[str] = None
@@ -184,12 +188,6 @@ class StorageEndpointMeta(ApiModel):
     managed_by_env: bool = False
 
 
-class CephAdminActivationRequest(ApiModel):
-    enabled: bool
-    endpoint_ids: list[int] = Field(default_factory=list)
-    grant_current_user: bool = False
-
-
 class StorageEndpointFeatureDetectionRequest(ApiModel):
     endpoint_id: Optional[int] = None
     endpoint_url: str
@@ -201,6 +199,8 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
     admin_secret_key: Optional[SecretStr] = None
     runtime_access_key: Optional[str] = None
     runtime_secret_key: Optional[SecretStr] = None
+    ceph_admin_access_key: Optional[str] = None
+    ceph_admin_secret_key: Optional[SecretStr] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[SecretStr] = None
 
@@ -210,6 +210,8 @@ class StorageEndpointFeatureDetectionRequest(ApiModel):
         "region",
         "admin_access_key",
         "admin_secret_key",
+        "ceph_admin_access_key",
+        "ceph_admin_secret_key",
         "runtime_access_key",
         "runtime_secret_key",
         "supervision_access_key",
@@ -231,6 +233,7 @@ class StorageEndpointCredentialCheck(ApiModel):
 
 
 class StorageEndpointCredentialChecks(ApiModel):
+    ceph_admin: StorageEndpointCredentialCheck = Field(default_factory=StorageEndpointCredentialCheck)
     runtime: StorageEndpointCredentialCheck = Field(default_factory=StorageEndpointCredentialCheck)
     admin: StorageEndpointCredentialCheck = Field(
         default_factory=StorageEndpointCredentialCheck

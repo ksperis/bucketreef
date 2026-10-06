@@ -45,10 +45,11 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
     const credentials = [
       { kind: "admin", required: features.admin.enabled, label: "Admin", reason: "admin is enabled" },
       { kind: "runtime", required: external, label: "Runtime Read Ops", reason: "service identities are external" },
+      { kind: "ceph_admin", required: form.ceph_admin_allowed, label: "Ceph Admin", reason: "Ceph Admin is allowed" },
       { kind: "supervision", required: external, label: "Supervision", reason: "service identities are external" },
     ] as const;
     for (const { kind, required, label, reason } of credentials) {
-      if (!external && kind !== "admin") continue;
+      if (!external && kind !== "admin" && kind !== "ceph_admin") continue;
       const accessField = `${kind}_access_key` as const;
       const secretField = `${kind}_secret_key` as const;
       const access = form[accessField].trim();
@@ -57,7 +58,7 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
       if (kind !== "admin" && storedCredentials && !access && !secret) {
         continue;
       }
-      if (kind !== "admin" && editing && storedCredentials && Boolean(access) !== Boolean(secret)) {
+      if (kind !== "admin" && Boolean(access) !== Boolean(secret)) {
         if (!access) errors[accessField] = `${label} access key is required when replacing stored credentials.`;
         if (!secret) errors[secretField] = `${label} secret key is required when replacing stored credentials.`;
         continue;

@@ -63,6 +63,8 @@ type OnboardingApplyCredentials = {
   admin_secret_key?: string;
   supervision_access_key?: string;
   supervision_secret_key?: string;
+  ceph_admin_access_key?: string;
+  ceph_admin_secret_key?: string;
   private_access_key?: string;
   private_secret_key?: string;
 };

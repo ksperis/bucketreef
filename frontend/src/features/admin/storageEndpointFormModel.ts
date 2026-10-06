@@ -45,6 +45,9 @@ export type FormState = {
   runtime_access_key: string;
   runtime_secret_key: string;
   has_runtime_secret: boolean;
+  ceph_admin_access_key: string;
+  ceph_admin_secret_key: string;
+  has_ceph_admin_secret: boolean;
   ceph_admin_allowed: boolean;
   admin_access_key: string;
   admin_secret_key: string;
@@ -304,6 +307,9 @@ export function createEmptyForm(): FormState {
     runtime_access_key: "",
     runtime_secret_key: "",
     has_runtime_secret: false,
+    ceph_admin_access_key: "",
+    ceph_admin_secret_key: "",
+    has_ceph_admin_secret: false,
     ceph_admin_allowed: false,
     admin_access_key: "",
     admin_secret_key: "",
@@ -379,6 +385,9 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     runtime_access_key: "",
     runtime_secret_key: "",
     has_runtime_secret: Boolean(runtimeIdentity?.credentials_configured),
+    ceph_admin_access_key: "",
+    ceph_admin_secret_key: "",
+    has_ceph_admin_secret: Boolean(endpoint.service_identities?.find(identity => identity.kind === "ceph_admin")?.credentials_configured),
     ceph_admin_allowed: Boolean(endpoint.ceph_admin_allowed),
     admin_access_key: endpoint.admin_access_key ?? "",
     admin_secret_key: "",

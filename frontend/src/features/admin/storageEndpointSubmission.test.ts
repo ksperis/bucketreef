@@ -31,4 +31,27 @@ describe("baseline Ceph service credentials", () => {
     expect(result.payload).not.toHaveProperty("runtime_access_key");
     expect(result.payload).not.toHaveProperty("supervision_access_key");
   });
+  it("saves a manual Ceph Admin pair independently of managed Runtime/Supervision", () => {
+    const form = createEmptyForm();
+    Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", ceph_admin_allowed: true,
+      admin_access_key: "ADMIN", admin_secret_key: "ADMIN-SK", ceph_admin_access_key: "CEPH-AK", ceph_admin_secret_key: "CEPH-SK" });
+    expect(buildStorageEndpointSubmission(form, false).payload).toMatchObject({
+      service_identity_mode: "managed", ceph_admin_allowed: true, ceph_admin_access_key: "CEPH-AK", ceph_admin_secret_key: "CEPH-SK",
+    });
+    form.ceph_admin_secret_key = "";
+    expect(buildStorageEndpointSubmission(form, false).errors).toHaveProperty("ceph_admin_secret_key");
+  });
+
+  it("preserves the stored Ceph Admin pair while disabling authorization", () => {
+    const form = createEmptyForm();
+    Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", has_ceph_admin_secret: true,
+      admin_access_key: "ADMIN", has_admin_secret: true });
+    const result = buildStorageEndpointSubmission(form, true);
+    expect(result.payload).toHaveProperty("ceph_admin_allowed", false);
+    expect(result.payload).not.toHaveProperty("ceph_admin_access_key");
+    expect(result.payload).not.toHaveProperty("ceph_admin_secret_key");
+    form.ceph_admin_secret_key = "REPLACEMENT";
+    expect(buildStorageEndpointSubmission(form, true).errors).toHaveProperty("ceph_admin_access_key");
+  });
+
 });

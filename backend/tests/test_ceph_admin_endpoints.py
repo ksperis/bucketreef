@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from types import SimpleNamespace
 
+import pytest
+
 from app.db import StorageProvider
 from app.routers.ceph_admin import endpoints as endpoints_router
 
@@ -48,7 +50,7 @@ def _build_endpoint(
         secret_key="METRICS-SK" if has_supervision_credentials else None,
     )
     ceph_admin = SimpleNamespace(
-        mode="managed",
+        mode="external",
         status="ready",
         access_key="ADMIN-AK",
         secret_key="ADMIN-SK",
@@ -100,6 +102,19 @@ def test_list_ceph_admin_endpoints_does_not_validate_identity(monkeypatch):
 
     assert len(payload) == 1
     assert payload[0].id == 1
+
+
+@pytest.mark.parametrize("field,value", [
+    ("allowed", False), ("mode", "managed"), ("status", "error"),
+    ("status", "missing"), ("access_key", None), ("secret_key", None),
+])
+def test_context_catalog_excludes_inactive_ceph_admin(field, value):
+    endpoint = _build_endpoint(1)
+    if field == "allowed":
+        endpoint.ceph_admin_allowed = value
+    else:
+        setattr(endpoint.service_identity("ceph_admin"), field, value)
+    assert endpoints_router.list_ceph_admin_endpoints(db=_FakeSession([endpoint]), _=SimpleNamespace()) == []
 
 
 def test_list_ceph_admin_endpoints_includes_ceph_even_when_admin_feature_disabled(monkeypatch):

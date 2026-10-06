@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Restore manually supplied Ceph Admin credentials in endpoint settings and onboarding; remove the activation dialog and automatic Ceph Admin provisioning/rotation.
+
 - Simplify endpoint Credentials: keep Admin Ops hardening in documentation, fold creation commands for configured identities, and distinguish saved identity state from mode changes.
 - Show service identity retries only when needed, block retries of unsaved endpoint configuration, and report retry failures inside the editor.
 
@@ -17,10 +19,12 @@
 
 ### Upgrade notes
 
+- **Breaking change:** migration `0143_external_ceph_admin_credentials` clears all stored Ceph Admin pairs and pending rotations. Re-enter keys for an externally configured RGW user with `admin=true` and `system=false`. Endpoint authorizations remain; RGW users are untouched and obsolete users must be cleaned up manually.
+
 - **Breaking change:** external Ceph endpoints now require both Runtime and Supervision credential pairs, even with monitoring disabled. Supply missing Supervision keys before startup. Existing managed endpoints provision missing Supervision at administration startup or reconciliation and need Admin Ops `users=write` for that provisioning.
 
 - **Breaking change:** administered Ceph endpoints configured through `ENV_STORAGE_ENDPOINTS` in external mode must supply both Runtime keys. Incomplete inventories now prevent startup.
-- **Breaking change:** managed Runtime, Supervision and Ceph Admin rotation requires deletion of the previous key. Disable-only rotation is refused for these identities. Remove previously disabled or manually added keys externally, then retry identity configuration; pending revocations are never announced as successful while unexpected keys remain.
+- **Breaking change:** managed Runtime and Supervision rotation requires deletion of the previous key. Disable-only rotation is refused for these identities. Remove previously disabled or manually added keys externally, then retry identity configuration; pending revocations are never announced as successful while unexpected keys remain.
 
 ## 0.2.13 - 2026-10-01
 

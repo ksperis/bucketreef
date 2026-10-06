@@ -73,12 +73,6 @@ const ROTATION_TYPE_OPTIONS: RotationTypeOption[] = [
     label: "S3 user keys",
     description: "Rotate interface keys for managed standalone S3 users.",
   },
-  {
-    value: "ceph_admin",
-    label: "Ceph-admin keys",
-    description:
-      "Rotate dedicated Ceph Admin credentials configured on endpoints.",
-  },
 ];
 
 const KEY_TYPE_LABEL: Record<KeyRotationType, string> = {
@@ -91,7 +85,7 @@ const KEY_TYPE_LABEL: Record<KeyRotationType, string> = {
 };
 
 const ENV_MANAGED_ENDPOINT_KEY_TYPES: KeyRotationType[] = ["endpoint_admin"];
-const TECHNICAL_TYPES: KeyRotationType[] = ["endpoint_runtime", "endpoint_supervision", "ceph_admin"];
+const TECHNICAL_TYPES: KeyRotationType[] = ["endpoint_runtime", "endpoint_supervision"];
 
 function isEndpointEligible(endpoint: StorageEndpoint, types: KeyRotationType[]): boolean {
   if (endpoint.provider !== "ceph") return false;
@@ -176,7 +170,6 @@ export default function KeyRotationPage() {
   "endpoint_supervision",
     "account",
     "s3_user",
-    "ceph_admin",
   ]);
   const [previousResult, setPreviousResult] = useState(false);
   const [deactivateOnly, setDeactivateOnly] = useState(false);

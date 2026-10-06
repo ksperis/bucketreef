@@ -376,4 +376,17 @@ describe("GeneralSettingsPage branding", () => {
     expect(picker).toHaveValue("#0057b8"); expect(applyBrandingMock).not.toHaveBeenCalled();
   });
 
+  it("saves Ceph Admin availability through the standard settings form without an activation dialog", async () => {
+    renderPage();
+    const toggle = await screen.findByRole("switch", { name: "Ceph Admin feature" });
+    fireEvent.click(toggle);
+    expect(toggle).toBeChecked();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Manage endpoints" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledWith(expect.objectContaining({
+      general: expect.objectContaining({ ceph_admin_enabled: true }),
+    })));
+  });
+
 });

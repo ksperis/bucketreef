@@ -56,15 +56,14 @@ def _resolve_ceph_admin_browser_context(
     if endpoint.provider != StorageProvider.CEPH.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
 
-    identity = endpoint.service_identity("ceph_admin")
-    access_key = identity.access_key if identity is not None else None
-    secret_key = identity.secret_key if identity is not None else None
-    if not access_key or not secret_key:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ceph Admin credentials are not configured for this storage endpoint",
-        )
-    from app.routers.ceph_admin.dependencies import validate_ceph_admin_service_identity
+    from app.routers.ceph_admin.dependencies import (
+        validate_ceph_admin_service_configuration,
+        validate_ceph_admin_service_identity,
+    )
+
+    configuration_error = validate_ceph_admin_service_configuration(endpoint)
+    if configuration_error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=configuration_error)
 
     identity_validation_error = validate_ceph_admin_service_identity(endpoint)
     if identity_validation_error:

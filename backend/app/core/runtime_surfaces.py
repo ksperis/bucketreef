@@ -47,7 +47,7 @@ def ceph_admin_only_runtime(settings: Settings) -> bool:
 
 
 def endpoint_identity_management_enabled(settings: Settings) -> bool:
-    """The dedicated Ceph controller must also finish revocation when disabled."""
+    """Administration and dedicated Ceph instances reconcile their endpoint identities."""
     return runtime_surface_enabled(settings, "admin") or (
         settings.deployment_profile == "full"
         and all(not runtime_surface_enabled(settings, surface)

@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from types import SimpleNamespace
 
+import pytest
+
 from app.db import StorageProvider
 from app.routers.ceph_admin import dependencies as deps
 from app.services.rgw_admin import RGWAdminError
@@ -39,7 +41,7 @@ def test_probe_ceph_admin_service_identity_classifies_unavailable(monkeypatch):
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
-            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+            mode="external", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
         ),
         id=1,
         name="Ceph endpoint",
@@ -74,7 +76,7 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
-            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+            mode="external", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
         ),
         id=2,
         name="Ceph endpoint",
@@ -106,7 +108,7 @@ def test_probe_ceph_admin_service_identity_classifies_redirect_as_misconfigured(
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
-            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+            mode="external", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
         ),
         id=3,
         name="Ceph endpoint",
@@ -134,15 +136,16 @@ def test_probe_ceph_admin_service_identity_classifies_redirect_as_misconfigured(
     probe = deps.probe_ceph_admin_service_identity(endpoint)
 
     assert probe.status == "misconfigured"
-    assert probe.warning == message
+    assert probe.warning == "Ceph Admin endpoint configuration is invalid; check the RGW Admin Ops URL and redirects."
 
 
-def test_validate_ceph_admin_service_identity_allows_admin_user_when_admin_feature_disabled(monkeypatch):
+@pytest.mark.parametrize("admin,system,allowed", [(True, False, True), (False, False, False), (True, True, False), (False, True, False)])
+def test_validate_ceph_admin_service_identity_checks_flags_when_admin_ops_disabled(monkeypatch, admin, system, allowed):
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
-            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+            mode="external", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
         ),
         id=2,
         name="Ceph endpoint",
@@ -159,13 +162,13 @@ features:
 
     class FakeRGWClient:
         def get_user_by_access_key(self, access_key: str, allow_not_found: bool = True):
-            return {"admin": True}
+            return {"admin": admin, "system": system}
 
     monkeypatch.setattr(deps, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
 
     detail = deps.validate_ceph_admin_service_identity(endpoint)
 
-    assert detail is None
+    assert (detail is None) is allowed
 
 
 class _FakeQuery:
@@ -192,7 +195,7 @@ def test_resolve_ceph_admin_workspace_endpoint_does_not_require_admin_feature_en
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
-            mode="managed", status="ready", access_key="CEPH-AK", secret_key="CEPH-SK"
+            mode="external", status="ready", access_key="CEPH-AK", secret_key="CEPH-SK"
         ),
         id=9,
         name="Ceph",
@@ -213,7 +216,7 @@ def test_get_ceph_admin_context_uses_rgw_admin_endpoint_when_admin_feature_disab
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
-            mode="managed", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+            mode="external", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
         ),
         id=10,
         name="Ceph endpoint",
@@ -256,7 +259,7 @@ def test_build_ceph_admin_endpoint_payload_exposes_admin_endpoint_when_admin_fea
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
-        service_identity=lambda kind: SimpleNamespace(mode="managed", status="ready"),
+        service_identity=lambda kind: SimpleNamespace(mode="external", status="ready"),
         id=11,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH.value,

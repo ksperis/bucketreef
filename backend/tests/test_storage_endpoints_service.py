@@ -118,15 +118,17 @@ def test_get_endpoint_uses_typed_not_found_error(db_session):
     "model",
     (StorageEndpointCreate, StorageEndpointUpdate, StorageEndpointFeatureDetectionRequest),
 )
-def test_ceph_admin_credentials_are_not_public_endpoint_inputs(model):
+def test_ceph_admin_credentials_are_write_only_endpoint_inputs(model):
     values = {"ceph_admin_access_key": "LEGACY-AK", "ceph_admin_secret_key": "LEGACY-SK"}
     if model is StorageEndpointCreate:
         values.update(name="ceph", endpoint_url="https://ceph.example.test")
     elif model is StorageEndpointFeatureDetectionRequest:
         values.update(endpoint_url="https://ceph.example.test")
 
-    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        model(**values)
+    parsed = model(**values)
+    assert parsed.ceph_admin_access_key == "LEGACY-AK"
+    assert parsed.ceph_admin_secret_key.get_secret_value() == "LEGACY-SK"
+    assert "LEGACY-SK" not in repr(parsed)
 
 
 def test_list_endpoints_skips_admin_ops_permissions_by_default(db_session, monkeypatch):

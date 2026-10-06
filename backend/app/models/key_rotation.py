@@ -27,7 +27,7 @@ class KeyRotationRequest(ApiModel):
     @model_validator(mode="after")
     def validate_retirement_mode(self):
         if self.deactivate_only and any(kind in self.key_types for kind in (
-            KeyRotationType.ENDPOINT_RUNTIME, KeyRotationType.ENDPOINT_SUPERVISION, KeyRotationType.CEPH_ADMIN
+            KeyRotationType.ENDPOINT_RUNTIME, KeyRotationType.ENDPOINT_SUPERVISION
         )):
             raise ValueError("Managed technical identities require delete mode.")
         return self

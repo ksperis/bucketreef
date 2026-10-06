@@ -457,7 +457,7 @@ describe("StorageEndpointsPage tags", () => {
     );
 
     fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-admin-key" } });
-    expect(screen.getByText("Complete both keys")).toBeInTheDocument();
+    expect(screen.getAllByText("Complete both keys").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Admin secret key")).toBeRequired();
     expect(screen.getByText("Enter the secret key for this identity.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Update endpoint" })).toBeEnabled();

@@ -55,6 +55,6 @@ def storage_endpoint_from_db(
 
 def ceph_admin_identity_active(endpoint, *, ceph_admin_enabled):
     identity = endpoint.service_identity("ceph_admin")
-    return bool(endpoint.ceph_admin_allowed and identity and identity.mode == "managed"
+    return bool(endpoint.ceph_admin_allowed and identity and identity.mode == "external"
                 and identity.status == "ready" and identity.access_key and identity.secret_key
                 and ceph_admin_enabled)

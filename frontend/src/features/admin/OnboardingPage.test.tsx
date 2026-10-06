@@ -156,6 +156,7 @@ function detectionFor(
       message: "Endpoint responded over HTTP (200).",
     },
     credential_checks: {
+      ceph_admin: credentialCheck(payload.ceph_admin_access_key),
       runtime: credentialCheck(payload.runtime_access_key),
       admin: credentialCheck(payload.admin_access_key),
       supervision: credentialCheck(payload.supervision_access_key),
@@ -308,17 +309,17 @@ describe("simplified onboarding", () => {
     expect(await screen.findByRole("tab", { name: "3. Credentials" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Admin Ops access key")).toBeRequired();
     expect(screen.queryByLabelText("Supervision Ops access key")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Ceph Admin access key")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Ceph Admin access key")).toBeRequired();
     expect(screen.getByLabelText("Private S3 access key")).toBeRequired();
     expect(screen.getAllByText("Keys are never stored in onboarding progress.")).toHaveLength(1);
     expect(
       screen.getAllByText("Show the Ceph RGW command to create this identity"),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(screen.queryByText("Advanced: restrict Admin Ops permissions")).not.toBeInTheDocument();
     expect(screen.getByText(/users=read,write;accounts=read,write/)).toBeInTheDocument();
     expect(screen.queryByText(/buckets=write/)).not.toBeInTheDocument();
     expect(screen.getByText(/Runtime Read Ops and Supervision Ops are created and functionally validated/)).toBeInTheDocument();
-    expect(screen.getByText(/dedicated managed Ceph Admin identity/)).toBeInTheDocument();
+    expect(screen.getByText(/externally configured RGW user with admin=true and system=false/)).toBeInTheDocument();
     expect(screen.getByText(/BucketReef private S3 user/)).toBeInTheDocument();
   });
 
@@ -458,6 +459,7 @@ describe("simplified onboarding", () => {
   });
 
   it("reuses complete stored endpoint credentials instead of asking for them again", async () => {
+    mocks.listStorageEndpoints.mockResolvedValue([{ ...cephEndpoint, service_identities: [...cephEndpoint.service_identities!, { kind: "ceph_admin", mode: "external", status: "ready", credentials_configured: true }] }]);
     renderPage();
     fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), { target: { value: "3" } });
     await continueWhenReady();
@@ -469,7 +471,7 @@ describe("simplified onboarding", () => {
       await screen.findAllByText(
         "Credentials are already configured on this endpoint and will be reused.",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(screen.queryByLabelText("Admin Ops access key")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Ceph Admin access key")).not.toBeInTheDocument();
   });

@@ -193,6 +193,12 @@ class StorageEndpointsService:
                 endpoint.service_identities.append(supervision)
             if supervision is not None and supervision.mode == "external":
                 cls._apply_external_credentials(supervision, config.supervision_access_key, config.supervision_secret_key)
+            ceph_admin = endpoint.service_identity("ceph_admin")
+            if ceph_admin is None and (config.ceph_admin_access_key or config.ceph_admin_secret_key or endpoint.ceph_admin_allowed):
+                ceph_admin = EndpointServiceIdentity(kind="ceph_admin", mode="external", status="missing")
+                endpoint.service_identities.append(ceph_admin)
+            if ceph_admin is not None:
+                cls._apply_external_credentials(ceph_admin, config.ceph_admin_access_key, config.ceph_admin_secret_key)
         endpoint.features_config = config.features_config
         if old_target != (endpoint.endpoint_url, resolve_rgw_admin_api_endpoint(endpoint), endpoint.region):
             for identity in endpoint.service_identities:
@@ -262,7 +268,7 @@ class StorageEndpointsService:
             self._apply_env_endpoint(endpoint, config)
             self.db.add(endpoint)
             self.db.commit()
-            if endpoint_identity_management_enabled(settings) and endpoint.admin_access_key and endpoint.admin_secret_key:
+            if endpoint_identity_management_enabled(settings) and endpoint.provider == "ceph":
                 identities.reconcile(
                     endpoint,
                     locked=handle is not None,
@@ -427,7 +433,7 @@ class StorageEndpointsService:
         endpoint.is_editable = True
         # Durable endpoint IDs are required before any remote validation or provisioning.
         self._persist_endpoint(endpoint, commit=True)
-        if endpoint.provider == "ceph" and endpoint.admin_access_key:
+        if endpoint.provider == "ceph":
             from app.services.endpoint_service_identities import EndpointServiceIdentityService
             EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(
                 endpoint,
