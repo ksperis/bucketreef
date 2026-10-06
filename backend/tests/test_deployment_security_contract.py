@@ -53,6 +53,17 @@ def test_frontend_proxy_streams_browser_uploads_with_explicit_limit():
     assert values["frontend"]["env"]["BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE"] == "5g"
 
 
+def test_frontend_security_upgrade_cache_tracks_alpine_repository_metadata():
+    dockerfile = _read("frontend/Dockerfile")
+
+    main_index = "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz"
+    community_index = "https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64/APKINDEX.tar.gz"
+    assert main_index in dockerfile
+    assert community_index in dockerfile
+    assert dockerfile.index(main_index) < dockerfile.index("RUN apk upgrade --no-cache")
+    assert dockerfile.index(community_index) < dockerfile.index("RUN apk upgrade --no-cache")
+
+
 def test_compose_services_drop_privileges_and_keep_public_port():
     for filename in ("compose.yaml", "deploy/bundle/compose.yaml"):
         compose = yaml.safe_load(_read(filename))
