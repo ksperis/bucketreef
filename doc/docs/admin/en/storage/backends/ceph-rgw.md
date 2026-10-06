@@ -21,8 +21,9 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
   `usage=read;buckets=read`. Neither identity may carry write caps or admin/system flags.
 - Every Ceph endpoint has Runtime and Supervision identities, independently of
   enabled features. The recommended setup uses managed identities and Admin Ops
-  with provisioning and quota permissions. External identities and reduced Admin
-  Ops permissions are an advanced hardening choice.
+  with provisioning plus account/user quota permissions. Individual bucket quota
+  changes require the optional `buckets=write` capability. External identities and
+  reduced Admin Ops permissions are an advanced hardening choice.
 - Without `users=write`, provide both Runtime and Supervision externally. Disabling
   Metrics, Usage or signed S3 healthchecks stops their use, without revoking identities.
 - In the advanced restricted profile, give Admin Ops `buckets=write` only when
@@ -49,12 +50,13 @@ For evaluation and normal operation, create the recommended Admin Ops identity:
 
 ```bash
 radosgw-admin user create --uid="bkr-admin" --display-name="BucketReef Admin Ops" \
-  --caps="users=read,write;accounts=read,write;buckets=write"
+  --caps="users=read,write;accounts=read,write"
 ```
 
-This enables provisioning, quotas and managed technical identities. Runtime reads
-and monitoring use separate restricted identities. Admin Ops does not need Usage
-capabilities. Ceph Admin remains separately authorized and managed.
+This enables provisioning, account/user quotas and managed technical identities.
+Individual bucket quota changes remain unavailable until `buckets=write` is added.
+Runtime reads and monitoring use separate restricted identities. Admin Ops does
+not need Usage capabilities. Ceph Admin remains separately authorized and managed.
 
 ### Advanced: restrict Admin Ops permissions
 

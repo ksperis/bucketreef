@@ -413,7 +413,8 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.queryByText("Advanced: restrict Admin Ops permissions")).not.toBeInTheDocument();
     expect(within(adminSection).getByText("Recommended Admin Ops")).toBeVisible();
     fireEvent.click(within(adminSection).getByText("Recommended Admin Ops"));
-    expect(within(adminSection).getByText(/users=read,write;accounts=read,write;buckets=write/)).toBeVisible();
+    expect(within(adminSection).getByText(/users=read,write;accounts=read,write/)).toBeVisible();
+    expect(within(adminSection).queryByText(/buckets=write/)).not.toBeInTheDocument();
     const runtimeSection = screen.getByRole("region", { name: "Live reads (Runtime Read Ops)" });
     fireEvent.click(within(runtimeSection).getByText("Create Runtime Read Ops"));
     expect(within(runtimeSection).getByText(/accounts=read;user-info-without-keys=read;buckets=read/)).toBeVisible();
