@@ -18,7 +18,7 @@ from app.services.bucket_comparison_service import BucketComparisonService
 
 def _build_ctx(endpoint_id: int = 1):
     identity = SimpleNamespace(
-        mode="managed",
+        mode="external",
         status="ready",
         access_key="AKIA_SOURCE",
         secret_key="SOURCE_SECRET",
@@ -43,7 +43,7 @@ def _build_ctx(endpoint_id: int = 1):
 
 def _build_target_endpoint(endpoint_id: int = 2):
     identity = SimpleNamespace(
-        mode="managed",
+        mode="external",
         status="ready",
         access_key="AKIA_TARGET",
         secret_key="TARGET_SECRET",

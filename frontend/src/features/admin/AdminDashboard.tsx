@@ -328,7 +328,7 @@ function StorageTrafficSummary({
       title="Storage & traffic"
       titleAccessory={<WorkspaceDashboardInfo label="About storage and traffic metrics">
           <p className="ui-dashboard-note">Aggregated across managed and supervised Ceph endpoints. Includes Accounts and S3 Users registered in BucketReef.</p>
-          <table className="ui-dashboard-info-table" aria-label="Metric coverage and dates">
+          <table className="ui-dashboard-info-table ui-data-table" aria-label="Metric coverage and dates">
             <thead><tr><th scope="col">Measure</th><th scope="col">Endpoints</th><th scope="col">Data date</th></tr></thead>
             <tbody>
               <tr><td>Storage</td><td>{storageLoading ? "Loading…" : coverageLabel(storage?.coverage)}</td><td>{storage?.generated_at ? <time dateTime={storage.generated_at}>{formatLocalDateTime(storage.generated_at)}</time> : "—"}</td></tr>

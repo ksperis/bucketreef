@@ -8,6 +8,7 @@ from app.routers import dependencies
 from app.services.tags_service import TagsService
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED, TAG_DOMAIN_ENDPOINT, TAG_DOMAIN_PRIVATE_CONNECTION_USER
 from fastapi.testclient import TestClient
+from tests.service_identity_helpers import service_identity
 
 
 def _ui_admin(user_id: int, email: str) -> User:
@@ -247,6 +248,9 @@ def test_ceph_admin_endpoint_selector_hides_administrative_tags(client: TestClie
     db_session.commit()
     endpoint = _endpoint(db_session, name="ceph-selector-endpoint")
     endpoint.ceph_admin_allowed = True
+    endpoint.service_identities.append(
+        service_identity("ceph_admin", "AK-CEPH-ADMIN", "SK-CEPH-ADMIN")
+    )
     service = TagsService(db_session)
     service.replace_storage_endpoint_tags(
         endpoint,

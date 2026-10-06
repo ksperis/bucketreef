@@ -746,17 +746,3 @@ export function WorkspacePlatformMetricCard({ metric }: { metric: WorkspacePlatf
     </div>
   );
 }
-
-export function WorkspaceAvailabilityMetric({ score, loading, unavailableReason }: {
-  score: number | null;
-  loading: boolean;
-  unavailableReason?: string | null;
-}) {
-  return <WorkspacePlatformMetricCard metric={{
-    label: "Availability (7 days)",
-    value: loading ? "…" : score == null || unavailableReason ? "—" : `${score}%`,
-    tone: "emerald",
-    description: "Mean availability across endpoints with measurements.",
-    unavailableReason: unavailableReason || undefined,
-  }} />;
-}

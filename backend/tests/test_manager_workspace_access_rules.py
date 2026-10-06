@@ -1166,6 +1166,7 @@ def test_browser_workspace_accepts_ceph_admin_selector_for_authorized_user(db_se
         name="ceph-endpoint-a",
         endpoint_url="https://rgw-a.example.com",
         provider="ceph",
+        ceph_admin_allowed=True,
         service_identities=[service_identity("ceph_admin", "AK-CEPH-ADMIN", "SK-CEPH-ADMIN")],
         features_config="features:\n  admin:\n    enabled: false\n",
     )
@@ -1208,6 +1209,7 @@ def test_browser_workspace_rejects_ceph_admin_selector_for_invalid_ceph_admin_id
         name="ceph-endpoint-invalid",
         endpoint_url="https://rgw-invalid.example.com",
         provider="ceph",
+        ceph_admin_allowed=True,
         service_identities=[service_identity("ceph_admin", "AK-CEPH-INVALID", "SK-CEPH-INVALID")],
         features_config="features:\n  admin:\n    enabled: false\n",
     )
