@@ -41,7 +41,8 @@ def test_probe_ceph_admin_service_identity_classifies_unavailable(monkeypatch):
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
-            mode="external", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN"
+            mode="external", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN",
+            legacy_system_compat=False,
         ),
         id=1,
         name="Ceph endpoint",
@@ -169,6 +170,32 @@ features:
     detail = deps.validate_ceph_admin_service_identity(endpoint)
 
     assert (detail is None) is allowed
+
+
+def test_validate_ceph_admin_service_identity_accepts_migrated_system_user(monkeypatch):
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
+    endpoint = SimpleNamespace(
+        ceph_admin_allowed=True,
+        service_identity=lambda kind: SimpleNamespace(
+            mode="external", status="ready", access_key="AKIA-ADMIN", secret_key="SECRET-ADMIN",
+            legacy_system_compat=True,
+        ),
+        id=2,
+        name="Ceph endpoint",
+        provider=StorageProvider.CEPH,
+        features_config="",
+        endpoint_url="https://s3.example.test",
+        region="us-east-1",
+        verify_tls=True,
+    )
+
+    class FakeRGWClient:
+        def get_user_by_access_key(self, access_key: str, allow_not_found: bool = True):
+            return {"admin": False, "system": True}
+
+    monkeypatch.setattr(deps, "get_rgw_admin_client", lambda **kwargs: FakeRGWClient())
+
+    assert deps.validate_ceph_admin_service_identity(endpoint) is None
 
 
 class _FakeQuery:

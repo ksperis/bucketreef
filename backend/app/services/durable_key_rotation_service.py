@@ -80,7 +80,11 @@ class DurableKeyRotationService:
                 raise
         elif key_type == "ceph_admin":
             try:
-                self.identities.validate_payload("ceph_admin", payload)
+                self.identities.validate_payload(
+                    "ceph_admin",
+                    payload,
+                    allow_legacy_system=bool(target.legacy_system_compat),
+                )
                 self.identities._functional_check(
                     endpoint,
                     SimpleNamespace(
@@ -88,6 +92,7 @@ class DurableKeyRotationService:
                         rgw_uid=target.rgw_uid,
                         access_key=access,
                         secret_key=secret,
+                        legacy_system_compat=target.legacy_system_compat,
                     ),
                 )
             except ValueError as exc:

@@ -118,7 +118,7 @@ def test_upgrade_from_0_2_13_preserves_ceph_admin_credentials(tmp_path, monkeypa
         with engine.connect() as connection:
             identity = connection.execute(
                 sa.text(
-                    "SELECT mode, access_key, secret_key, status, rgw_uid, provenance "
+                    "SELECT mode, access_key, secret_key, status, rgw_uid, provenance, legacy_system_compat "
                     "FROM endpoint_service_identities WHERE kind = 'ceph_admin'"
                 )
             ).mappings().one()
@@ -129,10 +129,11 @@ def test_upgrade_from_0_2_13_preserves_ceph_admin_credentials(tmp_path, monkeypa
             assert identity["status"] == "missing"
             assert identity["rgw_uid"] is None
             assert identity["provenance"] is None
+            assert bool(identity["legacy_system_compat"]) is True
             columns = {column["name"] for column in sa.inspect(connection).get_columns("storage_endpoints")}
             assert "ceph_admin_access_key" not in columns
             assert "ceph_admin_secret_key" not in columns
-            assert connection.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one() == "0143_external_ceph_admin_credentials"
+            assert connection.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one() == "0144_legacy_ceph_admin_system_compat"
     finally:
         if engine is not None:
             engine.dispose()

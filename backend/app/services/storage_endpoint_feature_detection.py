@@ -57,6 +57,7 @@ class _FeatureDetectionContext:
     runtime_credentials: _FeatureDetectionCredentials
     supervision_credentials: _FeatureDetectionCredentials
     ceph_admin_credentials: _FeatureDetectionCredentials
+    ceph_admin_legacy_system_compat: bool = False
 
 
 class StorageEndpointFeatureDetector:
@@ -195,6 +196,12 @@ class StorageEndpointFeatureDetector:
                 else None
             ),
         )
+        ceph_admin_credentials = self._credentials(
+            payload.ceph_admin_access_key, payload.ceph_admin_secret_key,
+            stored_access_key=stored_ceph_admin.access_key if stored_ceph_admin and allow_stored_secret_reuse else None,
+            stored_secret_key=stored_ceph_admin.secret_key if stored_ceph_admin and allow_stored_secret_reuse else None,
+            reuse_matching_access_secret=False,
+        )
         return _FeatureDetectionContext(
             endpoint_url=endpoint_url,
             admin_endpoint=admin_endpoint,
@@ -207,11 +214,12 @@ class StorageEndpointFeatureDetector:
                 stored_secret_key=stored_runtime.secret_key if stored_runtime and allow_stored_secret_reuse else None,
             ),
             supervision_credentials=supervision_credentials,
-            ceph_admin_credentials=self._credentials(
-                payload.ceph_admin_access_key, payload.ceph_admin_secret_key,
-                stored_access_key=stored_ceph_admin.access_key if stored_ceph_admin and allow_stored_secret_reuse else None,
-                stored_secret_key=stored_ceph_admin.secret_key if stored_ceph_admin and allow_stored_secret_reuse else None,
-                reuse_matching_access_secret=False,
+            ceph_admin_credentials=ceph_admin_credentials,
+            ceph_admin_legacy_system_compat=bool(
+                stored_ceph_admin
+                and stored_ceph_admin.legacy_system_compat
+                and ceph_admin_credentials.access_key == stored_ceph_admin.access_key
+                and ceph_admin_credentials.secret_key == stored_ceph_admin.secret_key
             ),
         )
 
@@ -451,11 +459,20 @@ class StorageEndpointFeatureDetector:
             try:
                 client = self._client(context, credentials)
                 payload = client.get_user_by_access_key(credentials.access_key, allow_not_found=True)
-                EndpointServiceIdentityService.validate_payload("ceph_admin", payload)
+                EndpointServiceIdentityService.validate_payload(
+                    "ceph_admin",
+                    payload,
+                    allow_legacy_system=context.ceph_admin_legacy_system_compat,
+                )
                 if not (payload.get("user_id") or payload.get("uid")):
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
+                validation_message = (
+                    "Migrated Ceph Admin credentials were validated with legacy admin/system compatibility."
+                    if context.ceph_admin_legacy_system_compat
+                    else "Ceph Admin credentials were validated with admin=true and system=false."
+                )
                 result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
-                    status="valid", message="Ceph Admin credentials were validated with admin=true and system=false.")
+                    status="valid", message=validation_message)
             except ValueError as exc:
                 result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
                     status="denied", message=str(exc))
