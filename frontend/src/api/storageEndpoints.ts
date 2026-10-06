@@ -59,7 +59,7 @@ export type StorageEndpoint = {
   service_identities?: {
     kind: "runtime" | "supervision" | "ceph_admin";
     mode: "managed" | "external";
-    status: string;
+    status: "not_provisioned" | "missing" | "provisioning" | "ready" | "error" | "revocation_pending" | "disabled";
     rgw_uid?: string | null;
     credentials_configured?: boolean;
     rotation_pending?: boolean;

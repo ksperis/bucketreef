@@ -463,6 +463,133 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByRole("button", { name: "Update endpoint" })).toBeEnabled();
   });
 
+  it("keeps a newly saved managed endpoint open for explicit identity provisioning", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    const created = makeEndpoint({
+      id: 8,
+      name: "New Managed",
+      endpoint_url: "https://new-managed.example.test",
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: [
+        { kind: "runtime", mode: "managed", status: "not_provisioned", credentials_configured: false },
+        { kind: "supervision", mode: "managed", status: "not_provisioned", credentials_configured: false },
+      ],
+    });
+    listStorageEndpointsMock.mockResolvedValueOnce([]).mockResolvedValue([created]);
+    createStorageEndpointMock.mockResolvedValue(created);
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+    fireEvent.change(screen.getByLabelText("Endpoint name"), { target: { value: "New Managed" } });
+    fireEvent.change(screen.getByLabelText("S3 endpoint URL"), { target: { value: "https://new-managed.example.test" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "admin-key" } });
+    fireEvent.change(screen.getByLabelText("Admin secret key"), { target: { value: "admin-secret" } });
+    fireEvent.submit(screen.getByRole("form", { name: "Storage endpoint configuration" }));
+
+    expect(await screen.findByRole("heading", { name: "Edit storage endpoint · New Managed" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Credentials" })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create managed identities" })).toBeEnabled());
+    expect(screen.getByText("Runtime Read Ops · Managed · not provisioned")).toBeVisible();
+    expect(screen.getByText("Supervision Ops · Managed · not provisioned")).toBeVisible();
+  });
+
+  it("creates managed identities explicitly and reruns functional validation", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    const pending = makeEndpoint({
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: [
+        { kind: "runtime", mode: "managed", status: "not_provisioned", credentials_configured: false },
+        { kind: "supervision", mode: "managed", status: "not_provisioned", credentials_configured: false },
+      ],
+    });
+    const ready = makeEndpoint({
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: [
+        { kind: "runtime", mode: "managed", status: "ready", credentials_configured: true },
+        { kind: "supervision", mode: "managed", status: "ready", credentials_configured: true },
+      ],
+    });
+    listStorageEndpointsMock.mockResolvedValueOnce([pending]).mockResolvedValue([ready]);
+    reconcileEndpointIdentitiesMock.mockResolvedValue(ready);
+    detectStorageEndpointFeaturesMock.mockResolvedValue({
+      admin: true,
+      account: true,
+      usage: false,
+      metrics: false,
+      warnings: [],
+      admin_ops_permissions: {
+        users_read: true,
+        users_write: true,
+        buckets_read: false,
+        buckets_write: false,
+        accounts_read: true,
+        accounts_write: true,
+      },
+      credential_checks: {
+        admin: { status: "valid" },
+        runtime: { status: "not_configured" },
+        supervision: { status: "not_configured" },
+      },
+    });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    const create = await screen.findByRole("button", { name: "Create managed identities" });
+    await waitFor(() => expect(create).toBeEnabled());
+    const validationCallsBefore = detectStorageEndpointFeaturesMock.mock.calls.length;
+    fireEvent.click(create);
+
+    await waitFor(() => expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Create managed identities" })).not.toBeInTheDocument());
+    expect(screen.getByText("Runtime Read Ops · Managed · Ready")).toBeVisible();
+    expect(screen.getByText("Supervision Ops · Managed · Ready")).toBeVisible();
+    await waitFor(() => expect(detectStorageEndpointFeaturesMock.mock.calls.length).toBeGreaterThan(validationCallsBefore));
+  });
+
+  it("keeps managed mode explicit when Admin Ops lacks users write", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([makeEndpoint({
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      service_identities: [
+        { kind: "runtime", mode: "managed", status: "not_provisioned", credentials_configured: false },
+        { kind: "supervision", mode: "managed", status: "not_provisioned", credentials_configured: false },
+      ],
+    })]);
+    detectStorageEndpointFeaturesMock.mockResolvedValue({
+      admin: true,
+      account: true,
+      usage: false,
+      metrics: false,
+      warnings: [],
+      admin_ops_permissions: {
+        users_read: true,
+        users_write: false,
+        buckets_read: false,
+        buckets_write: false,
+        accounts_read: true,
+        accounts_write: false,
+      },
+      credential_checks: {
+        admin: { status: "valid" },
+        runtime: { status: "not_configured" },
+        supervision: { status: "not_configured" },
+      },
+    });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    expect(screen.getByLabelText("Identity management")).toHaveValue("managed");
+    expect(await screen.findByRole("button", { name: "Create managed identities" })).toBeDisabled();
+    expect(await screen.findByText(/Admin Ops has no users=write permission/)).toBeVisible();
+  });
+
   it("shows retry errors in the editor and blocks retrying an unsaved configuration", async () => {
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
     listStorageEndpointsMock.mockResolvedValue([makeEndpoint({

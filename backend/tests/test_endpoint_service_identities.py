@@ -588,7 +588,7 @@ def test_external_users_may_have_other_keys_without_managed_drift_rules(identiti
     assert rgw.users["external"] == original
 
 
-def test_endpoint_creation_commits_before_provisioning_and_returns_retryable_failure(identities, db_session):
+def test_endpoint_creation_waits_for_explicit_provisioning_and_failure_is_retryable(identities, db_session):
     from app.models.storage_endpoint import StorageEndpointCreate
 
     _, _, rgw = identities
@@ -601,6 +601,17 @@ def test_endpoint_creation_commits_before_provisioning_and_returns_retryable_fai
     db_session.rollback()
     endpoint = db_session.get(StorageEndpoint, response.id)
     identity = endpoint.service_identity("runtime")
+    supervision = endpoint.service_identity("supervision")
+    assert identity.status == "not_provisioned"
+    assert supervision.status == "not_provisioned"
+    assert identity.access_key is None and identity.provenance is None
+    assert not any(call[0] == "create" for call in rgw.calls)
+    assert not EndpointServiceIdentityService(db_session).needs_startup_reconciliation(
+        endpoint,
+        ceph_admin_enabled=False,
+    )
+
+    StorageEndpointsService(db_session).reconcile_identities(endpoint.id)
     assert identity.status == "error" and identity.access_key and identity.provenance
     key, uid = identity.access_key, identity.rgw_uid
     rgw.fail_create = False
@@ -928,16 +939,19 @@ def test_managed_to_external_conversion_requires_supervision_before_revoking(ide
     assert supervision.access_key == "SUPERVISION"
 
 
-def test_conversion_without_write_keeps_external_credentials(identities, db_session):
+def test_conversion_without_write_waits_for_explicit_managed_provisioning(identities, db_session):
     from app.models.storage_endpoint import StorageEndpointUpdate
     _, endpoint, rgw = identities
     endpoint.service_identities.append(service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET"))
     db_session.commit()
     rgw.users["operator"]["caps"] = "users=read;accounts=read"
-    with pytest.raises(ValueError, match="users=write"):
-        StorageEndpointsService(db_session).update_endpoint(endpoint.id, StorageEndpointUpdate(service_identity_mode="managed"))
+    StorageEndpointsService(db_session).update_endpoint(
+        endpoint.id,
+        StorageEndpointUpdate(service_identity_mode="managed"),
+    )
     row = endpoint.service_identity("runtime")
-    assert row.mode == "external" and row.access_key == "EXTERNAL" and row.secret_key == "EXTERNAL-SECRET"
+    assert row.mode == "managed" and row.status == "not_provisioned"
+    assert row.access_key is None and row.secret_key is None and row.rgw_uid is None
     assert not rgw.calls
 
 

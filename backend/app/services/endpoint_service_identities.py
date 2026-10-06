@@ -337,7 +337,14 @@ class EndpointServiceIdentityService:
             return False
 
         for kind in ("runtime", "supervision"):
-            if not self._identity_is_locally_ready(endpoint.service_identity(kind)):
+            identity = endpoint.service_identity(kind)
+            if (
+                identity is not None
+                and identity.mode == "managed"
+                and identity.status == "not_provisioned"
+            ):
+                continue
+            if not self._identity_is_locally_ready(identity):
                 return True
 
         ceph_admin = endpoint.service_identity("ceph_admin")
@@ -353,7 +360,14 @@ class EndpointServiceIdentityService:
             for intent in endpoint.key_rotation_intents
         )
 
-    def reconcile(self, endpoint, *, ceph_admin_enabled=None, locked=False):
+    def reconcile(
+        self,
+        endpoint,
+        *,
+        ceph_admin_enabled=None,
+        locked=False,
+        provision_unprovisioned=False,
+    ):
         if endpoint.provider != "ceph":
             return []
         lease, handle = (None, None) if locked else self._lease(endpoint)
@@ -377,6 +391,13 @@ class EndpointServiceIdentityService:
                 )
                 for kind in ("runtime", "supervision", "ceph_admin"):
                     identity = endpoint.service_identity(kind)
+                    if (
+                        not provision_unprovisioned
+                        and identity is not None
+                        and identity.mode == "managed"
+                        and identity.status == "not_provisioned"
+                    ):
+                        continue
                     if identity is not None and identity.status not in ("ready", "revocation_pending", "disabled"):
                         identity.status = "error"
                         identity.last_error = (
@@ -402,6 +423,14 @@ class EndpointServiceIdentityService:
             for kind in desired:
                 try:
                     identity = endpoint.service_identity(kind)
+                    if (
+                        not provision_unprovisioned
+                        and identity is not None
+                        and identity.mode == "managed"
+                        and identity.status == "not_provisioned"
+                    ):
+                        results.append({"kind": kind, "status": identity.status})
+                        continue
                     if identity is not None and identity.status == "revocation_pending":
                         self.revoke(endpoint, kind)
                         results.append({"kind": kind, "status": identity.status})

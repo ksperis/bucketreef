@@ -1,9 +1,12 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from types import SimpleNamespace
+
 from app.db import StorageEndpoint, StorageProvider, User, UserRole
 from app.main import app
 from app.routers import dependencies
 from app.routers.admin import storage_endpoints as storage_endpoints_router
+from fastapi import BackgroundTasks, Request
 from fastapi.testclient import TestClient
 
 
@@ -127,3 +130,64 @@ def test_storage_endpoint_error_status_does_not_depend_on_message_text(client: T
             app.dependency_overrides[dependencies.get_current_ui_superadmin] = previous_superadmin
 
     assert resp.status_code == 400, resp.text
+
+
+def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision(monkeypatch):
+    endpoint = SimpleNamespace(
+        service_identities=[
+            SimpleNamespace(kind="runtime", mode="managed", status="not_provisioned"),
+            SimpleNamespace(kind="supervision", mode="managed", status="not_provisioned"),
+        ]
+    )
+    reconciled = SimpleNamespace(id=7)
+
+    class FakeDB:
+        def get(self, model, endpoint_id):
+            assert model is storage_endpoints_router.DBStorageEndpoint
+            assert endpoint_id == 7
+            return endpoint
+
+    class FakeService:
+        def __init__(self):
+            self.db = FakeDB()
+            self.actor = None
+            self.calls = []
+
+        def reconcile_identities(self, endpoint_id):
+            self.calls.append(endpoint_id)
+            return reconciled
+
+    class FakeAuditService:
+        def __init__(self):
+            self.calls = []
+
+        def record_action(self, **kwargs):
+            self.calls.append(kwargs)
+
+    def fake_healthcheck(**_kwargs):
+        return None
+
+    monkeypatch.setattr(storage_endpoints_router, "require_admin_sensitive_action", lambda *_args: None)
+    monkeypatch.setattr(storage_endpoints_router, "run_initial_healthchecks", fake_healthcheck)
+    service = FakeService()
+    audit = FakeAuditService()
+    user = _superadmin_user()
+    background_tasks = BackgroundTasks()
+    request = Request({"type": "http", "method": "POST", "path": "/", "headers": []})
+
+    result = storage_endpoints_router.reconcile_service_identities(
+        7,
+        request,
+        background_tasks,
+        service,
+        user,
+        audit,
+    )
+
+    assert result is reconciled
+    assert service.actor is user
+    assert service.calls == [7]
+    assert audit.calls[0]["metadata"] == {"endpoint_id": 7, "operation": "provision"}
+    assert len(background_tasks.tasks) == 1
+    assert background_tasks.tasks[0].func is fake_healthcheck
+    assert background_tasks.tasks[0].kwargs == {"endpoint_id": 7}

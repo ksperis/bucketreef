@@ -108,6 +108,7 @@ export default function StorageEndpointsPage() {
   const [formBaseline, setFormBaseline] = useState<FormState | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [validationRetryKey, setValidationRetryKey] = useState(0);
   const [validationShown, setValidationShown] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [readOnlyEndpointDetail, setReadOnlyEndpointDetail] = useState<StorageEndpoint | null>(null);
@@ -252,14 +253,10 @@ export default function StorageEndpointsPage() {
   const endpointValidation = useStorageEndpointLiveValidation({
     enabled: Boolean(endpointValidationPayload),
     payload: endpointValidationPayload,
+    retryKey: validationRetryKey,
   });
   const featureDetectBusy = endpointValidation.status === "loading";
   const detection = endpointValidation.result;
-  useEffect(() => {
-    if (detection?.credential_checks.admin.status === "valid" && detection.admin_ops_permissions?.users_write === false) {
-      setForm(previous => previous.service_identity_mode === "external" || (editingEndpoint?.service_identities?.some(identity => identity.kind === "runtime" && identity.mode === "managed" && identity.status === "ready")) ? previous : { ...previous, service_identity_mode: "external" });
-    }
-  }, [detection, editingEndpoint]);
   const credentialChecks = { ...createEmptyCredentialChecks(), ...detection?.credential_checks };
   const featureDetectWarnings = useMemo(() => {
     if (!detection) return [];
@@ -556,10 +553,30 @@ export default function StorageEndpointsPage() {
         setValidationShown(false);
       }
       if (targetId === null) return;
-      if (hasTagChanges) await updateStorageEndpointTags(targetId, { tags: normalizedTags });
+      if (hasTagChanges) {
+        await updateStorageEndpointTags(targetId, { tags: normalizedTags });
+        setFormBaseline(previous => previous ? { ...previous, tags: normalizedTags } : previous);
+      }
       if (savedEndpoint?.service_identities?.some(identity => identity.status === "error" || identity.status === "revocation_pending")) {
         setFormError("Endpoint saved. Some service identities need attention; review their status and retry configuration.");
         await loadEndpoints();
+        return;
+      }
+      const awaitingManagedProvisioning = Boolean(
+        savedEndpoint?.provider === "ceph" &&
+        savedEndpoint.service_identities?.some(identity =>
+          (identity.kind === "runtime" || identity.kind === "supervision") &&
+          identity.mode === "managed" &&
+          identity.status === "not_provisioned"
+        )
+      );
+      if (awaitingManagedProvisioning) {
+        setActionMessage(editingId === null
+          ? "Endpoint added. Create the managed service identities to complete setup."
+          : "Endpoint updated. Create the managed service identities to complete setup.");
+        setActiveTab("credentials");
+        await loadEndpoints();
+        if (!hasEndpointRoute) navigate(`/admin/storage-endpoints/${targetId}`);
         return;
       }
       setActionMessage(editingId === null ? "Endpoint added." : saveConfiguration ? "Endpoint updated." : "Endpoint tags updated.");
@@ -625,13 +642,20 @@ export default function StorageEndpointsPage() {
         check: credentialChecks.runtime ?? { status: "not_configured" },
         incompleteMessage: "Enter both the Runtime Read Ops access key and secret key.",
       });
-  const hasSupervisionCredentialsForSignedProbe = form.service_identity_mode === "managed" || Boolean(
-    (form.supervision_access_key.trim() && form.supervision_secret_key.trim()) ||
-      (editingId != null &&
-        form.has_supervision_secret &&
-        !form.supervision_access_key.trim() &&
-        !form.supervision_secret_key.trim())
+  const managedSupervisionReady = Boolean(
+    editingEndpoint?.service_identities?.some(identity =>
+      identity.kind === "supervision" && identity.mode === "managed" && identity.status === "ready"
+    )
   );
+  const hasSupervisionCredentialsForSignedProbe = form.service_identity_mode === "managed"
+    ? managedSupervisionReady
+    : Boolean(
+        (form.supervision_access_key.trim() && form.supervision_secret_key.trim()) ||
+          (editingId != null &&
+            form.has_supervision_secret &&
+            !form.supervision_access_key.trim() &&
+            !form.supervision_secret_key.trim())
+      );
   const editorTabs = [
     { id: "general", label: "Connection" },
     { id: "credentials", label: "Credentials" },
@@ -747,7 +771,14 @@ export default function StorageEndpointsPage() {
                 mutationPending.current = true;
                 setFormError(null);
                 setSaving(true);
-                void runWithStepUp(() => reconcileEndpointIdentities(editingId)).then(async () => { await loadEndpoints(); })
+                void runWithStepUp(() => reconcileEndpointIdentities(editingId)).then(async reconciled => {
+                  const reconciledForm = createFormFromEndpoint(reconciled);
+                  setEndpoints(previous => [...previous.filter(endpoint => endpoint.id !== reconciled.id), reconciled]);
+                  setForm(reconciledForm);
+                  setFormBaseline(reconciledForm);
+                  await loadEndpoints();
+                  setValidationRetryKey(previous => previous + 1);
+                })
                   .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setFormError(extractError(cause)); })
                   .finally(() => { mutationPending.current = false; setSaving(false); });
               } : undefined}
