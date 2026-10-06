@@ -19,7 +19,7 @@ pytestmark = [
 ]
 
 
-def test_restricted_admin_ops_creates_runtime_supervision_and_revokes_ceph_admin(ceph_test_settings, tmp_path):
+def test_restricted_admin_ops_creates_and_revokes_runtime_supervision(ceph_test_settings, tmp_path):
     config = ceph_test_settings
     if not all((config.rgw_admin_endpoint, config.rgw_admin_access_key, config.rgw_admin_secret_key)):
         pytest.fail("RGW qualification credentials are required.")
@@ -41,10 +41,10 @@ def test_restricted_admin_ops_creates_runtime_supervision_and_revokes_ceph_admin
         endpoint = StorageEndpoint(name="Isolated qualification", endpoint_url=config.rgw_admin_endpoint, provider="ceph",
                                    region=config.rgw_admin_region, verify_tls=config.rgw_verify_tls,
                                    admin_access_key=credentials[0]["access_key"], admin_secret_key=credentials[0]["secret_key"],
-                                   ceph_admin_allowed=True, features_config="features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
+                                   features_config="features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
         db.add(endpoint); db.commit()
-        service.reconcile(endpoint, ceph_admin_enabled=True)
-        for kind in ("runtime", "supervision", "ceph_admin"):
+        service.reconcile(endpoint)
+        for kind in ("runtime", "supervision"):
             identity = endpoint.service_identity(kind)
             if identity is None or identity.status != "ready":
                 pytest.fail(f"Real RGW qualification failed for {kind}; inspect its required caps and Admin Ops provisioning support.")
@@ -52,13 +52,10 @@ def test_restricted_admin_ops_creates_runtime_supervision_and_revokes_ceph_admin
         user = runtime.get_user_by_access_key(endpoint.runtime_access_key, allow_not_found=True)
         if not user or any(user.get(field) for field in ("keys", "swift_keys", "temp_url_keys")):
             pytest.fail("Runtime user information must be returned without any keys.")
-        ceph_uid = endpoint.service_identity("ceph_admin").rgw_uid
-        if not service.revoke(endpoint, "ceph_admin") or owner.get_user(ceph_uid, allow_not_found=True) is not None:
-            pytest.fail("RGW did not confirm Ceph Admin revocation through restricted Admin Ops.")
     finally:
         pending = []
         if endpoint is not None:
-            for kind in ("runtime", "supervision", "ceph_admin"):
+            for kind in ("runtime", "supervision"):
                 identity = endpoint.service_identity(kind)
                 if identity and identity.status != "disabled" and not service.revoke(endpoint, kind):
                     pending.append(identity.rgw_uid)

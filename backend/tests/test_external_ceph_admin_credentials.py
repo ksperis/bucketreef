@@ -33,7 +33,7 @@ def test_manual_validation_is_independent_of_admin_ops_and_global_flag(identitie
     endpoint.admin_access_key = endpoint.admin_secret_key = None
     db_session.commit()
     original = deepcopy(rgw.users)
-    service.reconcile(endpoint, ceph_admin_enabled=False)
+    service.reconcile(endpoint)
     identity = endpoint.service_identity("ceph_admin")
     assert identity.mode == "external" and identity.status == "ready" and identity.rgw_uid == "manual-admin"
     assert rgw.users == original and not rgw.calls

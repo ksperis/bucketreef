@@ -357,25 +357,15 @@ class StorageEndpointsService:
 
     def reconcile_persisted_identities(self):
         from app.core.runtime_surfaces import endpoint_identity_management_enabled
-        from app.services.app_settings_service import load_app_settings_for_db_readonly
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         if not endpoint_identity_management_enabled(settings):
             return
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
-        ceph_admin_enabled = load_app_settings_for_db_readonly(
-            self.db
-        ).general.ceph_admin_enabled
         for endpoint in self.db.query(StorageEndpoint).filter_by(provider="ceph").all():
-            if not identities.needs_startup_reconciliation(
-                endpoint,
-                ceph_admin_enabled=ceph_admin_enabled,
-            ):
+            if not identities.needs_startup_reconciliation(endpoint):
                 continue
             try:
-                identities.reconcile(
-                    endpoint,
-                    ceph_admin_enabled=ceph_admin_enabled,
-                )
+                identities.reconcile(endpoint)
             except ValueError:
                 self.db.rollback()
                 logger.info("Endpoint %s identity reconciliation deferred; retry from endpoint settings.", endpoint.id)
