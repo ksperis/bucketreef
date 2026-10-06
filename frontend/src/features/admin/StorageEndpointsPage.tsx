@@ -723,6 +723,12 @@ export default function StorageEndpointsPage() {
             !form.supervision_access_key.trim() &&
             !form.supervision_secret_key.trim())
       );
+  const externalSupervisionConfigured = form.service_identity_mode === "external"
+    && Boolean(
+      (form.supervision_access_key.trim() && form.supervision_secret_key.trim()) ||
+        (editingId != null && form.has_supervision_secret &&
+          !form.supervision_access_key.trim() && !form.supervision_secret_key.trim())
+    );
   const editorTabs = [
     { id: "general", label: "Connection" },
     { id: "credentials", label: "Credentials" },
@@ -738,7 +744,21 @@ export default function StorageEndpointsPage() {
     ? `${configurationReadOnly ? "Storage endpoint" : "Edit storage endpoint"} · ${editorEndpointName}`
     : "New storage endpoint";
   useEffect(() => {
-    if (!saving && !configurationReadOnly && signedProbeBlockedReason && form.features.healthcheck.mode === "s3") {
+    if (saving || configurationReadOnly) return;
+    if (externalSupervisionConfigured && (
+      !form.features.healthcheck.enabled || form.features.healthcheck.mode !== "s3"
+    )) {
+      updateFeatures((current) => ({
+        ...current,
+        healthcheck: {
+          ...current.healthcheck,
+          enabled: true,
+          mode: "s3",
+        },
+      }));
+      return;
+    }
+    if (signedProbeBlockedReason && form.features.healthcheck.mode === "s3") {
       updateFeatures((current) => ({
         ...current,
         healthcheck: {
@@ -747,7 +767,15 @@ export default function StorageEndpointsPage() {
         },
       }));
     }
-  }, [form.features.healthcheck.mode, signedProbeBlockedReason, updateFeatures, saving, configurationReadOnly]);
+  }, [
+    configurationReadOnly,
+    externalSupervisionConfigured,
+    form.features.healthcheck.enabled,
+    form.features.healthcheck.mode,
+    saving,
+    signedProbeBlockedReason,
+    updateFeatures,
+  ]);
 
   return (
     <div className="space-y-4 ui-caption leading-relaxed">

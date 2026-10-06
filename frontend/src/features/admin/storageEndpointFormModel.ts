@@ -371,6 +371,15 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
   const supervisionIdentity = endpoint.service_identities?.find(
     (identity) => identity.kind === "supervision",
   );
+  const features = resolveFeatureState(endpoint, endpoint.provider);
+  if (
+    endpoint.provider === "ceph"
+    && supervisionIdentity?.mode === "external"
+    && supervisionIdentity.credentials_configured
+  ) {
+    features.healthcheck.enabled = true;
+    features.healthcheck.mode = "s3";
+  }
   return {
     name: endpoint.name ?? "",
     endpoint_url: endpoint.endpoint_url ?? "",
@@ -395,6 +404,6 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     supervision_secret_key: "",
     has_admin_secret: Boolean(endpoint.has_admin_secret),
     has_supervision_secret: Boolean(supervisionIdentity?.credentials_configured),
-    features: resolveFeatureState(endpoint, endpoint.provider),
+    features,
   };
 }

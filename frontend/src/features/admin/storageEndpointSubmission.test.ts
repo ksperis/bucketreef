@@ -22,6 +22,44 @@ describe("baseline Ceph service credentials", () => {
     });
   });
 
+  it("enables the signed S3 healthcheck when external Supervision credentials are supplied", () => {
+    const form = createEmptyForm();
+    Object.assign(form, {
+      name: "Ceph",
+      endpoint_url: "https://ceph.example.test",
+      service_identity_mode: "external",
+      runtime_access_key: "RUNTIME",
+      runtime_secret_key: "RUNTIME-SECRET",
+      supervision_access_key: "SUPERVISION",
+      supervision_secret_key: "SUPERVISION-SECRET",
+    });
+    form.features.healthcheck.enabled = false;
+    form.features.healthcheck.mode = "http";
+
+    const result = buildStorageEndpointSubmission(form, false);
+
+    expect(result.errors).toBeUndefined();
+    expect(result.payload?.features_config).toContain("healthcheck:\n    enabled: true\n    mode: s3");
+  });
+
+  it("keeps the signed S3 healthcheck enabled when editing with stored external Supervision credentials", () => {
+    const form = createEmptyForm();
+    Object.assign(form, {
+      name: "Ceph",
+      endpoint_url: "https://ceph.example.test",
+      service_identity_mode: "external",
+      has_runtime_secret: true,
+      has_supervision_secret: true,
+    });
+    form.features.healthcheck.enabled = false;
+    form.features.healthcheck.mode = "http";
+
+    const result = buildStorageEndpointSubmission(form, true);
+
+    expect(result.errors).toBeUndefined();
+    expect(result.payload?.features_config).toContain("healthcheck:\n    enabled: true\n    mode: s3");
+  });
+
   it("keeps both write-only stored pairs during an external metadata edit", () => {
     const form = createEmptyForm();
     Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: "external",
