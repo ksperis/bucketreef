@@ -5,7 +5,7 @@ from typing import Literal
 from app.services.rgw_admin_transport import RGWAdminError
 
 
-RgwCredentialFailureKind = Literal["denied", "unavailable"]
+RgwCredentialFailureKind = Literal["denied", "unavailable", "misconfigured"]
 _DENIED_ERROR_CODES = {
     "accessdenied",
     "invalidaccesskey",
@@ -16,6 +16,8 @@ _DENIED_ERROR_CODES = {
 
 def classify_rgw_credential_failure(error: RGWAdminError) -> RgwCredentialFailureKind:
     error_code = (error.error_code or "").strip().lower()
+    if error_code == "redirectnotallowed":
+        return "misconfigured"
     if error.status_code in {401, 403} or error_code in _DENIED_ERROR_CODES:
         return "denied"
     return "unavailable"

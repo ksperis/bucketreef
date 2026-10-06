@@ -42,11 +42,12 @@ def test_user_operations_are_owned_by_dedicated_module():
 
 
 class _Resp:
-    def __init__(self, status_code: int = 200, payload=None, text: str = ""):
+    def __init__(self, status_code: int = 200, payload=None, text: str = "", headers=None):
         self.status_code = status_code
         self._payload = payload if payload is not None else {}
         self.text = text or str(payload or "")
         self.content = self.text.encode()
+        self.headers = headers or {}
 
     def json(self):
         if isinstance(self._payload, Exception):
@@ -97,6 +98,49 @@ def test_request_wraps_network_errors(monkeypatch):
     monkeypatch.setattr(client.session, "request", _raise)
     with pytest.raises(RGWAdminError, match="request failed"):
         client._request("GET", "/admin/info")
+
+
+@pytest.mark.parametrize("status_code", [301, 302, 307, 308])
+def test_admin_ops_http_to_https_redirects_are_rejected_without_following(
+    monkeypatch, status_code
+):
+    client = _client(endpoint="http://rgw-admin.example.test")
+    captured = {}
+
+    def fake_request(*_args, **kwargs):
+        captured.update(kwargs)
+        return _Resp(
+            status_code=status_code,
+            headers={"Location": "https://rgw-admin.example.test/admin/user"},
+        )
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with pytest.raises(RGWAdminError, match="redirects from HTTP to HTTPS") as raised:
+        client._request("PUT", "/admin/user")
+
+    assert raised.value.status_code == status_code
+    assert raised.value.error_code == "RedirectNotAllowed"
+    assert captured["allow_redirects"] is False
+
+
+def test_admin_ops_other_redirects_are_rejected_without_exposing_target(monkeypatch):
+    client = _client()
+    monkeypatch.setattr(
+        client.session,
+        "request",
+        lambda *_args, **_kwargs: _Resp(
+            status_code=307,
+            headers={"Location": "https://other.example.test/admin/user?token=secret"},
+        ),
+    )
+
+    with pytest.raises(RGWAdminError, match="returned a redirect") as raised:
+        client._request("GET", "/admin/user")
+
+    assert raised.value.error_code == "RedirectNotAllowed"
+    assert "other.example.test" not in str(raised.value)
+    assert "secret" not in str(raised.value)
 
 
 def test_request_never_logs_or_raises_raw_rgw_error_body(monkeypatch, caplog):

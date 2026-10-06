@@ -369,12 +369,21 @@ class EndpointServiceIdentityService:
                 return results
             try:
                 admin, permissions = self.admin_permissions(endpoint)
-            except (ValueError, RGWAdminError):
+            except (ValueError, RGWAdminError) as exc:
+                failure = (
+                    classify_rgw_credential_failure(exc)
+                    if isinstance(exc, RGWAdminError)
+                    else None
+                )
                 for kind in ("runtime", "supervision", "ceph_admin"):
                     identity = endpoint.service_identity(kind)
                     if identity is not None and identity.status not in ("ready", "revocation_pending", "disabled"):
                         identity.status = "error"
-                        identity.last_error = "Admin Ops validation failed; check its required read permissions and RGW connectivity."
+                        identity.last_error = (
+                            f"Unable to configure {kind}: {exc}"
+                            if failure == "misconfigured"
+                            else "Admin Ops validation failed; check its required read permissions and RGW connectivity."
+                        )
                 self.db.commit()
                 return [{"kind": "admin", "status": "error"}]
             # Baseline endpoint identities persist independently of feature activation.
@@ -420,13 +429,22 @@ class EndpointServiceIdentityService:
                             status="error",
                         )
                         endpoint.service_identities.append(identity)
-                    unavailable = isinstance(exc, RGWAdminError) and classify_rgw_credential_failure(exc) == "unavailable"
+                    failure = (
+                        classify_rgw_credential_failure(exc)
+                        if isinstance(exc, RGWAdminError)
+                        else None
+                    )
+                    unavailable = failure == "unavailable"
                     if identity.status != "revocation_pending":
                         if not (unavailable and identity.status == "ready"):
                             identity.status = "error"
-                        identity.last_error = (f"{kind} validation is temporarily unavailable; existing credentials remain configured."
-                                               if unavailable and identity.status == "ready" else
-                                               f"Unable to configure {kind}; check credentials, required caps, ownership and RGW connectivity.")
+                        identity.last_error = (
+                            f"Unable to configure {kind}: {exc}"
+                            if failure == "misconfigured"
+                            else f"{kind} validation is temporarily unavailable; existing credentials remain configured."
+                            if unavailable and identity.status == "ready"
+                            else f"Unable to configure {kind}; check credentials, required caps, ownership and RGW connectivity."
+                        )
                     self.db.commit()
                     results.append({"kind": kind, "status": identity.status})
             return results

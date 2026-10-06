@@ -215,6 +215,7 @@ class StorageEndpointCredentialCheck(ApiModel):
         "valid",
         "denied",
         "unavailable",
+        "misconfigured",
         "incomplete",
         "not_configured",
     ] = "not_configured"

@@ -29,6 +29,7 @@ import PageHeader from "../../components/PageHeader";
 import PageTabs from "../../components/PageTabs";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { ListActionButton } from "../../components/list/ListControls";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
@@ -754,6 +755,9 @@ export default function StorageEndpointsPage() {
                 runtime: runtimeCredentialCheck && <CredentialStatusBadge {...runtimeCredentialCheck} />,
                 admin: adminCredentialCheck && <>
                   <CredentialStatusBadge {...adminCredentialCheck} />
+                  {adminCredentialCheck.status === "misconfigured" && adminCredentialCheck.message && (
+                    <UiInlineMessage tone="error">{adminCredentialCheck.message}</UiInlineMessage>
+                  )}
                   {adminCredentialCheck.status === "valid" && (
                     <AdminOpsPermissionsBadges permissions={detection?.admin_ops_permissions} />
                   )}

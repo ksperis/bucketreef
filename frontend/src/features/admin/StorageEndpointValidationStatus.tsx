@@ -94,6 +94,7 @@ export function CredentialStatusBadge({
     valid: { tone: "success" as const, label: "Access validated", symbol: "✓" },
     denied: { tone: "danger" as const, label: "Access rejected", symbol: "×" },
     unavailable: { tone: "warning" as const, label: "Check unavailable", symbol: "!" },
+    misconfigured: { tone: "danger" as const, label: "Configuration invalid", symbol: "×" },
     incomplete: { tone: "warning" as const, label: "Complete both keys", symbol: "!" },
     not_configured: { tone: "neutral" as const, label: "Not configured", symbol: null },
   }[status];

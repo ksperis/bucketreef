@@ -541,6 +541,43 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByText("Check unavailable")).toBeInTheDocument();
   });
 
+  it("shows an Admin Ops redirect as an invalid endpoint configuration", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    listStorageEndpointsMock.mockResolvedValue([
+      makeEndpoint({
+        endpoint_url: "http://ceph.example.test",
+        admin_access_key: "admin-key",
+        has_admin_secret: true,
+      }),
+    ]);
+    const message = "RGW Admin Ops endpoint redirects from HTTP to HTTPS. Configure the HTTPS endpoint directly; signed Admin Ops requests cannot use redirects.";
+    detectStorageEndpointFeaturesMock.mockResolvedValueOnce({
+      admin: false,
+      account: false,
+      usage: false,
+      metrics: false,
+      admin_error: message,
+      warnings: [],
+      http_check: {
+        status: "valid",
+        status_code: 200,
+        message: "Endpoint responded over HTTP (200).",
+      },
+      credential_checks: {
+        admin: { status: "misconfigured", message },
+        supervision: { status: "not_configured" },
+        runtime: { status: "not_configured" },
+      },
+    });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+
+    expect(await screen.findByText("Configuration invalid")).toBeVisible();
+    expect(screen.getByText(message)).toBeVisible();
+  });
+
   it("ignores a stale credential validation response after the keys change", async () => {
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
     listStorageEndpointsMock.mockResolvedValue([

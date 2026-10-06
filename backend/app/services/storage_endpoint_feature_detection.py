@@ -237,6 +237,11 @@ class StorageEndpointFeatureDetector:
         unavailable_message: str,
     ) -> StorageEndpointCredentialCheck:
         failure = classify_rgw_credential_failure(error)
+        if failure == "misconfigured":
+            return StorageEndpointCredentialCheck(
+                status="misconfigured",
+                message=str(error),
+            )
         return StorageEndpointCredentialCheck(
             status=failure,
             message=denied_message if failure == "denied" else unavailable_message,
