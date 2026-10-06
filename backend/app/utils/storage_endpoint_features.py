@@ -234,6 +234,18 @@ def normalize_features_config(
     return features
 
 
+def required_service_identity_kinds(features: dict[str, dict[str, Any]]) -> set[str]:
+    """Operational identities needed by the endpoint's selected features."""
+    required = set()
+    if features["admin"]["enabled"] or features["account"]["enabled"]:
+        required.add("runtime")
+    healthcheck = features["healthcheck"]
+    if (features["metrics"]["enabled"] or features["usage"]["enabled"]
+            or (healthcheck["enabled"] and healthcheck["mode"] == "s3")):
+        required.add("supervision")
+    return required
+
+
 def dump_features_config(features: dict[str, dict[str, Any]]) -> str:
     payload: dict[str, dict[str, dict[str, Any]]] = {"features": {}}
     for key in FEATURE_KEYS:

@@ -218,6 +218,21 @@ describe("CephAdminMetricsPage", () => {
     expect(screen.queryByText("Usage logs are disabled for this endpoint.")).not.toBeInTheDocument();
   });
 
+  it("keeps Ceph Admin usage composition available without a supervision identity", async () => {
+    const context = buildEndpointContext({ metrics: true, usage: true });
+    context.selectedEndpointAccess.can_metrics = false;
+    useCephAdminEndpointMock.mockReturnValue(context);
+    renderPage();
+    expect(screen.getByText("Supervision credentials are not configured for this endpoint.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Usage composition" }));
+    expect(await screen.findByText("2 / 3 buckets covered")).toBeInTheDocument();
+    expect(getCephAdminUsageStatsAggregateMock).toHaveBeenCalledWith(7);
+    fireEvent.click(screen.getByRole("tab", { name: "Traffic" }));
+    expect(screen.getByText("Supervision credentials are not configured for this endpoint.")).toBeInTheDocument();
+    expect(fetchCephAdminClusterStorageMock).not.toHaveBeenCalled();
+    expect(fetchCephAdminClusterTrafficMock).not.toHaveBeenCalled();
+  });
+
   it("keeps storage load errors inside the storage snapshot card", async () => {
     fetchCephAdminClusterStorageMock.mockRejectedValueOnce(makeApiError("Unable to load cluster storage metrics."));
 

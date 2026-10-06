@@ -699,7 +699,7 @@ def test_environment_external_runtime_is_required_before_any_sync(db_session, mo
         {"name": "valid-first", "endpoint_url": "https://first.example.test", "provider": "other"},
         {
             "name": "invalid-second", "endpoint_url": "https://second.example.test", "provider": "ceph",
-                    "service_identity_mode": "managed",
+            "features": {"admin": {"enabled": True}},
             "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET",
             "service_identity_mode": "external", "supervision_access_key": "SUPERVISION",
             "supervision_secret_key": "SUPERVISION-SECRET", **runtime,
@@ -1741,10 +1741,10 @@ def test_env_validates_entire_inventory_before_writes(db_session, monkeypatch, i
 
 @pytest.mark.parametrize("mode", ["api", "env"])
 @pytest.mark.parametrize("pair", [{}, {"supervision_access_key": "SUPERVISION"}, {"supervision_secret_key": "SUPERVISION-SECRET"}])
-def test_external_supervision_is_required_without_monitoring_before_any_write(db_session, monkeypatch, mode, pair):
+def test_external_supervision_is_required_for_monitoring_before_any_write(db_session, monkeypatch, mode, pair):
     service = StorageEndpointsService(db_session)
     entry = dict(name="ceph", endpoint_url="https://ceph.example.test", provider="ceph", service_identity_mode="external",
-                 runtime_access_key="RUNTIME", runtime_secret_key="RUNTIME-SECRET", **pair)
+                 features_config="features:\n  metrics:\n    enabled: true\n", **pair)
     with pytest.raises(ValueError, match="require Supervision"):
         if mode == "api":
             service.create_endpoint(StorageEndpointCreate(**entry))

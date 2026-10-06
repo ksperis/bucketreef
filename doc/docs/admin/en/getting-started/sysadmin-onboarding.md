@@ -76,10 +76,12 @@ passkey policy. Secure the Admin identity separately before production:
    `users=read,write;accounts=read,write` for provisioning, account/user quotas and
    managed service identities. Individual bucket quota changes additionally require
    `buckets=write` and stay unavailable unless that optional capability is granted.
-   Managed mode creates Runtime and Supervision for every Ceph endpoint. Advanced
-   hardening can restrict Admin Ops permissions and provide both Runtime and
-   Supervision externally. The private S3 connection keeps its own identity.
-   Feature choices control which workflows run.
+   Manager/Portal require Runtime; monitoring requires Supervision. Managed mode
+   creates only the identities needed by the selected workflows. External mode
+   requires their dedicated pairs. Selecting Ceph Admin alone asks only for its
+   dedicated pair and validates it independently of Admin Ops. Storage/Traffic
+   metrics remain unavailable without Supervision, while Ceph Admin usage
+   composition stays accessible. The private S3 connection keeps its own identity.
 4. **Review and apply.** Inspect the exact feature activations, resource
    creations and access assignments, then explicitly apply the reviewed
    configuration. **Apply configuration** is available only in this final step.

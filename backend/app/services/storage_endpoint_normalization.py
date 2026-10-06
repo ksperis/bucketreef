@@ -24,6 +24,7 @@ from app.utils.storage_endpoint_features import (
     AWS_DEFAULT_REGION,
     dump_features_config,
     normalize_features_config,
+    required_service_identity_kinds,
 )
 
 _EndpointCredentialValues = tuple[
@@ -223,6 +224,10 @@ def normalize_storage_endpoint_state(
     admin_enabled = bool(features.get("admin", {}).get("enabled")) or bool(
         features.get("account", {}).get("enabled")
     )
+    required_identities = required_service_identity_kinds(features)
+    admin_required = admin_enabled or (
+        payload.service_identity_mode == "managed" and bool(required_identities)
+    )
     (
         admin_access_key,
         admin_secret_key,
@@ -234,18 +239,23 @@ def normalize_storage_endpoint_state(
         normalize_optional_string(_secret_value(payload.admin_secret_key)),
         supervision_access_input,
         supervision_secret_input,
-        admin_enabled,
-        payload.service_identity_mode == "external",
+        admin_required,
+        payload.service_identity_mode == "external" and "supervision" in required_identities,
     )
     runtime_access = normalize_optional_string(payload.runtime_access_key) if provider == StorageProvider.CEPH else None
     runtime_secret = normalize_optional_string(_secret_value(payload.runtime_secret_key)) if provider == StorageProvider.CEPH else None
-    if provider == StorageProvider.CEPH and payload.service_identity_mode == "external" and (not runtime_access or not runtime_secret):
+    if provider == StorageProvider.CEPH and payload.service_identity_mode == "external" and "runtime" in required_identities and (not runtime_access or not runtime_secret):
         raise ValueError("External service identities require Runtime access key and secret key.")
     if provider == StorageProvider.CEPH:
-        for kind in ("runtime", "supervision", "ceph_admin"):
+        for kind in ("admin", "runtime", "supervision", "ceph_admin"):
             access, secret = getattr(payload, f"{kind}_access_key"), _secret_value(getattr(payload, f"{kind}_secret_key"))
             if bool(normalize_optional_string(access)) != bool(normalize_optional_string(secret)):
                 raise ValueError(f"External {kind} credentials require a complete pair.")
+        if payload.ceph_admin_allowed and (
+            not normalize_optional_string(payload.ceph_admin_access_key)
+            or not normalize_optional_string(_secret_value(payload.ceph_admin_secret_key))
+        ):
+            raise ValueError("Allowing Ceph Admin requires its access key and secret key.")
     return NormalizedEndpointState(
         name=name,
         endpoint_url=endpoint_url,
@@ -281,14 +291,6 @@ def normalize_storage_endpoint_update(
     supervision = endpoint.service_identity("supervision")
     ceph_admin = endpoint.service_identity("ceph_admin")
     current_identity_mode = runtime.mode if runtime is not None else "managed"
-    if current_identity_mode == "managed" and payload.service_identity_mode == "external":
-        if not normalize_optional_string(payload.runtime_access_key) or not normalize_optional_string(_secret_value(payload.runtime_secret_key)):
-            raise ValueError("Switching to external mode requires replacement Runtime credentials.")
-        if (
-            not normalize_optional_string(payload.supervision_access_key)
-            or not normalize_optional_string(_secret_value(payload.supervision_secret_key))
-        ):
-            raise ValueError("Switching to external mode requires replacement Supervision credentials.")
     merged = StorageEndpointCreate(
         name=endpoint.name,
         endpoint_url=endpoint.endpoint_url,
@@ -322,6 +324,20 @@ def normalize_storage_endpoint_update(
         ):
             continue
         merged[field] = value
+
+    if current_identity_mode == "managed" and payload.service_identity_mode == "external":
+        required = required_service_identity_kinds(normalize_features_config(
+            merged["provider"], merged["features_config"], merged["region"],
+        ))
+        for kind, identity in (("runtime", runtime), ("supervision", supervision)):
+            existing_managed = identity is not None and identity.mode == "managed" and any((
+                identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance,
+            ))
+            if (kind in required or existing_managed) and (
+                not normalize_optional_string(getattr(payload, f"{kind}_access_key"))
+                or not normalize_optional_string(_secret_value(getattr(payload, f"{kind}_secret_key")))
+            ):
+                raise ValueError(f"Switching to external mode requires replacement {kind.title()} credentials.")
 
     if not merged["endpoint_url"]:
         raise ValueError("Endpoint URL is required.")

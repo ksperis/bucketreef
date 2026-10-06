@@ -818,19 +818,28 @@ def test_managed_onboarding_detects_usage_after_provisioning_without_admin_usage
     assert result.configured
     ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
     assert {identity.kind for identity in ep.service_identities} == {"runtime", "supervision"}
-    assert all(identity.status == "ready" for identity in ep.service_identities)
+    assert ep.service_identity("supervision").status == "ready"
+    assert ep.service_identity("runtime").status == "not_provisioned"
     assert resolve_feature_flags(ep).metrics_enabled
     assert resolve_feature_flags(ep).usage_enabled is usage_data
     usages = [call for call in rgw.calls if call[0] == "usage"]
     assert usages and all(call[1] == ep.service_identity("supervision").access_key for call in usages)
 
 
-def test_external_ceph_admin_setup_requires_supervision_even_without_collectors(guided, db_session, monkeypatch):
+@pytest.mark.parametrize("mode", ["managed", "external"])
+def test_ceph_admin_only_setup_needs_only_its_dedicated_pair(guided, db_session, monkeypatch, mode):
     user = actor(db_session)
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_: detection())
-    with pytest.raises(OnboardingError, match="supervision_credentials_required"):
-        apply(guided, user, save(guided, user, endpoint_url="https://ceph-only.example.test", ceph_admin=True),
-              admin_access_key="admin-ak", admin_secret_key="admin-sk", service_identity_mode="external",
-              runtime_access_key="runtime-ak", runtime_secret_key="runtime-sk",
-              ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
-    assert db_session.query(StorageEndpoint).count() == 0
+    result = apply(guided, user, save(guided, user, endpoint_url="https://ceph-only.example.test", ceph_admin=True),
+                   service_identity_mode=mode, ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
+    ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
+    assert result.configured and user.can_access_ceph_admin
+    assert ep.admin_access_key is None and ep.admin_secret_key is None
+    assert ep.service_identity("ceph_admin").status == "ready"
+    for kind in ("runtime", "supervision"):
+        identity = ep.service_identity(kind)
+        assert identity.mode == mode
+        assert identity.access_key is None and identity.secret_key is None
+        assert identity.last_error is None
+    assert not resolve_feature_flags(ep).metrics_enabled
+    assert not resolve_feature_flags(ep).usage_enabled

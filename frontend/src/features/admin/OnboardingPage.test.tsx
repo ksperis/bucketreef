@@ -318,7 +318,7 @@ describe("simplified onboarding", () => {
     expect(screen.queryByText("Advanced: restrict Admin Ops permissions")).not.toBeInTheDocument();
     expect(screen.getByText(/users=read,write;accounts=read,write/)).toBeInTheDocument();
     expect(screen.queryByText(/buckets=write/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Runtime Read Ops and Supervision Ops are created and functionally validated/)).toBeInTheDocument();
+    expect(screen.getByText(/identities required by selected workflows are created and functionally validated/)).toBeInTheDocument();
     expect(screen.getByText(/externally configured RGW user with admin=true and system=false/)).toBeInTheDocument();
     expect(screen.getByText(/BucketReef private S3 user/)).toBeInTheDocument();
   });
@@ -411,7 +411,7 @@ describe("simplified onboarding", () => {
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
   });
 
-  it("validates external Runtime and Supervision while allowing missing usage data", async () => {
+  it("validates selected external Supervision while allowing missing usage data", async () => {
     mocks.listStorageEndpoints.mockResolvedValue([cephEndpointWithExternalIdentities, awsEndpoint]);
     let usageHasData = false;
     mocks.detectStorageEndpointFeatures.mockImplementation(
@@ -436,8 +436,7 @@ describe("simplified onboarding", () => {
     await continueWhenReady();
 
     fireEvent.change(await screen.findByRole("combobox", { name: "Identity management" }), { target: { value: "external" } });
-    fireEvent.change(screen.getByLabelText("Runtime access key"), { target: { value: "runtime-access" } });
-    fireEvent.change(screen.getByLabelText("Runtime secret key"), { target: { value: "runtime-secret" } });
+    expect(screen.queryByLabelText("Runtime access key")).not.toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText("Supervision Ops access key"), {
       target: { value: "supervision-access" },
     });
@@ -474,6 +473,40 @@ describe("simplified onboarding", () => {
     ).toHaveLength(2);
     expect(screen.queryByLabelText("Admin Ops access key")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Ceph Admin access key")).not.toBeInTheDocument();
+  });
+
+  it.each(["managed", "external"] as const)("applies Ceph Admin alone without other credentials in %s mode", async mode => {
+    mocks.listStorageEndpoints.mockResolvedValue([{
+      ...cephEndpoint, admin_access_key: null, has_admin_secret: false,
+      service_identities: [
+        { kind: "runtime", mode, status: "not_provisioned", credentials_configured: false },
+        { kind: "supervision", mode, status: "not_provisioned", credentials_configured: false },
+      ],
+    }]);
+    renderPage();
+    fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), { target: { value: "3" } });
+    await continueWhenReady();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Manager with a sample RGW Account/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Enable monitoring \/ metrics/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /^Ceph Admin/ }));
+    await continueWhenReady();
+    expect(screen.queryByLabelText("Admin Ops access key")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Runtime access key")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Supervision Ops access key")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Identity management" })).not.toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText("Ceph Admin access key"), { target: { value: "CEPH-AK" } });
+    fireEvent.change(screen.getByLabelText("Ceph Admin secret key"), { target: { value: "CEPH-SK" } });
+    await continueWhenReady();
+    const apply = await screen.findByRole("button", { name: "Apply configuration" });
+    await waitFor(() => expect(apply).toBeEnabled());
+    fireEvent.click(apply);
+    expect(await screen.findByText("Admin dashboard")).toBeInTheDocument();
+    expect(mocks.applyOnboardingJourney).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: expect.objectContaining({ ceph_admin: true, manager: false, portal: false, supervision: false }) }),
+      expect.objectContaining({ ceph_admin_access_key: "CEPH-AK", ceph_admin_secret_key: "CEPH-SK",
+        admin_access_key: undefined, runtime_access_key: undefined, supervision_access_key: undefined }),
+    );
+    expect(JSON.stringify(mocks.saveOnboardingJourney.mock.calls)).not.toContain("CEPH-SK");
   });
 
   it("keeps private S3 credentials out of draft/preview and applies them only on confirmation", async () => {

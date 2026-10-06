@@ -48,6 +48,7 @@ import {
   defaultFeaturesForProvider,
   EMPTY_STORAGE_ENDPOINT_FORM,
   normalizeAwsRegion,
+  serviceIdentityRequirements,
   type FeaturesState,
   type FormState,
 } from "./storageEndpointFormModel";
@@ -487,9 +488,11 @@ export default function StorageEndpointsPage() {
     && stableSignature(normalizeUiTags(form.tags)) !== stableSignature(normalizeUiTags(formBaseline.tags));
   const hasFormChanges = hasConfigurationChanges || hasTagChanges;
   const savedRuntimeIdentity = editingEndpoint?.service_identities?.find(identity => identity.kind === "runtime");
+  const requiredServiceIdentities = serviceIdentityRequirements(form.features);
   const savedManagedProvisioningPending = Boolean(
     editingEndpoint?.service_identities?.some(identity =>
       (identity.kind === "runtime" || identity.kind === "supervision") &&
+      requiredServiceIdentities[identity.kind] &&
       identity.mode === "managed" &&
       identity.status === "not_provisioned"
     )
@@ -501,6 +504,7 @@ export default function StorageEndpointsPage() {
   );
   const managedProvisioningIntent = Boolean(
     cephMode &&
+    (requiredServiceIdentities.runtime || requiredServiceIdentities.supervision) &&
     form.service_identity_mode === "managed" &&
     !configurationReadOnly &&
     hasConfigurationChanges &&
@@ -511,7 +515,7 @@ export default function StorageEndpointsPage() {
     ? editingId === null ? "Save endpoint & create managed identities" : "Save & create managed identities"
     : undefined;
   const fieldErrors = validationShown && !configurationReadOnly
-    ? buildStorageEndpointSubmission(form, editingId !== null).errors ?? {} : {};
+    ? buildStorageEndpointSubmission(form, editingId !== null, editingEndpoint?.service_identities).errors ?? {} : {};
 
   const handleDelete = async () => {
     if (!metadataReady || envManaged || !canEditEndpoints || mutationPending.current) return;
@@ -556,7 +560,7 @@ export default function StorageEndpointsPage() {
     if (editingId === null && envManaged) return;
     setFormError(null);
     const saveConfiguration = !configurationReadOnly && (editingId === null || hasConfigurationChanges);
-    const submission = saveConfiguration ? buildStorageEndpointSubmission(form, editingId !== null) : null;
+    const submission = saveConfiguration ? buildStorageEndpointSubmission(form, editingId !== null, editingEndpoint?.service_identities) : null;
     if (submission?.errors) {
       setValidationShown(true);
       const connectionFields = ["name", "endpoint_url", "latitude", "longitude"];
@@ -598,10 +602,12 @@ export default function StorageEndpointsPage() {
         await loadEndpoints();
         return;
       }
+      const savedIdentityRequirements = savedEndpoint ? serviceIdentityRequirements(savedEndpoint.features) : null;
       const awaitingManagedProvisioning = Boolean(
         savedEndpoint?.provider === "ceph" &&
         savedEndpoint.service_identities?.some(identity =>
           (identity.kind === "runtime" || identity.kind === "supervision") &&
+          savedIdentityRequirements?.[identity.kind] &&
           identity.mode === "managed" &&
           identity.status === "not_provisioned"
         )

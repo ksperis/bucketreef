@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import logging
+from dataclasses import replace
 from typing import Optional
 
 from sqlalchemy.exc import IntegrityError
@@ -52,6 +53,7 @@ from app.utils.name_ordering import name_order_by
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
     normalize_features_config,
+    required_service_identity_kinds,
     resolve_rgw_admin_api_endpoint,
 )
 
@@ -246,7 +248,27 @@ class StorageEndpointsService:
         lease, handle = identities._lease(endpoint) if endpoint.id is not None else (None, None)
         try:
             runtime = endpoint.service_identity("runtime")
-            if runtime is not None and runtime.mode == "external" and config.service_identity_mode == "managed":
+            required = required_service_identity_kinds(normalize_features_config(
+                config.provider, config.features_config, config.region,
+            ))
+            preserved_credentials = {}
+            for kind in ("runtime", "supervision"):
+                identity = endpoint.service_identity(kind)
+                if (kind not in required and config.service_identity_mode == "external"
+                        and identity is not None and identity.mode == "external"
+                        and not getattr(config, f"{kind}_access_key")
+                        and not getattr(config, f"{kind}_secret_key")):
+                    # Disabling a feature does not remove its existing identity.
+                    preserved_credentials[f"{kind}_access_key"] = identity.access_key
+                    preserved_credentials[f"{kind}_secret_key"] = identity.secret_key
+            if preserved_credentials:
+                config = replace(config, **preserved_credentials)
+            configured_services = any(
+                identity.kind in ("runtime", "supervision") and any((
+                    identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance,
+                )) for identity in endpoint.service_identities
+            )
+            if runtime is not None and runtime.mode == "external" and config.service_identity_mode == "managed" and (required or configured_services):
                 if not endpoint_identity_management_enabled(settings):
                     raise ValueError("ENV identity conversion requires an administration instance.")
                 _, permissions = identities.admin_permissions(config)
@@ -260,7 +282,8 @@ class StorageEndpointsService:
                 for kind in ("runtime", "supervision"):
                     identity = endpoint.service_identity(kind)
                     if identity is not None and identity.mode == "managed":
-                        if not getattr(config, f"{kind}_access_key") or not getattr(config, f"{kind}_secret_key"):
+                        replacing_managed = any((identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance))
+                        if (kind in required or replacing_managed) and (not getattr(config, f"{kind}_access_key") or not getattr(config, f"{kind}_secret_key")):
                             raise ValueError("ENV conversion to external mode requires replacement service credentials.")
                         if not endpoint_identity_management_enabled(settings):
                             raise ValueError("ENV identity conversion requires an administration instance.")

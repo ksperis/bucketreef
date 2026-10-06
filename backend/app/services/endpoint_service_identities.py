@@ -17,6 +17,7 @@ from app.services.rgw_admin_identity import extract_ceph_admin_flags, classify_r
 from app.services.rgw_endpoint_clients import get_endpoint_bootstrap_rgw_client
 from app.services.storage_endpoint_admin_permissions import _parse_caps_payload, admin_ops_permissions_from_caps
 from app.utils.time import utcnow
+from app.utils.storage_endpoint_features import normalize_features_config, required_service_identity_kinds
 
 SERVICE_CAPS = {
     "runtime": "accounts=read;user-info-without-keys=read;buckets=read",
@@ -393,7 +394,7 @@ class EndpointServiceIdentityService:
         if endpoint.provider != "ceph":
             return False
 
-        for kind in ("runtime", "supervision"):
+        for kind in self.desired_service_kinds(endpoint):
             identity = endpoint.service_identity(kind)
             if (
                 identity is not None
@@ -414,6 +415,26 @@ class EndpointServiceIdentityService:
             for intent in endpoint.key_rotation_intents
         )
 
+    @staticmethod
+    def desired_service_kinds(endpoint) -> list[str]:
+        """Keep configured/in-flight identities, skip unused empty placeholders."""
+        required = required_service_identity_kinds(normalize_features_config(
+            endpoint.provider, endpoint.features_config, endpoint.region,
+        ))
+        desired = []
+        for kind in ("runtime", "supervision"):
+            identity = endpoint.service_identity(kind)
+            tracked = identity is not None and identity.status != "disabled" and (
+                any((identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance))
+                or identity.status in ("provisioning", "revocation_pending")
+            )
+            rotation_pending = any(
+                intent.key_type == f"endpoint_{kind}" for intent in endpoint.key_rotation_intents
+            )
+            if kind in required or tracked or rotation_pending:
+                desired.append(kind)
+        return desired
+
     def reconcile(
         self,
         endpoint,
@@ -427,7 +448,8 @@ class EndpointServiceIdentityService:
         results = []
         try:
             results.append(self.validate_ceph_admin(endpoint))
-            if not endpoint.admin_access_key or not endpoint.admin_secret_key:
+            desired = self.desired_service_kinds(endpoint)
+            if not desired or not endpoint.admin_access_key or not endpoint.admin_secret_key:
                 return results
             try:
                 admin, permissions = self.admin_permissions(endpoint)
@@ -437,7 +459,7 @@ class EndpointServiceIdentityService:
                     if isinstance(exc, RGWAdminError)
                     else None
                 )
-                for kind in ("runtime", "supervision"):
+                for kind in desired:
                     identity = endpoint.service_identity(kind)
                     if (
                         not provision_unprovisioned
@@ -455,17 +477,8 @@ class EndpointServiceIdentityService:
                         )
                 self.db.commit()
                 return [{"kind": "admin", "status": "error"}]
-            # Baseline endpoint identities persist independently of feature activation.
-            desired = ["runtime", "supervision"]
             runtime = endpoint.service_identity("runtime")
-            if runtime is None:
-                runtime = EndpointServiceIdentity(
-                    kind="runtime",
-                    mode="managed",
-                    status="missing",
-                )
-                endpoint.service_identities.append(runtime)
-                self.db.commit()
+            default_mode = runtime.mode if runtime is not None else "managed"
             for kind in desired:
                 try:
                     identity = endpoint.service_identity(kind)
@@ -481,7 +494,7 @@ class EndpointServiceIdentityService:
                         self.revoke(endpoint, kind)
                         results.append({"kind": kind, "status": identity.status})
                         continue
-                    mode = identity.mode if identity is not None else runtime.mode
+                    mode = identity.mode if identity is not None else default_mode
                     identity = self._ensure(endpoint, kind, admin, permissions,
                                             managed=mode == "managed")
                     results.append({"kind": kind, "status": identity.status})
@@ -496,7 +509,7 @@ class EndpointServiceIdentityService:
                     if identity is None:
                         identity = EndpointServiceIdentity(
                             kind=kind,
-                            mode=runtime.mode,
+                            mode=default_mode,
                             status="error",
                         )
                         endpoint.service_identities.append(identity)
