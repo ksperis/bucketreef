@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.2.14 - 2026-10-06
+
+### Added
+
+- Add dedicated Runtime Read Ops and Supervision service identities for Ceph RGW endpoints, with explicit validation, provisioning state, rotation recovery, and signed S3 health probes.
+- Add cached Admin dashboard metrics collected through supervision credentials, plus clearer endpoint identity health and recovery feedback.
+- Split the documentation into audience-specific Admin, Manager, Portal, Browser, and Developer guides, including a French Portal guide and contextual documentation links from application workspaces.
+
 ### Changed
 
 - Restore manually supplied Ceph Admin credentials in endpoint settings and onboarding; remove the activation dialog and automatic Ceph Admin provisioning/rotation.
@@ -16,6 +24,14 @@
 - Validate the complete ENV endpoint inventory before synchronization and use the same external Runtime credential requirements as the endpoint API.
 - Remove the misleading `commit` argument from endpoint creation; registration persists a durable endpoint before reconciling RGW identities.
 - Detect untracked S3, Swift and temporary URL keys on managed endpoint identities, block their mutations, and report auditable drift without exposing key material.
+- Simplify Portal external-tool configuration and Manager/Admin dashboards while keeping workspace-specific permissions and execution contexts explicit.
+
+### Fixed
+
+- Preserve legacy and externally managed Ceph Admin credentials across the `0.2.13` upgrade path, including endpoints that expose only dedicated Ceph Admin credentials.
+- Namespace automatically generated RGW user identifiers and preserve uniqueness for externally provisioned Portal IAM users.
+- Protect Helm deployments from slow backend startup and refresh frontend base-image security packages.
+- Restore full regression validation and scheduled secret-scan baselines in CI.
 
 ### Upgrade notes
 
