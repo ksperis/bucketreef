@@ -101,7 +101,7 @@ def classify(*, source: str, ref: str, protected: bool, mode: str = "auto", tag:
         raise ValueError("Private pipelines require main or dev")
     if source == "push" and mode == "auto":
         return "integration"
-    if source == "web" and ref == "main" and mode in {"qualify", "prepare-release", "resume-release", "docs", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
+    if source in {"web", "api"} and ref == "main" and mode in {"qualify", "prepare-release", "resume-release", "docs", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         return mode
     if source == "schedule" and ref == "main" and mode in {"regression", "security", "secrets-history"}:
         return mode

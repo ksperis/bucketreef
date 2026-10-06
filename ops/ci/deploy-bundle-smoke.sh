@@ -7,9 +7,14 @@ case "$SMOKE_MODE" in quickstart|compose) ;; *) echo "Invalid SMOKE_MODE" >&2; e
 key="${SMOKE_MODE}-${IMAGE_ARCH}"
 runner="bucketreef-${SMOKE_MODE}-smoke-$CI_JOB_ID"
 health_retries=24
+health_timeout=5s
 compose_wait_timeout=180
 if [ "$IMAGE_ARCH" = "arm64" ]; then
   health_retries=60
+  # Python startup and the first HTTP probe are substantially slower under
+  # QEMU on the amd64 release runner. Keep the published default strict while
+  # allowing the emulated installation gate enough time to execute a probe.
+  health_timeout=30s
   compose_wait_timeout=600
 fi
 cleanup() {
@@ -18,6 +23,14 @@ cleanup() {
   python3 ops/ci/installation_evidence.py diagnostics "$key" || true
   mkdir -p "smoke-diagnostics/$key"
   docker cp "$runner:/tmp/timings.tsv" "smoke-diagnostics/$key/timings.tsv" >/dev/null 2>&1 || true
+  docker cp "$runner:/tmp/smoke.log" "smoke-diagnostics/$key/smoke.log" >/dev/null 2>&1 || true
+  project=bucketreef-compose-smoke
+  if [ "$SMOKE_MODE" = quickstart ]; then
+    project=bucketreef
+  fi
+  timeout 20s docker exec "$runner" sh -c \
+    "cd /bundle && docker compose --project-name $project --env-file .env --file compose.yaml logs --no-color --timestamps" \
+    >"smoke-diagnostics/$key/services.log" 2>&1 || true
   if [ "$SMOKE_MODE" = quickstart ]; then
     docker exec "$runner" sh -c 'cd /bundle && docker compose --project-name bucketreef --env-file .env --file compose.yaml down --volumes' >/dev/null 2>&1 || true
   else
@@ -41,6 +54,7 @@ docker cp "installation-images/$IMAGE_ARCH.json" "$runner:/tmp/expected-images.j
 docker exec \
   --env SMOKE_MODE="$SMOKE_MODE" \
   --env SMOKE_HEALTH_RETRIES="$health_retries" \
+  --env SMOKE_HEALTH_TIMEOUT="$health_timeout" \
   --env SMOKE_COMPOSE_WAIT_TIMEOUT="$compose_wait_timeout" \
   "$runner" sh -ec '
   apk add --no-cache bash curl openssl python3
@@ -56,6 +70,7 @@ docker exec \
   tar -xzf /tmp/bundle.tar.gz -C /bundle
   cd /bundle
   export BUCKETREEF_HEALTHCHECK_RETRIES="$SMOKE_HEALTH_RETRIES"
+  export BUCKETREEF_HEALTHCHECK_TIMEOUT="$SMOKE_HEALTH_TIMEOUT"
   export HEALTHCHECK_CRON_SCHEDULE="* * * * *"
 
   wait_for_scheduled_healthcheck() {

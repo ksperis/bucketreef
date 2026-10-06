@@ -383,6 +383,8 @@ def test_compose_defaults_are_safe_and_services_have_healthchecks():
         ] == "${BROWSER_PROXY_UPLOAD_MAX_BODY_SIZE:-5g}"
         assert services["backend"]["healthcheck"]
         assert services["frontend"]["healthcheck"]
+        assert services["backend"]["healthcheck"]["timeout"] == "${BUCKETREEF_HEALTHCHECK_TIMEOUT:-5s}"
+        assert services["frontend"]["healthcheck"]["timeout"] == "${BUCKETREEF_HEALTHCHECK_TIMEOUT:-5s}"
 
 
 def test_quickstart_runtime_material_is_ignored():

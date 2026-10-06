@@ -71,16 +71,28 @@ def test_profiles_are_disjoint():
     assert select("integration", ["README.md"], ref="dev", version=True)["profile"] == "integration"
 
 
-def test_prepare_release_is_explicit_main_only_web_mode():
-    assert classify(source="web", ref="main", protected=True, mode="prepare-release") == "prepare-release"
+@pytest.mark.parametrize("source", ["web", "api"])
+def test_prepare_release_is_explicit_main_only_manual_mode(source):
+    assert classify(source=source, ref="main", protected=True, mode="prepare-release") == "prepare-release"
     with pytest.raises(ValueError):
         classify(source="push", ref="main", protected=True, mode="prepare-release")
 
 
-def test_resume_release_is_explicit_main_only_web_mode():
-    assert classify(source="web", ref="main", protected=True, mode="resume-release") == "resume-release"
+@pytest.mark.parametrize("source", ["web", "api"])
+def test_resume_release_is_explicit_main_only_manual_mode(source):
+    assert classify(source=source, ref="main", protected=True, mode="resume-release") == "resume-release"
     with pytest.raises(ValueError):
         classify(source="push", ref="main", protected=True, mode="resume-release")
+
+
+@pytest.mark.parametrize("source", ["web", "api"])
+def test_manual_modes_still_require_protected_main(source):
+    for values in [
+        dict(source=source, ref="dev", protected=True),
+        dict(source=source, ref="main", protected=False),
+    ]:
+        with pytest.raises(ValueError):
+            classify(**values, mode="prepare-release")
 
 
 @pytest.mark.parametrize("status", ["failure", "cancelled", "skipped", None, "neutral"])
