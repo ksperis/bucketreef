@@ -13,6 +13,7 @@ import {
   createStorageEndpoint,
   deleteStorageEndpoint,
   fetchStorageEndpointsMeta,
+  getStorageEndpoint,
   listStorageEndpoints,
   setDefaultStorageEndpoint,
   updateStorageEndpoint,
@@ -108,6 +109,7 @@ export default function StorageEndpointsPage() {
   const [saving, setSaving] = useState(false);
   const [validationShown, setValidationShown] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [readOnlyEndpointDetail, setReadOnlyEndpointDetail] = useState<StorageEndpoint | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [defaultError, setDefaultError] = useState<string | null>(null);
   const [defaultBusyId, setDefaultBusyId] = useState<number | null>(null);
@@ -129,6 +131,7 @@ export default function StorageEndpointsPage() {
     setFormError(null);
     setValidationShown(false);
     setEditingId(null);
+    setReadOnlyEndpointDetail(null);
   }, []);
 
   const loadEndpoints = useCallback(async () => {
@@ -166,6 +169,23 @@ export default function StorageEndpointsPage() {
   const configurationReadOnly = Boolean(
     editingId != null && (!metadataReady || envManaged || editingEndpoint?.is_editable === false || !canEditEndpoints)
   );
+  useEffect(() => {
+    if (!showForm || editingId == null || !configurationReadOnly) {
+      setReadOnlyEndpointDetail(null);
+      return;
+    }
+    let active = true;
+    void getStorageEndpoint(editingId, { include_admin_ops_permissions: true })
+      .then((endpoint) => {
+        if (active) setReadOnlyEndpointDetail(endpoint);
+      })
+      .catch(() => {
+        if (active) setReadOnlyEndpointDetail(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [configurationReadOnly, editingId, showForm]);
   const endpointUrl = form.endpoint_url.trim();
   const adminAccessKey = form.admin_access_key.trim();
   const adminSecretKey = form.admin_secret_key.trim();
@@ -714,7 +734,11 @@ export default function StorageEndpointsPage() {
               ) : undefined} />}
             {activeTab === "credentials" && <StorageEndpointCredentialsFields form={form} setForm={setForm}
               readOnly={configurationReadOnly} editing={editingId !== null} cephAdminEnabled={cephAdminConfigEnabled}
-              usersWrite={detection?.credential_checks.admin.status === "valid" ? detection.admin_ops_permissions?.users_write : editingEndpoint?.admin_ops_permissions?.users_write}
+              usersWrite={detection?.credential_checks.admin.status === "valid"
+                ? detection.admin_ops_permissions?.users_write
+                : configurationReadOnly && readOnlyEndpointDetail?.id === editingId
+                  ? readOnlyEndpointDetail.admin_ops_permissions?.users_write
+                  : undefined}
               identities={editingEndpoint?.service_identities} reconciling={saving} configurationDirty={hasConfigurationChanges}
               storedAdminAccessKey={editingEndpoint?.admin_access_key}
               onReconcile={editingId !== null && canEditEndpoints ? () => {
