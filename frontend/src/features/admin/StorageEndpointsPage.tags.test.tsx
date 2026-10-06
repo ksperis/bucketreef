@@ -6,6 +6,7 @@ import StorageEndpointsPage from "./StorageEndpointsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
 const listStorageEndpointsMock = vi.fn();
+const getStorageEndpointMock = vi.fn();
 const fetchStorageEndpointsMetaMock = vi.fn();
 const detectStorageEndpointFeaturesMock = vi.fn();
 const createStorageEndpointMock = vi.fn();
@@ -75,12 +76,12 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
 
 vi.mock("../../api/storageEndpoints", () => ({
   listStorageEndpoints: () => listStorageEndpointsMock(),
+  getStorageEndpoint: (id: number, params?: unknown) => getStorageEndpointMock(id, params),
   fetchStorageEndpointsMeta: () => fetchStorageEndpointsMetaMock(),
   updateStorageEndpointTags: (id: number, payload: unknown) => updateStorageEndpointTagsMock(id, payload),
   detectStorageEndpointFeatures: (payload: unknown) => detectStorageEndpointFeaturesMock(payload),
   createStorageEndpoint: (payload: unknown) => createStorageEndpointMock(payload),
   deleteStorageEndpoint: (id: number) => deleteStorageEndpointMock(id),
-  getStorageEndpoint: vi.fn(),
   setDefaultStorageEndpoint: (id: number) => setDefaultStorageEndpointMock(id),
   updateStorageEndpoint: (id: number, payload: unknown) => updateStorageEndpointMock(id, payload),
   reconcileEndpointIdentities: (id: number) => reconcileEndpointIdentitiesMock(id),
@@ -168,6 +169,7 @@ describe("StorageEndpointsPage tags", () => {
       },
     });
     listStorageEndpointsMock.mockResolvedValue([makeEndpoint()]);
+    getStorageEndpointMock.mockResolvedValue(makeEndpoint());
     createStorageEndpointMock.mockResolvedValue(makeEndpoint({ id: 8, name: "AWS Regional", provider: "aws", endpoint_url: "https://s3.us-east-1.amazonaws.com" }));
     listAdminTagDefinitionsMock.mockResolvedValue([makeTag(801, "prod"), makeTag(802, "rgw-a")]);
     updateStorageEndpointTagsMock.mockResolvedValue(makeEndpoint({ tags: [makeTag(801, "prod"), makeTag(802, "rgw-a")] }));
@@ -648,6 +650,44 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Capabilities & health" }));
     expect(screen.getByLabelText("SNS topics enabled")).toBeDisabled();
     expect(screen.getByLabelText("Healthcheck mode")).toBeDisabled();
+  });
+
+  it("loads Admin Ops permissions for a read-only endpoint before reporting users=write", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin" });
+    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: true });
+    listStorageEndpointsMock.mockResolvedValue([
+      makeEndpoint({
+        admin_access_key: "admin-key",
+        has_admin_secret: true,
+        admin_ops_permissions: {
+          users_read: false,
+          users_write: false,
+          buckets_read: false,
+          buckets_write: false,
+          accounts_read: false,
+          accounts_write: false,
+        },
+      }),
+    ]);
+    getStorageEndpointMock.mockResolvedValue(makeEndpoint({
+      admin_access_key: "admin-key",
+      has_admin_secret: true,
+      admin_ops_permissions: {
+        users_read: true,
+        users_write: true,
+        buckets_read: false,
+        buckets_write: false,
+        accounts_read: true,
+        accounts_write: true,
+      },
+    }));
+
+    renderPage("/admin/storage-endpoints/7");
+
+    expect(await screen.findByRole("heading", { name: "Storage endpoint · Ceph Endpoint" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
+    await waitFor(() => expect(getStorageEndpointMock).toHaveBeenCalledWith(7, { include_admin_ops_permissions: true }));
+    expect(screen.queryByText(/Admin Ops has no users=write permission/)).not.toBeInTheDocument();
   });
 
   it("keeps tags read-only for a non-superadmin on the endpoint page", async () => {
