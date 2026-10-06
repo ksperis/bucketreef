@@ -19,7 +19,7 @@
 
 ### Upgrade notes
 
-- **Breaking change:** migration `0143_external_ceph_admin_credentials` clears all stored Ceph Admin pairs and pending rotations. Re-enter keys for an externally configured RGW user with `admin=true` and `system=false`. Endpoint authorizations remain; RGW users are untouched and obsolete users must be cleaned up manually.
+- **Breaking change:** Ceph Admin credentials are now operator-managed external pairs. Upgrades from `0.2.13` preserve complete stored Ceph Admin credentials and revalidate them after migration; pending managed rotations and managed-only metadata are discarded. Re-enter keys only when the stored pair is incomplete or invalid. Endpoint authorizations and RGW users remain untouched.
 
 - **Breaking change:** external Ceph endpoints now require both Runtime and Supervision credential pairs, even with monitoring disabled. Supply missing Supervision keys before startup. Existing managed endpoints provision missing Supervision at administration startup or reconciliation and need Admin Ops `users=write` for that provisioning.
 

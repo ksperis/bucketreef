@@ -10,7 +10,7 @@ from alembic.operations import Operations
 from sqlalchemy.exc import IntegrityError
 
 
-def test_migration_detaches_external_ceph_admin_credentials_and_enforces_managed_mode(monkeypatch):
+def test_migration_preserves_external_ceph_admin_credentials_while_enforcing_managed_mode(monkeypatch):
     path = Path(__file__).resolve().parents[1] / "alembic/versions/0139_managed_ceph_admin_identity.py"
     spec = importlib.util.spec_from_file_location("managed_ceph_admin_identity_migration", path)
     module = importlib.util.module_from_spec(spec)
@@ -64,7 +64,17 @@ def test_migration_detaches_external_ceph_admin_credentials_and_enforces_managed
                 "FROM endpoint_service_identities WHERE kind = 'ceph_admin'"
             )
         ).one()
-        assert ceph_admin == ("managed", None, None, None, None, None, "missing", None, None)
+        assert ceph_admin == (
+            "managed",
+            None,
+            "LEGACY-AK",
+            "encrypted-secret",
+            None,
+            None,
+            "missing",
+            None,
+            None,
+        )
 
         runtime = connection.execute(
             sa.text(
