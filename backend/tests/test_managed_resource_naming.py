@@ -1,6 +1,14 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.managed_resource_naming import portal_external_iam_username
+from app.services.managed_resource_naming import managed_s3_user_uid, portal_external_iam_username
+
+
+def test_managed_s3_user_uid_uses_bucketreef_namespace_and_uuid():
+    uid = managed_s3_user_uid()
+
+    assert uid.startswith("bkr-s3u-")
+    assert len(uid) == len("bkr-s3u-") + 32
+    int(uid.removeprefix("bkr-s3u-"), 16)
 
 
 def test_portal_external_iam_username_truncates_slug_before_token():

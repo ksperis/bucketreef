@@ -363,7 +363,8 @@ def test_create_user_treats_blank_uid_as_automatic(db_session, monkeypatch):
         )
     )
 
-    assert created.rgw_user_uid == "automatic-uid"
+    assert created.rgw_user_uid.startswith("bkr-s3u-")
+    assert len(created.rgw_user_uid) == len("bkr-s3u-") + 32
 
 
 def test_import_user_fetches_remote_and_creates_key(db_session, monkeypatch):
