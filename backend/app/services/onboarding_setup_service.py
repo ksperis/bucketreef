@@ -53,7 +53,7 @@ class OnboardingSetupService:
             raise OnboardingError("credentials_required")
         return access, secret
 
-    def _management_credentials(self, payload, endpoint, kind, required_code):
+    def _management_credentials(self, payload, endpoint, kind, required_code, *, required=True):
         access, secret = self._pair(
             getattr(payload, f"{kind}_access_key"),
             getattr(payload, f"{kind}_secret_key"),
@@ -66,7 +66,9 @@ class OnboardingSetupService:
             stored_secret = (getattr(identity, "admin_secret_key" if kind == "admin" else "secret_key", None) or "")
             if stored_access and stored_secret:
                 return stored_access, stored_secret, False
-        raise OnboardingError(required_code)
+        if required:
+            raise OnboardingError(required_code)
+        return "", "", False
 
     def _private_credentials(self, payload):
         access, secret = self._pair(payload.private_access_key, payload.private_secret_key)
@@ -154,6 +156,7 @@ class OnboardingSetupService:
         needs_account_api = draft.manager or draft.portal
         needs_ceph_admin = draft.ceph_admin
         needs_ceph = needs_account_api or draft.supervision or needs_ceph_admin
+        needs_admin = needs_account_api or (draft.supervision and payload.service_identity_mode == "managed")
         if endpoint is not None and needs_ceph and endpoint.provider != "ceph":
             raise OnboardingError("ceph_endpoint_required")
 
@@ -169,15 +172,17 @@ class OnboardingSetupService:
                 endpoint,
                 "admin",
                 "endpoint_admin_credentials_required",
+                required=needs_admin,
             )
         if needs_ceph and payload.service_identity_mode == "external":
-            runtime = self._management_credentials(payload, endpoint, "runtime", "runtime_credentials_required")
+            runtime = self._management_credentials(payload, endpoint, "runtime", "runtime_credentials_required", required=needs_account_api)
         if needs_ceph and payload.service_identity_mode == "external":
             supervision = self._management_credentials(
                 payload,
                 endpoint,
                 "supervision",
                 "supervision_credentials_required",
+                required=draft.supervision,
             )
 
         supplied_management_credentials = any(
@@ -201,7 +206,7 @@ class OnboardingSetupService:
                 raise OnboardingError("admin_ops_permissions_insufficient")
             if not detection.account:
                 raise OnboardingError("account_api_unavailable")
-        if needs_ceph and payload.service_identity_mode == "external" and (
+        if draft.supervision and payload.service_identity_mode == "external" and (
             detection.credential_checks.supervision.status != "valid"
             or not detection.metrics
         ):
@@ -261,7 +266,7 @@ class OnboardingSetupService:
             update = {}
             runtime_identity = endpoint.service_identity("runtime")
             current_identity_mode = runtime_identity.mode if runtime_identity is not None else "managed"
-            if needs_ceph and payload.service_identity_mode != current_identity_mode:
+            if (needs_account_api or draft.supervision) and payload.service_identity_mode != current_identity_mode:
                 update["service_identity_mode"] = payload.service_identity_mode
             if runtime[2]:
                 update.update(runtime_access_key=runtime[0], runtime_secret_key=runtime[1])
@@ -320,10 +325,11 @@ class OnboardingSetupService:
             ceph_identity = endpoint.service_identity("ceph_admin")
             if ceph_identity is None or ceph_identity.mode != "external" or ceph_identity.status != "ready":
                 raise OnboardingError("ceph_identity_denied")
-        if needs_ceph:
+        if needs_account_api:
             runtime_identity = endpoint.service_identity("runtime")
             if runtime_identity is None or runtime_identity.status != "ready":
                 raise OnboardingError("runtime_credentials_invalid")
+        if draft.supervision:
             supervision_identity = endpoint.service_identity("supervision")
             if supervision_identity is None or supervision_identity.status != "ready":
                 raise OnboardingError("supervision_credentials_invalid")

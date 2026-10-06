@@ -161,6 +161,20 @@ Unavailable service identities produce explicit degraded states; neither reader
 nor collector may fall back to Admin Ops. S3 scope is proven before bucket metadata
 queries, and bucket retries never drop UID scope.
 
+Identity requirements follow normalized endpoint features: Admin/Accounts need
+Runtime, while Metrics/Usage and enabled signed S3 healthchecks need Supervision.
+Admin Ops is required for delegated administration or requested managed bootstrap.
+An endpoint authorized only for Ceph Admin accepts managed or external service
+mode with empty Runtime/Supervision rows. Those rows persist the mode without
+triggering provisioning, startup recovery or remote requests. Partial credential
+pairs are rejected even for optional identities. Disabling features preserves
+configured identities, and pending lifecycle operations still recover.
+
+Ceph Admin access and usage composition use its dedicated validated credentials.
+Supervision availability controls `can_metrics` and Storage/Traffic requests;
+Ceph Admin alone can have `can_admin=true` and `can_metrics=false`. The endpoint
+form still requires Supervision detection before enabling Metrics or Usage.
+
 Admin Ops remains operator-supplied. Service identity rows store encrypted secrets,
 mode, UID, durable ownership provenance, lifecycle state, and pending rotation.
 Provisioning persists the intended key before RGW mutations; endpoint operation

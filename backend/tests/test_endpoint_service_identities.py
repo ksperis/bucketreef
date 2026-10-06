@@ -94,7 +94,7 @@ def identities(db_session, monkeypatch):
     monkeypatch.setattr(module, "get_endpoint_bootstrap_rgw_client", lambda endpoint: rgw)
     monkeypatch.setattr("app.services.rgw_admin.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
     monkeypatch.setattr("app.services.storage_endpoints_service.get_rgw_admin_client", lambda **kwargs: rgw)
-    endpoint = StorageEndpoint(name="Ceph", endpoint_url="https://rgw.example.test", provider="ceph", admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET", features_config="features:\n  admin:\n    enabled: true\n")
+    endpoint = StorageEndpoint(name="Ceph", endpoint_url="https://rgw.example.test", provider="ceph", admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET", features_config="features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
     db_session.add(endpoint); db_session.commit()
     return EndpointServiceIdentityService(db_session), endpoint, rgw
 
@@ -133,7 +133,7 @@ def test_partial_remote_failure_resumes_persisted_key(identities):
 
 def test_admin_failure_preserves_ready_runtime_and_supervision(identities, db_session):
     service, endpoint, rgw = identities
-    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.features_config = "features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"
     db_session.commit()
     service.reconcile(endpoint)
     runtime = endpoint.service_identity("runtime")
@@ -395,7 +395,7 @@ def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(
 @pytest.mark.parametrize("key_type", ["keys", "disabled_keys", "swift_keys", "temp_url_keys"])
 def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(identities, db_session, kind, key_type):
     service, endpoint, rgw = identities
-    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.features_config = "features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"
     db_session.commit()
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
@@ -451,7 +451,7 @@ def test_managed_key_drift_recovers_only_after_operator_removes_unknown_key(iden
 @pytest.mark.parametrize("kind", ["runtime", "supervision"])
 def test_managed_key_drift_blocks_rotation_and_revocation(identities, db_session, operation, kind):
     service, endpoint, rgw = identities
-    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.features_config = "features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"
     db_session.commit()
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
@@ -599,7 +599,7 @@ def test_external_env_with_complete_keys_is_validated_without_provisioning(ident
 @pytest.mark.parametrize("denied", [False, True])
 def test_revalidation_distinguishes_transient_failure_from_denied_key(identities, db_session, monkeypatch, kind, denied):
     service, endpoint, rgw = identities
-    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.features_config = "features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"
     db_session.commit()
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
@@ -617,7 +617,7 @@ def test_revalidation_distinguishes_transient_failure_from_denied_key(identities
 @pytest.mark.parametrize("kind", ["runtime", "supervision"])
 def test_invalid_external_revalidation_stops_using_ready_identity(identities, db_session, kind):
     service, endpoint, rgw = identities
-    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.features_config = "features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"
     for usage in ("runtime", "supervision"):
         access, secret = usage.upper(), usage.upper() + "-SECRET"
         endpoint.service_identities.append(service_identity(usage, access, secret))
@@ -823,6 +823,7 @@ def test_startup_reconciles_when_service_identity_rotation_is_pending(identities
     identity_service, endpoint, rgw = identities
     identity_service.reconcile(endpoint)
     runtime = endpoint.service_identity("runtime")
+    endpoint.features_config = "features: {}"  # Pending lifecycle work survives disabled features.
     db_session.add(
         KeyRotationIntent(
             endpoint_id=endpoint.id,
@@ -846,10 +847,44 @@ def test_startup_reconciles_when_service_identity_rotation_is_pending(identities
     assert rgw.calls
 
 
+def test_disabling_features_keeps_configured_service_keys(identities, db_session):
+    from app.models.storage_endpoint import StorageEndpointUpdate
+
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    before = {kind: (endpoint.service_identity(kind).access_key, endpoint.service_identity(kind).secret_key)
+              for kind in ("runtime", "supervision")}
+    rgw.calls.clear()
+    StorageEndpointsService(db_session).update_endpoint(endpoint.id, StorageEndpointUpdate(features_config="features: {}"))
+    assert {kind: (endpoint.service_identity(kind).access_key, endpoint.service_identity(kind).secret_key)
+            for kind in before} == before
+    assert all(endpoint.service_identity(kind).status == "ready" for kind in before)
+    assert not any(call[0] in ("create", "delete") for call in rgw.calls)
+
+
+def test_env_disabling_features_preserves_unused_external_credentials(identities, db_session, monkeypatch):
+    _, endpoint, rgw = identities
+    endpoint.service_identities.extend([
+        service_identity("runtime", "EXTERNAL-RUNTIME", "EXTERNAL-RUNTIME-SK"),
+        service_identity("supervision", "EXTERNAL-SUPERVISION", "EXTERNAL-SUPERVISION-SK"),
+    ])
+    db_session.commit()
+    before = {kind: (endpoint.service_identity(kind).access_key, endpoint.service_identity(kind).secret_key)
+              for kind in ("runtime", "supervision")}
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
+        "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "ceph",
+        "service_identity_mode": "external", "features": {},
+    }]))
+    StorageEndpointsService(db_session).sync_env_endpoints()
+    assert {kind: (endpoint.service_identity(kind).access_key, endpoint.service_identity(kind).secret_key)
+            for kind in before} == before
+    assert not rgw.calls
+
+
 def test_managed_to_external_conversion_requires_supervision_before_revoking(identities, db_session):
     from app.models.storage_endpoint import StorageEndpointUpdate
     service, endpoint, rgw = identities
-    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.features_config = "features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"
     db_session.commit()
     service.reconcile(endpoint)
     rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}]}

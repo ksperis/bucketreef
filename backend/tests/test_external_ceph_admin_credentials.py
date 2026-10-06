@@ -7,9 +7,9 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import text
 
-from app.db import AuditLog, KeyRotationIntent, User, UserRole
+from app.db import AuditLog, KeyRotationIntent, StorageEndpoint, User, UserRole
 from app.models.app_settings import AppSettings
-from app.models.storage_endpoint import StorageEndpointFeatureDetectionRequest, StorageEndpointUpdate
+from app.models.storage_endpoint import StorageEndpointCreate, StorageEndpointFeatureDetectionRequest, StorageEndpointUpdate
 from app.models.key_rotation import KeyRotationRequest
 from app.services.key_rotation_service import KeyRotationService
 from app.services.mappers.storage_endpoint import ceph_admin_identity_active
@@ -173,6 +173,94 @@ def test_env_can_validate_manual_ceph_admin_without_admin_ops(identities, db_ses
     assert identity.mode == "external" and identity.status == "ready"
     assert identity.access_key == "CEPH-AK" and identity.secret_key == "CEPH-SK"
     assert not endpoint.admin_access_key and not endpoint.is_editable and not rgw.calls
+
+
+@pytest.mark.parametrize("mode", ["managed", "external"])
+@pytest.mark.parametrize("source", ["api", "env"])
+def test_ceph_admin_only_endpoint_creation_and_update(identities, db_session, monkeypatch, mode, source):
+    from app.routers.ceph_admin.dependencies import get_ceph_admin_context
+    from app.routers.ceph_admin.endpoints import get_ceph_admin_endpoint_access
+
+    identity_service, original, rgw = identities
+    configure(db_session, original, rgw)
+    entry = dict(name="Ceph Admin only", endpoint_url="https://ceph-only.example.test", provider="ceph",
+                 service_identity_mode=mode, ceph_admin_allowed=True,
+                 ceph_admin_access_key="CEPH-AK", ceph_admin_secret_key="CEPH-SK")
+    settings = AppSettings()
+    settings.general.ceph_admin_enabled = True
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr("app.routers.ceph_admin.dependencies.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
+    monkeypatch.setattr(identity_service, "client_factory", lambda _ep: pytest.fail("Ceph Admin must not require Admin Ops"))
+    endpoints = StorageEndpointsService(db_session)
+    if source == "api":
+        saved = endpoints.create_endpoint(StorageEndpointCreate(**entry))
+        saved = endpoints.update_endpoint(saved.id, StorageEndpointUpdate(name="Renamed Ceph Admin"))
+    else:
+        monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([entry]))
+        saved = endpoints.sync_env_endpoints()[0]
+        entry["name"] = "Renamed Ceph Admin"
+        monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([entry]))
+        saved = endpoints.sync_env_endpoints()[0]
+    ep = db_session.get(StorageEndpoint, saved.id)
+    assert ep.admin_access_key is None and ep.admin_secret_key is None
+    assert saved.name == "Renamed Ceph Admin"
+    assert ep.service_identity("ceph_admin").status == "ready"
+    assert all(not ep.service_identity(kind).access_key and not ep.service_identity(kind).secret_key
+               and not ep.service_identity(kind).last_error for kind in ("runtime", "supervision"))
+    assert not identity_service.needs_startup_reconciliation(ep)
+    identity_service.reconcile(ep, provision_unprovisioned=True)
+    access = get_ceph_admin_endpoint_access(endpoint=ep, probe=False)
+    assert access.can_admin and access.can_accounts and not access.can_metrics
+    context = get_ceph_admin_context(endpoint_id=ep.id, db=db_session, _=None)
+    assert context.access_key == "CEPH-AK" and context.secret_key == "CEPH-SK"
+    assert not rgw.calls
+    assert "CEPH-SK" not in saved.model_dump_json()
+
+
+@pytest.mark.parametrize("kind", ["admin", "runtime", "supervision", "ceph_admin"])
+def test_unused_partial_pairs_are_rejected_before_creation(db_session, kind):
+    payload = dict(name="Partial credentials", endpoint_url="https://partial.example.test", provider="ceph",
+                   service_identity_mode="external", **{f"{kind}_access_key": "PARTIAL"})
+    with pytest.raises(ValueError, match="complete pair"):
+        StorageEndpointsService(db_session).create_endpoint(StorageEndpointCreate(**payload))
+    assert db_session.query(StorageEndpoint).count() == 0
+
+
+@pytest.mark.parametrize("feature,kind", [("admin", "runtime"), ("account", "runtime"), ("metrics", "supervision"), ("usage", "supervision"), ("healthcheck", "supervision")])
+def test_external_credentials_remain_required_by_enabled_features(db_session, feature, kind):
+    feature_config = {"enabled": True, **({"mode": "s3"} if feature == "healthcheck" else {})}
+    payload = StorageEndpointCreate(
+        name="Required credentials", endpoint_url="https://required.example.test", provider="ceph",
+        service_identity_mode="external", admin_access_key="ADMIN", admin_secret_key="ADMIN-SK",
+        features_config=json.dumps({"features": {feature: feature_config}}),
+    )
+    with pytest.raises(ValueError, match=kind.title()):
+        StorageEndpointsService(db_session).create_endpoint(payload)
+    assert db_session.query(StorageEndpoint).count() == 0
+
+
+def test_ceph_admin_authorization_rejects_blank_pair(db_session):
+    with pytest.raises(ValueError, match="Allowing Ceph Admin"):
+        StorageEndpointsService(db_session).create_endpoint(StorageEndpointCreate(
+            name="Empty Ceph Admin", endpoint_url="https://empty.example.test", provider="ceph",
+            ceph_admin_allowed=True, ceph_admin_access_key=" ", ceph_admin_secret_key=" "))
+
+
+def test_empty_unused_managed_placeholders_can_change_mode(identities, db_session):
+    from app.services.endpoint_service_identities import EndpointServiceIdentityService
+
+    _, original, rgw = identities
+    configure(db_session, original, rgw)
+    endpoints = StorageEndpointsService(db_session)
+    saved = endpoints.create_endpoint(StorageEndpointCreate(
+        name="Ceph Admin only", endpoint_url="https://ceph-only.example.test", provider="ceph",
+        ceph_admin_allowed=True, ceph_admin_access_key="CEPH-AK", ceph_admin_secret_key="CEPH-SK"))
+    ep = db_session.get(StorageEndpoint, saved.id)
+    for mode in ("external", "managed"):
+        endpoints.update_endpoint(ep.id, StorageEndpointUpdate(service_identity_mode=mode))
+        assert all(ep.service_identity(kind).mode == mode for kind in ("runtime", "supervision"))
+        assert not EndpointServiceIdentityService(db_session).needs_startup_reconciliation(ep)
+    assert not rgw.calls
 
 
 def test_feature_detection_requires_complete_replacement_pair(identities, db_session, monkeypatch):

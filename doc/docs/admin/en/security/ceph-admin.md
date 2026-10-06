@@ -54,6 +54,12 @@ creating or modifying the Ceph Admin user. For example:
 }]
 ```
 
+This example uses Ceph Admin alone: no Admin Ops, Runtime or Supervision pair is
+required in either `managed` or `external` service mode. Storage/Traffic metrics
+show an unavailable state without Supervision; usage composition uses Ceph Admin
+and remains accessible. Enabling Metrics/Usage in the form still requires
+Supervision detection.
+
 Ceph Admin validation does not require Admin Ops credentials. If Runtime/Supervision
 are also needed, provide their external pairs or Admin Ops credentials with
 `users=read,write;accounts=read` for managed provisioning. Any additional stored

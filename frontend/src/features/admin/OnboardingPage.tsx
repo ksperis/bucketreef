@@ -354,11 +354,15 @@ export default function OnboardingPage() {
     selectedEndpoint,
     "runtime",
   );
-  const needsCeph = Boolean(isCeph && (draft.manager || draft.portal || draft.supervision || draft.ceph_admin));
-  const needsSupervision = needsCeph;
-  const adminCredentialsRequired = needsCeph && !storedAdminCredentials;
+  const needsRuntime = Boolean(isCeph && (draft.manager || draft.portal));
+  const needsSupervision = Boolean(isCeph && draft.supervision);
+  const needsServiceIdentities = needsRuntime || needsSupervision;
+  const needsAdmin = needsRuntime || (identityMode === "managed" && needsSupervision);
+  const managedServicesReady = (!needsRuntime || (serviceIdentity(selectedEndpoint, "runtime")?.mode === "managed" && serviceIdentity(selectedEndpoint, "runtime")?.status === "ready"))
+    && (!needsSupervision || (serviceIdentity(selectedEndpoint, "supervision")?.mode === "managed" && serviceIdentity(selectedEndpoint, "supervision")?.status === "ready"));
+  const adminCredentialsRequired = needsAdmin && !storedAdminCredentials;
   const supervisionCredentialsRequired = identityMode === "external" && needsSupervision && !storedSupervisionCredentials;
-  const runtimeCredentialsRequired = identityMode === "external" && needsCeph && !storedRuntimeCredentials;
+  const runtimeCredentialsRequired = identityMode === "external" && needsRuntime && !storedRuntimeCredentials;
   const selectionCount = selectedOptionCount(draft);
   const hasSelection = selectionCount > 0;
   const validationEndpointUrl = (
@@ -382,12 +386,12 @@ export default function OnboardingPage() {
             verify_tls: validationVerifyTls,
             check_http: true,
             admin_access_key:
-              needsCeph
+              needsAdmin
                 ? adminAccessKey.trim() ||
                   (storedAdminCredentials ? selectedEndpoint?.admin_access_key ?? null : null)
                 : null,
             admin_secret_key:
-              needsCeph ? adminSecretKey.trim() || null : null,
+              needsAdmin ? adminSecretKey.trim() || null : null,
             supervision_access_key: identityMode === "external" && needsSupervision
               ? supervisionAccessKey.trim() || null
               : null,
@@ -396,10 +400,10 @@ export default function OnboardingPage() {
               : null,
             ceph_admin_access_key: draft.ceph_admin ? cephAdminAccessKey.trim() || null : null,
             ceph_admin_secret_key: draft.ceph_admin ? cephAdminSecretKey.trim() || null : null,
-            runtime_access_key: identityMode === "external" && needsCeph
+            runtime_access_key: identityMode === "external" && needsRuntime
               ? runtimeAccessKey.trim() || null
               : null,
-            runtime_secret_key: identityMode === "external" && needsCeph
+            runtime_secret_key: identityMode === "external" && needsRuntime
               ? runtimeSecretKey.trim() || null
               : null,
           }
@@ -411,7 +415,8 @@ export default function OnboardingPage() {
       runtimeAccessKey,
       runtimeSecretKey,
       identityMode,
-      needsCeph,
+      needsAdmin,
+      needsRuntime,
       draft.endpoint_id,
       needsSupervision,
       adminAccessKey,
@@ -441,8 +446,8 @@ export default function OnboardingPage() {
   const runtimeCredentialCheck =
     endpointValidation.result?.credential_checks?.runtime ?? EMPTY_CREDENTIAL_CHECK;
   useEffect(() => {
-    if (adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !(serviceIdentity(selectedEndpoint, "runtime")?.mode === "managed" && serviceIdentity(selectedEndpoint, "runtime")?.status === "ready")) setIdentityMode("external");
-  }, [adminCredentialCheck.status, endpointValidation.result?.admin_ops_permissions.users_write, selectedEndpoint]);
+    if (needsServiceIdentities && adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !managedServicesReady) setIdentityMode("external");
+  }, [needsServiceIdentities, adminCredentialCheck.status, endpointValidation.result?.admin_ops_permissions.users_write, managedServicesReady]);
   const privateValidationPayload = useMemo(() => {
     const accessKey = privateAccessKey.trim();
     const secretKey = privateSecretKey.trim();
@@ -691,7 +696,7 @@ export default function OnboardingPage() {
     endpointValidation.result?.admin_ops_permissions,
   );
   const adminValidationReady =
-    !needsCeph ||
+    !needsAdmin ||
     (adminCredentialCheck.status === "valid" &&
       endpointValidation.result?.admin === true &&
       (!(draft.manager || draft.portal) || (endpointValidation.result?.account === true && adminOpsPermissionsReady)));
@@ -703,7 +708,7 @@ export default function OnboardingPage() {
     !draft.ceph_admin || (cephAdminCredentialCheck.status === "valid" &&
       Boolean(cephAdminAccessKey) === Boolean(cephAdminSecretKey) &&
       (Boolean(cephAdminAccessKey && cephAdminSecretKey) || storedCephAdminCredentials));
-  const runtimeValidationReady = identityMode === "managed" || !needsCeph || runtimeCredentialCheck.status === "valid";
+  const runtimeValidationReady = identityMode === "managed" || !needsRuntime || runtimeCredentialCheck.status === "valid";
   const privateValidationReady =
     !draft.private_connection ||
     (privateValidation.status === "done" && privateValidation.result?.ok === true);
@@ -750,13 +755,13 @@ export default function OnboardingPage() {
       if (saved.preview.review_token !== reviewed) throw new Error("review_changed");
       const result = await runWithStepUp(() =>
         applyOnboardingJourney(saved, {
-          admin_access_key: adminAccessKey || undefined,
-          admin_secret_key: adminSecretKey || undefined,
-          supervision_access_key: identityMode === "external" ? supervisionAccessKey || undefined : undefined,
-          supervision_secret_key: identityMode === "external" ? supervisionSecretKey || undefined : undefined,
+          admin_access_key: needsAdmin ? adminAccessKey || undefined : undefined,
+          admin_secret_key: needsAdmin ? adminSecretKey || undefined : undefined,
+          supervision_access_key: identityMode === "external" && needsSupervision ? supervisionAccessKey || undefined : undefined,
+          supervision_secret_key: identityMode === "external" && needsSupervision ? supervisionSecretKey || undefined : undefined,
           service_identity_mode: identityMode,
-          runtime_access_key: identityMode === "external" ? runtimeAccessKey || undefined : undefined,
-          runtime_secret_key: identityMode === "external" ? runtimeSecretKey || undefined : undefined,
+          runtime_access_key: identityMode === "external" && needsRuntime ? runtimeAccessKey || undefined : undefined,
+          runtime_secret_key: identityMode === "external" && needsRuntime ? runtimeSecretKey || undefined : undefined,
           ceph_admin_access_key: draft.ceph_admin ? cephAdminAccessKey || undefined : undefined,
           ceph_admin_secret_key: draft.ceph_admin ? cephAdminSecretKey || undefined : undefined,
           private_access_key: privateAccessKey || undefined,
@@ -1069,7 +1074,7 @@ export default function OnboardingPage() {
                   )}
                 </WorkflowSection>
 
-                {needsCeph && (
+                {needsAdmin && (
                   <CredentialSection
                     title={t(copy.adminCredentials)}
                     description={t(copy.adminCredentialsHelp)}
@@ -1124,12 +1129,12 @@ export default function OnboardingPage() {
                   />
                 )}
 
-                {needsCeph && <WorkflowSection title="Service identities" description="Every Ceph endpoint has Runtime Read Ops and Supervision Ops. Feature settings control their use.">
+                {needsServiceIdentities && <WorkflowSection title="Service identities" description="Runtime Read Ops supports Manager and Portal. Supervision Ops supports monitoring. Only selected workflows require these identities.">
                   <UiSelect label="Identity management" value={identityMode} onChange={event => setIdentityMode(event.target.value as "managed" | "external")}>
-                    <option value="managed" disabled={adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !(serviceIdentity(selectedEndpoint, "runtime")?.mode === "managed" && serviceIdentity(selectedEndpoint, "runtime")?.status === "ready")}>Managed by BucketReef</option>
+                    <option value="managed" disabled={adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !managedServicesReady}>Managed by BucketReef</option>
                     <option value="external">Provided externally</option>
                   </UiSelect>
-                  {identityMode === "managed" && <UiInlineMessage tone="info">Runtime Read Ops and Supervision Ops are created and functionally validated when you apply this setup. Generated secrets remain hidden. Usage is checked with Supervision after provisioning.</UiInlineMessage>}
+                  {identityMode === "managed" && <UiInlineMessage tone="info">The identities required by selected workflows are created and functionally validated when you apply this setup. Generated secrets remain hidden. Usage is checked with Supervision when monitoring is selected.</UiInlineMessage>}
                 </WorkflowSection>}
                 {needsSupervision && identityMode === "external" && (
                   <CredentialSection
@@ -1170,7 +1175,7 @@ export default function OnboardingPage() {
                   />
                 )}
 
-                {needsCeph && identityMode === "external" && (
+                {needsRuntime && identityMode === "external" && (
                   <CredentialSection
                     title="Runtime Read Ops"
                     description="accounts=read;user-info-without-keys=read;buckets=read, without admin/system flags."

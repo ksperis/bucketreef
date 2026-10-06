@@ -1,16 +1,16 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import type { StorageEndpointPayload } from "../../api/storageEndpoints";
+import type { StorageEndpoint, StorageEndpointPayload } from "../../api/storageEndpoints";
 import {
   applyFeatureConstraints, awsIamEndpointForRegion, awsS3EndpointForRegion,
   awsStsEndpointForRegion, buildFeaturesYaml, normalizeAwsRegion, parseCoordinateInput,
-  type FormState,
+  serviceIdentityRequirements, type FormState,
 } from "./storageEndpointFormModel";
 
 export type EndpointFieldErrors = Partial<Record<keyof FormState, string>>;
 type Submission = { payload: StorageEndpointPayload; errors?: never } | { payload?: never; errors: EndpointFieldErrors };
 
 /** Keep validation and the endpoint's existing credential update semantics together. */
-export function buildStorageEndpointSubmission(form: FormState, editing: boolean): Submission {
+export function buildStorageEndpointSubmission(form: FormState, editing: boolean, storedIdentities?: StorageEndpoint["service_identities"]): Submission {
   const errors: EndpointFieldErrors = {};
   const aws = form.provider === "aws";
   const region = aws ? normalizeAwsRegion(form.region) : form.region.trim();
@@ -53,11 +53,16 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
     payload.service_identity_mode = form.service_identity_mode;
     payload.ceph_admin_allowed = form.ceph_admin_allowed;
     const external = form.service_identity_mode === "external";
+    const requiredIdentities = serviceIdentityRequirements(features);
+    const replacementRequired = (kind: "runtime" | "supervision") => Boolean(external && storedIdentities?.some(identity =>
+      identity.kind === kind && identity.mode === "managed"
+      && (identity.credentials_configured || identity.rgw_uid || identity.status === "provisioning" || identity.status === "revocation_pending")
+    ));
     const credentials = [
-      { kind: "admin", required: features.admin.enabled, label: "Admin", reason: "admin is enabled" },
-      { kind: "runtime", required: external, label: "Runtime Read Ops", reason: "service identities are external" },
+      { kind: "admin", required: requiredIdentities.runtime || (!external && requiredIdentities.supervision), label: "Admin", reason: "administration or managed identity creation is enabled" },
+      { kind: "runtime", required: external && (requiredIdentities.runtime || replacementRequired("runtime")), label: "Runtime Read Ops", reason: "Admin or Accounts is enabled or a managed identity is being replaced" },
       { kind: "ceph_admin", required: form.ceph_admin_allowed, label: "Ceph Admin", reason: "Ceph Admin is allowed" },
-      { kind: "supervision", required: external, label: "Supervision", reason: "service identities are external" },
+      { kind: "supervision", required: external && (requiredIdentities.supervision || replacementRequired("supervision")), label: "Supervision", reason: "Metrics, Usage or an S3 signed healthcheck is enabled or a managed identity is being replaced" },
     ] as const;
     for (const { kind, required, label, reason } of credentials) {
       if (!external && kind !== "admin" && kind !== "ceph_admin") continue;
@@ -65,7 +70,8 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
       const secretField = `${kind}_secret_key` as const;
       const access = form[accessField].trim();
       const secret = form[secretField].trim();
-      const storedCredentials = editing && form[`has_${kind}_secret`];
+      const replacingManaged = (kind === "runtime" || kind === "supervision") && replacementRequired(kind);
+      const storedCredentials = editing && form[`has_${kind}_secret`] && !replacingManaged;
       if (kind !== "admin" && storedCredentials && !access && !secret) {
         continue;
       }
@@ -74,8 +80,13 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
         if (!secret) errors[secretField] = `${label} secret key is required when replacing stored credentials.`;
         continue;
       }
+      if (kind === "admin" && Boolean(access) !== Boolean(secret) && !(access && editing && form.has_admin_secret)) {
+        if (!access) errors[accessField] = "Admin access key is required when supplying credentials.";
+        if (!secret) errors[secretField] = "Admin secret key is required when supplying credentials.";
+        continue;
+      }
       if (required && !access) errors[accessField] = `${label} access key is required when ${reason}.`;
-      if (required && (!editing || !form[`has_${kind}_secret`]) && !secret) errors[secretField] = `${label} secret key is required when ${reason}.`;
+      if (required && !storedCredentials && !secret) errors[secretField] = `${label} secret key is required when ${reason}.`;
       payload[accessField] = access || null;
       // Admin Ops keeps its historical access-key-visible edit contract. Service
       // identities replace their write-only credential pair atomically.

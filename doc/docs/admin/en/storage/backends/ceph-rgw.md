@@ -19,12 +19,13 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
   reads), and Supervision Ops (monitoring and collection). Runtime has
   `accounts=read;user-info-without-keys=read;buckets=read`; Supervision has
   `usage=read;buckets=read`. Neither identity may carry write caps or admin/system flags.
-- Every Ceph endpoint has Runtime and Supervision identities, independently of
-  enabled features. The recommended setup uses managed identities and Admin Ops
+- Runtime is required when Admin or Accounts is enabled for Manager/Portal.
+  Supervision is required for Metrics, Usage or signed S3 healthchecks. Ceph Admin
+  can use its dedicated credentials alone. The recommended delegated setup uses managed identities and Admin Ops
   with provisioning plus account/user quota permissions. Individual bucket quota
   changes require the optional `buckets=write` capability. External identities and
   reduced Admin Ops permissions are an advanced hardening choice.
-- Without `users=write`, provide both Runtime and Supervision externally. Disabling
+- Without `users=write`, provide the required service identities externally. Disabling
   Metrics, Usage or signed S3 healthchecks stops their use, without revoking identities.
 - Account, Usage Log, and Metrics availability is detected from RGW credentials. A
   detected service can still be disabled in the endpoint configuration; a service that
@@ -103,12 +104,13 @@ and admin/system flags rather than using Admin Ops as a fallback.
 
 Managed identities have distinct installation/endpoint-based UIDs, encrypted
 secrets, ownership provenance, and resumable states. In the interactive Admin UI,
-Runtime and Supervision are shown as **Creation planned** before the initial save
+Required identities are shown as **Creation planned** before the initial save
 and **Not created** on a saved endpoint awaiting managed provisioning. When Admin Ops
 credentials are present and validated with `users=write`, the primary action becomes **Save endpoint & create managed identities** (or **Save & create
 managed identities** while editing). BucketReef persists the endpoint first as
-`not_provisioned`, then creates both identities, validates Runtime access, bucket
-statistics and Usage, and keeps the editor open on the resulting state. If Admin Ops
+`not_provisioned`, then creates the required identities, validates their access,
+and keeps the editor open on the resulting state. Unused empty identities are not
+created. If Admin Ops
 is not ready, the endpoint can still be saved without remote provisioning and later
 completed with **Create managed identities**. Feature detection remains read-only:
 Admin Ops inspects administration and Account support, while Supervision is the sole
@@ -130,8 +132,9 @@ a startup error, including on instances without Admin. The API still defaults ne
 endpoints to managed mode; this breaking requirement applies to ENV inventories.
 
 `ENV_STORAGE_ENDPOINTS` uses the same credential requirements as the endpoint API.
-For every Ceph endpoint in external mode, provide complete Runtime and Supervision
-pairs, even when monitoring features are disabled. The entire inventory
+In external mode, provide Runtime for Admin/Accounts and Supervision for Metrics,
+Usage or signed S3 healthchecks. Unused pairs can be entirely empty; every partially
+supplied pair is rejected, including optional Admin Ops and Ceph Admin pairs. The entire inventory
 is validated before synchronization. An incomplete entry prevents startup, even if
 another replica is already synchronizing endpoints; no earlier entry is applied.
 
@@ -169,6 +172,20 @@ Access requires global enablement, endpoint authorization and a validated extern
 identity with complete credentials. Disabling access preserves the pair and never
 changes the RGW user. Rotate it externally and supply the replacement pair.
 
+For an endpoint used only by Ceph Admin, omit Admin Ops, Runtime and Supervision
+credentials and leave Admin/Accounts, Metrics and Usage disabled. Both `managed`
+and `external` service modes accept this configuration. For example:
+
+```json
+[{"name":"Ceph Admin","endpoint_url":"https://rgw.example.com","provider":"ceph","service_identity_mode":"external","ceph_admin_allowed":true,"ceph_admin_access_key":"CEPH-ADMIN-AK","ceph_admin_secret_key":"CEPH-ADMIN-SK"}]
+```
+
+Ceph Admin accounts, users, buckets and Browser use that dedicated identity.
+Storage and Traffic show that supervision is unavailable and make no supervision
+metric requests. Usage composition remains available through Ceph Admin. Enabling
+Metrics or Usage in the endpoint form still requires successful Supervision
+detection. HTTP healthchecks do not require Supervision; signed S3 healthchecks do.
+
 Migration `0143_external_ceph_admin_credentials` preserves complete Ceph Admin pairs
 from `0.2.13` while removing managed-only UIDs, provenance, validation state and
 pending rotations. The preserved pair is revalidated after upgrade; re-enter it only
@@ -191,6 +208,13 @@ its validation state. Changing the pair or RGW target requires revalidation. Rem
 rotate them. Both fields are required to replace an external service credential pair. Expand
 **Replace Runtime keys** or **Replace Supervision keys** to enter a replacement;
 leave both fields empty to retain the stored pair.
+
+Disabling features preserves configured identities and their keys, including
+unused external pairs omitted from ENV reloads in the same mode. Switching to
+external mode still requires replacements for configured managed identities and
+revokes only owned managed users. Empty unused mode placeholders can change mode
+without replacement keys. Startup and reconciliation ignore those placeholders,
+while preserving recovery of provisioning, rotation and revocation already in progress.
 
 The Credentials tab groups each service identity with its saved configuration state
 and current access check. **Configured** is a saved state, not proof that a current

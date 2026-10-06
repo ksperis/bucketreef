@@ -11,7 +11,7 @@ import {
   AdminOpsPermissionsBadges, CredentialStatusBadge, SupervisionValidationBadges,
   type CredentialCheckView,
 } from "./StorageEndpointValidationStatus";
-import { type FormState } from "./storageEndpointFormModel";
+import { serviceIdentityRequirements, type FormState } from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
 import {
   ADMIN_OPS_FULL_COMMAND,
@@ -126,20 +126,22 @@ function ServiceIdentityRow(props: Props & { kind: ServiceKind; modeChanged: boo
   const label = kind === "runtime" ? "Runtime Read Ops" : "Supervision Ops";
   const shortLabel = kind === "runtime" ? "Runtime" : "Supervision";
   const configured = kind === "runtime" ? form.has_runtime_secret : form.has_supervision_secret;
+  const required = serviceIdentityRequirements(form.features)[kind] || Boolean(modeChanged && identity?.mode === "managed"
+    && (identity.credentials_configured || identity.rgw_uid || identity.status === "provisioning" || identity.status === "revocation_pending"));
   const draftPair = Boolean(form[`${kind}_access_key`].trim() || form[`${kind}_secret_key`].trim());
   const showCheck = form.service_identity_mode === "external" ? configured || draftPair
     : !modeChanged && identity?.mode === "managed" && configured;
   const check = showCheck ? props.checks[kind] : null;
   const checkFailed = check && ["denied", "misconfigured", "unavailable"].includes(check.status);
   const diagnostic = identity?.last_error || (checkFailed ? check.message : null);
-  const blocked = identity?.status === "error" || identity?.status === "missing" || identity?.status === "revocation_pending"
+  const blocked = identity?.status === "error" || (required && identity?.status === "missing") || identity?.status === "revocation_pending"
     || check?.status === "denied" || check?.status === "misconfigured";
   const monitoringChecks = kind === "supervision" && check?.status === "valid" && props.detection;
   const hasDetails = blocked || diagnostic || identity?.rotation_pending || monitoringChecks || form.service_identity_mode === "external";
   return <SettingsItem compact title={label} ariaLabel={label}
     description={kind === "runtime" ? "Live reads for Manager and Portal." : "Usage and metrics collection."}
     status={<span className="settings-description">{!props.editing && form.service_identity_mode === "managed"
-      ? "Creation planned" : savedStatusLabel(identity)}</span>}
+      ? required ? "Creation planned" : "Not needed by enabled features" : savedStatusLabel(identity)}</span>}
     action={check ? <div className="flex flex-wrap items-center gap-2"><CredentialStatusBadge {...check} /></div> : undefined}>
     {hasDetails && <div className="settings-stack">
       {blocked && <p className="settings-description">{kind === "runtime" ? "Live enrichment is unavailable." : "Monitoring is unavailable."}</p>}
@@ -160,7 +162,8 @@ function ServiceIdentityRow(props: Props & { kind: ServiceKind; modeChanged: boo
         {props.detection.usage_error && <p className="settings-description">Usage: {props.detection.usage_error}</p>}
       </UiDetails>}
       {form.service_identity_mode === "external" && <>
-        <ExternalCredentialFields {...props} kind={kind} label={shortLabel} required />
+        <ExternalCredentialFields {...props} kind={kind} label={shortLabel} required={required} />
+        {!required && <p className="settings-description">Optional for the enabled features. Ceph Admin uses its own credentials.</p>}
         {!props.readOnly && <CommandExample title={`Create ${label}`}>{kind === "runtime" ? RUNTIME_READ_OPS_COMMAND : SUPERVISION_OPS_COMMAND}</CommandExample>}
       </>}
     </div>}
@@ -176,13 +179,21 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       : "This provider does not use dedicated operational credentials in BucketReef."}
   </UiInlineMessage>;
   const { form, identities, checks } = props;
+  const required = serviceIdentityRequirements(form.features);
+  const relevantServiceIdentity = (kind: string) => {
+    const identity = identities?.find(candidate => candidate.kind === kind);
+    return required[kind as ServiceKind] || Boolean(identity && identity.status !== "disabled"
+      && (identity.credentials_configured || identity.rgw_uid || identity.status === "provisioning"
+        || identity.status === "revocation_pending" || identity.rotation_pending));
+  };
   const savedMode = identities?.find(identity => identity.kind === "runtime")?.mode;
   const modeChanged = Boolean(props.editing && savedMode && savedMode !== form.service_identity_mode);
-  const plannedManagedProvisioning = form.service_identity_mode === "managed" && (!props.editing || modeChanged);
+  const plannedManagedProvisioning = form.service_identity_mode === "managed" && (required.runtime || required.supervision) && (!props.editing || modeChanged);
   const initialProvisioning = form.service_identity_mode === "managed" && Boolean(identities?.some(identity =>
-    (identity.kind === "runtime" || identity.kind === "supervision") && identity.mode === "managed" && identity.status === "not_provisioned"
+    (identity.kind === "runtime" || identity.kind === "supervision") && relevantServiceIdentity(identity.kind) && identity.mode === "managed" && identity.status === "not_provisioned"
   ));
   const needsReconciliation = ["runtime", "supervision"].some(kind => {
+    if (!relevantServiceIdentity(kind)) return false;
     const identity = identities?.find(candidate => candidate.kind === kind);
     if (identity?.mode === "managed" && identity.status === "not_provisioned") return false;
     return !identity || identity.status !== "ready" || Boolean(identity.last_error);
@@ -194,6 +205,8 @@ export default function StorageEndpointCredentialsFields(props: Props) {
   const cephAdminCheck = form.ceph_admin_allowed || form.has_ceph_admin_secret || form.ceph_admin_access_key || form.ceph_admin_secret_key
     ? checks.ceph_admin : null;
   const cephAdminIdentity = identities?.find(identity => identity.kind === "ceph_admin");
+  const cephAdminNeedsReconciliation = Boolean(form.has_ceph_admin_secret && cephAdminIdentity
+    && (cephAdminIdentity.status !== "ready" || cephAdminIdentity.last_error));
   const cephAdminKeysVisible = showCephAdminKeys || Boolean(form.ceph_admin_allowed || form.ceph_admin_access_key || form.ceph_admin_secret_key
     || props.errors.ceph_admin_access_key || props.errors.ceph_admin_secret_key);
   const cephAdminFields = <div className="settings-stack">
@@ -206,7 +219,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       <div className="settings-stack">
         {adminCheck && <div className="flex flex-wrap items-center gap-2"><CredentialStatusBadge {...adminCheck} /></div>}
         {adminCheck?.status === "misconfigured" && adminCheck.message && <UiInlineMessage tone="error">{adminCheck.message}</UiInlineMessage>}
-        <CredentialFields {...props} kind="admin" label="Admin" required={form.features.admin.enabled} />
+        <CredentialFields {...props} kind="admin" label="Admin" required={required.runtime || (form.service_identity_mode === "managed" && required.supervision)} />
         {adminCheck?.status === "valid" && permissions && <UiDetails className="settings-stack"
           defaultOpen={!permissions.users_read || !permissions.users_write || !permissions.accounts_read || !permissions.accounts_write}>
           <summary className="settings-label">Admin Ops permissions</summary>
@@ -233,8 +246,8 @@ export default function StorageEndpointCredentialsFields(props: Props) {
         </SettingsSelect>
         {modeChanged && <UiInlineMessage tone={form.service_identity_mode === "external" ? "warning" : "info"}>
           {form.service_identity_mode === "external"
-            ? "Enter both Runtime and Supervision pairs. Saving replaces and revokes the current managed identities."
-            : "On save: BucketReef will create Runtime and Supervision identities. Existing external RGW users are preserved."}
+            ? "Supply keys for the enabled features and replacements for configured managed identities. Saving replaces and revokes those managed identities."
+            : "BucketReef will create identities needed by enabled features. Existing external RGW users are preserved."}
           <p>Pending save · Current saved configuration: {savedMode === "managed" ? "Managed by BucketReef" : "Provided externally"}.</p>
         </UiInlineMessage>}
         <div>
@@ -257,7 +270,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
           </p>}
         </div>}
         {plannedManagedProvisioning && !modeChanged && <p className="settings-description">
-          {props.usersWrite === true ? "Saving creates the Runtime and Supervision identities." : "Save this endpoint, then validate Admin Ops with users=write to create the identities."}
+          {props.usersWrite === true ? "Saving creates the required service identities." : "Save this endpoint, then validate Admin Ops with users=write to create the required identities."}
         </p>}
         {plannedManagedProvisioning && modeChanged && props.usersWrite !== true && <p className="settings-description">
           {props.usersWrite === false ? "Admin Ops has no users=write permission. Save the mode change, then restore it to create the identities."
@@ -265,7 +278,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
         </p>}
         <UiDetails className="settings-stack">
           <summary className="settings-label">About service identities</summary>
-          <p className="settings-description">Both identities are required for Ceph. Managed secrets stay hidden; disabling features preserves the identities. Admin Ops is never used as a fallback for live reads or monitoring.</p>
+          <p className="settings-description">Runtime Read Ops supports Admin and Accounts. Supervision Ops supports Metrics, Usage and S3 signed healthchecks. Ceph Admin can run alone. Managed secrets stay hidden; disabling features preserves configured identities. Admin Ops is never used as a fallback for live reads or monitoring.</p>
         </UiDetails>
       </div>
     </SettingsSection>
@@ -280,6 +293,11 @@ export default function StorageEndpointCredentialsFields(props: Props) {
           <summary className="settings-label">Ceph Admin diagnostics</summary>
           <p className="settings-description">{cephAdminIdentity.last_error}</p>
         </UiDetails>}
+        {cephAdminNeedsReconciliation && props.onReconcile && !props.configurationDirty && <div>
+          <SettingsButton variant="secondary" disabled={props.reconciling} onClick={props.onReconcile}>
+            Retry Ceph Admin validation
+          </SettingsButton>
+        </div>}
         {!props.cephAdminEnabled && <p className="settings-description">Ceph Admin is disabled in General settings. You can prepare its credentials here.</p>}
         {!cephAdminKeysVisible && <div><SettingsButton variant="secondary" onClick={() => setShowCephAdminKeys(true)}>
           {props.readOnly ? "View Ceph Admin credentials" : form.has_ceph_admin_secret ? "Manage Ceph Admin keys" : "Prepare Ceph Admin keys"}

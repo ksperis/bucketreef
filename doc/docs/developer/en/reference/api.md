@@ -70,8 +70,10 @@ Endpoint create/update uses a write contract that accepts `service_identity_mode
 external Runtime/Supervision access-key IDs and write-only secret keys, plus
 `ceph_admin_allowed` and the independent Ceph Admin credential pair. Feature detection uses the same write-only credential rule.
 Admin Ops requires `users=read;accounts=read`; writes are optional. Without
-`users=write`, use external mode and supply complete Runtime and Supervision pairs
-for every Ceph endpoint. Feature flags control their use, not their existence.
+`users=write`, use external mode and supply the identities needed by enabled
+features: Runtime for Admin/Accounts and Supervision for Metrics/Usage or signed
+S3 healthchecks. Ceph Admin alone needs only its dedicated pair in either service
+mode. Entirely empty optional pairs are accepted; partial pairs are rejected.
 Usage detection is signed exclusively by Supervision and is independent of Admin
 Ops capabilities. Managed onboarding probes Usage after provisioning Supervision.
 
@@ -229,8 +231,11 @@ operation lease. A retention value of `0` disables the purge.
 
 Ceph ENV inventories require an explicit `service_identity_mode`; omission is a
 validation error before synchronization writes. API create defaults remain managed.
-Runtime and Supervision are both required for every Ceph endpoint, even when
-Metrics, Usage and signed S3 healthchecks are disabled.
+Runtime is required for Admin/Accounts and Supervision for Metrics, Usage or signed
+S3 healthchecks. Unused empty mode placeholders do not trigger provisioning or
+startup reconciliation. Disabling features preserves configured identities and
+pending lifecycle recovery. Managed-to-external conversion still requires complete
+replacements for configured managed identities before revocation.
 Readiness of unchanged external pairs survives metadata updates and identical ENV
 synchronization. Both values are required to replace an external pair.
 

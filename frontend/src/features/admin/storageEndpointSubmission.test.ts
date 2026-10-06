@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createEmptyForm } from "./storageEndpointFormModel";
 import { buildStorageEndpointSubmission } from "./storageEndpointSubmission";
 
-describe("baseline Ceph service credentials", () => {
-  it("requires external Supervision even with every collector disabled", () => {
+describe("feature-dependent Ceph service credentials", () => {
+  it("accepts missing Supervision with every collector disabled", () => {
     const form = createEmptyForm();
     Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: "external",
       admin_access_key: "ADMIN", admin_secret_key: "ADMIN-SECRET",
@@ -12,9 +12,7 @@ describe("baseline Ceph service credentials", () => {
     form.features.metrics.enabled = false;
     form.features.usage.enabled = false;
     form.features.healthcheck.enabled = false;
-    expect(buildStorageEndpointSubmission(form, false).errors).toMatchObject({
-      supervision_access_key: expect.any(String), supervision_secret_key: expect.any(String),
-    });
+    expect(buildStorageEndpointSubmission(form, false).errors).toBeUndefined();
     form.supervision_access_key = "SUPERVISION";
     form.supervision_secret_key = "SUPERVISION-SECRET";
     expect(buildStorageEndpointSubmission(form, false).payload).toMatchObject({
@@ -58,6 +56,43 @@ describe("baseline Ceph service credentials", () => {
 
     expect(result.errors).toBeUndefined();
     expect(result.payload?.features_config).toContain("healthcheck:\n    enabled: true\n    mode: s3");
+  });
+
+  it.each(["managed", "external"] as const)("saves Ceph Admin alone in %s mode", mode => {
+    const form = createEmptyForm();
+    Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: mode,
+      ceph_admin_allowed: true, ceph_admin_access_key: "CEPH", ceph_admin_secret_key: "CEPH-SECRET" });
+    const result = buildStorageEndpointSubmission(form, false);
+    expect(result.errors).toBeUndefined();
+    expect(result.payload).toMatchObject({ service_identity_mode: mode, ceph_admin_allowed: true });
+  });
+
+  it.each(["metrics", "usage", "healthcheck"] as const)("requires external Supervision for %s", feature => {
+    const form = createEmptyForm();
+    Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: "external" });
+    form.features[feature].enabled = true;
+    if (feature === "healthcheck") form.features.healthcheck.mode = "s3";
+    const result = buildStorageEndpointSubmission(form, false);
+    expect(result.errors).toHaveProperty("supervision_access_key");
+    expect(result.errors).not.toHaveProperty("runtime_access_key");
+  });
+
+  it.each(["admin", "runtime", "supervision", "ceph_admin"] as const)("rejects a partial optional %s pair", kind => {
+    const form = createEmptyForm();
+    Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: "external" });
+    form[`${kind}_access_key`] = "PARTIAL";
+    expect(buildStorageEndpointSubmission(form, false).errors).toHaveProperty(`${kind}_secret_key`);
+  });
+
+  it("requires replacements for configured managed identities even with their features disabled", () => {
+    const form = createEmptyForm();
+    Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: "external" });
+    const result = buildStorageEndpointSubmission(form, true, [
+      { kind: "runtime", mode: "managed", status: "ready", credentials_configured: true },
+      { kind: "supervision", mode: "managed", status: "ready", credentials_configured: true },
+    ]);
+    expect(result.errors).toHaveProperty("runtime_access_key");
+    expect(result.errors).toHaveProperty("supervision_access_key");
   });
 
   it("keeps both write-only stored pairs during an external metadata edit", () => {

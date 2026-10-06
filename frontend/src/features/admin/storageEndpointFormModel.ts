@@ -224,6 +224,18 @@ export function defaultFeaturesForProvider(
   };
 }
 
+export function serviceIdentityRequirements(features: {
+  admin: { enabled: boolean }; account: { enabled: boolean };
+  metrics: { enabled: boolean }; usage: { enabled: boolean };
+  healthcheck: { enabled: boolean; mode?: string };
+}) {
+  return {
+    runtime: features.admin.enabled || features.account.enabled,
+    supervision: features.metrics.enabled || features.usage.enabled
+      || (features.healthcheck.enabled && features.healthcheck.mode === "s3"),
+  };
+}
+
 export function applyFeatureConstraints(
   features: FeaturesState,
   provider: StorageProvider,

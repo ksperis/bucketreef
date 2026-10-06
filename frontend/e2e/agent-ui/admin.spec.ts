@@ -44,7 +44,7 @@ test("saves Ceph Admin enablement through standard settings without endpoint act
   await page.context().storageState({ path: E2E_ADMIN_STORAGE_STATE_PATH });
 });
 
-test("keeps Runtime and Supervision permanent and requires explicit external replacements", async ({ page }, testInfo) => {
+test("preserves configured Runtime and Supervision and requires explicit external replacements", async ({ page }, testInfo) => {
   const errors = collectApplicationErrors(page);
   await page.route(/\/api\/admin\/storage-endpoints(?:\?.*)?$/, async route => {
     const response = await route.fetch();
@@ -78,7 +78,7 @@ test("keeps Runtime and Supervision permanent and requires explicit external rep
   await expect(page.getByRole("switch", { name: "Allow Ceph Admin on this endpoint" })).toBeVisible();
   await page.getByLabel("Identity management").selectOption("external");
   await expect(page.getByText(/Pending save · Current saved configuration: Managed by BucketReef/)).toBeVisible();
-  await expect(page.getByText(/Saving replaces and revokes the current managed identities/)).toBeVisible();
+  await expect(page.getByText(/Saving replaces and revokes those managed identities/)).toBeVisible();
   await expect(page.getByLabel("Runtime access key", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Runtime secret key", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Supervision access key", { exact: true })).toHaveValue("");
@@ -91,6 +91,123 @@ test("keeps Runtime and Supervision permanent and requires explicit external rep
   await page.screenshot({ path: testInfo.outputPath("runtime-external-replacement.png") });
   expect(errors).toEqual([]);
   await page.context().storageState({ path: E2E_ADMIN_STORAGE_STATE_PATH });
+});
+
+for (const mode of ["managed", "external"] as const) {
+  test(`saves Ceph Admin only in ${mode} mode without requiring service keys`, async ({ page }, testInfo) => {
+    const errors = collectApplicationErrors(page);
+    let saved: Record<string, unknown> | null = null;
+    let reconciliations = 0;
+    const template = (await (await page.request.get("/api/admin/storage-endpoints")).json())[0];
+    await page.route(/\/api\/admin\/storage-endpoints(?:\?.*)?$/, async route => {
+      if (route.request().method() === "POST") saved = route.request().postDataJSON();
+      const endpoint = { ...template, ...saved, id: 902, name: "Ceph Admin only", provider: "ceph",
+        is_editable: true, admin_access_key: null, has_admin_secret: false, ceph_admin_allowed: true,
+        capabilities: { admin: false, account: false, metrics: false, usage: false },
+        features: { ...template.features, admin: { enabled: false }, account: { enabled: false },
+          metrics: { enabled: false }, usage: { enabled: false } },
+        service_identities: [
+          { kind: "runtime", mode, status: mode === "managed" ? "not_provisioned" : "missing", credentials_configured: false },
+          { kind: "supervision", mode, status: mode === "managed" ? "not_provisioned" : "missing", credentials_configured: false },
+          { kind: "ceph_admin", mode: "external", status: "ready", credentials_configured: true },
+        ],
+      };
+      delete endpoint.ceph_admin_access_key;
+      delete endpoint.ceph_admin_secret_key;
+      await route.fulfill({ json: route.request().method() === "POST" ? endpoint : saved ? [endpoint] : [] });
+    });
+    await page.route("**/api/admin/storage-endpoints/*/service-identities/reconcile", async route => {
+      reconciliations += 1;
+      await route.fulfill({ status: 500, json: { detail: "Unused service identities must not be created" } });
+    });
+    await page.route("**/api/admin/storage-endpoints/detect-features", async route => {
+      const payload = route.request().postDataJSON();
+      await route.fulfill({ json: { admin: false, account: false, metrics: false, usage: false, warnings: [],
+        credential_checks: { admin: { status: "not_configured" }, runtime: { status: "not_configured" },
+          supervision: { status: "not_configured" },
+          ceph_admin: { status: payload.ceph_admin_access_key && payload.ceph_admin_secret_key ? "valid" : "not_configured" } },
+      } });
+    });
+    await page.goto("/admin/storage-endpoints");
+    await page.getByRole("button", { name: "New endpoint" }).click();
+    await page.getByLabel("Endpoint name", { exact: true }).fill("Ceph Admin only");
+    await page.getByLabel("S3 endpoint URL", { exact: true }).fill("https://ceph-only.example.test");
+    await page.getByRole("tab", { name: "Credentials", exact: true }).click();
+    await page.getByLabel("Identity management").selectOption(mode);
+    await page.getByRole("switch", { name: "Allow Ceph Admin on this endpoint" }).click();
+    await page.getByLabel("Ceph Admin access key", { exact: true }).fill("FIXTURE-CEPH-AK");
+    await page.getByLabel("Ceph Admin secret key", { exact: true }).fill("FIXTURE-CEPH-SK");
+    await expect(page.getByLabel("Admin access key", { exact: true })).not.toHaveAttribute("required", "");
+    if (mode === "external") {
+      for (const label of ["Runtime access key", "Runtime secret key", "Supervision access key", "Supervision secret key"]) {
+        await expect(page.getByLabel(label, { exact: true })).not.toHaveAttribute("required", "");
+      }
+    }
+    await page.getByRole("tab", { name: "Capabilities & health", exact: true }).click();
+    await expect(page.getByRole("switch", { name: "Metrics enabled", exact: true })).toBeDisabled();
+    await expect(page.getByRole("switch", { name: "Usage Log enabled", exact: true })).toBeDisabled();
+    await page.getByRole("tab", { name: "Credentials", exact: true }).click();
+    await page.screenshot({ path: testInfo.outputPath(`ceph-admin-only-${mode}.png`) });
+    await page.getByRole("button", { name: "Create endpoint", exact: true }).click();
+    await expect.poll(() => saved).toMatchObject({ ceph_admin_allowed: true, service_identity_mode: mode,
+      ceph_admin_access_key: "FIXTURE-CEPH-AK", ceph_admin_secret_key: "FIXTURE-CEPH-SK" });
+    await expect(page.getByRole("heading", { name: "S3 Endpoints", exact: true })).toBeVisible();
+    await page.unrouteAll({ behavior: "wait" });
+    expect(reconciliations).toBe(0);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("keeps Ceph Admin usage composition available without supervision metric requests", async ({ page }, testInfo) => {
+  const errors = collectApplicationErrors(page);
+  const metricRequests: string[] = [];
+  await page.route("**/api/auth/session", async route => {
+    const response = await route.fetch();
+    const session = await response.json();
+    session.user.can_access_ceph_admin = true;
+    session.user.effective_access = { ...session.user.effective_access, can_access_ceph_admin: true };
+    await route.fulfill({ response, json: session });
+  });
+  await page.route("**/api/settings/general", async route => {
+    const response = await route.fetch();
+    const settings = await response.json();
+    await route.fulfill({ response, json: { ...settings, ceph_admin_enabled: true } });
+  });
+  await page.route("**/api/me/workspace-access", route => route.fulfill({ json: {
+    admin: { available: true, context_count: 0 }, ceph_admin: { available: true, context_count: 1 },
+    storage_ops: { available: false, context_count: 0 }, manager: { available: false, context_count: 0 },
+    portal: { available: false, context_count: 0 }, browser: { available: true, context_count: 1 },
+  } }));
+  await page.route("**/api/ceph-admin/endpoints", route => route.fulfill({ json: [{
+    id: 902, name: "Ceph Admin only", endpoint_url: "https://ceph-only.example.test", is_default: true,
+    capabilities: { admin: false, account: false, metrics: false, usage: false }, tags: [],
+  }] }));
+  await page.route("**/api/ceph-admin/endpoints/902/access*", route => route.fulfill({ json: {
+    endpoint_id: 902, can_admin: true, can_accounts: true, can_metrics: false, availability_status: "available",
+  } }));
+  await page.route("**/api/ceph-admin/endpoints/902/metrics/*", async route => {
+    metricRequests.push(route.request().url());
+    await route.fulfill({ status: 500, json: { detail: "Supervision unavailable" } });
+  });
+  await page.route("**/api/ceph-admin/endpoints/902/usage-stats/latest", route => route.fulfill({ json: { aggregate: {
+    scope_kind: "ceph_admin", scope_id: "902", scope_name: "Ceph Admin only", bucket_count: 3,
+    buckets_with_snapshot: 2, missing_bucket_count: 1, partial_scan_count: 0, object_version_count: 4,
+    current_version_count: 3, noncurrent_version_count: 1, delete_marker_count: 0, total_bytes: 4096,
+    current_bytes: 3072, noncurrent_bytes: 1024, warnings: [], data_type_distribution: [],
+    storage_class_distribution: [], size_distribution: [], age_distribution: [], current_vs_noncurrent: [],
+  } } }));
+  await page.goto("/ceph-admin/metrics?ep=902");
+  await expect(page.getByRole("heading", { name: "Usage & Metrics", exact: true })).toBeVisible();
+  await expect(page.getByText("Supervision credentials are not configured for this endpoint.", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Usage composition", exact: true }).click();
+  await expect(page.getByText("2 / 3 buckets covered", { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("ceph-admin-only-composition.png") });
+  await page.getByRole("tab", { name: "Traffic", exact: true }).click();
+  await expect(page.getByText("Supervision credentials are not configured for this endpoint.", { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("ceph-admin-only-traffic.png") });
+  await page.unrouteAll({ behavior: "wait" });
+  expect(metricRequests).toEqual([]);
+  expect(errors).toEqual([]);
 });
 
 test("keeps the compact endpoint inventory authenticated and preserves filters through its editor", async ({ page }, testInfo) => {

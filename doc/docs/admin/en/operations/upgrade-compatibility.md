@@ -995,7 +995,8 @@ The whole inventory is validated before endpoint writes; missing mode or incompl
 external credentials prevents synchronization/startup. Generated managed secrets
 stay encrypted in the database and are preserved across unchanged ENV reloads.
 
-Runtime and Supervision are permanent baseline identities for every Ceph endpoint.
+Runtime is required for Admin/Accounts; Supervision is required for Metrics, Usage
+or signed S3 healthchecks. Ceph Admin alone requires neither service identity.
 On upgrade from `0.2.13`, migration creates the previously absent Runtime identity for
 each existing Ceph endpoint using the endpoint's migrated `external` mode and a
 `missing` status. Configure Runtime Read Ops with exactly
@@ -1006,11 +1007,11 @@ Admin Ops fallback for these reads.
 Existing Supervision credentials migrate as external without changing their RGW
 users. They must validate with exactly `usage=read;buckets=read` and no admin/system
 flag; adjust or replace credentials whose RGW user carries broader or different
-capabilities. External mode requires complete Runtime and Supervision pairs even when
-Metrics, Usage and signed S3 healthchecks are disabled. Add both pairs to ENV
-inventories before upgrading; incomplete inventories prevent startup. Managed mode
-provisions both at save/apply or administration startup; disabling features keeps them
-intact. Existing managed endpoints without Supervision need Admin Ops `users=write`
+capabilities. External mode requires complete pairs for enabled features; unused
+pairs can remain empty, while partial pairs prevent startup. Managed mode
+provisions the required identities at save/apply or during recovery; disabling
+features keeps configured identities intact. Unused empty placeholders are skipped.
+Existing managed endpoints needing Supervision require Admin Ops `users=write`
 once to provision it. Usage availability is determined by Supervision and no longer
 requires Admin Ops `usage=read`. Ready managed identities survive removal of
 `users=write`; creating, converting or rotating them requires restoring that
